@@ -91,3 +91,13 @@ extension Livekit_ParticipantPermission {
                                recorder: recorder)
     }
 }
+
+public extension ParticipantPermissions {
+    override var description: String {
+        "ParticipantPermissions(canSubscribe: \(canSubscribe), " +
+            "canPublish: \(canPublish), " +
+            "canPublishData: \(canPublishData), " +
+            "canPublishSources: \(canPublishSources), " +
+            "hidden: \(hidden), " + "recorder: \(recorder))"
+    }
+}

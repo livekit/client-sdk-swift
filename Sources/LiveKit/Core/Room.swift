@@ -103,6 +103,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     let primaryTransportConnectedCompleter = AsyncCompleter<Void>(label: "Primary transport connect", defaultTimeout: .defaultTransportState)
     let publisherTransportConnectedCompleter = AsyncCompleter<Void>(label: "Publisher transport connect", defaultTimeout: .defaultTransportState)
+    // Completes when transports are instantiated and configured. Does not wait for state changes.
+    let transportsCompleter = AsyncCompleter<(Transport, Transport)>(label: "Transports configured", defaultTimeout: .defaultTransportState)
+    let signalClientConnectedCompleter = AsyncCompleter<SignalClient>(label: "Signal client connected", defaultTimeout: .defaultTransportState)
 
     let signalClient = SignalClient()
 
@@ -395,6 +398,7 @@ extension Room {
         _sidCompleter.reset()
         primaryTransportConnectedCompleter.reset()
         publisherTransportConnectedCompleter.reset()
+        signalClientConnectedCompleter.reset()
 
         await signalClient.cleanUp(withError: disconnectError)
         await cleanUpRTC()

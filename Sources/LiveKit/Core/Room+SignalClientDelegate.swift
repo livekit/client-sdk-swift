@@ -42,6 +42,11 @@ extension Room: SignalClientDelegate {
                 log("Failed calling startReconnect, error: \(error)", .error)
             }
         }
+
+        if connectionState != oldState, connectionState == .disconnected {
+            // Disconnected, so reset completer
+            signalClientConnectedCompleter.reset()
+        }
     }
 
     func signalClient(_: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason) async {
@@ -327,7 +332,7 @@ extension Room: SignalClientDelegate {
 
     func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription) async {
         do {
-            let publisher = try requirePublisher()
+            let publisher = try await requirePublisher()
             try await publisher.set(remoteDescription: answer)
         } catch {
             log("Failed to set remote description, error: \(error)", .error)

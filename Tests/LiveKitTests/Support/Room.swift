@@ -74,6 +74,27 @@ extension LKTestCase {
         return try tokenGenerator.sign()
     }
 
+    func createRoomForTesting(options: RoomTestingOptions = RoomTestingOptions(),
+                              sharedKey: String = UUID().uuidString) throws -> (room: Room, url: String, token: String)
+    {
+        let e2eeOptions = E2EEOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
+
+        // Turn on stats
+        let roomOptions = RoomOptions(e2eeOptions: e2eeOptions, reportRemoteTrackStatistics: true)
+
+        let roomName = UUID().uuidString
+        let identity = "identity-\(UUID().uuidString)"
+        let token = try liveKitServerToken(for: roomName,
+                                           identity: identity,
+                                           canPublish: options.canPublish,
+                                           canPublishData: options.canPublishData,
+                                           canPublishSources: options.canPublishSources,
+                                           canSubscribe: options.canSubscribe)
+        print("Token: \(token) for room: \(roomName)")
+
+        return (Room(roomOptions: roomOptions), liveKitServerUrl(), token)
+    }
+
     // Set up variable number of Rooms
     func withRooms(_ options: [RoomTestingOptions] = [],
                    sharedKey: String = UUID().uuidString,
