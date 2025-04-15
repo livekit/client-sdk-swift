@@ -281,7 +281,7 @@ private extension SignalClient {
         switch message {
         case let .join(joinResponse):
             _state.mutate { $0.lastJoinResponse = joinResponse }
-            _delegate.notifyDetached { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
+            await _delegate.notifyAsync { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
             _connectResponseCompleter.resume(returning: .join(joinResponse))
             await _restartPingTimer()
 

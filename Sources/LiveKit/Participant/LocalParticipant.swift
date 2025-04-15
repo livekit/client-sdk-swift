@@ -428,7 +428,7 @@ extension LocalParticipant {
             throw LiveKitError(.invalidState, message: "Attempted to publish a non-backup video codec as backup")
         }
 
-        let publisher = try room.requirePublisher()
+        let publisher = try await room.requirePublisher()
 
         let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
 
@@ -504,11 +504,6 @@ private extension LocalParticipant {
     private func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
-        try checkPermissions(toPublish: track)
-
-        let room = try requireRoom()
-        let publisher = try room.requirePublisher()
-
         guard _state.trackPublications.values.first(where: { $0.track === track }) == nil else {
             throw LiveKitError(.invalidState, message: "This track has already been published.")
         }
@@ -517,13 +512,12 @@ private extension LocalParticipant {
             throw LiveKitError(.invalidState, message: "Unknown LocalTrack type")
         }
 
-        // Try to start the Track
-        try await track.start()
-        // Starting the Track could be time consuming especially for camera etc.
-        // Check cancellation after track starts.
-        try Task.checkCancellation()
+        let room = try requireRoom()
 
         do {
+            // Invoke track start concurrently since starting cam / mic device is time consuming
+            async let asyncTrackStart: () = track.start()
+
             var dimensions: Dimensions? // Only for Video
             var publishName: String? = nil
 
@@ -539,7 +533,7 @@ private extension LocalParticipant {
                     }
                 }
 
-                // Wait for Dimensions...
+                // Wait for Dimensions... TODO: Optimize so we don't need to wait here
                 log("[Publish] Waiting for dimensions to resolve...")
                 dimensions = try await track.capturer.dimensionsCompleter.wait()
 
@@ -626,17 +620,18 @@ private extension LocalParticipant {
 
             let addTrackName = publishName ?? track.name
             // Request a new track to the server
-            let addTrackFunc: @Sendable () async throws -> Livekit_TrackInfo = {
-                try await room.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
-                                                         name: addTrackName,
-                                                         type: track.kind.toPBType(),
-                                                         source: track.source.toPBType(),
-                                                         encryption: room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none,
-                                                         populatorFunc)
+            let addTrackFunc: @Sendable (SignalClient) async throws -> Livekit_TrackInfo = { client in
+                try await client.sendAddTrack(cid: track.mediaTrack.trackId,
+                                              name: addTrackName,
+                                              type: track.kind.toPBType(),
+                                              source: track.source.toPBType(),
+                                              encryption: room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none,
+                                              populatorFunc)
             }
 
             let negotiateFunc: @Sendable () async throws -> Void = {
                 // Add transceiver to pc
+                let publisher = try await room.requirePublisher()
                 let transceiver = try await publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
 
                 // Attach sender to track...
@@ -670,18 +665,21 @@ private extension LocalParticipant {
                 try await room.publisherShouldNegotiate()
             }
 
+            // Signal needs to be connected at this point to read fastPublish mode
+            let client = try await room.requireSignalClient()
+
             let trackInfo = try await {
                 log("[publish] Fast publish mode: \(isFastPublishMode ? "true" : "false")")
 
                 if isFastPublishMode {
                     // Concurrent
-                    async let trackInfoPromise = addTrackFunc()
+                    async let trackInfoPromise = addTrackFunc(client)
                     async let negotiatePromise: () = negotiateFunc()
                     let (trackInfo, _) = try await (trackInfoPromise, negotiatePromise)
                     return trackInfo
                 } else {
                     // Sequential
-                    let trackInfoPromise = try await addTrackFunc()
+                    let trackInfoPromise = try await addTrackFunc(client)
                     try await negotiateFunc()
                     return trackInfoPromise
                 }
@@ -700,6 +698,9 @@ private extension LocalParticipant {
             await publication.set(track: track)
 
             add(publication: publication)
+
+            // Track should be started at this point
+            try await asyncTrackStart
 
             // Store publishOptions used for this track...
             track._state.mutate { $0.lastPublishOptions = options }
@@ -725,11 +726,11 @@ private extension LocalParticipant {
     }
 
     private func checkPermissions(toPublish track: LocalTrack) throws {
-        guard permissions.canPublish else {
+        guard _state.permissions.canPublish else {
             throw LiveKitError(.insufficientPermissions, message: "Participant does not have permission to publish")
         }
 
-        let sources = permissions.canPublishSources
+        let sources = _state.permissions.canPublishSources
         if !sources.isEmpty, !sources.contains(track.source.rawValue) {
             throw LiveKitError(.insufficientPermissions, message: "Participant does not have permission to publish tracks from this source")
         }

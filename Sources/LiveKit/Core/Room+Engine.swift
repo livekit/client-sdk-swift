@@ -58,12 +58,13 @@ extension Room {
             $0.publisher = nil
             $0.hasPublished = false
         }
+        transportsCompleter.reset()
     }
 
     func publisherShouldNegotiate() async throws {
         log()
 
-        let publisher = try requirePublisher()
+        let publisher = try await requirePublisher()
         await publisher.negotiate()
         _state.mutate { $0.hasPublished = true }
     }
@@ -79,7 +80,7 @@ extension Room {
         func ensurePublisherConnected() async throws {
             guard _state.isSubscriberPrimary else { return }
 
-            let publisher = try requirePublisher()
+            let publisher = try await requirePublisher()
 
             let connectionState = await publisher.connectionState
             if connectionState != .connected, connectionState != .connecting {
@@ -187,6 +188,7 @@ extension Room {
                 $0.publisher = publisher
                 $0.isSubscriberPrimary = isSubscriberPrimary
             }
+            transportsCompleter.resume(returning: (subscriber, publisher))
 
             log("[Connect] Fast publish enabled: \(joinResponse.fastPublish ? "true" : "false")")
             if !isSubscriberPrimary || joinResponse.fastPublish {
@@ -251,6 +253,7 @@ extension Room {
                                                              adaptiveStream: _state.roomOptions.adaptiveStream)
         // Check cancellation after WebSocket connected
         try Task.checkCancellation()
+        signalClientConnectedCompleter.resume(returning: signalClient)
 
         _state.mutate { $0.connectStopwatch.split(label: "signal") }
         try await configureTransports(connectResponse: connectResponse)
@@ -467,12 +470,15 @@ extension Room {
 // MARK: - Private helpers
 
 extension Room {
-    func requirePublisher() throws -> Transport {
-        guard let publisher = _state.publisher else {
-            log("Publisher is nil", .error)
-            throw LiveKitError(.invalidState, message: "Publisher is nil")
-        }
+    func requirePublisher() async throws -> Transport {
+        // Resolve publisher
+        let (_, publisher) = try await transportsCompleter.wait()
 
         return publisher
+    }
+
+    // Require a conected signal client
+    func requireSignalClient() async throws -> SignalClient {
+        try await signalClientConnectedCompleter.wait()
     }
 }
