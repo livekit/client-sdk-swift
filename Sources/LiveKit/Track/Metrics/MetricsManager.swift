@@ -42,6 +42,7 @@ extension MetricsManager: RoomDelegate {
 }
 
 extension MetricsManager: TrackDelegate {
+    // If Track.reportStatistics is disabled, this delegate method will not be called.
     nonisolated func track(_ track: Track, didUpdateStatistics: TrackStatistics, simulcastStatistics _: [VideoCodec: TrackStatistics]) {
         Task(priority: .low) {
             await sendMetrics(track: track, statistics: didUpdateStatistics)
