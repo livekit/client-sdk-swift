@@ -30,9 +30,9 @@ extension MetricsManager: RoomDelegate {
         Task { await unregister(track: track) }
     }
 
-    nonisolated func room(_ room: Room, participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
+    nonisolated func room(_ room: Room, participant _: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
         guard let track = publication.track else { return }
-        Task { await register(track: track, in: room, participant: participant) }
+        Task { await register(track: track, in: room, participant: room.localParticipant) } // send from local participant
     }
 
     nonisolated func room(_: Room, participant _: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication) {
