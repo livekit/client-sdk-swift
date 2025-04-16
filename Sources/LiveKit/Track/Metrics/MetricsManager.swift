@@ -17,12 +17,34 @@
 import Foundation
 import OrderedCollections
 
-// MARK: - Trigger
+// MARK: - Triggers
+
+extension MetricsManager: RoomDelegate {
+    nonisolated func room(_ room: Room, participant: LocalParticipant, didPublishTrack publication: LocalTrackPublication) {
+        guard let track = publication.track else { return }
+        Task { await register(track: track, in: room, participant: participant) }
+    }
+
+    nonisolated func room(_: Room, participant _: LocalParticipant, didUnpublishTrack publication: LocalTrackPublication) {
+        guard let track = publication.track else { return }
+        Task { await unregister(track: track) }
+    }
+
+    nonisolated func room(_ room: Room, participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
+        guard let track = publication.track else { return }
+        Task { await register(track: track, in: room, participant: participant) }
+    }
+
+    nonisolated func room(_: Room, participant _: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication) {
+        guard let track = publication.track else { return }
+        Task { await unregister(track: track) }
+    }
+}
 
 extension MetricsManager: TrackDelegate {
-    nonisolated func track(_: Track, didUpdateStatistics: TrackStatistics, simulcastStatistics _: [VideoCodec: TrackStatistics]) {
+    nonisolated func track(_ track: Track, didUpdateStatistics: TrackStatistics, simulcastStatistics _: [VideoCodec: TrackStatistics]) {
         Task(priority: .low) {
-            await sendMetrics(statistics: didUpdateStatistics)
+            await sendMetrics(track: track, statistics: didUpdateStatistics)
         }
     }
 }
@@ -34,36 +56,43 @@ extension MetricsManager: TrackDelegate {
 actor MetricsManager: Loggable {
     static let shared = MetricsManager()
 
-    typealias Transport = @Sendable (Livekit_DataPacket) async throws -> Void
-    private var transport: Transport?
-    private var identity: Participant.Identity?
+    private typealias Transport = (Livekit_DataPacket) async throws -> Void
+    private struct TrackProperties {
+        let identity: Participant.Identity?
+        let transport: Transport
+        var lastSentHash: Int? = nil
+    }
 
-    private var lastSentHash: Int?
+    private var trackProperties: [Track.Sid: TrackProperties] = [:]
 
     private init() {}
 
-    func startSending(identity: Participant.Identity?, transport: @escaping Transport) {
-        self.transport = transport
-        self.identity = identity
+    private func register(track: Track, in room: Room, participant: Participant) {
+        guard let sid = track.sid else { return }
+        trackProperties[sid] = TrackProperties(identity: participant.identity) { [weak room] in
+            try await room?.send(dataPacket: $0)
+        }
+        track.add(delegate: self)
     }
 
-    func stopSending() {
-        transport = nil
-        identity = nil
+    private func unregister(track: Track) {
+        guard let sid = track.sid else { return }
+        track.remove(delegate: self)
+        trackProperties[sid] = nil
     }
 
-    private func sendMetrics(statistics: TrackStatistics) async {
-        guard let transport else { return }
+    private func sendMetrics(track: Track, statistics: TrackStatistics) async {
+        guard let sid = track.sid, let props = trackProperties[sid] else { return }
         let hash = statistics.hashValue
-        guard hash != lastSentHash else { return }
+        guard hash != props.lastSentHash else { return }
 
         var dataPacket = Livekit_DataPacket()
         dataPacket.kind = .reliable
-        dataPacket.metrics = Livekit_MetricsBatch(statistics: statistics, identity: identity)
+        dataPacket.metrics = Livekit_MetricsBatch(statistics: statistics, identity: props.identity)
         do {
             log("Sending track metrics...", .trace)
-            try await transport(dataPacket)
-            lastSentHash = hash
+            try await props.transport(dataPacket)
+            trackProperties[sid]?.lastSentHash = hash
         } catch {
             log("Failed to send metrics: \(error)", .warning)
         }
