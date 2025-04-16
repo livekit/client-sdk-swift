@@ -342,8 +342,25 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         _state.mutate { $0.connectionState = .connecting }
 
+        // Concurrent mic publish mode
+        let enableMicrophone = _state.connectOptions.enableMicrophone
+        log("Concurrent enable microphone mode: \(enableMicrophone)")
+
+        var createMicrophoneTrackTask: Task<LocalTrack, any Error>? = enableMicrophone ? Task(priority: .userInitiated) {
+            let localTrack = LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
+                                                         reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
+            // Initializes AudioDeviceModule's recording
+            try await localTrack.start()
+            return localTrack
+        } : nil
+
         do {
             try await fullConnectSequence(url, token)
+
+            if let createMicrophoneTrackTask {
+                let track = try await createMicrophoneTrackTask.value
+                try await localParticipant._publish(track: track)
+            }
 
             // Connect sequence successful
             log("Connect sequence completed")
