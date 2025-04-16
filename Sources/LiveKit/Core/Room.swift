@@ -346,7 +346,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         let enableMicrophone = _state.connectOptions.enableMicrophone
         log("Concurrent enable microphone mode: \(enableMicrophone)")
 
-        var createMicrophoneTrackTask: Task<LocalTrack, any Error>? = enableMicrophone ? Task {
+        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = enableMicrophone ? Task {
             let localTrack = LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
                                                          reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
             // Initializes AudioDeviceModule's recording
@@ -357,7 +357,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         do {
             try await fullConnectSequence(url, token)
 
-            if let createMicrophoneTrackTask {
+            if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled {
                 let track = try await createMicrophoneTrackTask.value
                 try await localParticipant._publish(track: track)
             }
@@ -376,6 +376,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             }
 
         } catch {
+            // Stop the track if it was created but not published
+            if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled,
+               case let .success(track) = await createMicrophoneTrackTask.result
+            {
+                try? await track.stop()
+            }
+
             await cleanUp(withError: error)
             // Re-throw error
             throw error
