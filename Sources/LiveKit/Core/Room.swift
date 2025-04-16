@@ -346,7 +346,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         let enableMicrophone = _state.connectOptions.enableMicrophone
         log("Concurrent enable microphone mode: \(enableMicrophone)")
 
-        var createMicrophoneTrackTask: Task<LocalTrack, any Error>? = enableMicrophone ? Task(priority: .userInitiated) {
+        var createMicrophoneTrackTask: Task<LocalTrack, any Error>? = enableMicrophone ? Task {
             let localTrack = LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
                                                          reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
             // Initializes AudioDeviceModule's recording
