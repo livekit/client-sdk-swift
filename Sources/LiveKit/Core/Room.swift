@@ -26,6 +26,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     public let delegates = MulticastDelegate<RoomDelegate>(label: "RoomDelegate")
 
+    // MARK: - Metrics
+
+    private lazy var metricsManager = MetricsManager()
+
     // MARK: - Public
 
     /// Server assigned id of the Room.
@@ -232,7 +236,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             AppStateListener.shared.delegates.add(delegate: self)
         }
 
-        add(delegate: MetricsManager.shared)
+        add(delegate: metricsManager)
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in

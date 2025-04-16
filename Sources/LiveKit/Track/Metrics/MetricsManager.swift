@@ -53,10 +53,7 @@ extension MetricsManager: TrackDelegate {
 // MARK: - Actor
 
 /// An actor that converts track statistics into metrics and sends them to the server as data packets.
-@globalActor
 actor MetricsManager: Loggable {
-    static let shared = MetricsManager()
-
     private typealias Transport = (Livekit_DataPacket) async throws -> Void
     private struct TrackProperties {
         let identity: Participant.Identity?
@@ -66,7 +63,7 @@ actor MetricsManager: Loggable {
 
     private var trackProperties: [Track.Sid: TrackProperties] = [:]
 
-    private init() {}
+    init() {}
 
     private func register(track: Track, in room: Room, participant: Participant) {
         guard let sid = track.sid else { return }
