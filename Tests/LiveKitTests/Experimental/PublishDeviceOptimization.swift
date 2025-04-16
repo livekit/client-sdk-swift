@@ -18,11 +18,16 @@
 import XCTest
 
 class PublishDeviceOptimizationTests: LKTestCase {
+    // For testing remote server:
+    let url: String? = nil
+    let token: String? = nil
+
     // Default publish flow
     func testDefaultMicPublish() async throws {
         var sw = Stopwatch(label: "Test: Normal publish sequence")
 
-        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+        let room1Opts = RoomTestingOptions(url: url, token: token, canPublish: true)
+        try await withRooms([room1Opts]) { rooms in
             sw.split(label: "Connected to room")
             // Alias to Rooms
             let room1 = rooms[0]
@@ -42,7 +47,8 @@ class PublishDeviceOptimizationTests: LKTestCase {
 
         var sw = Stopwatch(label: "Test: No-VP publish sequence")
 
-        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+        let room1Opts = RoomTestingOptions(url: url, token: token, canPublish: true)
+        try await withRooms([room1Opts]) { rooms in
             sw.split(label: "Connected to room")
             // Alias to Rooms
             let room1 = rooms[0]
@@ -59,12 +65,14 @@ class PublishDeviceOptimizationTests: LKTestCase {
     func testConcurrentMicPublish() async throws {
         var sw = Stopwatch(label: "Test: Normal publish sequence")
 
-        try await withRooms([RoomTestingOptions(enableMicrophone: true, canPublish: true)]) { rooms in
+        let room1Opts = RoomTestingOptions(url: url, token: token, enableMicrophone: true, canPublish: true)
+        try await withRooms([room1Opts]) { rooms in
             sw.split(label: "Connected to room")
             // Alias to Rooms
             let room1 = rooms[0]
-            // Already enabled: Should be no-op
-            try await room1.localParticipant.setMicrophone(enabled: true)
+            // Mic should be already enabled at this point
+            let isMicEnabled = room1.localParticipant.isMicrophoneEnabled()
+            XCTAssert(isMicEnabled, "Mic should be enabled at this point")
             sw.split(label: "Did publish mic")
         }
         sw.split(label: "Sequence complete")
