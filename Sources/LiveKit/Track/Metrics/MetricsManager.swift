@@ -22,7 +22,7 @@ import OrderedCollections
 extension MetricsManager: RoomDelegate {
     nonisolated func room(_ room: Room, participant: LocalParticipant, didPublishTrack publication: LocalTrackPublication) {
         guard let track = publication.track else { return }
-        Task { await register(track: track, in: room, participant: participant) }
+        Task { await register(track: track, in: room, localParticipant: participant) }
     }
 
     nonisolated func room(_: Room, participant _: LocalParticipant, didUnpublishTrack publication: LocalTrackPublication) {
@@ -32,7 +32,7 @@ extension MetricsManager: RoomDelegate {
 
     nonisolated func room(_ room: Room, participant _: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
         guard let track = publication.track else { return }
-        Task { await register(track: track, in: room, participant: room.localParticipant) } // send from local participant
+        Task { await register(track: track, in: room, localParticipant: room.localParticipant) } // send from local participant
     }
 
     nonisolated func room(_: Room, participant _: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication) {
@@ -56,7 +56,7 @@ extension MetricsManager: TrackDelegate {
 actor MetricsManager: Loggable {
     private typealias Transport = (Livekit_DataPacket) async throws -> Void
     private struct TrackProperties {
-        let identity: Participant.Identity?
+        let identity: LocalParticipant.Identity?
         let transport: Transport
         var lastSentHash: Int? = nil
     }
@@ -65,9 +65,9 @@ actor MetricsManager: Loggable {
 
     init() {}
 
-    private func register(track: Track, in room: Room, participant: Participant) {
+    private func register(track: Track, in room: Room, localParticipant: LocalParticipant) {
         guard let sid = track.sid else { return }
-        trackProperties[sid] = TrackProperties(identity: participant.identity) { [weak room] in
+        trackProperties[sid] = TrackProperties(identity: localParticipant.identity) { [weak room] in
             try await room?.send(dataPacket: $0)
         }
         track.add(delegate: self)
