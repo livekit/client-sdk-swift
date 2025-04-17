@@ -65,6 +65,10 @@ actor MetricsManager: Loggable {
 
     init() {}
 
+    func register(room: Room) {
+        room.add(delegate: self)
+    }
+
     private func register(track: Track, in room: Room, localParticipant: LocalParticipant) {
         guard let sid = track.sid else { return }
         trackProperties[sid] = TrackProperties(identity: localParticipant.identity) { [weak room] in

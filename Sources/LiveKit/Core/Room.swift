@@ -236,7 +236,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             AppStateListener.shared.delegates.add(delegate: self)
         }
 
-        add(delegate: metricsManager)
+        Task {
+            await metricsManager.register(room: self)
+        }
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
