@@ -157,37 +157,44 @@ enum Livekit_ImageCodec: SwiftProtobuf.Enum, Swift.CaseIterable {
 enum Livekit_BackupCodecPolicy: SwiftProtobuf.Enum, Swift.CaseIterable {
   typealias RawValue = Int
 
-  /// default behavior, regress to backup codec and all subscribers will receive the backup codec
-  case regression // = 0
+  /// default behavior, the track prefer to regress to backup codec and all subscribers will receive the backup codec,
+  /// the sfu will try to regress codec if possible but not assured.
+  case preferRegression // = 0
 
   /// encoding/send the primary and backup codec simultaneously
   case simulcast // = 1
+
+  /// force the track to regress to backup codec, this option can be used in video conference or the publisher has limited bandwidth/encoding power
+  case regression // = 2
   case UNRECOGNIZED(Int)
 
   init() {
-    self = .regression
+    self = .preferRegression
   }
 
   init?(rawValue: Int) {
     switch rawValue {
-    case 0: self = .regression
+    case 0: self = .preferRegression
     case 1: self = .simulcast
+    case 2: self = .regression
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
 
   var rawValue: Int {
     switch self {
-    case .regression: return 0
+    case .preferRegression: return 0
     case .simulcast: return 1
+    case .regression: return 2
     case .UNRECOGNIZED(let i): return i
     }
   }
 
   // The compiler won't synthesize support with the UNRECOGNIZED case.
   static let allCases: [Livekit_BackupCodecPolicy] = [
-    .regression,
+    .preferRegression,
     .simulcast,
+    .regression,
   ]
 
 }
@@ -655,6 +662,20 @@ struct Livekit_Pagination: Sendable {
   init() {}
 }
 
+/// ListUpdate is used for updated APIs where 'repeated string' field is modified.
+struct Livekit_ListUpdate: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// set the field to a new list
+  var set: [String] = []
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
 struct Livekit_Room: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -863,6 +884,11 @@ struct Livekit_ParticipantInfo: @unchecked Sendable {
     set {_uniqueStorage()._disconnectReason = newValue}
   }
 
+  var kindDetails: [Livekit_ParticipantInfo.KindDetail] {
+    get {return _storage._kindDetails}
+    set {_uniqueStorage()._kindDetails = newValue}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum State: SwiftProtobuf.Enum, Swift.CaseIterable {
@@ -967,6 +993,40 @@ struct Livekit_ParticipantInfo: @unchecked Sendable {
       .egress,
       .sip,
       .agent,
+    ]
+
+  }
+
+  enum KindDetail: SwiftProtobuf.Enum, Swift.CaseIterable {
+    typealias RawValue = Int
+    case cloudAgent // = 0
+    case forwarded // = 1
+    case UNRECOGNIZED(Int)
+
+    init() {
+      self = .cloudAgent
+    }
+
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 0: self = .cloudAgent
+      case 1: self = .forwarded
+      default: self = .UNRECOGNIZED(rawValue)
+      }
+    }
+
+    var rawValue: Int {
+      switch self {
+      case .cloudAgent: return 0
+      case .forwarded: return 1
+      case .UNRECOGNIZED(let i): return i
+      }
+    }
+
+    // The compiler won't synthesize support with the UNRECOGNIZED case.
+    static let allCases: [Livekit_ParticipantInfo.KindDetail] = [
+      .cloudAgent,
+      .forwarded,
     ]
 
   }
@@ -2618,8 +2678,9 @@ extension Livekit_ImageCodec: SwiftProtobuf._ProtoNameProviding {
 
 extension Livekit_BackupCodecPolicy: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "REGRESSION"),
+    0: .same(proto: "PREFER_REGRESSION"),
     1: .same(proto: "SIMULCAST"),
+    2: .same(proto: "REGRESSION"),
   ]
 }
 
@@ -2748,6 +2809,38 @@ extension Livekit_Pagination: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
   static func ==(lhs: Livekit_Pagination, rhs: Livekit_Pagination) -> Bool {
     if lhs.afterID != rhs.afterID {return false}
     if lhs.limit != rhs.limit {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_ListUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".ListUpdate"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "set"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeRepeatedStringField(value: &self.set) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.set.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.set, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_ListUpdate, rhs: Livekit_ListUpdate) -> Bool {
+    if lhs.set != rhs.set {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3047,6 +3140,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     14: .same(proto: "kind"),
     15: .same(proto: "attributes"),
     16: .standard(proto: "disconnect_reason"),
+    18: .standard(proto: "kind_details"),
   ]
 
   fileprivate class _StorageClass {
@@ -3065,6 +3159,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     var _kind: Livekit_ParticipantInfo.Kind = .standard
     var _attributes: Dictionary<String,String> = [:]
     var _disconnectReason: Livekit_DisconnectReason = .unknownReason
+    var _kindDetails: [Livekit_ParticipantInfo.KindDetail] = []
 
     #if swift(>=5.10)
       // This property is used as the initial default value for new instances of the type.
@@ -3094,6 +3189,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       _kind = source._kind
       _attributes = source._attributes
       _disconnectReason = source._disconnectReason
+      _kindDetails = source._kindDetails
     }
   }
 
@@ -3127,6 +3223,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
         case 15: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &_storage._attributes) }()
         case 16: try { try decoder.decodeSingularEnumField(value: &_storage._disconnectReason) }()
         case 17: try { try decoder.decodeSingularInt64Field(value: &_storage._joinedAtMs) }()
+        case 18: try { try decoder.decodeRepeatedEnumField(value: &_storage._kindDetails) }()
         default: break
         }
       }
@@ -3184,6 +3281,9 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       if _storage._joinedAtMs != 0 {
         try visitor.visitSingularInt64Field(value: _storage._joinedAtMs, fieldNumber: 17)
       }
+      if !_storage._kindDetails.isEmpty {
+        try visitor.visitPackedEnumField(value: _storage._kindDetails, fieldNumber: 18)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -3208,6 +3308,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
         if _storage._kind != rhs_storage._kind {return false}
         if _storage._attributes != rhs_storage._attributes {return false}
         if _storage._disconnectReason != rhs_storage._disconnectReason {return false}
+        if _storage._kindDetails != rhs_storage._kindDetails {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -3233,6 +3334,13 @@ extension Livekit_ParticipantInfo.Kind: SwiftProtobuf._ProtoNameProviding {
     2: .same(proto: "EGRESS"),
     3: .same(proto: "SIP"),
     4: .same(proto: "AGENT"),
+  ]
+}
+
+extension Livekit_ParticipantInfo.KindDetail: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    0: .same(proto: "CLOUD_AGENT"),
+    1: .same(proto: "FORWARDED"),
   ]
 }
 
@@ -3358,7 +3466,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     var _stream: String = String()
     var _version: Livekit_TimedVersion? = nil
     var _audioFeatures: [Livekit_AudioTrackFeature] = []
-    var _backupCodecPolicy: Livekit_BackupCodecPolicy = .regression
+    var _backupCodecPolicy: Livekit_BackupCodecPolicy = .preferRegression
 
     #if swift(>=5.10)
       // This property is used as the initial default value for new instances of the type.
@@ -3500,7 +3608,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
       if !_storage._audioFeatures.isEmpty {
         try visitor.visitPackedEnumField(value: _storage._audioFeatures, fieldNumber: 19)
       }
-      if _storage._backupCodecPolicy != .regression {
+      if _storage._backupCodecPolicy != .preferRegression {
         try visitor.visitSingularEnumField(value: _storage._backupCodecPolicy, fieldNumber: 20)
       }
     }
