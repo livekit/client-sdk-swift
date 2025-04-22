@@ -120,11 +120,13 @@ public class VideoView: NativeView, Loggable {
     }
 
     @objc
-    override public var isHidden: Bool {
+    override public nonisolated var isHidden: Bool {
         get { _state.isHidden }
         set {
             _state.mutate { $0.isHidden = newValue }
-            super.isHidden = newValue
+            Task { @MainActor in
+                super.isHidden = newValue
+            }
         }
     }
 
