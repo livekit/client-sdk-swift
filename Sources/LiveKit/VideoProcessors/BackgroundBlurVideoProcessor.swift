@@ -43,7 +43,7 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
     #if os(macOS)
     private let segmentationFrameInterval = 1
     #else
-    private let segmentationFrameInterval = 2
+    private let segmentationFrameInterval = 3
     #endif
 
     // MARK: CoreImage
@@ -55,14 +55,10 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     // MARK: Cache
 
-    private var lastInputDimensions: CGSize = .zero
-    private var lastMaskDimensions: CGSize = .zero
-    private var scaleTransform: CGAffineTransform = .identity
+    private var cachedMaskImage: CIImage?
 
-    private var outputPixelBuffer: CVPixelBuffer?
-    private var outputBufferDimensions: CGSize?
-
-    private var lastMaskImage: CIImage?
+    private var cachedPixelBuffer: CVPixelBuffer?
+    private var cachedPixelBufferSize: CGSize?
 
     // MARK: Init
 
@@ -73,66 +69,49 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
     // MARK: VideoProcessor
 
     public func process(frame: VideoFrame) -> VideoFrame? {
-        guard let pixelBuffer = frame.toCVPixelBuffer() else {
-            return frame
-        }
+        guard let pixelBuffer = frame.toCVPixelBuffer() else { return frame }
 
         frameCount += 1
+
+        let inputImage = CIImage(cvPixelBuffer: pixelBuffer)
+        let inputDimensions = inputImage.extent.size
 
         if frameCount % segmentationFrameInterval == 0 {
             segmentationQueue.async {
                 try? self.segmentationRequestHandler.perform([self.segmentationRequest], on: pixelBuffer)
 
-                if let maskPixelBuffer = self.segmentationRequest.results?.first?.pixelBuffer {
-                    self.lastMaskImage = CIImage(cvPixelBuffer: maskPixelBuffer)
-                }
+                guard let maskPixelBuffer = self.segmentationRequest.results?.first?.pixelBuffer else { return }
+                let maskImage = CIImage(cvPixelBuffer: maskPixelBuffer)
+                let maskDimensions = maskImage.extent.size
+
+                // Scale the mask back to input dimensions
+                let scaleX = inputDimensions.width / maskDimensions.width
+                let scaleY = inputDimensions.height / maskDimensions.height
+                let scaleTransform = CGAffineTransform(scaleX: scaleX, y: scaleY)
+
+                // Invert the mask so that the person is not blurred, just the background
+                self.invertFilter.inputImage = maskImage.transformed(by: scaleTransform)
+                self.cachedMaskImage = self.invertFilter.outputImage
             }
         }
 
-        let maskImage = lastMaskImage
+        let mask = cachedMaskImage
 
-        guard let maskImage else {
-            return frame
-        }
-
-        let inputImage = CIImage(cvPixelBuffer: pixelBuffer)
-
-        let inputDimensions = inputImage.extent.size
-        let maskDimensions = maskImage.extent.size
-
-        if lastInputDimensions != inputDimensions || lastMaskDimensions != maskDimensions {
-            let scaleX = inputDimensions.width / maskDimensions.width
-            let scaleY = inputDimensions.height / maskDimensions.height
-            scaleTransform = CGAffineTransform(scaleX: scaleX, y: scaleY)
-
-            lastInputDimensions = inputDimensions
-            lastMaskDimensions = maskDimensions
-
-            outputBufferDimensions = nil
-        }
-
-        invertFilter.inputImage = maskImage.transformed(by: scaleTransform)
-
-        guard let invertedMask = invertFilter.outputImage else {
-            return frame
-        }
+        guard let mask else { return frame }
 
         blurFilter.inputImage = inputImage
-        blurFilter.mask = invertedMask
-        blurFilter.radius = Float(intensity * min(lastInputDimensions.width, lastInputDimensions.height))
+        blurFilter.mask = mask
+        blurFilter.radius = Float(intensity * min(inputDimensions.width, inputDimensions.height))
 
-        guard let outputImage = blurFilter.outputImage?.cropped(to: inputImage.extent) else {
-            return frame
+        guard let outputImage = blurFilter.outputImage?.cropped(to: inputImage.extent) else { return frame }
+
+        // Recreate buffer if needed
+        if cachedPixelBufferSize != inputDimensions {
+            cachedPixelBuffer = .metal(width: Int(inputDimensions.width), height: Int(inputDimensions.height))
+            cachedPixelBufferSize = inputDimensions
         }
 
-        if outputBufferDimensions != inputDimensions {
-            outputPixelBuffer = .metal(width: Int(inputDimensions.width), height: Int(inputDimensions.height))
-            outputBufferDimensions = inputDimensions
-        }
-
-        guard let outputBuffer = outputPixelBuffer else {
-            return frame
-        }
+        guard let outputBuffer = cachedPixelBuffer else { return frame }
 
         ciContext.render(outputImage, to: outputBuffer)
 
