@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.5.1] - 2025-04-23
+
+### Added
+
+- Added the possibility to compile Swift v6 package in v5 mode
+
+### Fixed
+
+- Add OrderedCollections as Cocoapods dependency
+- Fixed crash in VideoView computed property access
+- Fixed crash in VideoView.isHidden property access
+
 ## [2.5.0] - 2025-04-18
 
 ### Added
