@@ -69,49 +69,21 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
     // MARK: VideoProcessor
 
     public func process(frame: VideoFrame) -> VideoFrame? {
-        guard let pixelBuffer = frame.toCVPixelBuffer() else { return frame }
-
         frameCount += 1
 
-        let inputImage = CIImage(cvPixelBuffer: pixelBuffer)
+        guard let inputBuffer = frame.toCVPixelBuffer() else { return frame }
+
+        let inputImage = CIImage(cvPixelBuffer: inputBuffer)
         let inputDimensions = inputImage.extent.size
 
-        if frameCount % segmentationFrameInterval == 0 {
-            segmentationQueue.async {
-                try? self.segmentationRequestHandler.perform([self.segmentationRequest], on: pixelBuffer)
-
-                guard let maskPixelBuffer = self.segmentationRequest.results?.first?.pixelBuffer else { return }
-                let maskImage = CIImage(cvPixelBuffer: maskPixelBuffer)
-                let maskDimensions = maskImage.extent.size
-
-                // Scale the mask back to input dimensions
-                let scaleX = inputDimensions.width / maskDimensions.width
-                let scaleY = inputDimensions.height / maskDimensions.height
-                let scaleTransform = CGAffineTransform(scaleX: scaleX, y: scaleY)
-
-                // Invert the mask so that the person is not blurred, just the background
-                self.invertFilter.inputImage = maskImage.transformed(by: scaleTransform)
-                self.cachedMaskImage = self.invertFilter.outputImage
-            }
-        }
-
-        let mask = cachedMaskImage
-
-        guard let mask else { return frame }
+        cacheMask(inputBuffer: inputBuffer, inputDimensions: inputDimensions)
 
         blurFilter.inputImage = inputImage
-        blurFilter.mask = mask
+        blurFilter.mask = cachedMaskImage
         blurFilter.radius = Float(intensity * min(inputDimensions.width, inputDimensions.height))
 
         guard let outputImage = blurFilter.outputImage?.cropped(to: inputImage.extent) else { return frame }
-
-        // Recreate buffer if needed
-        if cachedPixelBufferSize != inputDimensions {
-            cachedPixelBuffer = .metal(width: Int(inputDimensions.width), height: Int(inputDimensions.height))
-            cachedPixelBufferSize = inputDimensions
-        }
-
-        guard let outputBuffer = cachedPixelBuffer else { return frame }
+        guard let outputBuffer = getOutputBuffer(of: inputDimensions) else { return frame }
 
         ciContext.render(outputImage, to: outputBuffer)
 
@@ -119,6 +91,35 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
                           rotation: frame.rotation,
                           timeStampNs: frame.timeStampNs,
                           buffer: CVPixelVideoBuffer(pixelBuffer: outputBuffer))
+    }
+
+    private func cacheMask(inputBuffer: CVPixelBuffer, inputDimensions: CGSize) {
+        guard frameCount % segmentationFrameInterval == 0 else { return }
+
+        segmentationQueue.async {
+            try? self.segmentationRequestHandler.perform([self.segmentationRequest], on: inputBuffer)
+
+            guard let maskPixelBuffer = self.segmentationRequest.results?.first?.pixelBuffer else { return }
+            let maskImage = CIImage(cvPixelBuffer: maskPixelBuffer)
+            let maskDimensions = maskImage.extent.size
+
+            // Scale the mask back to input dimensions
+            let scaleX = inputDimensions.width / maskDimensions.width
+            let scaleY = inputDimensions.height / maskDimensions.height
+            let scaleTransform = CGAffineTransform(scaleX: scaleX, y: scaleY)
+
+            // Invert the mask so that the person is not blurred, just the background
+            self.invertFilter.inputImage = maskImage.transformed(by: scaleTransform)
+            self.cachedMaskImage = self.invertFilter.outputImage
+        }
+    }
+
+    private func getOutputBuffer(of size: CGSize) -> CVPixelBuffer? {
+        if cachedPixelBufferSize != size {
+            cachedPixelBuffer = .metal(width: Int(size.width), height: Int(size.height))
+            cachedPixelBufferSize = size
+        }
+        return cachedPixelBuffer
     }
 }
 
