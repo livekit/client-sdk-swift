@@ -70,26 +70,26 @@ public class VideoView: NativeView, Loggable {
 
     /// ``LayoutMode-swift.enum`` of the ``VideoView``.
     @objc
-    public var layoutMode: LayoutMode {
+    public nonisolated var layoutMode: LayoutMode {
         get { _state.layoutMode }
         set { _state.mutate { $0.layoutMode = newValue } }
     }
 
     /// Flips the video horizontally, useful for local VideoViews.
     @objc
-    public var mirrorMode: MirrorMode {
+    public nonisolated var mirrorMode: MirrorMode {
         get { _state.mirrorMode }
         set { _state.mutate { $0.mirrorMode = newValue } }
     }
 
     @objc
-    public var renderMode: RenderMode {
+    public nonisolated var renderMode: RenderMode {
         get { _state.renderMode }
         set { _state.mutate { $0.renderMode = newValue } }
     }
 
     /// Force video to be rotated to preferred ``VideoRotation``.
-    public var rotationOverride: VideoRotation? {
+    public nonisolated var rotationOverride: VideoRotation? {
         get { _state.rotationOverride }
         set { _state.mutate { $0.rotationOverride = newValue } }
     }
@@ -114,61 +114,63 @@ public class VideoView: NativeView, Loggable {
 
     /// If set to false, rendering will be paused temporarily. Useful for performance optimizations with UICollectionViewCell etc.
     @objc
-    public var isEnabled: Bool {
+    public nonisolated var isEnabled: Bool {
         get { _state.isEnabled }
         set { _state.mutate { $0.isEnabled = newValue } }
     }
 
     @objc
-    override public var isHidden: Bool {
+    override public nonisolated var isHidden: Bool {
         get { _state.isHidden }
         set {
             _state.mutate { $0.isHidden = newValue }
-            super.isHidden = newValue
+            Task { @MainActor in
+                super.isHidden = newValue
+            }
         }
     }
 
     /// Currently, only for iOS
     @objc
-    public var transitionMode: TransitionMode {
+    public nonisolated var transitionMode: TransitionMode {
         get { _state.transitionMode }
         set { _state.mutate { $0.transitionMode = newValue } }
     }
 
     @objc
-    public var transitionDuration: TimeInterval {
+    public nonisolated var transitionDuration: TimeInterval {
         get { _state.transitionDuration }
         set { _state.mutate { $0.transitionDuration = newValue } }
     }
 
     @objc
-    public var isPinchToZoomEnabled: Bool {
+    public nonisolated var isPinchToZoomEnabled: Bool {
         get { _state.pinchToZoomOptions.isEnabled }
         set { _state.mutate { $0.pinchToZoomOptions.insert(.zoomIn) } }
     }
 
     @objc
-    public var isAutoZoomResetEnabled: Bool {
+    public nonisolated var isAutoZoomResetEnabled: Bool {
         get { _state.pinchToZoomOptions.contains(.resetOnRelease) }
         set { _state.mutate { $0.pinchToZoomOptions.insert(.resetOnRelease) } }
     }
 
-    public var pinchToZoomOptions: PinchToZoomOptions {
+    public nonisolated var pinchToZoomOptions: PinchToZoomOptions {
         get { _state.pinchToZoomOptions }
         set { _state.mutate { $0.pinchToZoomOptions = newValue } }
     }
 
     @objc
-    public var isDebugMode: Bool {
+    public nonisolated var isDebugMode: Bool {
         get { _state.isDebugMode }
         set { _state.mutate { $0.isDebugMode = newValue } }
     }
 
     @objc
-    public var isRendering: Bool { _state.isRendering }
+    public nonisolated var isRendering: Bool { _state.isRendering }
 
     @objc
-    public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
+    public nonisolated var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
 
     /// Access the internal AVSampleBufferDisplayLayer used for rendering.
     /// This is only available when the renderer is using AVSampleBufferDisplayLayer.

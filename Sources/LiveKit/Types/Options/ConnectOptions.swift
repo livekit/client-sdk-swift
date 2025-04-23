@@ -73,6 +73,10 @@ public final class ConnectOptions: NSObject, Sendable {
     @objc
     public let iceTransportPolicy: IceTransportPolicy
 
+    /// Enable microphone concurrently while connecting.
+    @objc
+    public let enableMicrophone: Bool
+
     /// LiveKit server protocol version to use. Generally, it's not recommended to change this.
     @objc
     public let protocolVersion: ProtocolVersion
@@ -88,6 +92,7 @@ public final class ConnectOptions: NSObject, Sendable {
         publisherTransportConnectTimeout = .defaultTransportState
         iceServers = []
         iceTransportPolicy = .all
+        enableMicrophone = false
         protocolVersion = .v12
     }
 
@@ -101,6 +106,7 @@ public final class ConnectOptions: NSObject, Sendable {
                 publisherTransportConnectTimeout: TimeInterval = .defaultTransportState,
                 iceServers: [IceServer] = [],
                 iceTransportPolicy: IceTransportPolicy = .all,
+                enableMicrophone: Bool = false,
                 protocolVersion: ProtocolVersion = .v12)
     {
         self.autoSubscribe = autoSubscribe
@@ -112,6 +118,7 @@ public final class ConnectOptions: NSObject, Sendable {
         self.publisherTransportConnectTimeout = publisherTransportConnectTimeout
         self.iceServers = iceServers
         self.iceTransportPolicy = iceTransportPolicy
+        self.enableMicrophone = enableMicrophone
         self.protocolVersion = protocolVersion
     }
 
@@ -128,6 +135,7 @@ public final class ConnectOptions: NSObject, Sendable {
             publisherTransportConnectTimeout == other.publisherTransportConnectTimeout &&
             iceServers == other.iceServers &&
             iceTransportPolicy == other.iceTransportPolicy &&
+            enableMicrophone == other.enableMicrophone &&
             protocolVersion == other.protocolVersion
     }
 
@@ -142,6 +150,7 @@ public final class ConnectOptions: NSObject, Sendable {
         hasher.combine(publisherTransportConnectTimeout)
         hasher.combine(iceServers)
         hasher.combine(iceTransportPolicy)
+        hasher.combine(enableMicrophone)
         hasher.combine(protocolVersion)
         return hasher.finalize()
     }
