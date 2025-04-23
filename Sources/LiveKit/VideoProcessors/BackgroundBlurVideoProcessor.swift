@@ -18,7 +18,7 @@ import CoreImage.CIFilterBuiltins
 import CoreVideo
 import Vision
 
-@available(iOS 15.0, macOS 12.0, *)
+@available(iOS 15.0, macOS 12.0, tvOS 15.0, visionOS 1.0, *)
 @objc
 public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, VideoProcessor, Loggable {
     // MARK: Parameters
@@ -48,7 +48,7 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     // MARK: CoreImage
 
-    private let ciContext: CIContext = .metal
+    private let ciContext: CIContext = .metal()
 
     private let invertFilter = CIFilter.colorInvert()
     private let blurFilter = CIFilter.maskedVariableBlur()

@@ -17,7 +17,7 @@
 import CoreImage
 
 public extension CIContext {
-    static var metal: CIContext {
+    static func metal() -> CIContext {
         if let device = MTLCreateSystemDefaultDevice() {
             return CIContext(mtlDevice: device, options: [
                 .workingColorSpace: CGColorSpaceCreateDeviceRGB(),
