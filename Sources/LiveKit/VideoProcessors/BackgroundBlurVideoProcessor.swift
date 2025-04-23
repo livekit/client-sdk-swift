@@ -26,24 +26,24 @@ import Vision
 public final class BackgroundBlurVideoProcessor: NSObject, VideoProcessor, Loggable {
     private let segmentationRequest = {
         let segmentationRequest = VNGeneratePersonSegmentationRequest()
-        segmentationRequest.qualityLevel = .accurate
+        segmentationRequest.qualityLevel = .balanced
         // Set revision to 1 for better performance on supported devices (newer devices)
-        segmentationRequest.revision = 1
+//        segmentationRequest.revision = 1
         return segmentationRequest
     }()
 
     private let requestHandler = VNSequenceRequestHandler()
 
     // Dedicated processing queue for Vision requests
-    private let visionQueue = DispatchQueue(label: "io.livekit.backgroundblur.vision", qos: .default)
+    private let visionQueue = DispatchQueue(label: "io.livekit.backgroundblur.vision")
 
     // Create a Metal-accelerated CIContext
     private let ciContext: CIContext = {
         // Use default Metal device if available
         if let device = MTLCreateSystemDefaultDevice() {
             return CIContext(mtlDevice: device, options: [
-                .workingColorSpace: CGColorSpaceCreateDeviceRGB(),
-                .outputColorSpace: CGColorSpaceCreateDeviceRGB(),
+                //                .workingColorSpace: CGColorSpaceCreateDeviceRGB(),
+//                .outputColorSpace: CGColorSpaceCreateDeviceRGB(),
                 .useSoftwareRenderer: false,
                 .priorityRequestLow: false,
             ])
@@ -187,10 +187,10 @@ public final class BackgroundBlurVideoProcessor: NSObject, VideoProcessor, Logga
 
     private func createOutputBuffer(width: Int, height: Int) -> CVPixelBuffer? {
         let attributes = [
-            kCVPixelBufferCGImageCompatibilityKey: kCFBooleanTrue as Any,
-            kCVPixelBufferCGBitmapContextCompatibilityKey: kCFBooleanTrue as Any,
+            //            kCVPixelBufferCGImageCompatibilityKey: kCFBooleanTrue as Any,
+//            kCVPixelBufferCGBitmapContextCompatibilityKey: kCFBooleanTrue as Any,
             kCVPixelBufferMetalCompatibilityKey: kCFBooleanTrue as Any,
-            kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
+//            kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
         ] as CFDictionary
 
         var pixelBuffer: CVPixelBuffer?
@@ -211,10 +211,12 @@ public final class BackgroundBlurVideoProcessor: NSObject, VideoProcessor, Logga
 
 import QuartzCore
 
-func profile<T>(_ label: String, _ block: () -> T) -> T {
-    let start = CACurrentMediaTime()
-    let r = block()
-    let end = CACurrentMediaTime()
-    print("\(label) Time taken: \(end - start) seconds")
-    return r
+func profile<T>(_: String, _ block: () -> T) -> T {
+//    let start = CACurrentMediaTime()
+//    let r = block()
+//    let end = CACurrentMediaTime()
+//    print("\(label) Time taken: \(end - start) seconds")
+//    return r
+
+    block()
 }
