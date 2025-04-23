@@ -18,14 +18,13 @@ import CoreImage
 
 public extension CIContext {
     static func metal() -> CIContext {
-        if let device = MTLCreateSystemDefaultDevice() {
-            return CIContext(mtlDevice: device, options: [
-                .workingFormat: CIFormat.BGRA8,
-                .useSoftwareRenderer: false,
-                .priorityRequestLow: false,
-                .allowLowPower: true,
-            ])
-        }
-        return CIContext()
+        guard let device = MTLCreateSystemDefaultDevice() else { return CIContext() }
+
+        return CIContext(mtlDevice: device, options: [
+            .workingFormat: CIFormat.BGRA8,
+            .useSoftwareRenderer: false,
+            .priorityRequestLow: false,
+            .allowLowPower: true,
+        ])
     }
 }
