@@ -39,9 +39,12 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     // MARK: Performance
 
-    private var isProcessingVision = false
     private var frameCount = 0
-    private let visionFrameInterval = 3
+    #if os(macOS)
+    private let segmentationFrameInterval = 1
+    #else
+    private let segmentationFrameInterval = 2
+    #endif
 
     // MARK: CoreImage
 
@@ -63,7 +66,7 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     // MARK: Init
 
-    public init(intensity: CGFloat = 0.005) {
+    public init(intensity: CGFloat = 0.01) {
         self.intensity = intensity
     }
 
@@ -76,11 +79,8 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
         frameCount += 1
 
-        if frameCount % visionFrameInterval == 0 {
-//                isProcessingVision = true
-
+        if frameCount % segmentationFrameInterval == 0 {
             segmentationQueue.async {
-//                    defer { self.isProcessingVision = false }
                 try? self.segmentationRequestHandler.perform([self.segmentationRequest], on: pixelBuffer)
 
                 if let maskPixelBuffer = self.segmentationRequest.results?.first?.pixelBuffer {
@@ -95,9 +95,9 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
             return frame
         }
 
-        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+        let inputImage = CIImage(cvPixelBuffer: pixelBuffer)
 
-        let inputDimensions = ciImage.extent.size
+        let inputDimensions = inputImage.extent.size
         let maskDimensions = maskImage.extent.size
 
         if lastInputDimensions != inputDimensions || lastMaskDimensions != maskDimensions {
@@ -117,11 +117,11 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
             return frame
         }
 
-        blurFilter.inputImage = ciImage
+        blurFilter.inputImage = inputImage
         blurFilter.mask = invertedMask
         blurFilter.radius = Float(intensity * min(lastInputDimensions.width, lastInputDimensions.height))
 
-        guard let outputImage = blurFilter.outputImage?.cropped(to: ciImage.extent) else {
+        guard let outputImage = blurFilter.outputImage?.cropped(to: inputImage.extent) else {
             return frame
         }
 
