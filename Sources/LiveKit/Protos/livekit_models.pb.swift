@@ -447,6 +447,9 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterable {
 
   /// SIP protocol failure or unexpected response
   case sipTrunkFailure // = 13
+
+  /// server timed out a participant session
+  case connectionTimeout // = 14
   case UNRECOGNIZED(Int)
 
   init() {
@@ -469,6 +472,7 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterable {
     case 11: self = .userUnavailable
     case 12: self = .userRejected
     case 13: self = .sipTrunkFailure
+    case 14: self = .connectionTimeout
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -489,6 +493,7 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterable {
     case .userUnavailable: return 11
     case .userRejected: return 12
     case .sipTrunkFailure: return 13
+    case .connectionTimeout: return 14
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -509,6 +514,7 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterable {
     .userUnavailable,
     .userRejected,
     .sipTrunkFailure,
+    .connectionTimeout,
   ]
 
 }
@@ -1822,6 +1828,7 @@ struct Livekit_ClientInfo: Sendable {
     case cpp // = 10
     case unityWeb // = 11
     case node // = 12
+    case unreal // = 13
     case UNRECOGNIZED(Int)
 
     init() {
@@ -1843,6 +1850,7 @@ struct Livekit_ClientInfo: Sendable {
       case 10: self = .cpp
       case 11: self = .unityWeb
       case 12: self = .node
+      case 13: self = .unreal
       default: self = .UNRECOGNIZED(rawValue)
       }
     }
@@ -1862,6 +1870,7 @@ struct Livekit_ClientInfo: Sendable {
       case .cpp: return 10
       case .unityWeb: return 11
       case .node: return 12
+      case .unreal: return 13
       case .UNRECOGNIZED(let i): return i
       }
     }
@@ -1881,6 +1890,7 @@ struct Livekit_ClientInfo: Sendable {
       .cpp,
       .unityWeb,
       .node,
+      .unreal,
     ]
 
   }
@@ -2647,6 +2657,20 @@ struct Livekit_DataStream: Sendable {
   init() {}
 }
 
+struct Livekit_WebhookConfig: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var url: String = String()
+
+  var signingKey: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "livekit"
@@ -2744,6 +2768,7 @@ extension Livekit_DisconnectReason: SwiftProtobuf._ProtoNameProviding {
     11: .same(proto: "USER_UNAVAILABLE"),
     12: .same(proto: "USER_REJECTED"),
     13: .same(proto: "SIP_TRUNK_FAILURE"),
+    14: .same(proto: "CONNECTION_TIMEOUT"),
   ]
 }
 
@@ -4782,6 +4807,7 @@ extension Livekit_ClientInfo.SDK: SwiftProtobuf._ProtoNameProviding {
     10: .same(proto: "CPP"),
     11: .same(proto: "UNITY_WEB"),
     12: .same(proto: "NODE"),
+    13: .same(proto: "UNREAL"),
   ]
 }
 
@@ -6134,6 +6160,44 @@ extension Livekit_DataStream.Trailer: SwiftProtobuf.Message, SwiftProtobuf._Mess
     if lhs.streamID != rhs.streamID {return false}
     if lhs.reason != rhs.reason {return false}
     if lhs.attributes != rhs.attributes {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_WebhookConfig: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".WebhookConfig"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "url"),
+    2: .standard(proto: "signing_key"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.url) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.signingKey) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.url.isEmpty {
+      try visitor.visitSingularStringField(value: self.url, fieldNumber: 1)
+    }
+    if !self.signingKey.isEmpty {
+      try visitor.visitSingularStringField(value: self.signingKey, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_WebhookConfig, rhs: Livekit_WebhookConfig) -> Bool {
+    if lhs.url != rhs.url {return false}
+    if lhs.signingKey != rhs.signingKey {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
