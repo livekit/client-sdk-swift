@@ -18,6 +18,10 @@ import CoreImage.CIFilterBuiltins
 import CoreVideo.CVBuffer
 import Vision
 
+#if LK_SIGNPOSTS
+import os.signpost
+#endif
+
 /// A ``VideoProcessor`` that blurs the background of a video stream.
 ///
 /// This processor uses Vision to generate a mask of the person in the video stream and then applies a blur to the background.
@@ -25,6 +29,10 @@ import Vision
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, visionOS 1.0, *)
 @objc
 public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, VideoProcessor, Loggable {
+    #if LK_SIGNPOSTS
+    private let signpostLog = OSLog(subsystem: Bundle.main.bundleIdentifier ?? "", category: "BackgroundBlur")
+    #endif
+
     // MARK: Parameters
 
     public let intensity: CGFloat
@@ -75,6 +83,13 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
     // MARK: VideoProcessor
 
     public func process(frame: VideoFrame) -> VideoFrame? {
+        #if LK_SIGNPOSTS
+        os_signpost(.begin, log: signpostLog, name: #function)
+        defer {
+            os_signpost(.end, log: signpostLog, name: #function)
+        }
+        #endif
+
         frameCount += 1
 
         guard let inputBuffer = frame.toCVPixelBuffer() else { return frame }
@@ -103,6 +118,12 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
         guard frameCount % segmentationFrameInterval == 0 else { return }
 
         segmentationQueue.async {
+            #if LK_SIGNPOSTS
+            os_signpost(.begin, log: self.signpostLog, name: "segmentation")
+            defer {
+                os_signpost(.end, log: self.signpostLog, name: "segmentation")
+            }
+            #endif
             try? self.segmentationRequestHandler.perform([self.segmentationRequest], on: inputBuffer)
 
             guard let maskPixelBuffer = self.segmentationRequest.results?.first?.pixelBuffer else { return }
