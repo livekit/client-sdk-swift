@@ -157,6 +157,14 @@ extension Livekit_SignalResponse: CustomStringConvertible {
     }
 }
 
+// MARK: - NativeView
+
+public extension VideoView {
+    override var description: String {
+        "VideoView(track: \(String(describing: track)))"
+    }
+}
+
 extension VideoView.RenderMode: CustomStringConvertible {
     public var description: String {
         switch self {
@@ -166,6 +174,20 @@ extension VideoView.RenderMode: CustomStringConvertible {
         }
     }
 }
+
+extension SampleBufferVideoRenderer {
+    override var description: String {
+        "SampleBufferVideoRenderer"
+    }
+}
+
+extension TextView {
+    override var description: String {
+        "TextView"
+    }
+}
+
+// MARK: - LKRTC
 
 extension LKRTCRtpEncodingParameters {
     func toDebugString() -> String {

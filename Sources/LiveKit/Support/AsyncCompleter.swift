@@ -147,7 +147,6 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
             // Already resolved...
             if case let .success(value) = result {
                 // resume(returning:) already called
-                log("\(label) returning existing value")
                 return value
             } else if case let .failure(error) = result {
                 // resume(throwing:) already called
