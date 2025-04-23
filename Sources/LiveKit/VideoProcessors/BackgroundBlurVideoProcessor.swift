@@ -15,9 +15,13 @@
  */
 
 import CoreImage.CIFilterBuiltins
-import CoreVideo
+import CoreVideo.CVBuffer
 import Vision
 
+/// A ``VideoProcessor`` that blurs the background of a video stream.
+///
+/// This processor uses Vision to generate a mask of the person in the video stream and then applies a blur to the background.
+///
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, visionOS 1.0, *)
 @objc
 public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, VideoProcessor, Loggable {
@@ -62,6 +66,8 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     // MARK: Init
 
+    /// - Parameters:
+    ///   - intensity: The intensity of the blur effect, relative to the smallest dimension of the video frame.
     public init(intensity: CGFloat = 0.01) {
         self.intensity = intensity
     }

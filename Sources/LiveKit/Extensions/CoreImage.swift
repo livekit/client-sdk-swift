@@ -20,10 +20,10 @@ public extension CIContext {
     static func metal() -> CIContext {
         if let device = MTLCreateSystemDefaultDevice() {
             return CIContext(mtlDevice: device, options: [
-                .workingColorSpace: CGColorSpaceCreateDeviceRGB(),
-                .outputColorSpace: CGColorSpaceCreateDeviceRGB(),
+                .workingFormat: CIFormat.BGRA8,
                 .useSoftwareRenderer: false,
                 .priorityRequestLow: false,
+                .allowLowPower: true,
             ])
         }
         return CIContext()
