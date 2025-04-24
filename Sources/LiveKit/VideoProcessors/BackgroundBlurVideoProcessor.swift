@@ -47,7 +47,7 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     private let segmentationRequestHandler = VNSequenceRequestHandler()
     // Matches Vision internal QoS to avoid priority inversion
-    private let segmentationQueue = DispatchQueue(label: "io.livekit.backgroundblur.segmentation", qos: .default)
+    private let segmentationQueue = DispatchQueue(label: "io.livekit.backgroundblur.segmentation", qos: .default, autoreleaseFrequency: .workItem)
 
     // MARK: Performance
 

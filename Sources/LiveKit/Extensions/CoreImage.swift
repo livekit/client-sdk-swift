@@ -22,6 +22,7 @@ public extension CIContext {
 
         return CIContext(mtlDevice: device, options: [
             .workingFormat: CIFormat.BGRA8,
+            .workingColorSpace: NSNull(),
             .useSoftwareRenderer: false,
             .priorityRequestLow: false,
             .allowLowPower: true,

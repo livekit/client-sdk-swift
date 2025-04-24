@@ -51,7 +51,7 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
     public let delegates = MulticastDelegate<VideoCapturerDelegate>(label: "VideoCapturerDelegate")
     public let rendererDelegates = MulticastDelegate<VideoRenderer>(label: "VideoCapturerRendererDelegate")
 
-    private let processingQueue = DispatchQueue(label: "io.livekit.videocapturer.processing")
+    private let processingQueue = DispatchQueue(label: "io.livekit.videocapturer.processing", autoreleaseFrequency: .workItem)
 
     /// Array of supported pixel formats that can be used to capture a frame.
     ///
