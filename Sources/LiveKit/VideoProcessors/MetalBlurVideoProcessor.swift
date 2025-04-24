@@ -218,6 +218,9 @@ public final class MetalBlurVideoProcessor: NSObject, @unchecked Sendable, Video
         let width = CVPixelBufferGetWidth(inputBuffer)
         let height = CVPixelBufferGetHeight(inputBuffer)
 
+        let maskWidth = CVPixelBufferGetWidth(maskBuffer)
+        let maskHeight = CVPixelBufferGetHeight(maskBuffer)
+
         var lumaInTexture: CVMetalTexture?
         var chromaInTexture: CVMetalTexture?
         var maskTexture: CVMetalTexture?
@@ -226,8 +229,6 @@ public final class MetalBlurVideoProcessor: NSObject, @unchecked Sendable, Video
 
         let lumaInResult = CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, textureCache, inputBuffer, nil, .r8Unorm, width, height, 0, &lumaInTexture)
         let chromaInResult = CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, textureCache, inputBuffer, nil, .rg8Unorm, width / 2, height / 2, 1, &chromaInTexture)
-        let maskWidth = CVPixelBufferGetWidth(maskBuffer)
-        let maskHeight = CVPixelBufferGetHeight(maskBuffer)
         let maskResult = CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, textureCache, maskBuffer, nil, .r8Unorm, maskWidth, maskHeight, 0, &maskTexture)
         let lumaOutResult = CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, textureCache, outputBuffer, nil, .r8Unorm, width, height, 0, &lumaOutTexture)
         let chromaOutResult = CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, textureCache, outputBuffer, nil, .rg8Unorm, width / 2, height / 2, 1, &chromaOutTexture)
@@ -267,7 +268,9 @@ public final class MetalBlurVideoProcessor: NSObject, @unchecked Sendable, Video
         computeEncoder.setTexture(lumaOutTextureRef, index: 3)
         computeEncoder.setTexture(chromaOutTextureRef, index: 4)
 
-        var blurRadius = 100
+        // Calculate blur radius based on image dimensions and intensity
+        let smallestDimension = min(Float(width), Float(height))
+        var blurRadius = smallestDimension * intensity
         computeEncoder.setBytes(&blurRadius, length: MemoryLayout<Float>.size, index: 0)
 
         // TODO: Tweak that
