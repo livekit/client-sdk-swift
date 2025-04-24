@@ -24,7 +24,8 @@ import os.signpost
 
 /// A ``VideoProcessor`` that blurs the background of a video stream.
 ///
-/// This processor uses Vision to generate a mask of the person in the video stream and then applies a blur to the background.
+/// This processor uses Vision to generate a mask of the person in the video stream,
+/// downscales the background by 4x, applies a blur, and then blends it back with the foreground.
 ///
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, visionOS 1.0, *)
 @objc
@@ -36,6 +37,9 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
     // MARK: Parameters
 
     public let intensity: CGFloat
+    public let downscaleFactor: Int
+
+    private let maxRadius: Float = 50
 
     // MARK: Vision
 
@@ -62,13 +66,14 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     private let ciContext: CIContext = .metal()
 
+    private let blurFilter = CIFilter.gaussianBlur()
+    private let blendFilter = CIFilter.blendWithMask()
+    private let scaleFilter = CIFilter.bicubicScaleTransform() // faster than Lanczos
     private let invertFilter = CIFilter.colorInvert()
-    private let blurFilter = CIFilter.maskedVariableBlur()
 
     // MARK: Cache
 
     private var cachedMaskImage: CIImage?
-
     private var cachedPixelBuffer: CVPixelBuffer?
     private var cachedPixelBufferSize: CGSize?
 
@@ -76,8 +81,10 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     /// - Parameters:
     ///   - intensity: The intensity of the blur effect, relative to the smallest dimension of the video frame.
-    public init(intensity: CGFloat = 0.01) {
+    ///   - downscaleFactor: The factor by which to downscale the background before blurring. Higher values improve performance.
+    public init(intensity: CGFloat = 0.005, downscaleFactor: Int = 2) {
         self.intensity = intensity
+        self.downscaleFactor = downscaleFactor
     }
 
     // MARK: VideoProcessor
@@ -98,12 +105,28 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
         let inputDimensions = inputImage.extent.size
 
         cacheMask(inputBuffer: inputBuffer, inputDimensions: inputDimensions)
+        guard let maskImage = cachedMaskImage else { return frame }
 
-        blurFilter.inputImage = inputImage
-        blurFilter.mask = cachedMaskImage
-        blurFilter.radius = Float(intensity * min(inputDimensions.width, inputDimensions.height))
+        scaleFilter.inputImage = inputImage
+        scaleFilter.scale = 1.0 / Float(downscaleFactor)
 
-        guard let outputImage = blurFilter.outputImage?.cropped(to: inputImage.extent) else { return frame }
+        guard let downscaledImage = scaleFilter.outputImage else { return frame }
+
+        blurFilter.inputImage = downscaledImage
+        blurFilter.radius = min(maxRadius, Float(intensity * min(inputDimensions.width, inputDimensions.height)))
+
+        guard let blurredImage = blurFilter.outputImage?.cropped(to: downscaledImage.extent) else { return frame }
+
+        scaleFilter.inputImage = blurredImage
+        scaleFilter.scale = Float(downscaleFactor)
+
+        guard let upscaledBlurredImage = scaleFilter.outputImage else { return frame }
+
+        blendFilter.inputImage = upscaledBlurredImage
+        blendFilter.backgroundImage = inputImage
+        blendFilter.maskImage = maskImage
+
+        guard let outputImage = blendFilter.outputImage else { return frame }
         guard let outputBuffer = getOutputBuffer(of: inputDimensions) else { return frame }
 
         ciContext.render(outputImage, to: outputBuffer)
