@@ -36,11 +36,11 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     // MARK: Parameters
 
-    // Downscale before blurring, upscale before blending
-    private let downscaleTransform = CGAffineTransform(scaleX: 0.5, y: 0.5)
-    private let upscaleTransform = CGAffineTransform(scaleX: 2, y: 2)
-    private let blurRadius: Float = 3 // keep the kernel size small O(n^2)
+    private let downscaleFactor: CGFloat = 2 // Downscale before blurring, upscale before blending
+    private let blurRadius: Float = 3 // Keep the kernel size small O(n^2)
+    private let relativeSize: CGFloat = 1080 // Blur effect optimized for HD, extrapolate for other video sizes
 
+    // Skip segmentation every N frames for slower devices
     private var frameCount = 0
     #if os(macOS)
     private let segmentationFrameInterval = 1
@@ -95,13 +95,14 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
         // Blur
 
+        let downscaleTransform = getDownscaleTransform(relativeTo: inputDimensions)
         let downscaledImage = inputImage.transformed(by: downscaleTransform, highQualityDownsample: false)
 
         blurFilter.inputImage = downscaledImage
         blurFilter.radius = blurRadius
 
         guard let blurredImage = blurFilter.outputImage?.cropped(to: downscaledImage.extent) else { return frame }
-        let upscaledBlurredImage = blurredImage.transformed(by: upscaleTransform, highQualityDownsample: false)
+        let upscaledBlurredImage = blurredImage.transformed(by: downscaleTransform.inverted(), highQualityDownsample: false)
 
         // Blend
 
@@ -154,6 +155,14 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
             self.invertFilter.inputImage = maskImage.transformed(by: scaleTransform)
             self.cachedMaskImage = self.invertFilter.outputImage
         }
+    }
+
+    private func getDownscaleTransform(relativeTo size: CGSize) -> CGAffineTransform {
+        let sizeFactor = min(size.width, size.height) / relativeSize
+
+        // Do not upscale smaller inputs
+        let scale = 1 / (downscaleFactor * sizeFactor)
+        return scale < 1 ? CGAffineTransform(scaleX: scale, y: scale) : .identity
     }
 
     private func getOutputBuffer(of size: CGSize) -> CVPixelBuffer? {
