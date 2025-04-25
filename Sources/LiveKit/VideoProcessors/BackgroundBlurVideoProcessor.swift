@@ -36,10 +36,17 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     // MARK: Parameters
 
-    public let intensity: CGFloat
-    public let downscaleFactor: Int
+    // Downscale before blurring, upscale before blending
+    private let downscaleTransform = CGAffineTransform(scaleX: 0.5, y: 0.5)
+    private let upscaleTransform = CGAffineTransform(scaleX: 2, y: 2)
+    private let blurRadius: Float = 3 // keep the kernel size small O(n^2)
 
-    private let maxRadius: Float = 50
+    private var frameCount = 0
+    #if os(macOS)
+    private let segmentationFrameInterval = 1
+    #else
+    private let segmentationFrameInterval = 3
+    #endif
 
     // MARK: Vision
 
@@ -53,22 +60,12 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
     // Matches Vision internal QoS to avoid priority inversion
     private let segmentationQueue = DispatchQueue(label: "io.livekit.backgroundblur.segmentation", qos: .default, autoreleaseFrequency: .workItem)
 
-    // MARK: Performance
-
-    private var frameCount = 0
-    #if os(macOS)
-    private let segmentationFrameInterval = 1
-    #else
-    private let segmentationFrameInterval = 3
-    #endif
-
     // MARK: CoreImage
 
     private let ciContext: CIContext = .metal()
 
     private let blurFilter = CIFilter.gaussianBlur()
     private let blendFilter = CIFilter.blendWithMask()
-    private let scaleFilter = CIFilter.bicubicScaleTransform() // faster than Lanczos
     private let invertFilter = CIFilter.colorInvert()
 
     // MARK: Cache
@@ -79,24 +76,11 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     // MARK: Init
 
-    /// - Parameters:
-    ///   - intensity: The intensity of the blur effect, relative to the smallest dimension of the video frame.
-    ///   - downscaleFactor: The factor by which to downscale the background before blurring. Higher values improve performance.
-    public init(intensity: CGFloat = 0.005, downscaleFactor: Int = 2) {
-        self.intensity = intensity
-        self.downscaleFactor = downscaleFactor
-    }
+    override public init() {}
 
     // MARK: VideoProcessor
 
     public func process(frame: VideoFrame) -> VideoFrame? {
-        #if LK_SIGNPOSTS
-        os_signpost(.begin, log: signpostLog, name: #function)
-        defer {
-            os_signpost(.end, log: signpostLog, name: #function)
-        }
-        #endif
-
         frameCount += 1
 
         guard let inputBuffer = frame.toCVPixelBuffer() else { return frame }
@@ -104,32 +88,40 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
         let inputImage = CIImage(cvPixelBuffer: inputBuffer)
         let inputDimensions = inputImage.extent.size
 
+        // Mask
+
         cacheMask(inputBuffer: inputBuffer, inputDimensions: inputDimensions)
         guard let maskImage = cachedMaskImage else { return frame }
 
-        scaleFilter.inputImage = inputImage
-        scaleFilter.scale = 1.0 / Float(downscaleFactor)
+        // Blur
 
-        guard let downscaledImage = scaleFilter.outputImage else { return frame }
+        let downscaledImage = inputImage.transformed(by: downscaleTransform, highQualityDownsample: false)
 
         blurFilter.inputImage = downscaledImage
-        blurFilter.radius = min(maxRadius, Float(intensity * min(inputDimensions.width, inputDimensions.height)))
+        blurFilter.radius = blurRadius
 
         guard let blurredImage = blurFilter.outputImage?.cropped(to: downscaledImage.extent) else { return frame }
+        let upscaledBlurredImage = blurredImage.transformed(by: upscaleTransform, highQualityDownsample: false)
 
-        scaleFilter.inputImage = blurredImage
-        scaleFilter.scale = Float(downscaleFactor)
-
-        guard let upscaledBlurredImage = scaleFilter.outputImage else { return frame }
+        // Blend
 
         blendFilter.inputImage = upscaledBlurredImage
         blendFilter.backgroundImage = inputImage
         blendFilter.maskImage = maskImage
 
         guard let outputImage = blendFilter.outputImage else { return frame }
+
+        // Render
+
         guard let outputBuffer = getOutputBuffer(of: inputDimensions) else { return frame }
 
+        #if LK_SIGNPOSTS
+        os_signpost(.begin, log: signpostLog, name: "filter+render")
+        #endif
         ciContext.render(outputImage, to: outputBuffer)
+        #if LK_SIGNPOSTS
+        os_signpost(.end, log: signpostLog, name: "filter+render")
+        #endif
 
         return VideoFrame(dimensions: frame.dimensions,
                           rotation: frame.rotation,
@@ -142,9 +134,9 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
         segmentationQueue.async {
             #if LK_SIGNPOSTS
-            os_signpost(.begin, log: self.signpostLog, name: "segmentation")
+            os_signpost(.begin, log: self.signpostLog, name: #function)
             defer {
-                os_signpost(.end, log: self.signpostLog, name: "segmentation")
+                os_signpost(.end, log: self.signpostLog, name: #function)
             }
             #endif
             try? self.segmentationRequestHandler.perform([self.segmentationRequest], on: inputBuffer)
