@@ -50,12 +50,7 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     // MARK: Vision
 
-    private let segmentationRequest = {
-        let segmentationRequest = VNGeneratePersonSegmentationRequest()
-        segmentationRequest.qualityLevel = .balanced
-        return segmentationRequest
-    }()
-
+    private let segmentationRequest = VNGeneratePersonSegmentationRequest()
     private let segmentationRequestHandler = VNSequenceRequestHandler()
     // Matches Vision internal QoS to avoid priority inversion
     private let segmentationQueue = DispatchQueue(label: "io.livekit.backgroundblur.segmentation", qos: .default, autoreleaseFrequency: .workItem)
@@ -76,7 +71,11 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     // MARK: Init
 
-    override public init() {}
+    /// Initialize the background blur video processor.
+    /// - Parameter highQuality: If true, use more detailed segmentation, but at the cost of performance.
+    public init(highQuality: Bool = true) {
+        segmentationRequest.qualityLevel = highQuality ? .balanced : .fast
+    }
 
     // MARK: VideoProcessor
 
