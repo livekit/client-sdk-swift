@@ -84,8 +84,9 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
         frameCount += 1
 
         guard let inputBuffer = frame.toCVPixelBuffer() else { return frame }
+        let cropRect = CGRect(x: .zero, y: .zero, width: Int(frame.dimensions.width), height: Int(frame.dimensions.height))
 
-        let inputImage = CIImage(cvPixelBuffer: inputBuffer)
+        let inputImage = CIImage(cvPixelBuffer: inputBuffer).croppedAndScaled(to: cropRect)
         let inputDimensions = inputImage.extent.size
 
         // Mask
@@ -98,10 +99,10 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
         let downscaleTransform = getDownscaleTransform(relativeTo: inputDimensions)
         let downscaledImage = inputImage.transformed(by: downscaleTransform, highQualityDownsample: false)
 
-        blurFilter.inputImage = downscaledImage
+        blurFilter.inputImage = downscaledImage.clampedToExtent()
         blurFilter.radius = blurRadius
 
-        guard let blurredImage = blurFilter.outputImage?.cropped(to: downscaledImage.extent) else { return frame }
+        guard let blurredImage = blurFilter.outputImage else { return frame }
         let upscaledBlurredImage = blurredImage.transformed(by: downscaleTransform.inverted(), highQualityDownsample: false)
 
         // Blend
