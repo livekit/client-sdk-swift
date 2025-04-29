@@ -37,6 +37,11 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
     @objc
     public let recorder: LocalAudioTrackRecorder
 
+    /// The timeout for the remote participant to subscribe to the audio track.
+    /// If the remote participant does not subscribe to the audio track within this time, the audio buffer will be flushed.
+    @objc
+    public let timeout: TimeInterval
+
     private let state = StateSync<State>(State())
     private struct State {
         var audioStream: LocalAudioTrackRecorder.Stream?
@@ -53,10 +58,12 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
                     format: .pcmFormatInt16, // supported by agent plugins
                     sampleRate: 24000, // supported by agent plugins
                     maxSize: 10 * 1024 * 1024 // arbitrary max recording size of 10MB
-                ))
+                ),
+                timeout: TimeInterval = 5)
     {
         self.room = room
         self.recorder = recorder
+        self.timeout = timeout
         super.init()
     }
 
@@ -98,6 +105,9 @@ extension PreConnectAudioBuffer: RoomDelegate {
     public func roomDidConnect(_ room: Room) {
         Task {
             try? await setParticipantAttribute(room: room)
+
+            try? await Task.sleep(nanoseconds: UInt64(timeout) * NSEC_PER_SEC)
+            stopRecording(flush: true)
         }
     }
 
