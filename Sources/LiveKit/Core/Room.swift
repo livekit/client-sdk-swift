@@ -220,14 +220,19 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         super.init()
         // log sdk & os versions
-        log("sdk: \(LiveKitSDK.version), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
+        log("SDK initialized", .info, metadata: [
+            "version": LiveKitSDK.version,
+            "os": String(describing: Utils.os()),
+            "osVersion": Utils.osVersionString(),
+            "modelId": Utils.modelIdentifier() ?? "unknown",
+        ])
 
         signalClient._delegate.set(delegate: self)
 
-        log()
+        log("Room instance initialized")
 
         if let delegate {
-            log("delegate: \(String(describing: delegate))")
+            log("Room delegate registered", metadata: ["delegate": String(describing: delegate)])
             delegates.add(delegate: delegate)
         }
 
@@ -275,7 +280,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             }
 
             if (newState.connectionState != oldState.connectionState) || (newState.isReconnectingWithMode != oldState.isReconnectingWithMode) {
-                self.log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.isReconnectingWithMode))")
+                self.log("State change: [connectionState] \(oldState.connectionState) → \(newState.connectionState)", metadata: [
+                    "reconnectMode": newState.isReconnectingWithMode as Any,
+                ])
             }
 
             self.engine(self, didMutateState: newState, oldState: oldState)
@@ -307,7 +314,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     }
 
     deinit {
-        log(nil, .trace)
+        log("Room instance deallocating", .trace)
     }
 
     @objc
@@ -317,11 +324,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                         roomOptions: RoomOptions? = nil) async throws
     {
         guard let url = URL(string: url), url.isValidForConnect else {
-            log("URL parse failed", .error)
+            log("Operation failed: [room.connect] invalid URL format", .error, metadata: ["url": url])
             throw LiveKitError(.failedToParseUrl)
         }
 
-        log("Connecting to room...", .info)
+        log("Room connecting: initiating connection sequence", .info, metadata: [
+            "url": url,
+            "connectOptions": connectOptions as Any,
+            "roomOptions": roomOptions as Any,
+        ])
 
         var state = _state.copy()
 
@@ -396,7 +407,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             throw error
         }
 
-        log("Connected to \(String(describing: self))", .info)
+        log("Room connected: connection established successfully", .info, metadata: [
+            "room": String(describing: self),
+            "sid": _state.sid as Any,
+            "serverVersion": _state.serverInfo?.version as Any,
+        ])
     }
 
     @objc
@@ -405,9 +420,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         if case .disconnected = connectionState { return }
 
         do {
+            log("Room disconnecting: sending leave request")
             try await signalClient.sendLeave()
         } catch {
-            log("Failed to send leave with error: \(error)")
+            log("Operation failed: [room.disconnect] error sending leave message", .warning, metadata: [
+                "error": error,
+                "connectionState": connectionState,
+            ])
         }
 
         await cleanUp()
@@ -421,7 +440,11 @@ extension Room {
     func cleanUp(withError disconnectError: Error? = nil,
                  isFullReconnect: Bool = false) async
     {
-        log("withError: \(String(describing: disconnectError)), isFullReconnect: \(isFullReconnect)")
+        log("Room cleanup: releasing resources", metadata: [
+            "error": disconnectError as Any,
+            "isFullReconnect": isFullReconnect,
+            "connectionState": _state.connectionState,
+        ])
 
         // Reset completers
         _sidCompleter.reset()
@@ -466,7 +489,11 @@ extension Room {
 
 extension Room {
     func cleanUpParticipants(isFullReconnect: Bool = false, notify _notify: Bool = true) async {
-        log("notify: \(_notify)")
+        log("Room cleanup: removing participants", metadata: [
+            "notify": _notify,
+            "isFullReconnect": isFullReconnect,
+            "remoteParticipantCount": _state.remoteParticipants.count,
+        ])
 
         // Stop all local & remote tracks
         var allParticipants: [Participant] = Array(_state.remoteParticipants.values)

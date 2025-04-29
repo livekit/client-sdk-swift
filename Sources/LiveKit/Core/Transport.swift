@@ -70,7 +70,11 @@ actor Transport: NSObject, Loggable {
         do {
             try await self._pc.add(iceCandidate.toRTCType())
         } catch {
-            self.log("Failed to add(iceCandidate:) with error: \(error)", .error)
+            self.log("Operation failed: [transport.addIceCandidate] couldn't add ICE candidate", .error, metadata: [
+                "target": self.target,
+                "iceCandidate": iceCandidate,
+                "error": error,
+            ])
         }
     })
 
@@ -90,14 +94,18 @@ actor Transport: NSObject, Loggable {
         _pc = pc
 
         super.init()
-        log()
+        log("Transport instance initialized", metadata: [
+            "target": target,
+        ])
 
         _pc.delegate = self
         _delegate.add(delegate: delegate)
     }
 
     deinit {
-        log(nil, .trace)
+        log("Transport instance deallocating", .trace, metadata: [
+            "target": target,
+        ])
     }
 
     func negotiate() async {
@@ -217,7 +225,10 @@ extension Transport {
 
 extension Transport: LKRTCPeerConnectionDelegate {
     nonisolated func peerConnection(_: LKRTCPeerConnection, didChange state: RTCPeerConnectionState) {
-        log("[Connect] Transport(\(target)) did update state: \(state.description)")
+        log("Transport state changed", metadata: [
+            "target": target,
+            "state": state.description,
+        ])
         _delegate.notify { $0.transport(self, didUpdateState: state) }
     }
 
@@ -226,32 +237,52 @@ extension Transport: LKRTCPeerConnectionDelegate {
     }
 
     nonisolated func peerConnectionShouldNegotiate(_: LKRTCPeerConnection) {
-        log("ShouldNegotiate for \(target)")
+        log("Transport negotiation needed", metadata: [
+            "target": target,
+        ])
         _delegate.notify { $0.transportShouldNegotiate(self) }
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didAdd rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream]) {
         guard let track = rtpReceiver.track else {
-            log("Track is empty for \(target)", .warning)
+            log("Transport received empty track", .warning, metadata: [
+                "target": target,
+                "rtpReceiver": String(describing: rtpReceiver),
+            ])
             return
         }
 
-        log("type: \(type(of: track)), track.id: \(track.trackId), streams: \(streams.map { "Stream(hash: \($0.hash), id: \($0.streamId), videoTracks: \($0.videoTracks.count), audioTracks: \($0.audioTracks.count))" })")
+        log("Transport received new track", metadata: [
+            "target": target,
+            "trackType": String(describing: type(of: track)),
+            "trackId": track.trackId,
+            "streams": streams.map { "\($0.streamId) (v:\($0.videoTracks.count), a:\($0.audioTracks.count))" },
+        ])
         _delegate.notify { $0.transport(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: streams) }
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didRemove rtpReceiver: LKRTCRtpReceiver) {
         guard let track = rtpReceiver.track else {
-            log("Track is empty for \(target)", .warning)
+            log("Transport received empty track for removal", .warning, metadata: [
+                "target": target,
+                "rtpReceiver": String(describing: rtpReceiver),
+            ])
             return
         }
 
-        log("didRemove track: \(track.trackId)")
+        log("Transport removed track", metadata: [
+            "target": target,
+            "trackId": track.trackId,
+        ])
         _delegate.notify { $0.transport(self, didRemoveTrack: track) }
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didOpen dataChannel: LKRTCDataChannel) {
-        log("Received data channel \(dataChannel.label) for \(target)")
+        log("Transport opened data channel", metadata: [
+            "target": target,
+            "label": dataChannel.label,
+            "channelId": dataChannel.channelId,
+        ])
         _delegate.notify { $0.transport(self, didOpenDataChannel: dataChannel) }
     }
 
