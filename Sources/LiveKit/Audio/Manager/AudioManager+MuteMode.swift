@@ -29,6 +29,9 @@ public enum MicrophoneMuteMode {
     /// Restarts the internal `AVAudioEngine` without mic input when muted.
     /// This is slower, and muted speaker detection does not work. No sound effect is played.
     case restart
+    /// Simply mutes the output of the input mixer.
+    /// The mic indicator remains on, and the internal `AVAudioEngine` continues running without reconfiguration.
+    case inputMixer
     case unknown
 }
 
@@ -73,6 +76,7 @@ extension RTCAudioEngineMuteMode {
         switch self {
         case .voiceProcessing: return .voiceProcessing
         case .restartEngine: return .restart
+        case .inputMixer: return .inputMixer
         case .unknown: return .unknown
         @unknown default: return .unknown
         }
@@ -85,6 +89,7 @@ extension MicrophoneMuteMode {
         case .unknown: return .unknown
         case .voiceProcessing: return .voiceProcessing
         case .restart: return .restartEngine
+        case .inputMixer: return .inputMixer
         }
     }
 }
