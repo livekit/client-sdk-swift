@@ -24,9 +24,10 @@ import os.signpost
 
 /// A ``VideoProcessor`` that blurs the background of a video stream.
 ///
-/// This processor uses Vision to generate a mask of the person in the video stream,
-/// downscales the background by 4x, applies a blur, and then blends it back with the foreground.
+/// This processor uses Vision framework to generate a mask of the person in the video stream,
+/// downscales the background, applies a blur, and then blends it back with the foreground.
 ///
+/// - Important: This class is not thread safe and will be called on a dedicated serial `processingQueue`.
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, visionOS 1.0, *)
 @objc
 public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, VideoProcessor, Loggable {
@@ -150,7 +151,6 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
             let scaleY = inputDimensions.height / maskDimensions.height
             let scaleTransform = CGAffineTransform(scaleX: scaleX, y: scaleY)
 
-            // Invert the mask so that the person is not blurred, just the background
             self.cachedMaskImage = maskImage.transformed(by: scaleTransform)
         }
     }
