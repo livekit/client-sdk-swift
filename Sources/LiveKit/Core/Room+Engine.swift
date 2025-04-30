@@ -37,7 +37,7 @@ extension Room {
     struct ConditionalExecutionEntry {
         let executeCondition: ConditionEvalFunc
         let removeCondition: ConditionEvalFunc
-        let block: () -> Void
+        let block: @Sendable () -> Void
     }
 
     // Resets state of transports

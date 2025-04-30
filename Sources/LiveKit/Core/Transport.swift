@@ -25,7 +25,7 @@ internal import LiveKitWebRTC
 actor Transport: NSObject, Loggable {
     // MARK: - Types
 
-    typealias OnOfferBlock = (LKRTCSessionDescription) async throws -> Void
+    typealias OnOfferBlock = @Sendable (LKRTCSessionDescription) async throws -> Void
 
     // MARK: - Public
 
