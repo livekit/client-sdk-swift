@@ -67,8 +67,8 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
     /// - Returns: A stream of audio data.
     /// - Throws: An error if the audio track cannot be started.
     public func start() async throws -> Stream {
-        guard _state.continuation == nil else {
-            throw LiveKitError(.invalidState, message: "Cannot start the recorder multiple times.")
+        if let continuation = _state.continuation {
+            continuation.finish()
         }
 
         try await track.startCapture()
