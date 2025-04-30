@@ -61,7 +61,6 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     private let blurFilter = CIFilter.gaussianBlur()
     private let blendFilter = CIFilter.blendWithMask()
-    private let invertFilter = CIFilter.colorInvert()
 
     // MARK: Cache
 
@@ -106,8 +105,8 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
         // Blend
 
-        blendFilter.inputImage = upscaledBlurredImage
-        blendFilter.backgroundImage = inputImage
+        blendFilter.inputImage = inputImage
+        blendFilter.backgroundImage = upscaledBlurredImage
         blendFilter.maskImage = maskImage
 
         guard let outputImage = blendFilter.outputImage else { return frame }
@@ -152,8 +151,7 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
             let scaleTransform = CGAffineTransform(scaleX: scaleX, y: scaleY)
 
             // Invert the mask so that the person is not blurred, just the background
-            self.invertFilter.inputImage = maskImage.transformed(by: scaleTransform)
-            self.cachedMaskImage = self.invertFilter.outputImage
+            self.cachedMaskImage = maskImage.transformed(by: scaleTransform)
         }
     }
 
