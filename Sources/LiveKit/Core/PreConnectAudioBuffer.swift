@@ -21,10 +21,6 @@ import Foundation
 /// and sends it on certain ``RoomDelegate`` events.
 @objc
 public final class PreConnectAudioBuffer: NSObject, Loggable {
-    /// The default participant attribute key used to indicate that the audio buffer is active.
-    @objc
-    public static let attributeKey = "lk.agent.pre-connect-audio"
-
     /// The default data topic used to send the audio buffer.
     @objc
     public static let dataTopic = "lk.agent.pre-connect-audio-buffer"
@@ -102,10 +98,8 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
 // MARK: - RoomDelegate
 
 extension PreConnectAudioBuffer: RoomDelegate {
-    public func roomDidConnect(_ room: Room) {
+    public func roomDidConnect(_: Room) {
         Task {
-            try? await setParticipantAttribute(room: room)
-
             try? await Task.sleep(nanoseconds: UInt64(timeout) * NSEC_PER_SEC)
             stopRecording(flush: true)
         }
@@ -114,20 +108,12 @@ extension PreConnectAudioBuffer: RoomDelegate {
     public func room(_ room: Room, participant _: LocalParticipant, remoteDidSubscribeTrack _: LocalTrackPublication) {
         stopRecording()
         Task {
-            try? await sendAudioData(to: room)
+            do {
+                try await sendAudioData(to: room)
+            } catch {
+                log("Unable to send audio: \(error)", .error)
+            }
         }
-    }
-
-    /// Set the participant attribute to indicate that the audio buffer is active.
-    /// - Parameters:
-    ///   - key: The key to set the attribute.
-    ///   - room: The room instance to set the attribute.
-    @objc
-    public func setParticipantAttribute(key _: String = attributeKey, room: Room) async throws {
-        var attributes = room.localParticipant.attributes
-        attributes[Self.attributeKey] = "true"
-        try await room.localParticipant.set(attributes: attributes)
-        log("Set participant attribute", .info)
     }
 
     /// Send the audio data to the room.
