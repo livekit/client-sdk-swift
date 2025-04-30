@@ -48,17 +48,16 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
     ///   - room: The room instance to listen for events.
     ///   - recorder: The audio recorder to use for capturing.
     @objc
-    public init(room: Room?,
-                recorder: LocalAudioTrackRecorder = LocalAudioTrackRecorder(
-                    track: LocalAudioTrack.createTrack(),
-                    format: .pcmFormatInt16, // supported by agent plugins
-                    sampleRate: 24000, // supported by agent plugins
-                    maxSize: 10 * 1024 * 1024 // arbitrary max recording size of 10MB
-                ),
-                timeout: TimeInterval = 5)
-    {
+    public init(room: Room?, timeout: TimeInterval = 5) {
         self.room = room
-        self.recorder = recorder
+        let roomOptions = room?._state.roomOptions
+        recorder = LocalAudioTrackRecorder(
+            track: LocalAudioTrack.createTrack(options: roomOptions?.defaultAudioCaptureOptions.withPreConnect(),
+                                               reportStatistics: roomOptions?.reportRemoteTrackStatistics ?? false),
+            format: .pcmFormatInt16, // supported by agent plugins
+            sampleRate: 24000, // supported by agent plugins
+            maxSize: 10 * 1024 * 1024 // arbitrary max recording size of 10MB
+        )
         self.timeout = timeout
         super.init()
     }

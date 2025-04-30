@@ -43,6 +43,10 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
     @objc
     public let maxSize: Int
 
+    var isRecording: Bool {
+        _state.continuation != nil
+    }
+
     private let _state = StateSync<State>(State())
     private struct State {
         var continuation: Stream.Continuation?
