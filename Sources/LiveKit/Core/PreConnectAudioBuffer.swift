@@ -140,12 +140,14 @@ extension PreConnectAudioBuffer: RoomDelegate {
             throw LiveKitError(.invalidState, message: "Audio stream is nil")
         }
 
+        let agentIdentities = room.remoteParticipants.filter { _, value in value.kind == .agent }.map(\.key)
         let streamOptions = StreamByteOptions(
             topic: topic,
             attributes: [
                 "sampleRate": "\(recorder.sampleRate)",
                 "channels": "\(recorder.channels)",
-            ]
+            ],
+            destinationIdentities: agentIdentities
         )
         let writer = try await room.localParticipant.streamBytes(options: streamOptions)
         try await writer.write(audioStream.collect())
