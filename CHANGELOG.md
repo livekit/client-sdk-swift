@@ -1,5 +1,47 @@
 # Changelog
 
+## [2.5.1] - 2025-04-23
+
+### Added
+
+- Added the possibility to compile Swift v6 package in v5 mode
+
+### Fixed
+
+- Add OrderedCollections as Cocoapods dependency
+- Fixed crash in VideoView computed property access
+- Fixed crash in VideoView.isHidden property access
+
+## [2.5.0] - 2025-04-18
+
+### Added
+
+- Audio mix recorder
+- Exposed reconnect mode in RoomDelegate
+- Concurrent mic publishing when connecting
+- Added the ability to send RTC metrics
+- Added internal flags to measure StateSync performance
+
+### Changed
+
+- Use millisecond precision for Date
+- Fast track publishing
+- Improve reconnect delay logic
+- Changed lock types used for internal synchronization
+- Minor SignalClient improvements
+- Refactored mute api
+- Swift 6: Added Sendable requirement to all delegate protocols
+- Added Swift 6 support
+
+### Fixed
+
+- Swift 6: Fixed warnings for MulticastDelegate and related classes
+- Swift 6: Fixed warnings for (Local/Remote) Participant and stream handlers
+- Swift 6: Fixed warnings for some of the internal RTC classes
+- Swift 6: Fixed warnings for mutable state
+- Swift 6: Fixed crash in VideoView with .v6 language mode
+- Swift 6: Fixed warnings in VideoView and SwiftUIVideoView
+
 ## [2.4.0] - 2025-03-21
 
 ### Added

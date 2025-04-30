@@ -661,7 +661,7 @@ struct Livekit_AddTrackRequest: Sendable {
   /// if not specified, server will infer it from track source to bundle camera/microphone, screenshare/audio together
   var stream: String = String()
 
-  var backupCodecPolicy: Livekit_BackupCodecPolicy = .regression
+  var backupCodecPolicy: Livekit_BackupCodecPolicy = .preferRegression
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -2521,7 +2521,7 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
     if !self.stream.isEmpty {
       try visitor.visitSingularStringField(value: self.stream, fieldNumber: 15)
     }
-    if self.backupCodecPolicy != .regression {
+    if self.backupCodecPolicy != .preferRegression {
       try visitor.visitSingularEnumField(value: self.backupCodecPolicy, fieldNumber: 16)
     }
     try unknownFields.traverse(visitor: &visitor)
