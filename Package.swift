@@ -47,7 +47,6 @@ let package = Package(
             ],
             resources: [
                 .process("PrivacyInfo.xcprivacy"),
-                .process("Metal"),
             ]
         ),
         .testTarget(

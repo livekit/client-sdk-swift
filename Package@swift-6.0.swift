@@ -49,7 +49,6 @@ let package = Package(
             ],
             resources: [
                 .process("PrivacyInfo.xcprivacy"),
-                .process("Metal"),
             ],
             swiftSettings: [
                 .enableExperimentalFeature("AccessLevelOnImport"),
