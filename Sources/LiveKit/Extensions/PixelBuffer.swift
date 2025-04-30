@@ -44,6 +44,19 @@ public extension CVPixelBuffer {
             return pixelBuffer
         }
     }
+
+    static func metal(width: Int, height: Int) -> CVPixelBuffer? {
+        let attributes = [
+            kCVPixelBufferMetalCompatibilityKey: kCFBooleanTrue as Any,
+            kCVPixelBufferIOSurfacePropertiesKey: [:] as Any,
+        ] as CFDictionary
+
+        var pixelBuffer: CVPixelBuffer?
+        let result = CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA, attributes, &pixelBuffer)
+        guard result == kCVReturnSuccess else { return nil }
+
+        return pixelBuffer
+    }
 }
 
 public extension CMSampleBuffer {
