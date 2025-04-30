@@ -20,8 +20,6 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-typealias DebouncFunc = () -> Void
-
 enum OS {
     case macOS
     case iOS

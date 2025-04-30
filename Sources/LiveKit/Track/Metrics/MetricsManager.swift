@@ -54,7 +54,7 @@ extension MetricsManager: TrackDelegate {
 
 /// An actor that converts track statistics into metrics and sends them to the server as data packets.
 actor MetricsManager: Loggable {
-    private typealias Transport = (Livekit_DataPacket) async throws -> Void
+    private typealias Transport = @Sendable (Livekit_DataPacket) async throws -> Void
     private struct TrackProperties {
         let identity: LocalParticipant.Identity?
         let transport: Transport

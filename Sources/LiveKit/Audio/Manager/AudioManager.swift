@@ -39,9 +39,9 @@ public class AudioManager: Loggable {
         _ = shared
     }
 
-    public typealias OnDevicesDidUpdate = (_ audioManager: AudioManager) -> Void
+    public typealias OnDevicesDidUpdate = @Sendable (_ audioManager: AudioManager) -> Void
 
-    public typealias OnSpeechActivity = (_ audioManager: AudioManager, _ event: SpeechActivityEvent) -> Void
+    public typealias OnSpeechActivity = @Sendable (_ audioManager: AudioManager, _ event: SpeechActivityEvent) -> Void
 
     #if os(iOS) || os(visionOS) || os(tvOS)
 
