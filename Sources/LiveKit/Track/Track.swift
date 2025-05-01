@@ -220,10 +220,6 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         await _resumeOrSuspendStatisticsTimer()
     }
 
-    func set(trackState: TrackState) {
-        _state.mutate { $0.trackState = trackState }
-    }
-
     // Intended for child class to override
     func startCapture() async throws {}
 
