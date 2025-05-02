@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 // Invoked on WebRTC's worker thread, do not block.
-class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate {
+class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate, Loggable {
     weak var audioManager: AudioManager?
 
     func audioDeviceModule(_: LKRTCAudioDeviceModule, didReceiveSpeechActivityEvent speechActivityEvent: RTCSpeechActivityEvent) {
@@ -47,7 +47,19 @@ class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate
     func audioDeviceModule(_: LKRTCAudioDeviceModule, willEnableEngine engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
         guard let audioManager else { return 0 }
         let entryPoint = audioManager.buildEngineObserverChain()
-        return entryPoint?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
+        let result = entryPoint?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
+
+        if isRecordingEnabled {
+            // At this point mic perms / session should be configured for recording.
+            #if os(macOS)
+            // This will block WebRTC's worker thread, but when instantiating AVAudioInput node it will block by showing a dialog anyways.
+            // Attempt to acquire mic perms at this point to return an error at SDK level.
+            let status = LiveKitSDK.ensureDeviceAccessSync(for: [.audio])
+            log("Ensure device access result: \(status)")
+            #endif
+        }
+
+        return result
     }
 
     func audioDeviceModule(_: LKRTCAudioDeviceModule, willStartEngine engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
