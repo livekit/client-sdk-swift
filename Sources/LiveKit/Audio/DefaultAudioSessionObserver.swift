@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-let kFailedToConfigureAudioSessionErrorCode = -4100
-
 #if os(iOS) || os(visionOS) || os(tvOS)
 
 import AVFoundation
@@ -83,7 +81,7 @@ public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchec
             } catch {
                 log("AudioSession failed to configure with error: \(error)", .error)
                 // Pass error code to audio engine
-                return kFailedToConfigureAudioSessionErrorCode
+                return kAudioEngineErrorFailedToConfigureAudioSession
             }
 
             log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
