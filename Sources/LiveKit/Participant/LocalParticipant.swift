@@ -225,6 +225,14 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         return didUpdate
     }
 
+    override public func isMicrophoneEnabled() -> Bool {
+        if let room = _room, room.preConnectBuffer.recorder.isRecording {
+            return true
+        } else {
+            return super.isMicrophoneEnabled()
+        }
+    }
+
     // MARK: - Broadcast Activation
 
     #if os(iOS)
