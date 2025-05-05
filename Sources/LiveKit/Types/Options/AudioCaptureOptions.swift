@@ -117,7 +117,7 @@ extension AudioCaptureOptions {
             echoCancellation ? .tfEchoCancellation : nil,
             noiseSuppression ? .tfNoiseSuppression : nil,
             autoGainControl ? .tfAutoGainControl : nil,
-            // TODO: Handle
+            preConnect ? .tfPreconnectBuffer : nil,
         ].compactMap { $0 })
     }
 }
