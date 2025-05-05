@@ -122,9 +122,8 @@ extension PreConnectAudioBuffer: RoomDelegate {
     ///   - topic: The topic to send the audio data.
     @objc
     public func sendAudioData(to room: Room, track: Track.Sid, on topic: String = dataTopic) async throws {
-        defer {
-            room.remove(delegate: self)
-        }
+        let agentIdentities = room.remoteParticipants.filter { _, value in value.kind == .agent }.map(\.key)
+        guard !agentIdentities.isEmpty else { return }
 
         guard let audioStream = state.audioStream else {
             throw LiveKitError(.invalidState, message: "Audio stream is nil")
@@ -135,7 +134,10 @@ extension PreConnectAudioBuffer: RoomDelegate {
             throw LiveKitError(.unknown, message: "Audio data size too small, nothing to send")
         }
 
-        let agentIdentities = room.remoteParticipants.filter { _, value in value.kind == .agent }.map(\.key)
+        defer {
+            room.remove(delegate: self)
+        }
+
         let streamOptions = StreamByteOptions(
             topic: topic,
             attributes: [
