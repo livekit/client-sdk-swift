@@ -66,14 +66,15 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
     ///   - timeout: The timeout for the remote participant to subscribe to the audio track.
     @objc
     public func startRecording(timeout: TimeInterval = 10) async throws {
-        room?.add(delegate: self)
-        state.mutate { $0.timeout = timeout }
-
         let stream = try await recorder.start()
         log("Started capturing audio", .info)
+
         state.mutate { state in
             state.audioStream = stream
+            state.timeout = timeout
         }
+
+        room?.add(delegate: self)
     }
 
     /// Stop capturing audio.
@@ -85,6 +86,7 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
 
         recorder.stop()
         log("Stopped capturing audio", .info)
+
         if flush, let stream = state.audioStream {
             Task {
                 for await _ in stream {}
@@ -129,8 +131,8 @@ extension PreConnectAudioBuffer: RoomDelegate {
         }
 
         let audioData = try await audioStream.collect()
-        guard !audioData.isEmpty else {
-            throw LiveKitError(.invalidState, message: "No audio data to send")
+        guard audioData.count > 1024 else {
+            throw LiveKitError(.unknown, message: "Audio data size too small, nothing to send")
         }
 
         let agentIdentities = room.remoteParticipants.filter { _, value in value.kind == .agent }.map(\.key)
