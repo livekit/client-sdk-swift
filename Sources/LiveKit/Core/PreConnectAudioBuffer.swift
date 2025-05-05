@@ -85,7 +85,7 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
         guard recorder.isRecording else { return }
 
         recorder.stop()
-        log("Stopped capturing audio", .info)
+        log(flush ? "Flushing audio stream, no subscribers" : "Stopped capturing audio", .info)
 
         if flush, let stream = state.audioStream {
             Task {
@@ -148,6 +148,6 @@ extension PreConnectAudioBuffer: RoomDelegate {
         let writer = try await room.localParticipant.streamBytes(options: streamOptions)
         try await writer.write(audioData)
         try await writer.close()
-        log("Sent audio data", .info)
+        log("Sent \(audioData.count / 1024) KB of audio data to \(agentIdentities.count) agent(s) ", .info)
     }
 }

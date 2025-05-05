@@ -354,13 +354,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         let enableMicrophone = _state.connectOptions.enableMicrophone
         log("Concurrent enable microphone mode: \(enableMicrophone)")
 
-        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? =
+        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = {
             if preConnectBuffer.recorder.isRecording {
-                Task {
+                return Task {
                     preConnectBuffer.recorder.track
                 }
             } else if enableMicrophone {
-                Task {
+                return Task {
                     let localTrack = LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
                                                                  reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
                     // Initializes AudioDeviceModule's recording
@@ -368,8 +368,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                     return localTrack
                 }
             } else {
-                nil
+                return nil
             }
+        }()
 
         do {
             try await fullConnectSequence(url, token)
