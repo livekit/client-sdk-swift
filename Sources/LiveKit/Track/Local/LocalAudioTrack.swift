@@ -27,6 +27,7 @@ internal import LiveKitWebRTC
 public class LocalAudioTrack: Track, LocalTrack, AudioTrack, @unchecked Sendable {
     /// ``AudioCaptureOptions`` used to create this track.
     let captureOptions: AudioCaptureOptions
+    let frameWatcher = AudioFrameWatcher()
 
     init(name: String,
          source: Track.Source,
@@ -41,6 +42,13 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack, @unchecked Sendable
                    source: source,
                    track: track,
                    reportStatistics: reportStatistics)
+
+        // Listen for frames
+        add(audioRenderer: frameWatcher)
+    }
+
+    deinit {
+        remove(audioRenderer: frameWatcher)
     }
 
     public static func createTrack(name: String = Track.microphoneName,
@@ -93,6 +101,10 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack, @unchecked Sendable
             throw error
         }
     }
+
+    override func stopCapture() async throws {
+        frameWatcher.reset()
+    }
 }
 
 public extension LocalAudioTrack {
@@ -107,5 +119,25 @@ public extension LocalAudioTrack {
 
     func remove(audioRenderer: AudioRenderer) {
         AudioManager.shared.remove(localAudioRenderer: audioRenderer)
+    }
+}
+
+// MARK: - Internal
+
+final class AudioFrameWatcher: AudioRenderer, Loggable {
+    private let completer = AsyncCompleter<Void>(label: "Frame watcher", defaultTimeout: 5)
+
+    func wait() async throws {
+        try await completer.wait()
+    }
+
+    func reset() {
+        completer.reset()
+    }
+
+    // MARK: - AudioRenderer
+
+    func render(pcmBuffer _: AVAudioPCMBuffer) {
+        completer.resume(returning: ())
     }
 }

@@ -687,6 +687,12 @@ private extension LocalParticipant {
                 }
             }()
 
+            // At this point at least 1 audio frame should be generated to continue
+            if let track = track as? LocalAudioTrack {
+                log("[Publish] Waiting for audio frame...")
+                try await track.frameWatcher.wait()
+            }
+
             if track is LocalVideoTrack {
                 if let firstCodecMime = trackInfo.codecs.first?.mimeType,
                    let firstVideoCodec = VideoCodec.from(mimeType: firstCodecMime)
