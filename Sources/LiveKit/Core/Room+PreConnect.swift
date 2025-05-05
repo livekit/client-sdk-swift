@@ -28,4 +28,12 @@ public extension Room {
     func startCapturingBeforeConnecting(timeout: TimeInterval = 10) async throws {
         try await preConnectBuffer.startRecording(timeout: timeout)
     }
+
+    /// Explicitly stop capturing pre-connect audio.
+    /// - Parameters:
+    ///   - flush: If `true`, the audio stream will be flushed immediately without sending.
+    /// - Note: Use ``Room/startCapturingBeforeConnecting(timeout:)`` with a timeout to automatically stop capturing.
+    func stopCapturingBeforeConnecting(flush: Bool = false) {
+        preConnectBuffer.stopRecording(flush: flush)
+    }
 }
