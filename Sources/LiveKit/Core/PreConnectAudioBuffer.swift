@@ -20,14 +20,14 @@ import Foundation
 /// A buffer that captures audio before connecting to the server,
 /// and sends it on certain ``RoomDelegate`` events.
 @objc
-public final class PreConnectAudioBuffer: NSObject, Loggable {
+public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     /// The default data topic used to send the audio buffer.
     @objc
     public static let dataTopic = "lk.agent.pre-connect-audio-buffer"
 
     /// The room instance to listen for events.
     @objc
-    public let room: Room?
+    public var room: Room? { state.room }
 
     /// The audio recorder instance.
     @objc
@@ -35,6 +35,7 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
 
     private let state = StateSync<State>(State())
     private struct State {
+        weak var room: Room?
         var audioStream: LocalAudioTrackRecorder.Stream?
         var timeout: TimeInterval = 10
     }
@@ -44,7 +45,8 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
     ///   - room: The room instance to listen for events.
     @objc
     public init(room: Room?) {
-        self.room = room
+        state.mutate { $0.room = room }
+
         let roomOptions = room?._state.roomOptions
         recorder = LocalAudioTrackRecorder(
             track: LocalAudioTrack.createTrack(options: roomOptions?.defaultAudioCaptureOptions.withPreConnect(),
@@ -53,6 +55,7 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
             sampleRate: 24000, // supported by agent plugins
             maxSize: 10 * 1024 * 1024 // arbitrary max recording size of 10MB
         )
+
         super.init()
     }
 
