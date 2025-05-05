@@ -104,11 +104,11 @@ extension PreConnectAudioBuffer: RoomDelegate {
         }
     }
 
-    public func room(_ room: Room, participant _: LocalParticipant, remoteDidSubscribeTrack _: LocalTrackPublication) {
+    public func room(_ room: Room, participant _: LocalParticipant, remoteDidSubscribeTrack publication: LocalTrackPublication) {
         stopRecording()
         Task {
             do {
-                try await sendAudioData(to: room)
+                try await sendAudioData(to: room, track: publication.sid)
             } catch {
                 log("Unable to send audio: \(error)", .error)
             }
@@ -120,7 +120,7 @@ extension PreConnectAudioBuffer: RoomDelegate {
     ///   - room: The room instance to send the audio data.
     ///   - topic: The topic to send the audio data.
     @objc
-    public func sendAudioData(to room: Room, on topic: String = dataTopic) async throws {
+    public func sendAudioData(to room: Room, track: Track.Sid, on topic: String = dataTopic) async throws {
         guard let audioStream = state.audioStream else {
             throw LiveKitError(.invalidState, message: "Audio stream is nil")
         }
@@ -131,6 +131,7 @@ extension PreConnectAudioBuffer: RoomDelegate {
             attributes: [
                 "sampleRate": "\(recorder.sampleRate)",
                 "channels": "\(recorder.channels)",
+                "trackId": track.stringValue,
             ],
             destinationIdentities: agentIdentities
         )
