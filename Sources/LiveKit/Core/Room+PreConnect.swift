@@ -21,9 +21,11 @@ public extension Room {
     /// so that it's not lost when the connection is established.
     /// It will be automatically sent via data stream to the other participant
     /// using the `PreConnectAudioBuffer.dataTopic` when the local track is subscribed.
+    /// - Parameters:
+    ///   - timeout: The timeout for the remote participant to subscribe to the audio track.
     /// - See: ``PreConnectAudioBuffer``
     /// - Note: Use ``AudioManager/setRecordingAlwaysPreparedMode(_:)`` to request microphone permissions early.
-    func startCapturingBeforeConnecting() async throws {
-        try await preConnectBuffer.startRecording()
+    func startCapturingBeforeConnecting(timeout: TimeInterval = 10) async throws {
+        try await preConnectBuffer.startRecording(timeout: timeout)
     }
 }

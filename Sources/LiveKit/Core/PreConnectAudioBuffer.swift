@@ -33,22 +33,17 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
     @objc
     public let recorder: LocalAudioTrackRecorder
 
-    /// The timeout for the remote participant to subscribe to the audio track.
-    /// If the remote participant does not subscribe to the audio track within this time, the audio buffer will be flushed.
-    @objc
-    public let timeout: TimeInterval
-
     private let state = StateSync<State>(State())
     private struct State {
         var audioStream: LocalAudioTrackRecorder.Stream?
+        var timeout: TimeInterval = 10
     }
 
     /// Initialize the audio buffer with a room instance.
     /// - Parameters:
     ///   - room: The room instance to listen for events.
-    ///   - recorder: The audio recorder to use for capturing.
     @objc
-    public init(room: Room?, timeout: TimeInterval = 5) {
+    public init(room: Room?) {
         self.room = room
         let roomOptions = room?._state.roomOptions
         recorder = LocalAudioTrackRecorder(
@@ -58,7 +53,6 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
             sampleRate: 24000, // supported by agent plugins
             maxSize: 10 * 1024 * 1024 // arbitrary max recording size of 10MB
         )
-        self.timeout = timeout
         super.init()
     }
 
@@ -68,9 +62,12 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
     }
 
     /// Start capturing audio and listening to ``RoomDelegate`` events.
+    /// - Parameters:
+    ///   - timeout: The timeout for the remote participant to subscribe to the audio track.
     @objc
-    public func startRecording() async throws {
+    public func startRecording(timeout: TimeInterval = 10) async throws {
         room?.add(delegate: self)
+        state.mutate { $0.timeout = timeout }
 
         let stream = try await recorder.start()
         log("Started capturing audio", .info)
@@ -84,6 +81,8 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
     ///   - flush: If `true`, the audio stream will be flushed immediately without sending.
     @objc
     public func stopRecording(flush: Bool = false) {
+        guard recorder.isRecording else { return }
+
         recorder.stop()
         log("Stopped capturing audio", .info)
         if flush, let stream = state.audioStream {
@@ -99,7 +98,7 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
 extension PreConnectAudioBuffer: RoomDelegate {
     public func roomDidConnect(_: Room) {
         Task {
-            try? await Task.sleep(nanoseconds: UInt64(timeout) * NSEC_PER_SEC)
+            try? await Task.sleep(nanoseconds: UInt64(state.timeout) * NSEC_PER_SEC)
             stopRecording(flush: true)
         }
     }
@@ -121,8 +120,17 @@ extension PreConnectAudioBuffer: RoomDelegate {
     ///   - topic: The topic to send the audio data.
     @objc
     public func sendAudioData(to room: Room, track: Track.Sid, on topic: String = dataTopic) async throws {
+        defer {
+            room.remove(delegate: self)
+        }
+
         guard let audioStream = state.audioStream else {
             throw LiveKitError(.invalidState, message: "Audio stream is nil")
+        }
+
+        let audioData = try await audioStream.collect()
+        guard !audioData.isEmpty else {
+            throw LiveKitError(.invalidState, message: "No audio data to send")
         }
 
         let agentIdentities = room.remoteParticipants.filter { _, value in value.kind == .agent }.map(\.key)
@@ -136,10 +144,8 @@ extension PreConnectAudioBuffer: RoomDelegate {
             destinationIdentities: agentIdentities
         )
         let writer = try await room.localParticipant.streamBytes(options: streamOptions)
-        try await writer.write(audioStream.collect())
+        try await writer.write(audioData)
         try await writer.close()
         log("Sent audio data", .info)
-
-        room.remove(delegate: self)
     }
 }
