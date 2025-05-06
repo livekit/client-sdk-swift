@@ -158,6 +158,6 @@ extension PreConnectAudioBuffer: RoomDelegate {
         let writer = try await room.localParticipant.streamBytes(options: streamOptions)
         try await writer.write(audioData)
         try await writer.close()
-        log("Sent \(audioData.count / 1024) KB of audio data to \(agentIdentities.count) agent(s) ", .info)
+        log("Sent \(recorder.duration(audioData.count))s = \(audioData.count / 1024)KB of audio data to \(agentIdentities.count) agent(s) ", .info)
     }
 }

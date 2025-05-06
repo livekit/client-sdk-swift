@@ -100,6 +100,12 @@ public final class LocalAudioTrackRecorder: NSObject, Sendable, AudioRenderer {
     public func stop() {
         state.continuation?.finish()
     }
+
+    func duration(_ dataSize: Int) -> TimeInterval {
+        let totalSamples = dataSize / format.bytesPerSample
+        let samplesPerChannel = totalSamples / channels
+        return Double(samplesPerChannel) / Double(sampleRate)
+    }
 }
 
 // MARK: - AudioRenderer
