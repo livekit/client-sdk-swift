@@ -88,9 +88,10 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         guard recorder.isRecording else { return }
 
         recorder.stop()
-        log(flush ? "Flushing audio stream, no subscribers" : "Stopped capturing audio", .info)
+        log("Stopped capturing audio", .info)
 
         if flush, let stream = state.audioStream {
+            log("Flushing audio stream", .info)
             Task {
                 for await _ in stream {}
             }
@@ -109,6 +110,10 @@ extension PreConnectAudioBuffer: RoomDelegate {
     }
 
     public func room(_ room: Room, participant _: LocalParticipant, remoteDidSubscribeTrack publication: LocalTrackPublication) {
+        guard let trackFeatures = publication._state.audioTrackFeatures, trackFeatures.contains(.tfPreconnectBuffer) else {
+            log("No preconnectBuffer feature set for track: \(publication.sid)", .info)
+            return
+        }
         stopRecording()
         Task {
             do {
