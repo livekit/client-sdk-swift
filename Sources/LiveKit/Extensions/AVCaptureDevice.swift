@@ -38,8 +38,12 @@ public extension AVCaptureDevice {
 public extension Collection where Element: AVCaptureDevice {
     /// Helper extension to return only a single suggested device for each position.
     func singleDeviceforEachPosition() -> [AVCaptureDevice] {
+        #if os(macOS)
+        return Array(self) // no-op, allows external webcams
+        #else
         let front = first { $0.facingPosition == .front }
         let back = first { $0.facingPosition == .back }
         return [front, back].compactMap { $0 }
+        #endif
     }
 }
