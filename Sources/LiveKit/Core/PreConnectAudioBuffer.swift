@@ -49,7 +49,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
 
         let roomOptions = room?._state.roomOptions
         recorder = LocalAudioTrackRecorder(
-            track: LocalAudioTrack.createTrack(options: roomOptions?.defaultAudioCaptureOptions.withPreConnect(),
+            track: LocalAudioTrack.createTrack(options: roomOptions?.defaultAudioCaptureOptions,
                                                reportStatistics: roomOptions?.reportRemoteTrackStatistics ?? false),
             format: .pcmFormatInt16, // supported by agent plugins
             sampleRate: 24000, // supported by agent plugins
@@ -110,10 +110,6 @@ extension PreConnectAudioBuffer: RoomDelegate {
     }
 
     public func room(_ room: Room, participant _: LocalParticipant, remoteDidSubscribeTrack publication: LocalTrackPublication) {
-        guard let trackFeatures = publication._state.audioTrackFeatures, trackFeatures.contains(.tfPreconnectBuffer) else {
-            log("No preconnectBuffer feature set for track: \(publication.sid)", .info)
-            return
-        }
         stopRecording()
         Task {
             do {

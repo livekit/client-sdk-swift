@@ -507,9 +507,9 @@ extension [Livekit_SubscribedQuality] {
 
 // MARK: - Private
 
-private extension LocalParticipant {
+extension LocalParticipant {
     @discardableResult
-    internal func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
+    func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
         try checkPermissions(toPublish: track)
@@ -618,6 +618,7 @@ private extension LocalParticipant {
                 populatorFunc = { populator in
                     populator.disableDtx = !audioPublishOptions.dtx
                     populator.disableRed = !audioPublishOptions.red
+                    populator.audioFeatures = Array(audioPublishOptions.toFeatures())
 
                     if let streamName = options?.streamName {
                         // Set stream name if specified in options

@@ -67,23 +67,18 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
     @objc
     public let typingNoiseDetection: Bool
 
-    @objc
-    public let preConnect: Bool
-
     public init(
         echoCancellation: Bool = AudioCaptureOptions.defaultEchoCancellation,
         autoGainControl: Bool = AudioCaptureOptions.defaultAutoGainControl,
         noiseSuppression: Bool = AudioCaptureOptions.defaultNoiseSuppression,
         highpassFilter: Bool = false,
-        typingNoiseDetection: Bool = false,
-        preConnect: Bool = false
+        typingNoiseDetection: Bool = false
     ) {
         self.echoCancellation = echoCancellation
         self.noiseSuppression = noiseSuppression
         self.autoGainControl = autoGainControl
         self.typingNoiseDetection = typingNoiseDetection
         self.highpassFilter = highpassFilter
-        self.preConnect = preConnect
     }
 
     // MARK: - Equatable
@@ -94,8 +89,7 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
             noiseSuppression == other.noiseSuppression &&
             autoGainControl == other.autoGainControl &&
             typingNoiseDetection == other.typingNoiseDetection &&
-            highpassFilter == other.highpassFilter &&
-            preConnect == other.preConnect
+            highpassFilter == other.highpassFilter
     }
 
     override public var hash: Int {
@@ -105,7 +99,6 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
         hasher.combine(autoGainControl)
         hasher.combine(typingNoiseDetection)
         hasher.combine(highpassFilter)
-        hasher.combine(preConnect)
         return hasher.finalize()
     }
 }
@@ -117,20 +110,6 @@ extension AudioCaptureOptions {
             echoCancellation ? .tfEchoCancellation : nil,
             noiseSuppression ? .tfNoiseSuppression : nil,
             autoGainControl ? .tfAutoGainControl : nil,
-            preConnect ? .tfPreconnectBuffer : nil,
         ].compactMap { $0 })
-    }
-}
-
-extension AudioCaptureOptions {
-    func withPreConnect() -> AudioCaptureOptions {
-        AudioCaptureOptions(
-            echoCancellation: echoCancellation,
-            autoGainControl: autoGainControl,
-            noiseSuppression: noiseSuppression,
-            highpassFilter: highpassFilter,
-            typingNoiseDetection: typingNoiseDetection,
-            preConnect: true
-        )
     }
 }

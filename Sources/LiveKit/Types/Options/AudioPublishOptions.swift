@@ -34,17 +34,22 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
     @objc
     public let streamName: String?
 
+    @objc
+    public let preConnect: Bool
+
     public init(name: String? = nil,
                 encoding: AudioEncoding? = nil,
                 dtx: Bool = true,
                 red: Bool = true,
-                streamName: String? = nil)
+                streamName: String? = nil,
+                preConnect: Bool = false)
     {
         self.name = name
         self.encoding = encoding
         self.dtx = dtx
         self.red = red
         self.streamName = streamName
+        self.preConnect = preConnect
     }
 
     // MARK: - Equal
@@ -55,7 +60,8 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
             encoding == other.encoding &&
             dtx == other.dtx &&
             red == other.red &&
-            streamName == other.streamName
+            streamName == other.streamName &&
+            preConnect == other.preConnect
     }
 
     override public var hash: Int {
@@ -65,6 +71,7 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
         hasher.combine(dtx)
         hasher.combine(red)
         hasher.combine(streamName)
+        hasher.combine(preConnect)
         return hasher.finalize()
     }
 }
@@ -74,6 +81,20 @@ extension AudioPublishOptions {
     func toFeatures() -> Set<Livekit_AudioTrackFeature> {
         Set([
             !dtx ? .tfNoDtx : nil,
+            preConnect ? .tfPreconnectBuffer : nil,
         ].compactMap { $0 })
+    }
+}
+
+extension AudioPublishOptions {
+    func withPreconnect() -> AudioPublishOptions {
+        AudioPublishOptions(
+            name: name,
+            encoding: encoding,
+            dtx: dtx,
+            red: red,
+            streamName: streamName,
+            preConnect: true
+        )
     }
 }
