@@ -447,10 +447,6 @@ extension Room {
             e2eeManager.cleanUp()
         }
 
-        if disconnectError != nil {
-            preConnectBuffer.stopRecording(flush: true)
-        }
-
         // Reset state
         _state.mutate {
             // if isFullReconnect, keep connection related states

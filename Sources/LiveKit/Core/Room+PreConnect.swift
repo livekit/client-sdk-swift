@@ -17,23 +17,43 @@
 import Foundation
 
 public extension Room {
-    /// Start capturing audio before connecting to the server,
-    /// so that it's not lost when the connection is established.
-    /// It will be automatically sent via data stream to the other participant
-    /// using the `PreConnectAudioBuffer.dataTopic` when the local track is subscribed.
+    /// Starts a pre-connect audio sequence that will automatically be cleaned up
+    /// when the operation fails.
+    ///
     /// - Parameters:
     ///   - timeout: The timeout for the remote participant to subscribe to the audio track.
+    ///   - operation: The operation to perform while audio is being captured.
+    /// - Returns: The result of the operation.
+    ///
+    /// - Example:
+    /// ```swift
+    /// try await room.withPreConnectAudio {
+    ///   // Perform any other (async) setup...
+    ///   guard let connectionDetails = try await tokenService.fetchConnectionDetails(roomName: roomName, participantName: participantName) else {
+    ///     return
+    ///   }
+    ///   try await room.connect(url: connectionDetails.serverUrl, token: connectionDetails.participantToken)
+    /// }
+    /// ```
+    ///
     /// - See: ``PreConnectAudioBuffer``
-    /// - Note: Use ``AudioManager/setRecordingAlwaysPreparedMode(_:)`` to request microphone permissions early.
-    func startCapturingBeforeConnecting(timeout: TimeInterval = 10) async throws {
+    /// - Important: Call ``AudioManager/setRecordingAlwaysPreparedMode(_:)`` during app launch sequence to request microphone permissions early.
+    ///
+    func withPreConnectAudio<T>(timeout: TimeInterval = 10,
+                                _ operation: @Sendable @escaping () async throws -> T) async throws -> T
+    {
         try await preConnectBuffer.startRecording(timeout: timeout)
+
+        do {
+            return try await operation()
+        } catch {
+            preConnectBuffer.stopRecording(flush: true)
+            throw error
+        }
     }
 
-    /// Explicitly stop capturing pre-connect audio.
-    /// - Parameters:
-    ///   - flush: If `true`, the audio stream will be flushed immediately without sending.
-    /// - Note: Use ``Room/startCapturingBeforeConnecting(timeout:)`` with a timeout to automatically stop capturing.
-    func stopCapturingBeforeConnecting(flush: Bool = false) {
-        preConnectBuffer.stopRecording(flush: flush)
+    @available(*, deprecated, message: "Use withPreConnectAudio instead")
+    func startCapturingBeforeConnecting(timeout: TimeInterval = 10) async throws {
+        try await preConnectBuffer.startRecording(timeout: timeout)
     }
 }
