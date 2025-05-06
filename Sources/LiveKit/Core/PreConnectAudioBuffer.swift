@@ -43,12 +43,13 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     /// Initialize the audio buffer with a room instance.
     /// - Parameters:
     ///   - room: The room instance to listen for events.
+    ///   - recorder: The audio recorder instance to use.
     @objc
-    public init(room: Room?) {
+    public init(room: Room?, recorder: LocalAudioTrackRecorder? = nil) {
         state.mutate { $0.room = room }
 
         let roomOptions = room?._state.roomOptions
-        recorder = LocalAudioTrackRecorder(
+        self.recorder = recorder ?? LocalAudioTrackRecorder(
             track: LocalAudioTrack.createTrack(options: roomOptions?.defaultAudioCaptureOptions,
                                                reportStatistics: roomOptions?.reportRemoteTrackStatistics ?? false),
             format: .pcmFormatInt16, // supported by agent plugins
