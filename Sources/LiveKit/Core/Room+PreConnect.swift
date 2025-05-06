@@ -28,7 +28,8 @@ public extension Room {
     /// - Example:
     /// ```swift
     /// try await room.withPreConnectAudio {
-    ///   // Perform any other (async) setup...
+    ///   // Audio is being captured automatically
+    ///   // Perform any other (async) setup here
     ///   guard let connectionDetails = try await tokenService.fetchConnectionDetails(roomName: roomName, participantName: participantName) else {
     ///     return
     ///   }
