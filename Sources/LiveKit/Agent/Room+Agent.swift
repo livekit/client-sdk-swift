@@ -20,6 +20,7 @@ let publishOnBehalfAttributeKey = "lk.publish_on_behalf"
 
 public extension Room {
     /// All agent participants in the Room
+    @objc
     var agentParticipants: [Participant.Identity: RemoteParticipant] {
         // Filter out agents that are replaced by another agent e.g. avatar worker
         let onBehalfIdentities = Set(remoteParticipants.compactMap {
@@ -31,6 +32,7 @@ public extension Room {
     }
 
     /// The first agent participant in the Room
+    @objc
     var agentParticipant: Participant? {
         agentParticipants.values.first
     }
