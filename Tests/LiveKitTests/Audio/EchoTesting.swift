@@ -19,21 +19,6 @@
 import LiveKitWebRTC
 import XCTest
 
-struct EchoTesterCase {
-    let title: String
-    let appleVp: Bool
-    let captureOptions: AudioCaptureOptions?
-}
-
-struct EchoTestResult: CustomStringConvertible {
-    let vad: Int
-    let peak: Float
-
-    var description: String {
-        "VAD: \(vad), Peak: \(peak)"
-    }
-}
-
 class EchoTests: LKTestCase {
     static let startTest = "start_test"
     static let stopTest = "stop_test"
@@ -41,9 +26,50 @@ class EchoTests: LKTestCase {
     static let peakKey = "lk.peak" // Peak level of the far-end signal
     static let vadKey = "lk.vad" // Number of speech events in the far-end signal
 
-    func runEchoAgent(testCase: EchoTesterCase) async throws -> EchoTestResult {
+    struct TestCase {
+        let title: String
+        let enableAppleVp: Bool
+        let captureOptions: AudioCaptureOptions?
+    }
+
+    struct TestResult: CustomStringConvertible {
+        let vadCount: Int
+        let maxPeak: Float
+
+        var description: String {
+            "VAD: \(vadCount), Peak: \(maxPeak)"
+        }
+    }
+
+    // Actor to safely manage state across concurrent contexts
+    actor TestStateActor {
+        private(set) var vadResult: Int = 0
+        private(set) var peakResult: Float = -120.0
+
+        func updateVad(_ newValue: Int) {
+            if newValue > vadResult {
+                print("Updating VAD \(vadResult) -> \(newValue)")
+                vadResult = newValue
+            }
+        }
+
+        func updatePeak(_ newValue: Float) {
+            if newValue > peakResult {
+                print("Updating PEAK \(peakResult) -> \(newValue)")
+                peakResult = newValue
+            }
+        }
+
+        func getResults() -> TestResult {
+            TestResult(vadCount: vadResult, maxPeak: peakResult)
+        }
+    }
+
+    func runEchoAgent(testCase: TestCase) async throws -> TestResult {
         // No-VP
-        try! AudioManager.shared.setVoiceProcessingEnabled(testCase.appleVp)
+        try! AudioManager.shared.setVoiceProcessingEnabled(testCase.enableAppleVp)
+        // Bypass VP
+        AudioManager.shared.isVoiceProcessingBypassed = !testCase.enableAppleVp
 
         return try await withRooms([RoomTestingOptions(canPublish: true, canPublishData: true, canSubscribe: true)]) { rooms in
             // Alias to Room
@@ -60,31 +86,37 @@ class EchoTests: LKTestCase {
                 fatalError()
             }
 
-            var vadResult = 0
-            try await room1.registerTextStreamHandler(for: Self.vadKey) { reader, _ in
+            let state = TestStateActor()
+
+            try await room1.registerTextStreamHandler(for: Self.vadKey) { [state] reader, _ in
                 let resultString = try await reader.readAll()
-                let result = Int(resultString) ?? 0
-                if result > vadResult {
-                    print("VAD \(vadResult) -> \(result)")
-                    vadResult = result
-                }
+                guard let result = Int(resultString) else { return }
+                await state.updateVad(result)
             }
 
-            var peakResult: Float = 0
-            try await room1.registerTextStreamHandler(for: Self.peakKey) { reader, _ in
+            try await room1.registerTextStreamHandler(for: Self.peakKey) { [state] reader, _ in
                 let resultString = try await reader.readAll()
-                let result = Float(resultString) ?? 0
-                if result > peakResult {
-                    print("PEAK \(peakResult) -> \(result)")
-                    peakResult = result
-                }
+                guard let result = Float(resultString) else { return }
+                await state.updatePeak(result)
             }
 
             // Enable mic
             try await room1.localParticipant.setMicrophone(enabled: true, captureOptions: testCase.captureOptions)
 
-            // Bypass VP
-            // AudioManager.shared.isVoiceProcessingBypassed = true
+            // Sleep for 1 seconds...
+            try? await Task.sleep(nanoseconds: 1 * 1_000_000_000)
+
+            // Check Apple VP
+            XCTAssert(testCase.enableAppleVp == AudioManager.shared.isVoiceProcessingEnabled)
+            XCTAssert(testCase.enableAppleVp != AudioManager.shared.isVoiceProcessingBypassed)
+
+            // Check APM is enabled
+            let apmConfig = RTC.audioProcessingModule.config
+            print("APM Config: \(apmConfig.toDebugString()))")
+            XCTAssert((testCase.captureOptions?.echoCancellation ?? false) == apmConfig.isEchoCancellationEnabled)
+            XCTAssert((testCase.captureOptions?.autoGainControl ?? false) == apmConfig.isAutoGainControl1Enabled)
+            XCTAssert((testCase.captureOptions?.noiseSuppression ?? false) == apmConfig.isNoiseSuppressionEnabled)
+            XCTAssert((testCase.captureOptions?.highpassFilter ?? false) == apmConfig.isHighpassFilterEnabled)
 
             // Start test
             _ = try await room1.localParticipant.performRpc(destinationIdentity: agentIdentity, method: Self.startTest, payload: "")
@@ -92,22 +124,51 @@ class EchoTests: LKTestCase {
             // Sleep for 30 seconds...
             try? await Task.sleep(nanoseconds: 30 * 1_000_000_000)
 
-            return EchoTestResult(vad: vadResult, peak: peakResult)
+            // Stop test
+            _ = try await room1.localParticipant.performRpc(destinationIdentity: agentIdentity, method: Self.stopTest, payload: "")
+
+            // Get final results from the actor
+            return await state.getResults()
         }
     }
 
     func testEchoAgent() async throws {
+        let defaultTestCase = TestCase(title: "Default", enableAppleVp: true, captureOptions: nil)
+        let allCaptureOptions = AudioCaptureOptions(echoCancellation: true,
+                                                    autoGainControl: true,
+                                                    noiseSuppression: true,
+                                                    highpassFilter: true)
         let testCases = [
-            EchoTesterCase(title: "Default", appleVp: true, captureOptions: nil),
-            EchoTesterCase(title: "RTC VP Only", appleVp: false, captureOptions: AudioCaptureOptions(echoCancellation: true,
-                                                                                                     autoGainControl: true,
-                                                                                                     noiseSuppression: true,
-                                                                                                     highpassFilter: true)),
+            TestCase(title: "None", enableAppleVp: false, captureOptions: nil),
+            TestCase(title: "RTC VP Only", enableAppleVp: false, captureOptions: allCaptureOptions),
+            TestCase(title: "Both", enableAppleVp: true, captureOptions: allCaptureOptions),
         ]
 
+        // Run default test first
+        print("Running Default test case...")
+        let defaultResult = try await runEchoAgent(testCase: defaultTestCase)
+        print("Result: \(defaultTestCase.title) \(defaultResult)")
+
+        print("\n======= Test Results Summary =======")
+        print("Default: \(defaultResult)")
+
+        // Run other test cases and compare with default
         for testCase in testCases {
             let result = try await runEchoAgent(testCase: testCase)
             print("Result: \(testCase.title) \(result)")
+
+            let vadDiff = result.vadCount - defaultResult.vadCount
+            let peakDiff = result.maxPeak - defaultResult.maxPeak
+
+            print("\(testCase.title): \(result)")
+            print("  Compared to Default:")
+            print("  - VAD difference: \(vadDiff > 0 ? "+" : "")\(vadDiff) events")
+            print("  - Peak difference: \(peakDiff > 0 ? "+" : "")\(String(format: "%.2f", peakDiff)) dB")
+
+            // Optional basic analysis
+            let vadPercentChange = defaultResult.vadCount > 0 ? Float(vadDiff) / Float(defaultResult.vadCount) * 100 : 0
+            print("  - VAD % change: \(String(format: "%.1f", vadPercentChange))%")
         }
+        print("===================================")
     }
 }
