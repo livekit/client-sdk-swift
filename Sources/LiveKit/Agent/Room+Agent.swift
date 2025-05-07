@@ -19,19 +19,19 @@ import Foundation
 let publishOnBehalfAttributeKey = "lk.publish_on_behalf"
 
 public extension Room {
-    /// All agent participants in the Room
+    /// Returns a dictionary containing all agent participants.
     @objc
-    var agentParticipants: [Participant.Identity: RemoteParticipant] {
+    var agentParticipants: [Participant.Identity: Participant] {
         // Filter out agents that are replaced by another agent e.g. avatar worker
-        let onBehalfIdentities = Set(remoteParticipants.compactMap {
+        let onBehalfIdentities = Set(allParticipants.compactMap {
             $0.value.attributes[publishOnBehalfAttributeKey]
         })
-        return remoteParticipants.filter {
+        return allParticipants.filter {
             $0.value.isAgent && !onBehalfIdentities.contains($0.key.stringValue)
         }
     }
 
-    /// The first agent participant in the Room
+    /// Returns the first agent participant or `nil` if there are no agent participants.
     @objc
     var agentParticipant: Participant? {
         agentParticipants.values.first
