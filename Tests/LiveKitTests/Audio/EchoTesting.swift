@@ -33,11 +33,12 @@ class EchoTests: LKTestCase {
     }
 
     struct TestResult: CustomStringConvertible {
+        let testCase: TestCase
         let vadCount: Int
         let maxPeak: Float
 
         var description: String {
-            "VAD: \(vadCount), Peak: \(maxPeak)"
+            "\(testCase.title) VAD: \(vadCount), Peak: \(maxPeak)"
         }
     }
 
@@ -60,8 +61,8 @@ class EchoTests: LKTestCase {
             }
         }
 
-        func getResults() -> TestResult {
-            TestResult(vadCount: vadResult, maxPeak: peakResult)
+        func getResults(for testCase: TestCase) -> TestResult {
+            TestResult(testCase: testCase, vadCount: vadResult, maxPeak: peakResult)
         }
     }
 
@@ -128,7 +129,7 @@ class EchoTests: LKTestCase {
             _ = try await room1.localParticipant.performRpc(destinationIdentity: agentIdentity, method: Self.stopTest, payload: "")
 
             // Get final results from the actor
-            return await state.getResults()
+            return await state.getResults(for: testCase)
         }
     }
 
@@ -149,18 +150,26 @@ class EchoTests: LKTestCase {
         let defaultResult = try await runEchoAgent(testCase: defaultTestCase)
         print("Result: \(defaultTestCase.title) \(defaultResult)")
 
+        // Store results for each test case
+        var testResults: [TestResult] = []
+
+        // Run other test cases
+        for testCase in testCases {
+            print("Running \(testCase.title) test case...")
+            let result = try await runEchoAgent(testCase: testCase)
+            testResults.append(result)
+            print("Result: \(testCase.title) \(result)")
+        }
+
+        // Print summary after all tests have completed
         print("\n======= Test Results Summary =======")
         print("Default: \(defaultResult)")
 
-        // Run other test cases and compare with default
-        for testCase in testCases {
-            let result = try await runEchoAgent(testCase: testCase)
-            print("Result: \(testCase.title) \(result)")
-
+        for result in testResults {
             let vadDiff = result.vadCount - defaultResult.vadCount
             let peakDiff = result.maxPeak - defaultResult.maxPeak
 
-            print("\(testCase.title): \(result)")
+            print("\(result)")
             print("  Compared to Default:")
             print("  - VAD difference: \(vadDiff > 0 ? "+" : "")\(vadDiff) events")
             print("  - Peak difference: \(peakDiff > 0 ? "+" : "")\(String(format: "%.2f", peakDiff)) dB")
