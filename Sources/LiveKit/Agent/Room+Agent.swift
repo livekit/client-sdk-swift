@@ -26,4 +26,14 @@ public extension Room {
     var agentParticipant: RemoteParticipant? {
         agentParticipants.values.first
     }
+
+    /// All avatar workers in the Room
+    var avatarWorkers: [Participant.Identity: RemoteParticipant] {
+        remoteParticipants.filter { $0.value.isAgent && $0.value.isAvatarWorker }
+    }
+
+    /// The first avatar worker in the Room
+    var avatarWorker: RemoteParticipant? {
+        avatarWorkers.values.first
+    }
 }
