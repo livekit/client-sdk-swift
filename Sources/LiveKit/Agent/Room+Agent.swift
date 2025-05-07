@@ -22,8 +22,12 @@ public extension Room {
     /// All agent participants in the Room
     var agentParticipants: [Participant.Identity: RemoteParticipant] {
         // Filter out agents that are replaced by another agent e.g. avatar worker
-        let onBehalf = Set(remoteParticipants.map(\.value.attributes[publishOnBehalfAttributeKey]).compactMap { $0 })
-        return remoteParticipants.filter { $0.value.isAgent && !onBehalf.contains($0.key.stringValue) }
+        let onBehalfIdentities = Set(remoteParticipants.compactMap {
+            $0.value.attributes[publishOnBehalfAttributeKey]
+        })
+        return remoteParticipants.filter {
+            $0.value.isAgent && !onBehalfIdentities.contains($0.key.stringValue)
+        }
     }
 
     /// The first agent participant in the Room
