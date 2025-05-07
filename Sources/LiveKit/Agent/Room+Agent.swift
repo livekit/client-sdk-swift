@@ -16,24 +16,18 @@
 
 import Foundation
 
+let publishOnBehalfAttributeKey = "lk.publish_on_behalf"
+
 public extension Room {
-    /// All agent participants in the Room, excluding avatar workers
+    /// All agent participants in the Room
     var agentParticipants: [Participant.Identity: RemoteParticipant] {
-        remoteParticipants.filter { $0.value.isAgent && !$0.value.isAvatarWorker }
+        // Filter out agents that are replaced by another agent e.g. avatar worker
+        let onBehalf = Set(remoteParticipants.map(\.value.attributes[publishOnBehalfAttributeKey]).compactMap { $0 })
+        return remoteParticipants.filter { $0.value.isAgent && !onBehalf.contains($0.key.stringValue) }
     }
 
-    /// The first agent participant in the Room, excluding avatar workers
-    var agentParticipant: RemoteParticipant? {
+    /// The first agent participant in the Room
+    var agentParticipant: Participant? {
         agentParticipants.values.first
-    }
-
-    /// All avatar workers in the Room
-    var avatarWorkers: [Participant.Identity: RemoteParticipant] {
-        remoteParticipants.filter { $0.value.isAgent && $0.value.isAvatarWorker }
-    }
-
-    /// The first avatar worker in the Room
-    var avatarWorker: RemoteParticipant? {
-        avatarWorkers.values.first
     }
 }

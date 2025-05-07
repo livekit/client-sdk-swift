@@ -16,8 +16,6 @@
 
 import Foundation
 
-let publishOnBehalfAttributeKey = "lk.publish_on_behalf"
-
 public extension Participant {
     @objc
     var isAgent: Bool {
@@ -25,13 +23,6 @@ public extension Participant {
         case .agent: return true
         default: return false
         }
-    }
-
-    /// Avatar workers publish audio and video on behalf of the agent.
-    /// They should not be used for other purposes or displayed to the user.
-    @objc
-    var isAvatarWorker: Bool {
-        attributes.keys.contains(publishOnBehalfAttributeKey)
     }
 
     @objc
