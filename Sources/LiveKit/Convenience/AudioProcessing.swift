@@ -134,7 +134,7 @@ public extension Sequence where Iterator.Element == AudioLevel {
     }
 }
 
-public class AudioVisualizeProcessor {
+public actor AudioVisualizeProcessor {
     static let bufferSize = 1024
 
     // MARK: - Public
