@@ -87,14 +87,14 @@ extension AudioPublishOptions {
 }
 
 extension AudioPublishOptions {
-    func withPreconnect() -> AudioPublishOptions {
+    func withPreconnect(_ enabled: Bool) -> AudioPublishOptions {
         AudioPublishOptions(
             name: name,
             encoding: encoding,
             dtx: dtx,
             red: red,
             streamName: streamName,
-            preConnect: true
+            preConnect: enabled
         )
     }
 }
