@@ -690,7 +690,7 @@ private extension LocalParticipant {
             // At this point at least 1 audio frame should be generated to continue
             if let track = track as? LocalAudioTrack {
                 log("[Publish] Waiting for audio frame...")
-                try await track.frameWatcher.wait()
+                try await track.startWaitingForFrames()
             }
 
             if track is LocalVideoTrack {
