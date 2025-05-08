@@ -20,22 +20,18 @@ let publishOnBehalfAttributeKey = "lk.publish_on_behalf"
 
 public extension Room {
     /// Returns a dictionary containing all agent participants.
-    ///
-    /// - Note: This method filters out agents that are replaced by another agent e.g. avatar worker
-    /// using `lk.publish_on_behalf` attribute.
     @objc
     var agentParticipants: [Participant.Identity: Participant] {
-        let onBehalfIdentities = Set(allParticipants.compactMap {
-            $0.value.attributes[publishOnBehalfAttributeKey]
-        })
-        return allParticipants.filter {
-            $0.value.isAgent && !onBehalfIdentities.contains($0.key.stringValue)
-        }
+        allParticipants.filter(\.value.isAgent)
     }
 
-    /// Returns the first agent participant or `nil` if there are no agent participants.
     @objc
     var agentParticipant: Participant? {
         agentParticipants.values.first
+    }
+
+    @objc
+    var avatarOrAgentParticipant: Participant? {
+        agentParticipants.values.filter { $0.attributes[publishOnBehalfAttributeKey] != nil }.first ?? agentParticipants.values.first
     }
 }
