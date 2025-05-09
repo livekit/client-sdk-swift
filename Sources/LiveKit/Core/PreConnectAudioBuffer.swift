@@ -39,6 +39,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         var recorder: LocalAudioTrackRecorder?
         var audioStream: LocalAudioTrackRecorder.Stream?
         var timeout: TimeInterval = 10
+        var sent: Bool = false
     }
 
     /// Initialize the audio buffer with a room instance.
@@ -52,7 +53,6 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
 
     deinit {
         stopRecording()
-        room?.remove(delegate: self)
     }
 
     /// Start capturing audio and listening to ``RoomDelegate`` events.
@@ -77,9 +77,13 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
             state.recorder = newRecorder
             state.audioStream = stream
             state.timeout = timeout
+            state.sent = false
         }
 
-        room?.add(delegate: self)
+        Task {
+            try? await Task.sleep(nanoseconds: UInt64(state.timeout) * NSEC_PER_SEC)
+            stopRecording(flush: true)
+        }
     }
 
     /// Stop capturing audio.
@@ -99,37 +103,19 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
             }
         }
     }
-}
-
-// MARK: - RoomDelegate
-
-extension PreConnectAudioBuffer: RoomDelegate {
-    public func roomDidConnect(_: Room) {
-        Task {
-            try? await Task.sleep(nanoseconds: UInt64(state.timeout) * NSEC_PER_SEC)
-            stopRecording(flush: true)
-        }
-    }
-
-    public func room(_ room: Room, participant _: LocalParticipant, remoteDidSubscribeTrack publication: LocalTrackPublication) {
-        stopRecording()
-        Task {
-            do {
-                try await sendAudioData(to: room, track: publication.sid)
-            } catch {
-                log("Unable to send audio: \(error)", .error)
-            }
-        }
-    }
 
     /// Send the audio data to the room.
     /// - Parameters:
     ///   - room: The room instance to send the audio data.
     ///   - topic: The topic to send the audio data.
     @objc
-    public func sendAudioData(to room: Room, track: Track.Sid, on topic: String = dataTopic) async throws {
-        let agentIdentities = room.remoteParticipants.filter { _, value in value.kind == .agent }.map(\.key)
-        guard !agentIdentities.isEmpty else { return }
+    public func sendAudioData(to room: Room, agents: [Participant.Identity], on topic: String = dataTopic) async throws {
+        guard !agents.isEmpty else { return }
+
+        guard !state.sent else { return }
+        state.mutate { $0.sent = true }
+
+        stopRecording()
 
         guard let recorder else {
             throw LiveKitError(.invalidState, message: "Recorder is nil")
@@ -144,23 +130,19 @@ extension PreConnectAudioBuffer: RoomDelegate {
             throw LiveKitError(.unknown, message: "Audio data size too small, nothing to send")
         }
 
-        defer {
-            room.remove(delegate: self)
-        }
-
         let streamOptions = StreamByteOptions(
             topic: topic,
             attributes: [
                 "sampleRate": "\(recorder.sampleRate)",
                 "channels": "\(recorder.channels)",
-                "trackId": track.stringValue,
+                "trackId": recorder.track.sid?.stringValue ?? "",
             ],
-            destinationIdentities: agentIdentities,
+            destinationIdentities: agents,
             totalSize: audioData.count
         )
         let writer = try await room.localParticipant.streamBytes(options: streamOptions)
         try await writer.write(audioData)
         try await writer.close()
-        log("Sent \(recorder.duration(audioData.count))s = \(audioData.count / 1024)KB of audio data to \(agentIdentities.count) agent(s) ", .info)
+        log("Sent \(recorder.duration(audioData.count))s = \(audioData.count / 1024)KB of audio data to \(agents.count) agent(s) ", .info)
     }
 }
