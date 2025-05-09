@@ -155,7 +155,8 @@ extension PreConnectAudioBuffer: RoomDelegate {
                 "channels": "\(recorder.channels)",
                 "trackId": track.stringValue,
             ],
-            destinationIdentities: agentIdentities
+            destinationIdentities: agentIdentities,
+            totalSize: audioData.count
         )
         let writer = try await room.localParticipant.streamBytes(options: streamOptions)
         try await writer.write(audioData)
