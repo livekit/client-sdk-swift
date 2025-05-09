@@ -31,11 +31,12 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
 
     /// The audio recorder instance.
     @objc
-    public let recorder: LocalAudioTrackRecorder
+    public var recorder: LocalAudioTrackRecorder? { state.recorder }
 
     private let state = StateSync<State>(State())
     private struct State {
         weak var room: Room?
+        var recorder: LocalAudioTrackRecorder?
         var audioStream: LocalAudioTrackRecorder.Stream?
         var timeout: TimeInterval = 10
     }
@@ -43,20 +44,9 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     /// Initialize the audio buffer with a room instance.
     /// - Parameters:
     ///   - room: The room instance to listen for events.
-    ///   - recorder: The audio recorder instance to use.
     @objc
-    public init(room: Room?, recorder: LocalAudioTrackRecorder? = nil) {
+    public init(room: Room?) {
         state.mutate { $0.room = room }
-
-        let roomOptions = room?._state.roomOptions
-        self.recorder = recorder ?? LocalAudioTrackRecorder(
-            track: LocalAudioTrack.createTrack(options: roomOptions?.defaultAudioCaptureOptions,
-                                               reportStatistics: roomOptions?.reportRemoteTrackStatistics ?? false),
-            format: .pcmFormatInt16, // supported by agent plugins
-            sampleRate: 24000, // supported by agent plugins
-            maxSize: 10 * 1024 * 1024 // arbitrary max recording size of 10MB
-        )
-
         super.init()
     }
 
@@ -68,12 +58,23 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     /// Start capturing audio and listening to ``RoomDelegate`` events.
     /// - Parameters:
     ///   - timeout: The timeout for the remote participant to subscribe to the audio track.
+    ///   - recorder: Optional custom recorder instance. If not provided, a new one will be created.
     @objc
-    public func startRecording(timeout: TimeInterval = 10) async throws {
-        let stream = try await recorder.start()
+    public func startRecording(timeout: TimeInterval = 10, recorder: LocalAudioTrackRecorder? = nil) async throws {
+        let roomOptions = room?._state.roomOptions
+        let newRecorder = recorder ?? LocalAudioTrackRecorder(
+            track: LocalAudioTrack.createTrack(options: roomOptions?.defaultAudioCaptureOptions,
+                                               reportStatistics: roomOptions?.reportRemoteTrackStatistics ?? false),
+            format: .pcmFormatInt16, // supported by agent plugins
+            sampleRate: 24000, // supported by agent plugins
+            maxSize: 10 * 1024 * 1024 // arbitrary max recording size of 10MB
+        )
+
+        let stream = try await newRecorder.start()
         log("Started capturing audio", .info)
 
         state.mutate { state in
+            state.recorder = newRecorder
             state.audioStream = stream
             state.timeout = timeout
         }
@@ -86,7 +87,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     ///   - flush: If `true`, the audio stream will be flushed immediately without sending.
     @objc
     public func stopRecording(flush: Bool = false) {
-        guard recorder.isRecording else { return }
+        guard let recorder, recorder.isRecording else { return }
 
         recorder.stop()
         log("Stopped capturing audio", .info)
@@ -129,6 +130,10 @@ extension PreConnectAudioBuffer: RoomDelegate {
     public func sendAudioData(to room: Room, track: Track.Sid, on topic: String = dataTopic) async throws {
         let agentIdentities = room.remoteParticipants.filter { _, value in value.kind == .agent }.map(\.key)
         guard !agentIdentities.isEmpty else { return }
+
+        guard let recorder else {
+            throw LiveKitError(.invalidState, message: "Recorder is nil")
+        }
 
         guard let audioStream = state.audioStream else {
             throw LiveKitError(.invalidState, message: "Audio stream is nil")

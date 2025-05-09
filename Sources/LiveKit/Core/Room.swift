@@ -355,9 +355,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         log("Concurrent enable microphone mode: \(enableMicrophone)")
 
         let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = {
-            if preConnectBuffer.recorder.isRecording {
+            if let recorder = preConnectBuffer.recorder, recorder.isRecording {
                 return Task {
-                    preConnectBuffer.recorder.track
+                    recorder.track
                 }
             } else if enableMicrophone {
                 return Task {
@@ -377,7 +377,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
             if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled {
                 let track = try await createMicrophoneTrackTask.value
-                try await localParticipant._publish(track: track, options: _state.roomOptions.defaultAudioPublishOptions.withPreconnect(preConnectBuffer.recorder.isRecording))
+                try await localParticipant._publish(track: track, options: _state.roomOptions.defaultAudioPublishOptions.withPreconnect(preConnectBuffer.recorder?.isRecording ?? false))
             }
 
             // Connect sequence successful
