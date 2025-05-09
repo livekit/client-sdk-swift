@@ -107,9 +107,8 @@ public class TrackPublication: NSObject, @unchecked Sendable, ObservableObject, 
             dimensions: info.type == .video ? Dimensions(width: Int32(info.width), height: Int32(info.height)) : nil,
             isMetadataMuted: info.muted,
             encryptionType: info.encryption.toLKType(),
-
-            // store the whole info
-            latestInfo: info
+            latestInfo: info,
+            audioTrackFeatures: Set(info.audioFeatures)
         ))
 
         self.participant = participant

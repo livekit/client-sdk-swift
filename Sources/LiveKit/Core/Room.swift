@@ -354,20 +354,30 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         let enableMicrophone = _state.connectOptions.enableMicrophone
         log("Concurrent enable microphone mode: \(enableMicrophone)")
 
-        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = enableMicrophone ? Task {
-            let localTrack = LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
-                                                         reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
-            // Initializes AudioDeviceModule's recording
-            try await localTrack.start()
-            return localTrack
-        } : nil
+        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = {
+            if let recorder = preConnectBuffer.recorder, recorder.isRecording {
+                return Task {
+                    recorder.track
+                }
+            } else if enableMicrophone {
+                return Task {
+                    let localTrack = LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
+                                                                 reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
+                    // Initializes AudioDeviceModule's recording
+                    try await localTrack.start()
+                    return localTrack
+                }
+            } else {
+                return nil
+            }
+        }()
 
         do {
             try await fullConnectSequence(url, token)
 
             if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled {
                 let track = try await createMicrophoneTrackTask.value
-                try await localParticipant._publish(track: track)
+                try await localParticipant._publish(track: track, options: _state.roomOptions.defaultAudioPublishOptions.withPreconnect(preConnectBuffer.recorder?.isRecording ?? false))
             }
 
             // Connect sequence successful
@@ -435,10 +445,6 @@ extension Room {
         // Cleanup for E2EE
         if let e2eeManager {
             e2eeManager.cleanUp()
-        }
-
-        if disconnectError != nil {
-            preConnectBuffer.stopRecording(flush: true)
         }
 
         // Reset state

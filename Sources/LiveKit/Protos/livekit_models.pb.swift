@@ -611,6 +611,9 @@ enum Livekit_AudioTrackFeature: SwiftProtobuf.Enum, Swift.CaseIterable {
   case tfEchoCancellation // = 3
   case tfNoiseSuppression // = 4
   case tfEnhancedNoiseCancellation // = 5
+
+  /// client will buffer audio once available and send it to the server via bytes stream once connected
+  case tfPreconnectBuffer // = 6
   case UNRECOGNIZED(Int)
 
   init() {
@@ -625,6 +628,7 @@ enum Livekit_AudioTrackFeature: SwiftProtobuf.Enum, Swift.CaseIterable {
     case 3: self = .tfEchoCancellation
     case 4: self = .tfNoiseSuppression
     case 5: self = .tfEnhancedNoiseCancellation
+    case 6: self = .tfPreconnectBuffer
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -637,6 +641,7 @@ enum Livekit_AudioTrackFeature: SwiftProtobuf.Enum, Swift.CaseIterable {
     case .tfEchoCancellation: return 3
     case .tfNoiseSuppression: return 4
     case .tfEnhancedNoiseCancellation: return 5
+    case .tfPreconnectBuffer: return 6
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -649,6 +654,7 @@ enum Livekit_AudioTrackFeature: SwiftProtobuf.Enum, Swift.CaseIterable {
     .tfEchoCancellation,
     .tfNoiseSuppression,
     .tfEnhancedNoiseCancellation,
+    .tfPreconnectBuffer,
   ]
 
 }
@@ -2798,6 +2804,7 @@ extension Livekit_AudioTrackFeature: SwiftProtobuf._ProtoNameProviding {
     3: .same(proto: "TF_ECHO_CANCELLATION"),
     4: .same(proto: "TF_NOISE_SUPPRESSION"),
     5: .same(proto: "TF_ENHANCED_NOISE_CANCELLATION"),
+    6: .same(proto: "TF_PRECONNECT_BUFFER"),
   ]
 }
 
