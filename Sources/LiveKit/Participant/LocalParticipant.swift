@@ -705,13 +705,13 @@ extension LocalParticipant {
                 }
             }
 
+            // Store publishOptions used for this track...
+            track._state.mutate { $0.lastPublishOptions = options }
+
             let publication = LocalTrackPublication(info: trackInfo, participant: self)
             await publication.set(track: track)
 
             add(publication: publication)
-
-            // Store publishOptions used for this track...
-            track._state.mutate { $0.lastPublishOptions = options }
 
             // Notify didPublish
             delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
