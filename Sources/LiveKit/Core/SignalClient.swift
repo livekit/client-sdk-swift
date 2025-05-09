@@ -427,6 +427,8 @@ extension SignalClient {
         }
 
         try populator(&addTrackRequest)
+        
+        log("[AudioFeatures] features: \(String(describing: addTrackRequest.audioFeatures))", .warning)
 
         let request = Livekit_SignalRequest.with {
             $0.addTrack = addTrackRequest
