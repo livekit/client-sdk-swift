@@ -37,7 +37,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         weak var room: Room?
         var recorder: LocalAudioTrackRecorder?
         var audioStream: LocalAudioTrackRecorder.Stream?
-        var timeoutTask: Task<Void, Never>?
+        var timeoutTask: Task<Void, Error>?
         var sent: Bool = false
     }
 
@@ -72,11 +72,13 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         let stream = try await newRecorder.start()
         log("Started capturing audio", .info)
 
+        state.timeoutTask?.cancel()
         state.mutate { state in
             state.recorder = newRecorder
             state.audioStream = stream
             state.timeoutTask = Task { [weak self] in
-                try? await Task.sleep(nanoseconds: UInt64(timeout) * NSEC_PER_SEC)
+                try await Task.sleep(nanoseconds: UInt64(timeout) * NSEC_PER_SEC)
+                try Task.checkCancellation()
                 self?.stopRecording(flush: true)
             }
             state.sent = false
