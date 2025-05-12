@@ -19,19 +19,18 @@ import Foundation
 let publishOnBehalfAttributeKey = "lk.publish_on_behalf"
 
 public extension Room {
-    /// Returns a dictionary containing all agent participants.
+    /// A dictionary containing all agent participants.
+    ///
+    /// - Note: This will not include participants that are publishing on behalf of another participant
+    /// e.g. avatar workers. To access them directly use ``Participant/avatarWorker`` property of `agentParticipant`.
     @objc
     var agentParticipants: [Participant.Identity: Participant] {
-        allParticipants.filter(\.value.isAgent)
+        allParticipants.filter { $0.value.isAgent && $0.value.attributes[publishOnBehalfAttributeKey] == nil }
     }
 
+    /// The first agent participant.
     @objc
     var agentParticipant: Participant? {
         agentParticipants.values.first
-    }
-
-    @objc
-    var avatarOrAgentParticipant: Participant? {
-        agentParticipants.values.filter { $0.attributes[publishOnBehalfAttributeKey] != nil }.first ?? agentParticipants.values.first
     }
 }

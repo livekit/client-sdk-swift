@@ -33,3 +33,16 @@ public extension Participant {
         return state
     }
 }
+
+public extension Participant {
+    private var publishingOnBehalf: [Participant.Identity: Participant] {
+        guard let _room else { return [:] }
+        return _room.allParticipants.filter { $0.value._state.attributes[publishOnBehalfAttributeKey] == identity?.stringValue }
+    }
+
+    /// The avatar worker participant associated with the agent.
+    @objc
+    var avatarWorker: Participant? {
+        publishingOnBehalf.values.first
+    }
+}
