@@ -118,6 +118,8 @@ public extension LocalAudioTrackRecorder {
             .toData()
         {
             state.continuation?.yield(data)
+        } else {
+            assertionFailure("Failed to convert PCM buffer to data")
         }
     }
 }
