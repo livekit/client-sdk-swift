@@ -87,11 +87,9 @@ extension Room {
         }
 
         // Notify when reconnection mode changes
-        if state.isReconnectingWithMode != oldState.isReconnectingWithMode,
-           let mode = state.isReconnectingWithMode
-        {
+        if state.isReconnectingWithMode != oldState.isReconnectingWithMode {
             delegates.notify(label: { "room.didUpdate reconnectionMode: \(String(describing: state.isReconnectingWithMode)) oldValue: \(String(describing: oldState.isReconnectingWithMode))" }) {
-                $0.room?(self, didUpdateReconnectMode: mode)
+                $0.room?(self, didUpdateReconnectMode: state.isReconnectingWithMode)
             }
         }
 
