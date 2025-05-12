@@ -28,8 +28,8 @@ public extension Participant {
     @objc
     var agentState: AgentState {
         guard isAgent else { return .unknown }
-        guard let attrString = _state.attributes[agentStateAttributeKey] else { return .connecting }
-        guard let state = AgentState.fromString(attrString) else { return .connecting }
+        guard let attrString = _state.attributes[agentStateAttributeKey] else { return .unknown }
+        guard let state = AgentState.fromString(attrString) else { return .unknown }
         return state
     }
 }
