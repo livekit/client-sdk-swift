@@ -115,11 +115,12 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         guard !state.sent else { return }
         state.mutate { $0.sent = true }
 
-        stopRecording()
-
         guard let recorder else {
-            throw LiveKitError(.invalidState, message: "Recorder is nil")
+            log("Skipping preconnect audio, recorder is nil", .info)
+            return
         }
+
+        stopRecording()
 
         guard let audioStream = state.audioStream else {
             throw LiveKitError(.invalidState, message: "Audio stream is nil")
