@@ -37,7 +37,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         weak var room: Room?
         var recorder: LocalAudioTrackRecorder?
         var audioStream: LocalAudioTrackRecorder.Stream?
-        var timeout: TimeInterval = 10
+        var timeoutTask: Task<Void, Never>?
         var sent: Bool = false
     }
 
@@ -75,13 +75,11 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         state.mutate { state in
             state.recorder = newRecorder
             state.audioStream = stream
-            state.timeout = timeout
+            state.timeoutTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(timeout) * NSEC_PER_SEC)
+                self?.stopRecording(flush: true)
+            }
             state.sent = false
-        }
-
-        Task {
-            try await Task.sleep(nanoseconds: UInt64(state.timeout) * NSEC_PER_SEC)
-            stopRecording(flush: true)
         }
     }
 
