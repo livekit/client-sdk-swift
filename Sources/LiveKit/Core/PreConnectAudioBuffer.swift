@@ -17,15 +17,14 @@
 import AVFAudio
 import Foundation
 
-/// A buffer that captures audio before connecting to the server,
-/// and sends it on certain ``RoomDelegate`` events.
+/// A buffer that captures audio before connecting to the server.
 @objc
 public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     /// The default data topic used to send the audio buffer.
     @objc
     public static let dataTopic = "lk.agent.pre-connect-audio-buffer"
 
-    /// The room instance to listen for events.
+    /// The room instance to send the audio buffer to.
     @objc
     public var room: Room? { state.room }
 
@@ -44,7 +43,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
 
     /// Initialize the audio buffer with a room instance.
     /// - Parameters:
-    ///   - room: The room instance to listen for events.
+    ///   - room: The room instance to send the audio buffer to.
     @objc
     public init(room: Room?) {
         state.mutate { $0.room = room }
@@ -55,7 +54,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         stopRecording()
     }
 
-    /// Start capturing audio and listening to ``RoomDelegate`` events.
+    /// Start capturing audio.
     /// - Parameters:
     ///   - timeout: The timeout for the remote participant to subscribe to the audio track.
     ///   - recorder: Optional custom recorder instance. If not provided, a new one will be created.
@@ -81,7 +80,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         }
 
         Task {
-            try? await Task.sleep(nanoseconds: UInt64(state.timeout) * NSEC_PER_SEC)
+            try await Task.sleep(nanoseconds: UInt64(state.timeout) * NSEC_PER_SEC)
             stopRecording(flush: true)
         }
     }
@@ -107,6 +106,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     /// Send the audio data to the room.
     /// - Parameters:
     ///   - room: The room instance to send the audio data.
+    ///   - agents: The agents to send the audio data to.
     ///   - topic: The topic to send the audio data.
     @objc
     public func sendAudioData(to room: Room, agents: [Participant.Identity], on topic: String = dataTopic) async throws {
