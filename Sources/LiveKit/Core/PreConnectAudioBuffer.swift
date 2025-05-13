@@ -22,6 +22,12 @@ import Foundation
 public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     public typealias OnError = @Sendable (Error) -> Void
 
+    public enum Constants {
+        public static let maxSize = 10 * 1024 * 1024 // 10MB
+        public static let sampleRate = 24000
+        public static let timeout: TimeInterval = 10
+    }
+
     /// The default data topic used to send the audio buffer.
     @objc
     public static let dataTopic = "lk.agent.pre-connect-audio-buffer"
@@ -71,16 +77,16 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     ///   - timeout: The timeout for the remote participant to subscribe to the audio track.
     ///   - recorder: Optional custom recorder instance. If not provided, a new one will be created.
     @objc
-    public func startRecording(timeout: TimeInterval = 10, recorder: LocalAudioTrackRecorder? = nil) async throws {
+    public func startRecording(timeout: TimeInterval = Constants.timeout, recorder: LocalAudioTrackRecorder? = nil) async throws {
         room?.add(delegate: self)
 
         let roomOptions = room?._state.roomOptions
         let newRecorder = recorder ?? LocalAudioTrackRecorder(
             track: LocalAudioTrack.createTrack(options: roomOptions?.defaultAudioCaptureOptions,
                                                reportStatistics: roomOptions?.reportRemoteTrackStatistics ?? false),
-            format: .pcmFormatInt16, // supported by agent plugins
-            sampleRate: 24000, // supported by agent plugins
-            maxSize: 10 * 1024 * 1024 // arbitrary max recording size of 10MB
+            format: .pcmFormatInt16,
+            sampleRate: Constants.sampleRate,
+            maxSize: Constants.maxSize
         )
 
         let stream = try await newRecorder.start()
