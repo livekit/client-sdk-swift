@@ -47,8 +47,9 @@ public extension Room {
     ///
     func withPreConnectAudio<T>(timeout: TimeInterval = 10,
                                 _ operation: @Sendable @escaping () async throws -> T,
-                                onError _: PreConnectAudioBuffer.OnError? = nil) async throws -> T
+                                onError: PreConnectAudioBuffer.OnError? = nil) async throws -> T
     {
+        preConnectBuffer.setErrorHandler(onError)
         try await preConnectBuffer.startRecording(timeout: timeout)
 
         do {

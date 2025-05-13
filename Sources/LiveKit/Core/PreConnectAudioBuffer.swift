@@ -170,7 +170,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
 
 extension PreConnectAudioBuffer: RoomDelegate {
     public func room(_: Room, participant _: LocalParticipant, remoteDidSubscribeTrack _: LocalTrackPublication) {
-        log("Subscribed by remote participant", .info)
+        log("Subscribed by remote participant, stopping audio", .info)
         stopRecording()
     }
 
