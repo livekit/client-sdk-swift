@@ -177,7 +177,6 @@ extension PreConnectAudioBuffer: RoomDelegate {
     public func room(_ room: Room, participant: Participant, didUpdateState state: ParticipantState) {
         guard participant.kind == .agent, state == .active, let agent = participant.identity else { return }
         log("Detected active agent participant: \(agent), sending audio", .info)
-        stopRecording()
 
         Task {
             do {
