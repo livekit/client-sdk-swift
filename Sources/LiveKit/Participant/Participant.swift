@@ -50,6 +50,9 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
     public var attributes: [String: String] { _state.attributes }
 
     @objc
+    public var state: ParticipantState { _state.state }
+
+    @objc
     public var connectionQuality: ConnectionQuality { _state.connectionQuality }
 
     @objc
@@ -99,6 +102,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
         var metadata: String?
         var joinedAt: Date?
         var kind: Kind = .unknown
+        var state: ParticipantState = .unknown
         var connectionQuality: ConnectionQuality = .unknown
         var permissions = ParticipantPermissions()
         var trackPublications = [Track.Sid: TrackPublication]()
@@ -176,6 +180,17 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
                 }
             }
 
+            // state updated
+            if newState.state != oldState.state {
+                self.delegates.notify(label: { "participant.didUpdate state: \(newState.state)" }) {
+                    $0.participant?(self, didUpdateState: newState.state)
+                }
+                room.delegates.notify(label: { "room.didUpdate state: \(newState.state)" }) {
+                    $0.room?(room, participant: self, didUpdateState: newState.state)
+                }
+            }
+
+            // connection quality updated
             if newState.connectionQuality != oldState.connectionQuality {
                 self.delegates.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
                     $0.participant?(self, didUpdateConnectionQuality: self.connectionQuality)
@@ -228,6 +243,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
             $0.metadata = info.metadata
             $0.kind = info.kind.toLKType()
             $0.attributes = info.attributes
+            $0.state = info.state.toLKType()
 
             // Attempt to get millisecond precision.
             if info.joinedAtMs != 0 {
