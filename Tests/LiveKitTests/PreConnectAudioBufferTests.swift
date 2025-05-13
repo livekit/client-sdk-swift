@@ -18,7 +18,7 @@
 import XCTest
 
 class PreConnectAudioBufferTests: LKTestCase {
-    func testRemoteDidSubscribeTrackSendsAudioData() async throws {
+    func testParticipantActiveStateSendsAudioData() async throws {
         let receiveExpectation = expectation(description: "Receives audio data")
 
         try await withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublish: true, canPublishData: true)]) { rooms in
@@ -41,8 +41,8 @@ class PreConnectAudioBufferTests: LKTestCase {
             try await buffer.startRecording()
             try await Task.sleep(nanoseconds: NSEC_PER_SEC / 2)
 
-            let publication = LocalTrackPublication(info: Livekit_TrackInfo(), participant: rooms[0].localParticipant)
-            buffer.room(publisherRoom, participant: publisherRoom.localParticipant, remoteDidSubscribeTrack: publication)
+            subscriberRoom.localParticipant._state.mutate { $0.kind = .agent } // override kind
+            buffer.room(publisherRoom, participant: subscriberRoom.localParticipant, didUpdateState: .active)
 
             await self.fulfillment(of: [receiveExpectation], timeout: 10)
         }
