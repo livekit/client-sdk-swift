@@ -167,3 +167,16 @@ public extension AVAudioPCMBuffer {
         }
     }
 }
+
+extension AVAudioCommonFormat {
+    var bytesPerSample: Int {
+        switch self {
+        case .pcmFormatInt16: return 2
+        case .pcmFormatInt32: return 4
+        case .pcmFormatFloat32: return 4
+        case .pcmFormatFloat64: return 8
+        case .otherFormat: return 0
+        @unknown default: return 0
+        }
+    }
+}
