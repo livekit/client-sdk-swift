@@ -174,7 +174,7 @@ extension Room {
                                                                   configuration: RTC.createDataChannelConfiguration())
 
             let lossyDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
-                                                               configuration: RTC.createDataChannelConfiguration(maxRetransmits: 0))
+                                                               configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
 
             publisherDataChannel.set(reliable: reliableDataChannel)
             publisherDataChannel.set(lossy: lossyDataChannel)
