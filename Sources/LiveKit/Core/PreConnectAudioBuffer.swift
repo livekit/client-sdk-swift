@@ -161,13 +161,14 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
 }
 
 extension PreConnectAudioBuffer: RoomDelegate {
-    public func room(_ room: Room, participant: Participant, didUpdateState state: ParticipantState) {
-        print("bp", room, participant.kind, state)
-
-        guard participant.kind == .agent, state == .active, let agent = participant.identity else { return }
-        log("Detected an active agent participant: \(agent), sending audio", .info)
-
+    public func room(_: Room, participant _: LocalParticipant, remoteDidSubscribeTrack _: LocalTrackPublication) {
+        log("Subscribed by remote participant", .info)
         stopRecording()
+    }
+
+    public func room(_ room: Room, participant: Participant, didUpdateState state: ParticipantState) {
+        guard participant.kind == .agent, state == .active, let agent = participant.identity else { return }
+        log("Detected active agent participant: \(agent), sending audio", .info)
 
         Task {
             do {
@@ -177,7 +178,5 @@ extension PreConnectAudioBuffer: RoomDelegate {
                 self.state.onError?(error)
             }
         }
-
-        room.remove(delegate: self)
     }
 }
