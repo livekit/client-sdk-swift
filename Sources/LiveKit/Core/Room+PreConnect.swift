@@ -35,6 +35,8 @@ public extension Room {
     ///     return
     ///   }
     ///   try await room.connect(url: connectionDetails.serverUrl, token: connectionDetails.participantToken)
+    /// } onError: { error in
+    ///   print("Error sending audio buffer: \(error)")
     /// }
     /// ```
     ///
