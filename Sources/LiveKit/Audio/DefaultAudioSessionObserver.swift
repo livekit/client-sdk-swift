@@ -27,13 +27,17 @@ internal import LiveKitWebRTC
 #endif
 
 public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchecked Sendable {
-    struct State {
-        var isSessionActive = false
+    public var isSpeakerOutputPreferred: Bool {
+        get { _state.isSpeakerOutputPreferred }
+        set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
+    }
+
+    struct State: Sendable {
         var next: (any AudioEngineObserver)?
 
-        // Used for backward compatibility with `customConfigureAudioSessionFunc`.
         var isPlayoutEnabled: Bool = false
         var isRecordingEnabled: Bool = false
+        var isSpeakerOutputPreferred: Bool = true
     }
 
     let _state = StateSync(State())
@@ -44,51 +48,65 @@ public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchec
     }
 
     public init() {
-        // Backward compatibility with `customConfigureAudioSessionFunc`.
         _state.onDidMutate = { new_, old_ in
-            if let config_func = AudioManager.shared._state.customConfigureFunc,
-               new_.isPlayoutEnabled != old_.isPlayoutEnabled ||
-               new_.isRecordingEnabled != old_.isRecordingEnabled
+
+            if new_.isPlayoutEnabled != old_.isPlayoutEnabled ||
+                new_.isRecordingEnabled != old_.isRecordingEnabled ||
+                new_.isSpeakerOutputPreferred != old_.isSpeakerOutputPreferred
             {
-                // Simulate state and invoke custom config func.
-                let old_state = AudioManager.State(localTracksCount: old_.isRecordingEnabled ? 1 : 0, remoteTracksCount: old_.isPlayoutEnabled ? 1 : 0)
-                let new_state = AudioManager.State(localTracksCount: new_.isRecordingEnabled ? 1 : 0, remoteTracksCount: new_.isPlayoutEnabled ? 1 : 0)
-                config_func(new_state, old_state)
+                // Legacy config func
+                if let config_func = AudioManager.shared._state.customConfigureFunc {
+                    // Simulate state and invoke custom config func.
+                    let old_state = AudioManager.State(localTracksCount: old_.isRecordingEnabled ? 1 : 0, remoteTracksCount: old_.isPlayoutEnabled ? 1 : 0)
+                    let new_state = AudioManager.State(localTracksCount: new_.isRecordingEnabled ? 1 : 0, remoteTracksCount: new_.isPlayoutEnabled ? 1 : 0)
+                    config_func(new_state, old_state)
+                } else {
+                    self.configure(oldState: old_, newState: new_)
+                }
+            }
+        }
+    }
+
+    @Sendable func configure(oldState: State, newState: State) {
+        let session = LKRTCAudioSession.sharedInstance()
+
+        session.lockForConfiguration()
+        defer {
+            session.unlockForConfiguration()
+            log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
+        }
+
+        if (!newState.isPlayoutEnabled && !newState.isRecordingEnabled) && (oldState.isPlayoutEnabled || oldState.isRecordingEnabled) {
+            do {
+                log("AudioSession deactivating...")
+                try session.setActive(false)
+            } catch {
+                log("AudioSession failed to deactivate with error: \(error)", .error)
+            }
+        } else if newState.isRecordingEnabled || newState.isPlayoutEnabled {
+            // Configure and activate the session with the appropriate category
+            let playAndRecord: AudioSessionConfiguration = newState.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver
+            let config: AudioSessionConfiguration = newState.isRecordingEnabled ? playAndRecord : .playback
+
+            do {
+                log("AudioSession configuring category to: \(config.category)")
+                try session.setConfiguration(config.toRTCType())
+            } catch {
+                log("AudioSession failed to configure with error: \(error)", .error)
+            }
+
+            if !oldState.isPlayoutEnabled, !oldState.isRecordingEnabled {
+                do {
+                    log("AudioSession activating...")
+                    try session.setActive(true)
+                } catch {
+                    log("AudioSession failed to activate AudioSession with error: \(error)", .error)
+                }
             }
         }
     }
 
     public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
-        if AudioManager.shared._state.customConfigureFunc == nil {
-            log("Configuring audio session...")
-            let session = LKRTCAudioSession.sharedInstance()
-            session.lockForConfiguration()
-            defer { session.unlockForConfiguration() }
-
-            if _state.isSessionActive {
-                do {
-                    log("AudioSession deactivating due to category switch")
-                    try session.setActive(false) // Deactivate first
-                    _state.mutate { $0.isSessionActive = false }
-                } catch {
-                    log("Failed to deactivate AudioSession with error: \(error)", .error)
-                }
-            }
-
-            let config: AudioSessionConfiguration = isRecordingEnabled ? .playAndRecordSpeaker : .playback
-            do {
-                log("AudioSession activating category to: \(config.category)")
-                try session.setConfiguration(config.toRTCType(), active: true)
-                _state.mutate { $0.isSessionActive = true }
-            } catch {
-                log("AudioSession failed to configure with error: \(error)", .error)
-                // Pass error code to audio engine
-                return kFailedToConfigureAudioSessionErrorCode
-            }
-
-            log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
-        }
-
         _state.mutate {
             $0.isPlayoutEnabled = isPlayoutEnabled
             $0.isRecordingEnabled = isRecordingEnabled
@@ -105,30 +123,6 @@ public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchec
         _state.mutate {
             $0.isPlayoutEnabled = isPlayoutEnabled
             $0.isRecordingEnabled = isRecordingEnabled
-        }
-
-        if AudioManager.shared._state.customConfigureFunc == nil {
-            log("Configuring audio session...")
-            let session = LKRTCAudioSession.sharedInstance()
-            session.lockForConfiguration()
-            defer { session.unlockForConfiguration() }
-
-            do {
-                if isPlayoutEnabled, !isRecordingEnabled {
-                    let config: AudioSessionConfiguration = .playback
-                    log("AudioSession switching category to: \(config.category)")
-                    try session.setConfiguration(config.toRTCType())
-                }
-                if !isPlayoutEnabled, !isRecordingEnabled, _state.isSessionActive {
-                    log("AudioSession deactivating")
-                    try session.setActive(false)
-                    _state.mutate { $0.isSessionActive = false }
-                }
-            } catch {
-                log("AudioSession failed to configure with error: \(error)", .error)
-            }
-
-            log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
         }
 
         return nextResult ?? 0
