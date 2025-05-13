@@ -75,14 +75,6 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
         _state.trackPublications.values.filter { $0.kind == .video }
     }
 
-    @objc
-    public var agentState: AgentState {
-        guard case .agent = kind else { return .unknown }
-        guard let attrString = _state.attributes[agentStateAttributeKey] else { return .connecting }
-        guard let state = AgentState.fromString(attrString) else { return .connecting }
-        return state
-    }
-
     var info: Livekit_ParticipantInfo?
 
     // Reference to the Room this Participant belongs to
