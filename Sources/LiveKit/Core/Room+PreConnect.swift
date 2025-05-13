@@ -23,6 +23,7 @@ public extension Room {
     /// - Parameters:
     ///   - timeout: The timeout for the remote participant to subscribe to the audio track.
     ///   - operation: The operation to perform while audio is being captured.
+    ///   - onError: The error handler to call when an error occurs while sending the audio buffer.
     /// - Returns: The result of the operation.
     ///
     /// - Example:
@@ -41,7 +42,8 @@ public extension Room {
     /// - Important: Call ``AudioManager/setRecordingAlwaysPreparedMode(_:)`` during app launch sequence to request microphone permissions early.
     ///
     func withPreConnectAudio<T>(timeout: TimeInterval = 10,
-                                _ operation: @Sendable @escaping () async throws -> T) async throws -> T
+                                _ operation: @Sendable @escaping () async throws -> T,
+                                onError _: PreConnectAudioBuffer.OnError? = nil) async throws -> T
     {
         try await preConnectBuffer.startRecording(timeout: timeout)
 

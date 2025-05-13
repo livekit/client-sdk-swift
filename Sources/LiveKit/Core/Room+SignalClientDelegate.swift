@@ -243,18 +243,6 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didUpdateParticipants participants: [Livekit_ParticipantInfo]) async {
         log("participants: \(participants)")
 
-        let activeAgents = participants.filter { $0.kind == .agent && $0.state == .active }
-            .map(\.identity)
-            .map(Participant.Identity.init)
-
-        Task {
-            do {
-                try await preConnectBuffer.sendAudioData(to: self, agents: activeAgents)
-            } catch {
-                log("Unable to send preconnect audio: \(error)", .error)
-            }
-        }
-
         var disconnectedParticipantIdentities = [Participant.Identity]()
         var newParticipants = [RemoteParticipant]()
 

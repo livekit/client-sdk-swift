@@ -20,6 +20,8 @@ import Foundation
 /// A buffer that captures audio before connecting to the server.
 @objc
 public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
+    public typealias OnError = @Sendable (Error) -> Void
+
     /// The default data topic used to send the audio buffer.
     @objc
     public static let dataTopic = "lk.agent.pre-connect-audio-buffer"
@@ -39,19 +41,29 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         var audioStream: LocalAudioTrackRecorder.Stream?
         var timeoutTask: Task<Void, Error>?
         var sent: Bool = false
+        var onError: OnError? = nil
     }
 
     /// Initialize the audio buffer with a room instance.
     /// - Parameters:
     ///   - room: The room instance to send the audio buffer to.
+    ///   - onError: The error handler to call when an error occurs while sending the audio buffer.
     @objc
-    public init(room: Room?) {
-        state.mutate { $0.room = room }
+    public init(room: Room?, onError: OnError? = nil) {
+        state.mutate {
+            $0.room = room
+            $0.onError = onError
+        }
         super.init()
     }
 
     deinit {
         stopRecording()
+    }
+
+    @objc
+    public func setErrorHandler(_ onError: OnError?) {
+        state.mutate { $0.onError = onError }
     }
 
     /// Start capturing audio.
@@ -60,6 +72,8 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     ///   - recorder: Optional custom recorder instance. If not provided, a new one will be created.
     @objc
     public func startRecording(timeout: TimeInterval = 10, recorder: LocalAudioTrackRecorder? = nil) async throws {
+        room?.add(delegate: self)
+
         let roomOptions = room?._state.roomOptions
         let newRecorder = recorder ?? LocalAudioTrackRecorder(
             track: LocalAudioTrack.createTrack(options: roomOptions?.defaultAudioCaptureOptions,
@@ -100,6 +114,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
             Task {
                 for await _ in stream {}
             }
+            room?.remove(delegate: self)
         }
     }
 
@@ -116,11 +131,8 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         state.mutate { $0.sent = true }
 
         guard let recorder else {
-            log("Skipping preconnect audio, recorder is nil", .info)
-            return
+            throw LiveKitError(.invalidState, message: "Recorder is nil")
         }
-
-        stopRecording()
 
         guard let audioStream = state.audioStream else {
             throw LiveKitError(.invalidState, message: "Audio stream is nil")
@@ -144,6 +156,28 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         let writer = try await room.localParticipant.streamBytes(options: streamOptions)
         try await writer.write(audioData)
         try await writer.close()
-        log("Sent \(recorder.duration(audioData.count))s = \(audioData.count / 1024)KB of audio data to \(agents.count) agent(s) ", .info)
+        log("Sent \(recorder.duration(audioData.count))s = \(audioData.count / 1024)KB of audio data to \(agents.count) agent(s) \(agents)", .info)
+    }
+}
+
+extension PreConnectAudioBuffer: RoomDelegate {
+    public func room(_ room: Room, participant: Participant, didUpdateState state: ParticipantState) {
+        print("bp", room, participant.kind, state)
+
+        guard participant.kind == .agent, state == .active, let agent = participant.identity else { return }
+        log("Detected an active agent participant: \(agent), sending audio", .info)
+
+        stopRecording()
+
+        Task {
+            do {
+                try await sendAudioData(to: room, agents: [agent])
+            } catch {
+                log("Unable to send preconnect audio: \(error)", .error)
+                self.state.onError?(error)
+            }
+        }
+
+        room.remove(delegate: self)
     }
 }
