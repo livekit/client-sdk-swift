@@ -75,6 +75,8 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     /// Start capturing audio.
     /// - Parameters:
     ///   - timeout: The timeout for the remote participant to subscribe to the audio track.
+    /// The room connection needs to be established and the remote participant needs to subscribe to the audio track
+    /// before the timeout is reached. Otherwise, the audio stream will be flushed without sending.
     ///   - recorder: Optional custom recorder instance. If not provided, a new one will be created.
     @objc
     public func startRecording(timeout: TimeInterval = Constants.timeout, recorder: LocalAudioTrackRecorder? = nil) async throws {

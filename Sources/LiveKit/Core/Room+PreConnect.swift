@@ -22,6 +22,8 @@ public extension Room {
     ///
     /// - Parameters:
     ///   - timeout: The timeout for the remote participant to subscribe to the audio track.
+    /// The room connection needs to be established and the remote participant needs to subscribe to the audio track
+    /// before the timeout is reached. Otherwise, the audio stream will be flushed without sending.
     ///   - operation: The operation to perform while audio is being captured.
     ///   - onError: The error handler to call when an error occurs while sending the audio buffer.
     /// - Returns: The result of the operation.
