@@ -293,7 +293,7 @@ public class AudioManager: Loggable {
     /// Keep recording initialized (mic input) and pre-warm voice processing etc.
     /// Mic permission is required and dialog will appear if not already granted.
     /// This will per persisted accross Rooms and connections.
-    public func setRecordingAlwaysPreparedMode(_ enabled: Bool) throws {
+    public func setRecordingAlwaysPreparedMode(_ enabled: Bool) async throws {
         let result = RTC.audioDeviceModule.setRecordingAlwaysPreparedMode(enabled)
         try checkAdmResult(code: result)
     }
