@@ -156,16 +156,19 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
             destinationIdentities: agents
         )
         let writer = try await room.localParticipant.streamBytes(options: streamOptions)
-        defer {
-            Task {
-                try await writer.close()
-            }
-        }
+
         var sentSize = 0
         for await chunk in audioStream {
-            try await writer.write(chunk)
+            do {
+                try await writer.write(chunk)
+            } catch {
+                try await writer.close(reason: error.localizedDescription)
+                throw error
+            }
             sentSize += chunk.count
         }
+        try await writer.close()
+
         log("Sent \(recorder.duration(sentSize))s = \(sentSize / 1024)KB of audio data to \(agents.count) agent(s) \(agents)", .info)
     }
 }
