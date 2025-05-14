@@ -242,7 +242,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
-
             guard let self else { return }
 
             // sid updated

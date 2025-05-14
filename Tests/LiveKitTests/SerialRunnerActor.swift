@@ -100,7 +100,6 @@ class SerialRunnerActorTests: LKTestCase, @unchecked Sendable {
     func testSerialRunnerOrderWithCancel() async throws {
         // Run Tasks concurrently
         try await withThrowingTaskGroup(of: Void.self) { group in
-
             // Schedule task 1
             print("Scheduling task 1...")
             group.addTask {

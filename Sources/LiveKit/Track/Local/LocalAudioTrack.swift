@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import AVFAudio
 import Combine
 import Foundation
 
@@ -26,7 +27,15 @@ internal import LiveKitWebRTC
 @objc
 public class LocalAudioTrack: Track, LocalTrack, AudioTrack, @unchecked Sendable {
     /// ``AudioCaptureOptions`` used to create this track.
-    let captureOptions: AudioCaptureOptions
+    public let captureOptions: AudioCaptureOptions
+
+    // MARK: - Internal
+
+    struct FrameWatcherState {
+        var frameWatcher: AudioFrameWatcher?
+    }
+
+    let _frameWatcherState = StateSync(FrameWatcherState())
 
     init(name: String,
          source: Track.Source,
@@ -41,6 +50,10 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack, @unchecked Sendable
                    source: source,
                    track: track,
                    reportStatistics: reportStatistics)
+    }
+
+    deinit {
+        cleanUpFrameWatcher()
     }
 
     public static func createTrack(name: String = Track.microphoneName,
@@ -93,6 +106,10 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack, @unchecked Sendable
             throw error
         }
     }
+
+    override func stopCapture() async throws {
+        cleanUpFrameWatcher()
+    }
 }
 
 public extension LocalAudioTrack {
@@ -107,5 +124,51 @@ public extension LocalAudioTrack {
 
     func remove(audioRenderer: AudioRenderer) {
         AudioManager.shared.remove(localAudioRenderer: audioRenderer)
+    }
+}
+
+// MARK: - Internal frame waiting
+
+extension LocalAudioTrack {
+    final class AudioFrameWatcher: AudioRenderer, Loggable {
+        private let completer = AsyncCompleter<Void>(label: "Frame watcher", defaultTimeout: 5)
+
+        func wait() async throws {
+            try await completer.wait()
+        }
+
+        func reset() {
+            completer.reset()
+        }
+
+        // MARK: - AudioRenderer
+
+        func render(pcmBuffer _: AVAudioPCMBuffer) {
+            completer.resume(returning: ())
+        }
+    }
+
+    func startWaitingForFrames() async throws {
+        let frameWatcher = _frameWatcherState.mutate {
+            $0.frameWatcher?.reset()
+            let watcher = AudioFrameWatcher()
+            add(audioRenderer: watcher)
+            $0.frameWatcher = watcher
+            return watcher
+        }
+
+        try await frameWatcher.wait()
+        // Detach after wait is complete
+        cleanUpFrameWatcher()
+    }
+
+    func cleanUpFrameWatcher() {
+        _frameWatcherState.mutate {
+            if let watcher = $0.frameWatcher {
+                watcher.reset()
+                remove(audioRenderer: watcher)
+                $0.frameWatcher = nil
+            }
+        }
     }
 }

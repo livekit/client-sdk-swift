@@ -568,7 +568,6 @@ extension LocalParticipant {
                 let videoLayers = dimensions.videoLayers(for: encodings)
 
                 populatorFunc = { populator in
-
                     self.log("[publish] using layers: \(videoLayers.map { String(describing: $0) }.joined(separator: ", "))")
 
                     var simulcastCodecs: [Livekit_SimulcastCodec] = [
@@ -695,6 +694,12 @@ extension LocalParticipant {
                     return trackInfoPromise
                 }
             }()
+
+            // At this point at least 1 audio frame should be generated to continue
+            if let track = track as? LocalAudioTrack {
+                log("[Publish] Waiting for audio frame...")
+                try await track.startWaitingForFrames()
+            }
 
             if track is LocalVideoTrack {
                 if let firstCodecMime = trackInfo.codecs.first?.mimeType,

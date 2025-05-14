@@ -117,7 +117,6 @@ public class TrackPublication: NSObject, @unchecked Sendable, ObservableObject, 
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
-
             guard let self else { return }
 
             if newState.streamState != oldState.streamState {
