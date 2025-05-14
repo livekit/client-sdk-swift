@@ -107,9 +107,8 @@ public class TrackPublication: NSObject, @unchecked Sendable, ObservableObject, 
             dimensions: info.type == .video ? Dimensions(width: Int32(info.width), height: Int32(info.height)) : nil,
             isMetadataMuted: info.muted,
             encryptionType: info.encryption.toLKType(),
-
-            // store the whole info
-            latestInfo: info
+            latestInfo: info,
+            audioTrackFeatures: Set(info.audioFeatures)
         ))
 
         self.participant = participant
@@ -118,7 +117,6 @@ public class TrackPublication: NSObject, @unchecked Sendable, ObservableObject, 
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
-
             guard let self else { return }
 
             if newState.streamState != oldState.streamState {

@@ -18,41 +18,7 @@
 import XCTest
 
 class PreConnectAudioBufferTests: LKTestCase {
-    func testRoomDidConnectSetsParticipantAttribute() async throws {
-        let attributeSetExpectation = expectation(description: "Participant attribute set")
-
-        class AttributeDelegate: RoomDelegate, @unchecked Sendable {
-            let expectation: XCTestExpectation
-            var attributeValue: String?
-
-            init(expectation: XCTestExpectation) {
-                self.expectation = expectation
-            }
-
-            func room(_: Room, participant: Participant, didUpdateAttributes _: [String: String]) {
-                if let value = participant.attributes[PreConnectAudioBuffer.attributeKey] {
-                    attributeValue = value
-                    expectation.fulfill()
-                }
-            }
-        }
-
-        let delegate = AttributeDelegate(expectation: attributeSetExpectation)
-
-        try await withRooms([RoomTestingOptions(delegate: delegate)]) { rooms in
-            let room = rooms[0]
-            let buffer = PreConnectAudioBuffer(room: room)
-
-            buffer.roomDidConnect(room)
-
-            await self.fulfillment(of: [attributeSetExpectation], timeout: 5)
-
-            XCTAssertEqual(delegate.attributeValue, "true")
-            XCTAssertEqual(room.localParticipant.attributes[PreConnectAudioBuffer.attributeKey], "true")
-        }
-    }
-
-    func testRemoteDidSubscribeTrackSendsAudioData() async throws {
+    func testParticipantActiveStateSendsAudioData() async throws {
         let receiveExpectation = expectation(description: "Receives audio data")
 
         try await withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublish: true, canPublishData: true)]) { rooms in
@@ -75,8 +41,8 @@ class PreConnectAudioBufferTests: LKTestCase {
             try await buffer.startRecording()
             try await Task.sleep(nanoseconds: NSEC_PER_SEC / 2)
 
-            let publication = LocalTrackPublication(info: Livekit_TrackInfo(), participant: rooms[0].localParticipant)
-            buffer.room(publisherRoom, participant: publisherRoom.localParticipant, remoteDidSubscribeTrack: publication)
+            subscriberRoom.localParticipant._state.mutate { $0.kind = .agent } // override kind
+            buffer.room(publisherRoom, participant: subscriberRoom.localParticipant, didUpdateState: .active)
 
             await self.fulfillment(of: [receiveExpectation], timeout: 10)
         }
