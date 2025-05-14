@@ -45,7 +45,7 @@ public extension Room {
     /// - See: ``PreConnectAudioBuffer``
     /// - Important: Call ``AudioManager/setRecordingAlwaysPreparedMode(_:)`` during app launch sequence to request microphone permissions early.
     ///
-    func withPreConnectAudio<T>(timeout: TimeInterval = 10,
+    func withPreConnectAudio<T>(timeout: TimeInterval = PreConnectAudioBuffer.Constants.timeout,
                                 _ operation: @Sendable @escaping () async throws -> T,
                                 onError: PreConnectAudioBuffer.OnError? = nil) async throws -> T
     {
@@ -61,7 +61,7 @@ public extension Room {
     }
 
     @available(*, deprecated, message: "Use withPreConnectAudio instead")
-    func startCapturingBeforeConnecting(timeout: TimeInterval = 10) async throws {
+    func startCapturingBeforeConnecting(timeout: TimeInterval = PreConnectAudioBuffer.Constants.timeout) async throws {
         try await preConnectBuffer.startRecording(timeout: timeout)
     }
 }
