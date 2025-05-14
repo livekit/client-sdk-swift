@@ -103,7 +103,6 @@ extension Room {
 
     func engine(_ engine: Room, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) {
         let activeSpeakers = _state.mutate { state -> [Participant] in
-
             var activeSpeakers: [Participant] = []
             var seenParticipantSids = [Participant.Sid: Bool]()
             for speaker in speakers {

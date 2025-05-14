@@ -122,7 +122,6 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
-
             guard let self, let room = self._room else { return }
 
             if newState.isSpeaking != oldState.isSpeaking {

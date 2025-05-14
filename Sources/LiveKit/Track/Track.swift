@@ -162,7 +162,6 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
-
             guard let self else { return }
 
             if oldState.dimensions != newState.dimensions {

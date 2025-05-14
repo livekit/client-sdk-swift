@@ -143,7 +143,6 @@ extension Room: SignalClientDelegate {
         log("speakers: \(speakers)", .trace)
 
         let activeSpeakers = _state.mutate { state -> [Participant] in
-
             var lastSpeakers = state.activeSpeakers.reduce(into: [Sid: Participant]()) { $0[$1.sid] = $1 }
             for speaker in speakers {
                 let participantSid = Participant.Sid(from: speaker.sid)
