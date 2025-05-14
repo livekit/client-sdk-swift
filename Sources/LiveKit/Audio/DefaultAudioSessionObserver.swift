@@ -49,7 +49,6 @@ public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchec
 
     public init() {
         _state.onDidMutate = { new_, old_ in
-
             if new_.isPlayoutEnabled != old_.isPlayoutEnabled ||
                 new_.isRecordingEnabled != old_.isRecordingEnabled ||
                 new_.isSpeakerOutputPreferred != old_.isSpeakerOutputPreferred
