@@ -161,7 +161,6 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
         // Create a cancel-aware timed continuation
         return try await withTaskCancellationHandler {
             try await withUnsafeThrowingContinuation { continuation in
-
                 // Create time-out block
                 let timeoutBlock = DispatchWorkItem { [weak self] in
                     guard let self else { return }

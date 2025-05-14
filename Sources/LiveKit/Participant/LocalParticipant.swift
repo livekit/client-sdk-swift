@@ -560,7 +560,6 @@ private extension LocalParticipant {
                 let videoLayers = dimensions.videoLayers(for: encodings)
 
                 populatorFunc = { populator in
-
                     self.log("[publish] using layers: \(videoLayers.map { String(describing: $0) }.joined(separator: ", "))")
 
                     var simulcastCodecs: [Livekit_SimulcastCodec] = [

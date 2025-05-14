@@ -367,7 +367,6 @@ extension Room {
                                         self.log("[Connect] Retry cycle waiting for \(String(format: "%.2f", delay)) seconds before attempt \(attempt + 1)")
                                         return delay
                                     }) { currentAttempt, totalAttempts in
-
                 // Not reconnecting state anymore
                 guard let currentMode = self._state.isReconnectingWithMode else {
                     self.log("[Connect] Not in reconnect state anymore, exiting retry cycle.")
