@@ -350,7 +350,9 @@ public class AudioManager: Loggable {
 
     // MARK: - Private
 
+    #if os(iOS) || os(visionOS) || os(tvOS)
     private let _audioSession = DefaultAudioSessionObserver()
+    #endif
 
     init() {
         #if os(iOS) || os(visionOS) || os(tvOS)
