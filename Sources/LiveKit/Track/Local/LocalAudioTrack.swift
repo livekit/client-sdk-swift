@@ -149,7 +149,7 @@ extension LocalAudioTrack {
     }
 
     func startWaitingForFrames() async throws {
-        let r = _frameWatcherState.mutate {
+        let frameWatcher = _frameWatcherState.mutate {
             $0.frameWatcher?.reset()
             let watcher = AudioFrameWatcher()
             add(audioRenderer: watcher)
@@ -157,7 +157,7 @@ extension LocalAudioTrack {
             return watcher
         }
 
-        try await r.wait()
+        try await frameWatcher.wait()
         // Detach after wait is complete
         cleanUpFrameWatcher()
     }
