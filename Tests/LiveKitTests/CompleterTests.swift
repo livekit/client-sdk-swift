@@ -42,7 +42,6 @@ class CompleterTests: LKTestCase {
         do {
             // Run Tasks in parallel
             try await withThrowingTaskGroup(of: Void.self) { group in
-
                 group.addTask {
                     print("Task 1: Waiting...")
                     try await completer.wait()
@@ -72,7 +71,6 @@ class CompleterTests: LKTestCase {
         do {
             // Run Tasks in parallel
             try await withThrowingTaskGroup(of: Void.self) { group in
-
                 group.addTask {
                     print("Task 1: Waiting...")
                     try await completer.wait()

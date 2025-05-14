@@ -225,6 +225,14 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         return didUpdate
     }
 
+    override public func isMicrophoneEnabled() -> Bool {
+        if let room = _room, let recorder = room.preConnectBuffer.recorder, recorder.isRecording {
+            return true
+        } else {
+            return super.isMicrophoneEnabled()
+        }
+    }
+
     // MARK: - Broadcast Activation
 
     #if os(iOS)
@@ -499,9 +507,9 @@ extension [Livekit_SubscribedQuality] {
 
 // MARK: - Private
 
-private extension LocalParticipant {
+extension LocalParticipant {
     @discardableResult
-    internal func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
+    func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
         try checkPermissions(toPublish: track)
@@ -560,7 +568,6 @@ private extension LocalParticipant {
                 let videoLayers = dimensions.videoLayers(for: encodings)
 
                 populatorFunc = { populator in
-
                     self.log("[publish] using layers: \(videoLayers.map { String(describing: $0) }.joined(separator: ", "))")
 
                     var simulcastCodecs: [Livekit_SimulcastCodec] = [
@@ -610,6 +617,7 @@ private extension LocalParticipant {
                 populatorFunc = { populator in
                     populator.disableDtx = !audioPublishOptions.dtx
                     populator.disableRed = !audioPublishOptions.red
+                    populator.audioFeatures = Array(audioPublishOptions.toFeatures())
 
                     if let streamName = options?.streamName {
                         // Set stream name if specified in options
@@ -687,6 +695,12 @@ private extension LocalParticipant {
                 }
             }()
 
+            // At this point at least 1 audio frame should be generated to continue
+            if let track = track as? LocalAudioTrack {
+                log("[Publish] Waiting for audio frame...")
+                try await track.startWaitingForFrames()
+            }
+
             if track is LocalVideoTrack {
                 if let firstCodecMime = trackInfo.codecs.first?.mimeType,
                    let firstVideoCodec = VideoCodec.from(mimeType: firstCodecMime)
@@ -696,13 +710,13 @@ private extension LocalParticipant {
                 }
             }
 
+            // Store publishOptions used for this track...
+            track._state.mutate { $0.lastPublishOptions = options }
+
             let publication = LocalTrackPublication(info: trackInfo, participant: self)
             await publication.set(track: track)
 
             add(publication: publication)
-
-            // Store publishOptions used for this track...
-            track._state.mutate { $0.lastPublishOptions = options }
 
             // Notify didPublish
             delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {

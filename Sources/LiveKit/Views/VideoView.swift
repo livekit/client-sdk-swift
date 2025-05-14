@@ -269,7 +269,6 @@ public class VideoView: NativeView, Loggable {
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
-
             guard let self else { return }
 
             self.log("Mutating in main thread: \(Thread.current.isMainThread)", .trace)

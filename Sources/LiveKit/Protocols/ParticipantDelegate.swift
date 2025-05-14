@@ -43,6 +43,11 @@ public protocol ParticipantDelegate: AnyObject, Sendable {
     @objc optional
     func participant(_ participant: Participant, didUpdateIsSpeaking isSpeaking: Bool)
 
+    /// The state of a ``Participant`` has updated.
+    /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
+    @objc optional
+    func participant(_ participant: Participant, didUpdateState state: ParticipantState)
+
     /// The connection quality of a ``Participant`` has updated.
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
     @objc optional
