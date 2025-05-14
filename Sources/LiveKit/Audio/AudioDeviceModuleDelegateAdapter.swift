@@ -64,7 +64,7 @@ class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate
             let session = LKRTCAudioSession.sharedInstance()
             log("AudioEngine pre-enable check, audio session: \(session.category)")
             if ![AVAudioSession.Category.playAndRecord.rawValue,
-                 AVAudioSession.Category.record.rawValue,].contains(session.category)
+                 AVAudioSession.Category.record.rawValue].contains(session.category)
             {
                 return kAudioEngineErrorAudioSessionCategoryRecordingRequired
             }
