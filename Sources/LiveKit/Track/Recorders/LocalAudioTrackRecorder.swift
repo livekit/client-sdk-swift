@@ -20,7 +20,7 @@ import Foundation
 /// A class that captures audio from a local track and streams it as a data stream
 /// in a selected format that can be sent to other participants via ``ByteStreamWriter``.
 @objc
-public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
+public final class LocalAudioTrackRecorder: NSObject, Sendable, AudioRenderer {
     public typealias Stream = AsyncStream<Data>
 
     /// The local audio track to capture audio from.
@@ -43,7 +43,11 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
     @objc
     public let maxSize: Int
 
-    private let _state = StateSync<State>(State())
+    var isRecording: Bool {
+        state.continuation != nil
+    }
+
+    private let state = StateSync<State>(State())
     private struct State {
         var continuation: Stream.Continuation?
     }
@@ -67,23 +71,21 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
     /// - Returns: A stream of audio data.
     /// - Throws: An error if the audio track cannot be started.
     public func start() async throws -> Stream {
-        guard _state.continuation == nil else {
-            throw LiveKitError(.invalidState, message: "Cannot start the recorder multiple times.")
-        }
+        stop()
 
         try await track.startCapture()
         track.add(audioRenderer: self)
 
         let buffer: Stream.Continuation.BufferingPolicy = maxSize > 0 ? .bufferingNewest(maxSize) : .unbounded
         let stream = Stream(bufferingPolicy: buffer) { continuation in
-            self._state.mutate {
+            self.state.mutate {
                 $0.continuation = continuation
             }
         }
 
-        _state.continuation?.onTermination = { @Sendable (_: Stream.Continuation.Termination) in
+        state.continuation?.onTermination = { @Sendable (_: Stream.Continuation.Termination) in
             self.track.remove(audioRenderer: self)
-            self._state.mutate {
+            self.state.mutate {
                 $0.continuation = nil
             }
         }
@@ -94,7 +96,13 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
     /// Stops capturing audio from the local track.
     @objc
     public func stop() {
-        _state.continuation?.finish()
+        state.continuation?.finish()
+    }
+
+    func duration(_ dataSize: Int) -> TimeInterval {
+        let totalSamples = dataSize / format.bytesPerSample
+        let samplesPerChannel = totalSamples / channels
+        return Double(samplesPerChannel) / Double(sampleRate)
     }
 }
 
@@ -107,7 +115,9 @@ public extension LocalAudioTrackRecorder {
             .convert(toCommonFormat: format)?
             .toData()
         {
-            _state.continuation?.yield(data)
+            state.continuation?.yield(data)
+        } else {
+            assertionFailure("Failed to convert PCM buffer to data")
         }
     }
 }
