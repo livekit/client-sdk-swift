@@ -98,6 +98,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     public var connectStopwatch: Stopwatch { _state.connectStopwatch }
 
+    @objc
+    public var identityValidation: Participant.IdentityValidation { _state.identityValidation }
+
     // MARK: - Internal
 
     public var e2eeManager: E2EEManager?
@@ -150,6 +153,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         var remoteParticipants = [Participant.Identity: RemoteParticipant]()
         var activeSpeakers = [Participant]()
+
+        var identityValidation: Participant.IdentityValidation = .disabled
 
         var creationTime: Date?
         var isRecording: Bool = false

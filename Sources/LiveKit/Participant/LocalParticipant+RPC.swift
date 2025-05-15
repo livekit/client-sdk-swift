@@ -28,7 +28,7 @@ public extension LocalParticipant {
     /// - Returns: The response payload
     /// - Throws: RpcError on failure. Details in RpcError.message
     func performRpc(destinationIdentity: Identity,
-                    identityValidation: IdentityValidation = Participant.defaultIdentityValidation,
+                    identityValidation: IdentityValidation? = nil,
                     method: String,
                     payload: String,
                     responseTimeout: TimeInterval = 10) async throws -> String

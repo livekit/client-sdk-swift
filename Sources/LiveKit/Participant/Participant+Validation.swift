@@ -35,8 +35,9 @@ extension Room {
         try await activeParticipantCompleters.completer(for: identity.stringValue).wait()
     }
 
-    func validate(_ identity: Participant.Identity, validation: Participant.IdentityValidation) async throws {
+    func validate(_ identity: Participant.Identity, validation: Participant.IdentityValidation?) async throws {
         let isActive = isParticipantActive(identity)
+        let validation = validation ?? identityValidation
         switch (isActive, validation) {
         case (false, .disabled):
             log("Participant validation failed for \(identity.stringValue)")
