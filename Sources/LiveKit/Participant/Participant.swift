@@ -78,6 +78,9 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
         _state.trackPublications.values.filter { $0.kind == .video }
     }
 
+    @objc
+    public nonisolated(unsafe) static var defaultIdentityValidation: IdentityValidation = .disabled
+
     var info: Livekit_ParticipantInfo?
 
     // Reference to the Room this Participant belongs to
@@ -178,6 +181,11 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
                 }
                 room.delegates.notify(label: { "room.didUpdate state: \(newState.state)" }) {
                     $0.room?(room, participant: self, didUpdateState: newState.state)
+                }
+                if newState.state == .active, oldState.state != .active {
+                    Task {
+                        await room.activeParticipantCompleters.resume(returning: (), for: identity?.stringValue ?? "")
+                    }
                 }
             }
 
