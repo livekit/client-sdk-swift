@@ -28,14 +28,14 @@ public extension LocalParticipant {
     /// - Returns: The response payload
     /// - Throws: RpcError on failure. Details in RpcError.message
     func performRpc(destinationIdentity: Identity,
-                    identityValidation: IdentityValidation? = nil,
+                    sendingPolicy: SendingPolicy? = nil,
                     method: String,
                     payload: String,
                     responseTimeout: TimeInterval = 10) async throws -> String
     {
         let room = try requireRoom()
 
-        try await room.validate(destinationIdentity, validation: identityValidation)
+        try await room.validate(destinationIdentity, against: sendingPolicy)
 
         guard payload.byteLength <= MAX_RPC_PAYLOAD_BYTES else {
             throw RpcError.builtIn(.requestPayloadTooLarge)
