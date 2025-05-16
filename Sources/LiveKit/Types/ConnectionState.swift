@@ -18,6 +18,9 @@ import Foundation
 
 @objc
 public enum ReconnectMode: Int, Sendable {
+    /// Not trying to reconnect
+    case none
+
     /// Quick reconnection mode attempts to maintain the same session, reusing existing
     /// transport connections and published tracks. This is faster but may not succeed
     /// in all network conditions.
