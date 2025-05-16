@@ -48,6 +48,7 @@ extension Room {
             log("Waiting for inactive Participant: \(identity.stringValue)", .info)
             try await waitUntilActive(identity)
             log("Participant active: \(identity.stringValue)", .info)
+            try Task.checkCancellation()
         }
     }
 }
