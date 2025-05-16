@@ -44,6 +44,27 @@ extension Loggable {
                    function: function,
                    line: line)
     }
+
+    /// Log with structured metadata
+    func log(_ message: Logger.Message,
+             _ level: Logger.Level = .debug,
+             file: String = #fileID,
+             type type_: Any.Type? = nil,
+             function: String = #function,
+             line: UInt = #line,
+             metadata: [String: Any]? = nil)
+    {
+        var scopedMetadata = ScopedMetadataContainer()
+        metadata?.forEach { scopedMetadata[$0.key] = String(describing: $0.value) }
+
+        logger.log(message,
+                   level,
+                   file: file,
+                   type: type_ ?? type(of: self),
+                   function: function,
+                   line: line,
+                   metaData: scopedMetadata)
+    }
 }
 
 extension Logger {

@@ -64,7 +64,9 @@ actor SignalClient: Loggable {
         do {
             // Prepare request data...
             guard let data = try? request.serializedData() else {
-                self.log("Could not serialize request data", .error)
+                self.log("Operation failed: [signalClient.sendRequest] request serialization error", .error, metadata: [
+                    "requestType": String(describing: request.message),
+                ])
                 throw LiveKitError(.failedToConvertData, message: "Failed to convert data")
             }
 
@@ -72,7 +74,10 @@ actor SignalClient: Loggable {
             try await webSocket.send(data: data)
 
         } catch {
-            self.log("Failed to send queued request \(request) with error: \(error)", .warning)
+            self.log("Operation failed: [signalClient.sendRequest] unable to send request", .warning, metadata: [
+                "requestType": String(describing: request.message),
+                "error": error,
+            ])
         }
     })
 
@@ -99,19 +104,19 @@ actor SignalClient: Loggable {
     let _state = StateSync(State())
 
     init() {
-        log()
+        log("SignalClient instance initialized")
         _state.onDidMutate = { [weak self] newState, oldState in
             guard let self else { return }
             // ConnectionState
             if oldState.connectionState != newState.connectionState {
-                self.log("\(oldState.connectionState) -> \(newState.connectionState)")
+                self.log("State change: [connectionState] \(oldState.connectionState) → \(newState.connectionState)")
                 self._delegate.notifyDetached { await $0.signalClient(self, didUpdateConnectionState: newState.connectionState, oldState: oldState.connectionState, disconnectError: self.disconnectError) }
             }
         }
     }
 
     deinit {
-        log(nil, .trace)
+        log("SignalClient instance deallocating", .trace)
     }
 
     @discardableResult
@@ -124,9 +129,12 @@ actor SignalClient: Loggable {
     {
         await cleanUp()
 
-        if let reconnectMode {
-            log("[Connect] mode: \(String(describing: reconnectMode))")
-        }
+        let reconnectModeStr = reconnectMode.map { String(describing: $0) } ?? "none"
+        log("SignalClient connecting: preparing connection", metadata: [
+            "reconnectMode": reconnectModeStr,
+            "participantSid": participantSid as Any,
+            "adaptiveStream": adaptiveStream,
+        ])
 
         let url = try Utils.buildUrl(url,
                                      token,
@@ -135,11 +143,10 @@ actor SignalClient: Loggable {
                                      participantSid: participantSid,
                                      adaptiveStream: adaptiveStream)
 
-        if reconnectMode != nil {
-            log("[Connect] with url: \(url)")
-        } else {
-            log("Connecting with url: \(url)")
-        }
+        log("SignalClient connecting: initiating WebSocket connection", metadata: [
+            "url": url,
+            "reconnectMode": reconnectModeStr,
+        ])
 
         _state.mutate { $0.connectionState = (reconnectMode != nil ? .reconnecting : .connecting) }
 
@@ -147,12 +154,15 @@ actor SignalClient: Loggable {
             let socket = try await WebSocket(url: url, connectOptions: connectOptions)
 
             let task = Task.detached {
-                self.log("Did enter WebSocket message loop...")
+                self.log("SignalClient socket: message loop started", .debug, metadata: [
+                    "url": url,
+                ])
                 do {
                     for try await message in socket {
                         await self._onWebSocketMessage(message: message)
                     }
                 } catch {
+                    self.log("SignalClient socket: message loop terminated with error", .error, metadata: ["error": error])
                     await self.cleanUp(withError: error)
                 }
             }
@@ -192,16 +202,23 @@ actor SignalClient: Loggable {
                                                  adaptiveStream: adaptiveStream,
                                                  validate: true)
 
-            log("Validating with url: \(validateUrl)...")
+            log("SignalClient connecting: validating connection URL", metadata: [
+                "validateUrl": validateUrl,
+            ])
             let validationResponse = try await HTTP.requestString(from: validateUrl)
-            log("Validate response: \(validationResponse)")
+            log("SignalClient connecting: received validation response", metadata: [
+                "response": validationResponse,
+            ])
             // re-throw with validation response
             throw LiveKitError(.network, message: "Validation response: \"\(validationResponse)\"")
         }
     }
 
     func cleanUp(withError disconnectError: Error? = nil) async {
-        log("withError: \(String(describing: disconnectError))")
+        log("SignalClient cleanup: releasing resources", metadata: [
+            "error": disconnectError as Any,
+            "connectionState": _state.connectionState,
+        ])
 
         // Cancel ping/pong timers immediately to prevent stale timers from affecting future connections
         _pingIntervalTimer.cancel()
@@ -234,7 +251,9 @@ private extension SignalClient {
     // Send request or enqueue while reconnecting
     func _sendRequest(_ request: Livekit_SignalRequest) async throws {
         guard connectionState != .disconnected else {
-            log("connectionState is .disconnected", .error)
+            log("Operation failed: [signalClient.sendRequest] client disconnected", .error, metadata: [
+                "requestType": String(describing: request.message),
+            ])
             throw LiveKitError(.invalidState, message: "connectionState is .disconnected")
         }
 
@@ -251,7 +270,9 @@ private extension SignalClient {
         }()
 
         guard let response else {
-            log("Failed to decode SignalResponse", .warning)
+            log("Message processing failed: [signalClient.onWebSocketMessage] invalid message format", .warning, metadata: [
+                "messageType": String(describing: message),
+            ])
             return
         }
 
@@ -269,12 +290,16 @@ private extension SignalClient {
 
     func _process(signalResponse: Livekit_SignalResponse) async {
         guard connectionState != .disconnected else {
-            log("connectionState is .disconnected", .error)
+            log("Operation skipped: [signalClient.processResponse] client disconnected", .error, metadata: [
+                "message": String(describing: signalResponse.message),
+            ])
             return
         }
 
         guard let message = signalResponse.message else {
-            log("Failed to decode SignalResponse", .warning)
+            log("Message processing failed: [signalClient.processResponse] missing message content", .warning, metadata: [
+                "response": String(describing: signalResponse),
+            ])
             return
         }
 
@@ -310,7 +335,10 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRoom: update.room) }
 
         case let .trackPublished(trackPublished):
-            log("[publish] resolving completer for cid: \(trackPublished.cid)")
+            log("Track published: received server confirmation", metadata: [
+                "trackCid": trackPublished.cid,
+                "trackInfo": String(describing: trackPublished.track),
+            ])
             // Complete
             await _addTrackCompleters.resume(returning: trackPublished.track, for: trackPublished.cid)
 
@@ -350,10 +378,10 @@ private extension SignalClient {
             await _onReceivedPongResp(pongResp)
 
         case .subscriptionResponse:
-            log("Received subscriptionResponse message")
+            log("Message received: [subscription] subscription response from server")
 
         case .requestResponse:
-            log("Received requestResponse message")
+            log("Message received: [request] request response from server")
 
         case let .trackSubscribed(trackSubscribed):
             _delegate.notifyDetached { await $0.signalClient(self, didSubscribeTrack: Track.Sid(from: trackSubscribed.trackSid)) }
@@ -613,7 +641,10 @@ extension SignalClient {
         }
 
         // Log timestamp and RTT for debugging
-        log("Sending ping with timestamp: \(timestamp)ms, reporting RTT: \(rtt)ms", .trace)
+        log("Network ping: sending ping to server", .trace, metadata: [
+            "timestamp": timestamp,
+            "reportingRTT": rtt,
+        ])
 
         // Send both requests
         try await _sendRequest(pingRequest)
@@ -626,13 +657,18 @@ extension SignalClient {
 private extension SignalClient {
     func _onPingIntervalTimer() async throws {
         guard let jr = _state.lastJoinResponse else { return }
-        log("ping/pong sending ping...", .trace)
+        log("Network ping: interval timer triggered", .trace, metadata: [
+            "pingInterval": jr.pingInterval,
+            "pingTimeout": jr.pingTimeout,
+        ])
         try await _sendPing()
 
         _pingTimeoutTimer.setTimerInterval(TimeInterval(jr.pingTimeout))
         _pingTimeoutTimer.setTimerBlock { [weak self] in
             guard let self else { return }
-            self.log("ping/pong timed out", .error)
+            self.log("Network ping: timeout waiting for server response", .error, metadata: [
+                "timeoutMs": jr.pingTimeout,
+            ])
             await self.cleanUp(withError: LiveKitError(.serverPingTimedOut))
         }
 
@@ -640,7 +676,7 @@ private extension SignalClient {
     }
 
     func _onReceivedPong(_: Int64) async {
-        log("ping/pong received pong from server", .trace)
+        log("Network ping: received basic pong response", .trace)
         // Clear timeout timer
         _pingTimeoutTimer.cancel()
     }
@@ -649,7 +685,10 @@ private extension SignalClient {
         let currentTimeMs = Int64(Date().timeIntervalSince1970 * 1000)
         let rtt = currentTimeMs - pongResp.lastPingTimestamp
         _state.mutate { $0.rtt = rtt }
-        log("ping/pong received pongResp from server with RTT: \(rtt)ms", .trace)
+        log("Network ping: received enhanced pong response", .trace, metadata: [
+            "rttMs": rtt,
+            "timestamp": pongResp.lastPingTimestamp,
+        ])
         // Clear timeout timer
         _pingTimeoutTimer.cancel()
     }
@@ -665,7 +704,10 @@ private extension SignalClient {
               jr.pingTimeout > 0,
               jr.pingInterval > 0 else { return }
 
-        log("ping/pong starting with interval: \(jr.pingInterval), timeout: \(jr.pingTimeout)")
+        log("Network ping: starting ping service", metadata: [
+            "pingInterval": jr.pingInterval,
+            "pingTimeout": jr.pingTimeout,
+        ])
 
         // Update interval...
         _pingIntervalTimer.setTimerInterval(TimeInterval(jr.pingInterval))
@@ -689,7 +731,9 @@ extension Livekit_SignalRequest {
 private extension SignalClient {
     func requireWebSocket() async throws -> WebSocket {
         guard let result = _state.socket else {
-            log("WebSocket is nil", .error)
+            log("Operation failed: [signalClient.requireWebSocket] missing WebSocket connection", .error, metadata: [
+                "connectionState": _state.connectionState,
+            ])
             throw LiveKitError(.invalidState, message: "WebSocket is nil")
         }
 
