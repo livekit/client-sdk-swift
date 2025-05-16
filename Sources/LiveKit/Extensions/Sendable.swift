@@ -47,10 +47,6 @@ extension LKRTCVideoFrame: @unchecked Swift.Sendable {}
 extension LKRTCConfiguration: @unchecked Swift.Sendable {}
 extension LKRTCVideoCapturer: @unchecked Swift.Sendable {}
 
-// MARK: Foundation
-
-extension KeyPath: @unchecked Swift.Sendable where Root: Sendable, Value: Sendable {}
-
 // MARK: Collections
 
 extension NSHashTable: @unchecked Swift.Sendable {} // cannot specify Obj-C generics
