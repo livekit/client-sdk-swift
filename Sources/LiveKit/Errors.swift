@@ -43,6 +43,7 @@ public enum LiveKitErrorType: Int, Sendable {
     case stateMismatch = 504
     case joinFailure = 505
     case insufficientPermissions = 506
+    case participantInactive = 507
 
     //
     case serverPingTimedOut = 601
