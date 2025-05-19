@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.6.0] - 2025-05-15
+
+### Added
+
+- New API to capture pre-connect audio and send it to agents
+- Added BackgroundBlurVideoProcessor
+- New mic mute mode
+
+### Changed
+
+- Ensure audio frames are being generated when publishing audio
+- Update to protobuf v1.37.0
+
+### Fixed
+
+- Sendable requirement for internal callbacks
+
 ## [2.5.1] - 2025-04-23
 
 ### Added
