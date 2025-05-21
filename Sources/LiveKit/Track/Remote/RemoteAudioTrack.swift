@@ -49,22 +49,20 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack, @unchecked Sendab
                    source: source,
                    track: track,
                    reportStatistics: reportStatistics)
+
+        if let audioTrack = mediaTrack as? LKRTCAudioTrack {
+            audioTrack.add(_adapter)
+        }
     }
 
     deinit {
-        // Directly remove the adapter without unnecessary checks
-        guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
-        audioTrack.remove(_adapter)
+        if let audioTrack = mediaTrack as? LKRTCAudioTrack {
+            audioTrack.remove(_adapter)
+        }
     }
 
     public func add(audioRenderer: AudioRenderer) {
-        let wasEmpty = _adapter.countDelegates == 0
         _adapter.add(delegate: audioRenderer)
-        // Attach adapter only if it wasn't attached before
-        if wasEmpty {
-            guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
-            audioTrack.add(_adapter)
-        }
     }
 
     public func remove(audioRenderer: AudioRenderer) {
