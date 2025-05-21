@@ -69,10 +69,5 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack, @unchecked Sendab
 
     public func remove(audioRenderer: AudioRenderer) {
         _adapter.remove(delegate: audioRenderer)
-        // Remove adapter only if there are no more delegates
-        if _adapter.countDelegates == 0 {
-            guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
-            audioTrack.remove(_adapter)
-        }
     }
 }
