@@ -27,14 +27,14 @@ public enum VideoRotation: Int, Sendable, Codable {
     case _270 = 270
 }
 
-extension RTCVideoRotation {
+extension LKRTCVideoRotation {
     func toLKType() -> VideoRotation {
         VideoRotation(rawValue: rawValue)!
     }
 }
 
 extension VideoRotation {
-    func toRTCType() -> RTCVideoRotation {
-        RTCVideoRotation(rawValue: rawValue)!
+    func toRTCType() -> LKRTCVideoRotation {
+        LKRTCVideoRotation(rawValue: rawValue)!
     }
 }

@@ -157,7 +157,7 @@ actor RTC {
         try DispatchQueue.liveKitWebRTC.sync { try LKRTCIceCandidate(fromJsonString: fromJsonString) }
     }
 
-    static func createSessionDescription(type: RTCSdpType, sdp: String) -> LKRTCSessionDescription {
+    static func createSessionDescription(type: LKRTCSdpType, sdp: String) -> LKRTCSessionDescription {
         DispatchQueue.liveKitWebRTC.sync { LKRTCSessionDescription(type: type, sdp: sdp) }
     }
 

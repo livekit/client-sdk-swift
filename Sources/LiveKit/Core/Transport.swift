@@ -32,7 +32,7 @@ actor Transport: NSObject, Loggable {
     nonisolated let target: Livekit_SignalTarget
     nonisolated let isPrimary: Bool
 
-    var connectionState: RTCPeerConnectionState {
+    var connectionState: LKRTCPeerConnectionState {
         _pc.connectionState
     }
 
@@ -48,7 +48,7 @@ actor Transport: NSObject, Loggable {
         _pc.remoteDescription
     }
 
-    var signalingState: RTCSignalingState {
+    var signalingState: LKRTCSignalingState {
         _pc.signalingState
     }
 
@@ -216,7 +216,7 @@ extension Transport {
 // MARK: - RTCPeerConnectionDelegate
 
 extension Transport: LKRTCPeerConnectionDelegate {
-    nonisolated func peerConnection(_: LKRTCPeerConnection, didChange state: RTCPeerConnectionState) {
+    nonisolated func peerConnection(_: LKRTCPeerConnection, didChange state: LKRTCPeerConnectionState) {
         log("[Connect] Transport(\(target)) did update state: \(state.description)")
         _delegate.notify { $0.transport(self, didUpdateState: state) }
     }
@@ -255,11 +255,11 @@ extension Transport: LKRTCPeerConnectionDelegate {
         _delegate.notify { $0.transport(self, didOpenDataChannel: dataChannel) }
     }
 
-    nonisolated func peerConnection(_: LKRTCPeerConnection, didChange _: RTCIceConnectionState) {}
+    nonisolated func peerConnection(_: LKRTCPeerConnection, didChange _: LKRTCIceConnectionState) {}
     nonisolated func peerConnection(_: LKRTCPeerConnection, didRemove _: LKRTCMediaStream) {}
-    nonisolated func peerConnection(_: LKRTCPeerConnection, didChange _: RTCSignalingState) {}
+    nonisolated func peerConnection(_: LKRTCPeerConnection, didChange _: LKRTCSignalingState) {}
     nonisolated func peerConnection(_: LKRTCPeerConnection, didAdd _: LKRTCMediaStream) {}
-    nonisolated func peerConnection(_: LKRTCPeerConnection, didChange _: RTCIceGatheringState) {}
+    nonisolated func peerConnection(_: LKRTCPeerConnection, didChange _: LKRTCIceGatheringState) {}
     nonisolated func peerConnection(_: LKRTCPeerConnection, didRemove _: [LKRTCIceCandidate]) {}
 }
 

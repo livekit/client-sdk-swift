@@ -22,7 +22,7 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-extension RTCPeerConnectionState {
+extension LKRTCPeerConnectionState {
     var isConnected: Bool {
         self == .connected
     }
@@ -33,7 +33,7 @@ extension RTCPeerConnectionState {
 }
 
 extension Room: TransportDelegate {
-    func transport(_ transport: Transport, didUpdateState pcState: RTCPeerConnectionState) {
+    func transport(_ transport: Transport, didUpdateState pcState: LKRTCPeerConnectionState) {
         log("target: \(transport.target), connectionState: \(pcState.description)")
 
         // primary connected

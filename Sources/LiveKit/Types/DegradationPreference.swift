@@ -33,7 +33,7 @@ public enum DegradationPreference: Int, Sendable {
 }
 
 extension DegradationPreference {
-    func toRTCType() -> RTCDegradationPreference? {
+    func toRTCType() -> LKRTCDegradationPreference? {
         switch self {
         case .auto: return nil
         case .disabled: return .disabled

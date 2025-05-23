@@ -657,7 +657,7 @@ extension LocalParticipant {
                         if let rtcDegradationPreference = publishOptions.degradationPreference.toRTCType() {
                             return NSNumber(value: rtcDegradationPreference.rawValue)
                         } else if track.source == .screenShareVideo || publishOptions.simulcast {
-                            return NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
+                            return NSNumber(value: LKRTCDegradationPreference.maintainResolution.rawValue)
                         }
                         return nil
                     }()
