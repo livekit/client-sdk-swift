@@ -22,7 +22,7 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-public let AudioEngineInputMixerNodeKey = LKRTCAudioEngineInputMixerNodeKey
+public let AudioEngineInputMixerNodeKey = kLKRTCAudioEngineInputMixerNodeKey
 
 /// Do not retain the engine object.
 public protocol AudioEngineObserver: NextInvokable, Sendable {

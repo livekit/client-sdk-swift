@@ -107,7 +107,7 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
 
     public func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int {
         // Get the main mixer
-        guard let mainMixerNode = context[LKRTCAudioEngineInputMixerNodeKey] as? AVAudioMixerNode else {
+        guard let mainMixerNode = context[kLKRTCAudioEngineInputMixerNodeKey] as? AVAudioMixerNode else {
             // If failed to get main mixer, call next and return.
             return next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context) ?? 0
         }

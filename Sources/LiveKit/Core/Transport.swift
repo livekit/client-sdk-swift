@@ -154,7 +154,7 @@ actor Transport: NSObject, Loggable {
         var constraints = [String: String]()
         if iceRestart {
             log("Restarting ICE...")
-            constraints[kRTCMediaConstraintsIceRestart] = kRTCMediaConstraintsValueTrue
+            constraints[kLKRTCMediaConstraintsIceRestart] = kLKRTCMediaConstraintsValueTrue
             _isRestartingIce = true
         }
 
