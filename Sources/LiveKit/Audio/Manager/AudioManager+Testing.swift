@@ -22,7 +22,7 @@ internal import LiveKitWebRTC
 
 // Only internal testing.
 extension AudioManager {
-    var engineState: RTCAudioEngineState {
+    var engineState: LKRTCAudioEngineState {
         get { RTC.audioDeviceModule.engineState }
         set { RTC.audioDeviceModule.engineState = newValue }
     }

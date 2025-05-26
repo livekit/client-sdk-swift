@@ -38,7 +38,7 @@ extension LKRTCSessionDescription {
 
 extension Livekit_SessionDescription {
     func toRTCType() -> LKRTCSessionDescription {
-        var sdpType: RTCSdpType
+        var sdpType: LKRTCSdpType
         switch type {
         case "answer": sdpType = .answer
         case "offer": sdpType = .offer
