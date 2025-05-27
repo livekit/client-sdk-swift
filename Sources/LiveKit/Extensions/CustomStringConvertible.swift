@@ -117,7 +117,7 @@ extension Track.Source: CustomStringConvertible {
     }
 }
 
-extension RTCPeerConnectionState {
+extension LKRTCPeerConnectionState {
     var description: String {
         switch self {
         case .new: return ".new"

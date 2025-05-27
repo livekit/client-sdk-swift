@@ -34,7 +34,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
 
         func frameCryptor(_ frameCryptor: LKRTCFrameCryptor,
                           didStateChangeWithParticipantId participantId: String,
-                          with stateChanged: FrameCryptionState)
+                          with stateChanged: LKRTCFrameCryptorState)
         {
             // Redirect
             target?.frameCryptor(frameCryptor, didStateChangeWithParticipantId: participantId, with: stateChanged)
@@ -174,7 +174,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
 }
 
 extension E2EEManager {
-    func frameCryptor(_ frameCryptor: LKRTCFrameCryptor, didStateChangeWithParticipantId participantId: String, with state: FrameCryptionState) {
+    func frameCryptor(_ frameCryptor: LKRTCFrameCryptor, didStateChangeWithParticipantId participantId: String, with state: LKRTCFrameCryptorState) {
         guard let room = _room else {
             log("room is nil", .warning)
             return

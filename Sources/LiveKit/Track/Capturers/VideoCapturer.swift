@@ -266,7 +266,7 @@ extension VideoCapturer {
         }
 
         // attempt to determine rotation information if buffer is coming from ReplayKit
-        var rotation: RTCVideoRotation?
+        var rotation: LKRTCVideoRotation?
         if #available(macOS 11.0, *) {
             // Check rotation tags. Extensions see these tags, but `RPScreenRecorder` does not appear to set them.
             // On iOS 12.0 and 13.0 rotation tags (other than up) are set by extensions.

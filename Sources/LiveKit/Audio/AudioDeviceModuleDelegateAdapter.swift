@@ -26,7 +26,7 @@ internal import LiveKitWebRTC
 class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate {
     weak var audioManager: AudioManager?
 
-    func audioDeviceModule(_: LKRTCAudioDeviceModule, didReceiveSpeechActivityEvent speechActivityEvent: RTCSpeechActivityEvent) {
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, didReceiveSpeechActivityEvent speechActivityEvent: LKRTCSpeechActivityEvent) {
         guard let audioManager else { return }
         audioManager._state.onMutedSpeechActivity?(audioManager, speechActivityEvent.toLKType())
     }

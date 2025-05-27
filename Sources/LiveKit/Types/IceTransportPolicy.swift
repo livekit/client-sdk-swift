@@ -31,7 +31,7 @@ public enum IceTransportPolicy: Int, Sendable {
 }
 
 extension IceTransportPolicy {
-    func toRTCType() -> RTCIceTransportPolicy {
+    func toRTCType() -> LKRTCIceTransportPolicy {
         switch self {
         case .none: return .none
         case .relay: return .relay

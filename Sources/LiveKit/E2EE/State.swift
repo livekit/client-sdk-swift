@@ -48,7 +48,7 @@ public extension E2EEState {
     }
 }
 
-extension FrameCryptionState {
+extension LKRTCFrameCryptorState {
     func toLKType() -> E2EEState {
         switch self {
         case .new: return .new

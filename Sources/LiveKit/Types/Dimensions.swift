@@ -187,7 +187,7 @@ extension Dimensions {
 // MARK: - Convert
 
 extension Dimensions {
-    func apply(rotation: RTCVideoRotation) -> Dimensions {
+    func apply(rotation: LKRTCVideoRotation) -> Dimensions {
         if rotation == ._90 || rotation == ._270 {
             return swapped()
         }
