@@ -26,7 +26,7 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchecked Sendable {
+public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @unchecked Sendable {
     public var isSpeakerOutputPreferred: Bool {
         get { _state.isSpeakerOutputPreferred }
         set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
