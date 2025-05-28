@@ -72,8 +72,8 @@ public class AudioManager: Loggable {
     ///
     /// This property is ignored if ``customConfigureAudioSessionFunc`` is set.
     public var isSpeakerOutputPreferred: Bool {
-        get { _state.isSpeakerOutputPreferred }
-        set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
+        get { audioSession.isSpeakerOutputPreferred }
+        set { audioSession.isSpeakerOutputPreferred = newValue }
     }
 
     /// Specifies a fixed configuration for the audio session, overriding dynamic adjustments.
@@ -105,7 +105,6 @@ public class AudioManager: Loggable {
         // Keep this var within State so it's protected by UnfairLock
         public var localTracksCount: Int = 0
         public var remoteTracksCount: Int = 0
-        public var isSpeakerOutputPreferred: Bool = true
         public var customConfigureFunc: ConfigureAudioSessionFunc?
         public var sessionConfiguration: AudioSessionConfiguration?
 
@@ -325,8 +324,6 @@ public class AudioManager: Loggable {
         _state.mutate { $0.engineObservers = engineObservers }
     }
 
-    public let mixer = DefaultMixerAudioObserver()
-
     public var isEngineRunning: Bool {
         RTC.audioDeviceModule.isEngineRunning
     }
@@ -343,6 +340,14 @@ public class AudioManager: Loggable {
         }
     }
 
+    // MARK: - Default AudioEngineObservers
+
+    public let mixer = MixerEngineObserver()
+
+    #if os(iOS) || os(visionOS) || os(tvOS)
+    public let audioSession = AudioSessionEngineObserver()
+    #endif
+
     // MARK: - Internal
 
     let _state: StateSync<State>
@@ -351,7 +356,7 @@ public class AudioManager: Loggable {
 
     init() {
         #if os(iOS) || os(visionOS) || os(tvOS)
-        let engineObservers: [any AudioEngineObserver] = [DefaultAudioSessionObserver(), mixer]
+        let engineObservers: [any AudioEngineObserver] = [audioSession, mixer]
         #else
         let engineObservers: [any AudioEngineObserver] = [mixer]
         #endif
