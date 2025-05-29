@@ -32,9 +32,15 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
     }
 
+    public var isAutomaticConfigurationEnabled: Bool {
+        get { _state.isAutomaticConfigurationEnabled }
+        set { _state.mutate { $0.isAutomaticConfigurationEnabled = newValue } }
+    }
+
     struct State: Sendable {
         var next: (any AudioEngineObserver)?
 
+        var isAutomaticConfigurationEnabled: Bool = true
         var isPlayoutEnabled: Bool = false
         var isRecordingEnabled: Bool = false
         var isSpeakerOutputPreferred: Bool = true
@@ -49,7 +55,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 
     public init() {
         _state.onDidMutate = { new_, old_ in
-            if new_.isPlayoutEnabled != old_.isPlayoutEnabled ||
+            if new_.isAutomaticConfigurationEnabled, new_.isPlayoutEnabled != old_.isPlayoutEnabled ||
                 new_.isRecordingEnabled != old_.isRecordingEnabled ||
                 new_.isSpeakerOutputPreferred != old_.isSpeakerOutputPreferred
             {
