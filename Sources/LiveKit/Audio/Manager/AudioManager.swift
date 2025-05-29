@@ -58,7 +58,7 @@ public class AudioManager: Loggable {
     ///   - ``isSpeakerOutputPreferred``
     ///
     /// If you want to revert to default behavior, set this to `nil`.
-    @available(*, deprecated, message: "Use `set(engineObservers:)` instead. See `DefaultAudioSessionObserver` for example.")
+    @available(*, deprecated, message: "Use `set(engineObservers:)` instead. See `AudioSessionEngineObserver` for example.")
     public var customConfigureAudioSessionFunc: ConfigureAudioSessionFunc? {
         get { _state.customConfigureFunc }
         set { _state.mutate { $0.customConfigureFunc = newValue } }
@@ -314,7 +314,7 @@ public class AudioManager: Loggable {
     }
 
     /// Set a chain of ``AudioEngineObserver``s.
-    /// Defaults to having a single ``DefaultAudioSessionObserver`` initially.
+    /// Defaults to having a single ``AudioSessionEngineObserver`` initially.
     ///
     /// The first object will be invoked and is responsible for calling the next object.
     /// See ``NextInvokable`` protocol for details.
@@ -345,6 +345,9 @@ public class AudioManager: Loggable {
     public let mixer = MixerEngineObserver()
 
     #if os(iOS) || os(visionOS) || os(tvOS)
+    /// Configures the `AVAudioSession` based on the audio engine's state.
+    /// Set `AudioManager.shared.audioSession.isAutomaticConfigurationEnabled` to `false` to manually configure the `AVAudioSession` instead.
+    /// > Note: It is recommended to set this before connecting to a room.
     public let audioSession = AudioSessionEngineObserver()
     #endif
 

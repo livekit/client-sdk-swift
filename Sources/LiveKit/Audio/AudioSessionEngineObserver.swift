@@ -26,7 +26,29 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
+/// An ``AudioEngineObserver`` that configures the `AVAudioSession` based on the state of the audio engine.
 public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @unchecked Sendable {
+    /// Controls automatic configuration of the `AVAudioSession` based on audio engine state.
+    ///
+    /// - When `true`: The `AVAudioSession` is automatically configured based on the audio engine state
+    /// - When `false`: Manual configuration of the `AVAudioSession` is required
+    ///
+    /// > Note: It is recommended to set this value before connecting to a room.
+    ///
+    /// Default value: `true`
+    public var isAutomaticConfigurationEnabled: Bool {
+        get { _state.isAutomaticConfigurationEnabled }
+        set { _state.mutate { $0.isAutomaticConfigurationEnabled = newValue } }
+    }
+
+    /// Controls the speaker output preference for audio routing.
+    ///
+    /// - When `true`: The speaker output is preferred over the receiver output
+    /// - When `false`: The receiver output is preferred over the speaker output
+    ///
+    /// > Note: This value is only used when `isAutomaticConfigurationEnabled` is `true`.
+    ///
+    /// Default value: `true`
     public var isSpeakerOutputPreferred: Bool {
         get { _state.isSpeakerOutputPreferred }
         set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
@@ -35,6 +57,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     struct State: Sendable {
         var next: (any AudioEngineObserver)?
 
+        var isAutomaticConfigurationEnabled: Bool = true
         var isPlayoutEnabled: Bool = false
         var isRecordingEnabled: Bool = false
         var isSpeakerOutputPreferred: Bool = true
@@ -49,7 +72,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 
     public init() {
         _state.onDidMutate = { new_, old_ in
-            if new_.isPlayoutEnabled != old_.isPlayoutEnabled ||
+            if new_.isAutomaticConfigurationEnabled, new_.isPlayoutEnabled != old_.isPlayoutEnabled ||
                 new_.isRecordingEnabled != old_.isRecordingEnabled ||
                 new_.isSpeakerOutputPreferred != old_.isSpeakerOutputPreferred
             {
