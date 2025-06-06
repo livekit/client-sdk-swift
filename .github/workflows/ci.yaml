@@ -170,3 +170,31 @@ jobs:
           name: docs
           path: docs.zip
           retention-days: 1
+  check-changes:
+    name: Check Changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for .changes files
+        id: check-changes
+        run: |
+          if [ -z "$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep '^\.changes/')" ]; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on PR
+        if: steps.check-changes.outputs.has_changes == 'false'
+        uses: mshick/add-pr-comment@v2
+        with:
+          message: |
+            ⚠️ This PR does not contain any files in the `.changes` directory.
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
