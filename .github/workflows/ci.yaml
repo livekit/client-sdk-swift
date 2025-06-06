@@ -196,5 +196,5 @@ jobs:
         uses: mshick/add-pr-comment@v2
         with:
           message: |
-            ⚠️ This PR does not contain any files in the `.changes` directory. Please add a an entry if this PR introduces API changes.
+            ⚠️ This PR does not contain any files in the `.changes` directory.
           repo-token: ${{ secrets.GITHUB_TOKEN }}
