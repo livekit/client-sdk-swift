@@ -1,3 +1,0 @@
-version 2.6.0
-name client-sdk-swift
-custom ./scripts/replace_version.sh
