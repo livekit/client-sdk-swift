@@ -23,7 +23,7 @@ jobs:
         run: brew install swiftly && swiftly init --quiet-shell-followup --skip-install -y
 
       - name: Use Swift Snapshot
-        run:  swiftly install -y main-snapshot && swiftly use -y main-snapshot
+        run:  swiftly install -y main-snapshot
 
       - name: Build
-        run: swift build
+        run: swiftly use -y main-snapshot && swift build
