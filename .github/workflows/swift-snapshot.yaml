@@ -1,0 +1,32 @@
+name: Swift Snapshot Build
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/swift-snapshot.yaml'
+
+jobs:
+  build-snapshot:
+    name: Build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install swiftly
+        run: |
+          curl -O https://download.swift.org/swiftly/darwin/swiftly.pkg && \
+          installer -pkg swiftly.pkg -target CurrentUserHomeDirectory && \
+          ~/.swiftly/bin/swiftly init --quiet-shell-followup && \
+          . "${SWIFTLY_HOME_DIR:-~/.swiftly}/env.sh" && \
+          hash -r
+        shell: bash
+
+      - name: Use Swift Snapshot
+        run: swiftly install main-snapshot && swiftly use main-snapshot
+        shell: bash
+
+      - name: Build
+        run: swift build
