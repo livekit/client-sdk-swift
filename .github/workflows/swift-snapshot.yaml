@@ -10,9 +10,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '0 0 * * *'
-  push:
-    paths:
-      - '.github/workflows/swift-snapshot.yaml'
 
 jobs:
   build-snapshot:
@@ -36,4 +33,4 @@ jobs:
         run: swiftly install -y ${{ env.SWIFT_SNAPSHOT }}
 
       - name: Build
-        run: swiftly run swift build -q +${{ env.SWIFT_SNAPSHOT }}
+        run: swiftly run swift build +${{ env.SWIFT_SNAPSHOT }}
