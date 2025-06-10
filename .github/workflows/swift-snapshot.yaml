@@ -1,5 +1,11 @@
 name: Swift Snapshot Build
 
+permissions:
+  contents: read
+
+env:
+  SWIFT_SNAPSHOT: main-snapshot
+
 on:
   schedule:
     - cron: '0 0 * * *'
@@ -22,11 +28,8 @@ jobs:
       - name: Install swiftly
         run: brew install swiftly && swiftly init --quiet-shell-followup --skip-install -y
 
-      - name: Use Swift Snapshot
-        run:  swiftly install -y main-snapshot && swiftly use -y main-snapshot
+      - name: Get Swift Snapshot
+        run: swiftly install -y ${{ env.SWIFT_SNAPSHOT }}
 
       - name: Build
-        run: |
-          . "${SWIFTLY_HOME_DIR:-~/.swiftly}/env.sh" && \
-          hash -r && \
-          swift build
+        run: swiftly run swift build +${{ env.SWIFT_SNAPSHOT }}
