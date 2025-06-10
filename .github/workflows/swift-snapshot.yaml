@@ -12,21 +12,18 @@ jobs:
   build-snapshot:
     name: Build
     runs-on: macos-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
 
       - name: Install swiftly
-        run: |
-          curl -O https://download.swift.org/swiftly/darwin/swiftly.pkg && \
-          installer -pkg swiftly.pkg -target CurrentUserHomeDirectory && \
-          ~/.swiftly/bin/swiftly init --quiet-shell-followup && \
-          . "${SWIFTLY_HOME_DIR:-~/.swiftly}/env.sh" && \
-          hash -r
-        shell: bash
+        run: brew install swiftly
 
       - name: Use Swift Snapshot
-        run: swiftly install main-snapshot && swiftly use main-snapshot
-        shell: bash
+        run: swiftly install --use main-snapshot
 
       - name: Build
         run: swift build
