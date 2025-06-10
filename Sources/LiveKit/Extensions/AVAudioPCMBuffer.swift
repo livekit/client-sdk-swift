@@ -48,12 +48,12 @@ public extension AVAudioPCMBuffer {
             return nil
         }
 
-//        #if swift(>=6.0)
-//        // Won't be accessed concurrently, marking as nonisolated(unsafe) to avoid Atomics.
-//        nonisolated(unsafe) var isDone = false
-//        #else
+        #if swift(>=6.0)
+        // Won't be accessed concurrently, marking as nonisolated(unsafe) to avoid Atomics.
+        nonisolated(unsafe) var isDone = false
+        #else
         var isDone = false
-//        #endif
+        #endif
         let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
             if isDone {
                 outStatus.pointee = .noDataNow
