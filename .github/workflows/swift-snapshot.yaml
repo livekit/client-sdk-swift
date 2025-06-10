@@ -20,13 +20,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install swiftly
-        run: brew install swiftly
-
-      - name: Init swiftly
-        run: swiftly init --quiet-shell-followup
+        run: brew install swiftly && swiftly init --quiet-shell-followup --skip-install
 
       - name: Use Swift Snapshot
-        run: swiftly install --use main-snapshot
+        run:  swiftly install --use main-snapshot && hash -r
 
       - name: Build
         run: swift build
