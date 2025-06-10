@@ -231,7 +231,7 @@ public class VideoView: NativeView, Loggable {
 
     // MARK: - Private
 
-    #if compiler(>=6.0)
+    #if swift(>=6.0)
     private nonisolated(unsafe) var _primaryRenderer: NativeRendererView?
     private nonisolated(unsafe) var _secondaryRenderer: NativeRendererView?
     #else

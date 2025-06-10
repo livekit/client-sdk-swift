@@ -31,19 +31,19 @@ private extension Array where Element: LKRTCVideoCodecInfo {
     }
 }
 
-private class VideoEncoderFactory: LKRTCDefaultVideoEncoderFactory {
+private class VideoEncoderFactory: LKRTCDefaultVideoEncoderFactory, @unchecked Sendable {
     override func supportedCodecs() -> [LKRTCVideoCodecInfo] {
         super.supportedCodecs().rewriteCodecsIfNeeded()
     }
 }
 
-private class VideoDecoderFactory: LKRTCDefaultVideoDecoderFactory {
+private class VideoDecoderFactory: LKRTCDefaultVideoDecoderFactory, @unchecked Sendable {
     override func supportedCodecs() -> [LKRTCVideoCodecInfo] {
         super.supportedCodecs().rewriteCodecsIfNeeded()
     }
 }
 
-private class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulcast {
+private class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulcast, @unchecked Sendable {
     override func supportedCodecs() -> [LKRTCVideoCodecInfo] {
         super.supportedCodecs().rewriteCodecsIfNeeded()
     }
@@ -74,14 +74,14 @@ actor RTC {
 
     // global properties are already lazy
 
-    private static let encoderFactory: LKRTCVideoEncoderFactory = {
+    private static let encoderFactory: LKRTCVideoEncoderFactory & Sendable = {
         let encoderFactory = VideoEncoderFactory()
         return VideoEncoderFactorySimulcast(primary: encoderFactory,
                                             fallback: encoderFactory)
 
     }()
 
-    private static let decoderFactory = VideoDecoderFactory()
+    private static let decoderFactory: LKRTCVideoDecoderFactory & Sendable = VideoDecoderFactory()
 
     static let audioProcessingModule: LKRTCDefaultAudioProcessingModule = .init()
 

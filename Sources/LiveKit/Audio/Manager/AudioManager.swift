@@ -28,7 +28,7 @@ internal import LiveKitWebRTC
 public class AudioManager: Loggable {
     // MARK: - Public
 
-    #if compiler(>=6.0)
+    #if swift(>=6.0)
     public nonisolated(unsafe) static let shared = AudioManager()
     #else
     public static let shared = AudioManager()
