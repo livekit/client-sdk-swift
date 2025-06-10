@@ -41,13 +41,17 @@ extension LKRTCSessionDescription: @unchecked Swift.Sendable {}
 extension LKRTCStatisticsReport: @unchecked Swift.Sendable {}
 extension LKRTCVideoCodecInfo: @unchecked Swift.Sendable {}
 extension LKRTCVideoFrame: @unchecked Swift.Sendable {}
+extension LKRTCRtpCapabilities: @unchecked Swift.Sendable {}
 
 // MARK: Mutable classes - to be validated
 
 extension LKRTCConfiguration: @unchecked Swift.Sendable {}
 extension LKRTCVideoCapturer: @unchecked Swift.Sendable {}
+extension LKRTCDefaultAudioProcessingModule: @unchecked Swift.Sendable {}
 
 // MARK: Collections
 
 extension NSHashTable: @unchecked Swift.Sendable {} // cannot specify Obj-C generics
+#if swift(<6.2)
 extension Dictionary: Swift.Sendable where Key: Sendable, Value: Sendable {}
+#endif
