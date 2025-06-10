@@ -32,7 +32,7 @@ jobs:
       - name: Install swiftly
         run: brew install swiftly && swiftly init --quiet-shell-followup --skip-install -y
 
-      - name: Get Swift Snapshot
+      - name: Get Swift snapshot
         run: swiftly install -y ${{ env.SWIFT_SNAPSHOT }}
 
       - name: Build
