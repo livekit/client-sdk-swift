@@ -22,6 +22,9 @@ jobs:
       - name: Install swiftly
         run: brew install swiftly
 
+      - name: Init swiftly
+        run: swiftly init --quiet-shell-followup
+
       - name: Use Swift Snapshot
         run: swiftly install --use main-snapshot
 
