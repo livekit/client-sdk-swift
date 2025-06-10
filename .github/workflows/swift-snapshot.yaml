@@ -23,7 +23,10 @@ jobs:
         run: brew install swiftly && swiftly init --quiet-shell-followup --skip-install -y
 
       - name: Use Swift Snapshot
-        run:  swiftly install -y main-snapshot
+        run:  swiftly install -y main-snapshot && swiftly use -y main-snapshot
 
       - name: Build
-        run: swiftly use -y main-snapshot && swift build
+        run: |
+          . "${SWIFTLY_HOME_DIR:-~/.swiftly}/env.sh" && \
+          hash -r && \
+          swift build
