@@ -16,17 +16,15 @@
 
 import Foundation
 
-public extension Participant {
+public extension RemoteParticipant {
     func waitUntilActive(timeout: TimeInterval = .defaultParticipantActiveTimeout) async throws {
         let room = try requireRoom()
-        guard let identity else {
-            throw LiveKitError(.invalidParameter, message: "Paticipant identity not found")
-        }
+        let identity = try requireIdentity()
         try await room.activeParticipantCompleters.completer(for: identity.stringValue).wait(timeout: timeout)
     }
 }
 
-public extension Collection<Participant> {
+public extension Collection<RemoteParticipant> {
     func waitUntilAllActive(timeout: TimeInterval = .defaultParticipantActiveTimeout) async throws {
         try await withThrowingTaskGroup(of: Void.self) { group in
             for participant in self {
