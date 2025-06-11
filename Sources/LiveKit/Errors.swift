@@ -65,48 +65,48 @@ extension LiveKitErrorType: CustomStringConvertible {
     public var description: String {
         switch self {
         case .cancelled:
-            "Cancelled"
+            return "Cancelled"
         case .timedOut:
-            "Timed out"
+            return "Timed out"
         case .failedToParseUrl:
-            "Failed to parse URL"
+            return "Failed to parse URL"
         case .failedToConvertData:
-            "Failed to convert data"
+            return "Failed to convert data"
         case .invalidState:
-            "Invalid state"
+            return "Invalid state"
         case .invalidParameter:
-            "Invalid parameter"
+            return "Invalid parameter"
         case .webRTC:
-            "WebRTC error"
+            return "WebRTC error"
         case .network:
-            "Network error"
+            return "Network error"
         case .duplicateIdentity:
-            "Duplicate Participant identity"
+            return "Duplicate Participant identity"
         case .serverShutdown:
-            "Server shutdown"
+            return "Server shutdown"
         case .participantRemoved:
-            "Participant removed"
+            return "Participant removed"
         case .roomDeleted:
-            "Room deleted"
+            return "Room deleted"
         case .stateMismatch:
-            "Server state mismatch"
+            return "Server state mismatch"
         case .joinFailure:
-            "Server join failure"
+            return "Server join failure"
         case .serverPingTimedOut:
-            "Server ping timed out"
+            return "Server ping timed out"
         case .deviceNotFound:
-            "Device not found"
+            return "Device not found"
         case .captureFormatNotFound:
-            "Capture format not found"
+            return "Capture format not found"
         case .unableToResolveFPSRange:
-            "Unable to resolve FPS range"
+            return "Unable to resolve FPS range"
         case .capturerDimensionsNotResolved:
-            "Capturer dimensions not resolved"
+            return "Capturer dimensions not resolved"
         case .audioEngine:
-            "Audio Engine Error"
+            return "Audio Engine Error"
         case .audioSession:
-            "Audio Session Error"
-        default: "Unknown"
+            return "Audio Session Error"
+        default: return "Unknown"
         }
     }
 }
@@ -118,7 +118,7 @@ public class LiveKitError: NSError, @unchecked Sendable {
     public let underlyingError: Error?
 
     override public var underlyingErrors: [Error] {
-        [underlyingError].compactMap(\.self)
+        [underlyingError].compactMap { $0 }
     }
 
     public init(_ type: LiveKitErrorType,
@@ -170,14 +170,14 @@ extension LiveKitError {
 extension Livekit_DisconnectReason {
     func toLKType() -> LiveKitErrorType {
         switch self {
-        case .clientInitiated: .cancelled
-        case .duplicateIdentity: .duplicateIdentity
-        case .serverShutdown: .serverShutdown
-        case .participantRemoved: .participantRemoved
-        case .roomDeleted: .roomDeleted
-        case .stateMismatch: .stateMismatch
-        case .joinFailure: .joinFailure
-        default: .unknown
+        case .clientInitiated: return .cancelled
+        case .duplicateIdentity: return .duplicateIdentity
+        case .serverShutdown: return .serverShutdown
+        case .participantRemoved: return .participantRemoved
+        case .roomDeleted: return .roomDeleted
+        case .stateMismatch: return .stateMismatch
+        case .joinFailure: return .joinFailure
+        default: return .unknown
         }
     }
 }

@@ -122,10 +122,10 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
-            guard let self, let room = _room else { return }
+            guard let self, let room = self._room else { return }
 
             if newState.isSpeaking != oldState.isSpeaking {
-                delegates.notify(label: { "participant.didUpdate isSpeaking: \(self.isSpeaking)" }) {
+                self.delegates.notify(label: { "participant.didUpdate isSpeaking: \(self.isSpeaking)" }) {
                     $0.participant?(self, didUpdateIsSpeaking: self.isSpeaking)
                 }
             }
@@ -135,7 +135,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
                // don't notify if empty string (first time only)
                oldState.metadata == nil ? !newMetadata.isEmpty : true
             {
-                delegates.notify(label: { "participant.didUpdate metadata: \(newMetadata)" }) {
+                self.delegates.notify(label: { "participant.didUpdate metadata: \(newMetadata)" }) {
                     $0.participant?(self, didUpdateMetadata: newMetadata)
                 }
                 room.delegates.notify(label: { "room.didUpdate metadata: \(newMetadata)" }) {
@@ -146,7 +146,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
             // name updated
             if let newName = newState.name, newName != oldState.name {
                 // notfy participant delegates
-                delegates.notify(label: { "participant.didUpdateName: \(String(describing: newName))" }) {
+                self.delegates.notify(label: { "participant.didUpdateName: \(String(describing: newName))" }) {
                     $0.participant?(self, didUpdateName: newName)
                 }
                 // notify room delegates
@@ -161,7 +161,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
                 let attributesDiff = computeAttributesDiff(oldValues: oldState.attributes, newValues: newState.attributes)
                 if !attributesDiff.isEmpty {
                     // Notfy ParticipantDelegate
-                    delegates.notify(label: { "participant.didUpdateAttributes: \(String(describing: attributesDiff))" }) {
+                    self.delegates.notify(label: { "participant.didUpdateAttributes: \(String(describing: attributesDiff))" }) {
                         $0.participant?(self, didUpdateAttributes: attributesDiff)
                     }
                     // Notify RoomDelegate
@@ -173,7 +173,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
 
             // state updated
             if newState.state != oldState.state {
-                delegates.notify(label: { "participant.didUpdate state: \(newState.state)" }) {
+                self.delegates.notify(label: { "participant.didUpdate state: \(newState.state)" }) {
                     $0.participant?(self, didUpdateState: newState.state)
                 }
                 room.delegates.notify(label: { "room.didUpdate state: \(newState.state)" }) {
@@ -194,7 +194,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
 
             // connection quality updated
             if newState.connectionQuality != oldState.connectionQuality {
-                delegates.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
+                self.delegates.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
                     $0.participant?(self, didUpdateConnectionQuality: self.connectionQuality)
                 }
                 room.delegates.notify(label: { "room.didUpdate connectionQuality: \(self.connectionQuality)" }) {
@@ -262,7 +262,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
     func set(enabledPublishCodecs codecs: [Livekit_Codec]) {
         log("enabledPublishCodecs: \(codecs.map(\.mime).joined(separator: ", "))")
         _internalState.mutate {
-            $0.enabledPublishVideoCodecs = codecs.map { VideoCodec.from(mimeType: $0.mime) }.compactMap(\.self)
+            $0.enabledPublishVideoCodecs = codecs.map { VideoCodec.from(mimeType: $0.mime) }.compactMap { $0 }
         }
     }
 
