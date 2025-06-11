@@ -17,6 +17,11 @@
 import Foundation
 
 public extension RemoteParticipant {
+    /// Waits until the participant is active.
+    ///
+    /// - Parameters:
+    ///   - timeout: The timeout for the operation.
+    /// - Throws: `LiveKitError` if the participant is not active within the timeout.
     func waitUntilActive(timeout: TimeInterval = .defaultParticipantActiveTimeout) async throws {
         let room = try requireRoom()
         let identity = try requireIdentity()
@@ -25,6 +30,11 @@ public extension RemoteParticipant {
 }
 
 public extension Collection<RemoteParticipant> {
+    /// Waits until all participants are active.
+    ///
+    /// - Parameters:
+    ///   - timeout: The timeout for the operation.
+    /// - Throws: `LiveKitError` if the participants are not active within the timeout.
     func waitUntilAllActive(timeout: TimeInterval = .defaultParticipantActiveTimeout) async throws {
         try await withThrowingTaskGroup(of: Void.self) { group in
             for participant in self {
@@ -36,6 +46,11 @@ public extension Collection<RemoteParticipant> {
         }
     }
 
+    /// Waits until any participant is active.
+    ///
+    /// - Parameters:
+    ///   - timeout: The timeout for the operation.
+    /// - Throws: `LiveKitError` if no participant is active within the timeout.
     func waitUntilAnyActive(timeout: TimeInterval = .defaultParticipantActiveTimeout) async throws {
         try await withThrowingTaskGroup(of: Void.self) { group in
             for participant in self {
