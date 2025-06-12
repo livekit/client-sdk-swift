@@ -137,7 +137,7 @@ class Utils {
         _ url: URL,
         _ token: String,
         connectOptions: ConnectOptions? = nil,
-        reconnectMode: ReconnectMode? = nil,
+        reconnectMode: ReconnectMode = .none,
         participantSid: Participant.Sid? = nil,
         adaptiveStream: Bool,
         validate: Bool = false,
