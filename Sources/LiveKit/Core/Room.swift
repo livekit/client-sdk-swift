@@ -108,6 +108,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     let primaryTransportConnectedCompleter = AsyncCompleter<Void>(label: "Primary transport connect", defaultTimeout: .defaultTransportState)
     let publisherTransportConnectedCompleter = AsyncCompleter<Void>(label: "Publisher transport connect", defaultTimeout: .defaultTransportState)
 
+    let activeParticipantCompleters = CompleterMapActor<Void>(label: "Participant active", defaultTimeout: .defaultParticipantActiveTimeout)
+
     let signalClient = SignalClient()
 
     // MARK: - DataChannels
