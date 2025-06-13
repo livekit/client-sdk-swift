@@ -22,10 +22,12 @@ public extension RemoteParticipant {
     /// - Parameters:
     ///   - timeout: The timeout for the operation.
     /// - Throws: `LiveKitError` if the participant is not active within the timeout.
-    func waitUntilActive(timeout: TimeInterval = .defaultParticipantActiveTimeout) async throws {
+    @discardableResult
+    func waitUntilActive(timeout: TimeInterval = .defaultParticipantActiveTimeout) async throws -> Self {
         let room = try requireRoom()
         let identity = try requireIdentity()
         try await room.activeParticipantCompleters.completer(for: identity.stringValue).wait(timeout: timeout)
+        return self
     }
 }
 
@@ -35,7 +37,8 @@ public extension Collection<RemoteParticipant> {
     /// - Parameters:
     ///   - timeout: The timeout for the operation.
     /// - Throws: `LiveKitError` if the participants are not active within the timeout.
-    func waitUntilAllActive(timeout: TimeInterval = .defaultParticipantActiveTimeout) async throws {
+    @discardableResult
+    func waitUntilAllActive(timeout: TimeInterval = .defaultParticipantActiveTimeout) async throws -> Self {
         try await withThrowingTaskGroup(of: Void.self) { group in
             for participant in self {
                 group.addTask {
@@ -44,6 +47,7 @@ public extension Collection<RemoteParticipant> {
             }
             try await group.waitForAll()
         }
+        return self
     }
 
     /// Waits until any participant is active.
@@ -51,7 +55,8 @@ public extension Collection<RemoteParticipant> {
     /// - Parameters:
     ///   - timeout: The timeout for the operation.
     /// - Throws: `LiveKitError` if no participant is active within the timeout.
-    func waitUntilAnyActive(timeout: TimeInterval = .defaultParticipantActiveTimeout) async throws {
+    @discardableResult
+    func waitUntilAnyActive(timeout: TimeInterval = .defaultParticipantActiveTimeout) async throws -> Self {
         try await withThrowingTaskGroup(of: Void.self) { group in
             for participant in self {
                 group.addTask {
@@ -62,5 +67,6 @@ public extension Collection<RemoteParticipant> {
                 group.cancelAll()
             }
         }
+        return self
     }
 }
