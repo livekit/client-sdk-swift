@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.6.1] - 2025-06-17
+
+### Fixed
+
+- Fixed Xcode 26 build errors with Swift 6.2
+
 ## [2.6.0] - 2025-05-15
 
 ### Added
