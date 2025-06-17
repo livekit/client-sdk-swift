@@ -5,6 +5,14 @@
 ### Fixed
 
 - Fixed Xcode 26 build errors with Swift 6.2
+- Remove problematic KeyPath conformance to Sendable
+- Fix race condition during remote track deinit
+- Fix WebRTC symbol clash
+
+### Changed
+
+- Update audio session logic
+- Flag to disable automatic audio session configuration
 
 ## [2.6.0] - 2025-05-15
 
