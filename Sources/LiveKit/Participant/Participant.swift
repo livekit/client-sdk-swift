@@ -179,6 +179,17 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
                 room.delegates.notify(label: { "room.didUpdate state: \(newState.state)" }) {
                     $0.room?(room, participant: self, didUpdateState: newState.state)
                 }
+
+                guard let identity = identity?.stringValue else { return }
+                if oldState.state != .active, newState.state == .active {
+                    Task {
+                        await room.activeParticipantCompleters.resume(returning: (), for: identity)
+                    }
+                } else if oldState.state == .active, newState.state != .active {
+                    Task {
+                        await room.activeParticipantCompleters.resume(throwing: LiveKitError(.participantRemoved, message: "Participant removed \(identity)"), for: identity)
+                    }
+                }
             }
 
             // connection quality updated
@@ -319,5 +330,14 @@ extension Participant {
         }
 
         return room
+    }
+
+    func requireIdentity() throws -> Participant.Identity {
+        guard let identity else {
+            log("Identity is nil", .error)
+            throw LiveKitError(.invalidState, message: "Identity is nil")
+        }
+
+        return identity
     }
 }
