@@ -118,13 +118,13 @@ actor SignalClient: Loggable {
     func connect(_ url: URL,
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
-                 reconnectMode: ReconnectMode? = nil,
+                 reconnectMode: ReconnectMode = .none,
                  participantSid: Participant.Sid? = nil,
                  adaptiveStream: Bool) async throws -> ConnectResponse
     {
         await cleanUp()
 
-        if let reconnectMode {
+        if reconnectMode != .none {
             log("[Connect] mode: \(String(describing: reconnectMode))")
         }
 
@@ -135,13 +135,13 @@ actor SignalClient: Loggable {
                                      participantSid: participantSid,
                                      adaptiveStream: adaptiveStream)
 
-        if reconnectMode != nil {
+        if reconnectMode != .none {
             log("[Connect] with url: \(url)")
         } else {
             log("Connecting with url: \(url)")
         }
 
-        _state.mutate { $0.connectionState = (reconnectMode != nil ? .reconnecting : .connecting) }
+        _state.mutate { $0.connectionState = (reconnectMode != .none ? .reconnecting : .connecting) }
 
         do {
             let socket = try await WebSocket(url: url, connectOptions: connectOptions)
@@ -177,7 +177,7 @@ actor SignalClient: Loggable {
             }
 
             // Skip validation if reconnect mode
-            if reconnectMode != nil {
+            if reconnectMode != .none {
                 await cleanUp(withError: error)
                 throw error
             }

@@ -145,6 +145,7 @@ extension ConnectionState: CustomStringConvertible {
 extension ReconnectMode: CustomStringConvertible {
     public var description: String {
         switch self {
+        case .none: return ".none"
         case .quick: return ".quick"
         case .full: return ".full"
         }

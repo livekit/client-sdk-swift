@@ -162,8 +162,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var url: URL?
         var token: String?
         // preferred reconnect mode which will be used only for next attempt
-        var nextReconnectMode: ReconnectMode?
-        var isReconnectingWithMode: ReconnectMode?
+        var nextReconnectMode: ReconnectMode = .none
+        var isReconnectingWithMode: ReconnectMode = .none
         var connectionState: ConnectionState = .disconnected
         var disconnectError: LiveKitError?
         var connectStopwatch = Stopwatch(label: "connect")
@@ -269,7 +269,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 }
             }
 
-            if newState.connectionState == .reconnecting, newState.isReconnectingWithMode == nil {
+            if newState.connectionState == .reconnecting, newState.isReconnectingWithMode == .none {
                 self.log("reconnectMode should not be .none", .error)
             }
 

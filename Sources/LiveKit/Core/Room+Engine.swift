@@ -268,7 +268,7 @@ extension Room {
         log("\(_state.connectStopwatch)")
     }
 
-    func startReconnect(reason: StartReconnectReason, nextReconnectMode: ReconnectMode? = nil) async throws {
+    func startReconnect(reason: StartReconnectReason, nextReconnectMode: ReconnectMode = .none) async throws {
         log("[Connect] Starting, reason: \(reason)")
 
         guard case .connected = _state.connectionState else {
@@ -286,7 +286,7 @@ extension Room {
             throw LiveKitError(.invalidState)
         }
 
-        guard _state.isReconnectingWithMode == nil else {
+        guard _state.isReconnectingWithMode == .none else {
             log("[Connect] Reconnect already in progress...", .warning)
             throw LiveKitError(.invalidState)
         }
@@ -368,7 +368,8 @@ extension Room {
                                         return delay
                                     }) { currentAttempt, totalAttempts in
                 // Not reconnecting state anymore
-                guard let currentMode = self._state.isReconnectingWithMode else {
+                let currentMode = self._state.isReconnectingWithMode
+                guard currentMode != .none else {
                     self.log("[Connect] Not in reconnect state anymore, exiting retry cycle.")
                     return
                 }
@@ -379,14 +380,14 @@ extension Room {
                 self.log("[Connect] Starting retry attempt \(currentAttempt)/\(totalAttempts) with mode: \(currentMode)")
 
                 // Try full reconnect for the final attempt
-                if totalAttempts == currentAttempt, self._state.nextReconnectMode == nil {
+                if totalAttempts == currentAttempt, self._state.nextReconnectMode == .none {
                     self._state.mutate { $0.nextReconnectMode = .full }
                 }
 
                 let mode: ReconnectMode = self._state.mutate {
                     let mode: ReconnectMode = ($0.nextReconnectMode == .full || $0.isReconnectingWithMode == .full) ? .full : .quick
                     $0.isReconnectingWithMode = mode
-                    $0.nextReconnectMode = nil
+                    $0.nextReconnectMode = .none
                     return mode
                 }
 
@@ -409,8 +410,8 @@ extension Room {
             log("[Connect] Sequence completed")
             _state.mutate {
                 $0.connectionState = .connected
-                $0.isReconnectingWithMode = nil
-                $0.nextReconnectMode = nil
+                $0.isReconnectingWithMode = .none
+                $0.nextReconnectMode = .none
             }
         } catch {
             log("[Connect] Sequence failed with error: \(error)")
