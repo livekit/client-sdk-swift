@@ -450,6 +450,9 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterable {
 
   /// server timed out a participant session
   case connectionTimeout // = 14
+
+  /// media stream failure or media timeout
+  case mediaFailure // = 15
   case UNRECOGNIZED(Int)
 
   init() {
@@ -473,6 +476,7 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterable {
     case 12: self = .userRejected
     case 13: self = .sipTrunkFailure
     case 14: self = .connectionTimeout
+    case 15: self = .mediaFailure
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -494,6 +498,7 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterable {
     case .userRejected: return 12
     case .sipTrunkFailure: return 13
     case .connectionTimeout: return 14
+    case .mediaFailure: return 15
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -515,6 +520,7 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterable {
     .userRejected,
     .sipTrunkFailure,
     .connectionTimeout,
+    .mediaFailure,
   ]
 
 }
@@ -1262,117 +1268,141 @@ struct Livekit_VideoLayer: Sendable {
 }
 
 /// new DataPacket API
-struct Livekit_DataPacket: Sendable {
+struct Livekit_DataPacket: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
   /// NOTE: This field was marked as deprecated in the .proto file.
-  var kind: Livekit_DataPacket.Kind = .reliable
+  var kind: Livekit_DataPacket.Kind {
+    get {return _storage._kind}
+    set {_uniqueStorage()._kind = newValue}
+  }
 
   /// participant identity of user that sent the message
-  var participantIdentity: String = String()
+  var participantIdentity: String {
+    get {return _storage._participantIdentity}
+    set {_uniqueStorage()._participantIdentity = newValue}
+  }
 
   /// identities of participants who will receive the message (sent to all by default)
-  var destinationIdentities: [String] = []
+  var destinationIdentities: [String] {
+    get {return _storage._destinationIdentities}
+    set {_uniqueStorage()._destinationIdentities = newValue}
+  }
 
-  var value: Livekit_DataPacket.OneOf_Value? = nil
+  var value: OneOf_Value? {
+    get {return _storage._value}
+    set {_uniqueStorage()._value = newValue}
+  }
 
   var user: Livekit_UserPacket {
     get {
-      if case .user(let v)? = value {return v}
+      if case .user(let v)? = _storage._value {return v}
       return Livekit_UserPacket()
     }
-    set {value = .user(newValue)}
+    set {_uniqueStorage()._value = .user(newValue)}
   }
 
   /// NOTE: This field was marked as deprecated in the .proto file.
   var speaker: Livekit_ActiveSpeakerUpdate {
     get {
-      if case .speaker(let v)? = value {return v}
+      if case .speaker(let v)? = _storage._value {return v}
       return Livekit_ActiveSpeakerUpdate()
     }
-    set {value = .speaker(newValue)}
+    set {_uniqueStorage()._value = .speaker(newValue)}
   }
 
   var sipDtmf: Livekit_SipDTMF {
     get {
-      if case .sipDtmf(let v)? = value {return v}
+      if case .sipDtmf(let v)? = _storage._value {return v}
       return Livekit_SipDTMF()
     }
-    set {value = .sipDtmf(newValue)}
+    set {_uniqueStorage()._value = .sipDtmf(newValue)}
   }
 
   var transcription: Livekit_Transcription {
     get {
-      if case .transcription(let v)? = value {return v}
+      if case .transcription(let v)? = _storage._value {return v}
       return Livekit_Transcription()
     }
-    set {value = .transcription(newValue)}
+    set {_uniqueStorage()._value = .transcription(newValue)}
   }
 
   var metrics: Livekit_MetricsBatch {
     get {
-      if case .metrics(let v)? = value {return v}
+      if case .metrics(let v)? = _storage._value {return v}
       return Livekit_MetricsBatch()
     }
-    set {value = .metrics(newValue)}
+    set {_uniqueStorage()._value = .metrics(newValue)}
   }
 
   var chatMessage: Livekit_ChatMessage {
     get {
-      if case .chatMessage(let v)? = value {return v}
+      if case .chatMessage(let v)? = _storage._value {return v}
       return Livekit_ChatMessage()
     }
-    set {value = .chatMessage(newValue)}
+    set {_uniqueStorage()._value = .chatMessage(newValue)}
   }
 
   var rpcRequest: Livekit_RpcRequest {
     get {
-      if case .rpcRequest(let v)? = value {return v}
+      if case .rpcRequest(let v)? = _storage._value {return v}
       return Livekit_RpcRequest()
     }
-    set {value = .rpcRequest(newValue)}
+    set {_uniqueStorage()._value = .rpcRequest(newValue)}
   }
 
   var rpcAck: Livekit_RpcAck {
     get {
-      if case .rpcAck(let v)? = value {return v}
+      if case .rpcAck(let v)? = _storage._value {return v}
       return Livekit_RpcAck()
     }
-    set {value = .rpcAck(newValue)}
+    set {_uniqueStorage()._value = .rpcAck(newValue)}
   }
 
   var rpcResponse: Livekit_RpcResponse {
     get {
-      if case .rpcResponse(let v)? = value {return v}
+      if case .rpcResponse(let v)? = _storage._value {return v}
       return Livekit_RpcResponse()
     }
-    set {value = .rpcResponse(newValue)}
+    set {_uniqueStorage()._value = .rpcResponse(newValue)}
   }
 
   var streamHeader: Livekit_DataStream.Header {
     get {
-      if case .streamHeader(let v)? = value {return v}
+      if case .streamHeader(let v)? = _storage._value {return v}
       return Livekit_DataStream.Header()
     }
-    set {value = .streamHeader(newValue)}
+    set {_uniqueStorage()._value = .streamHeader(newValue)}
   }
 
   var streamChunk: Livekit_DataStream.Chunk {
     get {
-      if case .streamChunk(let v)? = value {return v}
+      if case .streamChunk(let v)? = _storage._value {return v}
       return Livekit_DataStream.Chunk()
     }
-    set {value = .streamChunk(newValue)}
+    set {_uniqueStorage()._value = .streamChunk(newValue)}
   }
 
   var streamTrailer: Livekit_DataStream.Trailer {
     get {
-      if case .streamTrailer(let v)? = value {return v}
+      if case .streamTrailer(let v)? = _storage._value {return v}
       return Livekit_DataStream.Trailer()
     }
-    set {value = .streamTrailer(newValue)}
+    set {_uniqueStorage()._value = .streamTrailer(newValue)}
+  }
+
+  /// sequence number of reliable packet
+  var sequence: UInt32 {
+    get {return _storage._sequence}
+    set {_uniqueStorage()._sequence = newValue}
+  }
+
+  /// sid of the user that sent the message
+  var participantSid: String {
+    get {return _storage._participantSid}
+    set {_uniqueStorage()._participantSid = newValue}
   }
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -1429,6 +1459,8 @@ struct Livekit_DataPacket: Sendable {
   }
 
   init() {}
+
+  fileprivate var _storage = _StorageClass.defaultInstance
 }
 
 struct Livekit_ActiveSpeakerUpdate: Sendable {
@@ -2775,6 +2807,7 @@ extension Livekit_DisconnectReason: SwiftProtobuf._ProtoNameProviding {
     12: .same(proto: "USER_REJECTED"),
     13: .same(proto: "SIP_TRUNK_FAILURE"),
     14: .same(proto: "CONNECTION_TIMEOUT"),
+    15: .same(proto: "MEDIA_FAILURE"),
   ]
 }
 
@@ -3193,15 +3226,11 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     var _disconnectReason: Livekit_DisconnectReason = .unknownReason
     var _kindDetails: [Livekit_ParticipantInfo.KindDetail] = []
 
-    #if swift(>=5.10)
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
       // This will force a copy to be made of this reference when the first mutation occurs;
       // hence, it is safe to mark this as `nonisolated(unsafe)`.
       static nonisolated(unsafe) let defaultInstance = _StorageClass()
-    #else
-      static let defaultInstance = _StorageClass()
-    #endif
 
     private init() {}
 
@@ -3500,15 +3529,11 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     var _audioFeatures: [Livekit_AudioTrackFeature] = []
     var _backupCodecPolicy: Livekit_BackupCodecPolicy = .preferRegression
 
-    #if swift(>=5.10)
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
       // This will force a copy to be made of this reference when the first mutation occurs;
       // hence, it is safe to mark this as `nonisolated(unsafe)`.
       static nonisolated(unsafe) let defaultInstance = _StorageClass()
-    #else
-      static let defaultInstance = _StorageClass()
-    #endif
 
     private init() {}
 
@@ -3755,254 +3780,312 @@ extension Livekit_DataPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     13: .standard(proto: "stream_header"),
     14: .standard(proto: "stream_chunk"),
     15: .standard(proto: "stream_trailer"),
+    16: .same(proto: "sequence"),
+    17: .standard(proto: "participant_sid"),
   ]
 
+  fileprivate class _StorageClass {
+    var _kind: Livekit_DataPacket.Kind = .reliable
+    var _participantIdentity: String = String()
+    var _destinationIdentities: [String] = []
+    var _value: Livekit_DataPacket.OneOf_Value?
+    var _sequence: UInt32 = 0
+    var _participantSid: String = String()
+
+      // This property is used as the initial default value for new instances of the type.
+      // The type itself is protecting the reference to its storage via CoW semantics.
+      // This will force a copy to be made of this reference when the first mutation occurs;
+      // hence, it is safe to mark this as `nonisolated(unsafe)`.
+      static nonisolated(unsafe) let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _kind = source._kind
+      _participantIdentity = source._participantIdentity
+      _destinationIdentities = source._destinationIdentities
+      _value = source._value
+      _sequence = source._sequence
+      _participantSid = source._participantSid
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
+
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularEnumField(value: &self.kind) }()
-      case 2: try {
-        var v: Livekit_UserPacket?
-        var hadOneofValue = false
-        if let current = self.value {
-          hadOneofValue = true
-          if case .user(let m) = current {v = m}
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularEnumField(value: &_storage._kind) }()
+        case 2: try {
+          var v: Livekit_UserPacket?
+          var hadOneofValue = false
+          if let current = _storage._value {
+            hadOneofValue = true
+            if case .user(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._value = .user(v)
+          }
+        }()
+        case 3: try {
+          var v: Livekit_ActiveSpeakerUpdate?
+          var hadOneofValue = false
+          if let current = _storage._value {
+            hadOneofValue = true
+            if case .speaker(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._value = .speaker(v)
+          }
+        }()
+        case 4: try { try decoder.decodeSingularStringField(value: &_storage._participantIdentity) }()
+        case 5: try { try decoder.decodeRepeatedStringField(value: &_storage._destinationIdentities) }()
+        case 6: try {
+          var v: Livekit_SipDTMF?
+          var hadOneofValue = false
+          if let current = _storage._value {
+            hadOneofValue = true
+            if case .sipDtmf(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._value = .sipDtmf(v)
+          }
+        }()
+        case 7: try {
+          var v: Livekit_Transcription?
+          var hadOneofValue = false
+          if let current = _storage._value {
+            hadOneofValue = true
+            if case .transcription(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._value = .transcription(v)
+          }
+        }()
+        case 8: try {
+          var v: Livekit_MetricsBatch?
+          var hadOneofValue = false
+          if let current = _storage._value {
+            hadOneofValue = true
+            if case .metrics(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._value = .metrics(v)
+          }
+        }()
+        case 9: try {
+          var v: Livekit_ChatMessage?
+          var hadOneofValue = false
+          if let current = _storage._value {
+            hadOneofValue = true
+            if case .chatMessage(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._value = .chatMessage(v)
+          }
+        }()
+        case 10: try {
+          var v: Livekit_RpcRequest?
+          var hadOneofValue = false
+          if let current = _storage._value {
+            hadOneofValue = true
+            if case .rpcRequest(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._value = .rpcRequest(v)
+          }
+        }()
+        case 11: try {
+          var v: Livekit_RpcAck?
+          var hadOneofValue = false
+          if let current = _storage._value {
+            hadOneofValue = true
+            if case .rpcAck(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._value = .rpcAck(v)
+          }
+        }()
+        case 12: try {
+          var v: Livekit_RpcResponse?
+          var hadOneofValue = false
+          if let current = _storage._value {
+            hadOneofValue = true
+            if case .rpcResponse(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._value = .rpcResponse(v)
+          }
+        }()
+        case 13: try {
+          var v: Livekit_DataStream.Header?
+          var hadOneofValue = false
+          if let current = _storage._value {
+            hadOneofValue = true
+            if case .streamHeader(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._value = .streamHeader(v)
+          }
+        }()
+        case 14: try {
+          var v: Livekit_DataStream.Chunk?
+          var hadOneofValue = false
+          if let current = _storage._value {
+            hadOneofValue = true
+            if case .streamChunk(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._value = .streamChunk(v)
+          }
+        }()
+        case 15: try {
+          var v: Livekit_DataStream.Trailer?
+          var hadOneofValue = false
+          if let current = _storage._value {
+            hadOneofValue = true
+            if case .streamTrailer(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._value = .streamTrailer(v)
+          }
+        }()
+        case 16: try { try decoder.decodeSingularUInt32Field(value: &_storage._sequence) }()
+        case 17: try { try decoder.decodeSingularStringField(value: &_storage._participantSid) }()
+        default: break
         }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.value = .user(v)
-        }
-      }()
-      case 3: try {
-        var v: Livekit_ActiveSpeakerUpdate?
-        var hadOneofValue = false
-        if let current = self.value {
-          hadOneofValue = true
-          if case .speaker(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.value = .speaker(v)
-        }
-      }()
-      case 4: try { try decoder.decodeSingularStringField(value: &self.participantIdentity) }()
-      case 5: try { try decoder.decodeRepeatedStringField(value: &self.destinationIdentities) }()
-      case 6: try {
-        var v: Livekit_SipDTMF?
-        var hadOneofValue = false
-        if let current = self.value {
-          hadOneofValue = true
-          if case .sipDtmf(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.value = .sipDtmf(v)
-        }
-      }()
-      case 7: try {
-        var v: Livekit_Transcription?
-        var hadOneofValue = false
-        if let current = self.value {
-          hadOneofValue = true
-          if case .transcription(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.value = .transcription(v)
-        }
-      }()
-      case 8: try {
-        var v: Livekit_MetricsBatch?
-        var hadOneofValue = false
-        if let current = self.value {
-          hadOneofValue = true
-          if case .metrics(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.value = .metrics(v)
-        }
-      }()
-      case 9: try {
-        var v: Livekit_ChatMessage?
-        var hadOneofValue = false
-        if let current = self.value {
-          hadOneofValue = true
-          if case .chatMessage(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.value = .chatMessage(v)
-        }
-      }()
-      case 10: try {
-        var v: Livekit_RpcRequest?
-        var hadOneofValue = false
-        if let current = self.value {
-          hadOneofValue = true
-          if case .rpcRequest(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.value = .rpcRequest(v)
-        }
-      }()
-      case 11: try {
-        var v: Livekit_RpcAck?
-        var hadOneofValue = false
-        if let current = self.value {
-          hadOneofValue = true
-          if case .rpcAck(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.value = .rpcAck(v)
-        }
-      }()
-      case 12: try {
-        var v: Livekit_RpcResponse?
-        var hadOneofValue = false
-        if let current = self.value {
-          hadOneofValue = true
-          if case .rpcResponse(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.value = .rpcResponse(v)
-        }
-      }()
-      case 13: try {
-        var v: Livekit_DataStream.Header?
-        var hadOneofValue = false
-        if let current = self.value {
-          hadOneofValue = true
-          if case .streamHeader(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.value = .streamHeader(v)
-        }
-      }()
-      case 14: try {
-        var v: Livekit_DataStream.Chunk?
-        var hadOneofValue = false
-        if let current = self.value {
-          hadOneofValue = true
-          if case .streamChunk(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.value = .streamChunk(v)
-        }
-      }()
-      case 15: try {
-        var v: Livekit_DataStream.Trailer?
-        var hadOneofValue = false
-        if let current = self.value {
-          hadOneofValue = true
-          if case .streamTrailer(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.value = .streamTrailer(v)
-        }
-      }()
-      default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    // The use of inline closures is to circumvent an issue where the compiler
-    // allocates stack space for every if/case branch local when no optimizations
-    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
-    // https://github.com/apple/swift-protobuf/issues/1182
-    if self.kind != .reliable {
-      try visitor.visitSingularEnumField(value: self.kind, fieldNumber: 1)
-    }
-    switch self.value {
-    case .user?: try {
-      guard case .user(let v)? = self.value else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
-    }()
-    case .speaker?: try {
-      guard case .speaker(let v)? = self.value else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
-    }()
-    default: break
-    }
-    if !self.participantIdentity.isEmpty {
-      try visitor.visitSingularStringField(value: self.participantIdentity, fieldNumber: 4)
-    }
-    if !self.destinationIdentities.isEmpty {
-      try visitor.visitRepeatedStringField(value: self.destinationIdentities, fieldNumber: 5)
-    }
-    switch self.value {
-    case .sipDtmf?: try {
-      guard case .sipDtmf(let v)? = self.value else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
-    }()
-    case .transcription?: try {
-      guard case .transcription(let v)? = self.value else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
-    }()
-    case .metrics?: try {
-      guard case .metrics(let v)? = self.value else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
-    }()
-    case .chatMessage?: try {
-      guard case .chatMessage(let v)? = self.value else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 9)
-    }()
-    case .rpcRequest?: try {
-      guard case .rpcRequest(let v)? = self.value else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 10)
-    }()
-    case .rpcAck?: try {
-      guard case .rpcAck(let v)? = self.value else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 11)
-    }()
-    case .rpcResponse?: try {
-      guard case .rpcResponse(let v)? = self.value else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 12)
-    }()
-    case .streamHeader?: try {
-      guard case .streamHeader(let v)? = self.value else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 13)
-    }()
-    case .streamChunk?: try {
-      guard case .streamChunk(let v)? = self.value else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 14)
-    }()
-    case .streamTrailer?: try {
-      guard case .streamTrailer(let v)? = self.value else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 15)
-    }()
-    default: break
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      if _storage._kind != .reliable {
+        try visitor.visitSingularEnumField(value: _storage._kind, fieldNumber: 1)
+      }
+      switch _storage._value {
+      case .user?: try {
+        guard case .user(let v)? = _storage._value else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+      }()
+      case .speaker?: try {
+        guard case .speaker(let v)? = _storage._value else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+      }()
+      default: break
+      }
+      if !_storage._participantIdentity.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._participantIdentity, fieldNumber: 4)
+      }
+      if !_storage._destinationIdentities.isEmpty {
+        try visitor.visitRepeatedStringField(value: _storage._destinationIdentities, fieldNumber: 5)
+      }
+      switch _storage._value {
+      case .sipDtmf?: try {
+        guard case .sipDtmf(let v)? = _storage._value else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+      }()
+      case .transcription?: try {
+        guard case .transcription(let v)? = _storage._value else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+      }()
+      case .metrics?: try {
+        guard case .metrics(let v)? = _storage._value else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
+      }()
+      case .chatMessage?: try {
+        guard case .chatMessage(let v)? = _storage._value else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 9)
+      }()
+      case .rpcRequest?: try {
+        guard case .rpcRequest(let v)? = _storage._value else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 10)
+      }()
+      case .rpcAck?: try {
+        guard case .rpcAck(let v)? = _storage._value else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 11)
+      }()
+      case .rpcResponse?: try {
+        guard case .rpcResponse(let v)? = _storage._value else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 12)
+      }()
+      case .streamHeader?: try {
+        guard case .streamHeader(let v)? = _storage._value else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 13)
+      }()
+      case .streamChunk?: try {
+        guard case .streamChunk(let v)? = _storage._value else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 14)
+      }()
+      case .streamTrailer?: try {
+        guard case .streamTrailer(let v)? = _storage._value else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 15)
+      }()
+      default: break
+      }
+      if _storage._sequence != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._sequence, fieldNumber: 16)
+      }
+      if !_storage._participantSid.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._participantSid, fieldNumber: 17)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_DataPacket, rhs: Livekit_DataPacket) -> Bool {
-    if lhs.kind != rhs.kind {return false}
-    if lhs.participantIdentity != rhs.participantIdentity {return false}
-    if lhs.destinationIdentities != rhs.destinationIdentities {return false}
-    if lhs.value != rhs.value {return false}
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._kind != rhs_storage._kind {return false}
+        if _storage._participantIdentity != rhs_storage._participantIdentity {return false}
+        if _storage._destinationIdentities != rhs_storage._destinationIdentities {return false}
+        if _storage._value != rhs_storage._value {return false}
+        if _storage._sequence != rhs_storage._sequence {return false}
+        if _storage._participantSid != rhs_storage._participantSid {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -5129,15 +5212,11 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
     var _rebasedReportDrift: Livekit_RTPDrift? = nil
     var _receivedReportDrift: Livekit_RTPDrift? = nil
 
-    #if swift(>=5.10)
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
       // This will force a copy to be made of this reference when the first mutation occurs;
       // hence, it is safe to mark this as `nonisolated(unsafe)`.
       static nonisolated(unsafe) let defaultInstance = _StorageClass()
-    #else
-      static let defaultInstance = _StorageClass()
-    #endif
 
     private init() {}
 
@@ -5551,15 +5630,11 @@ extension Livekit_RTPForwarderState: SwiftProtobuf.Message, SwiftProtobuf._Messa
     var _codecMunger: Livekit_RTPForwarderState.OneOf_CodecMunger?
     var _senderReportState: [Livekit_RTCPSenderReportState] = []
 
-    #if swift(>=5.10)
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
       // This will force a copy to be made of this reference when the first mutation occurs;
       // hence, it is safe to mark this as `nonisolated(unsafe)`.
       static nonisolated(unsafe) let defaultInstance = _StorageClass()
-    #else
-      static let defaultInstance = _StorageClass()
-    #endif
 
     private init() {}
 
