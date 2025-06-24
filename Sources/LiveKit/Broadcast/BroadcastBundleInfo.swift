@@ -18,7 +18,7 @@
 
 import Foundation
 
-actor BroadcastBundleInfo {
+enum BroadcastBundleInfo {
     /// Identifier of the app group shared by the primary app and broadcast extension.
     static var groupIdentifier: String? {
         if let override = groupIdentifierOverride { return override }
@@ -45,11 +45,13 @@ actor BroadcastBundleInfo {
         socketPath != nil && screenSharingExtension != nil
     }
 
-    @BundleInfo("RTCAppGroupIdentifier")
-    private static var groupIdentifierOverride: String?
+    private static var groupIdentifierOverride: String? {
+        Bundle.main.infoDictionary?["RTCAppGroupIdentifier"] as? String
+    }
 
-    @BundleInfo("RTCScreenSharingExtension")
-    private static var screenSharingExtensionOverride: String?
+    private static var screenSharingExtensionOverride: String? {
+        Bundle.main.infoDictionary?["RTCScreenSharingExtension"] as? String
+    }
 
     private static let extensionSuffix = "broadcast"
     private static let socketFileDescriptor = "rtc_SSFD"

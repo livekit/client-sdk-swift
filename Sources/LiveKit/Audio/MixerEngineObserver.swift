@@ -22,7 +22,7 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
+public final class MixerEngineObserver: AudioEngineObserver, Loggable {
     public var next: (any AudioEngineObserver)? {
         get { _state.next }
         set { _state.mutate { $0.next = newValue } }
@@ -107,7 +107,7 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
 
     public func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int {
         // Get the main mixer
-        guard let mainMixerNode = context[kRTCAudioEngineInputMixerNodeKey] as? AVAudioMixerNode else {
+        guard let mainMixerNode = context[kLKRTCAudioEngineInputMixerNodeKey] as? AVAudioMixerNode else {
             // If failed to get main mixer, call next and return.
             return next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context) ?? 0
         }
@@ -145,7 +145,7 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
     }
 }
 
-extension DefaultMixerAudioObserver {
+extension MixerEngineObserver {
     // Capture appAudio and apply conversion automatically suitable for internal audio engine.
     func capture(appAudio inputBuffer: AVAudioPCMBuffer) {
         let (isConnected, appNode, oldConverter, engineFormat) = _state.read {
