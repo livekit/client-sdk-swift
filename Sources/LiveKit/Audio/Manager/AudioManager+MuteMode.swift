@@ -82,10 +82,10 @@ extension LKRTCAudioEngineMuteMode {
 extension MicrophoneMuteMode {
     func toRTCType() -> LKRTCAudioEngineMuteMode {
         switch self {
-        case .unknown: return .unknown
-        case .voiceProcessing: return .voiceProcessing
-        case .restart: return .restartEngine
-        case .inputMixer: return .inputMixer
+        case .unknown: .unknown
+        case .voiceProcessing: .voiceProcessing
+        case .restart: .restartEngine
+        case .inputMixer: .inputMixer
         }
     }
 }

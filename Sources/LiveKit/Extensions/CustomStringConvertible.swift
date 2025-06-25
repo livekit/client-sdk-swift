@@ -104,11 +104,11 @@ public extension Track {
 extension Track.Source: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .unknown: return "unknown"
-        case .camera: return "camera"
-        case .microphone: return "microphone"
-        case .screenShareVideo: return "screenShareVideo"
-        case .screenShareAudio: return "screenShareAudio"
+        case .unknown: "unknown"
+        case .camera: "camera"
+        case .microphone: "microphone"
+        case .screenShareVideo: "screenShareVideo"
+        case .screenShareAudio: "screenShareAudio"
         }
     }
 }
@@ -130,10 +130,10 @@ extension LKRTCPeerConnectionState {
 extension ConnectionState: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .disconnected: return ".disconnected"
-        case .connecting: return ".connecting"
-        case .reconnecting: return ".reconnecting"
-        case .connected: return ".connected"
+        case .disconnected: ".disconnected"
+        case .connecting: ".connecting"
+        case .reconnecting: ".reconnecting"
+        case .connected: ".connected"
         }
     }
 }
@@ -141,8 +141,8 @@ extension ConnectionState: CustomStringConvertible {
 extension ReconnectMode: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .quick: return ".quick"
-        case .full: return ".full"
+        case .quick: ".quick"
+        case .full: ".full"
         }
     }
 }
@@ -164,9 +164,9 @@ public extension VideoView {
 extension VideoView.RenderMode: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .auto: return ".auto"
-        case .metal: return ".metal"
-        case .sampleBuffer: return ".sampleBuffer"
+        case .auto: ".auto"
+        case .metal: ".metal"
+        case .sampleBuffer: ".sampleBuffer"
         }
     }
 }

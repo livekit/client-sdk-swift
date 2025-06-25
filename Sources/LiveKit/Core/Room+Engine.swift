@@ -160,8 +160,8 @@ extension Room {
 
             await publisher.set { [weak self] offer in
                 guard let self else { return }
-                self.log("Publisher onOffer \(offer.sdp)")
-                try await self.signalClient.send(offer: offer)
+                log("Publisher onOffer \(offer.sdp)")
+                try await signalClient.send(offer: offer)
             }
 
             // data over pub channel for backwards compatibility
@@ -215,13 +215,13 @@ extension Room {
                 guard let self else { return }
 
                 // create an entry and enqueue block
-                self.log("[execution control] enqueuing entry...")
+                log("[execution control] enqueuing entry...")
 
                 let entry = ConditionalExecutionEntry(executeCondition: condition,
                                                       removeCondition: removeCondition,
                                                       block: block)
 
-                self._queuedBlocks.append(entry)
+                _queuedBlocks.append(entry)
             }
         }
     }

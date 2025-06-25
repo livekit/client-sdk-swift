@@ -26,10 +26,10 @@ enum OS {
 extension OS: CustomStringConvertible {
     var description: String {
         switch self {
-        case .macOS: return "macOS"
-        case .iOS: return "iOS"
-        case .visionOS: return "visionOS"
-        case .tvOS: return "tvOS"
+        case .macOS: "macOS"
+        case .iOS: "iOS"
+        case .visionOS: "visionOS"
+        case .tvOS: "tvOS"
         }
     }
 }

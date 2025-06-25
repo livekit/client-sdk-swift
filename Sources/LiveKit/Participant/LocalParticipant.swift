@@ -223,9 +223,9 @@ public class LocalParticipant: Participant, @unchecked Sendable {
 
     override public func isMicrophoneEnabled() -> Bool {
         if let room = _room, let recorder = room.preConnectBuffer.recorder, recorder.isRecording {
-            return true
+            true
         } else {
-            return super.isMicrophoneEnabled()
+            super.isMicrophoneEnabled()
         }
     }
 
@@ -260,7 +260,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
                 return
             }
             do {
-                try await self.setScreenShare(enabled: true)
+                try await setScreenShare(enabled: true)
             } catch {
                 logger.error("Failed to enable screen share: \(error)")
             }

@@ -74,9 +74,9 @@ final class AsyncTimer: Sendable, Loggable {
             do {
                 try await state.block?()
             } catch {
-                self.log("Error in timer block: \(error)", .error)
+                log("Error in timer block: \(error)", .error)
             }
-            await self.scheduleNextInvocation()
+            await scheduleNextInvocation()
         }
         _state.mutate { $0.task = task }
     }

@@ -157,7 +157,7 @@ extension Dimensions {
         if let firstEncoding = encodings.first,
            let scalabilityMode = ScalabilityMode.fromString(firstEncoding.scalabilityMode)
         {
-            return (0 ... (scalabilityMode.spatial - 1)).map { idx in
+            (0 ... (scalabilityMode.spatial - 1)).map { idx in
                 Livekit_VideoLayer.with {
                     $0.width = UInt32((Double(width) / pow(2, Double(idx))).rounded(.down))
                     $0.height = UInt32((Double(height) / pow(2, Double(idx))).rounded(.down))
@@ -167,7 +167,7 @@ extension Dimensions {
             }
 
         } else {
-            return encodings.filter(\.isActive).map { encoding in
+            encodings.filter(\.isActive).map { encoding in
                 let scaleDownBy = encoding.scaleResolutionDownBy?.doubleValue ?? 1.0
                 return Livekit_VideoLayer.with {
                     $0.width = UInt32((Double(width) / scaleDownBy).rounded(.down))

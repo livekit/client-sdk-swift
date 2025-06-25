@@ -115,17 +115,15 @@ extension CATransform3D {
     static let mirror = CATransform3DMakeScale(-1.0, 1.0, 1.0)
 
     static func from(rotation: VideoRotation, isMirrored: Bool) -> CATransform3D {
-        var transform: CATransform3D
-
-        switch rotation {
+        var transform: CATransform3D = switch rotation {
         case ._0:
-            transform = CATransform3DIdentity
+            CATransform3DIdentity
         case ._90:
-            transform = CATransform3DMakeRotation(.pi / 2.0, 0, 0, 1)
+            CATransform3DMakeRotation(.pi / 2.0, 0, 0, 1)
         case ._180:
-            transform = CATransform3DMakeRotation(.pi, 0, 0, 1)
+            CATransform3DMakeRotation(.pi, 0, 0, 1)
         case ._270:
-            transform = CATransform3DMakeRotation(-.pi / 2.0, 0, 0, 1)
+            CATransform3DMakeRotation(-.pi / 2.0, 0, 0, 1)
         }
 
         if isMirrored {

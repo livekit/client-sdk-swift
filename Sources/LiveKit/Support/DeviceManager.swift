@@ -103,14 +103,14 @@ class DeviceManager: @unchecked Sendable, Loggable {
         #if os(iOS) || os(macOS) || os(tvOS)
         DispatchQueue.global(qos: .background).async { [weak self] in
             guard let self else { return }
-            self._devicesObservation = self.discoverySession.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
+            _devicesObservation = discoverySession.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
                 guard let self else { return }
                 let devices = (value.newValue ?? []).sortedByFacingPositionPriority()
-                self.log("Devices: \(String(describing: devices))")
-                self._state.mutate { $0.devices = devices }
-                self._devicesCompleter.resume(returning: devices)
+                log("Devices: \(String(describing: devices))")
+                _state.mutate { $0.devices = devices }
+                _devicesCompleter.resume(returning: devices)
                 #if os(macOS)
-                self._multiCamDeviceSetsCompleter.resume(returning: [])
+                _multiCamDeviceSetsCompleter.resume(returning: [])
                 #endif
             }
         }
@@ -125,12 +125,12 @@ class DeviceManager: @unchecked Sendable, Loggable {
         #if os(iOS) || os(tvOS)
         DispatchQueue.global(qos: .background).async { [weak self] in
             guard let self else { return }
-            self._multiCamDeviceSetsObservation = self.discoverySession.observe(\.supportedMultiCamDeviceSets, options: [.initial, .new]) { [weak self] _, value in
+            _multiCamDeviceSetsObservation = discoverySession.observe(\.supportedMultiCamDeviceSets, options: [.initial, .new]) { [weak self] _, value in
                 guard let self else { return }
                 let deviceSets = (value.newValue ?? [])
-                self.log("MultiCam deviceSets: \(String(describing: deviceSets))")
-                self._state.mutate { $0.multiCamDeviceSets = deviceSets }
-                self._multiCamDeviceSetsCompleter.resume(returning: deviceSets)
+                log("MultiCam deviceSets: \(String(describing: deviceSets))")
+                _state.mutate { $0.multiCamDeviceSets = deviceSets }
+                _multiCamDeviceSetsCompleter.resume(returning: deviceSets)
             }
         }
         #endif

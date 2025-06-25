@@ -56,10 +56,10 @@ extension Dimensions {
 extension CGImagePropertyOrientation {
     func toRTCRotation() -> LKRTCVideoRotation {
         switch self {
-        case .up, .upMirrored, .down, .downMirrored: return ._0
-        case .left, .leftMirrored: return ._90
-        case .right, .rightMirrored: return ._270
-        default: return ._0
+        case .up, .upMirrored, .down, .downMirrored: ._0
+        case .left, .leftMirrored: ._90
+        case .right, .rightMirrored: ._270
+        default: ._0
         }
     }
 }

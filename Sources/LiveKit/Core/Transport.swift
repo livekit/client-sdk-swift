@@ -64,9 +64,9 @@ actor Transport: NSObject, Loggable {
         guard let self else { return }
 
         do {
-            try await self._pc.add(iceCandidate.toRTCType())
+            try await _pc.add(iceCandidate.toRTCType())
         } catch {
-            self.log("Failed to add(iceCandidate:) with error: \(error)", .error)
+            log("Failed to add(iceCandidate:) with error: \(error)", .error)
         }
     })
 

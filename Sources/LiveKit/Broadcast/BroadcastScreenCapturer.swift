@@ -60,13 +60,13 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
                 logger.debug("Broadcast receiver connected")
                 self.receiver = receiver
 
-                if self.appAudio {
+                if appAudio {
                     try await receiver.enableAudio()
                 }
 
                 for try await sample in receiver.incomingSamples {
                     switch sample {
-                    case let .image(buffer, rotation): self.capture(buffer, rotation: rotation)
+                    case let .image(buffer, rotation): capture(buffer, rotation: rotation)
                     case let .audio(buffer): AudioManager.shared.mixer.capture(appAudio: buffer)
                     }
                 }
@@ -74,7 +74,7 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
             } catch {
                 logger.error("Broadcast receiver error: \(error)")
             }
-            _ = try? await self.stopCapture()
+            _ = try? await stopCapture()
         }
         return true
     }

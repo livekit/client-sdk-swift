@@ -21,8 +21,8 @@ public enum ValueOrAbsent<T: Sendable>: Sendable {
 
     func value(ifAbsent other: T) -> T {
         switch self {
-        case let .value(t): return t
-        case .absent: return other
+        case let .value(t): t
+        case .absent: other
         }
     }
 }

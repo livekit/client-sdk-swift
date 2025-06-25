@@ -55,7 +55,7 @@ public class ARCameraCapturer: VideoCapturer {
             guard let self else { return }
             for await frame in frameUpdates {
                 if let sample = frame.sample(for: .left) {
-                    self.capture(pixelBuffer: sample.pixelBuffer, capturer: self.capturer, options: self.options)
+                    capture(pixelBuffer: sample.pixelBuffer, capturer: capturer, options: options)
                 }
             }
         }

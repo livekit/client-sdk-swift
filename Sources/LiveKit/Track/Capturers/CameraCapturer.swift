@@ -311,10 +311,10 @@ public extension LocalVideoTrack {
 extension AVCaptureDevice.Position: Swift.CustomStringConvertible {
     public var description: String {
         switch self {
-        case .front: return ".front"
-        case .back: return ".back"
-        case .unspecified: return ".unspecified"
-        default: return "unknown"
+        case .front: ".front"
+        case .back: ".back"
+        case .unspecified: ".unspecified"
+        default: "unknown"
         }
     }
 }

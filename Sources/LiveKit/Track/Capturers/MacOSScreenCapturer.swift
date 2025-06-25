@@ -239,7 +239,7 @@ extension MacOSScreenCapturer: SCStreamOutput {
                     try? await Task.sleep(nanoseconds: UInt64(1 * 1_000_000_000))
                     if Task.isCancelled { break }
                     guard let self else { break }
-                    try await self._capturePreviousFrame()
+                    try await _capturePreviousFrame()
                 }
             }
 

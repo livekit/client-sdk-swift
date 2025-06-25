@@ -29,10 +29,10 @@ public enum IceTransportPolicy: Int, Sendable {
 extension IceTransportPolicy {
     func toRTCType() -> LKRTCIceTransportPolicy {
         switch self {
-        case .none: return .none
-        case .relay: return .relay
-        case .noHost: return .noHost
-        case .all: return .all
+        case .none: .none
+        case .relay: .relay
+        case .noHost: .noHost
+        case .all: .all
         }
     }
 }

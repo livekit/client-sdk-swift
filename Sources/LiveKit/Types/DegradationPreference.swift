@@ -31,11 +31,11 @@ public enum DegradationPreference: Int, Sendable {
 extension DegradationPreference {
     func toRTCType() -> LKRTCDegradationPreference? {
         switch self {
-        case .auto: return nil
-        case .disabled: return .disabled
-        case .maintainFramerate: return .maintainFramerate
-        case .maintainResolution: return .maintainResolution
-        case .balanced: return .balanced
+        case .auto: nil
+        case .disabled: .disabled
+        case .maintainFramerate: .maintainFramerate
+        case .maintainResolution: .maintainResolution
+        case .balanced: .balanced
         }
     }
 }
