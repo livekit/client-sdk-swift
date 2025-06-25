@@ -57,14 +57,12 @@ class DeviceManager: @unchecked Sendable, Loggable {
         #endif
 
         // Xcode 15.0 Swift 5.9
-        #if compiler(>=5.9)
         if #available(iOS 17.0, macOS 14.0, tvOS 17.0, *) {
             deviceTypes.append(contentsOf: [
                 .continuityCamera,
                 .external,
             ])
         }
-        #endif
 
         return AVCaptureDevice.DiscoverySession(deviceTypes: deviceTypes,
                                                 mediaType: .video,
