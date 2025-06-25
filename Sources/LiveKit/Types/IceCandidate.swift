@@ -14,11 +14,7 @@
  * limitations under the License.
  */
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 struct IceCandidate: Codable, Sendable {
     let sdp: String

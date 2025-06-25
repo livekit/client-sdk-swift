@@ -26,10 +26,10 @@ public enum EncryptionType: Int, Sendable {
 extension EncryptionType {
     func toPBType() -> Livekit_Encryption.TypeEnum {
         switch self {
-        case .none: return .none
-        case .gcm: return .gcm
-        case .custom: return .custom
-        default: return .custom
+        case .none: .none
+        case .gcm: .gcm
+        case .custom: .custom
+        default: .custom
         }
     }
 }
@@ -37,10 +37,10 @@ extension EncryptionType {
 extension Livekit_Encryption.TypeEnum {
     func toLKType() -> EncryptionType {
         switch self {
-        case .none: return .none
-        case .gcm: return .gcm
-        case .custom: return .custom
-        default: return .custom
+        case .none: .none
+        case .gcm: .gcm
+        case .custom: .custom
+        default: .custom
         }
     }
 }

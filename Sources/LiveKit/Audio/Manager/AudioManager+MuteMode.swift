@@ -14,11 +14,7 @@
  * limitations under the License.
  */
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 // MARK: - Public
 
@@ -86,10 +82,10 @@ extension LKRTCAudioEngineMuteMode {
 extension MicrophoneMuteMode {
     func toRTCType() -> LKRTCAudioEngineMuteMode {
         switch self {
-        case .unknown: return .unknown
-        case .voiceProcessing: return .voiceProcessing
-        case .restart: return .restartEngine
-        case .inputMixer: return .inputMixer
+        case .unknown: .unknown
+        case .voiceProcessing: .voiceProcessing
+        case .restart: .restartEngine
+        case .inputMixer: .inputMixer
         }
     }
 }

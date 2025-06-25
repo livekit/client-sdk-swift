@@ -26,18 +26,18 @@ public enum ScalabilityMode: Int {
 public extension ScalabilityMode {
     static func fromString(_ rawString: String?) -> ScalabilityMode? {
         switch rawString {
-        case "L3T3": return .L3T3
-        case "L3T3_KEY": return .L3T3_KEY
-        case "L3T3_KEY_SHIFT": return .L3T3_KEY_SHIFT
-        default: return nil
+        case "L3T3": .L3T3
+        case "L3T3_KEY": .L3T3_KEY
+        case "L3T3_KEY_SHIFT": .L3T3_KEY_SHIFT
+        default: nil
         }
     }
 
     var rawStringValue: String {
         switch self {
-        case .L3T3: return "L3T3"
-        case .L3T3_KEY: return "L3T3_KEY"
-        case .L3T3_KEY_SHIFT: return "L3T3_KEY_SHIFT"
+        case .L3T3: "L3T3"
+        case .L3T3_KEY: "L3T3_KEY"
+        case .L3T3_KEY_SHIFT: "L3T3_KEY_SHIFT"
         }
     }
 

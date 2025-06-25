@@ -107,16 +107,15 @@ class AVAudioPCMBufferTests: LKTestCase {
 
         let channels = Int(audioFormat.channelCount)
 
-        let bytesPerSample: Int
-        switch format {
+        let bytesPerSample = switch format {
         case .pcmFormatFloat32:
-            bytesPerSample = 4
+            4
         case .pcmFormatInt16:
-            bytesPerSample = 2
+            2
         case .pcmFormatInt32:
-            bytesPerSample = 4
+            4
         default:
-            bytesPerSample = Int(audioFormat.streamDescription.pointee.mBytesPerFrame) / channels
+            Int(audioFormat.streamDescription.pointee.mBytesPerFrame) / channels
         }
 
         let expectedSize = frameCount * channels * bytesPerSample

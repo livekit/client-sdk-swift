@@ -31,13 +31,13 @@ public extension Participant {
 
     var firstTrackEncryptionType: EncryptionType {
         if let pub = firstCameraPublication {
-            return pub.encryptionType
+            pub.encryptionType
         } else if let pub = firstScreenSharePublication {
-            return pub.encryptionType
+            pub.encryptionType
         } else if let pub = firstAudioPublication {
-            return pub.encryptionType
+            pub.encryptionType
         } else {
-            return .none
+            .none
         }
     }
 

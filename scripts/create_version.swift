@@ -128,9 +128,9 @@ struct Change {
 
         private var priority: Int {
             switch self {
-            case .patch: return 0
-            case .minor: return 1
-            case .major: return 2
+            case .patch: 0
+            case .minor: 1
+            case .major: 2
             }
         }
     }

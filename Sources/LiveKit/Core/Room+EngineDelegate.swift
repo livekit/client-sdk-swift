@@ -16,11 +16,7 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 extension Room {
     func engine(_: Room, didMutateState state: Room.State, oldState: Room.State) {
@@ -79,9 +75,9 @@ extension Room {
             Task.detached { [weak self] in
                 guard let self else { return }
                 do {
-                    try await self.localParticipant.republishAllTracks()
+                    try await localParticipant.republishAllTracks()
                 } catch {
-                    self.log("Failed to re-publish local tracks, error: \(error)", .error)
+                    log("Failed to re-publish local tracks, error: \(error)", .error)
                 }
             }
         }
@@ -249,13 +245,11 @@ extension Room {
     }
 
     func room(didReceiveRpcResponse response: Livekit_RpcResponse) {
-        let (payload, error): (String?, RpcError?) = {
-            switch response.value {
-            case let .payload(v): return (v, nil)
-            case let .error(e): return (nil, RpcError.fromProto(e))
-            default: return (nil, nil)
-            }
-        }()
+        let (payload, error): (String?, RpcError?) = switch response.value {
+        case let .payload(v): (v, nil)
+        case let .error(e): (nil, RpcError.fromProto(e))
+        default: (nil, nil)
+        }
 
         localParticipant.handleIncomingRpcResponse(requestId: response.requestID,
                                                    payload: payload,

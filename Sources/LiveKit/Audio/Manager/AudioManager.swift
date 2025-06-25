@@ -18,11 +18,7 @@ import Accelerate
 import AVFoundation
 import Combine
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 // Audio Session Configuration related
 public class AudioManager: Loggable {
@@ -110,10 +106,10 @@ public class AudioManager: Loggable {
 
         public var trackState: TrackState {
             switch (localTracksCount > 0, remoteTracksCount > 0) {
-            case (true, false): return .localOnly
-            case (false, true): return .remoteOnly
-            case (true, true): return .localAndRemote
-            default: return .none
+            case (true, false): .localOnly
+            case (false, true): .remoteOnly
+            case (true, true): .localAndRemote
+            default: .none
             }
         }
         #endif

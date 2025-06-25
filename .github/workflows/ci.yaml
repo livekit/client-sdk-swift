@@ -21,21 +21,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # https://github.com/actions/runner-images/blob/main/images/macos/macos-13-Readme.md
-          - os: macos-13
-            xcode: 14.2
-            platform: "iOS Simulator,OS=17.2,name=iPhone 14 Pro"
-          - os: macos-13
-            xcode: 14.2
-            platform: "macOS"
-          - os: macos-13
-            xcode: 14.2
-            platform: "macOS,variant=Mac Catalyst"
-
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
           - os: macos-14
             xcode: 15.4
-            platform: "iOS Simulator,OS=17.5,name=iPhone 15 Pro"
+            platform: "iOS Simulator,name=iPhone 15 Pro,OS=17.5"
           - os: macos-14
             xcode: 15.4
             platform: "macOS"
@@ -44,23 +33,46 @@ jobs:
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-14
             xcode: 15.4
-            platform: "visionOS Simulator,name=Apple Vision Pro"
+            platform: "visionOS Simulator,name=Apple Vision Pro,OS=1.2"
           - os: macos-14
             xcode: 15.4
-            platform: "tvOS Simulator,name=Apple TV"
+            platform: "tvOS Simulator,name=Apple TV,OS=17.5"
 
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md
           - os: macos-15
-            xcode: 16.2
-            platform: "iOS Simulator,OS=18.1,name=iPhone 16 Pro"
+            xcode: 16.4
+            platform: "iOS Simulator,name=iPhone 16 Pro,OS=18.5"
             symbol-graph: true
           - os: macos-15
-            xcode: 16.2
+            xcode: 16.4
             platform: "macOS"
             symbol-graph: true
           - os: macos-15
-            xcode: 16.2
+            xcode: 16.4
             platform: "macOS,variant=Mac Catalyst"
+          - os: macos-15
+            xcode: 16.4
+            platform: "visionOS Simulator,name=Apple Vision Pro,OS=2.5"
+          - os: macos-15
+            xcode: 16.4
+            platform: "tvOS Simulator,name=Apple TV,OS=18.5"
+
+          # https://github.com/actions/runner-images/tree/main/images/macos
+          # - os: macos-15
+          #   xcode: latest
+          #   platform: "iOS Simulator,name=iPhone 16 Pro,OS=26.0"
+          - os: macos-15
+            xcode: latest
+            platform: "macOS"
+          # - os: macos-15
+          #   xcode: latest
+          #   platform: "macOS,variant=Mac Catalyst"
+          # - os: macos-15
+          #   xcode: latest
+          #   platform: "visionOS Simulator,name=Apple Vision Pro,OS=26.0"
+          # - os: macos-15
+          #   xcode: latest
+          #   platform: "tvOS Simulator,name=Apple TV,OS=26.0"
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30

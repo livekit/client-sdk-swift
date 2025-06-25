@@ -60,7 +60,7 @@ class ConnectivityListener: MulticastDelegate<ConnectivityListenerDelegate>, @un
 
         monitor.pathUpdateHandler = { [weak self] path in
             guard let self else { return }
-            self.set(path: path)
+            set(path: path)
         }
 
         monitor.start(queue: queue)
@@ -111,9 +111,9 @@ private extension ConnectivityListener {
                                                       repeats: false)
             { [weak self] _ in
                 guard let self else { return }
-                self.log("satisfied monitor timer invalidated")
-                self.isPossiblySwitchingNetwork = false
-                self.switchNetworkTimer = nil
+                log("satisfied monitor timer invalidated")
+                isPossiblySwitchingNetwork = false
+                switchNetworkTimer = nil
             }
         } else if !oldValue.isSatisfied(), newValue.isSatisfied(), isPossiblySwitchingNetwork {
             // unsatisfied -> satisfied
