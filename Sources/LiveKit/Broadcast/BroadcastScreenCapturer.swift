@@ -22,11 +22,7 @@ import Foundation
 import UIKit
 #endif
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
     private let appAudio: Bool

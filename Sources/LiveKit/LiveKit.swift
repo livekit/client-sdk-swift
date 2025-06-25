@@ -15,14 +15,8 @@
  */
 
 import Foundation
-
-#if swift(>=5.9)
 internal import LiveKitWebRTC
 internal import Logging
-#else
-@_implementationOnly import LiveKitWebRTC
-@_implementationOnly import Logging
-#endif
 
 let logger = Logger(label: "LiveKitSDK")
 

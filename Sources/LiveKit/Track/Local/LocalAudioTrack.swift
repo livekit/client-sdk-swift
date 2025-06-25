@@ -18,11 +18,7 @@ import AVFAudio
 import Combine
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @objc
 public class LocalAudioTrack: Track, LocalTrack, AudioTrack, @unchecked Sendable {

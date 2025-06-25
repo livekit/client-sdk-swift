@@ -21,11 +21,7 @@ import Foundation
 import ScreenCaptureKit
 #endif
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 #if os(macOS)
 

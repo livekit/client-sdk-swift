@@ -17,11 +17,7 @@
 import AVFoundation
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 extension TrackSettings: CustomStringConvertible {
     public var description: String {

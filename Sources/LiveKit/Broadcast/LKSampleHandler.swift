@@ -19,12 +19,7 @@
 #if canImport(ReplayKit)
 import ReplayKit
 #endif
-
-#if swift(>=5.9)
 internal import Logging
-#else
-@_implementationOnly import Logging
-#endif
 
 import Combine
 import OSLog

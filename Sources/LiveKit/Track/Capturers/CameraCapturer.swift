@@ -21,11 +21,7 @@ import Foundation
 import ReplayKit
 #endif
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 public class CameraCapturer: VideoCapturer, @unchecked Sendable {
     /// Current device used for capturing
