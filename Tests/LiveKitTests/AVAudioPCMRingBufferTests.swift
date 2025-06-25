@@ -78,12 +78,7 @@ final class AVAudioPCMRingBufferTests: LKTestCase {
         // Append the large buffer
         ringBuffer.append(audioBuffer: largeBuffer)
 
-        // Should only be able to read up to capacity
-        guard let readBuffer = ringBuffer.read(frames: capacity + 512) else {
-            // Expected nil since we can't read more than capacity
-            return
-        }
-        XCTFail("Should not be able to read more frames than capacity")
+        XCTAssertNil(ringBuffer.read(frames: capacity + 512), "Should not be able to read more frames than capacity")
     }
 
     func testWrapAround() {
