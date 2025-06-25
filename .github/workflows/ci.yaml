@@ -23,38 +23,38 @@ jobs:
         include:
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
           - os: macos-14
-            xcode: 15.4
+            xcode: 15.x
             platform: "iOS Simulator,OS=17.5,name=iPhone 15 Pro"
           - os: macos-14
-            xcode: 15.4
+            xcode: 15.x
             platform: "macOS"
           - os: macos-14
-            xcode: 15.4
+            xcode: 15.x
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-14
-            xcode: 15.4
+            xcode: 15.x
             platform: "visionOS Simulator,name=Apple Vision Pro"
           - os: macos-14
-            xcode: 15.4
+            xcode: 15.x
             platform: "tvOS Simulator,name=Apple TV"
 
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md
           - os: macos-15
-            xcode: 16.4
+            xcode: 16.x
             platform: "iOS Simulator,OS=18.5,name=iPhone 16 Pro"
             symbol-graph: true
           - os: macos-15
-            xcode: 16.4
+            xcode: 16.x
             platform: "macOS"
             symbol-graph: true
           - os: macos-15
-            xcode: 16.4
+            xcode: 16.x
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-15
-            xcode: 16.4
+            xcode: 16.x
             platform: "visionOS Simulator,name=Apple Vision Pro"
           - os: macos-15
-            xcode: 16.4
+            xcode: 16.x
             platform: "tvOS Simulator,name=Apple TV"
 
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md
