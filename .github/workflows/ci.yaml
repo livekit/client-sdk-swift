@@ -58,7 +58,7 @@ jobs:
             platform: "tvOS Simulator,OS=18.5,name=Apple TV"
 
           # https://github.com/actions/runner-images/tree/main/images/macos
-          - os: macos-15-large # Intel for missing sims
+          - os: macos-15
             xcode: latest
             platform: "iOS Simulator,OS=26.0,name=iPhone 16 Pro"
           - os: macos-15
@@ -67,10 +67,10 @@ jobs:
           - os: macos-15
             xcode: latest
             platform: "macOS,variant=Mac Catalyst"
-          - os: macos-15-large # Intel for missing sims
+          - os: macos-15
             xcode: latest
             platform: "visionOS Simulator,OS=26.0,name=Apple Vision Pro"
-          - os: macos-15-large # Intel for missing sims
+          - os: macos-15
             xcode: latest
             platform: "tvOS Simulator,OS=26.0name=Apple TV"
 
