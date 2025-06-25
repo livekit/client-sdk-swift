@@ -19,11 +19,7 @@
 import AVFoundation
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 // Defaults
 public extension AudioSessionConfiguration {

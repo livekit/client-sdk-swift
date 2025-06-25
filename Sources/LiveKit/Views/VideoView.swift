@@ -17,11 +17,7 @@
 @preconcurrency import AVFoundation
 import MetalKit
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 typealias NativeRendererView = LKRTCVideoRenderer & Mirrorable & NativeViewType
@@ -271,7 +267,7 @@ public class VideoView: NativeView, Loggable {
         _state.onDidMutate = { [weak self] newState, oldState in
             guard let self else { return }
 
-            self.log("Mutating in main thread: \(Thread.current.isMainThread)", .trace)
+            log("Mutating in main thread: \(Thread.current.isMainThread)", .trace)
 
             let shouldRenderDidUpdate = newState.shouldRender != oldState.shouldRender
             let renderModeDidUpdate = newState.renderMode != oldState.renderMode
@@ -286,7 +282,7 @@ public class VideoView: NativeView, Loggable {
 
             // Enter .main only if UI updates are required
             if trackDidUpdate || shouldRenderDidUpdate || renderModeDidUpdate {
-                self.mainSyncOrAsync { @MainActor in
+                mainSyncOrAsync { @MainActor in
                     var didReCreateNativeRenderer = false
 
                     if trackDidUpdate || shouldRenderDidUpdate {
@@ -329,15 +325,15 @@ public class VideoView: NativeView, Loggable {
 
             // isRendering updated
             if newState.isRendering != oldState.isRendering {
-                self.log("isRendering \(oldState.isRendering) -> \(newState.isRendering)")
-                self.delegates.notify(label: { "videoView.didUpdate isRendering: \(newState.isRendering)" }) {
+                log("isRendering \(oldState.isRendering) -> \(newState.isRendering)")
+                delegates.notify(label: { "videoView.didUpdate isRendering: \(newState.isRendering)" }) {
                     $0.videoView?(self, didUpdate: newState.isRendering)
                 }
             }
 
             // viewSize updated
             if newState.viewSize != oldState.viewSize {
-                self.delegates.notify {
+                delegates.notify {
                     $0.videoView?(self, didUpdate: newState.viewSize)
                 }
             }
@@ -375,9 +371,9 @@ public class VideoView: NativeView, Loggable {
             if newState.isDebugMode != oldState.isDebugMode {
                 // fps timer
                 if newState.isDebugMode {
-                    self._fpsTimer.restart()
+                    _fpsTimer.restart()
                 } else {
-                    self._fpsTimer.cancel()
+                    _fpsTimer.cancel()
                 }
             }
         }
@@ -385,19 +381,19 @@ public class VideoView: NativeView, Loggable {
         _fpsTimer.setTimerBlock { @MainActor [weak self] in
             guard let self else { return }
 
-            self._currentFPS = self._frameCount
-            self._frameCount = 0
+            _currentFPS = _frameCount
+            _frameCount = 0
 
-            self.setNeedsLayout()
+            setNeedsLayout()
         }
 
         _renderTimer.setTimerBlock { [weak self] in
             guard let self else { return }
 
-            if self._state.isRendering, let renderDate = self._state.renderDate {
+            if _state.isRendering, let renderDate = _state.renderDate {
                 let diff = Date().timeIntervalSince(renderDate)
                 if await diff >= Self._freezeDetectThreshold {
-                    self._state.mutate { $0.isRendering = false }
+                    _state.mutate { $0.isRendering = false }
                 }
             }
         }
@@ -580,9 +576,9 @@ private extension VideoView {
 
     func _shouldMirror() -> Bool {
         switch _state.mirrorMode {
-        case .auto: return _state.captureDevice?.facingPosition == .front
-        case .off: return false
-        case .mirror: return true
+        case .auto: _state.captureDevice?.facingPosition == .front
+        case .off: false
+        case .mirror: true
         }
     }
 }
@@ -600,7 +596,7 @@ extension VideoView: VideoRenderer {
 
     public func set(size: CGSize) {
         DispatchQueue.main.async { [weak self] in
-            guard let self, let nr = self._primaryRenderer else { return }
+            guard let self, let nr = _primaryRenderer else { return }
             nr.setSize(size)
         }
     }
@@ -863,7 +859,6 @@ extension LKRTCMTLVideoView: Mirrorable {
 #endif
 
 private extension VideoView {
-    #if compiler(>=5.9)
     nonisolated func mainSyncOrAsync(operation: @MainActor @escaping () -> Void) {
         if Thread.current.isMainThread {
             MainActor.assumeIsolated(operation)
@@ -873,17 +868,6 @@ private extension VideoView {
             }
         }
     }
-    #else
-    nonisolated func mainSyncOrAsync(operation: @escaping () -> Void) {
-        if Thread.current.isMainThread {
-            operation()
-        } else {
-            Task { @MainActor in
-                operation()
-            }
-        }
-    }
-    #endif
 }
 
 #if os(iOS)

@@ -14,30 +14,13 @@
  * limitations under the License.
  */
 
-import Foundation
+import XCTest
 
-extension Livekit_TrackType {
-    func toLKType() -> Track.Kind {
-        switch self {
-        case .audio:
-            .audio
-        case .video:
-            .video
-        default:
-            .none
-        }
-    }
-}
-
-extension Track.Kind {
-    func toPBType() -> Livekit_TrackType {
-        switch self {
-        case .audio:
-            .audio
-        case .video:
-            .video
-        default:
-            .UNRECOGNIZED(10)
-        }
+func XCTAssertThrowsErrorAsync(_ expression: @autoclosure () async throws -> some Any) async {
+    do {
+        _ = try await expression()
+        XCTFail("No error was thrown.")
+    } catch {
+        // Pass
     }
 }

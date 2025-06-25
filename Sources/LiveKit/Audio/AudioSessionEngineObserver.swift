@@ -20,11 +20,7 @@ let kFailedToConfigureAudioSessionErrorCode = -4100
 
 import AVFoundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 /// An ``AudioEngineObserver`` that configures the `AVAudioSession` based on the state of the audio engine.
 public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @unchecked Sendable {

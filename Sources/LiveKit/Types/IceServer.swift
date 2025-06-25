@@ -16,11 +16,7 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 /// Options used when establishing a connection.
 @objc

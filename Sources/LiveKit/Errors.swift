@@ -16,11 +16,7 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 public enum LiveKitErrorType: Int, Sendable {
     case unknown = 0
@@ -65,48 +61,48 @@ extension LiveKitErrorType: CustomStringConvertible {
     public var description: String {
         switch self {
         case .cancelled:
-            return "Cancelled"
+            "Cancelled"
         case .timedOut:
-            return "Timed out"
+            "Timed out"
         case .failedToParseUrl:
-            return "Failed to parse URL"
+            "Failed to parse URL"
         case .failedToConvertData:
-            return "Failed to convert data"
+            "Failed to convert data"
         case .invalidState:
-            return "Invalid state"
+            "Invalid state"
         case .invalidParameter:
-            return "Invalid parameter"
+            "Invalid parameter"
         case .webRTC:
-            return "WebRTC error"
+            "WebRTC error"
         case .network:
-            return "Network error"
+            "Network error"
         case .duplicateIdentity:
-            return "Duplicate Participant identity"
+            "Duplicate Participant identity"
         case .serverShutdown:
-            return "Server shutdown"
+            "Server shutdown"
         case .participantRemoved:
-            return "Participant removed"
+            "Participant removed"
         case .roomDeleted:
-            return "Room deleted"
+            "Room deleted"
         case .stateMismatch:
-            return "Server state mismatch"
+            "Server state mismatch"
         case .joinFailure:
-            return "Server join failure"
+            "Server join failure"
         case .serverPingTimedOut:
-            return "Server ping timed out"
+            "Server ping timed out"
         case .deviceNotFound:
-            return "Device not found"
+            "Device not found"
         case .captureFormatNotFound:
-            return "Capture format not found"
+            "Capture format not found"
         case .unableToResolveFPSRange:
-            return "Unable to resolve FPS range"
+            "Unable to resolve FPS range"
         case .capturerDimensionsNotResolved:
-            return "Capturer dimensions not resolved"
+            "Capturer dimensions not resolved"
         case .audioEngine:
-            return "Audio Engine Error"
+            "Audio Engine Error"
         case .audioSession:
-            return "Audio Session Error"
-        default: return "Unknown"
+            "Audio Session Error"
+        default: "Unknown"
         }
     }
 }
@@ -170,14 +166,14 @@ extension LiveKitError {
 extension Livekit_DisconnectReason {
     func toLKType() -> LiveKitErrorType {
         switch self {
-        case .clientInitiated: return .cancelled
-        case .duplicateIdentity: return .duplicateIdentity
-        case .serverShutdown: return .serverShutdown
-        case .participantRemoved: return .participantRemoved
-        case .roomDeleted: return .roomDeleted
-        case .stateMismatch: return .stateMismatch
-        case .joinFailure: return .joinFailure
-        default: return .unknown
+        case .clientInitiated: .cancelled
+        case .duplicateIdentity: .duplicateIdentity
+        case .serverShutdown: .serverShutdown
+        case .participantRemoved: .participantRemoved
+        case .roomDeleted: .roomDeleted
+        case .stateMismatch: .stateMismatch
+        case .joinFailure: .joinFailure
+        default: .unknown
         }
     }
 }

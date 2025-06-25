@@ -133,7 +133,7 @@ public class TrackPublication: NSObject, @unchecked Sendable, ObservableObject, 
                 }
             }
 
-            self.notifyObjectWillChange()
+            notifyObjectWillChange()
         }
     }
 
