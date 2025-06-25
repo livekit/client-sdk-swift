@@ -33,11 +33,11 @@ public extension AudioSessionConfiguration {
                                                     mode: .spokenAudio)
 
     static let playAndRecordSpeaker = AudioSessionConfiguration(category: .playAndRecord,
-                                                                categoryOptions: [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay],
+                                                                categoryOptions: [.mixWithOthers, .allowBluetoothHFP, .allowBluetoothA2DP, .allowAirPlay],
                                                                 mode: .videoChat)
 
     static let playAndRecordReceiver = AudioSessionConfiguration(category: .playAndRecord,
-                                                                 categoryOptions: [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay],
+                                                                 categoryOptions: [.mixWithOthers, .allowBluetoothHFP, .allowBluetoothA2DP, .allowAirPlay],
                                                                  mode: .voiceChat)
 }
 
