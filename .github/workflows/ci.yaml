@@ -58,21 +58,21 @@ jobs:
             platform: "tvOS Simulator,name=Apple TV"
 
           # https://github.com/actions/runner-images/tree/main/images/macos
-          # - os: macos-15
-          #   xcode: latest
-          #   platform: "iOS Simulator,name=iPhone 16 Pro"
+          - os: macos-15
+            xcode: latest
+            platform: "iOS Simulator,name=iPhone 16 Pro"
           - os: macos-15
             xcode: latest
             platform: "macOS"
           - os: macos-15
             xcode: latest
             platform: "macOS,variant=Mac Catalyst"
-          # - os: macos-15
-          #   xcode: latest
-          #   platform: "visionOS Simulator,name=Apple Vision Pro"
-          # - os: macos-15
-          #   xcode: latest
-          #   platform: "tvOS Simulator,name=Apple TV"
+          - os: macos-15
+            xcode: latest
+            platform: "visionOS Simulator,name=Apple Vision Pro"
+          - os: macos-15
+            xcode: latest
+            platform: "tvOS Simulator,name=Apple TV"
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
