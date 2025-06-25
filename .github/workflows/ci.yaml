@@ -33,10 +33,10 @@ jobs:
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-14
             xcode: 15.4
-            platform: "visionOS Simulator,name=Apple Vision Pro"
+            platform: "visionOS Simulator,OS=1.2,name=Apple Vision Pro"
           - os: macos-14
             xcode: 15.4
-            platform: "tvOS Simulator,name=Apple TV"
+            platform: "tvOS Simulator,OS=17.5,name=Apple TV"
 
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md
           - os: macos-15
@@ -52,27 +52,27 @@ jobs:
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-15
             xcode: 16.4
-            platform: "visionOS Simulator,name=Apple Vision Pro"
+            platform: "visionOS Simulator,OS=2.5,name=Apple Vision Pro"
           - os: macos-15
             xcode: 16.4
-            platform: "tvOS Simulator,name=Apple TV"
+            platform: "tvOS Simulator,OS=18.5,name=Apple TV"
 
           # https://github.com/actions/runner-images/tree/main/images/macos
-          - os: macos-15
+          - os: macos-15-large # Intel for missing sims
             xcode: latest
-            platform: "iOS Simulator,name=iPhone 16 Pro"
+            platform: "iOS Simulator,OS=26.0,name=iPhone 16 Pro"
           - os: macos-15
             xcode: latest
             platform: "macOS"
           - os: macos-15
             xcode: latest
             platform: "macOS,variant=Mac Catalyst"
-          - os: macos-15
+          - os: macos-15-large # Intel for missing sims
             xcode: latest
-            platform: "visionOS Simulator,name=Apple Vision Pro"
-          - os: macos-15
+            platform: "visionOS Simulator,OS=26.0,name=Apple Vision Pro"
+          - os: macos-15-large # Intel for missing sims
             xcode: latest
-            platform: "tvOS Simulator,name=Apple TV"
+            platform: "tvOS Simulator,OS=26.0name=Apple TV"
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
