@@ -57,20 +57,20 @@ jobs:
             xcode: 16.4
             platform: "tvOS Simulator,name=Apple TV"
 
-          # https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md
-          # - os: macos-15
+          # https://github.com/actions/runner-images/tree/main/images/macos
+          # - os: macos-latest
           #   xcode: latest
           #   platform: "iOS Simulator,name=iPhone 16 Pro"
-          - os: macos-15
+          - os: macos-latest
             xcode: latest
             platform: "macOS"
-          - os: macos-15
+          - os: macos-latest
             xcode: latest
             platform: "macOS,variant=Mac Catalyst"
-          # - os: macos-15
+          # - os: macos-latest
           #   xcode: latest
           #   platform: "visionOS Simulator,name=Apple Vision Pro"
-          # - os: macos-15
+          # - os: macos-latest
           #   xcode: latest
           #   platform: "tvOS Simulator,name=Apple TV"
 
