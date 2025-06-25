@@ -98,6 +98,13 @@ jobs:
       - name: Swift Version
         run: xcrun swift --version
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages/checkouts
+          key: ${{ matrix.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ matrix.os }}-spm-
+
       - name: Build for Testing
         run: |
           set -o pipefail && xcodebuild build-for-testing \
