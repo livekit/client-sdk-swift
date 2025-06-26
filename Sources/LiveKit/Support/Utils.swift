@@ -14,11 +14,7 @@
  * limitations under the License.
  */
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 enum OS {
     case macOS
@@ -30,10 +26,10 @@ enum OS {
 extension OS: CustomStringConvertible {
     var description: String {
         switch self {
-        case .macOS: return "macOS"
-        case .iOS: return "iOS"
-        case .visionOS: return "visionOS"
-        case .tvOS: return "tvOS"
+        case .macOS: "macOS"
+        case .iOS: "iOS"
+        case .visionOS: "visionOS"
+        case .tvOS: "tvOS"
         }
     }
 }

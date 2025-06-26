@@ -20,8 +20,8 @@ public extension Participant {
     @objc
     var isAgent: Bool {
         switch kind {
-        case .agent: return true
-        default: return false
+        case .agent: true
+        default: false
         }
     }
 

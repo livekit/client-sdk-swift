@@ -16,11 +16,7 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 actor Transport: NSObject, Loggable {
     // MARK: - Types
@@ -32,7 +28,7 @@ actor Transport: NSObject, Loggable {
     nonisolated let target: Livekit_SignalTarget
     nonisolated let isPrimary: Bool
 
-    var connectionState: RTCPeerConnectionState {
+    var connectionState: LKRTCPeerConnectionState {
         _pc.connectionState
     }
 
@@ -48,7 +44,7 @@ actor Transport: NSObject, Loggable {
         _pc.remoteDescription
     }
 
-    var signalingState: RTCSignalingState {
+    var signalingState: LKRTCSignalingState {
         _pc.signalingState
     }
 
@@ -68,9 +64,9 @@ actor Transport: NSObject, Loggable {
         guard let self else { return }
 
         do {
-            try await self._pc.add(iceCandidate.toRTCType())
+            try await _pc.add(iceCandidate.toRTCType())
         } catch {
-            self.log("Failed to add(iceCandidate:) with error: \(error)", .error)
+            log("Failed to add(iceCandidate:) with error: \(error)", .error)
         }
     })
 
@@ -154,7 +150,7 @@ actor Transport: NSObject, Loggable {
         var constraints = [String: String]()
         if iceRestart {
             log("Restarting ICE...")
-            constraints[kRTCMediaConstraintsIceRestart] = kRTCMediaConstraintsValueTrue
+            constraints[kLKRTCMediaConstraintsIceRestart] = kLKRTCMediaConstraintsValueTrue
             _isRestartingIce = true
         }
 
@@ -216,7 +212,7 @@ extension Transport {
 // MARK: - RTCPeerConnectionDelegate
 
 extension Transport: LKRTCPeerConnectionDelegate {
-    nonisolated func peerConnection(_: LKRTCPeerConnection, didChange state: RTCPeerConnectionState) {
+    nonisolated func peerConnection(_: LKRTCPeerConnection, didChange state: LKRTCPeerConnectionState) {
         log("[Connect] Transport(\(target)) did update state: \(state.description)")
         _delegate.notify { $0.transport(self, didUpdateState: state) }
     }
@@ -255,11 +251,11 @@ extension Transport: LKRTCPeerConnectionDelegate {
         _delegate.notify { $0.transport(self, didOpenDataChannel: dataChannel) }
     }
 
-    nonisolated func peerConnection(_: LKRTCPeerConnection, didChange _: RTCIceConnectionState) {}
+    nonisolated func peerConnection(_: LKRTCPeerConnection, didChange _: LKRTCIceConnectionState) {}
     nonisolated func peerConnection(_: LKRTCPeerConnection, didRemove _: LKRTCMediaStream) {}
-    nonisolated func peerConnection(_: LKRTCPeerConnection, didChange _: RTCSignalingState) {}
+    nonisolated func peerConnection(_: LKRTCPeerConnection, didChange _: LKRTCSignalingState) {}
     nonisolated func peerConnection(_: LKRTCPeerConnection, didAdd _: LKRTCMediaStream) {}
-    nonisolated func peerConnection(_: LKRTCPeerConnection, didChange _: RTCIceGatheringState) {}
+    nonisolated func peerConnection(_: LKRTCPeerConnection, didChange _: LKRTCIceGatheringState) {}
     nonisolated func peerConnection(_: LKRTCPeerConnection, didRemove _: [LKRTCIceCandidate]) {}
 }
 

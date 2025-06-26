@@ -16,13 +16,9 @@
 
 import AVFAudio
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
-public let AudioEngineInputMixerNodeKey = kRTCAudioEngineInputMixerNodeKey
+public let AudioEngineInputMixerNodeKey = kLKRTCAudioEngineInputMixerNodeKey
 
 /// Do not retain the engine object.
 public protocol AudioEngineObserver: NextInvokable, Sendable {

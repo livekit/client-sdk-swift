@@ -146,11 +146,6 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
             throw LiveKitError(.invalidState, message: "Audio stream is nil")
         }
 
-        let audioData = try await audioStream.collect()
-        guard audioData.count > 1024 else {
-            throw LiveKitError(.unknown, message: "Audio data size too small, nothing to send")
-        }
-
         let streamOptions = StreamByteOptions(
             topic: topic,
             attributes: [
@@ -158,13 +153,23 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
                 "channels": "\(recorder.channels)",
                 "trackId": recorder.track.sid?.stringValue ?? "",
             ],
-            destinationIdentities: agents,
-            totalSize: audioData.count
+            destinationIdentities: agents
         )
         let writer = try await room.localParticipant.streamBytes(options: streamOptions)
-        try await writer.write(audioData)
+
+        var sentSize = 0
+        for await chunk in audioStream {
+            do {
+                try await writer.write(chunk)
+            } catch {
+                try await writer.close(reason: error.localizedDescription)
+                throw error
+            }
+            sentSize += chunk.count
+        }
         try await writer.close()
-        log("Sent \(recorder.duration(audioData.count))s = \(audioData.count / 1024)KB of audio data to \(agents.count) agent(s) \(agents)", .info)
+
+        log("Sent \(recorder.duration(sentSize))s = \(sentSize / 1024)KB of audio data to \(agents.count) agent(s) \(agents)", .info)
     }
 }
 

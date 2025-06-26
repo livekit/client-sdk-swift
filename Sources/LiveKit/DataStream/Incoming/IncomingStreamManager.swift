@@ -188,9 +188,9 @@ public typealias TextStreamHandler = @Sendable (TextStreamReader, Participant.Id
 extension IncomingStreamManager {
     static func streamInfo(from header: Livekit_DataStream.Header) -> StreamInfo? {
         switch header.contentHeader {
-        case let .byteHeader(byteHeader): return ByteStreamInfo(header, byteHeader)
-        case let .textHeader(textHeader): return TextStreamInfo(header, textHeader)
-        default: return nil
+        case let .byteHeader(byteHeader): ByteStreamInfo(header, byteHeader)
+        case let .textHeader(textHeader): TextStreamInfo(header, textHeader)
+        default: nil
         }
     }
 }

@@ -20,7 +20,7 @@ import XCTest
 
 extension LKTestCase {
     // Static variable to store the downloaded sample video URL
-    #if compiler(>=6.0)
+    #if swift(>=6.0)
     private nonisolated(unsafe) static var cachedSampleVideoURL: URL?
     #else
     private static var cachedSampleVideoURL: URL?

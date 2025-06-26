@@ -15,7 +15,7 @@
  */
 
 import Accelerate
-import AVFoundation
+@preconcurrency import AVFoundation
 
 public extension AVAudioPCMBuffer {
     func resample(toSampleRate targetSampleRate: Double) -> AVAudioPCMBuffer? {
@@ -48,7 +48,12 @@ public extension AVAudioPCMBuffer {
             return nil
         }
 
+        #if swift(>=6.0)
+        // Won't be accessed concurrently, marking as nonisolated(unsafe) to avoid Atomics.
+        nonisolated(unsafe) var isDone = false
+        #else
         var isDone = false
+        #endif
         let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
             if isDone {
                 outStatus.pointee = .noDataNow

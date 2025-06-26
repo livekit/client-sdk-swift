@@ -14,11 +14,7 @@
  * limitations under the License.
  */
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 // MARK: - Public
 
@@ -63,7 +59,7 @@ public extension AudioManager {
 
     @available(*, deprecated, message: "Use `set(muteMode:)` instead")
     func setLegacyMuteMode(_ enabled: Bool) throws {
-        let mode: RTCAudioEngineMuteMode = enabled ? .restartEngine : .voiceProcessing
+        let mode: LKRTCAudioEngineMuteMode = enabled ? .restartEngine : .voiceProcessing
         let result = RTC.audioDeviceModule.setMuteMode(mode)
         try checkAdmResult(code: result)
     }
@@ -71,7 +67,7 @@ public extension AudioManager {
 
 // MARK: - Internal
 
-extension RTCAudioEngineMuteMode {
+extension LKRTCAudioEngineMuteMode {
     func toLKType() -> MicrophoneMuteMode {
         switch self {
         case .voiceProcessing: return .voiceProcessing
@@ -84,12 +80,12 @@ extension RTCAudioEngineMuteMode {
 }
 
 extension MicrophoneMuteMode {
-    func toRTCType() -> RTCAudioEngineMuteMode {
+    func toRTCType() -> LKRTCAudioEngineMuteMode {
         switch self {
-        case .unknown: return .unknown
-        case .voiceProcessing: return .voiceProcessing
-        case .restart: return .restartEngine
-        case .inputMixer: return .inputMixer
+        case .unknown: .unknown
+        case .voiceProcessing: .voiceProcessing
+        case .restart: .restartEngine
+        case .inputMixer: .inputMixer
         }
     }
 }

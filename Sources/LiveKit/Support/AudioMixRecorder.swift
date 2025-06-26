@@ -230,14 +230,14 @@ public class AudioMixRecorder: Loggable, @unchecked Sendable {
         writeQueue.async { [weak self, renderBuffer, audioFile = self.audioFile] in
             guard let self else { return }
             guard let audioFile else {
-                self.log("Audio file is already closed", .error)
+                log("Audio file is already closed", .error)
                 return
             }
 
             do {
                 try audioFile.write(from: renderBuffer)
             } catch {
-                self.log("Failed to write to audio file: \(error)", .error)
+                log("Failed to write to audio file: \(error)", .error)
             }
         }
     }

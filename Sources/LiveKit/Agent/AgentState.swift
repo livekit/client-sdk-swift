@@ -30,11 +30,11 @@ public enum AgentState: Int {
 extension AgentState {
     static func fromString(_ rawString: String?) -> AgentState? {
         switch rawString {
-        case "initializing": return .initializing
-        case "listening": return .listening
-        case "thinking": return .thinking
-        case "speaking": return .speaking
-        default: return unknown
+        case "initializing": .initializing
+        case "listening": .listening
+        case "thinking": .thinking
+        case "speaking": .speaking
+        default: unknown
         }
     }
 }
@@ -42,13 +42,13 @@ extension AgentState {
 extension AgentState: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .unknown: return "Unknown"
-        case .disconnected: return "Disconnected"
-        case .connecting: return "Connecting"
-        case .initializing: return "Initializing"
-        case .listening: return "Listening"
-        case .thinking: return "Thinking"
-        case .speaking: return "Speaking"
+        case .unknown: "Unknown"
+        case .disconnected: "Disconnected"
+        case .connecting: "Connecting"
+        case .initializing: "Initializing"
+        case .listening: "Listening"
+        case .thinking: "Thinking"
+        case .speaking: "Speaking"
         }
     }
 }
