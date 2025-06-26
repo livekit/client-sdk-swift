@@ -19,7 +19,7 @@ import Foundation
 internal import LiveKitWebRTC
 
 // Invoked on WebRTC's worker thread, do not block.
-class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate {
+class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate, Loggable {
     weak var audioManager: AudioManager?
 
     func audioDeviceModule(_: LKRTCAudioDeviceModule, didReceiveSpeechActivityEvent speechActivityEvent: LKRTCSpeechActivityEvent) {
@@ -43,7 +43,31 @@ class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate
     func audioDeviceModule(_: LKRTCAudioDeviceModule, willEnableEngine engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
         guard let audioManager else { return 0 }
         let entryPoint = audioManager.buildEngineObserverChain()
-        return entryPoint?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
+        let result = entryPoint?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
+
+        // At this point mic perms / session should be configured for recording.
+        if result == 0, isRecordingEnabled {
+            // This will block WebRTC's worker thread, but when instantiating AVAudioInput node it will block by showing a dialog anyways.
+            // Attempt to acquire mic perms at this point to return an error at SDK level.
+            let isAuthorized = LiveKitSDK.ensureDeviceAccessSync(for: [.audio])
+            log("AudioEngine pre-enable check, device permission: \(isAuthorized)")
+            if !isAuthorized {
+                return kAudioEngineErrorInsufficientDevicePermission
+            }
+
+            #if os(iOS) || os(visionOS) || os(tvOS)
+            // Additional check for audio session category.
+            let session = LKRTCAudioSession.sharedInstance()
+            log("AudioEngine pre-enable check, audio session: \(session.category)")
+            if ![AVAudioSession.Category.playAndRecord.rawValue,
+                 AVAudioSession.Category.record.rawValue].contains(session.category)
+            {
+                return kAudioEngineErrorAudioSessionCategoryRecordingRequired
+            }
+            #endif
+        }
+
+        return result
     }
 
     func audioDeviceModule(_: LKRTCAudioDeviceModule, willStartEngine engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
