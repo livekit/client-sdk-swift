@@ -32,12 +32,18 @@ public extension AudioSessionConfiguration {
                                                     categoryOptions: [.mixWithOthers],
                                                     mode: .spokenAudio)
 
+    #if swift(>=6.2)
+    private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetoothHFP, .allowBluetoothA2DP, .allowAirPlay]
+    #else
+    private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
+    #endif
+
     static let playAndRecordSpeaker = AudioSessionConfiguration(category: .playAndRecord,
-                                                                categoryOptions: [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay],
+                                                                categoryOptions: playAndRecordOptions,
                                                                 mode: .videoChat)
 
     static let playAndRecordReceiver = AudioSessionConfiguration(category: .playAndRecord,
-                                                                 categoryOptions: [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay],
+                                                                 categoryOptions: playAndRecordOptions,
                                                                  mode: .voiceChat)
 }
 

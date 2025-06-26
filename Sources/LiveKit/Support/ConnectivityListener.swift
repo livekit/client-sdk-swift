@@ -168,7 +168,7 @@ extension NWInterface {
                     getnameinfo(interface.ifa_addr, socklen_t(interface.ifa_addr.pointee.sa_len),
                                 &hostname, socklen_t(hostname.count),
                                 nil, socklen_t(0), NI_NUMERICHOST)
-                    address = String(cString: hostname)
+                    address = String(cString: hostname, encoding: .utf8)
                 }
             }
         }
