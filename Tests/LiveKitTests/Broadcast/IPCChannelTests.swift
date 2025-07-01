@@ -76,7 +76,7 @@ final class IPCChannelTests: LKTestCase, @unchecked Sendable {
 
     private func assertInitCancellationThrows(
         _ initializer: @Sendable @escaping @autoclosure () async throws -> IPCChannel,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) async throws {
         let cancelThrowsError = XCTestExpectation(description: "Throws error on cancellation")

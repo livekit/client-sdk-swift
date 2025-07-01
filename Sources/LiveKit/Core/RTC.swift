@@ -16,34 +16,30 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 private extension Array where Element: LKRTCVideoCodecInfo {
     func rewriteCodecsIfNeeded() -> [LKRTCVideoCodecInfo] {
         // rewrite H264's profileLevelId to 42e032
-        let codecs = map { $0.name == kRTCVideoCodecH264Name ? RTC.h264BaselineLevel5CodecInfo : $0 }
+        let codecs = map { $0.name == kLKRTCVideoCodecH264Name ? RTC.h264BaselineLevel5CodecInfo : $0 }
         // logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: Engine.self)
         return codecs
     }
 }
 
-private class VideoEncoderFactory: LKRTCDefaultVideoEncoderFactory {
+private class VideoEncoderFactory: LKRTCDefaultVideoEncoderFactory, @unchecked Sendable {
     override func supportedCodecs() -> [LKRTCVideoCodecInfo] {
         super.supportedCodecs().rewriteCodecsIfNeeded()
     }
 }
 
-private class VideoDecoderFactory: LKRTCDefaultVideoDecoderFactory {
+private class VideoDecoderFactory: LKRTCDefaultVideoDecoderFactory, @unchecked Sendable {
     override func supportedCodecs() -> [LKRTCVideoCodecInfo] {
         super.supportedCodecs().rewriteCodecsIfNeeded()
     }
 }
 
-private class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulcast {
+private class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulcast, @unchecked Sendable {
     override func supportedCodecs() -> [LKRTCVideoCodecInfo] {
         super.supportedCodecs().rewriteCodecsIfNeeded()
     }
@@ -66,7 +62,7 @@ actor RTC {
         }
 
         // create a new H264 codec with new profileLevelId
-        return LKRTCVideoCodecInfo(name: kRTCH264CodecName,
+        return LKRTCVideoCodecInfo(name: kLKRTCH264CodecName,
                                    parameters: ["profile-level-id": profileLevelId.hexString,
                                                 "level-asymmetry-allowed": "1",
                                                 "packetization-mode": "1"])
@@ -74,19 +70,19 @@ actor RTC {
 
     // global properties are already lazy
 
-    private static let encoderFactory: LKRTCVideoEncoderFactory = {
+    private static let encoderFactory: LKRTCVideoEncoderFactory & Sendable = {
         let encoderFactory = VideoEncoderFactory()
         return VideoEncoderFactorySimulcast(primary: encoderFactory,
                                             fallback: encoderFactory)
 
     }()
 
-    private static let decoderFactory = VideoDecoderFactory()
+    private static let decoderFactory: LKRTCVideoDecoderFactory & Sendable = VideoDecoderFactory()
 
     static let audioProcessingModule: LKRTCDefaultAudioProcessingModule = .init()
 
-    static let videoSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(forKind: kRTCMediaStreamTrackKindVideo)
-    static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(forKind: kRTCMediaStreamTrackKindAudio)
+    static let videoSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(forKind: kLKRTCMediaStreamTrackKindVideo)
+    static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(forKind: kLKRTCMediaStreamTrackKindAudio)
 
     static let peerConnectionFactory: LKRTCPeerConnectionFactory = {
         // Update pc init lock
@@ -97,7 +93,7 @@ actor RTC {
 
         logger.log("Initializing SSL...", type: Room.self)
 
-        RTCInitializeSSL()
+        LKRTCInitializeSSL()
 
         logger.log("Initializing PeerConnectionFactory...", type: Room.self)
 
@@ -157,7 +153,7 @@ actor RTC {
         try DispatchQueue.liveKitWebRTC.sync { try LKRTCIceCandidate(fromJsonString: fromJsonString) }
     }
 
-    static func createSessionDescription(type: RTCSdpType, sdp: String) -> LKRTCSessionDescription {
+    static func createSessionDescription(type: LKRTCSdpType, sdp: String) -> LKRTCSessionDescription {
         DispatchQueue.liveKitWebRTC.sync { LKRTCSessionDescription(type: type, sdp: sdp) }
     }
 

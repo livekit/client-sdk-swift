@@ -14,21 +14,13 @@
  * limitations under the License.
  */
 
-import Foundation
+import XCTest
 
-/// A property wrapper type that reflects a value from a bundle's info dictionary.
-@propertyWrapper
-struct BundleInfo<Value>: Sendable {
-    private let key: String
-    private let bundle: Bundle
-
-    init(_ key: String, bundle: Bundle = .main) {
-        self.key = key
-        self.bundle = bundle
-    }
-
-    var wrappedValue: Value? {
-        guard let value = bundle.infoDictionary?[key] as? Value else { return nil }
-        return value
+func XCTAssertThrowsErrorAsync(_ expression: @autoclosure () async throws -> some Any) async {
+    do {
+        _ = try await expression()
+        XCTFail("No error was thrown.")
+    } catch {
+        // Pass
     }
 }

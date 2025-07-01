@@ -247,7 +247,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             // sid updated
             if let sid = newState.sid, sid != oldState.sid {
                 // Resolve sid
-                self._sidCompleter.resume(returning: sid)
+                _sidCompleter.resume(returning: sid)
             }
 
             if case .connected = newState.connectionState {
@@ -256,36 +256,36 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                    // don't notify if empty string (first time only)
                    oldState.metadata == nil ? !metadata.isEmpty : true
                 {
-                    self.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
+                    delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
                         $0.room?(self, didUpdateMetadata: metadata)
                     }
                 }
 
                 // isRecording updated
                 if newState.isRecording != oldState.isRecording {
-                    self.delegates.notify(label: { "room.didUpdate isRecording: \(newState.isRecording)" }) {
+                    delegates.notify(label: { "room.didUpdate isRecording: \(newState.isRecording)" }) {
                         $0.room?(self, didUpdateIsRecording: newState.isRecording)
                     }
                 }
             }
 
             if newState.connectionState == .reconnecting, newState.isReconnectingWithMode == nil {
-                self.log("reconnectMode should not be .none", .error)
+                log("reconnectMode should not be .none", .error)
             }
 
             if (newState.connectionState != oldState.connectionState) || (newState.isReconnectingWithMode != oldState.isReconnectingWithMode) {
-                self.log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.isReconnectingWithMode))")
+                log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.isReconnectingWithMode))")
             }
 
-            self.engine(self, didMutateState: newState, oldState: oldState)
+            engine(self, didMutateState: newState, oldState: oldState)
 
             // execution control
-            self._blockProcessQueue.async { [weak self] in
+            _blockProcessQueue.async { [weak self] in
                 guard let self, !self._queuedBlocks.isEmpty else { return }
 
-                self.log("[execution control] processing pending entries (\(self._queuedBlocks.count))...")
+                log("[execution control] processing pending entries (\(_queuedBlocks.count))...")
 
-                self._queuedBlocks.removeAll { entry in
+                _queuedBlocks.removeAll { entry in
                     // return and remove this entry if matches remove condition
                     guard !entry.removeCondition(newState, oldState) else { return true }
                     // return but don't remove this entry if doesn't match execute condition
@@ -353,23 +353,21 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         let enableMicrophone = _state.connectOptions.enableMicrophone
         log("Concurrent enable microphone mode: \(enableMicrophone)")
 
-        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = {
-            if let recorder = preConnectBuffer.recorder, recorder.isRecording {
-                return Task {
-                    recorder.track
-                }
-            } else if enableMicrophone {
-                return Task {
-                    let localTrack = LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
-                                                                 reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
-                    // Initializes AudioDeviceModule's recording
-                    try await localTrack.start()
-                    return localTrack
-                }
-            } else {
-                return nil
+        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = if let recorder = preConnectBuffer.recorder, recorder.isRecording {
+            Task {
+                recorder.track
             }
-        }()
+        } else if enableMicrophone {
+            Task {
+                let localTrack = LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
+                                                             reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
+                // Initializes AudioDeviceModule's recording
+                try await localTrack.start()
+                return localTrack
+            }
+        } else {
+            nil
+        }
 
         do {
             try await fullConnectSequence(url, token)

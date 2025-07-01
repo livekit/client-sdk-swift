@@ -20,11 +20,11 @@ extension Livekit_TrackType {
     func toLKType() -> Track.Kind {
         switch self {
         case .audio:
-            return .audio
+            .audio
         case .video:
-            return .video
+            .video
         default:
-            return .none
+            .none
         }
     }
 }
@@ -33,11 +33,11 @@ extension Track.Kind {
     func toPBType() -> Livekit_TrackType {
         switch self {
         case .audio:
-            return .audio
+            .audio
         case .video:
-            return .video
+            .video
         default:
-            return .UNRECOGNIZED(10)
+            .UNRECOGNIZED(10)
         }
     }
 }

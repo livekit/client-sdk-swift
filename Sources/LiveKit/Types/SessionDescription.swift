@@ -14,11 +14,7 @@
  * limitations under the License.
  */
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 extension LKRTCSessionDescription {
     func toPBType() -> Livekit_SessionDescription {
@@ -38,7 +34,7 @@ extension LKRTCSessionDescription {
 
 extension Livekit_SessionDescription {
     func toRTCType() -> LKRTCSessionDescription {
-        var sdpType: RTCSdpType
+        var sdpType: LKRTCSdpType
         switch type {
         case "answer": sdpType = .answer
         case "offer": sdpType = .offer

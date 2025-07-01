@@ -14,15 +14,11 @@
  * limitations under the License.
  */
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 // Only internal testing.
 extension AudioManager {
-    var engineState: RTCAudioEngineState {
+    var engineState: LKRTCAudioEngineState {
         get { RTC.audioDeviceModule.engineState }
         set { RTC.audioDeviceModule.engineState = newValue }
     }

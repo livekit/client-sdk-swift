@@ -15,24 +15,13 @@
  */
 
 import Foundation
-import XCTest
 
-func XCTAssertThrowsErrorAsync(_ expression: @autoclosure () async throws -> some Any) async {
-    do {
-        _ = try await expression()
-        XCTFail("No error was thrown.")
-    } catch {
-        // Pass
-    }
-}
-
-// Support iOS 13
 public extension URLSession {
     func downloadBackport(from url: URL) async throws -> (URL, URLResponse) {
         if #available(iOS 15.0, macOS 12.0, *) {
-            return try await download(from: url)
+            try await download(from: url)
         } else {
-            return try await withCheckedThrowingContinuation { continuation in
+            try await withCheckedThrowingContinuation { continuation in
                 let task = downloadTask(with: url) { url, response, error in
                     if let url, let response {
                         continuation.resume(returning: (url, response))
@@ -47,20 +36,3 @@ public extension URLSession {
         }
     }
 }
-
-// Support for Xcode 14.2
-#if !compiler(>=5.8)
-extension XCTestCase {
-    func fulfillment(of expectations: [XCTestExpectation], timeout: TimeInterval, enforceOrder: Bool = false) async {
-        await withCheckedContinuation { continuation in
-            // This function operates by blocking a background thread instead of one owned by libdispatch or by the
-            // Swift runtime (as used by Swift concurrency.) To ensure we use a thread owned by neither subsystem, use
-            // Foundation's Thread.detachNewThread(_:).
-            Thread.detachNewThread { [self] in
-                wait(for: expectations, timeout: timeout, enforceOrder: enforceOrder)
-                continuation.resume()
-            }
-        }
-    }
-}
-#endif

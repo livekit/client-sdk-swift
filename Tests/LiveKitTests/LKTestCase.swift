@@ -22,7 +22,7 @@ import XCTest
 class LKTestCase: XCTestCase {
     private static let _globalSetup: Bool = {
         LiveKitSDK.setLoggerStandardOutput()
-        RTCSetMinDebugLogLevel(.info)
+        LKRTCSetMinDebugLogLevel(.info)
         return true
     }()
 

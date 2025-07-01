@@ -14,18 +14,14 @@
  * limitations under the License.
  */
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 public enum SpeechActivityEvent {
     case started
     case ended
 }
 
-extension RTCSpeechActivityEvent {
+extension LKRTCSpeechActivityEvent {
     func toLKType() -> SpeechActivityEvent {
         switch self {
         case .started: return .started

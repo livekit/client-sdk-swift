@@ -17,11 +17,7 @@
 import DequeModule
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 // MARK: - Internal delegate
 
@@ -277,7 +273,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
     }
 
     func dataChannel(_: LKRTCDataChannel, didReceiveMessageWith buffer: LKRTCDataBuffer) {
-        guard let dataPacket = try? Livekit_DataPacket(serializedData: buffer.data) else {
+        guard let dataPacket = try? Livekit_DataPacket(serializedBytes: buffer.data) else {
             log("Could not decode data message", .error)
             return
         }

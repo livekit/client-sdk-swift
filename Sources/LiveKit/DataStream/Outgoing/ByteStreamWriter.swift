@@ -64,7 +64,7 @@ extension ByteStreamWriter {
             guard let self else { return }
             let reader = try AsyncFileStream(readingFrom: fileURL)
             for try await chunk in reader.chunks() {
-                try await self.write(chunk)
+                try await write(chunk)
             }
         }.value
     }
