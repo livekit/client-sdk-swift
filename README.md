@@ -160,6 +160,8 @@ LiveKit will automatically manage the underlying `AVAudioSession` while connecte
 
 However, if you'd like to customize this behavior, you would override `AudioManager.customConfigureAudioSessionFunc` to manage the underlying session on your own. See [example here](https://github.com/livekit/client-sdk-swift/blob/1f5959f787805a4b364f228ccfb413c1c4944748/Sources/LiveKit/Track/AudioManager.swift#L153) for the default behavior.
 
+For more audio related information see the [Audio guide](./Docs/audio.md).
+
 ### Integration with CallKit
 
 To integrate with CallKit for background-triggered incoming calls, LiveKit's audio session must be synchronized with CallKit's audio session:
@@ -177,6 +179,14 @@ func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession
     // ...
 }
 ```
+
+You would also want to turn off automatic `AVAudioSession` configuration.
+
+```swift
+AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false
+```
+
+For more audio related information see the [Audio guide](./Docs/audio.md).
 
 ### iOS Simulator limitations
 
