@@ -36,12 +36,12 @@ public extension Participant {
 extension Participant.Kind: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .unknown: return "unknown"
-        case .standard: return "standard"
-        case .ingress: return "ingress"
-        case .egress: return "egress"
-        case .sip: return "sip"
-        case .agent: return "agent"
+        case .unknown: "unknown"
+        case .standard: "standard"
+        case .ingress: "ingress"
+        case .egress: "egress"
+        case .sip: "sip"
+        case .agent: "agent"
         }
     }
 }
@@ -51,12 +51,12 @@ extension Participant.Kind: CustomStringConvertible {
 extension Livekit_ParticipantInfo.Kind {
     func toLKType() -> Participant.Kind {
         switch self {
-        case .standard: return .standard
-        case .ingress: return .ingress
-        case .egress: return .egress
-        case .sip: return .sip
-        case .agent: return .agent
-        default: return .unknown
+        case .standard: .standard
+        case .ingress: .ingress
+        case .egress: .egress
+        case .sip: .sip
+        case .agent: .agent
+        default: .unknown
         }
     }
 }

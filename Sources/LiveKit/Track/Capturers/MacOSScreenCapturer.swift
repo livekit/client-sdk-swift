@@ -21,11 +21,7 @@ import Foundation
 import ScreenCaptureKit
 #endif
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 #if os(macOS)
 
@@ -243,7 +239,7 @@ extension MacOSScreenCapturer: SCStreamOutput {
                     try? await Task.sleep(nanoseconds: UInt64(1 * 1_000_000_000))
                     if Task.isCancelled { break }
                     guard let self else { break }
-                    try await self._capturePreviousFrame()
+                    try await _capturePreviousFrame()
                 }
             }
 

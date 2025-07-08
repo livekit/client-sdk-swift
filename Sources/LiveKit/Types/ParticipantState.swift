@@ -56,15 +56,15 @@ extension ParticipantState {
     var protoState: Livekit_ParticipantInfo.State {
         switch self {
         case .joining:
-            return .joining
+            .joining
         case .joined:
-            return .joined
+            .joined
         case .active:
-            return .active
+            .active
         case .disconnected:
-            return .disconnected
+            .disconnected
         case .unknown:
-            return .joining // Default to joining for unknown state
+            .joining // Default to joining for unknown state
         }
     }
 }
@@ -79,15 +79,15 @@ extension ParticipantState: CustomStringConvertible {
     public var description: String {
         switch self {
         case .joining:
-            return "joining"
+            "joining"
         case .joined:
-            return "joined"
+            "joined"
         case .active:
-            return "active"
+            "active"
         case .disconnected:
-            return "disconnected"
+            "disconnected"
         case .unknown:
-            return "unknown"
+            "unknown"
         }
     }
 }

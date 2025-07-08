@@ -17,11 +17,7 @@
 @preconcurrency import AVFoundation
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 #if canImport(ReplayKit)
 import ReplayKit
@@ -125,7 +121,7 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
         _state.onDidMutate = { [weak self] newState, oldState in
             guard let self else { return }
             if oldState.startStopCounter != newState.startStopCounter {
-                self.log("startStopCounter \(oldState.startStopCounter) -> \(newState.startStopCounter)")
+                log("startStopCounter \(oldState.startStopCounter) -> \(newState.startStopCounter)")
             }
         }
     }
@@ -307,21 +303,21 @@ extension VideoCapturer {
             guard let self else { return }
 
             // Mark as frame processing busy.
-            self._state.mutate { $0.isFrameProcessingBusy = true }
+            _state.mutate { $0.isFrameProcessingBusy = true }
             defer {
                 self._state.mutate { $0.isFrameProcessingBusy = false }
             }
 
             var rtcFrame: LKRTCVideoFrame = frame
             guard var lkFrame: VideoFrame = frame.toLKType() else {
-                self.log("Failed to convert a RTCVideoFrame to VideoFrame.", .error)
+                log("Failed to convert a RTCVideoFrame to VideoFrame.", .error)
                 return
             }
 
             // Apply processing if we have a processor attached.
-            if let processor = self._state.processor {
+            if let processor = _state.processor {
                 guard let processedFrame = processor.process(frame: lkFrame) else {
-                    self.log("VideoProcessor didn't return a frame, skipping frame.", .warning)
+                    log("VideoProcessor didn't return a frame, skipping frame.", .warning)
                     return
                 }
                 lkFrame = processedFrame
@@ -329,12 +325,12 @@ extension VideoCapturer {
             }
 
             // Resolve real dimensions (apply frame rotation)
-            self.set(dimensions: Dimensions(width: rtcFrame.width, height: rtcFrame.height).apply(rotation: rtcFrame.rotation))
+            set(dimensions: Dimensions(width: rtcFrame.width, height: rtcFrame.height).apply(rotation: rtcFrame.rotation))
 
-            self.delegate?.capturer(capturer, didCapture: rtcFrame)
+            delegate?.capturer(capturer, didCapture: rtcFrame)
 
-            if self.rendererDelegates.isDelegatesNotEmpty {
-                self.rendererDelegates.notify { [lkFrame] renderer in
+            if rendererDelegates.isDelegatesNotEmpty {
+                rendererDelegates.notify { [lkFrame] renderer in
                     renderer.render?(frame: lkFrame)
                     renderer.render?(frame: lkFrame, captureDevice: device, captureOptions: options)
                 }

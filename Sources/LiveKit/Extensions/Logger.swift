@@ -15,12 +15,7 @@
  */
 
 import Foundation
-
-#if swift(>=5.9)
 internal import Logging
-#else
-@_implementationOnly import Logging
-#endif
 
 /// Allows to extend with custom `log` method which automatically captures current type (class name).
 public protocol Loggable {}

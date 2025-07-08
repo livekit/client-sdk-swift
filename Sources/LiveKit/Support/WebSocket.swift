@@ -103,16 +103,16 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
         }
 
         task.receive(completionHandler: { [weak self] result in
-            guard let self, let continuation = self._state.streamContinuation else {
+            guard let self, let continuation = _state.streamContinuation else {
                 return
             }
 
             do {
                 let message = try result.get()
                 continuation.yield(message)
-                self.waitForNextValue()
+                waitForNextValue()
             } catch {
-                self._state.mutate { state in
+                _state.mutate { state in
                     state.streamContinuation?.finish(throwing: LiveKitError.from(error: error))
                     state.streamContinuation = nil
                 }

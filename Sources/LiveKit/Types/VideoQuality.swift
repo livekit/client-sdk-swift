@@ -44,19 +44,19 @@ extension VideoQuality {
 extension Livekit_VideoQuality {
     static func from(rid: String?) -> Livekit_VideoQuality? {
         switch rid {
-        case "q": return Livekit_VideoQuality.low
-        case "h": return Livekit_VideoQuality.medium
-        case "f": return Livekit_VideoQuality.high
-        default: return nil
+        case "q": Livekit_VideoQuality.low
+        case "h": Livekit_VideoQuality.medium
+        case "f": Livekit_VideoQuality.high
+        default: nil
         }
     }
 
     var asRID: String? {
         switch self {
-        case .low: return "q"
-        case .medium: return "h"
-        case .high: return "f"
-        default: return nil
+        case .low: "q"
+        case .medium: "h"
+        case .high: "f"
+        default: nil
         }
     }
 }
@@ -66,10 +66,10 @@ extension Livekit_VideoQuality {
 extension Livekit_VideoQuality: Comparable {
     private var _weightIndex: Int {
         switch self {
-        case .low: return 1
-        case .medium: return 2
-        case .high: return 3
-        default: return 0
+        case .low: 1
+        case .medium: 2
+        case .high: 3
+        default: 0
         }
     }
 

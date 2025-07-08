@@ -49,33 +49,33 @@ public struct RpcError: Error {
 
         public var code: Int {
             switch self {
-            case .applicationError: return 1500
-            case .connectionTimeout: return 1501
-            case .responseTimeout: return 1502
-            case .recipientDisconnected: return 1503
-            case .responsePayloadTooLarge: return 1504
-            case .sendFailed: return 1505
-            case .unsupportedMethod: return 1400
-            case .recipientNotFound: return 1401
-            case .requestPayloadTooLarge: return 1402
-            case .unsupportedServer: return 1403
-            case .unsupportedVersion: return 1404
+            case .applicationError: 1500
+            case .connectionTimeout: 1501
+            case .responseTimeout: 1502
+            case .recipientDisconnected: 1503
+            case .responsePayloadTooLarge: 1504
+            case .sendFailed: 1505
+            case .unsupportedMethod: 1400
+            case .recipientNotFound: 1401
+            case .requestPayloadTooLarge: 1402
+            case .unsupportedServer: 1403
+            case .unsupportedVersion: 1404
             }
         }
 
         public var message: String {
             switch self {
-            case .applicationError: return "Application error in method handler"
-            case .connectionTimeout: return "Connection timeout"
-            case .responseTimeout: return "Response timeout"
-            case .recipientDisconnected: return "Recipient disconnected"
-            case .responsePayloadTooLarge: return "Response payload too large"
-            case .sendFailed: return "Failed to send"
-            case .unsupportedMethod: return "Method not supported at destination"
-            case .recipientNotFound: return "Recipient not found"
-            case .requestPayloadTooLarge: return "Request payload too large"
-            case .unsupportedServer: return "RPC not supported by server"
-            case .unsupportedVersion: return "Unsupported RPC version"
+            case .applicationError: "Application error in method handler"
+            case .connectionTimeout: "Connection timeout"
+            case .responseTimeout: "Response timeout"
+            case .recipientDisconnected: "Recipient disconnected"
+            case .responsePayloadTooLarge: "Response payload too large"
+            case .sendFailed: "Failed to send"
+            case .unsupportedMethod: "Method not supported at destination"
+            case .recipientNotFound: "Recipient not found"
+            case .requestPayloadTooLarge: "Request payload too large"
+            case .unsupportedServer: "RPC not supported by server"
+            case .unsupportedVersion: "Unsupported RPC version"
             }
         }
 
