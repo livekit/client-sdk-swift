@@ -36,6 +36,8 @@ public extension TimeInterval {
     static let defaultPublish: Self = 10
     static let defaultCaptureStart: Self = 10
 
+    static let defaultParticipantActiveTimeout: Self = 10
+
     /// Computes a retry delay based on an "easeOutCirc" curve between baseDelay and maxDelay.
     ///
     /// The easeOutCirc curve provides a dramatic early acceleration followed by a gentler approach to the maximum,
