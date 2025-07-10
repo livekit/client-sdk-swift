@@ -40,6 +40,10 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         var lossy: LKRTCDataChannel?
         var reliable: LKRTCDataChannel?
 
+        var reliableMessageBuffer: [Livekit_DataPacket] = []
+        var reliableDataSequence: UInt32 = 1
+        var reliableReceivedState: [String: UInt32] = [:]
+
         var isOpen: Bool {
             guard let lossy, let reliable else { return false }
             return reliable.readyState == .open && lossy.readyState == .open
@@ -225,7 +229,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     public func send(dataPacket packet: Livekit_DataPacket) async throws {
-        let serializedData = try packet.serializedData()
+        let serializedData = try resendable(packet).serializedData()
         let rtcData = RTC.createDataBuffer(data: serializedData)
 
         try await withCheckedThrowingContinuation { continuation in
@@ -241,10 +245,43 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
+    private func resendable(_ packet: Livekit_DataPacket) -> Livekit_DataPacket {
+        guard packet.kind == .reliable, packet.sequence == 0 else { return packet }
+        var packet = packet
+        _state.mutate {
+            packet.sequence = $0.reliableDataSequence
+            $0.reliableDataSequence += 1
+            $0.reliableMessageBuffer.append(packet)
+        }
+        return packet
+    }
+
+    public func resendReliable(resumingFrom lastSeq: UInt32) {
+        print("🔥 resending from", lastSeq)
+        _state.mutate {
+            $0.reliableMessageBuffer.removeAll(where: { $0.sequence <= lastSeq })
+            for packet in $0.reliableMessageBuffer {
+                Task {
+                    print("resending", packet.sequence)
+                    try? await send(dataPacket: packet)
+                }
+            }
+        }
+    }
+
     public func infos() -> [Livekit_DataChannelInfo] {
         _state.read { [$0.lossy, $0.reliable] }
             .compactMap { $0 }
             .map { $0.toLKInfoType() }
+    }
+
+    public func receiveStates() -> [Livekit_DataChannelReceiveState] {
+        _state.reliableReceivedState.map { sid, seq in
+            Livekit_DataChannelReceiveState.with {
+                $0.publisherSid = sid
+                $0.lastSeq = seq
+            }
+        }
     }
 
     private static let reliableLowThreshold: UInt64 = 2 * 1024 * 1024 // 2 MB
@@ -272,14 +309,25 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
         }
     }
 
-    func dataChannel(_: LKRTCDataChannel, didReceiveMessageWith buffer: LKRTCDataBuffer) {
+    func dataChannel(_ dataChannel: LKRTCDataChannel, didReceiveMessageWith buffer: LKRTCDataBuffer) {
         guard let dataPacket = try? Livekit_DataPacket(serializedBytes: buffer.data) else {
             log("Could not decode data message", .error)
             return
         }
 
+        if dataChannel.kind == .reliable, dataPacket.sequence > 0, !dataPacket.participantSid.isEmpty {
+            if let lastSeq = _state.reliableReceivedState[dataPacket.participantSid], dataPacket.sequence <= lastSeq {
+                log("Ignoring out of order data message", .warning)
+                return
+            }
+            _state.mutate {
+                $0.reliableReceivedState[dataPacket.participantSid] = dataPacket.sequence
+            }
+        }
+
         delegates.notify {
             $0.dataChannel(self, didReceiveDataPacket: dataPacket)
+            print("🎉 incoming", dataPacket.sequence)
         }
     }
 }

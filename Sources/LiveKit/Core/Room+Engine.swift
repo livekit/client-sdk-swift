@@ -190,11 +190,13 @@ extension Room {
                 try await publisherShouldNegotiate()
             }
 
-        } else if case .reconnect = connectResponse {
+        } else if case let .reconnect(reconnectResponse) = connectResponse {
             log("[Connect] Configuring transports with RECONNECT response...")
             let (subscriber, publisher) = _state.read { ($0.subscriber, $0.publisher) }
             try await subscriber?.set(configuration: rtcConfiguration)
             try await publisher?.set(configuration: rtcConfiguration)
+
+            publisherDataChannel.resendReliable(resumingFrom: reconnectResponse.lastMessageSeq)
         }
     }
 }
@@ -455,7 +457,8 @@ extension Room {
                                              offer: previousOffer?.toPBType(),
                                              subscription: subscription,
                                              publishTracks: localParticipant.publishedTracksInfo(),
-                                             dataChannels: publisherDataChannel.infos())
+                                             dataChannels: publisherDataChannel.infos(),
+                                             dataChannelReceiveStates: publisherDataChannel.receiveStates())
     }
 }
 
