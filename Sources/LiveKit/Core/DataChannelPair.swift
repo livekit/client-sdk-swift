@@ -391,7 +391,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
 
         if dataChannel.kind == .reliable, dataPacket.sequence > 0, !dataPacket.participantSid.isEmpty {
             if let lastSeq = _state.reliableReceivedState[dataPacket.participantSid], dataPacket.sequence <= lastSeq {
-                log("Ignoring out of order reliable data message", .warning)
+                log("Ignoring duplicate/out of order reliable data message", .warning)
                 return
             }
             _state.mutate {
