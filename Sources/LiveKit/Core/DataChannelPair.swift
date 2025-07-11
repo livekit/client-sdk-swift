@@ -57,13 +57,48 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     private struct SendBuffer {
-        var queue: Deque<PublishDataRequest> = []
+        private var queue: Deque<PublishDataRequest> = []
         var targetAmount: UInt64 = 0
+
+        mutating func enqueue(_ request: PublishDataRequest) {
+            queue.append(request)
+        }
+
+        @discardableResult
+        mutating func dequeue() -> PublishDataRequest? {
+            guard !queue.isEmpty else { return nil }
+            return queue.removeFirst()
+        }
+
+        func canSend(threshold: UInt64) -> Bool {
+            targetAmount <= threshold
+        }
     }
 
     private struct RetryBuffer {
-        var queue: Deque<PublishDataRequest> = []
-        var currentAmount: UInt64 = 0
+        private var queue: Deque<PublishDataRequest> = []
+        private var currentAmount: UInt64 = 0
+
+        func peek() -> PublishDataRequest? { queue.first }
+
+        mutating func enqueue(_ request: PublishDataRequest) {
+            queue.append(request)
+            currentAmount += UInt64(request.data.data.count)
+        }
+
+        @discardableResult
+        mutating func dequeue() -> PublishDataRequest? {
+            guard !queue.isEmpty else { return nil }
+            let first = queue.removeFirst()
+            currentAmount -= UInt64(first.data.data.count)
+            return first
+        }
+
+        mutating func trim(toAmount: UInt64) {
+            while !queue.isEmpty, currentAmount > toAmount {
+                dequeue()
+            }
+        }
     }
 
     private struct PublishDataRequest: Sendable {
@@ -97,13 +132,13 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             switch event.detail {
             case let .publishData(request):
                 switch event.channelKind {
-                case .lossy: pushTo(buffer: &lossyBuffer, request: request)
-                case .reliable: pushTo(buffer: &reliableBuffer, request: request)
+                case .lossy: lossyBuffer.enqueue(request)
+                case .reliable: reliableBuffer.enqueue(request)
                 }
             case let .publishedData(request):
                 switch event.channelKind {
                 case .lossy: ()
-                case .reliable: pushTo(buffer: &reliableRetryBuffer, request: request)
+                case .reliable: reliableRetryBuffer.enqueue(request)
                 }
             case let .bufferedAmountChanged(amount):
                 switch event.channelKind {
@@ -111,7 +146,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
                     updateTarget(buffer: &lossyBuffer, newAmount: amount)
                 case .reliable:
                     updateTarget(buffer: &reliableBuffer, newAmount: amount)
-                    trim(buffer: &reliableRetryBuffer, toAmount: amount + Self.reliableRetryMargin)
+                    reliableRetryBuffer.trim(toAmount: amount + Self.reliableRetryMargin)
                 }
             case let .retryRequested(lastSeq):
                 switch event.channelKind {
@@ -149,10 +184,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         buffer: inout SendBuffer,
         kind: ChannelKind
     ) {
-        while buffer.targetAmount <= threshold {
-            guard !buffer.queue.isEmpty else { break }
-            let request = buffer.queue.removeFirst()
-
+        while buffer.canSend(threshold: threshold), let request = buffer.dequeue() {
             buffer.targetAmount += UInt64(request.data.data.count)
 
             guard let channel = channel(for: kind) else {
@@ -176,13 +208,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Cache
 
-    private func pushTo(
-        buffer: inout SendBuffer,
-        request: PublishDataRequest
-    ) {
-        buffer.queue.append(request)
-    }
-
     private func updateTarget(
         buffer: inout SendBuffer,
         newAmount: UInt64
@@ -195,37 +220,16 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         buffer.targetAmount -= newAmount
     }
 
-    private func pushTo(
-        buffer: inout RetryBuffer,
-        request: PublishDataRequest
-    ) {
-        buffer.queue.append(request)
-        buffer.currentAmount += UInt64(request.data.data.count)
-    }
-
-    private func trim(
-        buffer: inout RetryBuffer,
-        toAmount: UInt64
-    ) {
-        while !buffer.queue.isEmpty, buffer.currentAmount > toAmount {
-            let first = buffer.queue.removeFirst()
-            buffer.currentAmount -= UInt64(first.data.data.count)
-        }
-    }
-
     private func retry(
         buffer: inout RetryBuffer,
         from lastSeq: UInt32
     ) {
-        if let first = buffer.queue.first, first.sequence > lastSeq + 1 {
+        if let first = buffer.peek(), first.sequence > lastSeq + 1 {
             log("Missing packets while retrying", .warning)
         }
-
-        while !buffer.queue.isEmpty {
-            let first = buffer.queue.removeFirst()
-            buffer.currentAmount -= UInt64(first.data.data.count)
-            if first.sequence > lastSeq {
-                let event = ChannelEvent(channelKind: .reliable, detail: .publishData(PublishDataRequest(data: first.data, sequence: first.sequence, continuation: nil)))
+        while let request = buffer.dequeue() {
+            if request.sequence > lastSeq {
+                let event = ChannelEvent(channelKind: .reliable, detail: .publishData(PublishDataRequest(data: request.data, sequence: request.sequence, continuation: nil)))
                 _state.eventContinuation?.yield(event)
             }
         }
@@ -358,7 +362,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Constants
 
     private static let reliableLowThreshold: UInt64 = 2 * 1024 * 1024 // 2 MB
-    private static let reliableRetryMargin: UInt64 = reliableLowThreshold
+    private static let reliableRetryMargin: UInt64 = 64 * 1024 // 64 kB
     private static let lossyLowThreshold: UInt64 = reliableLowThreshold
 
     deinit {
