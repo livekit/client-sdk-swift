@@ -78,6 +78,11 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     private struct RetryBuffer {
         private var queue: Deque<PublishDataRequest> = []
         private var currentAmount: UInt64 = 0
+        private let minCapacity: Int
+
+        init(minCapacity: Int) {
+            self.minCapacity = minCapacity
+        }
 
         func peek() -> PublishDataRequest? { queue.first }
 
@@ -95,7 +100,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
 
         mutating func trim(toAmount: UInt64) {
-            while !queue.isEmpty, currentAmount > toAmount {
+            while queue.count > minCapacity, currentAmount > toAmount {
                 dequeue()
             }
         }
@@ -126,7 +131,8 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     ) async {
         var lossyBuffer = SendBuffer()
         var reliableBuffer = SendBuffer()
-        var reliableRetryBuffer = RetryBuffer()
+
+        var reliableRetryBuffer = RetryBuffer(minCapacity: Self.reliableRetryCapacity)
 
         for await event in events {
             switch event.detail {
@@ -146,7 +152,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
                     updateTarget(buffer: &lossyBuffer, newAmount: amount)
                 case .reliable:
                     updateTarget(buffer: &reliableBuffer, newAmount: amount)
-                    reliableRetryBuffer.trim(toAmount: amount + Self.reliableRetryMargin)
+                    reliableRetryBuffer.trim(toAmount: amount)
                 }
             case let .retryRequested(lastSeq):
                 switch event.channelKind {
@@ -362,8 +368,11 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Constants
 
     private static let reliableLowThreshold: UInt64 = 2 * 1024 * 1024 // 2 MB
-    private static let reliableRetryMargin: UInt64 = 64 * 1024 // 64 kB
     private static let lossyLowThreshold: UInt64 = reliableLowThreshold
+
+    // Keep at least N reliable packets while draining webrtc buffers.
+    // Should prevent losing packets - requesting retry from lastSeq that's already dequeued.
+    private static let reliableRetryCapacity = 32
 
     deinit {
         _state.eventContinuation?.finish()
