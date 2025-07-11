@@ -39,8 +39,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     private struct State {
         var lossy: LKRTCDataChannel?
         var reliable: LKRTCDataChannel?
-
-        var reliableMessageBuffer: [Livekit_DataPacket] = []
         var reliableDataSequence: UInt32 = 1
         var reliableReceivedState: [String: UInt32] = [:]
 
@@ -58,13 +56,19 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         case lossy, reliable
     }
 
-    private struct BufferingState {
+    private struct SendBuffer {
         var queue: Deque<PublishDataRequest> = []
-        var amount: UInt64 = 0
+        var targetAmount: UInt64 = 0
+    }
+
+    private struct RetryBuffer {
+        var queue: Deque<PublishDataRequest> = []
+        var currentAmount: UInt64 = 0
     }
 
     private struct PublishDataRequest: Sendable {
         let data: LKRTCDataBuffer
+        let sequence: UInt32
         let continuation: CheckedContinuation<Void, any Error>?
     }
 
@@ -74,27 +78,45 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
         enum Detail: Sendable {
             case publishData(PublishDataRequest)
+            case publishedData(PublishDataRequest)
             case bufferedAmountChanged(UInt64)
+            case retryRequested(UInt32)
         }
     }
+
+    // MARK: - Event handling
 
     private func handleEvents(
         events: AsyncStream<ChannelEvent>
     ) async {
-        var lossyBuffering = BufferingState()
-        var reliableBuffering = BufferingState()
+        var lossyBuffer = SendBuffer()
+        var reliableBuffer = SendBuffer()
+        var reliableRetryBuffer = RetryBuffer()
 
         for await event in events {
             switch event.detail {
             case let .publishData(request):
                 switch event.channelKind {
-                case .lossy: lossyBuffering.queue.append(request)
-                case .reliable: reliableBuffering.queue.append(request)
+                case .lossy: pushTo(buffer: &lossyBuffer, request: request)
+                case .reliable: pushTo(buffer: &reliableBuffer, request: request)
+                }
+            case let .publishedData(request):
+                switch event.channelKind {
+                case .lossy: ()
+                case .reliable: pushTo(buffer: &reliableRetryBuffer, request: request)
                 }
             case let .bufferedAmountChanged(amount):
                 switch event.channelKind {
-                case .lossy: updateBufferingState(state: &lossyBuffering, newAmount: amount)
-                case .reliable: updateBufferingState(state: &reliableBuffering, newAmount: amount)
+                case .lossy:
+                    updateTarget(buffer: &lossyBuffer, newAmount: amount)
+                case .reliable:
+                    updateTarget(buffer: &reliableBuffer, newAmount: amount)
+                    trim(buffer: &reliableRetryBuffer, toAmount: amount + Self.reliableRetryMargin)
+                }
+            case let .retryRequested(lastSeq):
+                switch event.channelKind {
+                case .lossy: ()
+                case .reliable: retry(buffer: &reliableRetryBuffer, from: lastSeq)
                 }
             }
 
@@ -102,13 +124,13 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             case .lossy:
                 processSendQueue(
                     threshold: Self.lossyLowThreshold,
-                    state: &lossyBuffering,
+                    buffer: &lossyBuffer,
                     kind: .lossy
                 )
             case .reliable:
                 processSendQueue(
                     threshold: Self.reliableLowThreshold,
-                    state: &reliableBuffering,
+                    buffer: &reliableBuffer,
                     kind: .reliable
                 )
             }
@@ -124,14 +146,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     private func processSendQueue(
         threshold: UInt64,
-        state: inout BufferingState,
+        buffer: inout SendBuffer,
         kind: ChannelKind
     ) {
-        while state.amount <= threshold {
-            guard !state.queue.isEmpty else { break }
-            let request = state.queue.removeFirst()
+        while buffer.targetAmount <= threshold {
+            guard !buffer.queue.isEmpty else { break }
+            let request = buffer.queue.removeFirst()
 
-            state.amount += UInt64(request.data.data.count)
+            buffer.targetAmount += UInt64(request.data.data.count)
 
             guard let channel = channel(for: kind) else {
                 request.continuation?.resume(
@@ -146,20 +168,70 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
                 return
             }
             request.continuation?.resume()
+
+            let event = ChannelEvent(channelKind: kind, detail: .publishedData(request))
+            _state.eventContinuation?.yield(event)
         }
     }
 
-    private func updateBufferingState(
-        state: inout BufferingState,
+    // MARK: - Cache
+
+    private func pushTo(
+        buffer: inout SendBuffer,
+        request: PublishDataRequest
+    ) {
+        buffer.queue.append(request)
+    }
+
+    private func updateTarget(
+        buffer: inout SendBuffer,
         newAmount: UInt64
     ) {
-        guard state.amount >= newAmount else {
+        guard buffer.targetAmount >= newAmount else {
             log("Unexpected buffer size detected", .error)
-            state.amount = 0
+            buffer.targetAmount = 0
             return
         }
-        state.amount -= newAmount
+        buffer.targetAmount -= newAmount
     }
+
+    private func pushTo(
+        buffer: inout RetryBuffer,
+        request: PublishDataRequest
+    ) {
+        buffer.queue.append(request)
+        buffer.currentAmount += UInt64(request.data.data.count)
+    }
+
+    private func trim(
+        buffer: inout RetryBuffer,
+        toAmount: UInt64
+    ) {
+        while !buffer.queue.isEmpty, buffer.currentAmount > toAmount {
+            let first = buffer.queue.removeFirst()
+            buffer.currentAmount -= UInt64(first.data.data.count)
+        }
+    }
+
+    private func retry(
+        buffer: inout RetryBuffer,
+        from lastSeq: UInt32
+    ) {
+        if let first = buffer.queue.first, first.sequence > lastSeq + 1 {
+            log("Missing packets while retrying", .warning)
+        }
+
+        while !buffer.queue.isEmpty {
+            let first = buffer.queue.removeFirst()
+            buffer.currentAmount -= UInt64(first.data.data.count)
+            if first.sequence > lastSeq {
+                let event = ChannelEvent(channelKind: .reliable, detail: .publishData(PublishDataRequest(data: first.data, sequence: first.sequence, continuation: nil)))
+                _state.eventContinuation?.yield(event)
+            }
+        }
+    }
+
+    // MARK: - Init
 
     public init(delegate: DataChannelDelegate? = nil,
                 lossyChannel: LKRTCDataChannel? = nil,
@@ -211,6 +283,8 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         let (lossy, reliable) = _state.mutate {
             let result = ($0.lossy, $0.reliable)
             $0.reliable = nil
+            $0.reliableDataSequence = 1
+            $0.reliableReceivedState = [:]
             $0.lossy = nil
             return result
         }
@@ -221,6 +295,8 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         openCompleter.reset()
     }
 
+    // MARK: - Send
+
     public func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws {
         try await send(dataPacket: .with {
             $0.kind = kind // TODO: field is deprecated
@@ -229,12 +305,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     public func send(dataPacket packet: Livekit_DataPacket) async throws {
-        let serializedData = try resendable(packet).serializedData()
+        let packet = withSequence(packet)
+        let serializedData = try packet.serializedData()
         let rtcData = RTC.createDataBuffer(data: serializedData)
 
         try await withCheckedThrowingContinuation { continuation in
             let request = PublishDataRequest(
                 data: rtcData,
+                sequence: packet.sequence,
                 continuation: continuation
             )
             let event = ChannelEvent(
@@ -245,29 +323,22 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    private func resendable(_ packet: Livekit_DataPacket) -> Livekit_DataPacket {
+    private func withSequence(_ packet: Livekit_DataPacket) -> Livekit_DataPacket {
         guard packet.kind == .reliable, packet.sequence == 0 else { return packet }
         var packet = packet
         _state.mutate {
             packet.sequence = $0.reliableDataSequence
             $0.reliableDataSequence += 1
-            $0.reliableMessageBuffer.append(packet)
         }
         return packet
     }
 
-    public func resendReliable(resumingFrom lastSeq: UInt32) {
-        print("🔥 resending from", lastSeq)
-        _state.mutate {
-            $0.reliableMessageBuffer.removeAll(where: { $0.sequence <= lastSeq })
-            for packet in $0.reliableMessageBuffer {
-                Task {
-                    print("resending", packet.sequence)
-                    try? await send(dataPacket: packet)
-                }
-            }
-        }
+    public func retryReliable(lastSequence: UInt32) {
+        let event = ChannelEvent(channelKind: .reliable, detail: .retryRequested(lastSequence))
+        _state.eventContinuation?.yield(event)
     }
+
+    // MARK: - Sync state
 
     public func infos() -> [Livekit_DataChannelInfo] {
         _state.read { [$0.lossy, $0.reliable] }
@@ -284,7 +355,10 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
+    // MARK: - Constants
+
     private static let reliableLowThreshold: UInt64 = 2 * 1024 * 1024 // 2 MB
+    private static let reliableRetryMargin: UInt64 = reliableLowThreshold
     private static let lossyLowThreshold: UInt64 = reliableLowThreshold
 
     deinit {
@@ -317,7 +391,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
 
         if dataChannel.kind == .reliable, dataPacket.sequence > 0, !dataPacket.participantSid.isEmpty {
             if let lastSeq = _state.reliableReceivedState[dataPacket.participantSid], dataPacket.sequence <= lastSeq {
-                log("Ignoring out of order data message", .warning)
+                log("Ignoring out of order reliable data message", .warning)
                 return
             }
             _state.mutate {
@@ -327,10 +401,11 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
 
         delegates.notify {
             $0.dataChannel(self, didReceiveDataPacket: dataPacket)
-            print("🎉 incoming", dataPacket.sequence)
         }
     }
 }
+
+// MARK: - Extensions
 
 private extension DataChannelPair.ChannelKind {
     init(_ packetKind: Livekit_DataPacket.Kind) {

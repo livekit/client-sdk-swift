@@ -195,8 +195,7 @@ extension Room {
             let (subscriber, publisher) = _state.read { ($0.subscriber, $0.publisher) }
             try await subscriber?.set(configuration: rtcConfiguration)
             try await publisher?.set(configuration: rtcConfiguration)
-
-            publisherDataChannel.resendReliable(resumingFrom: reconnectResponse.lastMessageSeq)
+            publisherDataChannel.retryReliable(lastSequence: reconnectResponse.lastMessageSeq)
         }
     }
 }
