@@ -460,7 +460,7 @@ extension Room {
                                              subscription: subscription,
                                              publishTracks: localParticipant.publishedTracksInfo(),
                                              dataChannels: publisherDataChannel.infos(),
-                                             dataChannelReceiveStates: publisherDataChannel.receiveStates())
+                                             dataChannelReceiveStates: subscriberDataChannel.receiveStates())
     }
 }
 
