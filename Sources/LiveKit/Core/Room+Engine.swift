@@ -102,6 +102,9 @@ extension Room {
         if let identity = localParticipant.identity?.stringValue {
             packet.participantIdentity = identity
         }
+        if let sid = localParticipant.sid?.stringValue {
+            packet.participantSid = sid
+        }
 
         try await publisherDataChannel.send(dataPacket: packet)
     }

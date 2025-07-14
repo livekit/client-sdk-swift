@@ -19,50 +19,51 @@ import XCTest
 
 class DataChannelTests: LKTestCase, @unchecked Sendable {
     var receivedExpectation: XCTestExpectation!
-    var receivedData = Data()
+    var receivedData: Data!
+
+    override func setUp() async throws {
+        receivedExpectation = expectation(description: "Data received")
+        receivedData = Data()
+    }
 
     func testReliableRetry() async throws {
         let testData = ["abc", "def", "ghi", "jkl", "mno", "pqr", "stu", "vwx", "yz", "🔥"].map { $0.data(using: .utf8)! }
 
-        let receivedExpectation = expectation(description: "Data received")
         receivedExpectation.expectedFulfillmentCount = testData.count
         receivedExpectation.assertForOverFulfill = false
-        self.receivedExpectation = receivedExpectation
 
         try await withRooms([
-            RoomTestingOptions(delegate: self, canPublishData: true),
-            RoomTestingOptions(delegate: self, canPublishData: true),
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(delegate: self, canSubscribe: true),
         ]) { rooms in
-            let room1 = rooms[0]
-            let room2 = rooms[1]
+            let sending = rooms[0]
+            let receiving = rooms[1]
+            let remoteIdentity = try XCTUnwrap(sending.remoteParticipants.keys.first)
 
-            Task {
-                try await Task.sleep(nanoseconds: 250_000_000)
-                try await room1.startReconnect(reason: .debug)
-            }
+            Task { try await sending.startReconnect(reason: .debug) }
+            Task { try await receiving.startReconnect(reason: .debug) }
 
             for data in testData {
                 let userPacket = Livekit_UserPacket.with {
                     $0.payload = data
-                    $0.destinationIdentities = [room2.localParticipant.identity!.stringValue]
+                    $0.destinationIdentities = [remoteIdentity.stringValue]
                 }
 
-                try await room1.send(userPacket: userPacket, kind: .reliable)
-                try await Task.sleep(nanoseconds: 100_000_000)
+                try await sending.send(userPacket: userPacket, kind: .reliable)
+                try await Task.sleep(nanoseconds: 100_000_000) // 100 ms
             }
         }
 
         await fulfillment(of: [receivedExpectation], timeout: 5)
 
         let receivedString = try XCTUnwrap(String(data: receivedData, encoding: .utf8))
-        // Ignoring duplicates (prefix), participantSid is empty for the debug server, unable to disambiguate
-        XCTAssertTrue(receivedString.hasSuffix("abcdefghijklmnopqrstuvwxyz🔥"))
+        XCTAssertEqual(receivedString, "abcdefghijklmnopqrstuvwxyz🔥") // no duplicates
     }
 }
 
 extension DataChannelTests: RoomDelegate {
     func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic _: String) {
         receivedData.append(data)
-        receivedExpectation?.fulfill()
+        receivedExpectation.fulfill()
     }
 }
