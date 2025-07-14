@@ -58,7 +58,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     private struct SendBuffer {
         private var queue: Deque<PublishDataRequest> = []
-        var targetAmount: UInt64 = 0
+        var rtcAmount: UInt64 = 0
 
         mutating func enqueue(_ request: PublishDataRequest) {
             queue.append(request)
@@ -71,7 +71,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
 
         func canSend(threshold: UInt64) -> Bool {
-            targetAmount <= threshold
+            rtcAmount <= threshold
         }
     }
 
@@ -191,7 +191,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         kind: ChannelKind
     ) {
         while buffer.canSend(threshold: threshold), let request = buffer.dequeue() {
-            buffer.targetAmount += UInt64(request.data.data.count)
+            buffer.rtcAmount += UInt64(request.data.data.count)
 
             guard let channel = channel(for: kind) else {
                 request.continuation?.resume(
@@ -218,12 +218,12 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         buffer: inout SendBuffer,
         newAmount: UInt64
     ) {
-        guard buffer.targetAmount >= newAmount else {
+        guard buffer.rtcAmount >= newAmount else {
             log("Unexpected buffer size detected", .error)
-            buffer.targetAmount = 0
+            buffer.rtcAmount = 0
             return
         }
-        buffer.targetAmount -= newAmount
+        buffer.rtcAmount -= newAmount
     }
 
     private func retry(
