@@ -40,7 +40,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         var lossy: LKRTCDataChannel?
         var reliable: LKRTCDataChannel?
         var reliableDataSequence: UInt32 = 1
-        var reliableReceivedState: [String: UInt32] = [:]
+        var reliableReceivedState: TTLDictionary<String, UInt32> = TTLDictionary(ttl: receivedStateTTL)
 
         var isOpen: Bool {
             guard let lossy, let reliable else { return false }
@@ -294,7 +294,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             let result = ($0.lossy, $0.reliable)
             $0.reliable = nil
             $0.reliableDataSequence = 1
-            $0.reliableReceivedState = [:]
+            $0.reliableReceivedState.removeAll()
             $0.lossy = nil
             return result
         }
@@ -373,6 +373,8 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     // Keep at least N reliable packets while draining webrtc buffers.
     // Should prevent losing packets - requesting retry from lastSeq that's already dequeued.
     private static let reliableRetryCapacity = 32
+
+    private static let receivedStateTTL: TimeInterval = 30
 
     deinit {
         _state.eventContinuation?.finish()

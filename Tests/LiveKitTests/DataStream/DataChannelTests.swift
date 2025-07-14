@@ -21,7 +21,8 @@ class DataChannelTests: LKTestCase, @unchecked Sendable {
     var receivedExpectation: XCTestExpectation!
     var receivedData: Data!
 
-    override func setUp() async throws {
+    override func setUp() {
+        super.setUp()
         receivedExpectation = expectation(description: "Data received")
         receivedData = Data()
     }
