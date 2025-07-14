@@ -17,6 +17,7 @@
 @testable import LiveKit
 import XCTest
 
+// swiftformat:disable preferForLoop
 class TTLDictionaryTests: LKTestCase {
     private let shortTTL: TimeInterval = 0.1
     private var dictionary: TTLDictionary<String, String>!
@@ -45,13 +46,7 @@ class TTLDictionaryTests: LKTestCase {
         XCTAssertTrue(dictionary.keys.isEmpty)
         XCTAssertTrue(dictionary.values.isEmpty)
 
-        var expiredForEachCount = 0
-        for (_, _) in dictionary {
-            expiredForEachCount += 1
-        }
-        XCTAssertEqual(expiredForEachCount, 0)
-
-        let expiredMapResults = dictionary.map { key, value in "\(key):\(value)" }
-        XCTAssertTrue(expiredMapResults.isEmpty)
+        dictionary.forEach { _, _ in XCTFail() }
+        _ = dictionary.map { _, _ in XCTFail() }
     }
 }
