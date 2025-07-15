@@ -24,6 +24,17 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
         set { _state.mutate { $0.next = newValue } }
     }
 
+    /// Adjust the output volume of all audio tracks. Range is 0.0 ~ 1.0.
+    public var outputVolume: Float {
+        get { _state.read { $0.outputVolume } }
+        set {
+            _state.mutate {
+                $0.mainMixerNode?.outputVolume = newValue
+                $0.outputVolume = newValue
+            }
+        }
+    }
+
     /// Adjust the volume of captured app audio. Range is 0.0 ~ 1.0.
     public var appVolume: Float {
         get { _state.read { $0.appMixerNode.outputVolume } }
@@ -50,15 +61,19 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
         var next: (any AudioEngineObserver)?
 
         // AppAudio
-        public let appNode = AVAudioPlayerNode()
-        public let appMixerNode = AVAudioMixerNode()
+        let appNode = AVAudioPlayerNode()
+        let appMixerNode = AVAudioMixerNode()
 
         // Not connected for device rendering mode.
-        public let micNode = AVAudioPlayerNode()
-        public let micMixerNode = AVAudioMixerNode()
+        let micNode = AVAudioPlayerNode()
+        let micMixerNode = AVAudioMixerNode()
+
+        // Reference to mainMixerNode
+        weak var mainMixerNode: AVAudioMixerNode?
+        var outputVolume: Float = 1.0
 
         // Internal states
-        var isConnected: Bool = false
+        var isInputConnected: Bool = false
         var appAudioConverter: AudioConverter?
         var engineFormat: AVAudioFormat?
     }
@@ -133,11 +148,23 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
 
         _state.mutate {
             $0.engineFormat = format
-            $0.isConnected = true
+            $0.isInputConnected = true
         }
 
         // Invoke next
         return next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context) ?? 0
+    }
+
+    public func engineWillConnectOutput(_ engine: AVAudioEngine, src: AVAudioNode, dst: AVAudioNode?, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int {
+        // Get the main mixer
+        let outputVolume = _state.mutate {
+            $0.mainMixerNode = engine.mainMixerNode
+            return $0.outputVolume
+        }
+
+        engine.mainMixerNode.outputVolume = outputVolume
+
+        return next?.engineWillConnectOutput(engine, src: src, dst: dst, format: format, context: context) ?? 0
     }
 }
 
@@ -145,7 +172,7 @@ extension MixerEngineObserver {
     // Capture appAudio and apply conversion automatically suitable for internal audio engine.
     func capture(appAudio inputBuffer: AVAudioPCMBuffer) {
         let (isConnected, appNode, oldConverter, engineFormat) = _state.read {
-            ($0.isConnected, $0.appNode, $0.appAudioConverter, $0.engineFormat)
+            ($0.isInputConnected, $0.appNode, $0.appAudioConverter, $0.engineFormat)
         }
 
         guard isConnected, let engineFormat, let engine = appNode.engine, engine.isRunning else { return }
