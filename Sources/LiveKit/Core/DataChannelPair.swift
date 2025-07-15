@@ -231,7 +231,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         from lastSeq: UInt32
     ) {
         if let first = buffer.peek(), first.sequence > lastSeq + 1 {
-            log("Missing packets while retrying", .warning)
+            log("Missing packet sequence while retrying: \(first.sequence) > \(lastSeq + 1)", .warning)
         }
         while let request = buffer.dequeue() {
             if request.sequence > lastSeq {

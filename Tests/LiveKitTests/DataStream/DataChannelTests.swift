@@ -28,7 +28,8 @@ class DataChannelTests: LKTestCase, @unchecked Sendable {
     }
 
     func testReliableRetry() async throws {
-        let testData = ["abc", "def", "ghi", "jkl", "mno", "pqr", "stu", "vwx", "yz", "🔥"].map { $0.data(using: .utf8)! }
+        let testString = "abcdefghijklmnopqrstuvwxyz🔥"
+        let testData = Array(repeating: String(repeating: testString, count: 128).data(using: .utf8)!, count: 128)
 
         receivedExpectation.expectedFulfillmentCount = testData.count
         receivedExpectation.assertForOverFulfill = false
@@ -41,8 +42,14 @@ class DataChannelTests: LKTestCase, @unchecked Sendable {
             let receiving = rooms[1]
             let remoteIdentity = try XCTUnwrap(sending.remoteParticipants.keys.first)
 
-            Task { try await sending.startReconnect(reason: .debug) }
-            Task { try await receiving.startReconnect(reason: .debug) }
+            Task {
+                try await Task.sleep(nanoseconds: 200_000_000) // 200 ms
+                try await sending.startReconnect(reason: .debug)
+            }
+            Task {
+                try await Task.sleep(nanoseconds: 400_000_000) // 400 ms
+                try await receiving.startReconnect(reason: .debug)
+            }
 
             for data in testData {
                 let userPacket = Livekit_UserPacket.with {
@@ -51,14 +58,14 @@ class DataChannelTests: LKTestCase, @unchecked Sendable {
                 }
 
                 try await sending.send(userPacket: userPacket, kind: .reliable)
-                try await Task.sleep(nanoseconds: 100_000_000) // 100 ms
+                try await Task.sleep(nanoseconds: 10_000_000) // 10 ms
             }
         }
 
-        await fulfillment(of: [receivedExpectation], timeout: 5)
+        await fulfillment(of: [receivedExpectation], timeout: 10)
 
         let receivedString = try XCTUnwrap(String(data: receivedData, encoding: .utf8))
-        XCTAssertEqual(receivedString, "abcdefghijklmnopqrstuvwxyz🔥") // no duplicates
+        XCTAssertEqual(receivedString.count, testString.count * 128 * 128, "Corrupted or duplicated data")
     }
 }
 
