@@ -73,7 +73,7 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
         var outputVolume: Float = 1.0
 
         // Internal states
-        var isConnected: Bool = false
+        var isInputConnected: Bool = false
         var appAudioConverter: AudioConverter?
         var engineFormat: AVAudioFormat?
     }
@@ -148,7 +148,7 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
 
         _state.mutate {
             $0.engineFormat = format
-            $0.isConnected = true
+            $0.isInputConnected = true
         }
 
         // Invoke next
@@ -172,7 +172,7 @@ extension MixerEngineObserver {
     // Capture appAudio and apply conversion automatically suitable for internal audio engine.
     func capture(appAudio inputBuffer: AVAudioPCMBuffer) {
         let (isConnected, appNode, oldConverter, engineFormat) = _state.read {
-            ($0.isConnected, $0.appNode, $0.appAudioConverter, $0.engineFormat)
+            ($0.isInputConnected, $0.appNode, $0.appAudioConverter, $0.engineFormat)
         }
 
         guard isConnected, let engineFormat, let engine = appNode.engine, engine.isRunning else { return }
