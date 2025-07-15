@@ -370,7 +370,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     private static let reliableLowThreshold: UInt64 = 2 * 1024 * 1024 // 2 MB
     private static let lossyLowThreshold: UInt64 = reliableLowThreshold
 
-    private static let reliableRetryAmount: UInt64 = reliableLowThreshold
+    private static let reliableRetryAmount: UInt64 = 2 * reliableLowThreshold
     private static let reliableReceivedStateTTL: TimeInterval = 30
 
     deinit {
