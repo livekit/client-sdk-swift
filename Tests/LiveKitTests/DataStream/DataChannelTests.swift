@@ -28,11 +28,11 @@ class DataChannelTests: LKTestCase, @unchecked Sendable {
     }
 
     func testReliableRetry() async throws {
-        let testString = "abcdefghijklmnopqrstuvwxyz🔥"
-        let testData = Array(repeating: String(repeating: testString, count: 128).data(using: .utf8)!, count: 128)
+        let iterations = 128
+        receivedExpectation.expectedFulfillmentCount = iterations
 
-        receivedExpectation.expectedFulfillmentCount = testData.count
-        receivedExpectation.assertForOverFulfill = false
+        let testString = "abcdefghijklmnopqrstuvwxyz🔥"
+        let testData = String(repeating: testString, count: 1024).data(using: .utf8)!
 
         try await withRooms([
             RoomTestingOptions(canPublishData: true),
@@ -51,9 +51,9 @@ class DataChannelTests: LKTestCase, @unchecked Sendable {
                 try await receiving.startReconnect(reason: .debug)
             }
 
-            for data in testData {
+            for _ in 0 ..< iterations {
                 let userPacket = Livekit_UserPacket.with {
-                    $0.payload = data
+                    $0.payload = testData
                     $0.destinationIdentities = [remoteIdentity.stringValue]
                 }
 
@@ -65,7 +65,7 @@ class DataChannelTests: LKTestCase, @unchecked Sendable {
         await fulfillment(of: [receivedExpectation], timeout: 10)
 
         let receivedString = try XCTUnwrap(String(data: receivedData, encoding: .utf8))
-        XCTAssertEqual(receivedString.count, testString.count * 128 * 128, "Corrupted or duplicated data")
+        XCTAssertEqual(receivedString.count, testString.count * 1024 * iterations, "Corrupted or duplicated data")
     }
 }
 
