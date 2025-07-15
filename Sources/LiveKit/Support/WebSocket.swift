@@ -33,7 +33,9 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
     private let request: URLRequest
 
     private lazy var urlSession: URLSession = {
-        nw_tls_create_options()
+        if #available(iOS 26.0, *) {
+            nw_tls_create_options()
+        }
         let config = URLSessionConfiguration.default
         // explicitly set timeout intervals
         config.timeoutIntervalForRequest = TimeInterval(60)
