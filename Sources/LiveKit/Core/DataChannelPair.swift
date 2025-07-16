@@ -100,7 +100,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
 
         mutating func trim(toAmount: UInt64) {
-            while currentAmount > minAmount, currentAmount > toAmount {
+            while currentAmount > toAmount + minAmount {
                 dequeue()
             }
         }
@@ -370,7 +370,8 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     private static let reliableLowThreshold: UInt64 = 2 * 1024 * 1024 // 2 MB
     private static let lossyLowThreshold: UInt64 = reliableLowThreshold
 
-    private static let reliableRetryAmount: UInt64 = 2 * reliableLowThreshold
+    // If rtc drains its buffer to 0, keep at least this amount of data for retry
+    private static let reliableRetryAmount: UInt64 = reliableLowThreshold
     private static let reliableReceivedStateTTL: TimeInterval = 30
 
     deinit {
