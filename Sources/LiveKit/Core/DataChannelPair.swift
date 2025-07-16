@@ -370,8 +370,9 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     private static let reliableLowThreshold: UInt64 = 2 * 1024 * 1024 // 2 MB
     private static let lossyLowThreshold: UInt64 = reliableLowThreshold
 
-    // If rtc drains its buffer to 0, keep at least this amount of data for retry
-    private static let reliableRetryAmount: UInt64 = reliableLowThreshold
+    // If rtc drains its buffer to 0, keep at least this amount of data for retry.
+    // Should be >= the full backpressure amount to avoid losing packets.
+    private static let reliableRetryAmount: UInt64 = .init(Double(reliableLowThreshold) * 1.25)
     private static let reliableReceivedStateTTL: TimeInterval = 30
 
     deinit {
