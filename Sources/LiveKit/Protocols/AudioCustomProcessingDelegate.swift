@@ -27,8 +27,7 @@ public protocol AudioCustomProcessingDelegate: Sendable {
     /// An optional identifier for the audio processor implementation.
     /// This can be used to identify different types of audio processing (e.g. noise cancellation).
     /// Generally you can leave this as the default value.
-    @objc optional
-    var audioProcessingName: String { get }
+    @objc optional var audioProcessingName: String { get }
 
     /// Provides the sample rate and number of channels to configure your delegate for processing
     @objc
@@ -46,7 +45,7 @@ public protocol AudioCustomProcessingDelegate: Sendable {
 class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @unchecked Sendable, LKRTCAudioCustomProcessingDelegate {
     // MARK: - Public
 
-    public var target: AudioCustomProcessingDelegate? { _state.target }
+    var target: AudioCustomProcessingDelegate? { _state.target }
 
     // MARK: - Private
 
@@ -56,7 +55,7 @@ class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @u
 
     private var _state = StateSync(State())
 
-    public func set(target: AudioCustomProcessingDelegate?) {
+    func set(target: AudioCustomProcessingDelegate?) {
         _state.mutate { $0.target = target }
     }
 

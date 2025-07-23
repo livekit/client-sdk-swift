@@ -33,11 +33,9 @@ extension VideoCapturerProtocol {
 
 @objc
 public protocol VideoCapturerDelegate: AnyObject, Sendable {
-    @objc(capturer:didUpdateDimensions:) optional
-    func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
+    @objc(capturer:didUpdateDimensions:) optional func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
 
-    @objc(capturer:didUpdateState:) optional
-    func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState)
+    @objc(capturer:didUpdateState:) optional func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState)
 }
 
 // Intended to be a base class for video capturers
@@ -76,8 +74,8 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
     struct State {
         // Counts calls to start/stopCapturer so multiple Tracks can use the same VideoCapturer.
         var startStopCounter: Int = 0
-        var dimensions: Dimensions? = nil
-        weak var processor: VideoProcessor? = nil
+        var dimensions: Dimensions?
+        weak var processor: VideoProcessor?
         var isFrameProcessingBusy: Bool = false
     }
 

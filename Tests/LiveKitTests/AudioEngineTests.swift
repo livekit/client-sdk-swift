@@ -377,21 +377,21 @@ final class SineWaveNodeHook: AudioEngineObserver, @unchecked Sendable {
 final class PlayerNodeHook: AudioEngineObserver, @unchecked Sendable {
     var next: (any LiveKit.AudioEngineObserver)?
 
-    public let playerNode = AVAudioPlayerNode()
-    public let playerMixerNode = AVAudioMixerNode()
-    public let playerNodeFormat: AVAudioFormat
+    let playerNode = AVAudioPlayerNode()
+    let playerMixerNode = AVAudioMixerNode()
+    let playerNodeFormat: AVAudioFormat
 
     init(playerNodeFormat: AVAudioFormat) {
         self.playerNodeFormat = playerNodeFormat
     }
 
-    public func engineDidCreate(_ engine: AVAudioEngine) -> Int {
+    func engineDidCreate(_ engine: AVAudioEngine) -> Int {
         engine.attach(playerNode)
         engine.attach(playerMixerNode)
         return 0
     }
 
-    public func engineWillRelease(_ engine: AVAudioEngine) -> Int {
+    func engineWillRelease(_ engine: AVAudioEngine) -> Int {
         engine.detach(playerNode)
         engine.detach(playerMixerNode)
         return 0

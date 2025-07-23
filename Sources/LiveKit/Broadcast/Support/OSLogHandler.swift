@@ -21,14 +21,14 @@ import OSLog
 internal import Logging
 
 struct OSLogHandler: LogHandler {
-    public var logLevel: Logging.Logger.Level = .debug
+    var logLevel: Logging.Logger.Level = .debug
     private let oslogger: OSLog
 
     init(_ oslogger: OSLog) {
         self.oslogger = oslogger
     }
 
-    public func log(
+    func log(
         level _: Logging.Logger.Level,
         message: Logging.Logger.Message,
         metadata: Logging.Logger.Metadata?,
@@ -54,7 +54,7 @@ struct OSLogHandler: LogHandler {
     }
 
     private var prettyMetadata: String?
-    public var metadata = Logger.Metadata() {
+    var metadata = Logger.Metadata() {
         didSet {
             prettyMetadata = prettify(metadata)
         }
@@ -63,7 +63,7 @@ struct OSLogHandler: LogHandler {
     /// Add, remove, or change the logging metadata.
     /// - parameters:
     ///    - metadataKey: the key for the metadata item.
-    public subscript(metadataKey metadataKey: String) -> Logging.Logger.Metadata.Value? {
+    subscript(metadataKey metadataKey: String) -> Logging.Logger.Metadata.Value? {
         get {
             metadata[metadataKey]
         }

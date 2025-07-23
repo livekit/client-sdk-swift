@@ -50,12 +50,12 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
         var next: (any AudioEngineObserver)?
 
         // AppAudio
-        public let appNode = AVAudioPlayerNode()
-        public let appMixerNode = AVAudioMixerNode()
+        let appNode = AVAudioPlayerNode()
+        let appMixerNode = AVAudioMixerNode()
 
         // Not connected for device rendering mode.
-        public let micNode = AVAudioPlayerNode()
-        public let micMixerNode = AVAudioMixerNode()
+        let micNode = AVAudioPlayerNode()
+        let micMixerNode = AVAudioMixerNode()
 
         // Internal states
         var isConnected: Bool = false

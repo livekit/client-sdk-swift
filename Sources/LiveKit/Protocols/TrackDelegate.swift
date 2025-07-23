@@ -21,12 +21,10 @@ internal import LiveKitWebRTC
 @objc
 public protocol TrackDelegate: AnyObject, Sendable {
     /// Dimensions of the video track has updated
-    @objc(track:didUpdateDimensions:) optional
-    func track(_ track: VideoTrack, didUpdateDimensions dimensions: Dimensions?)
+    @objc(track:didUpdateDimensions:) optional func track(_ track: VideoTrack, didUpdateDimensions dimensions: Dimensions?)
 
     /// Statistics for the track has been generated (v2).
-    @objc(track:didUpdateStatistics:simulcastStatistics:) optional
-    func track(_ track: Track, didUpdateStatistics: TrackStatistics, simulcastStatistics: [VideoCodec: TrackStatistics])
+    @objc(track:didUpdateStatistics:simulcastStatistics:) optional func track(_ track: Track, didUpdateStatistics: TrackStatistics, simulcastStatistics: [VideoCodec: TrackStatistics])
 }
 
 protocol TrackDelegateInternal: TrackDelegate {
