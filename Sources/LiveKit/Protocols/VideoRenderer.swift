@@ -30,13 +30,16 @@ public protocol VideoRenderer: Sendable {
     @MainActor var adaptiveStreamSize: CGSize { get }
 
     /// Size of the frame.
-    @objc optional nonisolated func set(size: CGSize)
+    @objc optional
+    nonisolated func set(size: CGSize)
 
     /// A ``VideoFrame`` is ready and should be processed.
-    @objc optional nonisolated func render(frame: VideoFrame)
+    @objc optional
+    nonisolated func render(frame: VideoFrame)
 
     /// In addition to ``VideoFrame``, provide capture-time information if available.
-    @objc optional nonisolated func render(frame: VideoFrame, captureDevice: AVCaptureDevice?, captureOptions: VideoCaptureOptions?)
+    @objc optional
+    nonisolated func render(frame: VideoFrame, captureDevice: AVCaptureDevice?, captureOptions: VideoCaptureOptions?)
 }
 
 class VideoRendererAdapter: NSObject, LKRTCVideoRenderer {

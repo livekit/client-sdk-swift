@@ -27,7 +27,8 @@ public protocol AudioCustomProcessingDelegate: Sendable {
     /// An optional identifier for the audio processor implementation.
     /// This can be used to identify different types of audio processing (e.g. noise cancellation).
     /// Generally you can leave this as the default value.
-    @objc optional var audioProcessingName: String { get }
+    @objc optional
+    var audioProcessingName: String { get }
 
     /// Provides the sample rate and number of channels to configure your delegate for processing
     @objc

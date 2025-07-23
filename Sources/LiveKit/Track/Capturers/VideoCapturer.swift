@@ -33,9 +33,11 @@ extension VideoCapturerProtocol {
 
 @objc
 public protocol VideoCapturerDelegate: AnyObject, Sendable {
-    @objc(capturer:didUpdateDimensions:) optional func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
+    @objc(capturer:didUpdateDimensions:) optional
+    func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
 
-    @objc(capturer:didUpdateState:) optional func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState)
+    @objc(capturer:didUpdateState:) optional
+    func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState)
 }
 
 // Intended to be a base class for video capturers
