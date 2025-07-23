@@ -43,7 +43,7 @@ enum AgentOutput: String, Codable, Sendable {
     case transcription
 }
 
-enum AgentState: String, Codable, Sendable {
+public enum AgentState: String, Codable, Sendable {
     case idle
     case initializing
     case listening
