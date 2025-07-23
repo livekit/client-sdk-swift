@@ -25,19 +25,29 @@ public extension Participant {
         }
     }
 
-    @objc
+    internal var agentAttributes: AgentAttributes? {
+        guard isAgent else { return nil }
+
+        guard let encoded = try? JSONEncoder().encode(attributes),
+              let decoded = try? JSONDecoder().decode(AgentAttributes.self, from: encoded) else { return nil }
+
+        return decoded
+    }
+
     var agentState: AgentState {
-        guard isAgent else { return .unknown }
-        guard let attrString = attributes[agentStateAttributeKey] else { return .unknown }
-        guard let state = AgentState.fromString(attrString) else { return .unknown }
-        return state
+        agentAttributes?.lkAgentState ?? .idle
+    }
+
+    @objc
+    var agentStateString: String {
+        agentState.rawValue
     }
 }
 
 public extension Participant {
     private var publishingOnBehalf: [Participant.Identity: Participant] {
         guard let _room else { return [:] }
-        return _room.allParticipants.filter { $0.value.attributes[publishOnBehalfAttributeKey] == identity?.stringValue }
+        return _room.allParticipants.filter { $0.value.agentAttributes?.lkPublishOnBehalf == identity?.stringValue }
     }
 
     /// The avatar worker participant associated with the agent.
