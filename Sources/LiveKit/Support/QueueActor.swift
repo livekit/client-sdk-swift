@@ -21,14 +21,14 @@ actor QueueActor<T: Sendable>: Loggable {
 
     // MARK: - Public
 
-    public enum State: Sendable {
+    enum State: Sendable {
         case resumed
         case suspended
     }
 
-    public private(set) var state: State = .suspended
+    private(set) var state: State = .suspended
 
-    public var count: Int { queue.count }
+    var count: Int { queue.count }
 
     // MARK: - Private
 

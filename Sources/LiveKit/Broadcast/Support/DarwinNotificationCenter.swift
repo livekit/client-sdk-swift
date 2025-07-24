@@ -24,7 +24,7 @@ enum DarwinNotification: String {
 }
 
 final class DarwinNotificationCenter: @unchecked Sendable {
-    public static let shared = DarwinNotificationCenter()
+    static let shared = DarwinNotificationCenter()
     private let notificationCenter = CFNotificationCenterGetDarwinNotifyCenter()
 
     func postNotification(_ name: DarwinNotification) {

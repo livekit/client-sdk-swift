@@ -214,8 +214,8 @@ public class VideoView: NativeView, Loggable {
         var pinchToZoomOptions: PinchToZoomOptions = []
 
         // Only used for rendering local tracks
-        var captureOptions: VideoCaptureOptions? = nil
-        var captureDevice: AVCaptureDevice? = nil
+        var captureOptions: VideoCaptureOptions?
+        var captureDevice: AVCaptureDevice?
 
         // whether if current state should be rendering
         var shouldRender: Bool {

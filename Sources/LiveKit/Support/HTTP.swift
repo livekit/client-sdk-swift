@@ -23,7 +23,7 @@ class HTTP: NSObject {
                                                    delegate: nil,
                                                    delegateQueue: operationQueue)
 
-    public static func requestData(from url: URL) async throws -> Data {
+    static func requestData(from url: URL) async throws -> Data {
         let request = URLRequest(url: url,
                                  cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
                                  timeoutInterval: .defaultHTTPConnect)
@@ -31,7 +31,7 @@ class HTTP: NSObject {
         return data
     }
 
-    public static func requestString(from url: URL) async throws -> String {
+    static func requestString(from url: URL) async throws -> String {
         let data = try await requestData(from: url)
         guard let string = String(data: data, encoding: .utf8) else {
             throw LiveKitError(.failedToConvertData, message: "Failed to convert string")

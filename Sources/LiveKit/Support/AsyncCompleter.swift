@@ -20,19 +20,19 @@ import Foundation
 actor CompleterMapActor<T: Sendable> {
     // MARK: - Public
 
-    public nonisolated let label: String
+    nonisolated let label: String
 
     // MARK: - Private
 
     private let _defaultTimeout: TimeInterval
     private var _completerMap = [String: AsyncCompleter<T>]()
 
-    public init(label: String, defaultTimeout: TimeInterval) {
+    init(label: String, defaultTimeout: TimeInterval) {
         self.label = label
         _defaultTimeout = defaultTimeout
     }
 
-    public func completer(for key: String) -> AsyncCompleter<T> {
+    func completer(for key: String) -> AsyncCompleter<T> {
         // Return completer if already exists...
         if let element = _completerMap[key] {
             return element
@@ -43,17 +43,17 @@ actor CompleterMapActor<T: Sendable> {
         return newCompleter
     }
 
-    public func resume(returning value: T, for key: String) {
+    func resume(returning value: T, for key: String) {
         let completer = completer(for: key)
         completer.resume(returning: value)
     }
 
-    public func resume(throwing error: any Error, for key: String) {
+    func resume(throwing error: any Error, for key: String) {
         let completer = completer(for: key)
         completer.resume(throwing: error)
     }
 
-    public func reset() {
+    func reset() {
         // Reset call completers...
         for (_, value) in _completerMap {
             value.reset()
@@ -85,7 +85,7 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
         }
     }
 
-    public let label: String
+    let label: String
 
     private let _timerQueue = DispatchQueue(label: "LiveKitSDK.AsyncCompleter", qos: .background)
 
@@ -96,7 +96,7 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
 
     private let _lock: some Lock = createLock()
 
-    public init(label: String, defaultTimeout: TimeInterval) {
+    init(label: String, defaultTimeout: TimeInterval) {
         self.label = label
         _defaultTimeout = defaultTimeout.toDispatchTimeInterval
     }
@@ -105,13 +105,13 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
         reset()
     }
 
-    public func set(defaultTimeout: TimeInterval) {
+    func set(defaultTimeout: TimeInterval) {
         _lock.sync {
             _defaultTimeout = defaultTimeout.toDispatchTimeInterval
         }
     }
 
-    public func reset() {
+    func reset() {
         _lock.sync {
             for entry in _entries.values {
                 entry.cancel()
@@ -121,7 +121,7 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
         }
     }
 
-    public func resume(with result: Result<T, Error>) {
+    func resume(with result: Result<T, Error>) {
         _lock.sync {
             for entry in _entries.values {
                 entry.resume(with: result)
@@ -131,17 +131,17 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
         }
     }
 
-    public func resume(returning value: T) {
+    func resume(returning value: T) {
         log("\(label)", .trace)
         resume(with: .success(value))
     }
 
-    public func resume(throwing error: Error) {
+    func resume(throwing error: Error) {
         log("\(label)", .error)
         resume(with: .failure(error))
     }
 
-    public func wait(timeout: TimeInterval? = nil) async throws -> T {
+    func wait(timeout: TimeInterval? = nil) async throws -> T {
         // Read value
         if let result = _lock.sync({ _result }) {
             // Already resolved...

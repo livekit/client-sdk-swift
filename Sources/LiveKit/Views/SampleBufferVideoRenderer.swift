@@ -17,7 +17,7 @@
 internal import LiveKitWebRTC
 
 class SampleBufferVideoRenderer: NativeView, Loggable {
-    public let sampleBufferDisplayLayer: AVSampleBufferDisplayLayer
+    let sampleBufferDisplayLayer: AVSampleBufferDisplayLayer
 
     private struct State {
         var isMirrored: Bool = false

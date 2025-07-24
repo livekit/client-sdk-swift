@@ -58,7 +58,7 @@ actor MetricsManager: Loggable {
     private struct TrackProperties {
         let identity: LocalParticipant.Identity?
         let transport: Transport
-        var lastSentHash: Int? = nil
+        var lastSentHash: Int?
     }
 
     private var trackProperties: [Track.Sid: TrackProperties] = [:]

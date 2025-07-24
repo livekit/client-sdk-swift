@@ -19,8 +19,8 @@
 
 // Used to save audio data for inspecting the correct format, etc.
 class TestAudioRecorder: @unchecked Sendable {
-    public let sampleRate: Double
-    public let filePath: URL
+    let sampleRate: Double
+    let filePath: URL
     private var audioFile: AVAudioFile?
 
     init(sampleRate: Double = 48000, channels: Int = 1) throws {

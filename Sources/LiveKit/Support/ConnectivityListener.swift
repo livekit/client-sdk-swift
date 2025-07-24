@@ -31,15 +31,15 @@ extension ConnectivityListenerDelegate {
 class ConnectivityListener: MulticastDelegate<ConnectivityListenerDelegate>, @unchecked Sendable {
     static let shared = ConnectivityListener()
 
-    public private(set) var hasConnectivity: Bool? {
+    private(set) var hasConnectivity: Bool? {
         didSet {
             guard let newValue = hasConnectivity, oldValue != newValue else { return }
             notify { $0.connectivityListener(self, didUpdate: newValue) }
         }
     }
 
-    public private(set) var ipv4: String?
-    public private(set) var path: NWPath?
+    private(set) var ipv4: String?
+    private(set) var path: NWPath?
 
     private let queue = DispatchQueue(label: "LiveKitSDK.connectivityListener", qos: .default)
 

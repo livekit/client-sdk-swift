@@ -20,20 +20,20 @@
 class DeviceManager: @unchecked Sendable, Loggable {
     // MARK: - Public
 
-    public static let shared = DeviceManager()
+    static let shared = DeviceManager()
 
-    public static func prepare() {
+    static func prepare() {
         // Instantiate shared instance
         _ = shared
     }
 
     // Async version, waits until inital device fetch is complete
-    public func devices() async throws -> [AVCaptureDevice] {
+    func devices() async throws -> [AVCaptureDevice] {
         try await _devicesCompleter.wait()
     }
 
     // Sync version
-    public func devices() -> [AVCaptureDevice] {
+    func devices() -> [AVCaptureDevice] {
         _state.devices
     }
 

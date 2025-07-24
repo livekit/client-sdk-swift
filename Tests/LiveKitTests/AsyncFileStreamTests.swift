@@ -26,7 +26,7 @@ class AsyncFileStreamTests: LKTestCase {
 
     func testNonExistentFile() async throws {
         do {
-            let _ = try AsyncFileStream(
+            _ = try AsyncFileStream(
                 readingFrom: URL(fileURLWithPath: "/non/existent/file")
             )
             XCTFail("Expected error")
