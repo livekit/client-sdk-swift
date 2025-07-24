@@ -242,7 +242,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
             $0.metadata = info.metadata
             $0.kind = info.kind.toLKType()
             $0.attributes = info.attributes
-            $0.agentAttributes = info.attributes.mapped()
+            $0.agentAttributes = info.attributes.transcoded(to: AgentAttributes.self)
             $0.state = info.state.toLKType()
 
             // Attempt to get millisecond precision.
