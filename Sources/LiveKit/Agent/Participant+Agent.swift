@@ -27,11 +27,7 @@ public extension Participant {
 
     internal var agentAttributes: AgentAttributes? {
         guard isAgent else { return nil }
-
-        guard let encoded = try? JSONEncoder().encode(attributes),
-              let decoded = try? JSONDecoder().decode(AgentAttributes.self, from: encoded) else { return nil }
-
-        return decoded
+        return attributes.transcoded(to: AgentAttributes.self)
     }
 
     var agentState: AgentState {
