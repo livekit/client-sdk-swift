@@ -185,10 +185,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
     public func set(attributes: [String: String]) async throws {
         let room = try requireRoom()
         try await room.signalClient.sendUpdateParticipant(attributes: attributes)
-        _state.mutate {
-            $0.attributes = attributes
-            $0.agentAttributes = attributes.transcoded(to: AgentAttributes.self)
-        }
+        _state.mutate { $0.attributes = attributes }
     }
 
     func sendTrackSubscriptionPermissions() async throws {
