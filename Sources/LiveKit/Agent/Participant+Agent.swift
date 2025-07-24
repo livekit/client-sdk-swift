@@ -25,13 +25,8 @@ public extension Participant {
         }
     }
 
-    internal var agentAttributes: AgentAttributes? {
-        guard isAgent else { return nil }
-        return attributes.transcoded(to: AgentAttributes.self)
-    }
-
     var agentState: AgentState {
-        agentAttributes?.lkAgentState ?? .idle
+        _state.agentAttributes?.lkAgentState ?? .idle
     }
 
     @objc
@@ -43,7 +38,7 @@ public extension Participant {
 public extension Participant {
     private var publishingOnBehalf: [Participant.Identity: Participant] {
         guard let _room else { return [:] }
-        return _room.allParticipants.filter { $0.value.agentAttributes?.lkPublishOnBehalf == identity?.stringValue }
+        return _room.allParticipants.filter { $0.value._state.agentAttributes?.lkPublishOnBehalf == identity?.stringValue }
     }
 
     /// The avatar worker participant associated with the agent.

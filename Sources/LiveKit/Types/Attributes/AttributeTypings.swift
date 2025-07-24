@@ -16,6 +16,10 @@
 
 import Foundation
 
+// Quicktype cannot generate both at the same time
+extension AgentAttributes: Hashable {}
+extension AgentAttributes: Equatable {}
+
 // MARK: - AgentAttributes
 
 struct AgentAttributes: Codable, Sendable {
