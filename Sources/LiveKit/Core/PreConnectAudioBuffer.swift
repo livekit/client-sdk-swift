@@ -47,7 +47,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         var audioStream: LocalAudioTrackRecorder.Stream?
         var timeoutTask: Task<Void, Error>?
         var sent: Bool = false
-        var onError: OnError? = nil
+        var onError: OnError?
     }
 
     /// Initialize the audio buffer with a room instance.

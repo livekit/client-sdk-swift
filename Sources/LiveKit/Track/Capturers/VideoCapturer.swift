@@ -76,8 +76,8 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
     struct State {
         // Counts calls to start/stopCapturer so multiple Tracks can use the same VideoCapturer.
         var startStopCounter: Int = 0
-        var dimensions: Dimensions? = nil
-        weak var processor: VideoProcessor? = nil
+        var dimensions: Dimensions?
+        weak var processor: VideoProcessor?
         var isFrameProcessingBusy: Bool = false
     }
 
