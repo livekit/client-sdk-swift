@@ -126,7 +126,7 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
 
     // MARK: - Send
 
-    public func send(data: Data) async throws {
+    func send(data: Data) async throws {
         let message = URLSessionWebSocketTask.Message.data(data)
         try await task.send(message)
     }
