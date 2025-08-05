@@ -72,14 +72,14 @@ public class FFTResult {
 }
 
 class FFTProcessor {
-    public enum WindowType {
+    enum WindowType {
         case none
         case hanning
         case hamming
     }
 
-    public let bufferSize: vDSP_Length
-    public let windowType: WindowType
+    let bufferSize: vDSP_Length
+    let windowType: WindowType
 
     private let bufferHalfSize: vDSP_Length
     private let bufferLog2Size: vDSP_Length

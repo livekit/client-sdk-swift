@@ -28,11 +28,11 @@ protocol DataChannelDelegate: Sendable {
 class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Public
 
-    public let delegates = MulticastDelegate<DataChannelDelegate>(label: "DataChannelDelegate")
+    let delegates = MulticastDelegate<DataChannelDelegate>(label: "DataChannelDelegate")
 
-    public let openCompleter = AsyncCompleter<Void>(label: "Data channel open", defaultTimeout: .defaultPublisherDataChannelOpen)
+    let openCompleter = AsyncCompleter<Void>(label: "Data channel open", defaultTimeout: .defaultPublisherDataChannelOpen)
 
-    public var isOpen: Bool { _state.isOpen }
+    var isOpen: Bool { _state.isOpen }
 
     // MARK: - Private
 
@@ -243,9 +243,9 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Init
 
-    public init(delegate: DataChannelDelegate? = nil,
-                lossyChannel: LKRTCDataChannel? = nil,
-                reliableChannel: LKRTCDataChannel? = nil)
+    init(delegate: DataChannelDelegate? = nil,
+         lossyChannel: LKRTCDataChannel? = nil,
+         reliableChannel: LKRTCDataChannel? = nil)
     {
         _state = StateSync(State(lossy: lossyChannel,
                                  reliable: reliableChannel))
@@ -263,7 +263,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    public func set(reliable channel: LKRTCDataChannel?) {
+    func set(reliable channel: LKRTCDataChannel?) {
         let isOpen = _state.mutate {
             $0.reliable = channel
             return $0.isOpen
@@ -276,7 +276,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    public func set(lossy channel: LKRTCDataChannel?) {
+    func set(lossy channel: LKRTCDataChannel?) {
         let isOpen = _state.mutate {
             $0.lossy = channel
             return $0.isOpen
@@ -289,7 +289,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    public func reset() {
+    func reset() {
         let (lossy, reliable) = _state.mutate {
             let result = ($0.lossy, $0.reliable)
             $0.reliable = nil
@@ -307,14 +307,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Send
 
-    public func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws {
+    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws {
         try await send(dataPacket: .with {
             $0.kind = kind // TODO: field is deprecated
             $0.user = userPacket
         })
     }
 
-    public func send(dataPacket packet: Livekit_DataPacket) async throws {
+    func send(dataPacket packet: Livekit_DataPacket) async throws {
         let packet = withSequence(packet)
         let serializedData = try packet.serializedData()
         let rtcData = RTC.createDataBuffer(data: serializedData)
@@ -343,20 +343,20 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         return packet
     }
 
-    public func retryReliable(lastSequence: UInt32) {
+    func retryReliable(lastSequence: UInt32) {
         let event = ChannelEvent(channelKind: .reliable, detail: .retryRequested(lastSequence))
         _state.eventContinuation?.yield(event)
     }
 
     // MARK: - Sync state
 
-    public func infos() -> [Livekit_DataChannelInfo] {
+    func infos() -> [Livekit_DataChannelInfo] {
         _state.read { [$0.lossy, $0.reliable] }
             .compactMap { $0 }
             .map { $0.toLKInfoType() }
     }
 
-    public func receiveStates() -> [Livekit_DataChannelReceiveState] {
+    func receiveStates() -> [Livekit_DataChannelReceiveState] {
         _state.reliableReceivedState.map { sid, seq in
             Livekit_DataChannelReceiveState.with {
                 $0.publisherSid = sid
