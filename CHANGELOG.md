@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.7.0] - 2025-08-06
+
+### Added
+
+- outputVolume property to audio mixer
+- Added wait until active APIs for RemoteParticipant
+
+### Changed
+
+- Improved reliability of the data channel
+- Drop Xcode 14 (Swift 5.7) support
+- Updated webrtc to m137
+
+### Fixed
+
+- Fixed concurrent registration for text/byte streams
+- macOS audio start workarounds
+
 ## [2.6.1] - 2025-06-17
 
 ### Fixed
