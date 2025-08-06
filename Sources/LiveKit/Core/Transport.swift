@@ -323,6 +323,10 @@ extension Transport {
     }
 
     func remove(track sender: LKRTCRtpSender) throws {
+        if let transceiver = _pc.transceivers.first(where: { $0.sender.senderId == sender.senderId }) {
+            transceiver.stopInternal()
+        }
+
         guard _pc.removeTrack(sender) else {
             throw LiveKitError(.webRTC, message: "Failed to remove track")
         }
