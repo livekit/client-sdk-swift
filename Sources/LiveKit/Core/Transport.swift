@@ -323,7 +323,7 @@ extension Transport {
     }
 
     func remove(track sender: LKRTCRtpSender) throws {
-        if let transceiver = _pc.transceivers.first(where: { $0.sender.senderId == sender.senderId }) {
+        if let transceiver = _pc.transceivers.first(where: { $0.sender == sender }) {
             transceiver.stopInternal()
         }
 
