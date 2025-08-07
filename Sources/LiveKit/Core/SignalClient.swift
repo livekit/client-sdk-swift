@@ -23,18 +23,18 @@ actor SignalClient: Loggable {
 
     typealias AddTrackRequestPopulator = @Sendable (inout Livekit_AddTrackRequest) throws -> Void
 
-    public enum ConnectResponse: Sendable {
+    enum ConnectResponse: Sendable {
         case join(Livekit_JoinResponse)
         case reconnect(Livekit_ReconnectResponse)
 
-        public var rtcIceServers: [LKRTCIceServer] {
+        var rtcIceServers: [LKRTCIceServer] {
             switch self {
             case let .join(response): response.iceServers.map { $0.toRTCType() }
             case let .reconnect(response): response.iceServers.map { $0.toRTCType() }
             }
         }
 
-        public var clientConfiguration: Livekit_ClientConfiguration {
+        var clientConfiguration: Livekit_ClientConfiguration {
             switch self {
             case let .join(response): response.clientConfiguration
             case let .reconnect(response): response.clientConfiguration
@@ -44,9 +44,9 @@ actor SignalClient: Loggable {
 
     // MARK: - Public
 
-    public var connectionState: ConnectionState { _state.connectionState }
+    var connectionState: ConnectionState { _state.connectionState }
 
-    public var disconnectError: LiveKitError? { _state.disconnectError }
+    var disconnectError: LiveKitError? { _state.disconnectError }
 
     // MARK: - Private
 
@@ -528,7 +528,8 @@ extension SignalClient {
                        offer: Livekit_SessionDescription?,
                        subscription: Livekit_UpdateSubscription,
                        publishTracks: [Livekit_TrackPublishedResponse]? = nil,
-                       dataChannels: [Livekit_DataChannelInfo]? = nil) async throws
+                       dataChannels: [Livekit_DataChannelInfo]? = nil,
+                       dataChannelReceiveStates: [Livekit_DataChannelReceiveState]? = nil) async throws
     {
         let r = Livekit_SignalRequest.with {
             $0.syncState = Livekit_SyncState.with {
@@ -541,6 +542,7 @@ extension SignalClient {
                 $0.subscription = subscription
                 $0.publishTracks = publishTracks ?? []
                 $0.dataChannels = dataChannels ?? []
+                $0.datachannelReceiveStates = dataChannelReceiveStates ?? []
             }
         }
 

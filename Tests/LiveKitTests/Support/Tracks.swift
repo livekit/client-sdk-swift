@@ -108,8 +108,8 @@ typealias OnDidRenderFirstFrame = (_ id: String) -> Void
 class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendable {
     // MARK: - Public
 
-    public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
-    public var detectedCodecs: Set<String> { _state.detectedCodecs }
+    var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
+    var detectedCodecs: Set<String> { _state.detectedCodecs }
 
     private struct State {
         var didRenderFirstFrame: Bool = false
@@ -118,7 +118,7 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendable {
         var detectedCodecs: Set<String> = []
     }
 
-    public let id: String
+    let id: String
     private let _state = StateSync(State())
     private let onDidRenderFirstFrame: OnDidRenderFirstFrame?
 
@@ -127,14 +127,14 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendable {
         self.onDidRenderFirstFrame = onDidRenderFirstFrame
     }
 
-    public func reset() {
+    func reset() {
         _state.mutate {
             $0.didRenderFirstFrame = false
             $0.detectedCodecs.removeAll()
         }
     }
 
-    public func expect(dimensions: Dimensions) -> XCTestExpectation {
+    func expect(dimensions: Dimensions) -> XCTestExpectation {
         let expectation = XCTestExpectation(description: "Did render dimension \(dimensions)")
         expectation.assertForOverFulfill = false
 
@@ -144,7 +144,7 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendable {
         }
     }
 
-    public func expect(codec: VideoCodec) -> XCTestExpectation {
+    func expect(codec: VideoCodec) -> XCTestExpectation {
         let expectation = XCTestExpectation(description: "Did receive codec \(codec.name)")
         expectation.assertForOverFulfill = false
 
@@ -154,7 +154,7 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendable {
         }
     }
 
-    public func isCodecDetected(codec: VideoCodec) -> Bool {
+    func isCodecDetected(codec: VideoCodec) -> Bool {
         _state.read { $0.detectedCodecs.contains(codec.name) }
     }
 
@@ -224,8 +224,8 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendable {
 }
 
 class AudioTrackWatcher: AudioRenderer, @unchecked Sendable {
-    public let id: String
-    public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
+    let id: String
+    var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
 
     // MARK: - Private
 
@@ -242,7 +242,7 @@ class AudioTrackWatcher: AudioRenderer, @unchecked Sendable {
         self.onDidRenderFirstFrame = onDidRenderFirstFrame
     }
 
-    public func reset() {
+    func reset() {
         _state.mutate {
             $0.didRenderFirstFrame = false
         }

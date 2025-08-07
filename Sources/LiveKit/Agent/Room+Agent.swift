@@ -16,8 +16,6 @@
 
 import Foundation
 
-let publishOnBehalfAttributeKey = "lk.publish_on_behalf"
-
 public extension Room {
     /// A dictionary containing all agent participants.
     ///
@@ -25,7 +23,7 @@ public extension Room {
     /// e.g. avatar workers. To access them directly use ``Participant/avatarWorker`` property of `agentParticipant`.
     @objc
     var agentParticipants: [Participant.Identity: Participant] {
-        allParticipants.filter { $0.value.isAgent && $0.value.attributes[publishOnBehalfAttributeKey] == nil }
+        allParticipants.filter { $0.value.isAgent && $0.value._state.agentAttributes?.lkPublishOnBehalf == nil }
     }
 
     /// The first agent participant.

@@ -108,6 +108,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     let primaryTransportConnectedCompleter = AsyncCompleter<Void>(label: "Primary transport connect", defaultTimeout: .defaultTransportState)
     let publisherTransportConnectedCompleter = AsyncCompleter<Void>(label: "Publisher transport connect", defaultTimeout: .defaultTransportState)
 
+    let activeParticipantCompleters = CompleterMapActor<Void>(label: "Participant active", defaultTimeout: .defaultParticipantActiveTimeout)
+
     let signalClient = SignalClient()
 
     // MARK: - DataChannels
@@ -115,7 +117,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     lazy var subscriberDataChannel = DataChannelPair(delegate: self)
     lazy var publisherDataChannel = DataChannelPair(delegate: self)
 
-    lazy var incomingStreamManager = IncomingStreamManager()
+    let incomingStreamManager = IncomingStreamManager()
     lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
         try await self?.send(dataPacket: packet)
     }
