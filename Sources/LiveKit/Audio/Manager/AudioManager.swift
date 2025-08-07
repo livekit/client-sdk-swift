@@ -288,7 +288,7 @@ public class AudioManager: Loggable {
     /// Keep recording initialized (mic input) and pre-warm voice processing etc.
     /// Mic permission is required and dialog will appear if not already granted.
     /// This will per persisted accross Rooms and connections.
-    public func setRecordingAlwaysPreparedMode(_ enabled: Bool) throws {
+    public func setRecordingAlwaysPreparedMode(_ enabled: Bool) async throws {
         let result = RTC.audioDeviceModule.setRecordingAlwaysPreparedMode(enabled)
         try checkAdmResult(code: result)
     }
@@ -405,10 +405,18 @@ extension AudioManager {
     }
 }
 
+// SDK side AudioEngine error codes
+let kAudioEngineErrorFailedToConfigureAudioSession = -4100
+
+let kAudioEngineErrorInsufficientDevicePermission = -4101
+let kAudioEngineErrorAudioSessionCategoryRecordingRequired = -4102
+
 extension AudioManager {
     func checkAdmResult(code: Int) throws {
-        if code == kFailedToConfigureAudioSessionErrorCode {
+        if code == kAudioEngineErrorFailedToConfigureAudioSession {
             throw LiveKitError(.audioSession, message: "Failed to configure audio session")
+        } else if code == kAudioEngineErrorInsufficientDevicePermission {
+            throw LiveKitError(.deviceAccessDenied, message: "Device permissions are not granted")
         } else if code != 0 {
             throw LiveKitError(.audioEngine, message: "Audio engine returned error code: \(code)")
         }
