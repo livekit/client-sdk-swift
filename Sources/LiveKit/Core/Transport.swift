@@ -323,6 +323,7 @@ extension Transport {
     }
 
     func remove(track sender: LKRTCRtpSender) throws {
+        // Stop the transceiver to release its resources and prevent memory leak
         if let transceiver = _pc.transceivers.first(where: { $0.sender == sender }) {
             transceiver.stopInternal()
         }
