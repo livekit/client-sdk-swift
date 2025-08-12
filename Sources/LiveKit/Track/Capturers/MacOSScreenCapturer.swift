@@ -71,11 +71,13 @@ public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
                   let content = displaySource.scContent as? SCShareableContent,
                   let nativeDisplay = displaySource.nativeType as? SCDisplay
         {
-            let excludedApps = !options.includeCurrentApplication ? content.applications.filter { app in
-                Bundle.main.bundleIdentifier == app.bundleIdentifier
-            } : []
+            let includedApps = options.includeCurrentApplication ?
+                content.applications :
+                content.applications.filter { app in Bundle.main.bundleIdentifier != app.bundleIdentifier }
 
-            filter = SCContentFilter(display: nativeDisplay, excludingApplications: excludedApps, exceptingWindows: [])
+            let excludedWindows = content.windows.filter { window in options.excludeWindowIDs.contains(window.windowID) }
+
+            filter = SCContentFilter(display: nativeDisplay, including: includedApps, exceptingWindows: excludedWindows)
         } else {
             log("Unable to resolve SCContentFilter", .error)
             throw LiveKitError(.invalidState, message: "Unable to resolve SCContentFilter")
