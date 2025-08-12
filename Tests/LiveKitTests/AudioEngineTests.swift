@@ -68,7 +68,7 @@ class AudioEngineTests: LKTestCase, @unchecked Sendable {
         XCTAssert(!adm.isRecordingInitialized)
 
         // Ensure recording is initialized after set to true.
-        try adm.setRecordingAlwaysPreparedMode(true)
+        try await adm.setRecordingAlwaysPreparedMode(true)
 
         #if os(iOS)
         let session = AVAudioSession.sharedInstance()
