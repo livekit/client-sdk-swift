@@ -22,7 +22,7 @@ private extension Array where Element: LKRTCVideoCodecInfo {
     func rewriteCodecsIfNeeded() -> [LKRTCVideoCodecInfo] {
         // rewrite H264's profileLevelId to 42e032
         let codecs = map { $0.name == kLKRTCVideoCodecH264Name ? RTC.h264BaselineLevel5CodecInfo : $0 }
-        // logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: Engine.self)
+        // logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: RTC.self)
         return codecs
     }
 }
@@ -70,14 +70,14 @@ actor RTC {
 
     // global properties are already lazy
 
-    private static let encoderFactory: LKRTCVideoEncoderFactory & Sendable = {
+    static let encoderFactory: LKRTCVideoEncoderFactory & Sendable = {
         let encoderFactory = VideoEncoderFactory()
         return VideoEncoderFactorySimulcast(primary: encoderFactory,
                                             fallback: encoderFactory)
 
     }()
 
-    private static let decoderFactory: LKRTCVideoDecoderFactory & Sendable = VideoDecoderFactory()
+    static let decoderFactory: LKRTCVideoDecoderFactory & Sendable = VideoDecoderFactory()
 
     static let audioProcessingModule: LKRTCDefaultAudioProcessingModule = .init()
 
