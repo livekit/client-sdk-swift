@@ -188,10 +188,8 @@ extension MixerEngineObserver {
 
         guard let converter else { return }
 
-        converter.convert(from: inputBuffer)
-        // Copy the converted segment from buffer and schedule it.
-        let segment = converter.outputBuffer.copySegment()
-        appNode.scheduleBuffer(segment)
+        let buffer = converter.convert(from: inputBuffer)
+        appNode.scheduleBuffer(buffer)
 
         if !appNode.isPlaying {
             appNode.play()
