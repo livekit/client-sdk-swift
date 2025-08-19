@@ -9,7 +9,7 @@ let package = Package(
         .iOS(.v13),
         .macOS(.v10_15),
         .macCatalyst(.v14),
-        .visionOS(.v1),
+        .visionOS(.v2),
         .tvOS(.v17),
     ],
     products: [
@@ -20,7 +20,7 @@ let package = Package(
     ],
     dependencies: [
         // LK-Prefixed Dynamic WebRTC XCFramework
-        .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "125.6422.33"),
+        .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "137.7151.02"),
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.29.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.6.2"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.1.0"),
