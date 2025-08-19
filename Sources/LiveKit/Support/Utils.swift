@@ -212,20 +212,6 @@ class Utils {
         return result
     }
 
-    static func estimateH265Bitrate(fromH264 h264Bitrate: Double, dimensions: Dimensions, fps _: Int) -> Int {
-        // Additional adjustments based on resolution
-        let pixelCount = Double(dimensions.width * dimensions.height)
-        let adjustmentFactor = if pixelCount >= 1920 * 1080 { // 1080p and above
-            0.45 // More efficient at higher resolutions
-        } else if pixelCount >= 1280 * 720 { // 720p
-            0.50 // Standard efficiency
-        } else { // Lower resolutions
-            0.55 // Less efficient at lower resolutions
-        }
-
-        return Int(h264Bitrate * adjustmentFactor)
-    }
-
     static func computeVideoEncodings(
         dimensions: Dimensions,
         publishOptions: VideoPublishOptions?,
@@ -238,43 +224,24 @@ class Utils {
 
         let videoCodec = overrideVideoCodec ?? publishOptions.preferredCodec
 
-        // Apply H.265 bitrate estimation
-        let adjustedEncoding: VideoEncoding
-        if let videoCodec, videoCodec == VideoCodec.h265 {
-            let reducedBitrate = estimateH265Bitrate(fromH264: Double(encoding.maxBitrate), dimensions: dimensions, fps: encoding.maxFps)
-            adjustedEncoding = VideoEncoding(maxBitrate: reducedBitrate, maxFps: encoding.maxFps)
-            logger.log("H.265 detected: estimating bitrate from \(encoding.maxBitrate) to \(reducedBitrate) for \(dimensions)", type: Utils.self)
-        } else {
-            adjustedEncoding = encoding
-        }
-
         if let videoCodec, videoCodec.isSVC {
             // SVC mode
             logger.log("Using SVC mode", type: Utils.self)
-            return [RTC.createRtpEncodingParameters(encoding: adjustedEncoding, scalabilityMode: .L3T3_KEY)]
+            return [RTC.createRtpEncodingParameters(encoding: encoding, scalabilityMode: .L3T3_KEY)]
         } else if !publishOptions.simulcast {
             // Not-simulcast mode
             logger.log("Simulcast not enabled", type: Utils.self)
-            return [RTC.createRtpEncodingParameters(encoding: adjustedEncoding)]
+            return [RTC.createRtpEncodingParameters(encoding: encoding)]
         }
 
         // Continue to simulcast encoding computation...
 
         let baseParameters = VideoParameters(dimensions: dimensions,
-                                             encoding: adjustedEncoding)
+                                             encoding: encoding)
 
         // get suggested presets for the dimensions
         let preferredPresets = (isScreenShare ? publishOptions.screenShareSimulcastLayers : publishOptions.simulcastLayers)
-        var presets = (!preferredPresets.isEmpty ? preferredPresets : baseParameters.defaultSimulcastLayers(isScreenShare: isScreenShare)).sorted { $0 < $1 }
-
-        // Apply H.265 bitrate estimation to simulcast presets as well
-        if let videoCodec, videoCodec == VideoCodec.h265 {
-            presets = presets.map { preset in
-                let reducedBitrate = estimateH265Bitrate(fromH264: Double(preset.encoding.maxBitrate), dimensions: preset.dimensions, fps: preset.encoding.maxFps)
-                let adjustedPresetEncoding = VideoEncoding(maxBitrate: reducedBitrate, maxFps: preset.encoding.maxFps)
-                return VideoParameters(dimensions: preset.dimensions, encoding: adjustedPresetEncoding)
-            }
-        }
+        let presets = (!preferredPresets.isEmpty ? preferredPresets : baseParameters.defaultSimulcastLayers(isScreenShare: isScreenShare)).sorted { $0 < $1 }
 
         logger.log("Using presets: \(presets), count: \(presets.count) isScreenShare: \(isScreenShare)", type: Utils.self)
 
