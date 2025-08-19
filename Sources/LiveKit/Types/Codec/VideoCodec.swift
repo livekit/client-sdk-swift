@@ -35,7 +35,7 @@ public final class VideoCodec: NSObject, Codec {
     public static let av1 = VideoCodec(name: "av1", isSVC: true)
     public static let h265 = VideoCodec(name: "h265", isBackup: false)
 
-    public static let all: [VideoCodec] = [.h264, .vp8, .vp9, .av1, .h265]
+    public static let all: [VideoCodec] = [.h264, .h265, .vp8, .vp9, .av1]
     public static let allBackup: [VideoCodec] = [.h264, .vp8]
 
     public let mediaType = "video"
