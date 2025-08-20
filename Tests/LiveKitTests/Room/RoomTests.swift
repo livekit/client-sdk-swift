@@ -46,9 +46,7 @@ class RoomTests: LKTestCase, @unchecked Sendable {
             let room = rooms[0]
 
             let socket = await room.signalClient._state.socket
-            self.addTeardownBlock { [weak socket] in
-                XCTAssertNil(socket, "Socket leaked")
-            }
+            self.noLeaks(of: socket!)
         }
     }
 
