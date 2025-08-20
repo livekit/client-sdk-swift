@@ -167,6 +167,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var nextReconnectMode: ReconnectMode?
         var isReconnectingWithMode: ReconnectMode?
         var connectionState: ConnectionState = .disconnected
+        var reconnectTask: Task<Void, Error>?
         var disconnectError: LiveKitError?
         var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
@@ -413,6 +414,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         // Return if already disconnected state
         if case .disconnected = connectionState { return }
 
+        _state.mutate {
+            $0.reconnectTask?.cancel()
+            $0.reconnectTask = nil
+        }
+
         do {
             try await signalClient.sendLeave()
         } catch {
@@ -456,11 +462,13 @@ extension Room {
                 token: $0.token,
                 nextReconnectMode: $0.nextReconnectMode,
                 isReconnectingWithMode: $0.isReconnectingWithMode,
-                connectionState: $0.connectionState
+                connectionState: $0.connectionState,
+                reconnectTask: $0.reconnectTask
             ) : State(
                 connectOptions: $0.connectOptions,
                 roomOptions: $0.roomOptions,
                 connectionState: .disconnected,
+                reconnectTask: nil,
                 disconnectError: LiveKitError.from(error: disconnectError)
             )
         }
