@@ -84,6 +84,7 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
 
     func close() {
         task.cancel(with: .normalClosure, reason: nil)
+        urlSession.finishTasksAndInvalidate()
 
         _state.mutate { state in
             state.connectContinuation?.resume(throwing: LiveKitError(.cancelled))
