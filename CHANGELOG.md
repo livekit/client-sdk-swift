@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.7.0] - 2025-08-21
+
+### Added
+
+- outputVolume property to audio mixer
+- Added the possibility to exlude macOS windows from screen sharing
+- HEVC (H.265) codec support
+- Added wait until active APIs for RemoteParticipant
+
+### Changed
+
+- Improved reliability of the data channel
+- Drop Xcode 14 (Swift 5.7) support
+- Updated webrtc to m137
+
+### Fixed
+
+- Fixed concurrent registration for text/byte streams
+- macOS audio start workarounds
+- Fixed WebSocket memory leak after disconnecting
+- Fixed memory leak while unpublishing video tracks
+
 ## [2.6.1] - 2025-06-17
 
 ### Fixed
