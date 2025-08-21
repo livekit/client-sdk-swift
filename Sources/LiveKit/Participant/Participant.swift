@@ -95,6 +95,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
         var permissions = ParticipantPermissions()
         var trackPublications = [Track.Sid: TrackPublication]()
         var attributes = [String: String]()
+        var agentAttributes: AgentAttributes?
     }
 
     struct InternalState: Equatable, Hashable {
@@ -175,6 +176,17 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
                 room.delegates.notify(label: { "room.didUpdate state: \(newState.state)" }) {
                     $0.room?(room, participant: self, didUpdateState: newState.state)
                 }
+
+                guard let identity = identity?.stringValue else { return }
+                if oldState.state != .active, newState.state == .active {
+                    Task {
+                        await room.activeParticipantCompleters.resume(returning: (), for: identity)
+                    }
+                } else if oldState.state == .active, newState.state != .active {
+                    Task {
+                        await room.activeParticipantCompleters.resume(throwing: LiveKitError(.participantRemoved, message: "Participant removed \(identity)"), for: identity)
+                    }
+                }
             }
 
             // connection quality updated
@@ -230,6 +242,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
             $0.metadata = info.metadata
             $0.kind = info.kind.toLKType()
             $0.attributes = info.attributes
+            $0.agentAttributes = info.attributes.mapped(to: AgentAttributes.self)
             $0.state = info.state.toLKType()
 
             // Attempt to get millisecond precision.
@@ -315,5 +328,14 @@ extension Participant {
         }
 
         return room
+    }
+
+    func requireIdentity() throws -> Participant.Identity {
+        guard let identity else {
+            log("Identity is nil", .error)
+            throw LiveKitError(.invalidState, message: "Identity is nil")
+        }
+
+        return identity
     }
 }

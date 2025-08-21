@@ -41,6 +41,10 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
     @objc
     public let includeCurrentApplication: Bool
 
+    /// Exclude windows by their window ID (macOS only).
+    @objc
+    public let excludeWindowIDs: [UInt32]
+
     public static let defaultToBroadcastExtension: Bool = {
         #if os(iOS)
         return BroadcastBundleInfo.hasExtension
@@ -54,7 +58,8 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
                 showCursor: Bool = true,
                 appAudio: Bool = false,
                 useBroadcastExtension: Bool = defaultToBroadcastExtension,
-                includeCurrentApplication: Bool = false)
+                includeCurrentApplication: Bool = false,
+                excludeWindowIDs: [UInt32] = [])
     {
         self.dimensions = dimensions
         self.fps = fps
@@ -62,6 +67,7 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
         self.appAudio = appAudio
         self.useBroadcastExtension = useBroadcastExtension
         self.includeCurrentApplication = includeCurrentApplication
+        self.excludeWindowIDs = excludeWindowIDs
     }
 
     // MARK: - Equal
@@ -73,7 +79,8 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
             showCursor == other.showCursor &&
             appAudio == other.appAudio &&
             useBroadcastExtension == other.useBroadcastExtension &&
-            includeCurrentApplication == other.includeCurrentApplication
+            includeCurrentApplication == other.includeCurrentApplication &&
+            excludeWindowIDs == other.excludeWindowIDs
     }
 
     override public var hash: Int {
@@ -84,6 +91,7 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
         hasher.combine(appAudio)
         hasher.combine(useBroadcastExtension)
         hasher.combine(includeCurrentApplication)
+        hasher.combine(excludeWindowIDs)
         return hasher.finalize()
     }
 }

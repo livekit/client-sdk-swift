@@ -29,7 +29,31 @@ class CodecTests: LKTestCase {
         let h264 = VideoCodec.from(mimeType: "video/h264")
         XCTAssert(h264 == .h264)
 
+        let h265 = VideoCodec.from(mimeType: "video/h265")
+        XCTAssert(h265 == .h265)
+
         let av1 = VideoCodec.from(mimeType: "video/av1")
         XCTAssert(av1 == .av1)
+    }
+
+    func testSupportedCodecs() {
+        let encoderCodecs = RTC.decoderFactory.supportedCodecs()
+        print("encoderCodecs: \(encoderCodecs.map { "\($0.name) - \($0.parameters)" }.joined(separator: ", "))")
+        let decoderCodecs = RTC.decoderFactory.supportedCodecs()
+        print("decoderCodecs: \(decoderCodecs.map { "\($0.name) - \($0.parameters)" }.joined(separator: ", "))")
+
+        // Check encoder codecs
+        XCTAssert(encoderCodecs.contains(where: { $0.name == "VP8" }))
+        XCTAssert(encoderCodecs.contains(where: { $0.name == "VP9" }))
+        XCTAssert(encoderCodecs.contains(where: { $0.name == "AV1" }))
+        XCTAssert(encoderCodecs.contains(where: { $0.name == "H264" }))
+        XCTAssert(encoderCodecs.contains(where: { $0.name == "H265" }))
+
+        // Check decoder codecs
+        XCTAssert(decoderCodecs.contains(where: { $0.name == "VP8" }))
+        XCTAssert(decoderCodecs.contains(where: { $0.name == "VP9" }))
+        XCTAssert(decoderCodecs.contains(where: { $0.name == "AV1" }))
+        XCTAssert(decoderCodecs.contains(where: { $0.name == "H264" }))
+        XCTAssert(encoderCodecs.contains(where: { $0.name == "H265" }))
     }
 }

@@ -14,21 +14,8 @@
  * limitations under the License.
  */
 
-import XCTest
-
-func XCTAssertThrowsErrorAsync(_ expression: @autoclosure () async throws -> some Any) async {
-    do {
-        _ = try await expression()
-        XCTFail("No error was thrown.")
-    } catch {
-        // Pass
-    }
-}
-
-extension LKTestCase {
-    func noLeaks(of instance: AnyObject & Sendable, file: StaticString = #filePath, line: UInt = #line) {
-        addTeardownBlock { [weak instance] in
-            XCTAssertNil(instance, "Leaked object: \(String(describing: instance))", file: file, line: line)
-        }
+extension AgentState: CustomStringConvertible {
+    public var description: String {
+        rawValue.capitalized
     }
 }

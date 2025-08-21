@@ -41,6 +41,15 @@ class RoomTests: LKTestCase, @unchecked Sendable {
         }
     }
 
+    func testResourcesCleanUp() async throws {
+        try await withRooms([RoomTestingOptions()]) { rooms in
+            let room = rooms[0]
+
+            let socket = await room.signalClient._state.socket
+            self.noLeaks(of: socket!)
+        }
+    }
+
     func testSendDataPacket() async throws {
         try await withRooms([RoomTestingOptions()]) { rooms in
             let room = rooms[0]

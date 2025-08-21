@@ -14,21 +14,16 @@
  * limitations under the License.
  */
 
-import XCTest
+import Foundation
 
-func XCTAssertThrowsErrorAsync(_ expression: @autoclosure () async throws -> some Any) async {
-    do {
-        _ = try await expression()
-        XCTFail("No error was thrown.")
-    } catch {
-        // Pass
-    }
-}
+extension Encodable {
+    func mapped<T: Decodable>(to type: T.Type,
+                              encoder: JSONEncoder = JSONEncoder(),
+                              decoder: JSONDecoder = JSONDecoder()) -> T?
+    {
+        guard let encoded = try? encoder.encode(self),
+              let decoded = try? decoder.decode(type, from: encoded) else { return nil }
 
-extension LKTestCase {
-    func noLeaks(of instance: AnyObject & Sendable, file: StaticString = #filePath, line: UInt = #line) {
-        addTeardownBlock { [weak instance] in
-            XCTAssertNil(instance, "Leaked object: \(String(describing: instance))", file: file, line: line)
-        }
+        return decoded
     }
 }

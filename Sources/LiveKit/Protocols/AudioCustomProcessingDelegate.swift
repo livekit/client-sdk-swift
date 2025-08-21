@@ -46,7 +46,7 @@ public protocol AudioCustomProcessingDelegate: Sendable {
 class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @unchecked Sendable, LKRTCAudioCustomProcessingDelegate {
     // MARK: - Public
 
-    public var target: AudioCustomProcessingDelegate? { _state.target }
+    var target: AudioCustomProcessingDelegate? { _state.target }
 
     // MARK: - Private
 
@@ -56,7 +56,7 @@ class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @u
 
     private var _state = StateSync(State())
 
-    public func set(target: AudioCustomProcessingDelegate?) {
+    func set(target: AudioCustomProcessingDelegate?) {
         _state.mutate { $0.target = target }
     }
 

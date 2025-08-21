@@ -15,6 +15,7 @@
  */
 
 import Foundation
+import Network
 
 typealias WebSocketStream = AsyncThrowingStream<URLSessionWebSocketTask.Message, Error>
 
@@ -32,6 +33,11 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
     private let request: URLRequest
 
     private lazy var urlSession: URLSession = {
+        #if targetEnvironment(simulator)
+        if #available(iOS 26.0, *) {
+            nw_tls_create_options()
+        }
+        #endif
         let config = URLSessionConfiguration.default
         // explicitly set timeout intervals
         config.timeoutIntervalForRequest = TimeInterval(60)
@@ -78,6 +84,7 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
 
     func close() {
         task.cancel(with: .normalClosure, reason: nil)
+        urlSession.finishTasksAndInvalidate()
 
         _state.mutate { state in
             state.connectContinuation?.resume(throwing: LiveKitError(.cancelled))
@@ -122,7 +129,7 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
 
     // MARK: - Send
 
-    public func send(data: Data) async throws {
+    func send(data: Data) async throws {
         let message = URLSessionWebSocketTask.Message.data(data)
         try await task.send(message)
     }
