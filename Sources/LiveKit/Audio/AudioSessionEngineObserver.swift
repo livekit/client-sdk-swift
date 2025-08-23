@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-let kFailedToConfigureAudioSessionErrorCode = -4100
-
 #if os(iOS) || os(visionOS) || os(tvOS)
 
 import AVFoundation
