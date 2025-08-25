@@ -273,16 +273,21 @@ public class VideoView: NativeView, Loggable {
             let renderModeDidUpdate = newState.renderMode != oldState.renderMode
             let trackDidUpdate = !Self.track(oldState.track as? VideoTrack, isEqualWith: newState.track as? VideoTrack)
 
+            // Always add/remove from the track asynchronously - even when called on @MainActor
             if trackDidUpdate || shouldRenderDidUpdate {
-                // Handle track removal outside of main queue
-                if let track = oldState.track as? VideoTrack {
-                    track.remove(videoRenderer: self)
+                Task {
+                    if let track = oldState.track as? VideoTrack {
+                        track.remove(videoRenderer: self)
+                    }
+                    if let track = newState.track as? VideoTrack, newState.shouldRender {
+                        track.add(videoRenderer: self)
+                    }
                 }
             }
 
-            // Enter .main only if UI updates are required
+            // Recreate renderers if necessary on @MainActor
             if trackDidUpdate || shouldRenderDidUpdate || renderModeDidUpdate {
-                mainSyncOrAsync { @MainActor in
+                Task { @MainActor in
                     var didReCreateNativeRenderer = false
 
                     if trackDidUpdate || shouldRenderDidUpdate {
@@ -313,13 +318,6 @@ public class VideoView: NativeView, Loggable {
                     if renderModeDidUpdate, !didReCreateNativeRenderer {
                         self.recreatePrimaryRenderer(for: newState.renderMode)
                     }
-                }
-            }
-
-            // Handle track addition outside of main queue
-            if trackDidUpdate || shouldRenderDidUpdate {
-                if let track = newState.track as? VideoTrack, newState.shouldRender {
-                    track.add(videoRenderer: self)
                 }
             }
 
@@ -857,18 +855,6 @@ extension LKRTCMTLVideoView: Mirrorable {
     }
 }
 #endif
-
-private extension VideoView {
-    nonisolated func mainSyncOrAsync(operation: @MainActor @escaping () -> Void) {
-        if Thread.current.isMainThread {
-            MainActor.assumeIsolated(operation)
-        } else {
-            Task { @MainActor in
-                operation()
-            }
-        }
-    }
-}
 
 #if os(iOS)
 extension VideoView.TransitionMode {
