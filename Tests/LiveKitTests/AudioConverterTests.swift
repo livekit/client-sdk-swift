@@ -52,9 +52,9 @@ class AudioConverterTests: LKTestCase {
         while inputFile.framePosition < inputFile.length {
             let framesToRead: UInt32 = min(readFrameCapacity, UInt32(inputFile.length - inputFile.framePosition))
             try inputFile.read(into: inputBuffer, frameCount: framesToRead)
-            converter.convert(from: inputBuffer)
-            print("Converted \(framesToRead) frames from \(inputFormat.sampleRate) to \(outputFormat.sampleRate), outputFrames: \(converter.outputBuffer.frameLength)")
-            try outputFile?.write(from: converter.outputBuffer)
+            let buffer = converter.convert(from: inputBuffer)
+            print("Converted \(framesToRead) frames from \(inputFormat.sampleRate) to \(outputFormat.sampleRate), outputFrames: \(buffer.frameLength)")
+            try outputFile?.write(from: buffer)
         }
 
         // Close file

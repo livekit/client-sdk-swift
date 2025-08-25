@@ -118,13 +118,13 @@ public class AudioManager: Loggable {
     // MARK: - AudioProcessingModule
 
     private lazy var capturePostProcessingDelegateAdapter: AudioCustomProcessingDelegateAdapter = {
-        let adapter = AudioCustomProcessingDelegateAdapter()
+        let adapter = AudioCustomProcessingDelegateAdapter(label: "capturePost")
         RTC.audioProcessingModule.capturePostProcessingDelegate = adapter
         return adapter
     }()
 
     private lazy var renderPreProcessingDelegateAdapter: AudioCustomProcessingDelegateAdapter = {
-        let adapter = AudioCustomProcessingDelegateAdapter()
+        let adapter = AudioCustomProcessingDelegateAdapter(label: "renderPre")
         RTC.audioProcessingModule.renderPreProcessingDelegate = adapter
         return adapter
     }()

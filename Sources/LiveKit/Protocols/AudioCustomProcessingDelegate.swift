@@ -46,6 +46,7 @@ public protocol AudioCustomProcessingDelegate: Sendable {
 class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @unchecked Sendable, LKRTCAudioCustomProcessingDelegate {
     // MARK: - Public
 
+    let label: String
     var target: AudioCustomProcessingDelegate? { _state.target }
 
     // MARK: - Private
@@ -60,8 +61,10 @@ class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @u
         _state.mutate { $0.target = target }
     }
 
-    init() {
-        super.init(label: "AudioCustomProcessingDelegateAdapter")
+    init(label: String) {
+        self.label = label
+        super.init(label: "AudioCustomProcessingDelegateAdapter.\(label)")
+        log("label: \(label)")
     }
 
     // MARK: - AudioCustomProcessingDelegate
