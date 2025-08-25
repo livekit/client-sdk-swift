@@ -273,16 +273,9 @@ public class VideoView: NativeView, Loggable {
             let renderModeDidUpdate = newState.renderMode != oldState.renderMode
             let trackDidUpdate = !Self.track(oldState.track as? VideoTrack, isEqualWith: newState.track as? VideoTrack)
 
-            if trackDidUpdate || shouldRenderDidUpdate {
-                // Handle track removal outside of main queue
-                if let track = oldState.track as? VideoTrack {
-                    track.remove(videoRenderer: self)
-                }
-            }
-
             // Enter .main only if UI updates are required
             if trackDidUpdate || shouldRenderDidUpdate || renderModeDidUpdate {
-                mainSyncOrAsync { @MainActor in
+                Task { @MainActor in
                     var didReCreateNativeRenderer = false
 
                     if trackDidUpdate || shouldRenderDidUpdate {
@@ -316,10 +309,16 @@ public class VideoView: NativeView, Loggable {
                 }
             }
 
-            // Handle track addition outside of main queue
+            // Handle track updates outside of main queue
             if trackDidUpdate || shouldRenderDidUpdate {
-                if let track = newState.track as? VideoTrack, newState.shouldRender {
-                    track.add(videoRenderer: self)
+                Task { [weak self] in
+                    guard let self else { return }
+                    if let track = oldState.track as? VideoTrack {
+                        track.remove(videoRenderer: self)
+                    }
+                    if let track = newState.track as? VideoTrack, newState.shouldRender {
+                        track.add(videoRenderer: self)
+                    }
                 }
             }
 
