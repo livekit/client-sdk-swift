@@ -411,8 +411,16 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     @objc
     public func disconnect() async {
-        // Return if already disconnected state
-        if case .disconnected = connectionState { return }
+        let shouldDisconnect = _state.mutate {
+            switch $0.connectionState {
+            case .disconnecting, .disconnected:
+                return false
+            default:
+                $0.connectionState = .disconnecting
+                return true
+            }
+        }
+        guard shouldDisconnect else { return }
 
         cancelReconnect()
 
