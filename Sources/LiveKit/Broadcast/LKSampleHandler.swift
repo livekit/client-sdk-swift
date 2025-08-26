@@ -28,6 +28,7 @@ import OSLog
 import LKObjCHelpers
 #endif
 
+@objc
 @available(macCatalyst 13.1, *)
 open class LKSampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
     private var uploader: BroadcastUploader?
