@@ -445,6 +445,7 @@ extension Room {
     func cleanUp(withError disconnectError: Error? = nil,
                  isFullReconnect: Bool = false) async
     {
+        guard !Task.isCancelled else { return }
         log("withError: \(String(describing: disconnectError)), isFullReconnect: \(isFullReconnect)")
 
         // Reset completers
