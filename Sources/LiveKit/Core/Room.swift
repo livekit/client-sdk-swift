@@ -414,10 +414,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         // Return if already disconnected state
         if case .disconnected = connectionState { return }
 
-        _state.mutate {
-            $0.reconnectTask?.cancel()
-            $0.reconnectTask = nil
-        }
+        cancelReconnect()
 
         do {
             try await signalClient.sendLeave()
@@ -425,7 +422,19 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             log("Failed to send leave with error: \(error)")
         }
 
+        cancelReconnect()
+
         await cleanUp()
+
+        cancelReconnect()
+    }
+
+    private func cancelReconnect() {
+        _state.mutate {
+            log("Cancelling reconnect task: \(String(describing: $0.reconnectTask))")
+            $0.reconnectTask?.cancel()
+            $0.reconnectTask = nil
+        }
     }
 }
 
@@ -468,7 +477,7 @@ extension Room {
                 connectOptions: $0.connectOptions,
                 roomOptions: $0.roomOptions,
                 connectionState: .disconnected,
-                reconnectTask: nil,
+                reconnectTask: $0.reconnectTask,
                 disconnectError: LiveKitError.from(error: disconnectError)
             )
         }
