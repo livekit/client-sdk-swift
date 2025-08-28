@@ -42,32 +42,20 @@ public protocol VideoRenderer: Sendable {
     nonisolated func render(frame: VideoFrame, captureDevice: AVCaptureDevice?, captureOptions: VideoCaptureOptions?)
 }
 
-class VideoRendererAdapter: NSObject, LKRTCVideoRenderer {
-    private weak var target: VideoRenderer?
+final class VideoRendererAdapter: NSObject, LKRTCVideoRenderer {
+    weak var renderer: VideoRenderer?
 
-    init(target: VideoRenderer) {
-        self.target = target
+    init(renderer: VideoRenderer) {
+        self.renderer = renderer
     }
 
     func setSize(_ size: CGSize) {
-        target?.set?(size: size)
+        renderer?.set?(size: size)
     }
 
     func renderFrame(_ frame: LKRTCVideoFrame?) {
         guard let frame = frame?.toLKType() else { return }
-        target?.render?(frame: frame)
-        target?.render?(frame: frame, captureDevice: nil, captureOptions: nil)
-    }
-
-    // Proxy the equality operators
-
-    override func isEqual(_ object: Any?) -> Bool {
-        guard let other = object as? VideoRendererAdapter else { return false }
-        return target === other.target
-    }
-
-    override var hash: Int {
-        guard let target else { return 0 }
-        return ObjectIdentifier(target).hashValue
+        renderer?.render?(frame: frame)
+        renderer?.render?(frame: frame, captureDevice: nil, captureOptions: nil)
     }
 }
