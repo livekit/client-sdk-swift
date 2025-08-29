@@ -458,7 +458,7 @@ extension LocalParticipant {
         log("[Publish] Added transceiver...")
 
         // Set codec...
-        transceiver.set(preferredVideoCodec: videoCodec)
+        try transceiver.set(preferredVideoCodec: videoCodec)
 
         let sender = transceiver.sender
 
@@ -667,7 +667,7 @@ extension LocalParticipant {
                     }
 
                     if let preferredCodec = publishOptions.preferredCodec {
-                        transceiver.set(preferredVideoCodec: preferredCodec)
+                        try transceiver.set(preferredVideoCodec: preferredCodec)
                     }
                 }
 
