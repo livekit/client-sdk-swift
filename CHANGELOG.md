@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.7.2] - 2025-08-29
+
+### Fixed
+
+- Fixed transceiver crash, reverting video memory leak changes
+
 ## [2.7.1] - 2025-08-25
 
 ### Added
