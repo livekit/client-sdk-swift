@@ -315,11 +315,16 @@ extension Transport {
     func addTransceiver(with track: LKRTCMediaStreamTrack,
                         transceiverInit: LKRTCRtpTransceiverInit) throws -> LKRTCRtpTransceiver
     {
-        guard let transceiver = _pc.addTransceiver(with: track, init: transceiverInit) else {
+        if let existingTransceiver = _pc.transceivers.first(where: { $0.mediaType == .init(trackKind: track.kind) && $0.direction == .inactive }) {
+            existingTransceiver.sender.track = track
+            log("Reusing existing transceiver (out of \(_pc.transceivers.count)) for \(track.kind) track", .debug)
+            return existingTransceiver
+        } else if let newTransceiver = _pc.addTransceiver(with: track, init: transceiverInit) {
+            log("Creating new transceiver for \(track.kind) track", .debug)
+            return newTransceiver
+        } else {
             throw LiveKitError(.webRTC, message: "Failed to add transceiver")
         }
-
-        return transceiver
     }
 
     func remove(track sender: LKRTCRtpSender) throws {
@@ -335,5 +340,15 @@ extension Transport {
         let result = _pc.dataChannel(forLabel: label, configuration: configuration)
         result?.delegate = delegate
         return result
+    }
+}
+
+extension LKRTCRtpMediaType {
+    init(trackKind: String) {
+        switch trackKind {
+        case "audio": self = .audio
+        case "video": self = .video
+        default: self = .unsupported
+        }
     }
 }

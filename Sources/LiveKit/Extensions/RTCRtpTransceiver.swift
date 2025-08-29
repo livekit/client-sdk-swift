@@ -20,7 +20,7 @@ internal import LiveKitWebRTC
 
 extension LKRTCRtpTransceiver: Loggable {
     /// Attempts to set preferred video codec.
-    func set(preferredVideoCodec codec: VideoCodec, exceptCodec: VideoCodec? = nil) {
+    func set(preferredVideoCodec codec: VideoCodec, exceptCodec: VideoCodec? = nil) throws {
         // Get list of supported codecs...
         let allVideoCodecs = RTC.videoSenderCapabilities.codecs
 
@@ -36,7 +36,11 @@ extension LKRTCRtpTransceiver: Loggable {
         let combinedCapabilities = [preferredCodecCapability] + otherCapabilities
 
         // Codecs not set in codecPreferences will not be negotiated in the offer
-        codecPreferences = combinedCapabilities.compactMap { $0 }
+        do {
+            try setCodecPreferences(combinedCapabilities.compactMap { $0 }, error: ())
+        } catch {
+            throw LiveKitError(.webRTC, message: "Failed to set codec preferences", internalError: error)
+        }
 
         log("codecPreferences set: \(codecPreferences.map { String(describing: $0) }.joined(separator: ", "))")
 
