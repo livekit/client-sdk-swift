@@ -35,6 +35,7 @@ public enum ConnectionState: Int, Sendable {
     case connecting
     case reconnecting
     case connected
+    case disconnecting
 }
 
 extension ConnectionState: Identifiable {
