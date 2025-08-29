@@ -127,8 +127,8 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         var rtpSenderForCodec: [VideoCodec: LKRTCRtpSender] = [:] // simulcastSender
         var rtpReceiver: LKRTCRtpReceiver?
 
-        // Weak reference to all VideoRenderers attached to this track.
-        var videoRenderers = NSHashTable<VideoRenderer>.weakObjects()
+        // All VideoRendererAdapters attached to this track, key/value for direct removal.
+        var videoRendererAdapters = NSMapTable<VideoRenderer, VideoRendererAdapter>.weakToStrongObjects()
     }
 
     let _state: StateSync<State>
