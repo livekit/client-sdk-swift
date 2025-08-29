@@ -1,1 +1,0 @@
-patch type="fixed" "Fixed transceiver crash, reverting video memory leak changes"
