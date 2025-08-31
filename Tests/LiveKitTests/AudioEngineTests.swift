@@ -283,7 +283,6 @@ class AudioEngineTests: LKTestCase, @unchecked Sendable {
 
         // Set manual rendering mode...
         try AudioManager.shared.setManualRenderingMode(true)
-        try AudioManager.shared.startLocalRecording()
 
         // Check if manual rendering mode is set...
         let isManualRenderingMode = AudioManager.shared.isManualRenderingMode
