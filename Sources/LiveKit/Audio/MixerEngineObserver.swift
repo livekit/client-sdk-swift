@@ -79,7 +79,7 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
         var converters: [AVAudioFormat: AudioConverter] = [:]
 
         // Reference to engine format
-        var engineFormat: AVAudioFormat?
+        var playerNodeFormat: AVAudioFormat?
     }
 
     let _state = StateSync(State())
@@ -121,8 +121,10 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
     }
 
     public func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int {
-        // Get the main mixer
-        guard let mainMixerNode = context[kLKRTCAudioEngineInputMixerNodeKey] as? AVAudioMixerNode else {
+        // Get the main input mixer node, for manual rendering mode this is currently the mainMixerNode
+        let mainMixerNode = engine.isInManualRenderingMode ? engine.mainMixerNode : (context[kLKRTCAudioEngineInputMixerNodeKey] as? AVAudioMixerNode)
+
+        guard let mainMixerNode else {
             // If failed to get main mixer, call next and return.
             return next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context) ?? 0
         }
@@ -132,9 +134,15 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
             ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode)
         }
 
+        // AVAudioPlayerNode doesn't support Int16 so we ensure to use Float32
+        let playerNodeFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                             sampleRate: format.sampleRate,
+                                             channels: format.channelCount,
+                                             interleaved: format.isInterleaved)!
+
         log("Connecting app -> appMixer -> mainMixer")
         // appAudio -> appAudioMixer -> mainMixer
-        engine.connect(appNode, to: appMixerNode, format: format)
+        engine.connect(appNode, to: appMixerNode, format: playerNodeFormat)
         engine.connect(appMixerNode, to: mainMixerNode, format: format)
 
         // src is not null if device rendering mode.
@@ -146,16 +154,16 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
 
         log("Connecting micAudio (player) to micMixer -> mainMixer")
         // mic (player) -> micMixer -> mainMixer
-        engine.connect(micNode, to: micMixerNode, format: format)
+        engine.connect(micNode, to: micMixerNode, format: playerNodeFormat)
         // Always connect micMixer to mainMixer
         engine.connect(micMixerNode, to: mainMixerNode, format: format)
 
         _state.mutate {
-            if let previousEngineFormat = $0.engineFormat, previousEngineFormat != format {
+            if let previousEngineFormat = $0.playerNodeFormat, previousEngineFormat != format {
                 // Clear cached converters when engine format changes
                 $0.converters.removeAll()
             }
-            $0.engineFormat = format
+            $0.playerNodeFormat = playerNodeFormat
             $0.isInputConnected = true
         }
 
@@ -180,13 +188,13 @@ extension MixerEngineObserver {
     // Create or use cached AudioConverter.
     func converter(for format: AVAudioFormat) -> AudioConverter? {
         _state.mutate {
-            guard let engineFormat = $0.engineFormat else { return nil }
+            guard let playerNodeFormat = $0.playerNodeFormat else { return nil }
 
             if let converter = $0.converters[format] {
                 return converter
             }
 
-            let newConverter = AudioConverter(from: format, to: engineFormat)
+            let newConverter = AudioConverter(from: format, to: playerNodeFormat)
             $0.converters[format] = newConverter
             return newConverter
         }
@@ -198,7 +206,10 @@ extension MixerEngineObserver {
             ($0.isInputConnected, $0.appNode)
         }
 
-        guard isConnected, let engine = appNode.engine, engine.isRunning else { return }
+        guard isConnected, let engine = appNode.engine, engine.isRunning else {
+            log("Engine is not running", .warning)
+            return
+        }
 
         // Create or update the converter if needed
         let converter = converter(for: inputBuffer.format)
