@@ -307,10 +307,8 @@ public class AudioMixRecorderSource: Loggable, AudioRenderer, @unchecked Sendabl
         }
 
         if let converter {
-            converter.convert(from: pcmBuffer)
-            // Copy the converted segment from buffer and schedule it.
-            let segment = converter.outputBuffer.copySegment()
-            playerNode.scheduleBuffer(segment, completionHandler: nil)
+            let buffer = converter.convert(from: pcmBuffer)
+            playerNode.scheduleBuffer(buffer, completionHandler: nil)
             play()
         }
     }

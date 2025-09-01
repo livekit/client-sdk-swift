@@ -74,7 +74,11 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
 
         // Internal states
         var isInputConnected: Bool = false
-        var appAudioConverter: AudioConverter?
+
+        // Cached converters
+        var converters: [AVAudioFormat: AudioConverter] = [:]
+
+        // Reference to engine format
         var engineFormat: AVAudioFormat?
     }
 
@@ -147,6 +151,10 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
         engine.connect(micMixerNode, to: mainMixerNode, format: format)
 
         _state.mutate {
+            if let previousEngineFormat = $0.engineFormat, previousEngineFormat != format {
+                // Clear cached converters when engine format changes
+                $0.converters.removeAll()
+            }
             $0.engineFormat = format
             $0.isInputConnected = true
         }
@@ -169,29 +177,36 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
 }
 
 extension MixerEngineObserver {
+    // Create or use cached AudioConverter.
+    func converter(for format: AVAudioFormat) -> AudioConverter? {
+        _state.mutate {
+            guard let engineFormat = $0.engineFormat else { return nil }
+
+            if let converter = $0.converters[format] {
+                return converter
+            }
+
+            let newConverter = AudioConverter(from: format, to: engineFormat)
+            $0.converters[format] = newConverter
+            return newConverter
+        }
+    }
+
     // Capture appAudio and apply conversion automatically suitable for internal audio engine.
-    func capture(appAudio inputBuffer: AVAudioPCMBuffer) {
-        let (isConnected, appNode, oldConverter, engineFormat) = _state.read {
-            ($0.isInputConnected, $0.appNode, $0.appAudioConverter, $0.engineFormat)
+    public func capture(appAudio inputBuffer: AVAudioPCMBuffer) {
+        let (isConnected, appNode) = _state.read {
+            ($0.isInputConnected, $0.appNode)
         }
 
-        guard isConnected, let engineFormat, let engine = appNode.engine, engine.isRunning else { return }
+        guard isConnected, let engine = appNode.engine, engine.isRunning else { return }
 
         // Create or update the converter if needed
-        let converter = (oldConverter?.inputFormat == inputBuffer.format)
-            ? oldConverter
-            : {
-                let newConverter = AudioConverter(from: inputBuffer.format, to: engineFormat)!
-                self._state.mutate { $0.appAudioConverter = newConverter }
-                return newConverter
-            }()
+        let converter = converter(for: inputBuffer.format)
 
         guard let converter else { return }
 
-        converter.convert(from: inputBuffer)
-        // Copy the converted segment from buffer and schedule it.
-        let segment = converter.outputBuffer.copySegment()
-        appNode.scheduleBuffer(segment)
+        let buffer = converter.convert(from: inputBuffer)
+        appNode.scheduleBuffer(buffer)
 
         if !appNode.isPlaying {
             appNode.play()

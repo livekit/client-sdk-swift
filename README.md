@@ -41,7 +41,7 @@ Add the dependency and also to your target
 let package = Package(
   ...
   dependencies: [
-    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("2.6.1")),
+    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("2.7.2")),
   ],
   targets: [
     .target(
@@ -133,6 +133,18 @@ extension RoomViewController: RoomDelegate {
 See [iOS Screen Sharing instructions](Docs/ios-screen-sharing.md).
 
 ## Integration Notes
+
+### Submitting to the App Store, DSYMs
+
+`LiveKitWebRTC.xcframework` binary framework, which is the main dependency of the SDK, does not contain DSYMs. Submitting the app to the App Store will result in a following warning:
+
+```
+The archive did not include a dSYM for the LiveKitWebRTC.framework with the UUIDs [...]. Ensure that the archive's dSYM folder includes a DWARF file for LiveKitWebRTC.framework with the expected UUIDs.
+```
+
+It will **not prevent** the app from being submitted to the App Store or passing the review process.
+
+If you are building a customized version of the [LiveKitWebRTC](https://github.com/webrtc-sdk/webrtc), you can use the [build script](https://github.com/webrtc-sdk/webrtc-build/blob/main/build/apple/xcframework.sh) in `DEBUG` mode to generate them locally.
 
 ### Thread safety
 

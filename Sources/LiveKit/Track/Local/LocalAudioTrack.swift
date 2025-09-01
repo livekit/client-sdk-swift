@@ -93,14 +93,7 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack, @unchecked Sendable
     override func startCapture() async throws {
         // AudioDeviceModule's InitRecording() and StartRecording() automatically get called by WebRTC, but
         // explicitly init & start it early to detect audio engine failures (mic not accessible for some reason, etc.).
-        do {
-            try AudioManager.shared.startLocalRecording()
-        } catch {
-            // Make sure internal state is updated to stopped state. (TODO: Remove if ADM reverts state automatically)
-            try? AudioManager.shared.stopLocalRecording()
-            // Rethrow
-            throw error
-        }
+        try AudioManager.shared.startLocalRecording()
     }
 
     override func stopCapture() async throws {
