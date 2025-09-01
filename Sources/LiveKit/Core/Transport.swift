@@ -323,8 +323,25 @@ extension Transport {
     }
 
     func remove(track sender: LKRTCRtpSender) throws {
+        let isVideo = sender.track?.kind == "video"
+
         guard _pc.removeTrack(sender) else {
             throw LiveKitError(.webRTC, message: "Failed to remove track")
+        }
+
+        if isVideo {
+            releaseTransceiver(sender: sender)
+        }
+    }
+
+    // Try to stop the transceiver and free the resources
+    // Workaround: https://groups.google.com/g/discuss-webrtc/c/WDsGuVucBjQ?pli=1
+    private func releaseTransceiver(sender: LKRTCRtpSender) {
+        if let transceiver = _pc.transceivers.first(where: { $0.sender == sender }), !transceiver.isStopped {
+            log("Stopping sender's transceiver", .debug)
+            transceiver.stopInternal()
+        } else {
+            log("No transceiver found for the given sender", .warning)
         }
     }
 
