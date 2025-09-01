@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.7.2] - 2025-08-29
+
+### Fixed
+
+- Fixed transceiver crash, reverting video memory leak changes
+
+## [2.7.1] - 2025-08-25
+
+### Added
+
+- Recording permission check at SDK level
+
+### Changed
+
+- Expose audio capture API
+
+### Fixed
+
+- Remote audio buffer when using manual rendering mode
+
 ## [2.7.0] - 2025-08-21
 
 ### Added
