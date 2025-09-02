@@ -37,11 +37,11 @@ public class LiveKitSDK: NSObject {
 
     @objc
     public static func setLoggerStandardOutput() {
-        LoggingSystem.bootstrap {
-            var logHandler = StreamLogHandler.standardOutput(label: $0)
-            logHandler.logLevel = .debug
-            return logHandler
-        }
+//        LoggingSystem.bootstrap {
+//            var logHandler = StreamLogHandler.standardOutput(label: $0)
+//            logHandler.logLevel = .debug
+//            return logHandler
+//        }
     }
 
     /// Notify the SDK to start initializing for faster connection/publishing later on. This is non-blocking.
