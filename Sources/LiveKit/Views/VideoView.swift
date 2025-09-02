@@ -760,10 +760,10 @@ extension VideoView {
     static func createNativeRendererView(for renderMode: VideoView.RenderMode) -> NativeRendererView {
         #if os(iOS) || os(macOS)
         if case .sampleBuffer = renderMode {
-            logger.log("Using AVSampleBufferDisplayLayer for VideoView's Renderer", type: VideoView.self)
+//            log("Using AVSampleBufferDisplayLayer for VideoView's Renderer", type: VideoView.self)
             return SampleBufferVideoRenderer()
         } else {
-            logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
+//            log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
             let result = LKRTCMTLVideoView()
 
             #if os(iOS)
@@ -780,7 +780,7 @@ extension VideoView {
                 #endif
                 // ensure it's capable of rendering 60fps
                 // https://developer.apple.com/documentation/metalkit/mtkview/1536027-preferredframespersecond
-                logger.log("preferredFramesPerSecond = 60", type: VideoView.self)
+//                log("preferredFramesPerSecond = 60", type: VideoView.self)
                 mtkView.preferredFramesPerSecond = 60
             }
 

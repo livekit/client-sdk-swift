@@ -50,14 +50,14 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
 
     private func createReceiver() -> Bool {
         guard let socketPath = BroadcastBundleInfo.socketPath else {
-            logger.error("Bundle settings improperly configured for screen capture")
+//            logger.error("Bundle settings improperly configured for screen capture")
             return false
         }
         Task { [weak self] in
             guard let self else { return }
             do {
                 let receiver = try await BroadcastReceiver(socketPath: socketPath)
-                logger.debug("Broadcast receiver connected")
+//                logger.debug("Broadcast receiver connected")
                 self.receiver = receiver
 
                 if appAudio {
@@ -70,9 +70,9 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
                     case let .audio(buffer): AudioManager.shared.mixer.capture(appAudio: buffer)
                     }
                 }
-                logger.debug("Broadcast receiver closed")
+//                logger.debug("Broadcast receiver closed")
             } catch {
-                logger.error("Broadcast receiver error: \(error)")
+//                logger.error("Broadcast receiver error: \(error)")
             }
             _ = try? await stopCapture()
         }

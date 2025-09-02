@@ -77,7 +77,7 @@ actor IncomingStreamManager: Loggable {
         guard let handler = handler(for: info) else {
             let topic = info.topic
             if !failedToOpenStreams.contains(topic) {
-                logger.warning("Unable to find handler for incoming stream: \(info.id), topic: \(topic), opened by: \(identity)")
+//                logger.warning("Unable to find handler for incoming stream: \(info.id), topic: \(topic), opened by: \(identity)")
                 failedToOpenStreams.insert(topic)
             }
             return

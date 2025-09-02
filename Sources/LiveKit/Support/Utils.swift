@@ -226,11 +226,11 @@ class Utils {
 
         if let videoCodec, videoCodec.isSVC {
             // SVC mode
-            logger.log("Using SVC mode", type: Utils.self)
+//            log("Using SVC mode", type: Utils.self)
             return [RTC.createRtpEncodingParameters(encoding: encoding, scalabilityMode: .L3T3_KEY)]
         } else if !publishOptions.simulcast {
             // Not-simulcast mode
-            logger.log("Simulcast not enabled", type: Utils.self)
+//            log("Simulcast not enabled", type: Utils.self)
             return [RTC.createRtpEncodingParameters(encoding: encoding)]
         }
 
@@ -243,7 +243,7 @@ class Utils {
         let preferredPresets = (isScreenShare ? publishOptions.screenShareSimulcastLayers : publishOptions.simulcastLayers)
         let presets = (!preferredPresets.isEmpty ? preferredPresets : baseParameters.defaultSimulcastLayers(isScreenShare: isScreenShare)).sorted { $0 < $1 }
 
-        logger.log("Using presets: \(presets), count: \(presets.count) isScreenShare: \(isScreenShare)", type: Utils.self)
+//        log("Using presets: \(presets), count: \(presets.count) isScreenShare: \(isScreenShare)", type: Utils.self)
 
         let lowPreset = presets[0]
         let midPreset = presets[safe: 1]

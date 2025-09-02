@@ -103,7 +103,7 @@ extension LKRTCVideoFrame {
         } else if let rtcI420Buffer = buffer as? LKRTCI420Buffer {
             lkBuffer = I420VideoBuffer(rtcI420Buffer: rtcI420Buffer)
         } else {
-            logger.log("RTCVideoFrame.buffer is not a known type (\(type(of: buffer)))", .error, type: LKRTCVideoFrame.self)
+//            log("RTCVideoFrame.buffer is not a known type (\(type(of: buffer)))", .error, type: LKRTCVideoFrame.self)
             return nil
         }
 

@@ -154,7 +154,7 @@ extension LiveKitError {
         }
 
         // TODO: Identify more network error types
-        logger.log("Uncategorized error for: \(String(describing: error))", type: LiveKitError.self)
+//        log("Uncategorized error for: \(String(describing: error))", type: LiveKitError.self)
         return LiveKitError(.unknown)
     }
 
