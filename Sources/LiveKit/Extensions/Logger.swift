@@ -15,24 +15,36 @@
  */
 
 import Foundation
-internal import Logging
+private import Logging
+
+private let logger = Logger(label: "LiveKitSDK")
 
 /// Allows to extend with custom `log` method which automatically captures current type (class name).
 public protocol Loggable {}
+
+enum LogLevel {
+    case trace, debug, info, notice, warning, error, critical
+}
+
+private extension LogLevel {
+    var internalLevel: Logger.Level {
+        .critical
+    }
+}
 
 public typealias ScopedMetadata = CustomStringConvertible
 typealias ScopedMetadataContainer = [String: ScopedMetadata]
 
 extension Loggable {
     /// Automatically captures current type (class name) to ``Logger.Metadata``
-    func log(_ message: Logger.Message? = nil,
-             _ level: Logger.Level = .debug,
+    func log(_ message: String? = nil,
+             _ level: LogLevel = .debug,
              file: String = #fileID,
              type type_: Any.Type? = nil,
              function: String = #function,
              line: UInt = #line)
     {
-        logger.log(message ?? "",
+        logger.log(message,
                    level,
                    file: file,
                    type: type_ ?? type(of: self),
@@ -43,8 +55,8 @@ extension Loggable {
 
 extension Logger {
     /// Adds `type` param to capture current type (usually class)
-    func log(_ message: Logger.Message,
-             _ level: Logger.Level = .debug,
+    func log(_ message: String? = nil,
+             _ level: LogLevel = .debug,
              source _: @autoclosure () -> String? = nil,
              file: String = #fileID,
              type: Any.Type,
@@ -57,8 +69,8 @@ extension Logger {
             return " [\(metaData.map { "\($0): \($1)" }.joined(separator: ", "))]"
         }
 
-        log(level: level,
-            "\(String(describing: type)).\(function) \(message)\(_buildScopedMetadataString())",
+        log(level: level.internalLevel,
+            "\(String(describing: type)).\(function) \(message ?? "")\(_buildScopedMetadataString())",
             file: file,
             function: function,
             line: line)

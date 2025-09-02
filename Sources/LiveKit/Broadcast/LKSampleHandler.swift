@@ -19,7 +19,7 @@
 #if canImport(ReplayKit)
 import ReplayKit
 #endif
-internal import Logging
+private import Logging
 
 import Combine
 import OSLog

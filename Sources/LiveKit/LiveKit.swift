@@ -16,9 +16,7 @@
 
 import Foundation
 internal import LiveKitWebRTC
-internal import Logging
-
-let logger = Logger(label: "LiveKitSDK")
+private import Logging
 
 /// The open source platform for real-time communication.
 ///
@@ -31,17 +29,17 @@ let logger = Logger(label: "LiveKitSDK")
 /// Download the [Multiplatform SwiftUI Example](https://github.com/livekit/multiplatform-swiftui-example)
 /// to try out the features.
 @objc
-public class LiveKitSDK: NSObject {
+public class LiveKitSDK: NSObject, Loggable {
     @objc(sdkVersion)
     public static let version = "2.7.2"
 
     @objc
     public static func setLoggerStandardOutput() {
-//        LoggingSystem.bootstrap {
-//            var logHandler = StreamLogHandler.standardOutput(label: $0)
-//            logHandler.logLevel = .debug
-//            return logHandler
-//        }
+        LoggingSystem.bootstrap {
+            var logHandler = StreamLogHandler.standardOutput(label: $0)
+            logHandler.logLevel = .debug
+            return logHandler
+        }
     }
 
     /// Notify the SDK to start initializing for faster connection/publishing later on. This is non-blocking.
