@@ -17,8 +17,8 @@
 #if os(iOS)
 
 import Foundation
+@_implementationOnly import Logging
 import OSLog
-internal import Logging
 
 struct OSLogHandler: LogHandler {
     var logLevel: Logging.Logger.Level = .debug

@@ -15,7 +15,7 @@
  */
 
 import Foundation
-internal import Logging
+@_implementationOnly import Logging
 
 /// Allows to extend with custom `log` method which automatically captures current type (class name).
 public protocol Loggable {}
