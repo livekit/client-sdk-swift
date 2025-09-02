@@ -119,6 +119,17 @@ extension LocalTrackPublication: VideoCapturerDelegate {
                 try await participant.unpublish(publication: self)
             }
         }
+        // A similar check for macOS may be triggered e.g. when the display is powered off.
+        #elseif os(macOS)
+        if #available(macOS 12.3, *), state == .stopped, capturer is MacOSScreenCapturer {
+            Task {
+                guard let participant = try await self.requireParticipant() as? LocalParticipant else {
+                    return
+                }
+
+                try await participant.unpublish(publication: self)
+            }
+        }
         #endif
     }
 }
