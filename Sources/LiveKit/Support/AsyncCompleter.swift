@@ -123,6 +123,10 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
 
     func resume(with result: Result<T, Error>) {
         _lock.sync {
+            if let _result {
+                log("\(label) already resolved \(_entries) with \(_result)", .warning)
+            }
+
             for entry in _entries.values {
                 entry.resume(with: result)
             }
