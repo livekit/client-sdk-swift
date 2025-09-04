@@ -125,7 +125,6 @@ actor SignalClient: Loggable {
         }
 
         let url = try Utils.buildUrl(url,
-                                     token,
                                      connectOptions: connectOptions,
                                      reconnectMode: reconnectMode,
                                      participantSid: participantSid,
@@ -140,7 +139,9 @@ actor SignalClient: Loggable {
         _state.mutate { $0.connectionState = (reconnectMode != nil ? .reconnecting : .connecting) }
 
         do {
-            let socket = try await WebSocket(url: url, connectOptions: connectOptions)
+            let socket = try await WebSocket(url: url,
+                                             token: token,
+                                             connectOptions: connectOptions)
 
             let task = Task.detached {
                 self.log("Did enter WebSocket message loop...")
@@ -182,14 +183,13 @@ actor SignalClient: Loggable {
 
             // Validate...
             let validateUrl = try Utils.buildUrl(url,
-                                                 token,
                                                  connectOptions: connectOptions,
                                                  participantSid: participantSid,
                                                  adaptiveStream: adaptiveStream,
                                                  validate: true)
 
             log("Validating with url: \(validateUrl)...")
-            let validationResponse = try await HTTP.requestString(from: validateUrl)
+            let validationResponse = try await HTTP.requestValidation(from: validateUrl, token: token)
             log("Validate response: \(validationResponse)")
             // re-throw with validation response
             throw LiveKitError(.network, message: "Validation response: \"\(validationResponse)\"")

@@ -1,0 +1,1 @@
+patch type="changed" "Auth token in header instead of query param"
