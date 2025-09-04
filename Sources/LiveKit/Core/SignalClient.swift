@@ -189,7 +189,7 @@ actor SignalClient: Loggable {
                                                  validate: true)
 
             log("Validating with url: \(validateUrl)...")
-            let validationResponse = try await HTTP.requestString(from: validateUrl)
+            let validationResponse = try await HTTP.requestValidation(from: validateUrl, token: token)
             log("Validate response: \(validationResponse)")
             // re-throw with validation response
             throw LiveKitError(.network, message: "Validation response: \"\(validationResponse)\"")
