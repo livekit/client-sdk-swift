@@ -326,6 +326,19 @@ extension Transport {
         guard _pc.removeTrack(sender) else {
             throw LiveKitError(.webRTC, message: "Failed to remove track")
         }
+
+        releaseTransceiver(sender: sender)
+    }
+
+    // Try to stop the transceiver and free the resources
+    // Workaround: https://groups.google.com/g/discuss-webrtc/c/WDsGuVucBjQ?pli=1
+    private func releaseTransceiver(sender: LKRTCRtpSender) {
+        if let transceiver = _pc.transceivers.first(where: { $0.sender == sender }),
+           transceiver.mediaType == .video, !transceiver.isStopped
+        {
+            log("Stopping video transceiver", .debug)
+            transceiver.stopInternal()
+        }
     }
 
     func dataChannel(for label: String,

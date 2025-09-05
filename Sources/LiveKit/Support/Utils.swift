@@ -131,7 +131,6 @@ class Utils {
 
     static func buildUrl(
         _ url: URL,
-        _ token: String,
         connectOptions: ConnectOptions? = nil,
         reconnectMode: ReconnectMode? = nil,
         participantSid: Participant.Sid? = nil,
@@ -175,7 +174,6 @@ class Utils {
         builder.path = "/" + pathSegments.joined(separator: "/")
 
         var queryItems = [
-            URLQueryItem(name: "access_token", value: token),
             URLQueryItem(name: "protocol", value: connectOptions.protocolVersion.description),
             URLQueryItem(name: "sdk", value: "swift"),
             URLQueryItem(name: "version", value: LiveKitSDK.version),

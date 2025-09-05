@@ -48,6 +48,7 @@ extension LKRTCDefaultAudioProcessingModule: @unchecked Swift.Sendable {}
 // MARK: Collections
 
 extension NSHashTable: @unchecked Swift.Sendable {} // cannot specify Obj-C generics
+extension NSMapTable: @unchecked Swift.Sendable {} // cannot specify Obj-C generics
 #if swift(<6.2)
 extension Dictionary: Swift.Sendable where Key: Sendable, Value: Sendable {}
 #endif
