@@ -1,0 +1,1 @@
+patch type="fixed" "Only check audio recording perms for device rendering mode"
