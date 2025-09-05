@@ -45,8 +45,8 @@ class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate
         let entryPoint = audioManager.buildEngineObserverChain()
         let result = entryPoint?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
 
-        // At this point mic perms / session should be configured for recording.
-        if result == 0, isRecordingEnabled {
+        // At this point mic perms / session should be configured for recording (only if device rendering mode).
+        if result == 0, !engine.isInManualRenderingMode, isRecordingEnabled {
             // This will block WebRTC's worker thread, but when instantiating AVAudioInput node it will block by showing a dialog anyways.
             // Attempt to acquire mic perms at this point to return an error at SDK level.
             let isAuthorized = LiveKitSDK.ensureDeviceAccessSync(for: [.audio])
