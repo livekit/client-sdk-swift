@@ -407,9 +407,9 @@ extension AudioManager {
 
 // SDK side AudioEngine error codes
 let kAudioEngineErrorFailedToConfigureAudioSession = -4100
+let kAudioEngineErrorAudioSessionCategoryRecordingRequired = -4102
 
 let kAudioEngineErrorInsufficientDevicePermission = -4101
-let kAudioEngineErrorAudioSessionCategoryRecordingRequired = -4102
 
 extension AudioManager {
     func checkAdmResult(code: Int) throws {
@@ -417,6 +417,8 @@ extension AudioManager {
             throw LiveKitError(.audioSession, message: "Failed to configure audio session")
         } else if code == kAudioEngineErrorInsufficientDevicePermission {
             throw LiveKitError(.deviceAccessDenied, message: "Device permissions are not granted")
+        } else if code == kAudioEngineErrorAudioSessionCategoryRecordingRequired {
+            throw LiveKitError(.audioSession, message: "Recording category required for audio session")
         } else if code != 0 {
             throw LiveKitError(.audioEngine, message: "Audio engine returned error code: \(code)")
         }
