@@ -343,6 +343,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         if let e2eeOptions = state.roomOptions.e2eeOptions {
             e2eeManager = E2EEManager(e2eeOptions: e2eeOptions)
             e2eeManager!.setup(room: self)
+
+            subscriberDataChannel.e2eeManager = e2eeManager
+            publisherDataChannel.e2eeManager = e2eeManager
         }
 
         await cleanUp()
@@ -603,6 +606,12 @@ extension Room: DataChannelDelegate {
         case let .streamChunk(chunk): Task { await incomingStreamManager.handle(chunk: chunk) }
         case let .streamTrailer(trailer): Task { await incomingStreamManager.handle(trailer: trailer) }
         default: return
+        }
+    }
+
+    func dataChannel(_: DataChannelPair, didFailToDecryptDataPacket _: Livekit_DataPacket, error: LiveKitError) {
+        delegates.notify {
+            $0.room?(self, didFailToDecryptDataWithEror: error)
         }
     }
 }

@@ -16,6 +16,8 @@
 
 import Foundation
 
+internal import LiveKitWebRTC
+
 @objc
 public enum EncryptionType: Int, Sendable {
     case none
@@ -31,6 +33,10 @@ extension EncryptionType {
         case .custom: .custom
         default: .custom
         }
+    }
+
+    func toRTCType() -> LKRTCCryptorAlgorithm {
+        .aesGcm
     }
 }
 

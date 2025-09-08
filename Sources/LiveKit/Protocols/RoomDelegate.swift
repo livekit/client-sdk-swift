@@ -156,6 +156,10 @@ public protocol RoomDelegate: AnyObject, Sendable {
     @objc optional
     func room(_ room: Room, trackPublication: TrackPublication, didUpdateE2EEState state: E2EEState)
 
+    /// Failed to decrypt a data packet when E2EE is enabled.
+    @objc optional
+    func room(_ room: Room, didFailToDecryptDataWithEror error: LiveKitError)
+
     /// ``TrackPublication/isMuted`` has updated.
     @objc optional
     func room(_ room: Room, participant: Participant, trackPublication: TrackPublication, didUpdateIsMuted isMuted: Bool)

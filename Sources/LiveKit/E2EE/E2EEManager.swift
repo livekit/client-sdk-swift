@@ -41,8 +41,14 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
 
     public let e2eeOptions: E2EEOptions
 
+    private let dataChannelEncryptionEnabled: Bool
+
     public var keyProvider: BaseKeyProvider {
         e2eeOptions.keyProvider
+    }
+
+    public var isDataChannelEncryptionEnabled: Bool {
+        _state.enabled && dataChannelEncryptionEnabled
     }
 
     // MARK: - Private
@@ -58,11 +64,22 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         var enabled: Bool = true
         var frameCryptors = [[Participant.Identity: Track.Sid]: LKRTCFrameCryptor]()
         var trackPublications = [LKRTCFrameCryptor: TrackPublication]()
+        var dataCryptor: LKRTCDataPacketCryptor?
     }
 
     public init(e2eeOptions: E2EEOptions) {
         self.e2eeOptions = e2eeOptions
+        #warning("Override")
+        dataChannelEncryptionEnabled = true
+
+        _state.mutate {
+            $0.dataCryptor = LKRTCDataPacketCryptor(algorithm: e2eeOptions.encryptionType.toRTCType(), keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
+        }
     }
+
+//    public init(options: EncryptionOptions) {
+//        self.dataChannelEncryptionEnabled = true
+//    }
 
     public func setup(room: Room) {
         if _room != room { cleanUp() }
@@ -165,9 +182,12 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
             }
             $0.frameCryptors.removeAll()
             $0.trackPublications.removeAll()
+            $0.dataCryptor = nil
         }
     }
 }
+
+// MARK: - Frame encryption
 
 extension E2EEManager {
     func frameCryptor(_ frameCryptor: LKRTCFrameCryptor, didStateChangeWithParticipantId participantId: String, with state: LKRTCFrameCryptorState) {
@@ -232,5 +252,39 @@ extension E2EEManager: RoomDelegate {
                 }
             }
         }
+    }
+}
+
+// MARK: - Data Packet Encryption
+
+extension E2EEManager {
+    func encrypt(data: Data) async throws -> LKRTCEncryptedPacket {
+        guard let room = _room,
+              let identity = room.localParticipant.identity?.stringValue
+        else {
+            throw LiveKitError(.invalidState, message: "Room or participant identity is nil")
+        }
+
+        guard let cryptor = _state.dataCryptor else {
+            throw LiveKitError(.invalidState, message: "Cryptor is nil")
+        }
+
+        guard let encryptedPacket = cryptor.encrypt(identity, keyIndex: 0, data: data) else {
+            throw LiveKitError(.encryptionFailed, message: "Failed to encrypt data packet")
+        }
+
+        return encryptedPacket
+    }
+
+    func handle(encryptedData: LKRTCEncryptedPacket, participantIdentity: String) async throws -> Data {
+        guard let cryptor = _state.dataCryptor else {
+            throw LiveKitError(.invalidState, message: "Cryptor is nil")
+        }
+
+        guard let decryptedData = cryptor.decrypt(participantIdentity, encryptedPacket: encryptedData) else {
+            throw LiveKitError(.decryptionFailed, message: "Failed to decrypt data packet")
+        }
+
+        return decryptedData
     }
 }
