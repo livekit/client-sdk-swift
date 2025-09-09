@@ -50,15 +50,15 @@ public enum LiveKitErrorType: Int, Sendable {
     case capturerDimensionsNotResolved = 704
     case deviceAccessDenied = 705
 
-    // LiveKit Cloud
-    case onlyForCloud = 901
-    case regionUrlProvider = 902
-
     // Audio
     case audioEngine = 801
     case audioSession = 802
 
     case codecNotSupported = 901
+
+    // LiveKit Cloud
+    case onlyForCloud = 1001
+    case regionUrlProvider = 1002
 }
 
 extension LiveKitErrorType: CustomStringConvertible {

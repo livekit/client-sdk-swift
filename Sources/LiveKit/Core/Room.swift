@@ -401,6 +401,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
 
         do {
+            // Region connect loop
             while true {
                 do {
                     try await fullConnectSequence(nextUrl, token)
@@ -416,13 +417,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                     // Exit loop on successful connection
                     break
                 } catch {
-                    // Re-throw if is cancel.
+                    // Re-throw and exit loop if is cancelled by user.
                     if error is CancellationError {
                         throw error
                     }
-
-                    // Connect sequence successful
-                    log("Connect sequence completed")
 
                     if let region = nextRegion {
                         nextRegion = nil
@@ -440,6 +438,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                         nextRegion = region
                     }
                 }
+            }
+            // Publish mic if mic task was created
+            if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled {
+                let track = try await createMicrophoneTrackTask.value
+                try await localParticipant._publish(track: track, options: _state.roomOptions.defaultAudioPublishOptions.withPreconnect(preConnectBuffer.recorder?.isRecording ?? false))
             }
         } catch {
             log("Failed to resolve a region or connect: \(error)")
