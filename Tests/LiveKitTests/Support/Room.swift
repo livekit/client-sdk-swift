@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,23 +19,37 @@ import XCTest
 
 struct RoomTestingOptions {
     let delegate: RoomDelegate?
+    let url: String?
+    let token: String?
+    let enableMicrophone: Bool
+
+    // Perms
     let canPublish: Bool
     let canPublishData: Bool
+    let canPublishSources: Set<Track.Source>
     let canSubscribe: Bool
 
     init(delegate: RoomDelegate? = nil,
+         url: String? = nil,
+         token: String? = nil,
+         enableMicrophone: Bool = false,
          canPublish: Bool = false,
          canPublishData: Bool = false,
+         canPublishSources: Set<Track.Source> = [],
          canSubscribe: Bool = false)
     {
         self.delegate = delegate
+        self.url = url
+        self.token = token
+        self.enableMicrophone = enableMicrophone
         self.canPublish = canPublish
         self.canPublishData = canPublishData
+        self.canPublishSources = canPublishSources
         self.canSubscribe = canSubscribe
     }
 }
 
-extension XCTestCase {
+extension LKTestCase {
     private func readEnvironmentString(for key: String, defaultValue: String) -> String {
         if let string = ProcessInfo.processInfo.environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines), !string.isEmpty {
             return string
@@ -52,6 +66,7 @@ extension XCTestCase {
                             identity: String,
                             canPublish: Bool,
                             canPublishData: Bool,
+                            canPublishSources: Set<Track.Source>,
                             canSubscribe: Bool) throws -> String
     {
         let apiKey = readEnvironmentString(for: "LIVEKIT_TESTING_API_KEY", defaultValue: "devkey")
@@ -65,7 +80,8 @@ extension XCTestCase {
                                                roomJoin: true,
                                                canPublish: canPublish,
                                                canSubscribe: canSubscribe,
-                                               canPublishData: canPublishData)
+                                               canPublishData: canPublishData,
+                                               canPublishSources: canPublishSources.map(String.init))
         return try tokenGenerator.sign()
     }
 
@@ -79,30 +95,39 @@ extension XCTestCase {
         // Turn on stats
         let roomOptions = RoomOptions(e2eeOptions: e2eeOptions, reportRemoteTrackStatistics: true)
 
-        let url = liveKitServerUrl()
-        print("url: \(url)")
-
         let roomName = UUID().uuidString
 
         let rooms = try options.enumerated().map {
+            // Connect options
+            let connectOptions = ConnectOptions(enableMicrophone: $0.element.enableMicrophone)
+
             // Use shared RoomOptions
-            let room = Room(delegate: $0.element.delegate, roomOptions: roomOptions)
+            let room = Room(delegate: $0.element.delegate, connectOptions: connectOptions, roomOptions: roomOptions)
             let identity = "identity-\($0.offset)"
-            let token = try liveKitServerToken(for: roomName,
-                                               identity: identity,
-                                               canPublish: $0.element.canPublish,
-                                               canPublishData: $0.element.canPublishData,
-                                               canSubscribe: $0.element.canSubscribe)
+
+            let url = $0.element.url ?? liveKitServerUrl()
+
+            let lkToken = try liveKitServerToken(for: roomName,
+                                                 identity: identity,
+                                                 canPublish: $0.element.canPublish,
+                                                 canPublishData: $0.element.canPublishData,
+                                                 canPublishSources: $0.element.canPublishSources,
+                                                 canSubscribe: $0.element.canSubscribe)
+            let token = $0.element.token ?? lkToken
+
             print("Token: \(token) for room: \(roomName)")
 
-            return (room: room, identity: identity, token: token)
+            return (room: room,
+                    identity: identity,
+                    url: url,
+                    token: token)
         }
 
         // Connect all Rooms concurrently
         try await withThrowingTaskGroup(of: Void.self) { group in
             for element in rooms {
                 group.addTask {
-                    try await element.room.connect(url: url, token: element.token)
+                    try await element.room.connect(url: element.url, token: element.token)
                     XCTAssert(element.room.localParticipant.identity != nil, "LocalParticipant.identity is nil")
                     print("LocalParticipant.identity: \(String(describing: element.room.localParticipant.identity))")
                 }
@@ -114,6 +139,7 @@ extension XCTestCase {
                                                    identity: "observer",
                                                    canPublish: true,
                                                    canPublishData: true,
+                                                   canPublishSources: [],
                                                    canSubscribe: true)
 
         print("Observer token: \(observerToken) for room: \(roomName)")
@@ -123,7 +149,7 @@ extension XCTestCase {
             // Keep a list of all participant identities
             let allIdentities = rooms.map(\.identity)
 
-            let expectationAndWatches = rooms.map { room, identity, _ in
+            let expectationAndWatches = rooms.map { room, identity, _, _ in
                 // Create an Expectation
                 let expectation = self.expectation(description: "Wait for other participants to join")
                 expectation.assertForOverFulfill = false
@@ -182,9 +208,9 @@ extension Room {
     }
 }
 
-class RoomWatcher<T: Decodable>: RoomDelegate {
-    public let id: String
-    public let didReceiveDataCompleters = CompleterMapActor<T>(label: "Data receive completer", defaultTimeout: 10)
+final class RoomWatcher<T: Decodable & Sendable>: RoomDelegate, Sendable {
+    let id: String
+    let didReceiveDataCompleters = CompleterMapActor<T>(label: "Data receive completer", defaultTimeout: 10)
 
     // MARK: - Private
 

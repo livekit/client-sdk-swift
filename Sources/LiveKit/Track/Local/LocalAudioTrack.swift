@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,24 @@
  * limitations under the License.
  */
 
+import AVFAudio
 import Combine
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @objc
-public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
+public class LocalAudioTrack: Track, LocalTrack, AudioTrack, @unchecked Sendable {
     /// ``AudioCaptureOptions`` used to create this track.
-    let captureOptions: AudioCaptureOptions
+    public let captureOptions: AudioCaptureOptions
+
+    // MARK: - Internal
+
+    struct FrameWatcherState {
+        var frameWatcher: AudioFrameWatcher?
+    }
+
+    let _frameWatcherState = StateSync(FrameWatcherState())
 
     init(name: String,
          source: Track.Source,
@@ -41,6 +46,10 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
                    source: source,
                    track: track,
                    reportStatistics: reportStatistics)
+    }
+
+    deinit {
+        cleanUpFrameWatcher()
     }
 
     public static func createTrack(name: String = Track.microphoneName,
@@ -82,11 +91,13 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
     // MARK: - Internal
 
     override func startCapture() async throws {
-        try await AudioManager.shared.trackDidStart(.local)
+        // AudioDeviceModule's InitRecording() and StartRecording() automatically get called by WebRTC, but
+        // explicitly init & start it early to detect audio engine failures (mic not accessible for some reason, etc.).
+        try AudioManager.shared.startLocalRecording()
     }
 
     override func stopCapture() async throws {
-        try await AudioManager.shared.trackDidStop(.local)
+        cleanUpFrameWatcher()
     }
 }
 
@@ -102,5 +113,51 @@ public extension LocalAudioTrack {
 
     func remove(audioRenderer: AudioRenderer) {
         AudioManager.shared.remove(localAudioRenderer: audioRenderer)
+    }
+}
+
+// MARK: - Internal frame waiting
+
+extension LocalAudioTrack {
+    final class AudioFrameWatcher: AudioRenderer, Loggable {
+        private let completer = AsyncCompleter<Void>(label: "Frame watcher", defaultTimeout: 5)
+
+        func wait() async throws {
+            try await completer.wait()
+        }
+
+        func reset() {
+            completer.reset()
+        }
+
+        // MARK: - AudioRenderer
+
+        func render(pcmBuffer _: AVAudioPCMBuffer) {
+            completer.resume(returning: ())
+        }
+    }
+
+    func startWaitingForFrames() async throws {
+        let frameWatcher = _frameWatcherState.mutate {
+            $0.frameWatcher?.reset()
+            let watcher = AudioFrameWatcher()
+            add(audioRenderer: watcher)
+            $0.frameWatcher = watcher
+            return watcher
+        }
+
+        try await frameWatcher.wait()
+        // Detach after wait is complete
+        cleanUpFrameWatcher()
+    }
+
+    func cleanUpFrameWatcher() {
+        _frameWatcherState.mutate {
+            if let watcher = $0.frameWatcher {
+                watcher.reset()
+                remove(audioRenderer: watcher)
+                $0.frameWatcher = nil
+            }
+        }
     }
 }

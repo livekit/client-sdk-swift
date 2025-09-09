@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,5 +39,41 @@ public extension LiveKitSDK {
         }
 
         return true
+    }
+
+    /// Blocking version of ensureDeviceAccess that uses DispatchGroup to wait for permissions.
+    static func ensureDeviceAccessSync(for types: Set<AVMediaType>) -> Bool {
+        let group = DispatchGroup()
+        var result = true
+
+        for type in types {
+            if ![.video, .audio].contains(type) {
+                logger.log("types must be .video or .audio", .error, type: LiveKitSDK.self)
+            }
+
+            let status = AVCaptureDevice.authorizationStatus(for: type)
+            switch status {
+            case .notDetermined:
+                group.enter()
+                AVCaptureDevice.requestAccess(for: type) { granted in
+                    if !granted {
+                        result = false
+                    }
+                    group.leave()
+                }
+            case .restricted, .denied:
+                return false
+            case .authorized:
+                continue // No action needed for authorized status
+            @unknown default:
+                logger.error("Unknown AVAuthorizationStatus")
+                return false
+            }
+        }
+
+        // Wait for all permission requests to complete
+        group.wait()
+
+        return result
     }
 }

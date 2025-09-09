@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,10 @@
  * limitations under the License.
  */
 
-import AVFoundation
+@preconcurrency import AVFoundation
 import MetalKit
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 typealias NativeRendererView = LKRTCVideoRenderer & Mirrorable & NativeViewType
@@ -34,7 +30,7 @@ public class VideoView: NativeView, Loggable {
 
     // MARK: - Static
 
-    static let mirrorTransform = CATransform3DMakeScale(-1.0, 1.0, 1.0)
+    static let mirrorTransform = CATransform3D.mirror
     private static let _freezeDetectThreshold = 2.0
 
     /// Specifies how to render the video withing the ``VideoView``'s bounds.
@@ -70,33 +66,33 @@ public class VideoView: NativeView, Loggable {
 
     /// ``LayoutMode-swift.enum`` of the ``VideoView``.
     @objc
-    public var layoutMode: LayoutMode {
+    public nonisolated var layoutMode: LayoutMode {
         get { _state.layoutMode }
         set { _state.mutate { $0.layoutMode = newValue } }
     }
 
     /// Flips the video horizontally, useful for local VideoViews.
     @objc
-    public var mirrorMode: MirrorMode {
+    public nonisolated var mirrorMode: MirrorMode {
         get { _state.mirrorMode }
         set { _state.mutate { $0.mirrorMode = newValue } }
     }
 
     @objc
-    public var renderMode: RenderMode {
+    public nonisolated var renderMode: RenderMode {
         get { _state.renderMode }
         set { _state.mutate { $0.renderMode = newValue } }
     }
 
     /// Force video to be rotated to preferred ``VideoRotation``.
-    public var rotationOverride: VideoRotation? {
+    public nonisolated var rotationOverride: VideoRotation? {
         get { _state.rotationOverride }
         set { _state.mutate { $0.rotationOverride = newValue } }
     }
 
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     @objc
-    public weak var track: VideoTrack? {
+    public nonisolated weak var track: VideoTrack? {
         get { _state.track as? VideoTrack }
         set {
             _state.mutate {
@@ -114,17 +110,17 @@ public class VideoView: NativeView, Loggable {
 
     /// If set to false, rendering will be paused temporarily. Useful for performance optimizations with UICollectionViewCell etc.
     @objc
-    public var isEnabled: Bool {
+    public nonisolated var isEnabled: Bool {
         get { _state.isEnabled }
         set { _state.mutate { $0.isEnabled = newValue } }
     }
 
     @objc
-    override public var isHidden: Bool {
+    override public nonisolated var isHidden: Bool {
         get { _state.isHidden }
         set {
             _state.mutate { $0.isHidden = newValue }
-            Task.detached { @MainActor in
+            Task { @MainActor in
                 super.isHidden = newValue
             }
         }
@@ -132,45 +128,45 @@ public class VideoView: NativeView, Loggable {
 
     /// Currently, only for iOS
     @objc
-    public var transitionMode: TransitionMode {
+    public nonisolated var transitionMode: TransitionMode {
         get { _state.transitionMode }
         set { _state.mutate { $0.transitionMode = newValue } }
     }
 
     @objc
-    public var transitionDuration: TimeInterval {
+    public nonisolated var transitionDuration: TimeInterval {
         get { _state.transitionDuration }
         set { _state.mutate { $0.transitionDuration = newValue } }
     }
 
     @objc
-    public var isPinchToZoomEnabled: Bool {
+    public nonisolated var isPinchToZoomEnabled: Bool {
         get { _state.pinchToZoomOptions.isEnabled }
         set { _state.mutate { $0.pinchToZoomOptions.insert(.zoomIn) } }
     }
 
     @objc
-    public var isAutoZoomResetEnabled: Bool {
+    public nonisolated var isAutoZoomResetEnabled: Bool {
         get { _state.pinchToZoomOptions.contains(.resetOnRelease) }
         set { _state.mutate { $0.pinchToZoomOptions.insert(.resetOnRelease) } }
     }
 
-    public var pinchToZoomOptions: PinchToZoomOptions {
+    public nonisolated var pinchToZoomOptions: PinchToZoomOptions {
         get { _state.pinchToZoomOptions }
         set { _state.mutate { $0.pinchToZoomOptions = newValue } }
     }
 
     @objc
-    public var isDebugMode: Bool {
+    public nonisolated var isDebugMode: Bool {
         get { _state.isDebugMode }
         set { _state.mutate { $0.isDebugMode = newValue } }
     }
 
     @objc
-    public var isRendering: Bool { _state.isRendering }
+    public nonisolated var isRendering: Bool { _state.isRendering }
 
     @objc
-    public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
+    public nonisolated var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
 
     /// Access the internal AVSampleBufferDisplayLayer used for rendering.
     /// This is only available when the renderer is using AVSampleBufferDisplayLayer.
@@ -187,7 +183,7 @@ public class VideoView: NativeView, Loggable {
         case secondary
     }
 
-    struct State {
+    struct State: Sendable {
         weak var track: Track?
         var isEnabled: Bool = true
         var isHidden: Bool = false
@@ -218,8 +214,8 @@ public class VideoView: NativeView, Loggable {
         var pinchToZoomOptions: PinchToZoomOptions = []
 
         // Only used for rendering local tracks
-        var captureOptions: VideoCaptureOptions? = nil
-        var captureDevice: AVCaptureDevice? = nil
+        var captureOptions: VideoCaptureOptions?
+        var captureDevice: AVCaptureDevice?
 
         // whether if current state should be rendering
         var shouldRender: Bool {
@@ -227,12 +223,18 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
-    var _state: StateSync<State>
+    let _state: StateSync<State>
 
     // MARK: - Private
 
+    #if swift(>=6.0)
+    private nonisolated(unsafe) var _primaryRenderer: NativeRendererView?
+    private nonisolated(unsafe) var _secondaryRenderer: NativeRendererView?
+    #else
     private var _primaryRenderer: NativeRendererView?
     private var _secondaryRenderer: NativeRendererView?
+    #endif
+
     private var _debugTextView: TextView?
 
     // used for stats timer
@@ -263,25 +265,29 @@ public class VideoView: NativeView, Loggable {
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
-
             guard let self else { return }
 
-            self.log("Mutating in main thread: \(Thread.current.isMainThread)", .trace)
+            log("Mutating in main thread: \(Thread.current.isMainThread)", .trace)
 
             let shouldRenderDidUpdate = newState.shouldRender != oldState.shouldRender
             let renderModeDidUpdate = newState.renderMode != oldState.renderMode
             let trackDidUpdate = !Self.track(oldState.track as? VideoTrack, isEqualWith: newState.track as? VideoTrack)
 
+            // Always add/remove from the track asynchronously - even when called on @MainActor
             if trackDidUpdate || shouldRenderDidUpdate {
-                // Handle track removal outside of main queue
-                if let track = oldState.track as? VideoTrack {
-                    track.remove(videoRenderer: self)
+                Task {
+                    if let track = oldState.track as? VideoTrack {
+                        track.remove(videoRenderer: self)
+                    }
+                    if let track = newState.track as? VideoTrack, newState.shouldRender {
+                        track.add(videoRenderer: self)
+                    }
                 }
             }
 
-            // Enter .main only if UI updates are required
+            // Recreate renderers if necessary on @MainActor
             if trackDidUpdate || shouldRenderDidUpdate || renderModeDidUpdate {
-                self.mainSyncOrAsync {
+                Task { @MainActor in
                     var didReCreateNativeRenderer = false
 
                     if trackDidUpdate || shouldRenderDidUpdate {
@@ -315,24 +321,17 @@ public class VideoView: NativeView, Loggable {
                 }
             }
 
-            // Handle track addition outside of main queue
-            if trackDidUpdate || shouldRenderDidUpdate {
-                if let track = newState.track as? VideoTrack, newState.shouldRender {
-                    track.add(videoRenderer: self)
-                }
-            }
-
             // isRendering updated
             if newState.isRendering != oldState.isRendering {
-                self.log("isRendering \(oldState.isRendering) -> \(newState.isRendering)")
-                self.delegates.notify(label: { "videoView.didUpdate isRendering: \(newState.isRendering)" }) {
+                log("isRendering \(oldState.isRendering) -> \(newState.isRendering)")
+                delegates.notify(label: { "videoView.didUpdate isRendering: \(newState.isRendering)" }) {
                     $0.videoView?(self, didUpdate: newState.isRendering)
                 }
             }
 
             // viewSize updated
             if newState.viewSize != oldState.viewSize {
-                self.delegates.notify {
+                delegates.notify {
                     $0.videoView?(self, didUpdate: newState.viewSize)
                 }
             }
@@ -353,14 +352,14 @@ public class VideoView: NativeView, Loggable {
                 shouldRenderDidUpdate || trackDidUpdate
             {
                 // must be on main
-                Task.detached { @MainActor in
+                Task { @MainActor in
                     self.setNeedsLayout()
                 }
             }
 
             #if os(iOS)
             if newState.pinchToZoomOptions != oldState.pinchToZoomOptions {
-                Task.detached { @MainActor in
+                Task { @MainActor in
                     self._pinchGestureRecognizer.isEnabled = newState.pinchToZoomOptions.isEnabled
                     self._rampZoomFactorToAllowedBounds(options: newState.pinchToZoomOptions)
                 }
@@ -370,9 +369,9 @@ public class VideoView: NativeView, Loggable {
             if newState.isDebugMode != oldState.isDebugMode {
                 // fps timer
                 if newState.isDebugMode {
-                    self._fpsTimer.restart()
+                    _fpsTimer.restart()
                 } else {
-                    self._fpsTimer.cancel()
+                    _fpsTimer.cancel()
                 }
             }
         }
@@ -380,19 +379,19 @@ public class VideoView: NativeView, Loggable {
         _fpsTimer.setTimerBlock { @MainActor [weak self] in
             guard let self else { return }
 
-            self._currentFPS = self._frameCount
-            self._frameCount = 0
+            _currentFPS = _frameCount
+            _frameCount = 0
 
-            self.setNeedsLayout()
+            setNeedsLayout()
         }
 
         _renderTimer.setTimerBlock { [weak self] in
             guard let self else { return }
 
-            if self._state.isRendering, let renderDate = self._state.renderDate {
+            if _state.isRendering, let renderDate = _state.renderDate {
                 let diff = Date().timeIntervalSince(renderDate)
-                if diff >= Self._freezeDetectThreshold {
-                    self._state.mutate { $0.isRendering = false }
+                if await diff >= Self._freezeDetectThreshold {
+                    _state.mutate { $0.isRendering = false }
                 }
             }
         }
@@ -438,7 +437,7 @@ public class VideoView: NativeView, Loggable {
             let _didRenderFirstFrame = state.didRenderFirstFrame ? "true" : "false"
             let _isRendering = state.isRendering ? "true" : "false"
             let _renderMode = String(describing: state.renderMode)
-            let _viewCount = state.track?._state.videoRenderers.allObjects.count ?? 0
+            let _viewCount = state.track?._state.videoRendererAdapters.count ?? 0
             let debugView = ensureDebugTextView()
             debugView.text = "#\(hashValue)\n" + "\(String(describing: _trackSid))\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "isEnabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "renderMode: \(_renderMode)\n" + "viewCount: \(_viewCount)\n" + "FPS: \(_currentFPS)\n"
             debugView.frame = bounds
@@ -516,6 +515,7 @@ public class VideoView: NativeView, Loggable {
 
 // MARK: - Private
 
+@MainActor
 private extension VideoView {
     private func ensureDebugTextView() -> TextView {
         if let view = _debugTextView { return view }
@@ -574,9 +574,9 @@ private extension VideoView {
 
     func _shouldMirror() -> Bool {
         switch _state.mirrorMode {
-        case .auto: return _state.captureDevice?.facingPosition == .front
-        case .off: return false
-        case .mirror: return true
+        case .auto: _state.captureDevice?.facingPosition == .front
+        case .off: false
+        case .mirror: true
         }
     }
 }
@@ -594,7 +594,7 @@ extension VideoView: VideoRenderer {
 
     public func set(size: CGSize) {
         DispatchQueue.main.async { [weak self] in
-            guard let self, let nr = self._primaryRenderer else { return }
+            guard let self, let nr = _primaryRenderer else { return }
             nr.setSize(size)
         }
     }
@@ -639,16 +639,18 @@ extension VideoView: VideoRenderer {
             return $0
         }
 
+        let rtcFrame = frame.toRTCType()
+
         switch newState.renderTarget {
         case .primary:
-            pr.renderFrame(frame.toRTCType())
+            pr.renderFrame(rtcFrame)
             // Cache last rendered frame
             track?.set(videoFrame: frame)
 
         case .secondary:
             if let sr = _secondaryRenderer {
                 // Unfortunately there is not way to know if rendering has completed before initiating the swap.
-                sr.renderFrame(frame.toRTCType())
+                sr.renderFrame(rtcFrame)
 
                 let shouldSwap = _state.mutate {
                     let oldIsSwapping = $0.isSwapping
@@ -661,7 +663,7 @@ extension VideoView: VideoRenderer {
                 }
 
                 if shouldSwap {
-                    Task.detached { @MainActor in
+                    Task { @MainActor in
                         // Swap views
                         self._swapRendererViews()
                         // Swap completed, back to primary rendering
@@ -672,22 +674,23 @@ extension VideoView: VideoRenderer {
                     }
                 }
             } else {
-                Task.detached { @MainActor in
+                Task { @MainActor in
                     // Create secondary renderer and render first frame
                     if let sr = self.ensureSecondaryRenderer() {
-                        sr.renderFrame(frame.toRTCType())
+                        sr.renderFrame(rtcFrame)
                     }
                 }
             }
         }
 
         if _state.isDebugMode {
-            Task.detached { @MainActor in
+            Task { @MainActor in
                 self._frameCount += 1
             }
         }
     }
 
+    @MainActor
     private func _swapRendererViews() {
         if !Thread.current.isMainThread { log("Must be called on main thread", .error) }
 
@@ -706,16 +709,23 @@ extension VideoView: VideoRenderer {
             self._secondaryRenderer = nil
         }
 
+        let previousPrimaryRendered = _primaryRenderer
+        let completion: (Bool) -> Void = { _ in
+            previousPrimaryRendered?.removeFromSuperview()
+        }
+
         // Currently only for iOS
         #if os(iOS)
         let (mode, duration, position) = _state.read { ($0.transitionMode, $0.transitionDuration, $0.captureDevice?.facingPosition) }
         if let transitionOption = mode.toAnimationOption(fromPosition: position) {
-            UIView.transition(with: self, duration: duration, options: transitionOption, animations: block, completion: nil)
+            UIView.transition(with: self, duration: duration, options: transitionOption, animations: block, completion: completion)
         } else {
             block()
+            completion(true)
         }
         #else
         block()
+        completion(true)
         #endif
     }
 }
@@ -723,7 +733,7 @@ extension VideoView: VideoRenderer {
 // MARK: - Internal
 
 extension VideoView {
-    static func track(_ track1: VideoTrack?, isEqualWith track2: VideoTrack?) -> Bool {
+    nonisolated static func track(_ track1: VideoTrack?, isEqualWith track2: VideoTrack?) -> Bool {
         // equal if both tracks are nil
         if track1 == nil, track2 == nil { return true }
         // not equal if a single track is nil
@@ -845,18 +855,6 @@ extension LKRTCMTLVideoView: Mirrorable {
     }
 }
 #endif
-
-private extension VideoView {
-    func mainSyncOrAsync(operation: @escaping () -> Void) {
-        if Thread.current.isMainThread {
-            operation()
-        } else {
-            Task.detached { @MainActor in
-                operation()
-            }
-        }
-    }
-}
 
 #if os(iOS)
 extension VideoView.TransitionMode {

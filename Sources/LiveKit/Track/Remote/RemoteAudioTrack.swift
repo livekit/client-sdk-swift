@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,13 @@
  * limitations under the License.
  */
 
+import AVFoundation
 import CoreMedia
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @objc
-public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
+public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack, @unchecked Sendable {
     /// Volume with range 0.0 - 1.0
     public var volume: Double {
         get {
@@ -36,6 +33,8 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
         }
     }
 
+    private lazy var _adapter = AudioRendererAdapter()
+
     init(name: String,
          source: Track.Source,
          track: LKRTCMediaStreamTrack,
@@ -46,25 +45,23 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
                    source: source,
                    track: track,
                    reportStatistics: reportStatistics)
+
+        if let audioTrack = mediaTrack as? LKRTCAudioTrack {
+            audioTrack.add(_adapter)
+        }
+    }
+
+    deinit {
+        if let audioTrack = mediaTrack as? LKRTCAudioTrack {
+            audioTrack.remove(_adapter)
+        }
     }
 
     public func add(audioRenderer: AudioRenderer) {
-        guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
-        audioTrack.add(AudioRendererAdapter(target: audioRenderer))
+        _adapter.add(delegate: audioRenderer)
     }
 
     public func remove(audioRenderer: AudioRenderer) {
-        guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
-        audioTrack.remove(AudioRendererAdapter(target: audioRenderer))
-    }
-
-    // MARK: - Internal
-
-    override func startCapture() async throws {
-        try await AudioManager.shared.trackDidStart(.remote)
-    }
-
-    override func stopCapture() async throws {
-        try await AudioManager.shared.trackDidStop(.remote)
+        _adapter.remove(delegate: audioRenderer)
     }
 }

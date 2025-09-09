@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,10 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @objc
-public protocol TrackDelegate: AnyObject {
+public protocol TrackDelegate: AnyObject, Sendable {
     /// Dimensions of the video track has updated
     @objc(track:didUpdateDimensions:) optional
     func track(_ track: VideoTrack, didUpdateDimensions dimensions: Dimensions?)

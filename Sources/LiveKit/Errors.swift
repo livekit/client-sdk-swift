@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,7 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 public enum LiveKitErrorType: Int, Sendable {
     case unknown = 0
@@ -29,6 +25,7 @@ public enum LiveKitErrorType: Int, Sendable {
     case failedToParseUrl = 102
     case failedToConvertData = 103
     case invalidState = 104
+    case invalidParameter = 105
 
     case webRTC = 201
 
@@ -41,6 +38,7 @@ public enum LiveKitErrorType: Int, Sendable {
     case roomDeleted = 503
     case stateMismatch = 504
     case joinFailure = 505
+    case insufficientPermissions = 506
 
     //
     case serverPingTimedOut = 601
@@ -55,48 +53,60 @@ public enum LiveKitErrorType: Int, Sendable {
     // LiveKit Cloud
     case onlyForCloud = 901
     case regionUrlProvider = 902
+
+    // Audio
+    case audioEngine = 801
+    case audioSession = 802
+
+    case codecNotSupported = 901
 }
 
 extension LiveKitErrorType: CustomStringConvertible {
     public var description: String {
         switch self {
         case .cancelled:
-            return "Cancelled"
+            "Cancelled"
         case .timedOut:
-            return "Timed out"
+            "Timed out"
         case .failedToParseUrl:
-            return "Failed to parse URL"
+            "Failed to parse URL"
         case .failedToConvertData:
-            return "Failed to convert data"
+            "Failed to convert data"
         case .invalidState:
-            return "Invalid state"
+            "Invalid state"
+        case .invalidParameter:
+            "Invalid parameter"
         case .webRTC:
-            return "WebRTC error"
+            "WebRTC error"
         case .network:
-            return "Network error"
+            "Network error"
         case .duplicateIdentity:
-            return "Duplicate Participant identity"
+            "Duplicate Participant identity"
         case .serverShutdown:
-            return "Server shutdown"
+            "Server shutdown"
         case .participantRemoved:
-            return "Participant removed"
+            "Participant removed"
         case .roomDeleted:
-            return "Room deleted"
+            "Room deleted"
         case .stateMismatch:
-            return "Server state mismatch"
+            "Server state mismatch"
         case .joinFailure:
-            return "Server join failure"
+            "Server join failure"
         case .serverPingTimedOut:
-            return "Server ping timed out"
+            "Server ping timed out"
         case .deviceNotFound:
-            return "Device not found"
+            "Device not found"
         case .captureFormatNotFound:
-            return "Capture format not found"
+            "Capture format not found"
         case .unableToResolveFPSRange:
-            return "Unable to resolve FPS range"
+            "Unable to resolve FPS range"
         case .capturerDimensionsNotResolved:
-            return "Capturer dimensions not resolved"
-        default: return "Unknown"
+            "Capturer dimensions not resolved"
+        case .audioEngine:
+            "Audio Engine Error"
+        case .audioSession:
+            "Audio Session Error"
+        default: "Unknown"
         }
     }
 }
@@ -160,14 +170,14 @@ extension LiveKitError {
 extension Livekit_DisconnectReason {
     func toLKType() -> LiveKitErrorType {
         switch self {
-        case .clientInitiated: return .cancelled
-        case .duplicateIdentity: return .duplicateIdentity
-        case .serverShutdown: return .serverShutdown
-        case .participantRemoved: return .participantRemoved
-        case .roomDeleted: return .roomDeleted
-        case .stateMismatch: return .stateMismatch
-        case .joinFailure: return .joinFailure
-        default: return .unknown
+        case .clientInitiated: .cancelled
+        case .duplicateIdentity: .duplicateIdentity
+        case .serverShutdown: .serverShutdown
+        case .participantRemoved: .participantRemoved
+        case .roomDeleted: .roomDeleted
+        case .stateMismatch: .stateMismatch
+        case .joinFailure: .joinFailure
+        default: .unknown
         }
     }
 }

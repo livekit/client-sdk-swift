@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,7 @@
 import AVFoundation
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 // Defaults
 public extension AudioSessionConfiguration {
@@ -36,12 +32,18 @@ public extension AudioSessionConfiguration {
                                                     categoryOptions: [.mixWithOthers],
                                                     mode: .spokenAudio)
 
+    #if swift(>=6.2)
+    private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetoothHFP, .allowBluetoothA2DP, .allowAirPlay]
+    #else
+    private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
+    #endif
+
     static let playAndRecordSpeaker = AudioSessionConfiguration(category: .playAndRecord,
-                                                                categoryOptions: [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay],
+                                                                categoryOptions: playAndRecordOptions,
                                                                 mode: .videoChat)
 
     static let playAndRecordReceiver = AudioSessionConfiguration(category: .playAndRecord,
-                                                                 categoryOptions: [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay],
+                                                                 categoryOptions: playAndRecordOptions,
                                                                  mode: .voiceChat)
 }
 

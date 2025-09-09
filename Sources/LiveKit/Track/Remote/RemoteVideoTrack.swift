@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,10 @@
  * limitations under the License.
  */
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @objc
-public class RemoteVideoTrack: Track, RemoteTrack {
+public class RemoteVideoTrack: Track, RemoteTrack, @unchecked Sendable {
     init(name: String,
          source: Track.Source,
          track: LKRTCMediaStreamTrack,
@@ -44,11 +40,13 @@ extension RemoteVideoTrack: VideoTrack {
             return
         }
 
+        let adapter = VideoRendererAdapter(renderer: videoRenderer)
+
         _state.mutate {
-            $0.videoRenderers.add(videoRenderer)
+            $0.videoRendererAdapters.setObject(adapter, forKey: videoRenderer)
         }
 
-        rtcVideoTrack.add(VideoRendererAdapter(target: videoRenderer))
+        rtcVideoTrack.add(adapter)
     }
 
     public func remove(videoRenderer: VideoRenderer) {
@@ -57,10 +55,17 @@ extension RemoteVideoTrack: VideoTrack {
             return
         }
 
-        _state.mutate {
-            $0.videoRenderers.remove(videoRenderer)
+        let adapter = _state.mutate {
+            let adapter = $0.videoRendererAdapters.object(forKey: videoRenderer)
+            $0.videoRendererAdapters.removeObject(forKey: videoRenderer)
+            return adapter
         }
 
-        rtcVideoTrack.remove(VideoRendererAdapter(target: videoRenderer))
+        guard let adapter else {
+            log("No adapter found for videoRenderer", .warning)
+            return
+        }
+
+        rtcVideoTrack.remove(adapter)
     }
 }

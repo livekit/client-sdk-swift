@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,10 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @objc
-public class TrackStatistics: NSObject, Loggable {
+public class TrackStatistics: NSObject, @unchecked Sendable, Loggable {
     public let codec: [CodecStatistics]
     public let transportStats: TransportStatistics?
     public let videoSource: [VideoSourceStatistics]

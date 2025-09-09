@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,19 @@ public extension CVPixelBuffer {
 
             return pixelBuffer
         }
+    }
+
+    static func metal(width: Int, height: Int) -> CVPixelBuffer? {
+        let attributes = [
+            kCVPixelBufferMetalCompatibilityKey: kCFBooleanTrue as Any,
+            kCVPixelBufferIOSurfacePropertiesKey: [:] as Any,
+        ] as CFDictionary
+
+        var pixelBuffer: CVPixelBuffer?
+        let result = CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA, attributes, &pixelBuffer)
+        guard result == kCVReturnSuccess else { return nil }
+
+        return pixelBuffer
     }
 }
 

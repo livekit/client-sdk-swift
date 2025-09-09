@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,13 @@ public extension ConnectOptions {
     func copyWith(autoSubscribe: ValueOrAbsent<Bool> = .absent,
                   reconnectAttempts: ValueOrAbsent<Int> = .absent,
                   reconnectAttemptDelay: ValueOrAbsent<TimeInterval> = .absent,
+                  reconnectMaxDelay: ValueOrAbsent<TimeInterval> = .absent,
                   protocolVersion: ValueOrAbsent<ProtocolVersion> = .absent) -> ConnectOptions
     {
         ConnectOptions(autoSubscribe: autoSubscribe.value(ifAbsent: self.autoSubscribe),
                        reconnectAttempts: reconnectAttempts.value(ifAbsent: self.reconnectAttempts),
                        reconnectAttemptDelay: reconnectAttemptDelay.value(ifAbsent: self.reconnectAttemptDelay),
+                       reconnectMaxDelay: reconnectMaxDelay.value(ifAbsent: self.reconnectMaxDelay),
                        protocolVersion: protocolVersion.value(ifAbsent: self.protocolVersion))
     }
 }

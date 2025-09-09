@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import Foundation
 /// To ensure each participant's delegate is registered, you can look through ``Room/localParticipant`` and ``Room/remoteParticipants`` on connect
 /// and register it on new participants inside ``RoomDelegate/room(_:participantDidJoin:)``
 @objc
-public protocol ParticipantDelegate: AnyObject {
+public protocol ParticipantDelegate: AnyObject, Sendable {
     // MARK: - Participant
 
     /// A ``Participant``'s metadata has updated.
@@ -42,6 +42,11 @@ public protocol ParticipantDelegate: AnyObject {
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
     @objc optional
     func participant(_ participant: Participant, didUpdateIsSpeaking isSpeaking: Bool)
+
+    /// The state of a ``Participant`` has updated.
+    /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
+    @objc optional
+    func participant(_ participant: Participant, didUpdateState state: ParticipantState)
 
     /// The connection quality of a ``Participant`` has updated.
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.

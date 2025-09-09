@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,7 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didUpdateConnectionState connectionState: ConnectionState,
@@ -103,11 +99,23 @@ extension Room: SignalClientDelegate {
             _state.mutate {
                 $0.sid = Room.Sid(from: joinResponse.room.sid)
                 $0.name = joinResponse.room.name
+                $0.serverInfo = joinResponse.serverInfo
+                $0.maxParticipants = Int(joinResponse.room.maxParticipants)
+
                 $0.metadata = joinResponse.room.metadata
                 $0.isRecording = joinResponse.room.activeRecording
-                $0.serverInfo = joinResponse.serverInfo
+                $0.numParticipants = Int(joinResponse.room.numParticipants)
+                $0.numPublishers = Int(joinResponse.room.numPublishers)
+
+                // Attempt to get millisecond precision.
+                if joinResponse.room.creationTimeMs != 0 {
+                    $0.creationTime = Date(timeIntervalSince1970: TimeInterval(Double(joinResponse.room.creationTimeMs) / 1000))
+                } else if joinResponse.room.creationTime != 0 {
+                    $0.creationTime = Date(timeIntervalSince1970: TimeInterval(joinResponse.room.creationTime))
+                }
 
                 localParticipant.set(info: joinResponse.participant, connectionState: $0.connectionState)
+                localParticipant.set(enabledPublishCodecs: joinResponse.enabledPublishCodecs)
 
                 if !joinResponse.otherParticipants.isEmpty {
                     for otherParticipant in joinResponse.otherParticipants {
@@ -122,7 +130,6 @@ extension Room: SignalClientDelegate {
         _state.mutate {
             $0.metadata = room.metadata
             $0.isRecording = room.activeRecording
-            $0.maxParticipants = Int(room.maxParticipants)
             $0.numParticipants = Int(room.numParticipants)
             $0.numPublishers = Int(room.numPublishers)
         }
@@ -132,7 +139,6 @@ extension Room: SignalClientDelegate {
         log("speakers: \(speakers)", .trace)
 
         let activeSpeakers = _state.mutate { state -> [Participant] in
-
             var lastSpeakers = state.activeSpeakers.reduce(into: [Sid: Participant]()) { $0[$1.sid] = $1 }
             for speaker in speakers {
                 let participantSid = Participant.Sid(from: speaker.sid)

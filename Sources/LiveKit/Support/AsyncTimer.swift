@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 
 import Foundation
 
-class AsyncTimer: Loggable {
+final class AsyncTimer: Sendable, Loggable {
     // MARK: - Public types
 
-    typealias TimerBlock = () async throws -> Void
+    typealias TimerBlock = @Sendable () async throws -> Void
 
     // MARK: - Private
 
-    struct State {
+    struct State: Sendable {
         var isStarted: Bool = false
         var interval: TimeInterval
         var task: Task<Void, Never>?
@@ -74,9 +74,9 @@ class AsyncTimer: Loggable {
             do {
                 try await state.block?()
             } catch {
-                self.log("Error in timer block: \(error)", .error)
+                log("Error in timer block: \(error)", .error)
             }
-            await self.scheduleNextInvocation()
+            await scheduleNextInvocation()
         }
         _state.mutate { $0.task = task }
     }
@@ -88,10 +88,5 @@ class AsyncTimer: Loggable {
         }
 
         Task { await scheduleNextInvocation() }
-    }
-
-    func startIfStopped() {
-        if _state.isStarted { return }
-        restart()
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,7 @@
  */
 
 import Foundation
-
-#if swift(>=5.9)
 internal import Logging
-#else
-@_implementationOnly import Logging
-#endif
 
 /// Allows to extend with custom `log` method which automatically captures current type (class name).
 public protocol Loggable {}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,11 @@ extension Livekit_TrackType {
     func toLKType() -> Track.Kind {
         switch self {
         case .audio:
-            return .audio
+            .audio
         case .video:
-            return .video
+            .video
         default:
-            return .none
+            .none
         }
     }
 }
@@ -33,11 +33,11 @@ extension Track.Kind {
     func toPBType() -> Livekit_TrackType {
         switch self {
         case .audio:
-            return .audio
+            .audio
         case .video:
-            return .video
+            .video
         default:
-            return .UNRECOGNIZED(10)
+            .UNRECOGNIZED(10)
         }
     }
 }

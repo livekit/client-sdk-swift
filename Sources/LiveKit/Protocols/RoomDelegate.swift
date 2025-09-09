@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,10 +32,11 @@ import Foundation
 /// ```
 /// See the source code of [Swift Example App](https://github.com/livekit/client-example-swift) for more examples.
 @objc
-public protocol RoomDelegate: AnyObject {
+public protocol RoomDelegate: AnyObject, Sendable {
     // MARK: - Connection Events
 
     /// ``Room/connectionState`` has updated.
+    /// - Note: This method is not called for ``ReconnectMode/quick``, use ``RoomDelegate/room(_:didUpdateReconnectMode:)`` instead.
     @objc optional
     func room(_ room: Room, didUpdateConnectionState connectionState: ConnectionState, from oldConnectionState: ConnectionState)
 
@@ -44,12 +45,17 @@ public protocol RoomDelegate: AnyObject {
     func roomDidConnect(_ room: Room)
 
     /// Previously connected to room but re-attempting to connect due to network issues.
+    /// - Note: This method is not called for ``ReconnectMode/quick``, use ``RoomDelegate/room(_:didUpdateReconnectMode:)`` instead.
     @objc optional
     func roomIsReconnecting(_ room: Room)
 
     /// Successfully re-connected to the room.
     @objc optional
     func roomDidReconnect(_ room: Room)
+
+    /// ``Room`` reconnect mode has updated.
+    @objc optional
+    func room(_ room: Room, didUpdateReconnectMode reconnectMode: ReconnectMode)
 
     /// Could not connect to the room. Only triggered when the initial connect attempt fails.
     @objc optional
@@ -90,6 +96,10 @@ public protocol RoomDelegate: AnyObject {
     /// ``Participant/name`` has updated.
     @objc optional
     func room(_ room: Room, participant: Participant, didUpdateName name: String)
+
+    /// ``Participant/state`` has updated.
+    @objc optional
+    func room(_ room: Room, participant: Participant, didUpdateState state: ParticipantState)
 
     /// ``Participant/connectionQuality`` has updated.
     @objc optional
@@ -209,11 +219,6 @@ public protocol RoomDelegate: AnyObject {
     @available(*, unavailable, renamed: "room(_:participant:didUpdateMetadata:)")
     @objc(room:participant:didUpdateMetadata_:) optional
     func room(_ room: Room, participant: Participant, didUpdate metadata: String?)
-
-    // Renamed to ``RoomDelegate/room(_:participant:didUpdateName:)``.
-    // @available(*, unavailable, renamed: "room(_:participant:didUpdateName:)")
-    // @objc(room:participant:didUpdateName_:) optional
-    // func room(_ room: Room, participant: Participant, didUpdateName: String)
 
     /// Renamed to ``RoomDelegate/room(_:participant:didUpdateConnectionQuality:)``.
     @available(*, unavailable, renamed: "room(_:participant:didUpdateConnectionQuality:)")

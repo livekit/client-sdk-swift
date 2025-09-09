@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ actor Debounce {
         _task?.cancel()
     }
 
-    func schedule(_ action: @escaping () async throws -> Void) {
+    func schedule(_ action: @Sendable @escaping () async throws -> Void) {
         _task?.cancel()
         _task = Task.detached(priority: .utility) {
             try? await Task.sleep(nanoseconds: UInt64(self._delay * 1_000_000_000))

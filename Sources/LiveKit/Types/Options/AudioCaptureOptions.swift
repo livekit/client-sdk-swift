@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,35 +16,60 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @objc
 public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
+    // Default values for platform
+    #if targetEnvironment(simulator)
+    // On simulator, Apple's Voice-Processing I/O is not available. Use WebRTC's voice processing instead.
+    public static let defaultEchoCancellation = true
+    public static let defaultAutoGainControl = true
+    public static let defaultNoiseSuppression = true
+    #else
+    // On devices, use Apple's Voice-Processing I/O by default instead of WebRTC's voice processing.
+    // See ``AudioManager/isVoiceProcessingEnabled`` for details.
+    public static let defaultEchoCancellation = false
+    public static let defaultAutoGainControl = false
+    public static let defaultNoiseSuppression = false
+    #endif
+
+    public static let noProcessing = AudioCaptureOptions(
+        echoCancellation: false,
+        autoGainControl: false,
+        noiseSuppression: false,
+        highpassFilter: false,
+        typingNoiseDetection: false
+    )
+
+    /// Whether to enable software (WebRTC's) echo cancellation.
+    /// By default, Apple's voice processing is already enabled.
+    /// See ``AudioManager/isVoiceProcessingBypassed`` for details.
     @objc
     public let echoCancellation: Bool
+
+    /// Whether to enable software (WebRTC's) gain control.
+    /// By default, Apple's gain control is already enabled.
+    /// See ``AudioManager/isVoiceProcessingAGCEnabled`` for details.
+    @objc
+    public let autoGainControl: Bool
 
     @objc
     public let noiseSuppression: Bool
 
     @objc
-    public let autoGainControl: Bool
+    public let highpassFilter: Bool
 
     @objc
     public let typingNoiseDetection: Bool
 
-    @objc
-    public let highpassFilter: Bool
-
-    public init(echoCancellation: Bool = true,
-                noiseSuppression: Bool = true,
-                autoGainControl: Bool = true,
-                typingNoiseDetection: Bool = true,
-                highpassFilter: Bool = true)
-    {
+    public init(
+        echoCancellation: Bool = AudioCaptureOptions.defaultEchoCancellation,
+        autoGainControl: Bool = AudioCaptureOptions.defaultAutoGainControl,
+        noiseSuppression: Bool = AudioCaptureOptions.defaultNoiseSuppression,
+        highpassFilter: Bool = false,
+        typingNoiseDetection: Bool = false
+    ) {
         self.echoCancellation = echoCancellation
         self.noiseSuppression = noiseSuppression
         self.autoGainControl = autoGainControl

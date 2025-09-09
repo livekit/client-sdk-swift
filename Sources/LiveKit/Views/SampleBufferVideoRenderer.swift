@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,10 @@
  * limitations under the License.
  */
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 class SampleBufferVideoRenderer: NativeView, Loggable {
-    public let sampleBufferDisplayLayer: AVSampleBufferDisplayLayer
+    let sampleBufferDisplayLayer: AVSampleBufferDisplayLayer
 
     private struct State {
         var isMirrored: Bool = false
@@ -52,19 +48,19 @@ class SampleBufferVideoRenderer: NativeView, Loggable {
 
     override func performLayout() {
         super.performLayout()
-        sampleBufferDisplayLayer.frame = bounds
 
         let (rotation, isMirrored) = _state.read { ($0.videoRotation, $0.isMirrored) }
         sampleBufferDisplayLayer.transform = CATransform3D.from(rotation: rotation, isMirrored: isMirrored)
+        sampleBufferDisplayLayer.frame = bounds
 
         sampleBufferDisplayLayer.removeAllAnimations()
     }
 }
 
 extension SampleBufferVideoRenderer: LKRTCVideoRenderer {
-    func setSize(_: CGSize) {}
+    nonisolated func setSize(_: CGSize) {}
 
-    func renderFrame(_ frame: LKRTCVideoFrame?) {
+    nonisolated func renderFrame(_ frame: LKRTCVideoFrame?) {
         guard let frame else { return }
 
         var pixelBuffer: CVPixelBuffer?
@@ -92,7 +88,7 @@ extension SampleBufferVideoRenderer: LKRTCVideoRenderer {
             return result
         }
 
-        Task.detached { @MainActor in
+        Task { @MainActor in
             self.sampleBufferDisplayLayer.enqueue(sampleBuffer)
             if didUpdateRotation {
                 self.setNeedsLayout()
@@ -115,23 +111,23 @@ extension SampleBufferVideoRenderer: Mirrorable {
     }
 }
 
-private extension CATransform3D {
-    static func from(rotation: VideoRotation, isMirrored: Bool) -> CATransform3D {
-        var transform: CATransform3D
+extension CATransform3D {
+    static let mirror = CATransform3DMakeScale(-1.0, 1.0, 1.0)
 
-        switch rotation {
+    static func from(rotation: VideoRotation, isMirrored: Bool) -> CATransform3D {
+        var transform: CATransform3D = switch rotation {
         case ._0:
-            transform = CATransform3DIdentity
+            CATransform3DIdentity
         case ._90:
-            transform = CATransform3DMakeRotation(.pi / 2.0, 0, 0, 1)
+            CATransform3DMakeRotation(.pi / 2.0, 0, 0, 1)
         case ._180:
-            transform = CATransform3DMakeRotation(.pi, 0, 0, 1)
+            CATransform3DMakeRotation(.pi, 0, 0, 1)
         case ._270:
-            transform = CATransform3DMakeRotation(-.pi / 2.0, 0, 0, 1)
+            CATransform3DMakeRotation(-.pi / 2.0, 0, 0, 1)
         }
 
         if isMirrored {
-            transform = CATransform3DConcat(transform, VideoView.mirrorTransform)
+            transform = CATransform3DConcat(transform, mirror)
         }
 
         return transform

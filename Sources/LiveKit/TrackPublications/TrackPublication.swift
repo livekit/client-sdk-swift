@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public class TrackPublication: NSObject, ObservableObject, Loggable {
+public class TrackPublication: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - Public properties
 
     @objc
@@ -107,9 +107,8 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
             dimensions: info.type == .video ? Dimensions(width: Int32(info.width), height: Int32(info.height)) : nil,
             isMetadataMuted: info.muted,
             encryptionType: info.encryption.toLKType(),
-
-            // store the whole info
-            latestInfo: info
+            latestInfo: info,
+            audioTrackFeatures: Set(info.audioFeatures)
         ))
 
         self.participant = participant
@@ -118,7 +117,6 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
-
             guard let self else { return }
 
             if newState.streamState != oldState.streamState {
@@ -135,13 +133,13 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
                 }
             }
 
-            self.notifyObjectWillChange()
+            notifyObjectWillChange()
         }
     }
 
     func notifyObjectWillChange() {
         // Notify UI that the object has changed
-        Task.detached { @MainActor in
+        Task { @MainActor in
             // Notify TrackPublication
             self.objectWillChange.send()
 
@@ -219,7 +217,7 @@ extension TrackPublication: TrackDelegateInternal {
 
             // TrackPublication.isMuted is a computed property depending on Track.isMuted
             // so emit event on TrackPublication when Track.isMuted updates
-            Task.detached { @MainActor in
+            Task { @MainActor in
                 self.objectWillChange.send()
             }
         }

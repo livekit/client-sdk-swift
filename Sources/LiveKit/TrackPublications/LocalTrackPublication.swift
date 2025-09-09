@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ import Combine
 import Foundation
 
 @objc
-public class LocalTrackPublication: TrackPublication {
+public class LocalTrackPublication: TrackPublication, @unchecked Sendable {
     // indicates whether the track was suspended(muted) by the SDK
     var _suspended: Bool = false
 
@@ -104,6 +104,33 @@ extension LocalTrackPublication: VideoCapturerDelegate {
                 self.recomputeSenderParameters()
             }
         }
+    }
+
+    public func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState) {
+        // Broadcasts can always be stopped from system UI that bypasses our normal disable & unpublish methods.
+        // This check ensures that when this happens the track gets unpublished as well.
+        #if os(iOS)
+        if state == .stopped, capturer is BroadcastScreenCapturer {
+            Task {
+                guard let participant = try await self.requireParticipant() as? LocalParticipant else {
+                    return
+                }
+
+                try await participant.unpublish(publication: self)
+            }
+        }
+        // A similar check for macOS may be triggered e.g. when the display is powered off.
+        #elseif os(macOS)
+        if #available(macOS 12.3, *), state == .stopped, capturer is MacOSScreenCapturer {
+            Task {
+                guard let participant = try await self.requireParticipant() as? LocalParticipant else {
+                    return
+                }
+
+                try await participant.unpublish(publication: self)
+            }
+        }
+        #endif
     }
 }
 

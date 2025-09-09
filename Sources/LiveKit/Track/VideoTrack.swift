@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,7 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @objc
 public protocol VideoTrack where Self: Track {
@@ -41,8 +37,7 @@ protocol VideoTrack_Internal where Self: Track {
 extension VideoTrack {
     // Update a single SubscribedCodec
     func _set(subscribedCodec: Livekit_SubscribedCodec) throws -> Bool {
-        // ...
-        let videoCodec = try VideoCodec.from(id: subscribedCodec.codec)
+        guard let videoCodec = VideoCodec.from(name: subscribedCodec.codec) else { return false }
 
         // Check if main sender is sending the codec...
         if let rtpSender = _state.rtpSender, videoCodec == _state.videoCodec {
@@ -61,7 +56,6 @@ extension VideoTrack {
 
     // Update an array of SubscribedCodecs
     func _set(subscribedCodecs: [Livekit_SubscribedCodec]) throws -> [Livekit_SubscribedCodec] {
-        // ...
         var missingCodecs: [Livekit_SubscribedCodec] = []
 
         for subscribedCodec in subscribedCodecs {

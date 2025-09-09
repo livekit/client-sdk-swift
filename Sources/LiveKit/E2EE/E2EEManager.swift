@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,10 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @objc
-public class E2EEManager: NSObject, ObservableObject, Loggable {
+public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // Private delegate adapter to hide RTCFrameCryptorDelegate symbol
     private class DelegateAdapter: NSObject, LKRTCFrameCryptorDelegate {
         weak var target: E2EEManager?
@@ -34,7 +30,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
 
         func frameCryptor(_ frameCryptor: LKRTCFrameCryptor,
                           didStateChangeWithParticipantId participantId: String,
-                          with stateChanged: FrameCryptionState)
+                          with stateChanged: LKRTCFrameCryptorState)
         {
             // Redirect
             target?.frameCryptor(frameCryptor, didStateChangeWithParticipantId: participantId, with: stateChanged)
@@ -174,7 +170,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
 }
 
 extension E2EEManager {
-    func frameCryptor(_ frameCryptor: LKRTCFrameCryptor, didStateChangeWithParticipantId participantId: String, with state: FrameCryptionState) {
+    func frameCryptor(_ frameCryptor: LKRTCFrameCryptor, didStateChangeWithParticipantId participantId: String, with state: LKRTCFrameCryptorState) {
         guard let room = _room else {
             log("room is nil", .warning)
             return

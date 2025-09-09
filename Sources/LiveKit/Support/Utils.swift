@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,7 @@
  * limitations under the License.
  */
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
-
-typealias DebouncFunc = () -> Void
 
 enum OS {
     case macOS
@@ -32,10 +26,10 @@ enum OS {
 extension OS: CustomStringConvertible {
     var description: String {
         switch self {
-        case .macOS: return "macOS"
-        case .iOS: return "iOS"
-        case .visionOS: return "visionOS"
-        case .tvOS: return "tvOS"
+        case .macOS: "macOS"
+        case .iOS: "iOS"
+        case .visionOS: "visionOS"
+        case .tvOS: "tvOS"
         }
     }
 }
@@ -137,7 +131,6 @@ class Utils {
 
     static func buildUrl(
         _ url: URL,
-        _ token: String,
         connectOptions: ConnectOptions? = nil,
         reconnectMode: ReconnectMode? = nil,
         participantSid: Participant.Sid? = nil,
@@ -181,7 +174,6 @@ class Utils {
         builder.path = "/" + pathSegments.joined(separator: "/")
 
         var queryItems = [
-            URLQueryItem(name: "access_token", value: token),
             URLQueryItem(name: "protocol", value: connectOptions.protocolVersion.description),
             URLQueryItem(name: "sdk", value: "swift"),
             URLQueryItem(name: "version", value: LiveKitSDK.version),

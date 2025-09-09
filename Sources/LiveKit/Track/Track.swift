@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,10 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @objc
-public class Track: NSObject, Loggable {
+public class Track: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Static constants
 
     @objc
@@ -107,7 +103,7 @@ public class Track: NSObject, Loggable {
 
     let mediaTrack: LKRTCMediaStreamTrack
 
-    struct State {
+    struct State: Sendable {
         let name: String
         let kind: Kind
         let source: Source
@@ -131,8 +127,8 @@ public class Track: NSObject, Loggable {
         var rtpSenderForCodec: [VideoCodec: LKRTCRtpSender] = [:] // simulcastSender
         var rtpReceiver: LKRTCRtpReceiver?
 
-        // Weak reference to all VideoRenderers attached to this track.
-        var videoRenderers = NSHashTable<VideoRenderer>.weakObjects()
+        // All VideoRendererAdapters attached to this track, key/value for direct removal.
+        var videoRendererAdapters = NSMapTable<VideoRenderer, VideoRendererAdapter>.weakToStrongObjects()
     }
 
     let _state: StateSync<State>
@@ -162,14 +158,13 @@ public class Track: NSObject, Loggable {
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
-
             guard let self else { return }
 
             if oldState.dimensions != newState.dimensions {
-                self.log("Track.dimensions \(String(describing: oldState.dimensions)) -> \(String(describing: newState.dimensions))")
+                log("Track.dimensions \(String(describing: oldState.dimensions)) -> \(String(describing: newState.dimensions))")
             }
 
-            self.delegates.notify {
+            delegates.notify {
                 if let delegateInternal = $0 as? TrackDelegateInternal {
                     delegateInternal.track(self, didMutateState: newState, oldState: oldState)
                 }
@@ -178,7 +173,7 @@ public class Track: NSObject, Loggable {
             if newState.statistics != oldState.statistics || newState.simulcastStatistics != oldState.simulcastStatistics,
                let statistics = newState.statistics
             {
-                self.delegates.notify { $0.track?(self, didUpdateStatistics: statistics, simulcastStatistics: newState.simulcastStatistics) }
+                delegates.notify { $0.track?(self, didUpdateStatistics: statistics, simulcastStatistics: newState.simulcastStatistics) }
             }
         }
     }
@@ -234,13 +229,13 @@ public class Track: NSObject, Loggable {
     public final func start() async throws {
         try await _startStopSerialRunner.run { [weak self] in
             guard let self else { return }
-            guard self._state.trackState != .started else {
-                self.log("Already started", .warning)
+            guard _state.trackState != .started else {
+                log("Already started", .warning)
                 return
             }
-            try await self.startCapture()
-            if self is RemoteTrack { try await self.enable() }
-            self._state.mutate { $0.trackState = .started }
+            try await startCapture()
+            if self is RemoteTrack { try await enable() }
+            _state.mutate { $0.trackState = .started }
         }
     }
 
@@ -248,13 +243,13 @@ public class Track: NSObject, Loggable {
     public final func stop() async throws {
         try await _startStopSerialRunner.run { [weak self] in
             guard let self else { return }
-            guard self._state.trackState != .stopped else {
-                self.log("Already stopped", .warning)
+            guard _state.trackState != .stopped else {
+                log("Already stopped", .warning)
                 return
             }
-            try await self.stopCapture()
-            if self is RemoteTrack { try await self.disable() }
-            self._state.mutate { $0.trackState = .stopped }
+            try await stopCapture()
+            if self is RemoteTrack { try await disable() }
+            _state.mutate { $0.trackState = .stopped }
         }
     }
 

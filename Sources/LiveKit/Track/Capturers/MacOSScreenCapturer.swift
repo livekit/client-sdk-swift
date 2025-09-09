@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,16 +21,12 @@ import Foundation
 import ScreenCaptureKit
 #endif
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 #if os(macOS)
 
 @available(macOS 12.3, *)
-public class MacOSScreenCapturer: VideoCapturer {
+public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
     private let capturer = RTC.createVideoCapturer()
 
     // TODO: Make it possible to change dynamically
@@ -75,11 +71,13 @@ public class MacOSScreenCapturer: VideoCapturer {
                   let content = displaySource.scContent as? SCShareableContent,
                   let nativeDisplay = displaySource.nativeType as? SCDisplay
         {
-            let excludedApps = !options.includeCurrentApplication ? content.applications.filter { app in
-                Bundle.main.bundleIdentifier == app.bundleIdentifier
-            } : []
+            let includedApps = options.includeCurrentApplication ?
+                content.applications :
+                content.applications.filter { app in Bundle.main.bundleIdentifier != app.bundleIdentifier }
 
-            filter = SCContentFilter(display: nativeDisplay, excludingApplications: excludedApps, exceptingWindows: [])
+            let excludedWindows = content.windows.filter { window in options.excludeWindowIDs.contains(window.windowID) }
+
+            filter = SCContentFilter(display: nativeDisplay, including: includedApps, exceptingWindows: excludedWindows)
         } else {
             log("Unable to resolve SCContentFilter", .error)
             throw LiveKitError(.invalidState, message: "Unable to resolve SCContentFilter")
@@ -98,9 +96,16 @@ public class MacOSScreenCapturer: VideoCapturer {
         configuration.pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         configuration.showsCursor = options.showCursor
 
+        if #available(macOS 13.0, *) {
+            configuration.capturesAudio = options.appAudio
+        }
+
         // Why does SCStream hold strong reference to delegate?
-        let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
+        let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
         try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: nil)
+        if #available(macOS 13.0, *) {
+            try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: nil)
+        }
         try await stream.startCapture()
 
         _screenCapturerState.mutate { $0.scStream = stream }
@@ -195,12 +200,23 @@ extension MacOSScreenCapturer {
     }
 }
 
+// MARK: - SCStreamDelegate
+
+@available(macOS 12.3, *)
+extension MacOSScreenCapturer: SCStreamDelegate {
+    public func stream(_: SCStream, didStopWithError error: Error) {
+        log("Stream stopped with error: \(error)", .error)
+        Task {
+            try await stopCapture()
+        }
+    }
+}
+
 // MARK: - SCStreamOutput
 
 @available(macOS 12.3, *)
 extension MacOSScreenCapturer: SCStreamOutput {
     public func stream(_: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer,
-
                        of outputType: SCStreamOutputType)
     {
         guard case .started = captureState else {
@@ -211,40 +227,43 @@ extension MacOSScreenCapturer: SCStreamOutput {
         // Return early if the sample buffer is invalid.
         guard sampleBuffer.isValid else { return }
 
-        guard case .screen = outputType else { return }
+        if case .audio = outputType {
+            guard let pcm = sampleBuffer.toAVAudioPCMBuffer() else { return }
+            AudioManager.shared.mixer.capture(appAudio: pcm)
+        } else if case .screen = outputType {
+            // Retrieve the array of metadata attachments from the sample buffer.
+            guard let attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer,
+                                                                                 createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
+                let attachments = attachmentsArray.first else { return }
 
-        // Retrieve the array of metadata attachments from the sample buffer.
-        guard let attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer,
-                                                                             createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
-            let attachments = attachmentsArray.first else { return }
+            // Validate the status of the frame. If it isn't `.complete`, return nil.
+            guard let statusRawValue = attachments[SCStreamFrameInfo.status] as? Int,
+                  let status = SCFrameStatus(rawValue: statusRawValue),
+                  status == .complete else { return }
 
-        // Validate the status of the frame. If it isn't `.complete`, return nil.
-        guard let statusRawValue = attachments[SCStreamFrameInfo.status] as? Int,
-              let status = SCFrameStatus(rawValue: statusRawValue),
-              status == .complete else { return }
+            // Retrieve the content rectangle, scale, and scale factor.
+            guard let contentRectDict = attachments[.contentRect],
+                  let contentRect = CGRect(dictionaryRepresentation: contentRectDict as! CFDictionary),
+                  // let contentScale = attachments[.contentScale] as? CGFloat,
+                  let scaleFactor = attachments[.scaleFactor] as? CGFloat else { return }
 
-        // Retrieve the content rectangle, scale, and scale factor.
-        guard let contentRectDict = attachments[.contentRect],
-              let contentRect = CGRect(dictionaryRepresentation: contentRectDict as! CFDictionary),
-              // let contentScale = attachments[.contentScale] as? CGFloat,
-              let scaleFactor = attachments[.scaleFactor] as? CGFloat else { return }
-
-        // Schedule resend timer
-        let newTimer = Task.detached(priority: .utility) { [weak self] in
-            while true {
-                try? await Task.sleep(nanoseconds: UInt64(1 * 1_000_000_000))
-                if Task.isCancelled { break }
-                guard let self else { break }
-                try await self._capturePreviousFrame()
+            // Schedule resend timer
+            let newTimer = Task.detached(priority: .utility) { [weak self] in
+                while true {
+                    try? await Task.sleep(nanoseconds: UInt64(1 * 1_000_000_000))
+                    if Task.isCancelled { break }
+                    guard let self else { break }
+                    try await _capturePreviousFrame()
+                }
             }
-        }
 
-        _screenCapturerState.mutate {
-            $0.resendTimer?.cancel()
-            $0.resendTimer = newTimer
-        }
+            _screenCapturerState.mutate {
+                $0.resendTimer?.cancel()
+                $0.resendTimer = newTimer
+            }
 
-        capture(sampleBuffer, contentRect: contentRect, scaleFactor: scaleFactor)
+            capture(sampleBuffer, contentRect: contentRect, scaleFactor: scaleFactor)
+        }
     }
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class ParticipantTests: XCTestCase {
+class ParticipantTests: LKTestCase {
     func testLocalParticipantIdentity() async throws {
         try await withRooms([RoomTestingOptions()]) { rooms in
             // Alias to Room

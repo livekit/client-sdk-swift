@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,7 @@
  * limitations under the License.
  */
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @objc
 public enum SubscriptionState: Int, Codable {
@@ -28,7 +24,7 @@ public enum SubscriptionState: Int, Codable {
 }
 
 @objc
-public class RemoteTrackPublication: TrackPublication {
+public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     // MARK: - Public
 
     @objc
@@ -305,6 +301,7 @@ extension RemoteTrackPublication {
 
 // MARK: - Adaptive Stream
 
+@MainActor
 extension Collection<VideoRenderer> {
     func containsOneOrMoreAdaptiveStreamEnabledRenderers() -> Bool {
         // not visible if no entry
@@ -343,7 +340,7 @@ extension RemoteTrackPublication {
             return
         }
 
-        let videoRenderers = track?._state.videoRenderers.allObjects ?? []
+        let videoRenderers = track?._state.videoRendererAdapters.objectEnumerator()?.allObjects.compactMap { ($0 as? VideoRendererAdapter)?.renderer } ?? []
         let isEnabled = videoRenderers.containsOneOrMoreAdaptiveStreamEnabledRenderers()
         var dimensions: Dimensions = .zero
 

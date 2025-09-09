@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,7 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 extension Room {
     func engine(_: Room, didMutateState state: Room.State, oldState: Room.State) {
@@ -79,22 +75,30 @@ extension Room {
             Task.detached { [weak self] in
                 guard let self else { return }
                 do {
-                    try await self.localParticipant.republishAllTracks()
+                    try await localParticipant.republishAllTracks()
                 } catch {
-                    self.log("Failed to re-publish local tracks, error: \(error)", .error)
+                    log("Failed to re-publish local tracks, error: \(error)", .error)
                 }
             }
         }
 
+        // Notify when reconnection mode changes
+        if state.isReconnectingWithMode != oldState.isReconnectingWithMode,
+           let mode = state.isReconnectingWithMode
+        {
+            delegates.notify(label: { "room.didUpdate reconnectionMode: \(String(describing: state.isReconnectingWithMode)) oldValue: \(String(describing: oldState.isReconnectingWithMode))" }) {
+                $0.room?(self, didUpdateReconnectMode: mode)
+            }
+        }
+
         // Notify change when engine's state mutates
-        Task.detached { @MainActor in
+        Task { @MainActor in
             self.objectWillChange.send()
         }
     }
 
     func engine(_ engine: Room, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) {
         let activeSpeakers = _state.mutate { state -> [Participant] in
-
             var activeSpeakers: [Participant] = []
             var seenParticipantSids = [Participant.Sid: Bool]()
             for speaker in speakers {
@@ -237,6 +241,41 @@ extension Room {
 
         participant.delegates.notify {
             $0.participant?(participant, trackPublication: publication, didReceiveTranscriptionSegments: segments)
+        }
+    }
+
+    func room(didReceiveRpcResponse response: Livekit_RpcResponse) {
+        let (payload, error): (String?, RpcError?) = switch response.value {
+        case let .payload(v): (v, nil)
+        case let .error(e): (nil, RpcError.fromProto(e))
+        default: (nil, nil)
+        }
+
+        localParticipant.handleIncomingRpcResponse(requestId: response.requestID,
+                                                   payload: payload,
+                                                   error: error)
+    }
+
+    func room(didReceiveRpcAck ack: Livekit_RpcAck) {
+        let requestId = ack.requestID
+        localParticipant.handleIncomingRpcAck(requestId: requestId)
+    }
+
+    func room(didReceiveRpcRequest request: Livekit_RpcRequest, from participantIdentity: String) {
+        let callerIdentity = Participant.Identity(from: participantIdentity)
+        let requestId = request.id
+        let method = request.method
+        let payload = request.payload
+        let responseTimeout = TimeInterval(UInt64(request.responseTimeoutMs) / UInt64(msecPerSec))
+        let version = Int(request.version)
+
+        Task {
+            await localParticipant.handleIncomingRpcRequest(callerIdentity: callerIdentity,
+                                                            requestId: requestId,
+                                                            method: method,
+                                                            payload: payload,
+                                                            responseTimeout: responseTimeout,
+                                                            version: version)
         }
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,41 +14,30 @@
  * limitations under the License.
  */
 
-import AVFoundation
+@preconcurrency import AVFoundation
 import CoreMedia
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
+/// Used to observe audio buffers before playback, e.g. for visualization, recording, etc
+/// - Note: AudioRenderer is not suitable for buffer modification. If you need to modify the buffer, use `AudioCustomProcessingDelegate` instead.
 @objc
-public protocol AudioRenderer {
+public protocol AudioRenderer: Sendable {
     @objc
     func render(pcmBuffer: AVAudioPCMBuffer)
 }
 
-class AudioRendererAdapter: NSObject, LKRTCAudioRenderer {
-    private weak var target: AudioRenderer?
-    private let targetHashValue: Int
+class AudioRendererAdapter: MulticastDelegate<AudioRenderer>, @unchecked Sendable, LKRTCAudioRenderer {
+    //
+    typealias Delegate = AudioRenderer
 
-    init(target: AudioRenderer) {
-        self.target = target
-        targetHashValue = ObjectIdentifier(target).hashValue
+    init() {
+        super.init(label: "AudioRendererAdapter")
     }
+
+    // MARK: - LKRTCAudioRenderer
 
     func render(pcmBuffer: AVAudioPCMBuffer) {
-        target?.render(pcmBuffer: pcmBuffer)
-    }
-
-    // Proxy the equality operators
-    override func isEqual(_ object: Any?) -> Bool {
-        guard let other = object as? AudioRendererAdapter else { return false }
-        return targetHashValue == other.targetHashValue
-    }
-
-    override var hash: Int {
-        targetHashValue
+        notify { $0.render(pcmBuffer: pcmBuffer) }
     }
 }

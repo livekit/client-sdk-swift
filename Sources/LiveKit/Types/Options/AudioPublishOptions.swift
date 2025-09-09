@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,17 +29,27 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
     public let dtx: Bool
 
     @objc
+    public let red: Bool
+
+    @objc
     public let streamName: String?
+
+    @objc
+    public let preConnect: Bool
 
     public init(name: String? = nil,
                 encoding: AudioEncoding? = nil,
                 dtx: Bool = true,
-                streamName: String? = nil)
+                red: Bool = true,
+                streamName: String? = nil,
+                preConnect: Bool = false)
     {
         self.name = name
         self.encoding = encoding
         self.dtx = dtx
+        self.red = red
         self.streamName = streamName
+        self.preConnect = preConnect
     }
 
     // MARK: - Equal
@@ -49,7 +59,9 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
         return name == other.name &&
             encoding == other.encoding &&
             dtx == other.dtx &&
-            streamName == other.streamName
+            red == other.red &&
+            streamName == other.streamName &&
+            preConnect == other.preConnect
     }
 
     override public var hash: Int {
@@ -57,7 +69,9 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
         hasher.combine(name)
         hasher.combine(encoding)
         hasher.combine(dtx)
+        hasher.combine(red)
         hasher.combine(streamName)
+        hasher.combine(preConnect)
         return hasher.finalize()
     }
 }
@@ -67,6 +81,20 @@ extension AudioPublishOptions {
     func toFeatures() -> Set<Livekit_AudioTrackFeature> {
         Set([
             !dtx ? .tfNoDtx : nil,
+            preConnect ? .tfPreconnectBuffer : nil,
         ].compactMap { $0 })
+    }
+}
+
+extension AudioPublishOptions {
+    func withPreconnect(_ enabled: Bool) -> AudioPublishOptions {
+        AudioPublishOptions(
+            name: name,
+            encoding: encoding,
+            dtx: dtx,
+            red: red,
+            streamName: streamName,
+            preConnect: enabled
+        )
     }
 }

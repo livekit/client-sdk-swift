@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,12 @@
 import Accelerate
 import AVFoundation
 import Foundation
+import LiveKitWebRTC
 
 @testable import LiveKit
 import XCTest
 
-class AudioProcessingTests: XCTestCase, AudioCustomProcessingDelegate {
+class AudioProcessingTests: LKTestCase, AudioCustomProcessingDelegate, @unchecked Sendable {
     var _initSampleRate: Double = 0.0
     var _initChannels: Int = 0
 
@@ -59,6 +60,67 @@ class AudioProcessingTests: XCTestCase, AudioCustomProcessingDelegate {
             // 3 secs...
             let ns = UInt64(5 * 1_000_000_000)
             try await Task.sleep(nanoseconds: ns)
+        }
+    }
+
+    func testOptionsAppliedToAudioProcessingModule() async throws {
+        // Disable Apple VPIO.
+        AudioManager.shared.isVoiceProcessingBypassed = true
+
+        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+            // Alias to Room1
+            let room1 = rooms[0]
+
+            let allOnOptions = AudioCaptureOptions(
+                echoCancellation: true,
+                autoGainControl: true,
+                noiseSuppression: true,
+                highpassFilter: true
+            )
+
+            let allOffOptions = AudioCaptureOptions(
+                echoCancellation: false,
+                autoGainControl: false,
+                noiseSuppression: false,
+                highpassFilter: false
+            )
+
+            let pub1 = try await room1.localParticipant.setMicrophone(enabled: true, captureOptions: allOnOptions)
+            guard let pub1 else {
+                XCTFail("Publication is nil")
+                return
+            }
+
+            let ns = UInt64(3 * 1_000_000_000)
+            try await Task.sleep(nanoseconds: ns)
+
+            // Directly read config from the apm
+            let allOnConfigResult = RTC.audioProcessingModule.config
+            print("Config result for all on: \(allOnConfigResult.toDebugString()))")
+            XCTAssert(allOnConfigResult.isEchoCancellationEnabled)
+            XCTAssert(allOnConfigResult.isNoiseSuppressionEnabled)
+            XCTAssert(allOnConfigResult.isAutoGainControl1Enabled)
+            XCTAssert(allOnConfigResult.isHighpassFilterEnabled)
+
+            try await room1.localParticipant.unpublish(publication: pub1)
+
+            let pub2 = try await room1.localParticipant.setMicrophone(enabled: true, captureOptions: allOffOptions)
+            guard let pub2 else {
+                XCTFail("Publication is nil")
+                return
+            }
+
+            try await Task.sleep(nanoseconds: ns)
+
+            // Directly read config from the apm
+            let allOffConfigResult = RTC.audioProcessingModule.config
+            print("Config result for all off: \(allOffConfigResult.toDebugString())")
+            XCTAssert(!allOffConfigResult.isEchoCancellationEnabled)
+            XCTAssert(!allOffConfigResult.isNoiseSuppressionEnabled)
+            XCTAssert(!allOffConfigResult.isAutoGainControl1Enabled)
+            XCTAssert(!allOffConfigResult.isHighpassFilterEnabled)
+
+            try await room1.localParticipant.unpublish(publication: pub2)
         }
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public class ParticipantPermissions: NSObject {
+public class ParticipantPermissions: NSObject, @unchecked Sendable {
     /// ``Participant`` can subscribe to tracks in the room
     @objc
     public let canSubscribe: Bool
@@ -30,6 +30,10 @@ public class ParticipantPermissions: NSObject {
     @objc
     public let canPublishData: Bool
 
+    /// ``Participant`` can publish allowed sources
+    @objc
+    public let canPublishSources: Set<Track.Source.RawValue>
+
     /// ``Participant`` is hidden to others
     @objc
     public let hidden: Bool
@@ -41,12 +45,14 @@ public class ParticipantPermissions: NSObject {
     init(canSubscribe: Bool = false,
          canPublish: Bool = false,
          canPublishData: Bool = false,
+         canPublishSources: Set<Track.Source> = [],
          hidden: Bool = false,
          recorder: Bool = false)
     {
         self.canSubscribe = canSubscribe
         self.canPublish = canPublish
         self.canPublishData = canPublishData
+        self.canPublishSources = Set(canPublishSources.map(\.rawValue))
         self.hidden = hidden
         self.recorder = recorder
     }
@@ -58,6 +64,7 @@ public class ParticipantPermissions: NSObject {
         return canSubscribe == other.canSubscribe &&
             canPublish == other.canPublish &&
             canPublishData == other.canPublishData &&
+            canPublishSources == other.canPublishSources &&
             hidden == other.hidden &&
             recorder == other.recorder
     }
@@ -67,6 +74,7 @@ public class ParticipantPermissions: NSObject {
         hasher.combine(canSubscribe)
         hasher.combine(canPublish)
         hasher.combine(canPublishData)
+        hasher.combine(canPublishSources)
         hasher.combine(hidden)
         hasher.combine(recorder)
         return hasher.finalize()
@@ -78,6 +86,7 @@ extension Livekit_ParticipantPermission {
         ParticipantPermissions(canSubscribe: canSubscribe,
                                canPublish: canPublish,
                                canPublishData: canPublishData,
+                               canPublishSources: Set(canPublishSources.map { $0.toLKType() }),
                                hidden: hidden,
                                recorder: recorder)
     }

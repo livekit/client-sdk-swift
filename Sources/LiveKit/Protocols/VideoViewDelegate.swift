@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,10 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @objc
-public protocol VideoViewDelegate: AnyObject {
+public protocol VideoViewDelegate: AnyObject, Sendable {
     /// Dimensions of the VideoView itself has updated
     @objc(videoView:didUpdateSize:) optional
     func videoView(_ videoView: VideoView, didUpdate size: CGSize)

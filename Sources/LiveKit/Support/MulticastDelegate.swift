@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ public protocol MulticastDelegateProtocol {
 ///
 /// Uses `NSHashTable` internally to maintain a set of weak delegates.
 ///
-public class MulticastDelegate<T>: NSObject, Loggable {
+public class MulticastDelegate<T: Sendable>: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Public properties
 
     public var isDelegatesEmpty: Bool { countDelegates == 0 }
@@ -86,7 +86,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
     }
 
     /// Notify delegates inside the queue.
-    func notify(label _: (() -> String)? = nil, _ fnc: @escaping (T) -> Void) {
+    func notify(label _: (() -> String)? = nil, _ fnc: @Sendable @escaping (T) -> Void) {
         let delegates = _state.read { $0.delegates.allObjects.compactMap { $0 as? T } }
 
         _queue.async {
@@ -97,7 +97,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
     }
 
     /// Awaitable version of notify
-    func notifyAsync(_ fnc: @escaping (T) -> Void) async {
+    func notifyAsync(_ fnc: @Sendable @escaping (T) -> Void) async {
         // Read a copy of delegates
         let delegates = _state.read { $0.delegates.allObjects.compactMap { $0 as? T } }
 

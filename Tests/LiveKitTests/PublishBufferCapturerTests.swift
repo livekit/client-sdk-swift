@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,24 @@ import AVFoundation
 @testable import LiveKit
 import XCTest
 
-class PublishBufferCapturerTests: XCTestCase {
+class PublishBufferCapturerTests: LKTestCase {
     func testPublishBufferTrack() async throws {
+        let testCodecs: [VideoCodec] = [.vp8]
+        for codec in testCodecs {
+            print("Testing with codec: \(codec)")
+            let publishOptions = VideoPublishOptions(
+                simulcast: false,
+                preferredCodec: codec,
+                preferredBackupCodec: .none,
+                degradationPreference: .maintainResolution
+            )
+            try await testWith(publishOptions: publishOptions)
+        }
+    }
+}
+
+extension PublishBufferCapturerTests {
+    func testWith(publishOptions: VideoPublishOptions) async throws {
         try await withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
             // Alias to Rooms
             let room1 = rooms[0]
@@ -28,13 +44,6 @@ class PublishBufferCapturerTests: XCTestCase {
             let targetDimensions: Dimensions = .h720_169
 
             let captureOptions = BufferCaptureOptions(dimensions: targetDimensions)
-
-            let publishOptions = VideoPublishOptions(
-                simulcast: false,
-                preferredCodec: .vp8,
-                preferredBackupCodec: .none,
-                degradationPreference: .maintainResolution
-            )
 
             let bufferTrack = LocalVideoTrack.createBufferTrack(
                 options: captureOptions
@@ -91,8 +100,17 @@ class PublishBufferCapturerTests: XCTestCase {
 
             print("Waiting for target dimensions: \(targetDimensions)")
             let expectTargetDimensions = videoTrackWatcher.expect(dimensions: targetDimensions)
-            await self.fulfillment(of: [expectTargetDimensions], timeout: 60)
+            await self.fulfillment(of: [expectTargetDimensions], timeout: 120)
             print("Did render target dimensions: \(targetDimensions)")
+
+            // Verify codec information
+            print("Waiting for codec information...")
+            if let codec = publishOptions.preferredCodec {
+                let expectCodec = videoTrackWatcher.expect(codec: codec)
+                await self.fulfillment(of: [expectCodec], timeout: 60)
+                print("Detected codecs: \(videoTrackWatcher.detectedCodecs.joined(separator: ", "))")
+                XCTAssertTrue(videoTrackWatcher.isCodecDetected(codec: codec), "Expected codec \(codec) was not detected")
+            }
 
             // Wait for video to complete...
             try await captureTask.value

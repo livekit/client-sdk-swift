@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 import Foundation
 import Network
 
-protocol ConnectivityListenerDelegate: AnyObject {
+protocol ConnectivityListenerDelegate: AnyObject, Sendable {
     func connectivityListener(_: ConnectivityListener, didUpdate hasConnectivity: Bool)
     // network remains to have connectivity but path changed
     func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath)
@@ -28,18 +28,18 @@ extension ConnectivityListenerDelegate {
     func connectivityListener(_: ConnectivityListener, didSwitch _: NWPath) {}
 }
 
-class ConnectivityListener: MulticastDelegate<ConnectivityListenerDelegate> {
+class ConnectivityListener: MulticastDelegate<ConnectivityListenerDelegate>, @unchecked Sendable {
     static let shared = ConnectivityListener()
 
-    public private(set) var hasConnectivity: Bool? {
+    private(set) var hasConnectivity: Bool? {
         didSet {
             guard let newValue = hasConnectivity, oldValue != newValue else { return }
             notify { $0.connectivityListener(self, didUpdate: newValue) }
         }
     }
 
-    public private(set) var ipv4: String?
-    public private(set) var path: NWPath?
+    private(set) var ipv4: String?
+    private(set) var path: NWPath?
 
     private let queue = DispatchQueue(label: "LiveKitSDK.connectivityListener", qos: .default)
 
@@ -60,7 +60,7 @@ class ConnectivityListener: MulticastDelegate<ConnectivityListenerDelegate> {
 
         monitor.pathUpdateHandler = { [weak self] path in
             guard let self else { return }
-            self.set(path: path)
+            set(path: path)
         }
 
         monitor.start(queue: queue)
@@ -111,9 +111,9 @@ private extension ConnectivityListener {
                                                       repeats: false)
             { [weak self] _ in
                 guard let self else { return }
-                self.log("satisfied monitor timer invalidated")
-                self.isPossiblySwitchingNetwork = false
-                self.switchNetworkTimer = nil
+                log("satisfied monitor timer invalidated")
+                isPossiblySwitchingNetwork = false
+                switchNetworkTimer = nil
             }
         } else if !oldValue.isSatisfied(), newValue.isSatisfied(), isPossiblySwitchingNetwork {
             // unsatisfied -> satisfied
@@ -168,7 +168,7 @@ extension NWInterface {
                     getnameinfo(interface.ifa_addr, socklen_t(interface.ifa_addr.pointee.sa_len),
                                 &hostname, socklen_t(hostname.count),
                                 nil, socklen_t(0), NI_NUMERICHOST)
-                    address = String(cString: hostname)
+                    address = String(cString: hostname, encoding: .utf8)
                 }
             }
         }

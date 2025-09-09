@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,8 @@
  */
 
 import Foundation
-
-#if swift(>=5.9)
 internal import LiveKitWebRTC
 internal import Logging
-#else
-@_implementationOnly import LiveKitWebRTC
-@_implementationOnly import Logging
-#endif
 
 let logger = Logger(label: "LiveKitSDK")
 
@@ -39,7 +33,7 @@ let logger = Logger(label: "LiveKitSDK")
 @objc
 public class LiveKitSDK: NSObject {
     @objc(sdkVersion)
-    public static let version = "2.0.16"
+    public static let version = "2.7.2"
 
     @objc
     public static func setLoggerStandardOutput() {

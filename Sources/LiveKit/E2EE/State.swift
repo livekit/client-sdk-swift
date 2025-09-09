@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,7 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @objc
 public enum E2EEState: Int, Sendable {
@@ -36,29 +32,29 @@ public enum E2EEState: Int, Sendable {
 public extension E2EEState {
     func toString() -> String {
         switch self {
-        case .new: return "new"
-        case .ok: return "ok"
-        case .key_ratcheted: return "key_ratcheted"
-        case .missing_key: return "missing_key"
-        case .encryption_failed: return "encryption_failed"
-        case .decryption_failed: return "decryption_failed"
-        case .internal_error: return "internal_error"
-        default: return "internal_error"
+        case .new: "new"
+        case .ok: "ok"
+        case .key_ratcheted: "key_ratcheted"
+        case .missing_key: "missing_key"
+        case .encryption_failed: "encryption_failed"
+        case .decryption_failed: "decryption_failed"
+        case .internal_error: "internal_error"
+        default: "internal_error"
         }
     }
 }
 
-extension FrameCryptionState {
+extension LKRTCFrameCryptorState {
     func toLKType() -> E2EEState {
         switch self {
-        case .new: return .new
-        case .ok: return .ok
-        case .keyRatcheted: return .key_ratcheted
-        case .missingKey: return .missing_key
-        case .encryptionFailed: return .encryption_failed
-        case .decryptionFailed: return .decryption_failed
-        case .internalError: return .internal_error
-        default: return .internal_error
+        case .new: .new
+        case .ok: .ok
+        case .keyRatcheted: .key_ratcheted
+        case .missingKey: .missing_key
+        case .encryptionFailed: .encryption_failed
+        case .decryptionFailed: .decryption_failed
+        case .internalError: .internal_error
+        default: .internal_error
         }
     }
 }

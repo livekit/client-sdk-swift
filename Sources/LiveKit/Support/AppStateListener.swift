@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import AppKit
 #endif
 
 @objc
-protocol AppStateDelegate: AnyObject {
+protocol AppStateDelegate: AnyObject, Sendable {
     func appDidEnterBackground()
     func appWillEnterForeground()
     func appWillTerminate()
@@ -35,6 +35,7 @@ protocol AppStateDelegate: AnyObject {
     func appDidWake()
 }
 
+@MainActor
 class AppStateListener: Loggable {
     static let shared = AppStateListener()
 

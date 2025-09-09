@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,7 @@
  * limitations under the License.
  */
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @objc
 public enum DegradationPreference: Int, Sendable {
@@ -33,13 +29,13 @@ public enum DegradationPreference: Int, Sendable {
 }
 
 extension DegradationPreference {
-    func toRTCType() -> RTCDegradationPreference? {
+    func toRTCType() -> LKRTCDegradationPreference? {
         switch self {
-        case .auto: return nil
-        case .disabled: return .disabled
-        case .maintainFramerate: return .maintainFramerate
-        case .maintainResolution: return .maintainResolution
-        case .balanced: return .balanced
+        case .auto: nil
+        case .disabled: .disabled
+        case .maintainFramerate: .maintainFramerate
+        case .maintainResolution: .maintainResolution
+        case .balanced: .balanced
         }
     }
 }

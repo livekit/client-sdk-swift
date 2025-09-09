@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,7 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @objc
 public enum StreamState: Int, Sendable {
@@ -31,8 +27,8 @@ public enum StreamState: Int, Sendable {
 extension Livekit_StreamState {
     func toLKType() -> StreamState {
         switch self {
-        case .active: return .active
-        default: return .paused
+        case .active: .active
+        default: .paused
         }
     }
 }

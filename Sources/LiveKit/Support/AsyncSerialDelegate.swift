@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 import Foundation
 
-class AsyncSerialDelegate<T> {
+final class AsyncSerialDelegate<T: Sendable>: Sendable {
     private struct State {
         weak var delegate: AnyObject?
     }
@@ -24,18 +24,18 @@ class AsyncSerialDelegate<T> {
     private let _state = StateSync(State())
     private let _serialRunner = SerialRunnerActor<Void>()
 
-    public func set(delegate: T) {
+    func set(delegate: T) {
         _state.mutate { $0.delegate = delegate as AnyObject }
     }
 
-    public func notifyAsync(_ fnc: @escaping (T) async -> Void) async throws {
+    func notifyAsync(_ fnc: @Sendable @escaping (T) async -> Void) async throws {
         guard let delegate = _state.read({ $0.delegate }) as? T else { return }
         try await _serialRunner.run {
             await fnc(delegate)
         }
     }
 
-    public func notifyDetached(_ fnc: @escaping (T) async -> Void) {
+    func notifyDetached(_ fnc: @Sendable @escaping (T) async -> Void) {
         Task.detached {
             try await self.notifyAsync(fnc)
         }

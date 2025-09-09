@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class SerialRunnerActorTests: XCTestCase {
+class SerialRunnerActorTests: LKTestCase, @unchecked Sendable {
     let serialRunner = SerialRunnerActor<Void>()
     var counterValue: Int = 0
     var resultValues: [String] = []
@@ -100,7 +100,6 @@ class SerialRunnerActorTests: XCTestCase {
     func testSerialRunnerOrderWithCancel() async throws {
         // Run Tasks concurrently
         try await withThrowingTaskGroup(of: Void.self) { group in
-
             // Schedule task 1
             print("Scheduling task 1...")
             group.addTask {

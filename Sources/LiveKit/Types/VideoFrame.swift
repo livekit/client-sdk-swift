@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,7 @@
 
 import CoreMedia
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 public protocol VideoBuffer {}
 
@@ -37,6 +33,11 @@ public class CVPixelVideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
         _rtcType.pixelBuffer
     }
 
+    public init(pixelBuffer: CVPixelBuffer) {
+        _rtcType = LKRTCCVPixelBuffer(pixelBuffer: pixelBuffer)
+    }
+
+    // Internal only.
     init(rtcCVPixelBuffer: LKRTCCVPixelBuffer) {
         _rtcType = rtcCVPixelBuffer
     }
@@ -73,7 +74,7 @@ public struct I420VideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
     public var strideV: Int32 { _rtcType.strideV }
 }
 
-public class VideoFrame: NSObject {
+public class VideoFrame: NSObject, @unchecked Sendable {
     public let dimensions: Dimensions
     public let rotation: VideoRotation
     public let timeStampNs: Int64

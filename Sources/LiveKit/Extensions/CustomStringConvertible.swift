@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
+import AVFoundation
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 extension TrackSettings: CustomStringConvertible {
     public var description: String {
@@ -104,7 +101,19 @@ public extension Track {
     }
 }
 
-extension RTCPeerConnectionState {
+extension Track.Source: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .unknown: "unknown"
+        case .camera: "camera"
+        case .microphone: "microphone"
+        case .screenShareVideo: "screenShareVideo"
+        case .screenShareAudio: "screenShareAudio"
+        }
+    }
+}
+
+extension LKRTCPeerConnectionState {
     var description: String {
         switch self {
         case .new: return ".new"
@@ -121,10 +130,10 @@ extension RTCPeerConnectionState {
 extension ConnectionState: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .disconnected: return ".disconnected"
-        case .connecting: return ".connecting"
-        case .reconnecting: return ".reconnecting"
-        case .connected: return ".connected"
+        case .disconnected: ".disconnected"
+        case .connecting: ".connecting"
+        case .reconnecting: ".reconnecting"
+        case .connected: ".connected"
         }
     }
 }
@@ -132,8 +141,8 @@ extension ConnectionState: CustomStringConvertible {
 extension ReconnectMode: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .quick: return ".quick"
-        case .full: return ".full"
+        case .quick: ".quick"
+        case .full: ".full"
         }
     }
 }
@@ -144,15 +153,37 @@ extension Livekit_SignalResponse: CustomStringConvertible {
     }
 }
 
+// MARK: - NativeView
+
+public extension VideoView {
+    override var description: String {
+        "VideoView(track: \(String(describing: track)))"
+    }
+}
+
 extension VideoView.RenderMode: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .auto: return ".auto"
-        case .metal: return ".metal"
-        case .sampleBuffer: return ".sampleBuffer"
+        case .auto: ".auto"
+        case .metal: ".metal"
+        case .sampleBuffer: ".sampleBuffer"
         }
     }
 }
+
+extension SampleBufferVideoRenderer {
+    override var description: String {
+        "SampleBufferVideoRenderer"
+    }
+}
+
+extension TextView {
+    override var description: String {
+        "TextView"
+    }
+}
+
+// MARK: - LKRTC
 
 extension LKRTCRtpEncodingParameters {
     func toDebugString() -> String {
@@ -163,6 +194,28 @@ extension LKRTCRtpEncodingParameters {
             "maxBitrateBps: \(String(describing: maxBitrateBps))" +
             "maxFramerate: \(String(describing: maxFramerate))" +
             "scaleResolutionDownBy: \(String(describing: scaleResolutionDownBy))" +
+            ")"
+    }
+}
+
+extension AVCaptureDevice.Format {
+    func toDebugString() -> String {
+        var values: [String] = []
+        values.append("fps: \(fpsRange())")
+        #if os(iOS)
+        values.append("isMulticamSupported: \(isMultiCamSupported)")
+        #endif
+        return "Format(\(values.joined(separator: ", ")))"
+    }
+}
+
+extension LKRTCAudioProcessingConfig {
+    func toDebugString() -> String {
+        "RTCAudioProcessingConfig(" +
+            "isEchoCancellationEnabled: \(isEchoCancellationEnabled), " +
+            "isNoiseSuppressionEnabled: \(isNoiseSuppressionEnabled), " +
+            "isAutoGainControl1Enabled: \(isAutoGainControl1Enabled), " +
+            "isHighpassFilterEnabled: \(isHighpassFilterEnabled)" +
             ")"
     }
 }

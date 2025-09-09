@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,26 @@
  * limitations under the License.
  */
 
-import Combine
 import Foundation
 
+#if LK_SIGNPOSTS
+import os.signpost
+#endif
+
 @dynamicMemberLookup
-public final class StateSync<State> {
+public final class StateSync<State>: @unchecked Sendable, Loggable {
+    // MARK: - Logging
+
+    #if LK_SIGNPOSTS
+    // Measures the time to acquire the lock and execute side effects
+    private let signpostLog = OSLog(subsystem: Bundle.main.bundleIdentifier ?? "", category: "StateSync")
+    // Full (nested) type name
+    private let stateTypeName = String(reflecting: State.self)
+    #endif
+
     // MARK: - Types
 
-    public typealias OnDidMutate = (_ newState: State, _ oldState: State) -> Void
+    public typealias OnDidMutate = @Sendable (_ newState: State, _ oldState: State) -> Void
 
     // MARK: - Public
 
@@ -33,7 +45,7 @@ public final class StateSync<State> {
     // MARK: - Private
 
     private var _state: State
-    private let _lock = UnfairLock()
+    private let _lock: some Lock = createLock()
     private var _onDidMutate: OnDidMutate?
 
     public init(_ state: State, onDidMutate: OnDidMutate? = nil) {
@@ -43,34 +55,90 @@ public final class StateSync<State> {
 
     // mutate sync
     @discardableResult
-    public func mutate<Result>(_ block: (inout State) throws -> Result) rethrows -> Result {
-        try _lock.sync {
+    public func mutate<Result>(_ block: (inout State) throws -> Result, file: StaticString = #file, line: Int = #line, function: String = #function) rethrows -> Result {
+        #if LK_SIGNPOSTS
+        let mutateID = OSSignpostID(log: signpostLog)
+        os_signpost(.begin, log: signpostLog, name: file, signpostID: mutateID, "%s:%d %s %s (lock)", "\(file)", line, function, stateTypeName)
+        #endif
+        return try _lock.sync {
+            #if LK_SIGNPOSTS
+            os_signpost(.end, log: signpostLog, name: file, signpostID: mutateID)
+            #endif
             let oldState = _state
+
+            #if LK_SIGNPOSTS
+            let blockID = OSSignpostID(log: signpostLog)
+            os_signpost(.begin, log: signpostLog, name: file, signpostID: blockID, "%s:%d %s %s (block)", "\(file)", line, function, stateTypeName)
+            #endif
             let result = try block(&_state)
+            #if LK_SIGNPOSTS
+            os_signpost(.end, log: signpostLog, name: file, signpostID: blockID)
+            #endif
             let newState = _state
 
             // Always invoke onDidMutate within the lock (sync) since
             // logic following the state mutation may depend on this.
             // Invoke on async queue within _onDidMutate if necessary.
+            #if LK_SIGNPOSTS
+            let onDidMutateID = OSSignpostID(log: signpostLog)
+            os_signpost(.begin, log: signpostLog, name: file, signpostID: onDidMutateID, "%s:%d %s %s (onDidMutate)", "\(file)", line, function, stateTypeName)
+            #endif
             _onDidMutate?(newState, oldState)
+            #if LK_SIGNPOSTS
+            os_signpost(.end, log: signpostLog, name: file, signpostID: onDidMutateID)
+            #endif
 
             return result
         }
     }
 
     // read sync and return copy
-    public func copy() -> State {
-        _lock.sync { _state }
+    public func copy(file: StaticString = #file, line: Int = #line, function: String = #function) -> State {
+        #if LK_SIGNPOSTS
+        let copyID = OSSignpostID(log: signpostLog)
+        os_signpost(.begin, log: signpostLog, name: file, signpostID: copyID, "%s:%d %s %s (lock)", "\(file)", line, function, stateTypeName)
+        #endif
+        return _lock.sync {
+            #if LK_SIGNPOSTS
+            os_signpost(.end, log: signpostLog, name: file, signpostID: copyID)
+            #endif
+            return _state
+        }
     }
 
     // read with block
-    public func read<Result>(_ block: (State) throws -> Result) rethrows -> Result {
-        try _lock.sync { try block(_state) }
+    public func read<Result>(_ block: (State) throws -> Result, file: StaticString = #file, line: Int = #line, function: String = #function) rethrows -> Result {
+        #if LK_SIGNPOSTS
+        let readID = OSSignpostID(log: signpostLog)
+        os_signpost(.begin, log: signpostLog, name: file, signpostID: readID, "%s:%d %s %s (lock)", "\(file)", line, function, stateTypeName)
+        #endif
+        return try _lock.sync {
+            #if LK_SIGNPOSTS
+            os_signpost(.end, log: signpostLog, name: file, signpostID: readID)
+
+            let blockID = OSSignpostID(log: signpostLog)
+            os_signpost(.begin, log: signpostLog, name: file, signpostID: blockID, "%s:%d %s %s (block)", "\(file)", line, function, stateTypeName)
+            #endif
+            let result = try block(_state)
+            #if LK_SIGNPOSTS
+            os_signpost(.end, log: signpostLog, name: file, signpostID: blockID)
+            #endif
+            return result
+        }
     }
 
     // property read sync
     public subscript<Property>(dynamicMember keyPath: KeyPath<State, Property>) -> Property {
-        _lock.sync { _state[keyPath: keyPath] }
+        #if LK_SIGNPOSTS
+        let lookupID = OSSignpostID(log: signpostLog)
+        os_signpost(.begin, log: signpostLog, name: #function, signpostID: lookupID, "%s %s", stateTypeName, "\(keyPath)")
+        #endif
+        return _lock.sync {
+            #if LK_SIGNPOSTS
+            os_signpost(.end, log: signpostLog, name: #function, signpostID: lookupID)
+            #endif
+            return _state[keyPath: keyPath]
+        }
     }
 }
 

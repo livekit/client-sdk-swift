@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,39 +14,40 @@
  * limitations under the License.
  */
 
+@preconcurrency import AVFoundation
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 public let kLiveKitKrispAudioProcessorName = "livekit_krisp_noise_cancellation"
 
+/// Used to modify audio buffers before they are sent to the network or played to the user
 @objc
-public protocol AudioCustomProcessingDelegate {
+public protocol AudioCustomProcessingDelegate: Sendable {
+    /// An optional identifier for the audio processor implementation.
+    /// This can be used to identify different types of audio processing (e.g. noise cancellation).
+    /// Generally you can leave this as the default value.
     @objc optional
     var audioProcessingName: String { get }
 
+    /// Provides the sample rate and number of channels to configure your delegate for processing
     @objc
     func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int)
 
+    /// Provides a chunk of audio data that can be modified in place
     @objc
     func audioProcessingProcess(audioBuffer: LKAudioBuffer)
 
+    /// Called when the audio processing is no longer needed so it may clean up any resources
     @objc
     func audioProcessingRelease()
 }
 
-class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessingDelegate {
+class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @unchecked Sendable, LKRTCAudioCustomProcessingDelegate {
     // MARK: - Public
 
-    public var target: AudioCustomProcessingDelegate? { _state.target }
-
-    // MARK: - Internal
-
-    let audioRenderers = MulticastDelegate<AudioRenderer>(label: "AudioRenderer")
+    let label: String
+    var target: AudioCustomProcessingDelegate? { _state.target }
 
     // MARK: - Private
 
@@ -54,15 +55,19 @@ class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessing
         weak var target: AudioCustomProcessingDelegate?
     }
 
-    private var _state: StateSync<State>
+    private var _state = StateSync(State())
 
-    init(target: AudioCustomProcessingDelegate? = nil) {
-        _state = StateSync(State(target: target))
-    }
-
-    public func set(target: AudioCustomProcessingDelegate?) {
+    func set(target: AudioCustomProcessingDelegate?) {
         _state.mutate { $0.target = target }
     }
+
+    init(label: String) {
+        self.label = label
+        super.init(label: "AudioCustomProcessingDelegateAdapter.\(label)")
+        log("label: \(label)")
+    }
+
+    // MARK: - AudioCustomProcessingDelegate
 
     func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int) {
         target?.audioProcessingInitialize(sampleRate: sampleRateHz, channels: channels)
@@ -73,24 +78,12 @@ class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessing
         target?.audioProcessingProcess(audioBuffer: lkAudioBuffer)
 
         // Convert to pcmBuffer and notify only if an audioRenderer is added.
-        if audioRenderers.isDelegatesNotEmpty, let pcmBuffer = lkAudioBuffer.toAVAudioPCMBuffer() {
-            audioRenderers.notify { $0.render(pcmBuffer: pcmBuffer) }
+        if isDelegatesNotEmpty, let pcmBuffer = lkAudioBuffer.toAVAudioPCMBuffer() {
+            notify { $0.render(pcmBuffer: pcmBuffer) }
         }
     }
 
     func audioProcessingRelease() {
         target?.audioProcessingRelease()
-    }
-
-    // Proxy the equality operators
-
-    override func isEqual(_ object: Any?) -> Bool {
-        guard let other = object as? AudioCustomProcessingDelegateAdapter else { return false }
-        return target === other.target
-    }
-
-    override var hash: Int {
-        guard let target else { return 0 }
-        return ObjectIdentifier(target).hashValue
     }
 }

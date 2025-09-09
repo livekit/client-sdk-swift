@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +14,47 @@
  * limitations under the License.
  */
 
-import AVFoundation
+@preconcurrency import AVFoundation
 @testable import LiveKit
 import XCTest
 
-extension XCTestCase {
+extension LKTestCase {
+    // Static variable to store the downloaded sample video URL
+    #if swift(>=6.0)
+    private nonisolated(unsafe) static var cachedSampleVideoURL: URL?
+    #else
+    private static var cachedSampleVideoURL: URL?
+    #endif
+
     // Creates a LocalVideoTrack with BufferCapturer, generates frames for approx 30 seconds
-    func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @escaping (CMSampleBuffer) -> Void) async throws -> (Task<Void, any Error>) {
+    func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @Sendable @escaping (CMSampleBuffer) -> Void) async throws -> (Task<Void, any Error>) {
         // Sample video
         let url = URL(string: "https://storage.unxpected.co.jp/public/sample-videos/ocean-1080p.mp4")!
+        let tempLocalUrl: URL
 
-        print("Downloading sample video from \(url)...")
-        let (downloadedLocalUrl, _) = try await URLSession.shared.downloadBackport(from: url)
+        // Check if we already have the file downloaded
+        if let cachedURL = LKTestCase.cachedSampleVideoURL, FileManager.default.fileExists(atPath: cachedURL.path) {
+            print("Using cached sample video at \(cachedURL)...")
+            tempLocalUrl = cachedURL
+        } else {
+            // Download if not available
+            print("Downloading sample video from \(url)...")
+            let (downloadedLocalUrl, _) = try await URLSession.shared.downloadBackport(from: url)
 
-        // Move the file to a new temporary location with a more descriptive name, if desired
-        let tempLocalUrl = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("mp4")
-        try FileManager.default.moveItem(at: downloadedLocalUrl, to: tempLocalUrl)
+            // Move the file to a new temporary location with a more descriptive name
+            tempLocalUrl = FileManager.default.temporaryDirectory.appendingPathComponent("sample-video-cached").appendingPathExtension("mp4")
+
+            // Remove existing file if present
+            if FileManager.default.fileExists(atPath: tempLocalUrl.path) {
+                try FileManager.default.removeItem(at: tempLocalUrl)
+            }
+
+            try FileManager.default.moveItem(at: downloadedLocalUrl, to: tempLocalUrl)
+
+            // Cache the URL for future use
+            LKTestCase.cachedSampleVideoURL = tempLocalUrl
+            print("Cached sample video at \(tempLocalUrl)")
+        }
 
         print("Opening \(tempLocalUrl) with asset reader...")
         let asset = AVAsset(url: tempLocalUrl)
@@ -80,17 +105,20 @@ extension XCTestCase {
 
 typealias OnDidRenderFirstFrame = (_ id: String) -> Void
 
-class VideoTrackWatcher: TrackDelegate, VideoRenderer {
+class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendable {
     // MARK: - Public
 
-    public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
+    var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
+    var detectedCodecs: Set<String> { _state.detectedCodecs }
 
     private struct State {
         var didRenderFirstFrame: Bool = false
         var expectationsForDimensions: [Dimensions: XCTestExpectation] = [:]
+        var expectationsForCodecs: [VideoCodec: XCTestExpectation] = [:]
+        var detectedCodecs: Set<String> = []
     }
 
-    public let id: String
+    let id: String
     private let _state = StateSync(State())
     private let onDidRenderFirstFrame: OnDidRenderFirstFrame?
 
@@ -99,11 +127,14 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
         self.onDidRenderFirstFrame = onDidRenderFirstFrame
     }
 
-    public func reset() {
-        _state.mutate { $0.didRenderFirstFrame = false }
+    func reset() {
+        _state.mutate {
+            $0.didRenderFirstFrame = false
+            $0.detectedCodecs.removeAll()
+        }
     }
 
-    public func expect(dimensions: Dimensions) -> XCTestExpectation {
+    func expect(dimensions: Dimensions) -> XCTestExpectation {
         let expectation = XCTestExpectation(description: "Did render dimension \(dimensions)")
         expectation.assertForOverFulfill = false
 
@@ -111,6 +142,20 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
             $0.expectationsForDimensions[dimensions] = expectation
             return expectation
         }
+    }
+
+    func expect(codec: VideoCodec) -> XCTestExpectation {
+        let expectation = XCTestExpectation(description: "Did receive codec \(codec.name)")
+        expectation.assertForOverFulfill = false
+
+        return _state.mutate {
+            $0.expectationsForCodecs[codec] = expectation
+            return expectation
+        }
+    }
+
+    func isCodecDetected(codec: VideoCodec) -> Bool {
+        _state.read { $0.detectedCodecs.contains(codec.name) }
     }
 
     // MARK: - VideoRenderer
@@ -144,8 +189,26 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
         guard let stream = statistics.inboundRtpStream.first else { return }
         var segments: [String] = []
 
+        let codecsString = statistics.codec.compactMap(\.mimeType).map { "'\($0)'" }.joined(separator: ", ")
+        print("statistics codecs: \(codecsString), count: \(statistics.codec.count)")
+
         if let codec = statistics.codec.first(where: { $0.id == stream.codecId }), let mimeType = codec.mimeType {
-            segments.append("codec: \(mimeType)")
+            segments.append("codec: \(mimeType.lowercased())")
+
+            // Extract codec id from mimeType (e.g., "video/vp8" -> "vp8")
+            if let codecName = mimeType.split(separator: "/").last?.lowercased() {
+                _state.mutate {
+                    // Add to detected codecs
+                    $0.detectedCodecs.insert(codecName)
+
+                    // Check if any codec expectations match
+                    for (expectedCodec, expectation) in $0.expectationsForCodecs {
+                        if expectedCodec.name.lowercased() == codecName {
+                            expectation.fulfill()
+                        }
+                    }
+                }
+            }
         }
 
         if let width = stream.frameWidth, let height = stream.frameHeight {
@@ -160,9 +223,9 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
     }
 }
 
-class AudioTrackWatcher: AudioRenderer {
-    public let id: String
-    public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
+class AudioTrackWatcher: AudioRenderer, @unchecked Sendable {
+    let id: String
+    var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
 
     // MARK: - Private
 
@@ -179,17 +242,16 @@ class AudioTrackWatcher: AudioRenderer {
         self.onDidRenderFirstFrame = onDidRenderFirstFrame
     }
 
-    public func reset() {
+    func reset() {
         _state.mutate {
             $0.didRenderFirstFrame = false
         }
     }
 
     func render(pcmBuffer: AVAudioPCMBuffer) {
-        print("did receive first audio frame: \(String(describing: pcmBuffer))")
-
         _state.mutate {
             if !$0.didRenderFirstFrame {
+                print("did receive first audio frame: \(String(describing: pcmBuffer))")
                 $0.didRenderFirstFrame = true
                 onDidRenderFirstFrame?(id)
             }

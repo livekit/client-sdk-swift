@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,7 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @objc
 public enum IceTransportPolicy: Int, Sendable {
@@ -31,12 +27,12 @@ public enum IceTransportPolicy: Int, Sendable {
 }
 
 extension IceTransportPolicy {
-    func toRTCType() -> RTCIceTransportPolicy {
+    func toRTCType() -> LKRTCIceTransportPolicy {
         switch self {
-        case .none: return .none
-        case .relay: return .relay
-        case .noHost: return .noHost
-        case .all: return .all
+        case .none: .none
+        case .relay: .relay
+        case .noHost: .noHost
+        case .all: .all
         }
     }
 }

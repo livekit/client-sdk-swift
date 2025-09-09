@@ -1,0 +1,36 @@
+name: Swift Snapshot Build
+
+permissions:
+  contents: read
+
+env:
+  SWIFT_SNAPSHOT: main-snapshot
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  build-snapshot:
+    name: Build
+    runs-on: macos-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+
+      - name: Install swiftly
+        run: brew install swiftly && swiftly init --quiet-shell-followup --skip-install -y
+
+      - name: Get Swift snapshot
+        run: swiftly install -y ${{ env.SWIFT_SNAPSHOT }}
+
+      - name: Build
+        run: swiftly run swift build +${{ env.SWIFT_SNAPSHOT }}

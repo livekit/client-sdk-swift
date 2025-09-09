@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,11 @@ import Foundation
 extension Livekit_TrackSource {
     func toLKType() -> Track.Source {
         switch self {
-        case .camera: return .camera
-        case .microphone: return .microphone
-        case .screenShare: return .screenShareVideo
-        case .screenShareAudio: return .screenShareAudio
-        default: return .unknown
+        case .camera: .camera
+        case .microphone: .microphone
+        case .screenShare: .screenShareVideo
+        case .screenShareAudio: .screenShareAudio
+        default: .unknown
         }
     }
 }
@@ -31,11 +31,11 @@ extension Livekit_TrackSource {
 extension Track.Source {
     func toPBType() -> Livekit_TrackSource {
         switch self {
-        case .camera: return .camera
-        case .microphone: return .microphone
-        case .screenShareVideo: return .screenShare
-        case .screenShareAudio: return .screenShareAudio
-        default: return .unknown
+        case .camera: .camera
+        case .microphone: .microphone
+        case .screenShareVideo: .screenShare
+        case .screenShareAudio: .screenShareAudio
+        default: .unknown
         }
     }
 }

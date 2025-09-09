@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -100,6 +100,7 @@ public extension CGImage {
 @available(iOS 12, *)
 public extension RPSystemBroadcastPickerView {
     /// Convenience function to show broadcast extension picker
+    @available(*, deprecated, message: "Use BroadcastManager.shared.requestActivation() instead")
     static func show(for preferredExtension: String? = nil,
                      showsMicrophoneButton: Bool = true)
     {

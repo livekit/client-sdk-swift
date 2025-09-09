@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,15 +21,19 @@ import Network
 #endif
 
 @objc
-public class Room: NSObject, ObservableObject, Loggable {
+public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
 
     public let delegates = MulticastDelegate<RoomDelegate>(label: "RoomDelegate")
 
+    // MARK: - Metrics
+
+    private lazy var metricsManager = MetricsManager()
+
     // MARK: - Public
 
-    @objc
     /// Server assigned id of the Room.
+    @objc
     public var sid: Sid? { _state.sid }
 
     /// Server assigned id of the Room. *async* version of ``Room/sid``.
@@ -61,6 +65,9 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     @objc
     public var activeSpeakers: [Participant] { _state.activeSpeakers }
+
+    @objc
+    public var creationTime: Date? { _state.creationTime }
 
     /// If the current room has a participant with `recorder:true` in its JWT grant.
     @objc
@@ -101,6 +108,8 @@ public class Room: NSObject, ObservableObject, Loggable {
     let primaryTransportConnectedCompleter = AsyncCompleter<Void>(label: "Primary transport connect", defaultTimeout: .defaultTransportState)
     let publisherTransportConnectedCompleter = AsyncCompleter<Void>(label: "Publisher transport connect", defaultTimeout: .defaultTransportState)
 
+    let activeParticipantCompleters = CompleterMapActor<Void>(label: "Participant active", defaultTimeout: .defaultParticipantActiveTimeout)
+
     let signalClient = SignalClient()
 
     // MARK: - DataChannels
@@ -108,12 +117,29 @@ public class Room: NSObject, ObservableObject, Loggable {
     lazy var subscriberDataChannel = DataChannelPair(delegate: self)
     lazy var publisherDataChannel = DataChannelPair(delegate: self)
 
+    let incomingStreamManager = IncomingStreamManager()
+    lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
+        try await self?.send(dataPacket: packet)
+    }
+
+    // MARK: - PreConnect
+
+    lazy var preConnectBuffer = PreConnectAudioBuffer(room: self)
+
+    // MARK: - Queue
+
     var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                            qos: .default)
 
     var _queuedBlocks = [ConditionalExecutionEntry]()
 
-    struct State: Equatable {
+    // MARK: - RPC
+
+    let rpcState = RpcStateManager()
+
+    // MARK: - State
+
+    struct State: Equatable, Sendable {
         // Options
         var connectOptions: ConnectOptions
         var roomOptions: RoomOptions
@@ -125,6 +151,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         var remoteParticipants = [Participant.Identity: RemoteParticipant]()
         var activeSpeakers = [Participant]()
 
+        var creationTime: Date?
         var isRecording: Bool = false
 
         var maxParticipants: Int = 0
@@ -197,7 +224,9 @@ public class Room: NSObject, ObservableObject, Loggable {
                 connectOptions: ConnectOptions? = nil,
                 roomOptions: RoomOptions? = nil)
     {
+        // Ensure manager shared objects are instantiated
         DeviceManager.prepare()
+        AudioManager.prepare()
 
         _state = StateSync(State(connectOptions: connectOptions ?? ConnectOptions(),
                                  roomOptions: roomOptions ?? RoomOptions()))
@@ -216,17 +245,22 @@ public class Room: NSObject, ObservableObject, Loggable {
         }
 
         // listen to app states
-        AppStateListener.shared.delegates.add(delegate: self)
+        Task { @MainActor in
+            AppStateListener.shared.delegates.add(delegate: self)
+        }
+
+        Task {
+            await metricsManager.register(room: self)
+        }
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
-
             guard let self else { return }
 
             // sid updated
             if let sid = newState.sid, sid != oldState.sid {
                 // Resolve sid
-                self._sidCompleter.resume(returning: sid)
+                _sidCompleter.resume(returning: sid)
             }
 
             if case .connected = newState.connectionState {
@@ -235,36 +269,36 @@ public class Room: NSObject, ObservableObject, Loggable {
                    // don't notify if empty string (first time only)
                    oldState.metadata == nil ? !metadata.isEmpty : true
                 {
-                    self.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
+                    delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
                         $0.room?(self, didUpdateMetadata: metadata)
                     }
                 }
 
                 // isRecording updated
                 if newState.isRecording != oldState.isRecording {
-                    self.delegates.notify(label: { "room.didUpdate isRecording: \(newState.isRecording)" }) {
+                    delegates.notify(label: { "room.didUpdate isRecording: \(newState.isRecording)" }) {
                         $0.room?(self, didUpdateIsRecording: newState.isRecording)
                     }
                 }
             }
 
             if newState.connectionState == .reconnecting, newState.isReconnectingWithMode == nil {
-                self.log("reconnectMode should not be .none", .error)
+                log("reconnectMode should not be .none", .error)
             }
 
             if (newState.connectionState != oldState.connectionState) || (newState.isReconnectingWithMode != oldState.isReconnectingWithMode) {
-                self.log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.isReconnectingWithMode))")
+                log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.isReconnectingWithMode))")
             }
 
-            self.engine(self, didMutateState: newState, oldState: oldState)
+            engine(self, didMutateState: newState, oldState: oldState)
 
             // execution control
-            self._blockProcessQueue.async { [weak self] in
+            _blockProcessQueue.async { [weak self] in
                 guard let self, !self._queuedBlocks.isEmpty else { return }
 
-                self.log("[execution control] processing pending entries (\(self._queuedBlocks.count))...")
+                log("[execution control] processing pending entries (\(_queuedBlocks.count))...")
 
-                self._queuedBlocks.removeAll { entry in
+                _queuedBlocks.removeAll { entry in
                     // return and remove this entry if matches remove condition
                     guard !entry.removeCondition(newState, oldState) else { return true }
                     // return but don't remove this entry if doesn't match execute condition
@@ -278,7 +312,7 @@ public class Room: NSObject, ObservableObject, Loggable {
             }
 
             // Notify Room when state mutates
-            Task.detached { @MainActor in
+            Task { @MainActor in
                 self.objectWillChange.send()
             }
         }
@@ -346,6 +380,26 @@ public class Room: NSObject, ObservableObject, Loggable {
             }
         }
 
+        // Concurrent mic publish mode
+        let enableMicrophone = _state.connectOptions.enableMicrophone
+        log("Concurrent enable microphone mode: \(enableMicrophone)")
+
+        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = if let recorder = preConnectBuffer.recorder, recorder.isRecording {
+            Task {
+                recorder.track
+            }
+        } else if enableMicrophone {
+            Task {
+                let localTrack = LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
+                                                             reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
+                // Initializes AudioDeviceModule's recording
+                try await localTrack.start()
+                return localTrack
+            }
+        } else {
+            nil
+        }
+
         do {
             while true {
                 do {
@@ -367,6 +421,9 @@ public class Room: NSObject, ObservableObject, Loggable {
                         throw error
                     }
 
+                    // Connect sequence successful
+                    log("Connect sequence completed")
+
                     if let region = nextRegion {
                         nextRegion = nil
                         log("Connect failed with region: \(region)")
@@ -386,6 +443,13 @@ public class Room: NSObject, ObservableObject, Loggable {
             }
         } catch {
             log("Failed to resolve a region or connect: \(error)")
+            // Stop the track if it was created but not published
+            if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled,
+               case let .success(track) = await createMicrophoneTrackTask.result
+            {
+                try? await track.stop()
+            }
+
             await cleanUp(withError: error)
             throw error // Re-throw the original error
         }
@@ -566,11 +630,11 @@ extension Room: AppStateDelegate {
 
 public extension Room {
     /// Set this to true to bypass initialization of voice processing.
-    /// Must be set before RTCPeerConnectionFactory gets initialized.
+    @available(*, deprecated, renamed: "AudioManager.shared.isVoiceProcessingBypassed")
     @objc
     static var bypassVoiceProcessing: Bool {
-        get { RTC.bypassVoiceProcessing }
-        set { RTC.bypassVoiceProcessing = newValue }
+        get { AudioManager.shared.isVoiceProcessingBypassed }
+        set { AudioManager.shared.isVoiceProcessingBypassed = newValue }
     }
 }
 
@@ -582,6 +646,12 @@ extension Room: DataChannelDelegate {
         case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
         case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket)
         case let .transcription(packet): room(didReceiveTranscriptionPacket: packet)
+        case let .rpcResponse(response): room(didReceiveRpcResponse: response)
+        case let .rpcAck(ack): room(didReceiveRpcAck: ack)
+        case let .rpcRequest(request): room(didReceiveRpcRequest: request, from: dataPacket.participantIdentity)
+        case let .streamHeader(header): Task { await incomingStreamManager.handle(header: header, from: dataPacket.participantIdentity) }
+        case let .streamChunk(chunk): Task { await incomingStreamManager.handle(chunk: chunk) }
+        case let .streamTrailer(trailer): Task { await incomingStreamManager.handle(trailer: trailer) }
         default: return
         }
     }

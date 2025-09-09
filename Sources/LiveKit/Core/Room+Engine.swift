@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,24 +20,20 @@ import Foundation
 import Network
 #endif
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 // Room+Engine
 extension Room {
     // MARK: - Public
 
-    typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
+    typealias ConditionEvalFunc = @Sendable (_ newState: State, _ oldState: State?) -> Bool
 
     // MARK: - Private
 
     struct ConditionalExecutionEntry {
         let executeCondition: ConditionEvalFunc
         let removeCondition: ConditionEvalFunc
-        let block: () -> Void
+        let block: @Sendable () -> Void
     }
 
     // Resets state of transports
@@ -69,6 +65,13 @@ extension Room {
     }
 
     func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws {
+        try await send(dataPacket: .with {
+            $0.user = userPacket
+            $0.kind = kind
+        })
+    }
+
+    func send(dataPacket packet: Livekit_DataPacket) async throws {
         func ensurePublisherConnected() async throws {
             guard _state.isSubscriberPrimary else { return }
 
@@ -95,8 +98,15 @@ extension Room {
             log("publisher data channel is not .open", .error)
         }
 
-        // Should return true if successful
-        try publisherDataChannel.send(userPacket: userPacket, kind: kind)
+        var packet = packet
+        if let identity = localParticipant.identity?.stringValue {
+            packet.participantIdentity = identity
+        }
+        if let sid = localParticipant.sid?.stringValue {
+            packet.participantSid = sid
+        }
+
+        try await publisherDataChannel.send(dataPacket: packet)
     }
 }
 
@@ -153,8 +163,8 @@ extension Room {
 
             await publisher.set { [weak self] offer in
                 guard let self else { return }
-                self.log("Publisher onOffer \(offer.sdp)")
-                try await self.signalClient.send(offer: offer)
+                log("Publisher onOffer \(offer.sdp)")
+                try await signalClient.send(offer: offer)
             }
 
             // data over pub channel for backwards compatibility
@@ -163,7 +173,7 @@ extension Room {
                                                                   configuration: RTC.createDataChannelConfiguration())
 
             let lossyDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
-                                                               configuration: RTC.createDataChannelConfiguration(maxRetransmits: 0))
+                                                               configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
 
             publisherDataChannel.set(reliable: reliableDataChannel)
             publisherDataChannel.set(lossy: lossyDataChannel)
@@ -177,16 +187,18 @@ extension Room {
                 $0.isSubscriberPrimary = isSubscriberPrimary
             }
 
-            if !isSubscriberPrimary {
+            log("[Connect] Fast publish enabled: \(joinResponse.fastPublish ? "true" : "false")")
+            if !isSubscriberPrimary || joinResponse.fastPublish {
                 // lazy negotiation for protocol v3+
                 try await publisherShouldNegotiate()
             }
 
-        } else if case .reconnect = connectResponse {
+        } else if case let .reconnect(reconnectResponse) = connectResponse {
             log("[Connect] Configuring transports with RECONNECT response...")
             let (subscriber, publisher) = _state.read { ($0.subscriber, $0.publisher) }
             try await subscriber?.set(configuration: rtcConfiguration)
             try await publisher?.set(configuration: rtcConfiguration)
+            publisherDataChannel.retryReliable(lastSequence: reconnectResponse.lastMessageSeq)
         }
     }
 }
@@ -196,7 +208,7 @@ extension Room {
 extension Room {
     func execute(when condition: @escaping ConditionEvalFunc,
                  removeWhen removeCondition: @escaping ConditionEvalFunc,
-                 _ block: @escaping () -> Void)
+                 _ block: @Sendable @escaping () -> Void)
     {
         // already matches condition, execute immediately
         if _state.read({ condition($0, nil) }) {
@@ -207,13 +219,13 @@ extension Room {
                 guard let self else { return }
 
                 // create an entry and enqueue block
-                self.log("[execution control] enqueuing entry...")
+                log("[execution control] enqueuing entry...")
 
                 let entry = ConditionalExecutionEntry(executeCondition: condition,
                                                       removeCondition: removeCondition,
                                                       block: block)
 
-                self._queuedBlocks.append(entry)
+                _queuedBlocks.append(entry)
             }
         }
     }
@@ -376,9 +388,15 @@ extension Room {
 
         do {
             try await Task.retrying(totalAttempts: _state.connectOptions.reconnectAttempts,
-                                    retryDelay: _state.connectOptions.reconnectAttemptDelay)
-            { currentAttempt, totalAttempts in
-
+                                    retryDelay: { @Sendable attempt in
+                                        let delay = TimeInterval.computeReconnectDelay(forAttempt: attempt,
+                                                                                       baseDelay: self._state.connectOptions.reconnectAttemptDelay,
+                                                                                       maxDelay: self._state.connectOptions.reconnectMaxDelay,
+                                                                                       totalAttempts: self._state.connectOptions.reconnectAttempts,
+                                                                                       addJitter: true)
+                                        self.log("[Connect] Retry cycle waiting for \(String(format: "%.2f", delay)) seconds before attempt \(attempt + 1)")
+                                        return delay
+                                    }) { currentAttempt, totalAttempts in
                 // Not reconnecting state anymore
                 guard let currentMode = self._state.isReconnectingWithMode else {
                     self.log("[Connect] Not in reconnect state anymore, exiting retry cycle.")
@@ -388,7 +406,7 @@ extension Room {
                 // Full reconnect failed, give up
                 guard currentMode != .full else { return }
 
-                self.log("[Connect] Retry in \(self._state.connectOptions.reconnectAttemptDelay) seconds, \(currentAttempt)/\(totalAttempts) tries left.")
+                self.log("[Connect] Starting retry attempt \(currentAttempt)/\(totalAttempts) with mode: \(currentMode)")
 
                 // Try full reconnect for the final attempt
                 if totalAttempts == currentAttempt, self._state.nextReconnectMode == nil {
@@ -405,8 +423,10 @@ extension Room {
                 do {
                     if case .quick = mode {
                         try await quickReconnectSequence()
+                        self.log("[Connect] Quick reconnect succeeded for attempt \(currentAttempt)")
                     } else if case .full = mode {
                         try await fullReconnectSequence()
+                        self.log("[Connect] Full reconnect succeeded for attempt \(currentAttempt)")
                     }
                 } catch {
                     self.log("[Connect] Reconnect mode: \(mode) failed with error: \(error)", .error)
@@ -469,7 +489,8 @@ extension Room {
                                              offer: previousOffer?.toPBType(),
                                              subscription: subscription,
                                              publishTracks: localParticipant.publishedTracksInfo(),
-                                             dataChannels: publisherDataChannel.infos())
+                                             dataChannels: publisherDataChannel.infos(),
+                                             dataChannelReceiveStates: subscriberDataChannel.receiveStates())
     }
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,22 +17,22 @@
 import Foundation
 
 /// Manages a map of AsyncCompleters
-actor CompleterMapActor<T> {
+actor CompleterMapActor<T: Sendable> {
     // MARK: - Public
 
-    public nonisolated let label: String
+    nonisolated let label: String
 
     // MARK: - Private
 
     private let _defaultTimeout: TimeInterval
     private var _completerMap = [String: AsyncCompleter<T>]()
 
-    public init(label: String, defaultTimeout: TimeInterval) {
+    init(label: String, defaultTimeout: TimeInterval) {
         self.label = label
         _defaultTimeout = defaultTimeout
     }
 
-    public func completer(for key: String) -> AsyncCompleter<T> {
+    func completer(for key: String) -> AsyncCompleter<T> {
         // Return completer if already exists...
         if let element = _completerMap[key] {
             return element
@@ -43,17 +43,17 @@ actor CompleterMapActor<T> {
         return newCompleter
     }
 
-    public func resume(returning value: T, for key: String) {
+    func resume(returning value: T, for key: String) {
         let completer = completer(for: key)
         completer.resume(returning: value)
     }
 
-    public func resume(throwing error: any Error, for key: String) {
+    func resume(throwing error: any Error, for key: String) {
         let completer = completer(for: key)
         completer.resume(throwing: error)
     }
 
-    public func reset() {
+    func reset() {
         // Reset call completers...
         for (_, value) in _completerMap {
             value.reset()
@@ -63,7 +63,7 @@ actor CompleterMapActor<T> {
     }
 }
 
-class AsyncCompleter<T>: Loggable {
+final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
     //
     struct WaitEntry {
         let continuation: UnsafeContinuation<T, Error>
@@ -85,7 +85,7 @@ class AsyncCompleter<T>: Loggable {
         }
     }
 
-    public let label: String
+    let label: String
 
     private let _timerQueue = DispatchQueue(label: "LiveKitSDK.AsyncCompleter", qos: .background)
 
@@ -94,9 +94,9 @@ class AsyncCompleter<T>: Loggable {
     private var _entries: [UUID: WaitEntry] = [:]
     private var _result: Result<T, Error>?
 
-    private let _lock = UnfairLock()
+    private let _lock: some Lock = createLock()
 
-    public init(label: String, defaultTimeout: TimeInterval) {
+    init(label: String, defaultTimeout: TimeInterval) {
         self.label = label
         _defaultTimeout = defaultTimeout.toDispatchTimeInterval
     }
@@ -105,13 +105,13 @@ class AsyncCompleter<T>: Loggable {
         reset()
     }
 
-    public func set(defaultTimeout: TimeInterval) {
+    func set(defaultTimeout: TimeInterval) {
         _lock.sync {
             _defaultTimeout = defaultTimeout.toDispatchTimeInterval
         }
     }
 
-    public func reset() {
+    func reset() {
         _lock.sync {
             for entry in _entries.values {
                 entry.cancel()
@@ -121,7 +121,7 @@ class AsyncCompleter<T>: Loggable {
         }
     }
 
-    public func resume(with result: Result<T, Error>) {
+    func resume(with result: Result<T, Error>) {
         _lock.sync {
             for entry in _entries.values {
                 entry.resume(with: result)
@@ -131,23 +131,22 @@ class AsyncCompleter<T>: Loggable {
         }
     }
 
-    public func resume(returning value: T) {
-        log("\(label)")
+    func resume(returning value: T) {
+        log("\(label)", .trace)
         resume(with: .success(value))
     }
 
-    public func resume(throwing error: Error) {
-        log("\(label)")
+    func resume(throwing error: Error) {
+        log("\(label)", .error)
         resume(with: .failure(error))
     }
 
-    public func wait(timeout: TimeInterval? = nil) async throws -> T {
+    func wait(timeout: TimeInterval? = nil) async throws -> T {
         // Read value
         if let result = _lock.sync({ _result }) {
             // Already resolved...
             if case let .success(value) = result {
                 // resume(returning:) already called
-                log("\(label) returning existing value")
                 return value
             } else if case let .failure(error) = result {
                 // resume(throwing:) already called
@@ -162,12 +161,11 @@ class AsyncCompleter<T>: Loggable {
         // Create a cancel-aware timed continuation
         return try await withTaskCancellationHandler {
             try await withUnsafeThrowingContinuation { continuation in
-
                 // Create time-out block
                 let timeoutBlock = DispatchWorkItem { [weak self] in
                     guard let self else { return }
-                    self.log("\(self.label) id: \(entryId) timed out")
-                    self._lock.sync {
+                    log("\(label) id: \(entryId) timed out")
+                    _lock.sync {
                         if let entry = self._entries[entryId] {
                             entry.timeout()
                         }

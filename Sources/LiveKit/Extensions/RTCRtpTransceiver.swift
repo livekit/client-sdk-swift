@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,35 +16,35 @@
 
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 extension LKRTCRtpTransceiver: Loggable {
     /// Attempts to set preferred video codec.
-    func set(preferredVideoCodec codec: VideoCodec, exceptCodec: VideoCodec? = nil) {
+    func set(preferredVideoCodec codec: VideoCodec, exceptCodec: VideoCodec? = nil) throws {
         // Get list of supported codecs...
         let allVideoCodecs = RTC.videoSenderCapabilities.codecs
 
         // Get the RTCRtpCodecCapability of the preferred codec
-        let preferredCodecCapability = allVideoCodecs.first { $0.name.lowercased() == codec.id }
+        let preferredCodecCapability = allVideoCodecs.first { $0.name.lowercased() == codec.name }
 
         // Get list of capabilities other than the preferred one
         let otherCapabilities = allVideoCodecs.filter {
-            $0.name.lowercased() != codec.id && $0.name.lowercased() != exceptCodec?.id
+            $0.name.lowercased() != codec.name && $0.name.lowercased() != exceptCodec?.name
         }
 
         // Bring preferredCodecCapability to the front and combine all capabilities
         let combinedCapabilities = [preferredCodecCapability] + otherCapabilities
 
         // Codecs not set in codecPreferences will not be negotiated in the offer
-        codecPreferences = combinedCapabilities.compactMap { $0 }
+        do {
+            try setCodecPreferences(combinedCapabilities.compactMap { $0 }, error: ())
+        } catch {
+            throw LiveKitError(.webRTC, message: "Failed to set codec preferences", internalError: error)
+        }
 
         log("codecPreferences set: \(codecPreferences.map { String(describing: $0) }.joined(separator: ", "))")
 
-        if codecPreferences.first?.name.lowercased() != codec.id {
+        if codecPreferences.first?.name.lowercased() != codec.name {
             log("Preferred codec is not first of codecPreferences", .error)
         }
     }

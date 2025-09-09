@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         videoView.pinchToZoomOptions = pinchToZoomOptions
         videoView.isDebugMode = isDebugMode
 
-        Task.detached { @MainActor in
+        Task { @MainActor in
             videoView.add(delegate: videoViewDelegateReceiver)
             videoViewDelegateReceiver.isRendering = videoView.isRendering
         }
@@ -80,6 +80,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
 }
 
 /// This class receives ``VideoViewDelegate`` events since a struct can't be used for a delegate
+@MainActor
 class VideoViewDelegateReceiver: VideoViewDelegate, Loggable {
     @Binding var isRendering: Bool
 
@@ -91,7 +92,7 @@ class VideoViewDelegateReceiver: VideoViewDelegate, Loggable {
         }
     }
 
-    func videoView(_: VideoView, didUpdate isRendering: Bool) {
+    nonisolated func videoView(_: VideoView, didUpdate isRendering: Bool) {
         DispatchQueue.main.async {
             self.isRendering = isRendering
         }
