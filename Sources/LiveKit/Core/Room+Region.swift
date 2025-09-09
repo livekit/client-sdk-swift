@@ -28,7 +28,7 @@ extension Room {
     //
     // With LiveKit Cloud, it will also determine the best edge data center for
     // the current client to connect to if a token is provided.
-    public func prepareConnection(url providedUrlString: String, token: String) {
+    public func prepareConnection(url providedUrlString: String, token: String? = nil) async {
         // Must be in disconnected state.
         guard _state.connectionState == .disconnected else {
             log("Room is not in disconnected state", .info)
@@ -40,20 +40,48 @@ extension Room {
             return
         }
 
-        guard providedUrl.isCloud else {
-            log("Provided url is not a livekit cloud url", .warning)
-            return
-        }
+        log("Preparing connection to \(providedUrlString)")
 
-        _state.mutate {
-            $0.providedUrl = providedUrl
-            $0.token = token
-        }
+        do {
+            if providedUrl.isCloud, let token {
+                _state.mutate {
+                    $0.providedUrl = providedUrl
+                    $0.token = token
+                }
 
-        regionManagerPrepareRegionSettings()
+                // Try to get the best region and warm that connection
+                if let bestRegion = try await regionManagerTryResolveBest() {
+                    // Warm connection to the best region
+                    await HTTP.prewarmConnection(url: bestRegion.url)
+                    log("Prepared connection to \(bestRegion.url)")
+                } else {
+                    // Fallback to warming the provided URL
+                    await HTTP.prewarmConnection(url: providedUrl)
+                    log("Prepared connection to \(providedUrl)")
+                }
+            } else {
+                // Not cloud or no token, just warm the provided URL
+                await HTTP.prewarmConnection(url: providedUrl)
+                log("Prepared connection to \(providedUrl)")
+            }
+        } catch {
+            log("Error while preparing connection: \(error)")
+            // Still try to warm the provided URL as fallback
+            await HTTP.prewarmConnection(url: providedUrl)
+            log("Prepared fallback connection to \(providedUrl)")
+        }
     }
 
     // MARK: - Internal
+
+    func regionManagerTryResolveBest() async throws -> RegionInfo? {
+        do {
+            return try await regionManagerResolveBest()
+        } catch {
+            log("[Region] Failed to resolve best region: \(error)")
+            return nil
+        }
+    }
 
     func regionManagerResolveBest() async throws -> RegionInfo {
         try await regionManagerRequestSettings()
@@ -73,9 +101,19 @@ extension Room {
         }
     }
 
+    func regionManagerResetAttempts() {
+        _regionState.mutate {
+            $0.remaining = $0.all
+        }
+    }
+
     func regionManagerPrepareRegionSettings() {
-        Task.detached {
-            try await self.regionManagerRequestSettings()
+        Task.detached { [weak self] in
+            do {
+                try await self?.regionManagerRequestSettings()
+            } catch {
+                self?.log("[Region] Failed to prepare region settings: \(error)", .warning)
+            }
         }
     }
 
