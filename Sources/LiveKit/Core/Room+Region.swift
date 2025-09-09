@@ -19,7 +19,7 @@ import Foundation
 // MARK: - Room+Region
 
 extension Room {
-    static let regionManagerCacheInterval: TimeInterval = 3000
+    static let regionManagerCacheInterval: TimeInterval = 30
 
     // MARK: - Public
 

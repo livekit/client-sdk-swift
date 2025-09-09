@@ -43,7 +43,7 @@ extension URL {
     }
 
     func regionSettingsUrl() -> URL {
-        cloudConfigUrl().appendingPathComponent("/regions")
+        cloudConfigUrl().appendingPathComponent("regions")
     }
 
     func toSocketUrl() -> URL {
