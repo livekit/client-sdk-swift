@@ -101,7 +101,7 @@ public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
         }
 
         // Why does SCStream hold strong reference to delegate?
-        let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
+        let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
         try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: nil)
         if #available(macOS 13.0, *) {
             try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: nil)
@@ -197,6 +197,18 @@ extension MacOSScreenCapturer {
 
         // Feed frame to WebRTC
         capture(frame: newFrame, capturer: capturer, options: options)
+    }
+}
+
+// MARK: - SCStreamDelegate
+
+@available(macOS 12.3, *)
+extension MacOSScreenCapturer: SCStreamDelegate {
+    public func stream(_: SCStream, didStopWithError error: Error) {
+        log("Stream stopped with error: \(error)", .error)
+        Task {
+            try await stopCapture()
+        }
     }
 }
 

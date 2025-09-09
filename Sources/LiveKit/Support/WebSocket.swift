@@ -60,11 +60,17 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
         waitForNextValue()
     }
 
-    init(url: URL, connectOptions: ConnectOptions?) async throws {
-        request = URLRequest(url: url,
-                             cachePolicy: .useProtocolCachePolicy,
-                             timeoutInterval: connectOptions?.socketConnectTimeoutInterval ?? .defaultSocketConnect)
+    init(url: URL, token: String, connectOptions: ConnectOptions?) async throws {
+        // Prepare the request
+        var request = URLRequest(url: url,
+                                 cachePolicy: .useProtocolCachePolicy,
+                                 timeoutInterval: connectOptions?.socketConnectTimeoutInterval ?? .defaultSocketConnect)
+        // Attach token to header
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        self.request = request
+
         super.init()
+
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 _state.mutate { state in
