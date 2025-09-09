@@ -417,8 +417,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                     // Exit loop on successful connection
                     break
                 } catch {
-                    // Re-throw and exit loop if is cancelled by user.
-                    if error is CancellationError {
+                    // Re-throw and exit loop if not cloud URL or is cancelled by user.
+                    if !providedUrl.isCloud || error is CancellationError {
                         throw error
                     }
 
