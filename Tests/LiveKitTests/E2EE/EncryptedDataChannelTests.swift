@@ -102,6 +102,95 @@ class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
             XCTAssertEqual(receivedMessage, testMessage, "Received message should match sent message with per-participant keys")
         }
     }
+
+    func testDecryptionFailureWithSharedKey() async throws {
+        decryptionErrorExpectation = expectation(description: "Decryption error occurred")
+        let testMessage = "This should fail to decrypt!"
+        let testData = testMessage.data(using: .utf8)!
+
+        let senderKey = "sender-shared-key-123"
+        let receiverKey = "receiver-shared-key-456"
+
+        let senderKeyProvider = BaseKeyProvider(isSharedKey: true, sharedKey: senderKey)
+        let receiverKeyProvider = BaseKeyProvider(isSharedKey: true, sharedKey: receiverKey)
+
+        try await withRooms([
+            RoomTestingOptions(
+                e2eeOptions: E2EEOptions(keyProvider: senderKeyProvider),
+                canPublishData: true
+            ),
+            RoomTestingOptions(
+                delegate: self,
+                e2eeOptions: E2EEOptions(keyProvider: receiverKeyProvider),
+                canSubscribe: true
+            ),
+        ]) { rooms in
+            let sender = rooms[0]
+            let remoteIdentity = try XCTUnwrap(sender.remoteParticipants.keys.first)
+
+            let userPacket = Livekit_UserPacket.with {
+                $0.payload = testData
+                $0.destinationIdentities = [remoteIdentity.stringValue]
+            }
+
+            try await sender.send(userPacket: userPacket, kind: .reliable)
+
+            await self.fulfillment(of: [self.decryptionErrorExpectation], timeout: 5)
+
+            XCTAssertNotNil(self.lastDecryptionError, "Decryption error should have occurred")
+            XCTAssertNil(self.receivedData, "No data should be received when decryption fails")
+        }
+    }
+
+    func testDecryptionFailureWithPerParticipantKeys() async throws {
+        decryptionErrorExpectation = expectation(description: "Decryption error occurred with per-participant keys")
+        let testMessage = "This should fail to decrypt with per-participant keys!"
+        let testData = testMessage.data(using: .utf8)!
+
+        let senderKeyProvider = BaseKeyProvider(isSharedKey: false)
+        let receiverKeyProvider = BaseKeyProvider(isSharedKey: false)
+
+        let senderKey = "sender-secret-key-123"
+        let wrongSenderKey = "wrong-secret-key-999"
+        let receiverKey = "receiver-secret-key-456"
+
+        try await withRooms([
+            RoomTestingOptions(
+                e2eeOptions: E2EEOptions(keyProvider: senderKeyProvider),
+                canPublishData: true
+            ),
+            RoomTestingOptions(
+                delegate: self,
+                e2eeOptions: E2EEOptions(keyProvider: receiverKeyProvider),
+                canSubscribe: true
+            ),
+        ]) { rooms in
+            let sender = rooms[0]
+            let receiver = rooms[1]
+
+            let senderIdentity = try XCTUnwrap(sender.localParticipant.identity?.stringValue)
+            let receiverIdentity = try XCTUnwrap(receiver.localParticipant.identity?.stringValue)
+
+            senderKeyProvider.setKey(key: senderKey, participantId: senderIdentity)
+            senderKeyProvider.setKey(key: receiverKey, participantId: receiverIdentity)
+            receiverKeyProvider.setKey(key: wrongSenderKey, participantId: senderIdentity)
+            receiverKeyProvider.setKey(key: receiverKey, participantId: receiverIdentity)
+
+            let remoteIdentity = try XCTUnwrap(sender.remoteParticipants.keys.first)
+
+            let userPacket = Livekit_UserPacket.with {
+                $0.payload = testData
+                $0.destinationIdentities = [remoteIdentity.stringValue]
+            }
+
+            try await sender.send(userPacket: userPacket, kind: .reliable)
+
+            await self.fulfillment(of: [self.decryptionErrorExpectation], timeout: 5)
+
+            XCTAssertNotNil(self.lastDecryptionError, "Decryption error should have occurred with mismatched per-participant keys")
+            XCTAssertNil(self.receivedData, "No data should be received when per-participant key decryption fails")
+        }
+    }
 }
 
 // MARK: - RoomDelegate Implementation
@@ -112,7 +201,7 @@ extension EncryptedDataChannelTests: RoomDelegate {
         receivedDataExpectation?.fulfill()
     }
 
-    func room(_: Room, didFailToDecryptDataPacket _: Livekit_DataPacket, error: Error) {
+    func room(_: Room, didFailToDecryptDataWithEror error: LiveKitError) {
         lastDecryptionError = error
         decryptionErrorExpectation?.fulfill()
     }
