@@ -261,7 +261,7 @@ extension E2EEManager: RoomDelegate {
 // MARK: - Data Packet Encryption
 
 extension E2EEManager {
-    func encrypt(data: Data) async throws -> LKRTCEncryptedPacket {
+    func encrypt(data: Data) throws -> LKRTCEncryptedPacket {
         guard let room = _room,
               let identity = room.localParticipant.identity?.stringValue
         else {
@@ -280,7 +280,7 @@ extension E2EEManager {
         return encryptedPacket
     }
 
-    func handle(encryptedData: LKRTCEncryptedPacket, participantIdentity: String) async throws -> Data {
+    func handle(encryptedData: LKRTCEncryptedPacket, participantIdentity: String) throws -> Data {
         guard let cryptor = _state.dataCryptor else {
             throw LiveKitError(.invalidState, message: "Cryptor is nil")
         }

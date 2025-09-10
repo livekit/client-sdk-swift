@@ -318,7 +318,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     func send(dataPacket packet: Livekit_DataPacket) async throws {
-        let packet = try await withEncryption(withSequence(packet))
+        let packet = try withEncryption(withSequence(packet))
         let serializedData = try packet.serializedData()
         let rtcData = RTC.createDataBuffer(data: serializedData)
 
@@ -336,22 +336,18 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    private func withEncryption(_ packet: Livekit_DataPacket) async throws -> Livekit_DataPacket {
-        guard let e2eeManager,
-              e2eeManager.isDataChannelEncryptionEnabled,
-              packet.hasEncryptablePayload else { return packet }
-
+    private func withEncryption(_ packet: Livekit_DataPacket) throws -> Livekit_DataPacket {
+        guard let payload = Livekit_EncryptedPacketPayload(dataPacket: packet),
+              let e2eeManager, e2eeManager.isDataChannelEncryptionEnabled else { return packet }
+        var packet = packet
         do {
-            let payload = try Livekit_EncryptedPacketPayload(from: packet)
             let payloadData = try payload.serializedData()
-
-            let encryptedPayload = try await e2eeManager.encrypt(data: payloadData)
-            let encryptedPacket = Livekit_EncryptedPacket(from: encryptedPayload)
-
-            return packet.encrypted(using: encryptedPacket)
+            let rtcEncrypted = try e2eeManager.encrypt(data: payloadData)
+            packet.encryptedPacket = Livekit_EncryptedPacket(rtcPacket: rtcEncrypted)
         } catch {
             throw LiveKitError(.encryptionFailed, internalError: error)
         }
+        return packet
     }
 
     private func withSequence(_ packet: Livekit_DataPacket) -> Livekit_DataPacket {
@@ -434,26 +430,23 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
             }
         }
 
-        if let e2eeManager,
-           e2eeManager.isDataChannelEncryptionEnabled,
-           dataPacket.hasDecryptablePayload
+        if let encrypted = dataPacket.decrypt,
+           let e2eeManager, e2eeManager.isDataChannelEncryptionEnabled
         {
-            Task {
-                do {
-                    let encryptedPacket = dataPacket.encryptedPacket.toRTCEncryptedPacket()
-                    let decryptedData = try await e2eeManager.handle(encryptedData: encryptedPacket, participantIdentity: dataPacket.participantIdentity)
+            do {
+                let decryptedData = try e2eeManager.handle(encryptedData: encrypted.toRTCEncryptedPacket(), participantIdentity: dataPacket.participantIdentity)
+                let decryptedPayload = try Livekit_EncryptedPacketPayload(serializedBytes: decryptedData)
 
-                    let decryptedPayload = try Livekit_EncryptedPacketPayload(serializedBytes: decryptedData)
-                    let decryptedPacket = dataPacket.decrypted(with: decryptedPayload)
+                var dataPacket = dataPacket
+                decryptedPayload.applyTo(&dataPacket)
 
-                    delegates.notify {
-                        $0.dataChannel(self, didReceiveDataPacket: decryptedPacket)
-                    }
-                } catch {
-                    log("Failed to decrypt data packet: \(error)", .error)
-                    delegates.notify {
-                        $0.dataChannel(self, didFailToDecryptDataPacket: dataPacket, error: LiveKitError(.decryptionFailed, internalError: error))
-                    }
+                delegates.notify { [dataPacket] in
+                    $0.dataChannel(self, didReceiveDataPacket: dataPacket)
+                }
+            } catch {
+                log("Failed to decrypt data packet: \(error)", .error)
+                delegates.notify {
+                    $0.dataChannel(self, didFailToDecryptDataPacket: dataPacket, error: LiveKitError(.decryptionFailed, internalError: error))
                 }
             }
         } else {

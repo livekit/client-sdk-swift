@@ -18,10 +18,10 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-// MARK: - EncryptedPacket Extensions
+// MARK: - EncryptedPacket
 
 extension Livekit_EncryptedPacket {
-    init(from rtcPacket: LKRTCEncryptedPacket) {
+    init(rtcPacket: LKRTCEncryptedPacket) {
         encryptionType = .gcm
         iv = rtcPacket.iv
         keyIndex = rtcPacket.keyIndex
@@ -37,10 +37,10 @@ extension Livekit_EncryptedPacket {
     }
 }
 
-// MARK: - EncryptedPacketPayload Extensions
+// MARK: - EncryptedPacketPayload
 
 extension Livekit_EncryptedPacketPayload {
-    init(from dataPacket: Livekit_DataPacket) throws {
+    init?(dataPacket: Livekit_DataPacket) {
         switch dataPacket.value {
         case let .user(userPacket):
             user = userPacket
@@ -58,12 +58,8 @@ extension Livekit_EncryptedPacketPayload {
             self.streamChunk = streamChunk
         case let .streamTrailer(streamTrailer):
             self.streamTrailer = streamTrailer
-        case .encryptedPacket:
-            // Already encrypted, this shouldn't happen
-            throw LiveKitError(.encryptionFailed, message: "Attempting to encrypt an already encrypted packet")
-        case .sipDtmf, .transcription, .metrics, .speaker, .none:
-            // These types are not encrypted
-            throw LiveKitError(.encryptionFailed, message: "Unsupported packet type for encryption")
+        default:
+            return nil
         }
     }
 
@@ -91,53 +87,13 @@ extension Livekit_EncryptedPacketPayload {
     }
 }
 
-// MARK: - DataPacket E2EE Helper Extensions
+// MARK: - DataPacket
 
 extension Livekit_DataPacket {
-    var hasEncryptablePayload: Bool {
+    var decrypt: Livekit_EncryptedPacket? {
         switch value {
-        case .user, .chatMessage, .rpcRequest, .rpcAck, .rpcResponse,
-             .streamHeader, .streamChunk, .streamTrailer:
-            true
-        case .encryptedPacket, .sipDtmf, .transcription, .metrics, .speaker, .none:
-            false
+        case .encryptedPacket: encryptedPacket
+        default: nil
         }
-    }
-
-    var hasDecryptablePayload: Bool {
-        switch value {
-        case .encryptedPacket: true
-        default: false
-        }
-    }
-
-    func encrypted(using encryptedPacket: Livekit_EncryptedPacket) -> Livekit_DataPacket {
-        var encrypted = Livekit_DataPacket()
-
-        // Copy metadata fields
-        encrypted.participantIdentity = participantIdentity
-        encrypted.participantSid = participantSid
-        encrypted.destinationIdentities = destinationIdentities
-        encrypted.sequence = sequence
-
-        // Set the encrypted payload
-        encrypted.encryptedPacket = encryptedPacket
-
-        return encrypted
-    }
-
-    func decrypted(with payload: Livekit_EncryptedPacketPayload) -> Livekit_DataPacket {
-        var decrypted = Livekit_DataPacket()
-
-        // Copy metadata fields
-        decrypted.participantIdentity = participantIdentity
-        decrypted.participantSid = participantSid
-        decrypted.destinationIdentities = destinationIdentities
-        decrypted.sequence = sequence
-
-        // Apply the decrypted payload
-        payload.applyTo(&decrypted)
-
-        return decrypted
     }
 }
