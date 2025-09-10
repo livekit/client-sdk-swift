@@ -191,6 +191,63 @@ class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
             XCTAssertNil(self.receivedData, "No data should be received when per-participant key decryption fails")
         }
     }
+
+    func testKeyRatcheting() async throws {
+        receivedDataExpectation = expectation(description: "Data received after automatic key ratcheting")
+        let testMessage = "Hello with automatic ratcheting!"
+        let testData = testMessage.data(using: .utf8)!
+
+        let senderKeyProvider = BaseKeyProvider(options: KeyProviderOptions(
+            sharedKey: true,
+            ratchetWindowSize: 2
+        ))
+        let receiverKeyProvider = BaseKeyProvider(options: KeyProviderOptions(
+            sharedKey: true,
+            ratchetWindowSize: 2
+        ))
+
+        let initialKey = "initial-key-\(UUID().uuidString)"
+        senderKeyProvider.setKey(key: initialKey)
+        receiverKeyProvider.setKey(key: initialKey)
+
+        try await withRooms([
+            RoomTestingOptions(
+                e2eeOptions: E2EEOptions(keyProvider: senderKeyProvider),
+                canPublishData: true
+            ),
+            RoomTestingOptions(
+                delegate: self,
+                e2eeOptions: E2EEOptions(keyProvider: receiverKeyProvider),
+                canSubscribe: true
+            ),
+        ]) { rooms in
+            let sender = rooms[0]
+            let remoteIdentity = try XCTUnwrap(sender.remoteParticipants.keys.first)
+
+            // Sender ratchets their key forward
+            let ratchetedKey = senderKeyProvider.ratchetKey()
+            XCTAssertNotNil(ratchetedKey, "Sender key ratcheting should succeed")
+
+            // Export keys to verify they're different
+            let senderExportedKey = senderKeyProvider.exportKey()
+            let receiverExportedKey = receiverKeyProvider.exportKey()
+            XCTAssertNotEqual(senderExportedKey, receiverExportedKey, "Keys should be different after sender ratchets")
+
+            // Send encrypted data with the ratcheted key
+            let userPacket = Livekit_UserPacket.with {
+                $0.payload = testData
+                $0.destinationIdentities = [remoteIdentity.stringValue]
+            }
+
+            try await sender.send(userPacket: userPacket, kind: .reliable)
+
+            // Receiver should automatically ratchet and decrypt successfully
+            await self.fulfillment(of: [self.receivedDataExpectation], timeout: 5)
+
+            let receivedMessage = String(data: self.receivedData!, encoding: .utf8)
+            XCTAssertEqual(receivedMessage, testMessage, "Message should be received after automatic key ratcheting")
+        }
+    }
 }
 
 // MARK: - RoomDelegate Implementation
