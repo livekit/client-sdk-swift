@@ -248,6 +248,57 @@ class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
             XCTAssertEqual(receivedMessage, testMessage, "Message should be received after automatic key ratcheting")
         }
     }
+
+    func testMultipleKeysInKeyRing() async throws {
+        receivedDataExpectation = expectation(description: "Data received with multiple keys in key ring")
+        let testMessage = "Hello with multiple keys in key ring!"
+        let testData = testMessage.data(using: .utf8)!
+
+        let senderKeyProvider = BaseKeyProvider(options: KeyProviderOptions(
+            sharedKey: true,
+            keyRingSize: 2
+        ))
+        let receiverKeyProvider = BaseKeyProvider(options: KeyProviderOptions(
+            sharedKey: true,
+            keyRingSize: 2
+        ))
+
+        let key1 = "secret-key-1"
+        let key2 = "secret-key-2"
+        senderKeyProvider.setKey(key: key1, index: 0)
+        senderKeyProvider.setKey(key: key2, index: 1)
+        receiverKeyProvider.setKey(key: key1, index: 0)
+        receiverKeyProvider.setKey(key: key2, index: 1)
+
+        try await withRooms([
+            RoomTestingOptions(
+                e2eeOptions: E2EEOptions(keyProvider: senderKeyProvider),
+                canPublishData: true
+            ),
+            RoomTestingOptions(
+                delegate: self,
+                e2eeOptions: E2EEOptions(keyProvider: receiverKeyProvider),
+                canSubscribe: true
+            ),
+        ]) { rooms in
+            let sender = rooms[0]
+            let remoteIdentity = try XCTUnwrap(sender.remoteParticipants.keys.first)
+
+            senderKeyProvider.setCurrentKeyIndex(1)
+
+            let userPacket = Livekit_UserPacket.with {
+                $0.payload = testData
+                $0.destinationIdentities = [remoteIdentity.stringValue]
+            }
+
+            try await sender.send(userPacket: userPacket, kind: .reliable)
+
+            await self.fulfillment(of: [self.receivedDataExpectation], timeout: 5)
+
+            let receivedMessage = String(data: self.receivedData!, encoding: .utf8)
+            XCTAssertEqual(receivedMessage, testMessage, "Message should be received with multiple keys in key ring")
+        }
+    }
 }
 
 // MARK: - RoomDelegate Implementation
