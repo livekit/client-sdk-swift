@@ -28,14 +28,11 @@ class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
         super.setUp()
         receivedData = nil
         lastDecryptionError = nil
-
-        receivedDataExpectation = expectation(description: "Data received")
     }
 
-    // MARK: - Basic Encryption/Decryption Tests with withRooms
-
-    func testEncryptionDisabled() async throws {
-        let testMessage = "Hello, unencrypted world!"
+    func testEncryptionWithSharedKey() async throws {
+        receivedDataExpectation = expectation(description: "Encrypted data received")
+        let testMessage = "Hello, encrypted world!"
         let testData = testMessage.data(using: .utf8)!
 
         try await withRooms([
@@ -59,15 +56,37 @@ class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
         }
     }
 
-    func testEncryptionWithSharedKey() async throws {
-        let testMessage = "Hello, encrypted world!"
+    func testEncryptionWithPerParticipantKeys() async throws {
+        receivedDataExpectation = expectation(description: "Encrypted data with per-participant keys received")
+        let testMessage = "Hello, per-participant encrypted world!"
         let testData = testMessage.data(using: .utf8)!
 
+        let senderKeyProvider = BaseKeyProvider(isSharedKey: false)
+        let receiverKeyProvider = BaseKeyProvider(isSharedKey: false)
+
+        let senderKey = "sender-secret-key-123"
+        let receiverKey = "receiver-secret-key-456"
+
         try await withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(delegate: self, canSubscribe: true),
+            RoomTestingOptions(
+                e2eeOptions: E2EEOptions(keyProvider: senderKeyProvider), canPublishData: true
+            ),
+            RoomTestingOptions(
+                delegate: self,
+                e2eeOptions: E2EEOptions(keyProvider: receiverKeyProvider), canSubscribe: true
+            ),
         ]) { rooms in
             let sender = rooms[0]
+            let receiver = rooms[1]
+
+            let senderIdentity = try XCTUnwrap(sender.localParticipant.identity?.stringValue)
+            let receiverIdentity = try XCTUnwrap(receiver.localParticipant.identity?.stringValue)
+
+            senderKeyProvider.setKey(key: senderKey, participantId: senderIdentity)
+            senderKeyProvider.setKey(key: receiverKey, participantId: receiverIdentity)
+            receiverKeyProvider.setKey(key: senderKey, participantId: senderIdentity)
+            receiverKeyProvider.setKey(key: receiverKey, participantId: receiverIdentity)
+
             let remoteIdentity = try XCTUnwrap(sender.remoteParticipants.keys.first)
 
             let userPacket = Livekit_UserPacket.with {
@@ -80,7 +99,7 @@ class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
             await self.fulfillment(of: [self.receivedDataExpectation], timeout: 5)
 
             let receivedMessage = String(data: self.receivedData!, encoding: .utf8)
-            XCTAssertEqual(receivedMessage, testMessage, "Received message should match sent message")
+            XCTAssertEqual(receivedMessage, testMessage, "Received message should match sent message with per-participant keys")
         }
     }
 }

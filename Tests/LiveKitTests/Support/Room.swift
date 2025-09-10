@@ -22,6 +22,7 @@ struct RoomTestingOptions {
     let url: String?
     let token: String?
     let enableMicrophone: Bool
+    let e2eeOptions: E2EEOptions?
 
     // Perms
     let canPublish: Bool
@@ -33,6 +34,7 @@ struct RoomTestingOptions {
          url: String? = nil,
          token: String? = nil,
          enableMicrophone: Bool = false,
+         e2eeOptions: E2EEOptions? = nil,
          canPublish: Bool = false,
          canPublishData: Bool = false,
          canPublishSources: Set<Track.Source> = [],
@@ -42,6 +44,7 @@ struct RoomTestingOptions {
         self.url = url
         self.token = token
         self.enableMicrophone = enableMicrophone
+        self.e2eeOptions = e2eeOptions
         self.canPublish = canPublish
         self.canPublishData = canPublishData
         self.canPublishSources = canPublishSources
@@ -87,21 +90,19 @@ extension LKTestCase {
 
     // Set up variable number of Rooms
     func withRooms(_ options: [RoomTestingOptions] = [],
-                   sharedKey: String = UUID().uuidString,
                    _ block: @escaping ([Room]) async throws -> Void) async throws
     {
-        let e2eeOptions = E2EEOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
-
-        // Turn on stats
-        let roomOptions = RoomOptions(e2eeOptions: e2eeOptions, reportRemoteTrackStatistics: true)
-
         let roomName = UUID().uuidString
+        let sharedKey = UUID().uuidString
 
         let rooms = try options.enumerated().map {
             // Connect options
             let connectOptions = ConnectOptions(enableMicrophone: $0.element.enableMicrophone)
 
-            // Use shared RoomOptions
+            // Room options
+            let e2eeOptions = $0.element.e2eeOptions ?? E2EEOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
+            let roomOptions = RoomOptions(e2eeOptions: e2eeOptions, reportRemoteTrackStatistics: true)
+
             let room = Room(delegate: $0.element.delegate, connectOptions: connectOptions, roomOptions: roomOptions)
             let identity = "identity-\($0.offset)"
 
