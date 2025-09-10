@@ -34,10 +34,6 @@ extension EncryptionType {
         default: .custom
         }
     }
-
-    func toRTCType() -> LKRTCCryptorAlgorithm {
-        .aesGcm
-    }
 }
 
 extension Livekit_Encryption.TypeEnum {

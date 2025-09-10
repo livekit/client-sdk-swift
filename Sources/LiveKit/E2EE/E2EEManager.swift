@@ -71,10 +71,6 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         self.e2eeOptions = e2eeOptions
         #warning("Override")
         dataChannelEncryptionEnabled = true
-
-        _state.mutate {
-            $0.dataCryptor = LKRTCDataPacketCryptor(algorithm: e2eeOptions.encryptionType.toRTCType(), keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
-        }
     }
 
 //    public init(options: EncryptionOptions) {
@@ -104,6 +100,8 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
                 }
             }
         }
+
+        addDataChannelCryptor()
     }
 
     public func enableE2EE(enabled: Bool) {
@@ -175,6 +173,12 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         }
     }
 
+    func addDataChannelCryptor() {
+        _state.mutate {
+            $0.dataCryptor = LKRTCDataPacketCryptor(algorithm: .aesGcm, keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
+        }
+    }
+
     public func cleanUp() {
         _state.mutate {
             for (_, frameCryptor) in $0.frameCryptors {
@@ -182,7 +186,6 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
             }
             $0.frameCryptors.removeAll()
             $0.trackPublications.removeAll()
-            $0.dataCryptor = nil
         }
     }
 }
