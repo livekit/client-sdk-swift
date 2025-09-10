@@ -272,7 +272,8 @@ extension E2EEManager {
             throw LiveKitError(.invalidState, message: "Cryptor is nil")
         }
 
-        guard let encryptedPacket = cryptor.encrypt(identity, keyIndex: 0, data: data) else {
+        let keyIndex = UInt32(keyProvider.getCurrentKeyIndex())
+        guard let encryptedPacket = cryptor.encrypt(identity, keyIndex: keyIndex, data: data) else {
             throw LiveKitError(.encryptionFailed, message: "Failed to encrypt data packet")
         }
 
