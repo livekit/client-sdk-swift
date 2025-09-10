@@ -90,7 +90,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         func peek() -> PublishDataRequest? { queue.first }
 
         mutating func enqueue(_ request: PublishDataRequest) {
-            queue.append(request)
+            queue.append(request.retry())
             currentAmount += UInt64(request.data.data.count)
         }
 
@@ -113,6 +113,10 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         let data: LKRTCDataBuffer
         let sequence: UInt32
         let continuation: CheckedContinuation<Void, any Error>?
+
+        func retry() -> Self {
+            .init(data: data, sequence: sequence, continuation: nil)
+        }
     }
 
     private struct ChannelEvent: Sendable {
@@ -238,7 +242,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
         while let request = buffer.dequeue() {
             if request.sequence > lastSeq {
-                let event = ChannelEvent(channelKind: .reliable, detail: .publishData(PublishDataRequest(data: request.data, sequence: request.sequence, continuation: nil)))
+                let event = ChannelEvent(channelKind: .reliable, detail: .publishData(request))
                 _state.eventContinuation?.yield(event)
             }
         }
