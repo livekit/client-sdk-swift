@@ -151,7 +151,7 @@ public protocol RoomDelegate: AnyObject, Sendable {
 
     /// Received data from from a user or server. `participant` will be nil if broadcasted from server.
     @objc optional
-    func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String)
+    func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType)
 
     @objc optional
     func room(_ room: Room, trackPublication: TrackPublication, didUpdateE2EEState state: E2EEState)

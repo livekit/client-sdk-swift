@@ -57,9 +57,8 @@ public enum LiveKitErrorType: Int, Sendable {
     case codecNotSupported = 901
 
     // Encryption
-    case encryptionTypeMismatch = 1001
-    case encryptionFailed = 1002
-    case decryptionFailed = 1003
+    case encryptionFailed = 1001
+    case decryptionFailed = 1002
 }
 
 extension LiveKitErrorType: CustomStringConvertible {
@@ -113,8 +112,6 @@ extension LiveKitErrorType: CustomStringConvertible {
             "Encryption failed"
         case .decryptionFailed:
             "Decryption failed"
-        case .encryptionTypeMismatch:
-            "Encryption type mismatch"
         default: "Unknown"
         }
     }

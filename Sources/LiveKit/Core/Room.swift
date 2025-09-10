@@ -120,6 +120,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     let incomingStreamManager = IncomingStreamManager()
     lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
         try await self?.send(dataPacket: packet)
+    } encryptionProvider: { [weak self] in
+        (self?.e2eeManager?.isDataChannelEncryptionEnabled ?? false) ? .gcm : .none
     }
 
     // MARK: - PreConnect
@@ -597,14 +599,14 @@ extension Room: DataChannelDelegate {
     func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket) {
         switch dataPacket.value {
         case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
-        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket)
+        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket, encryptionType: dataPacket.encryptedPacket.encryptionType.toLKType())
         case let .transcription(packet): room(didReceiveTranscriptionPacket: packet)
         case let .rpcResponse(response): room(didReceiveRpcResponse: response)
         case let .rpcAck(ack): room(didReceiveRpcAck: ack)
         case let .rpcRequest(request): room(didReceiveRpcRequest: request, from: dataPacket.participantIdentity)
-        case let .streamHeader(header): Task { await incomingStreamManager.handle(header: header, from: dataPacket.participantIdentity) }
-        case let .streamChunk(chunk): Task { await incomingStreamManager.handle(chunk: chunk) }
-        case let .streamTrailer(trailer): Task { await incomingStreamManager.handle(trailer: trailer) }
+        case let .streamHeader(header): Task { await incomingStreamManager.handle(header: header, from: dataPacket.participantIdentity, encryptionType: dataPacket.encryptedPacket.encryptionType.toLKType()) }
+        case let .streamChunk(chunk): Task { await incomingStreamManager.handle(chunk: chunk, encryptionType: dataPacket.encryptedPacket.encryptionType.toLKType()) }
+        case let .streamTrailer(trailer): Task { await incomingStreamManager.handle(trailer: trailer, encryptionType: dataPacket.encryptedPacket.encryptionType.toLKType()) }
         default: return
         }
     }

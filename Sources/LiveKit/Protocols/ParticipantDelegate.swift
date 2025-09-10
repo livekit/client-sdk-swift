@@ -130,7 +130,7 @@ public protocol ParticipantDelegate: AnyObject, Sendable {
 
     /// Data was received from a ``RemoteParticipant``.
     @objc optional
-    func participant(_ participant: RemoteParticipant, didReceiveData data: Data, forTopic topic: String)
+    func participant(_ participant: RemoteParticipant, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType)
 
     // MARK: - Deprecated
 

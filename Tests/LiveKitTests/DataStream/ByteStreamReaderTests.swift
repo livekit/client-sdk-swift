@@ -27,6 +27,7 @@ class ByteStreamReaderTests: LKTestCase, @unchecked Sendable {
         timestamp: Date(),
         totalLength: nil,
         attributes: [:],
+        encryptionType: .none,
         mimeType: "application/octet-stream",
         name: "filename.bin"
     )
