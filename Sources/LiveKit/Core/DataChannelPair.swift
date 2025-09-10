@@ -318,7 +318,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     func send(dataPacket packet: Livekit_DataPacket) async throws {
-        let packet = try await withSequence(withEncryption(packet))
+        let packet = try await withEncryption(withSequence(packet))
         let serializedData = try packet.serializedData()
         let rtcData = RTC.createDataBuffer(data: serializedData)
 
