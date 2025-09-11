@@ -188,14 +188,15 @@ actor SignalClient: Loggable {
                                                  adaptiveStream: adaptiveStream,
                                                  validate: true)
             log("Validating with url: \(validateUrl)...")
-            let validationResponse = await HTTP.requestValidation(from: validateUrl, token: token)
-            log("Validate response: \(validationResponse)")
-
-            if case let .invalid(message) = validationResponse {
-                // Re-throw with validation response
-                throw LiveKitError(.validation, message: message)
-            } else {
-                // Re-throw original error
+            do {
+                try await HTTP.requestValidation(from: validateUrl, token: token)
+                // Re-throw original error since validation passed
+                throw LiveKitError(.network, internalError: error)
+            } catch let validationError as LiveKitError where validationError.type == .validation {
+                // Re-throw validation error
+                throw validationError
+            } catch {
+                // Re-throw original connection error for network issues during validation
                 throw LiveKitError(.network, internalError: error)
             }
         }
