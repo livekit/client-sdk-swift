@@ -341,18 +341,26 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             _state.mutate { $0.connectOptions = connectOptions }
         }
 
+        await cleanUp()
+
+        try Task.checkCancellation()
+
         // enable E2EE
         if let e2eeOptions = state.roomOptions.e2eeOptions {
             e2eeManager = E2EEManager(e2eeOptions: e2eeOptions)
             e2eeManager!.setup(room: self)
+        } else if let encryptionOptions = state.roomOptions.encryptionOptions {
+            e2eeManager = E2EEManager(options: encryptionOptions)
+            e2eeManager!.setup(room: self)
 
             subscriberDataChannel.e2eeManager = e2eeManager
             publisherDataChannel.e2eeManager = e2eeManager
+        } else {
+            e2eeManager = nil
+
+            subscriberDataChannel.e2eeManager = nil
+            publisherDataChannel.e2eeManager = nil
         }
-
-        await cleanUp()
-
-        try Task.checkCancellation()
 
         _state.mutate { $0.connectionState = .connecting }
 

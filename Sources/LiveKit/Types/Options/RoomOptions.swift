@@ -65,6 +65,8 @@ public final class RoomOptions: NSObject, Sendable {
 
     /// E2EE Options
     public let e2eeOptions: E2EEOptions?
+    /// Encryption
+    public let encryptionOptions: EncryptionOptions?
 
     @objc
     public let reportRemoteTrackStatistics: Bool
@@ -81,6 +83,7 @@ public final class RoomOptions: NSObject, Sendable {
         stopLocalTrackOnUnpublish = true
         suspendLocalVideoTracksInBackground = true
         e2eeOptions = nil
+        encryptionOptions = nil
         reportRemoteTrackStatistics = false
     }
 
@@ -96,6 +99,7 @@ public final class RoomOptions: NSObject, Sendable {
                 stopLocalTrackOnUnpublish: Bool = true,
                 suspendLocalVideoTracksInBackground: Bool = true,
                 e2eeOptions: E2EEOptions? = nil,
+                encryptionOptions: EncryptionOptions? = nil,
                 reportRemoteTrackStatistics: Bool = false)
     {
         self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
@@ -109,6 +113,7 @@ public final class RoomOptions: NSObject, Sendable {
         self.stopLocalTrackOnUnpublish = stopLocalTrackOnUnpublish
         self.suspendLocalVideoTracksInBackground = suspendLocalVideoTracksInBackground
         self.e2eeOptions = e2eeOptions
+        self.encryptionOptions = encryptionOptions
         self.reportRemoteTrackStatistics = reportRemoteTrackStatistics
     }
 
@@ -127,6 +132,7 @@ public final class RoomOptions: NSObject, Sendable {
             stopLocalTrackOnUnpublish == other.stopLocalTrackOnUnpublish &&
             suspendLocalVideoTracksInBackground == other.suspendLocalVideoTracksInBackground &&
             e2eeOptions == other.e2eeOptions &&
+            encryptionOptions == other.encryptionOptions &&
             reportRemoteTrackStatistics == other.reportRemoteTrackStatistics
     }
 
@@ -143,6 +149,7 @@ public final class RoomOptions: NSObject, Sendable {
         hasher.combine(stopLocalTrackOnUnpublish)
         hasher.combine(suspendLocalVideoTracksInBackground)
         hasher.combine(e2eeOptions)
+        hasher.combine(encryptionOptions)
         hasher.combine(reportRemoteTrackStatistics)
         return hasher.finalize()
     }

@@ -39,12 +39,17 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
 
     // MARK: - Public
 
-    public let e2eeOptions: E2EEOptions
+    public let e2eeOptions: E2EEOptions?
+    public let options: EncryptionOptions?
 
     private let dataChannelEncryptionEnabled: Bool
 
     public var keyProvider: BaseKeyProvider {
-        e2eeOptions.keyProvider
+        options?.keyProvider ?? e2eeOptions?.keyProvider ?? BaseKeyProvider()
+    }
+
+    public var encryptionType: EncryptionType {
+        options?.encryptionType ?? e2eeOptions?.encryptionType ?? .none
     }
 
     public var isDataChannelEncryptionEnabled: Bool {
@@ -69,13 +74,15 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
 
     public init(e2eeOptions: E2EEOptions) {
         self.e2eeOptions = e2eeOptions
-        #warning("Override")
-        dataChannelEncryptionEnabled = true
+        options = nil
+        dataChannelEncryptionEnabled = false
     }
 
-//    public init(options: EncryptionOptions) {
-//        self.dataChannelEncryptionEnabled = true
-//    }
+    public init(options: EncryptionOptions) {
+        e2eeOptions = nil
+        self.options = options
+        dataChannelEncryptionEnabled = true
+    }
 
     public func setup(room: Room) {
         if _room != room { cleanUp() }
@@ -128,7 +135,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
                                                    rtpSender: sender,
                                                    participantId: participantIdentity.stringValue,
                                                    algorithm: .aesGcm,
-                                                   keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
+                                                   keyProvider: keyProvider.rtcKeyProvider)
         else {
             log("frameCryptor is nil, skipping creating frame cryptor...", .warning)
             return
@@ -158,7 +165,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
                                                    rtpReceiver: receiver,
                                                    participantId: participantIdentity.stringValue,
                                                    algorithm: .aesGcm,
-                                                   keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
+                                                   keyProvider: keyProvider.rtcKeyProvider)
         else {
             log("frameCryptor is nil, skipping creating frame cryptor...", .warning)
             return
@@ -175,7 +182,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
 
     func addDataChannelCryptor() {
         _state.mutate {
-            $0.dataCryptor = LKRTCDataPacketCryptor(algorithm: .aesGcm, keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
+            $0.dataCryptor = LKRTCDataPacketCryptor(algorithm: .aesGcm, keyProvider: keyProvider.rtcKeyProvider)
         }
     }
 
@@ -186,6 +193,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
             }
             $0.frameCryptors.removeAll()
             $0.trackPublications.removeAll()
+            $0.dataCryptor = nil
         }
     }
 }
@@ -277,6 +285,8 @@ extension E2EEManager {
             throw LiveKitError(.encryptionFailed, message: "Failed to encrypt data packet")
         }
 
+        log("Encrypted \(encryptedData)", .trace)
+
         return encryptedData
     }
 
@@ -288,6 +298,8 @@ extension E2EEManager {
         guard let decryptedData = cryptor.decrypt(participantIdentity, encryptedPacket: encryptedData) else {
             throw LiveKitError(.decryptionFailed, message: "Failed to decrypt data packet")
         }
+
+        log("Decrypted \(decryptedData)", .trace)
 
         return decryptedData
     }

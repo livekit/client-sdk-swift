@@ -69,11 +69,11 @@ class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
 
         try await withRooms([
             RoomTestingOptions(
-                e2eeOptions: E2EEOptions(keyProvider: senderKeyProvider), canPublishData: true
+                encryptionOptions: EncryptionOptions(keyProvider: senderKeyProvider), canPublishData: true
             ),
             RoomTestingOptions(
                 delegate: self,
-                e2eeOptions: E2EEOptions(keyProvider: receiverKeyProvider), canSubscribe: true
+                encryptionOptions: EncryptionOptions(keyProvider: receiverKeyProvider), canSubscribe: true
             ),
         ]) { rooms in
             let sender = rooms[0]
@@ -116,12 +116,12 @@ class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
 
         try await withRooms([
             RoomTestingOptions(
-                e2eeOptions: E2EEOptions(keyProvider: senderKeyProvider),
+                encryptionOptions: EncryptionOptions(keyProvider: senderKeyProvider),
                 canPublishData: true
             ),
             RoomTestingOptions(
                 delegate: self,
-                e2eeOptions: E2EEOptions(keyProvider: receiverKeyProvider),
+                encryptionOptions: EncryptionOptions(keyProvider: receiverKeyProvider),
                 canSubscribe: true
             ),
         ]) { rooms in
@@ -156,12 +156,12 @@ class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
 
         try await withRooms([
             RoomTestingOptions(
-                e2eeOptions: E2EEOptions(keyProvider: senderKeyProvider),
+                encryptionOptions: EncryptionOptions(keyProvider: senderKeyProvider),
                 canPublishData: true
             ),
             RoomTestingOptions(
                 delegate: self,
-                e2eeOptions: E2EEOptions(keyProvider: receiverKeyProvider),
+                encryptionOptions: EncryptionOptions(keyProvider: receiverKeyProvider),
                 canSubscribe: true
             ),
         ]) { rooms in
@@ -212,12 +212,12 @@ class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
 
         try await withRooms([
             RoomTestingOptions(
-                e2eeOptions: E2EEOptions(keyProvider: senderKeyProvider),
+                encryptionOptions: EncryptionOptions(keyProvider: senderKeyProvider),
                 canPublishData: true
             ),
             RoomTestingOptions(
                 delegate: self,
-                e2eeOptions: E2EEOptions(keyProvider: receiverKeyProvider),
+                encryptionOptions: EncryptionOptions(keyProvider: receiverKeyProvider),
                 canSubscribe: true
             ),
         ]) { rooms in
@@ -272,12 +272,12 @@ class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
 
         try await withRooms([
             RoomTestingOptions(
-                e2eeOptions: E2EEOptions(keyProvider: senderKeyProvider),
+                encryptionOptions: EncryptionOptions(keyProvider: senderKeyProvider),
                 canPublishData: true
             ),
             RoomTestingOptions(
                 delegate: self,
-                e2eeOptions: E2EEOptions(keyProvider: receiverKeyProvider),
+                encryptionOptions: EncryptionOptions(keyProvider: receiverKeyProvider),
                 canSubscribe: true
             ),
         ]) { rooms in

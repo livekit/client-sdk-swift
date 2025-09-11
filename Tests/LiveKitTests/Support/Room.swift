@@ -22,7 +22,7 @@ struct RoomTestingOptions {
     let url: String?
     let token: String?
     let enableMicrophone: Bool
-    let e2eeOptions: E2EEOptions?
+    let encryptionOptions: EncryptionOptions?
 
     // Perms
     let canPublish: Bool
@@ -34,7 +34,7 @@ struct RoomTestingOptions {
          url: String? = nil,
          token: String? = nil,
          enableMicrophone: Bool = false,
-         e2eeOptions: E2EEOptions? = nil,
+         encryptionOptions: EncryptionOptions? = nil,
          canPublish: Bool = false,
          canPublishData: Bool = false,
          canPublishSources: Set<Track.Source> = [],
@@ -44,7 +44,7 @@ struct RoomTestingOptions {
         self.url = url
         self.token = token
         self.enableMicrophone = enableMicrophone
-        self.e2eeOptions = e2eeOptions
+        self.encryptionOptions = encryptionOptions
         self.canPublish = canPublish
         self.canPublishData = canPublishData
         self.canPublishSources = canPublishSources
@@ -100,8 +100,8 @@ extension LKTestCase {
             let connectOptions = ConnectOptions(enableMicrophone: $0.element.enableMicrophone)
 
             // Room options
-            let e2eeOptions = $0.element.e2eeOptions ?? E2EEOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
-            let roomOptions = RoomOptions(e2eeOptions: e2eeOptions, reportRemoteTrackStatistics: true)
+            let encryptionOptions = $0.element.encryptionOptions ?? EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
+            let roomOptions = RoomOptions(encryptionOptions: encryptionOptions, reportRemoteTrackStatistics: true)
 
             let room = Room(delegate: $0.element.delegate, connectOptions: connectOptions, roomOptions: roomOptions)
             let identity = "identity-\($0.offset)"
