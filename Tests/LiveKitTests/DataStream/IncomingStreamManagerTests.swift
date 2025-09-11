@@ -289,8 +289,7 @@ class IncomingStreamManagerTests: LKTestCase, @unchecked Sendable {
             do {
                 _ = try await reader.readAll()
             } catch let error as StreamError {
-                if case let .encryptionTypeMismatch(streamId, expected, received) = error {
-                    XCTAssertEqual(streamId, "test-stream-id")
+                if case let .encryptionTypeMismatch(expected, received) = error {
                     XCTAssertEqual(expected, .gcm) // Stream was created with .gcm
                     XCTAssertEqual(received, .none) // But chunk sent with .none
                     streamExpectation.fulfill()

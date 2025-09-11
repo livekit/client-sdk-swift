@@ -46,5 +46,5 @@ public enum StreamError: Error, Equatable {
     case fileInfoUnavailable
 
     /// Encryption type mismatch between stream header and chunk/trailer.
-    case encryptionTypeMismatch(streamId: String, expected: EncryptionType, received: EncryptionType)
+    case encryptionTypeMismatch(expected: EncryptionType, received: EncryptionType)
 }

@@ -115,7 +115,6 @@ actor IncomingStreamManager: Loggable {
 
         if descriptor.info.encryptionType != encryptionType {
             let error = StreamError.encryptionTypeMismatch(
-                streamId: chunk.streamID,
                 expected: descriptor.info.encryptionType,
                 received: encryptionType
             )
@@ -143,7 +142,6 @@ actor IncomingStreamManager: Loggable {
 
         if descriptor.info.encryptionType != encryptionType {
             let error = StreamError.encryptionTypeMismatch(
-                streamId: trailer.streamID,
                 expected: descriptor.info.encryptionType,
                 received: encryptionType
             )

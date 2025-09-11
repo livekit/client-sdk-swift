@@ -42,8 +42,6 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
     public let e2eeOptions: E2EEOptions?
     public let options: EncryptionOptions?
 
-    private let dataChannelEncryptionEnabled: Bool
-
     public var keyProvider: BaseKeyProvider {
         options?.keyProvider ?? e2eeOptions?.keyProvider ?? BaseKeyProvider()
     }
@@ -53,7 +51,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
     }
 
     public var isDataChannelEncryptionEnabled: Bool {
-        _state.enabled && dataChannelEncryptionEnabled
+        _state.enabled && options != nil
     }
 
     // MARK: - Private
@@ -75,13 +73,11 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
     public init(e2eeOptions: E2EEOptions) {
         self.e2eeOptions = e2eeOptions
         options = nil
-        dataChannelEncryptionEnabled = false
     }
 
     public init(options: EncryptionOptions) {
         e2eeOptions = nil
         self.options = options
-        dataChannelEncryptionEnabled = true
     }
 
     public func setup(room: Room) {
@@ -285,7 +281,7 @@ extension E2EEManager {
             throw LiveKitError(.encryptionFailed, message: "Failed to encrypt data packet")
         }
 
-        log("Encrypted \(encryptedData)", .trace)
+        log("Encrypted \(encryptedData.data)", .trace)
 
         return encryptedData
     }

@@ -121,7 +121,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
         try await self?.send(dataPacket: packet)
     } encryptionProvider: { [weak self] in
-        (self?.e2eeManager?.isDataChannelEncryptionEnabled ?? false) ? .gcm : .none
+        self?.e2eeManager?.encryptionType ?? .none
     }
 
     // MARK: - PreConnect

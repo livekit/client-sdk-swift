@@ -342,13 +342,13 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     private func withEncryption(_ packet: Livekit_DataPacket) throws -> Livekit_DataPacket {
-        guard let payload = Livekit_EncryptedPacketPayload(dataPacket: packet),
-              let e2eeManager, e2eeManager.isDataChannelEncryptionEnabled else { return packet }
+        guard let e2eeManager, e2eeManager.isDataChannelEncryptionEnabled,
+              let payload = Livekit_EncryptedPacketPayload(dataPacket: packet) else { return packet }
         var packet = packet
         do {
             let payloadData = try payload.serializedData()
-            let rtcEncrypted = try e2eeManager.encrypt(data: payloadData)
-            packet.encryptedPacket = Livekit_EncryptedPacket(rtcPacket: rtcEncrypted)
+            let rtcEncryptedPacket = try e2eeManager.encrypt(data: payloadData)
+            packet.encryptedPacket = Livekit_EncryptedPacket(rtcPacket: rtcEncryptedPacket)
         } catch {
             throw LiveKitError(.encryptionFailed, internalError: error)
         }
