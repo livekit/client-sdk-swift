@@ -102,6 +102,10 @@ public final class RoomOptions: NSObject, Sendable {
                 encryptionOptions: EncryptionOptions? = nil,
                 reportRemoteTrackStatistics: Bool = false)
     {
+        if e2eeOptions != nil, encryptionOptions != nil {
+            assertionFailure("Specifying both 'e2eeOptions' and 'encryptionOptions' is not supported. Migrate to 'EncryptionOptions' to enable data channel encryption (requires support from all platforms).")
+        }
+
         self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
         self.defaultScreenShareCaptureOptions = defaultScreenShareCaptureOptions
         self.defaultAudioCaptureOptions = defaultAudioCaptureOptions

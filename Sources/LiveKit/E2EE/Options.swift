@@ -45,7 +45,7 @@ extension Livekit_Encryption.TypeEnum {
     }
 }
 
-@available(*, deprecated, message: "Use EncryptionOptions instead that will enable data channel encryption (requires support from all clients).")
+@available(*, deprecated, message: "Migrate to 'EncryptionOptions' instead. Important: It will enable data channel encryption by default (requires support from all platforms).")
 @objc
 public final class E2EEOptions: NSObject, Sendable {
     @objc
