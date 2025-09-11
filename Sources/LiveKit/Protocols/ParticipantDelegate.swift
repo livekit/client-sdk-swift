@@ -134,6 +134,11 @@ public protocol ParticipantDelegate: AnyObject, Sendable {
 
     // MARK: - Deprecated
 
+    /// Renamed to ``ParticipantDelegate/participant(_:didReceiveData:forTopic:encryptionType:)``.
+    @available(*, unavailable, renamed: "participant(_:didReceiveData:forTopic:encryptionType:)")
+    @objc optional
+    func participant(_ participant: RemoteParticipant, didReceiveData data: Data, forTopic topic: String)
+
     /// Renamed to ``ParticipantDelegate/participant(_:didUpdateMetadata:)``.
     @available(*, unavailable, renamed: "participant(_:didUpdateMetadata:)")
     @objc(participant:didUpdateMetadata_:) optional

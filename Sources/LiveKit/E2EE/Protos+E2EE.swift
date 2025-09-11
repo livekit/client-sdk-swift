@@ -42,8 +42,8 @@ extension Livekit_EncryptedPacket {
 extension Livekit_EncryptedPacketPayload {
     init?(dataPacket: Livekit_DataPacket) {
         switch dataPacket.value {
-        case let .user(userPacket):
-            user = userPacket
+        case let .user(user):
+            self.user = user
         case let .chatMessage(chatMessage):
             self.chatMessage = chatMessage
         case let .rpcRequest(rpcRequest):

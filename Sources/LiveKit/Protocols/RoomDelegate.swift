@@ -153,12 +153,12 @@ public protocol RoomDelegate: AnyObject, Sendable {
     @objc optional
     func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType)
 
-    @objc optional
-    func room(_ room: Room, trackPublication: TrackPublication, didUpdateE2EEState state: E2EEState)
-
     /// Failed to decrypt a data packet when E2EE is enabled.
     @objc optional
     func room(_ room: Room, didFailToDecryptDataWithEror error: LiveKitError)
+
+    @objc optional
+    func room(_ room: Room, trackPublication: TrackPublication, didUpdateE2EEState state: E2EEState)
 
     /// ``TrackPublication/isMuted`` has updated.
     @objc optional
@@ -173,6 +173,11 @@ public protocol RoomDelegate: AnyObject, Sendable {
     func room(_ room: Room, participant: RemoteParticipant, trackPublication: RemoteTrackPublication, didUpdateIsSubscriptionAllowed isSubscriptionAllowed: Bool)
 
     // MARK: - Deprecated
+
+    /// Renamed to ``RoomDelegate/room(_:participant:didReceiveData:forTopic:encryptionType:)``.
+    @available(*, unavailable, renamed: "room(_:participant:didReceiveData:forTopic:encryptionType:)")
+    @objc optional
+    func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String)
 
     /// Renamed to ``RoomDelegate/room(_:didUpdateConnectionState:from:)``.
     @available(*, unavailable, renamed: "room(_:didUpdateConnectionState:from:)")
