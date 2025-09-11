@@ -46,12 +46,17 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         options?.keyProvider ?? e2eeOptions?.keyProvider ?? BaseKeyProvider()
     }
 
-    public var encryptionType: EncryptionType {
+    public var frameEncryptionType: EncryptionType {
         options?.encryptionType ?? e2eeOptions?.encryptionType ?? .none
     }
 
     public var isDataChannelEncryptionEnabled: Bool {
         _state.enabled && options != nil
+    }
+
+    public var dataChannelEncryptionType: EncryptionType {
+        guard isDataChannelEncryptionEnabled else { return .none }
+        return options?.encryptionType ?? .none
     }
 
     // MARK: - Private
