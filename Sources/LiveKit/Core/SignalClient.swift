@@ -354,7 +354,7 @@ private extension SignalClient {
             log("Received roomMoved message")
 
         case .mediaSectionsRequirement:
-            #warning("TODO")
+            log("Received mediaSectionsRequirement message")
         }
     }
 }

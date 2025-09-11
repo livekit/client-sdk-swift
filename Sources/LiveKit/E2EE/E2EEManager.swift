@@ -258,7 +258,7 @@ extension E2EEManager: RoomDelegate {
     }
 }
 
-// MARK: - Data Packet Encryption
+// MARK: - Data Packet encryption
 
 extension E2EEManager {
     func encrypt(data: Data) throws -> LKRTCEncryptedPacket {
@@ -273,11 +273,11 @@ extension E2EEManager {
         }
 
         let keyIndex = UInt32(keyProvider.getCurrentKeyIndex())
-        guard let encryptedPacket = cryptor.encrypt(identity, keyIndex: keyIndex, data: data) else {
+        guard let encryptedData = cryptor.encrypt(identity, keyIndex: keyIndex, data: data) else {
             throw LiveKitError(.encryptionFailed, message: "Failed to encrypt data packet")
         }
 
-        return encryptedPacket
+        return encryptedData
     }
 
     func handle(encryptedData: LKRTCEncryptedPacket, participantIdentity: String) throws -> Data {

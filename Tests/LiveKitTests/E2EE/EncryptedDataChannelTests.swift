@@ -301,7 +301,7 @@ class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
     }
 }
 
-// MARK: - RoomDelegate Implementation
+// MARK: - RoomDelegate
 
 extension EncryptedDataChannelTests: RoomDelegate {
     func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic _: String, encryptionType _: EncryptionType) {

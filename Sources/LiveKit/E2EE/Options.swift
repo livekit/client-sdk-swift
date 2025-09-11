@@ -16,8 +16,6 @@
 
 import Foundation
 
-internal import LiveKitWebRTC
-
 @objc
 public enum EncryptionType: Int, Sendable {
     case none

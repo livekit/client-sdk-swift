@@ -100,6 +100,8 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
 
     private let _state = StateSync(State())
 
+    // MARK: Init
+
     public init(isSharedKey: Bool, sharedKey: String? = nil) {
         options = KeyProviderOptions(sharedKey: isSharedKey)
         rtcKeyProvider = LKRTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
@@ -123,6 +125,8 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
                                                       failureTolerance: options.failureTolerance,
                                                       keyRingSize: options.keyRingSize)
     }
+
+    // MARK: - Key management
 
     public func setKey(key: String, participantId: String? = nil, index: Int32? = nil) {
         let targetIndex = index ?? getCurrentKeyIndex()

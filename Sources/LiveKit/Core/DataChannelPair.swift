@@ -90,7 +90,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         func peek() -> PublishDataRequest? { queue.first }
 
         mutating func enqueue(_ request: PublishDataRequest) {
-            queue.append(request.retry())
+            queue.append(request.withoutContinuation())
             currentAmount += UInt64(request.data.data.count)
         }
 
@@ -114,7 +114,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         let sequence: UInt32
         let continuation: CheckedContinuation<Void, any Error>?
 
-        func retry() -> Self {
+        func withoutContinuation() -> Self {
             .init(data: data, sequence: sequence, continuation: nil)
         }
     }
@@ -241,6 +241,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             log("Wrong packet sequence while retrying: \(first.sequence) > \(lastSeq + 1), \(first.sequence - lastSeq - 1) packets missing", .warning)
         }
         while let request = buffer.dequeue() {
+            assert(request.continuation == nil, "Continuation may fire multiple times while retrying causing crash")
             if request.sequence > lastSeq {
                 let event = ChannelEvent(channelKind: .reliable, detail: .publishData(request))
                 _state.eventContinuation?.yield(event)
@@ -434,11 +435,11 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
             }
         }
 
-        if let encrypted = dataPacket.decrypt,
+        if let encryptedPacket = dataPacket.encryptedPacketOrNil,
            let e2eeManager, e2eeManager.isDataChannelEncryptionEnabled
         {
             do {
-                let decryptedData = try e2eeManager.handle(encryptedData: encrypted.toRTCEncryptedPacket(), participantIdentity: dataPacket.participantIdentity)
+                let decryptedData = try e2eeManager.handle(encryptedData: encryptedPacket.toRTCEncryptedPacket(), participantIdentity: dataPacket.participantIdentity)
                 let decryptedPayload = try Livekit_EncryptedPacketPayload(serializedBytes: decryptedData)
 
                 var dataPacket = dataPacket

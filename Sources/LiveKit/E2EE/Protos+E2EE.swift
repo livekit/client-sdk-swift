@@ -90,7 +90,8 @@ extension Livekit_EncryptedPacketPayload {
 // MARK: - DataPacket
 
 extension Livekit_DataPacket {
-    var decrypt: Livekit_EncryptedPacket? {
+    // Skip the default value returned from protobufs
+    var encryptedPacketOrNil: Livekit_EncryptedPacket? {
         switch value {
         case .encryptedPacket: encryptedPacket
         default: nil

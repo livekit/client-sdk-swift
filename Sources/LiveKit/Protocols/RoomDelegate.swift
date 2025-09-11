@@ -153,7 +153,7 @@ public protocol RoomDelegate: AnyObject, Sendable {
     @objc optional
     func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType)
 
-    /// Failed to decrypt a data packet when E2EE is enabled.
+    /// Failed to decrypt a data packet when encryption is enabled.
     @objc optional
     func room(_ room: Room, didFailToDecryptDataWithEror error: LiveKitError)
 
