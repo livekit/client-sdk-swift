@@ -17,18 +17,18 @@
 @testable import LiveKit
 import XCTest
 
-class DataChannelTests: LKTestCase, @unchecked Sendable {
+class RealiableDataChannelTests: LKTestCase, @unchecked Sendable {
     var receivedExpectation: XCTestExpectation!
     var receivedData: Data!
 
     override func setUp() {
         super.setUp()
-        receivedExpectation = expectation(description: "Data received")
         receivedData = Data()
     }
 
     func testReliableRetry() async throws {
         let iterations = 128
+        receivedExpectation = expectation(description: "Data received")
         receivedExpectation.expectedFulfillmentCount = iterations
 
         let testString = "abcdefghijklmnopqrstuvwxyz🔥"
@@ -69,7 +69,7 @@ class DataChannelTests: LKTestCase, @unchecked Sendable {
     }
 }
 
-extension DataChannelTests: RoomDelegate {
+extension RealiableDataChannelTests: RoomDelegate {
     func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic _: String, encryptionType _: EncryptionType) {
         receivedData.append(data)
         receivedExpectation.fulfill()

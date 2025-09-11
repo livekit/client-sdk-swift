@@ -20,13 +20,13 @@ import XCTest
 
 class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
     var receivedDataExpectation: XCTestExpectation!
-    var receivedData: Data?
+    var receivedData: Data!
     var decryptionErrorExpectation: XCTestExpectation!
     var lastDecryptionError: Error?
 
     override func setUp() {
         super.setUp()
-        receivedData = nil
+        receivedData = Data()
         lastDecryptionError = nil
     }
 
