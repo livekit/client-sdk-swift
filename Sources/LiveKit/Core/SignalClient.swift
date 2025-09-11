@@ -170,13 +170,13 @@ actor SignalClient: Loggable {
             // Skip validation if user cancelled
             if error is CancellationError {
                 await cleanUp(withError: error)
-                throw error
+                throw LiveKitError(.cancelled, internalError: error)
             }
 
             // Skip validation if reconnect mode
             if reconnectMode != nil {
                 await cleanUp(withError: error)
-                throw error
+                throw LiveKitError(.network, internalError: error)
             }
 
             await cleanUp(withError: error)
@@ -196,7 +196,7 @@ actor SignalClient: Loggable {
                 throw LiveKitError(.validation, message: message)
             } else {
                 // Re-throw original error
-                throw LiveKitError(.network, message: error.localizedDescription)
+                throw LiveKitError(.network, internalError: error)
             }
         }
     }
