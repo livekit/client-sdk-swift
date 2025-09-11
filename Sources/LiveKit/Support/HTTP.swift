@@ -24,6 +24,8 @@ enum ServerValidationResponse {
 }
 
 class HTTP: NSObject {
+    static let statusCodeOK = 200
+
     private static let operationQueue = OperationQueue()
 
     private static let session: URLSession = .init(configuration: .default,
@@ -47,7 +49,7 @@ class HTTP: NSObject {
             }
 
             // Valid if 200
-            if httpResponse.statusCode == 200 {
+            if httpResponse.statusCode == statusCodeOK {
                 return .valid
             }
 
@@ -55,6 +57,7 @@ class HTTP: NSObject {
                 throw URLError(.badServerResponse)
             }
 
+            // Consider anything other than 200 invalid
             return .invalid(message: string)
         } catch {
             return .unknown(error: error)
