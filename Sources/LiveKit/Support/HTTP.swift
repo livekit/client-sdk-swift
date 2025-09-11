@@ -16,6 +16,13 @@
 
 import Foundation
 
+enum ServerValidationResponse {
+    case valid
+    case invalid(message: String)
+    // Network error etc.
+    case unknown(error: Error)
+}
+
 class HTTP: NSObject {
     private static let operationQueue = OperationQueue()
 
@@ -23,20 +30,34 @@ class HTTP: NSObject {
                                                    delegate: nil,
                                                    delegateQueue: operationQueue)
 
-    static func requestValidation(from url: URL, token: String) async throws -> String {
-        // let data = try await requestData(from: url, token: token)
-        var request = URLRequest(url: url,
-                                 cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
-                                 timeoutInterval: .defaultHTTPConnect)
-        // Attach token to header
-        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        // Make the data request
-        let (data, _) = try await session.data(for: request)
-        // Convert to string
-        guard let string = String(data: data, encoding: .utf8) else {
-            throw LiveKitError(.failedToConvertData, message: "Failed to convert string")
-        }
+    static func requestValidation(from url: URL, token: String) async -> ServerValidationResponse {
+        do {
+            var request = URLRequest(url: url,
+                                     cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
+                                     timeoutInterval: .defaultHTTPConnect)
+            // Attach token to header
+            request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        return string
+            // Make the data request
+            let (data, response) = try await session.data(for: request)
+
+            // Print HTTP status code
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw URLError(.badServerResponse)
+            }
+
+            // Valid if 200
+            if httpResponse.statusCode == 200 {
+                return .valid
+            }
+
+            guard let string = String(data: data, encoding: .utf8) else {
+                throw URLError(.badServerResponse)
+            }
+
+            return .invalid(message: string)
+        } catch {
+            return .unknown(error: error)
+        }
     }
 }

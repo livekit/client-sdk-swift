@@ -181,18 +181,23 @@ actor SignalClient: Loggable {
 
             await cleanUp(withError: error)
 
-            // Validate...
+            // Attempt to validate with server
             let validateUrl = try Utils.buildUrl(url,
                                                  connectOptions: connectOptions,
                                                  participantSid: participantSid,
                                                  adaptiveStream: adaptiveStream,
                                                  validate: true)
-
             log("Validating with url: \(validateUrl)...")
-            let validationResponse = try await HTTP.requestValidation(from: validateUrl, token: token)
+            let validationResponse = await HTTP.requestValidation(from: validateUrl, token: token)
             log("Validate response: \(validationResponse)")
-            // re-throw with validation response
-            throw LiveKitError(.network, message: "Validation response: \"\(validationResponse)\"")
+
+            if case let .invalid(message) = validationResponse {
+                // Re-throw with validation response
+                throw LiveKitError(.validation, message: message)
+            } else {
+                // Re-throw original error
+                throw LiveKitError(.network, message: error.localizedDescription)
+            }
         }
     }
 
