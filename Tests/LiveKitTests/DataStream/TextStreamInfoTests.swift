@@ -44,7 +44,7 @@ class TextStreamInfoTests: LKTestCase {
         XCTAssertEqual(header.textHeader.attachedStreamIds, info.attachedStreamIDs)
         XCTAssertEqual(header.textHeader.generated, info.generated)
 
-        let newInfo = TextStreamInfo(header, header.textHeader, encryptionType: .none)
+        let newInfo = TextStreamInfo(header, header.textHeader, .none)
         XCTAssertEqual(newInfo.id, info.id)
         XCTAssertEqual(newInfo.topic, info.topic)
         XCTAssertEqual(newInfo.timestamp, info.timestamp)

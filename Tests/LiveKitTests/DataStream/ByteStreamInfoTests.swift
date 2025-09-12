@@ -38,7 +38,7 @@ class ByteStreamInfoTests: LKTestCase {
         XCTAssertEqual(header.attributes, info.attributes)
         XCTAssertEqual(header.byteHeader.name, info.name)
 
-        let newInfo = ByteStreamInfo(header, header.byteHeader, encryptionType: .none)
+        let newInfo = ByteStreamInfo(header, header.byteHeader, .none)
         XCTAssertEqual(newInfo.id, info.id)
         XCTAssertEqual(newInfo.mimeType, info.mimeType)
         XCTAssertEqual(newInfo.topic, info.topic)

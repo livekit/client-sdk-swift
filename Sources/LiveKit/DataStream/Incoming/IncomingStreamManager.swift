@@ -207,8 +207,8 @@ public typealias TextStreamHandler = @Sendable (TextStreamReader, Participant.Id
 extension IncomingStreamManager {
     static func streamInfo(from header: Livekit_DataStream.Header, encryptionType: EncryptionType) -> StreamInfo? {
         switch header.contentHeader {
-        case let .byteHeader(byteHeader): ByteStreamInfo(header, byteHeader, encryptionType: encryptionType)
-        case let .textHeader(textHeader): TextStreamInfo(header, textHeader, encryptionType: encryptionType)
+        case let .byteHeader(byteHeader): ByteStreamInfo(header, byteHeader, encryptionType)
+        case let .textHeader(textHeader): TextStreamInfo(header, textHeader, encryptionType)
         default: nil
         }
     }
@@ -218,7 +218,7 @@ extension ByteStreamInfo {
     convenience init(
         _ header: Livekit_DataStream.Header,
         _ byteHeader: Livekit_DataStream.ByteHeader,
-        encryptionType: EncryptionType
+        _ encryptionType: EncryptionType
     ) {
         self.init(
             id: header.streamID,
@@ -238,7 +238,7 @@ extension TextStreamInfo {
     convenience init(
         _ header: Livekit_DataStream.Header,
         _ textHeader: Livekit_DataStream.TextHeader,
-        encryptionType: EncryptionType
+        _ encryptionType: EncryptionType
     ) {
         self.init(
             id: header.streamID,
