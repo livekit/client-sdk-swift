@@ -64,8 +64,10 @@ public final class RoomOptions: NSObject, Sendable {
     public let suspendLocalVideoTracksInBackground: Bool
 
     /// E2EE Options
+    @objc
     public let e2eeOptions: E2EEOptions?
     /// Encryption
+    @objc
     public let encryptionOptions: EncryptionOptions?
 
     @objc
