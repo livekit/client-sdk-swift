@@ -117,28 +117,28 @@ public class AudioManager: Loggable {
 
     // MARK: - AudioProcessingModule
 
-    private lazy var capturePostProcessingDelegateAdapter: AudioCustomProcessingDelegateAdapter = {
-        let adapter = AudioCustomProcessingDelegateAdapter(label: "capturePost")
-        RTC.audioProcessingModule.capturePostProcessingDelegate = adapter
-        return adapter
-    }()
+    private lazy var capturePostProcessingDelegateAdapter = AudioCustomProcessingDelegateAdapter(label: "capturePost")
 
-    private lazy var renderPreProcessingDelegateAdapter: AudioCustomProcessingDelegateAdapter = {
-        let adapter = AudioCustomProcessingDelegateAdapter(label: "renderPre")
-        RTC.audioProcessingModule.renderPreProcessingDelegate = adapter
-        return adapter
-    }()
+    private lazy var renderPreProcessingDelegateAdapter = AudioCustomProcessingDelegateAdapter(label: "renderPre")
 
     let capturePostProcessingDelegateSubject = CurrentValueSubject<AudioCustomProcessingDelegate?, Never>(nil)
 
     /// Add a delegate to modify the local audio buffer before it is sent to the network
     /// - Note: Only one delegate can be set at a time, but you can create one to wrap others if needed
     /// - Note: If you only need to observe the buffer (rather than modify it), use ``add(localAudioRenderer:)`` instead
-    public var capturePostProcessingDelegate: AudioCustomProcessingDelegate? {
-        get { capturePostProcessingDelegateAdapter.target }
-        set {
-            capturePostProcessingDelegateAdapter.set(target: newValue)
-            capturePostProcessingDelegateSubject.send(newValue)
+    public weak var capturePostProcessingDelegate: AudioCustomProcessingDelegate? {
+        didSet {
+            if let capturePostProcessingDelegate {
+                //
+                RTC.audioProcessingModule.capturePostProcessingDelegate = nil
+                capturePostProcessingDelegateAdapter.set(target: nil)
+                //
+                capturePostProcessingDelegateAdapter.set(target: capturePostProcessingDelegate)
+                RTC.audioProcessingModule.capturePostProcessingDelegate = capturePostProcessingDelegateAdapter
+            } else {
+                RTC.audioProcessingModule.capturePostProcessingDelegate = nil
+                capturePostProcessingDelegateAdapter.set(target: nil)
+            }
         }
     }
 
