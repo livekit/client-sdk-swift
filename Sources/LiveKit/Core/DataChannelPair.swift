@@ -436,7 +436,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
         }
 
         if let encryptedPacket = dataPacket.encryptedPacketOrNil,
-           let e2eeManager, e2eeManager.isDataChannelEncryptionEnabled
+           let e2eeManager
         {
             do {
                 let decryptedData = try e2eeManager.handle(encryptedData: encryptedPacket.toRTCEncryptedPacket(), participantIdentity: dataPacket.participantIdentity)
