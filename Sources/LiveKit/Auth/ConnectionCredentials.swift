@@ -16,13 +16,23 @@
 
 import Foundation
 
+/// `ConnectionCredentials` represent the credentials needed for connecting to a new Room.
+/// - SeeAlso: [LiveKit's Authentication Documentation](https://docs.livekit.io/home/get-started/authentication/) for more information.
 public enum ConnectionCredentials {
+    /// Request parameters for generating connection credentials.
     public struct Request: Encodable, Sendable, Equatable {
+        /// The name of the room being requested when generating credentials.
         let roomName: String?
+        /// The name of the participant being requested for this client when generating credentials.
         let participantName: String?
+        /// The identity of the participant being requested for this client when generating credentials.
         let participantIdentity: String?
+        /// Any participant metadata being included along with the credentials generation operation.
         let participantMetadata: String?
+        /// Any participant attributes being included along with the credentials generation operation.
         let participantAttributes: [String: String]?
+        /// A `RoomConfiguration` object can be passed to request extra parameters should be included when generating connection credentials - dispatching agents, etc.
+        /// - SeeAlso: [Room Configuration Documentation](https://docs.livekit.io/home/get-started/authentication/#room-configuration) for more info.
         let roomConfiguration: RoomConfiguration?
 
         public init(
@@ -42,8 +52,11 @@ public enum ConnectionCredentials {
         }
     }
 
+    /// Response containing the credentials needed to connect to a room.
     public struct Response: Decodable, Sendable {
+        /// The WebSocket URL for the LiveKit server.
         let serverUrl: URL
+        /// The JWT token containing participant permissions and metadata.
         let participantToken: String
 
         public init(serverUrl: URL, participantToken: String) {
@@ -58,10 +71,14 @@ public enum ConnectionCredentials {
 
 // MARK: - Provider
 
+/// Protocol for types that can provide connection credentials.
+/// Implement this protocol to create custom credential providers (e.g., fetching from your backend API).
 public protocol CredentialsProvider: Sendable {
     func fetch(_ request: ConnectionCredentials.Request) async throws -> ConnectionCredentials.Response
 }
 
+/// `ConnectionCredentials.Literal` contains a single set of credentials, hard-coded or acquired from a static source.
+/// - Note: It does not support refresing credentials.
 extension ConnectionCredentials.Literal: CredentialsProvider {
     public func fetch(_: ConnectionCredentials.Request) async throws -> ConnectionCredentials.Response {
         self
@@ -70,9 +87,15 @@ extension ConnectionCredentials.Literal: CredentialsProvider {
 
 // MARK: - Token Server
 
+/// Protocol for token servers that fetch credentials via HTTP requests.
+/// Provides a default implementation of `fetch` that can be used to integrate with custom backend token generation endpoints.
+/// - Note: The response is expected to be a `ConnectionCredentials.Response` object.
 public protocol TokenServer: CredentialsProvider {
+    /// The URL endpoint for token generation.
     var url: URL { get }
+    /// The HTTP method to use (defaults to "POST").
     var method: String { get }
+    /// Additional HTTP headers to include with the request.
     var headers: [String: String] { get }
 }
 
@@ -103,14 +126,19 @@ public extension TokenServer {
     }
 }
 
+/// `SandboxTokenServer` queries LiveKit Sandbox token server for credentials,
+/// which supports quick prototyping/getting started types of use cases.
+/// - Warning: This token provider is **INSECURE** and should **NOT** be used in production.
 public struct SandboxTokenServer: TokenServer {
     public let url = URL(string: "https://cloud-api.livekit.io/api/sandbox/connection-details")!
     public var headers: [String: String] {
         ["X-Sandbox-ID": id.trimmingCharacters(in: CharacterSet(charactersIn: "\""))]
     }
 
+    /// The sandbox ID provided by LiveKit Cloud.
     public let id: String
 
+    /// Initialize with a sandbox ID from LiveKit Cloud.
     public init(id: String) {
         self.id = id
     }
@@ -118,8 +146,11 @@ public struct SandboxTokenServer: TokenServer {
 
 // MARK: - Cache
 
+/// `CachingCredentialsProvider` handles in-memory caching of credentials from any other `CredentialsProvider`.
 public actor CachingCredentialsProvider: CredentialsProvider, Loggable {
+    /// A tuple containing the request and response that were cached.
     public typealias Cached = (ConnectionCredentials.Request, ConnectionCredentials.Response)
+    /// A closure that validates whether cached credentials are still valid.
     public typealias Validator = (ConnectionCredentials.Request, ConnectionCredentials.Response) -> Bool
 
     private let provider: CredentialsProvider
@@ -127,6 +158,10 @@ public actor CachingCredentialsProvider: CredentialsProvider, Loggable {
 
     private var cached: Cached?
 
+    /// Initialize a caching wrapper around any credentials provider.
+    /// - Parameters:
+    ///   - provider: The underlying credentials provider to wrap
+    ///   - validator: A closure to determine if cached credentials are still valid (defaults to JWT expiration check)
     public init(_ provider: CredentialsProvider, validator: @escaping Validator = { _, res in res.hasValidToken() }) {
         self.provider = provider
         self.validator = validator
@@ -143,6 +178,7 @@ public actor CachingCredentialsProvider: CredentialsProvider, Loggable {
         return response
     }
 
+    /// Invalidate the cached credentials, forcing a fresh fetch on the next request.
     public func invalidate() {
         cached = nil
     }
