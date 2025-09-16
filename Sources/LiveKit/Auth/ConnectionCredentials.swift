@@ -18,19 +18,33 @@ import Foundation
 
 public enum ConnectionCredentials {
     public struct Request: Encodable, Equatable, Sendable {
-        let roomName: String? = nil
-        let participantName: String? = nil
-        let participantIdentity: String? = nil
-        let participantMetadata: String? = nil
-        let participantAttributes: [String: String]? = nil
-//        let roomConfiguration: RoomConfiguration? = nil
+        let roomName: String?
+        let participantName: String?
+        let participantIdentity: String?
+        let participantMetadata: String?
+        let participantAttributes: [String: String]?
+//        let roomConfiguration: RoomConfiguration?
+
+        public init(roomName: String? = nil, participantName: String? = nil, participantIdentity: String? = nil, participantMetadata: String? = nil, participantAttributes: [String: String]? = nil) {
+            self.roomName = roomName
+            self.participantName = participantName
+            self.participantIdentity = participantIdentity
+            self.participantMetadata = participantMetadata
+            self.participantAttributes = participantAttributes
+        }
     }
 
     public struct Response: Decodable, Sendable {
         let serverUrl: URL
         let participantToken: String
+
+        public init(serverUrl: URL, participantToken: String) {
+            self.serverUrl = serverUrl
+            self.participantToken = participantToken
+        }
     }
 
+    public typealias Options = Request
     public typealias Literal = Response
 }
 
