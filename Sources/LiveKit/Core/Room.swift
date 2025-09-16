@@ -422,6 +422,14 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         log("Connected to \(String(describing: self))", .info)
     }
 
+    public func connect(credentialsProvider: CredentialsProvider,
+                        connectOptions: ConnectOptions? = nil,
+                        roomOptions: RoomOptions? = nil) async throws
+    {
+        let credentials = try await credentialsProvider.fetch(.init())
+        try await connect(url: credentials.serverUrl.absoluteString, token: credentials.participantToken, connectOptions: connectOptions, roomOptions: roomOptions)
+    }
+
     @objc
     public func disconnect() async {
         let shouldDisconnect = _state.mutate {
