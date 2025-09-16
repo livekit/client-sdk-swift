@@ -146,7 +146,7 @@ public struct SandboxTokenServer: TokenServer {
 
 // MARK: - Cache
 
-/// `CachingCredentialsProvider` handles in-memory caching of credentials from any other `CredentialsProvider`.
+/// `CachingCredentialsProvider` handles caching of credentials from any other `CredentialsProvider` using configurable storage.
 public actor CachingCredentialsProvider: CredentialsProvider, Loggable {
     /// A tuple containing the request and response that were cached.
     public typealias Cached = (ConnectionCredentials.Request, ConnectionCredentials.Response)
@@ -155,31 +155,74 @@ public actor CachingCredentialsProvider: CredentialsProvider, Loggable {
 
     private let provider: CredentialsProvider
     private let validator: Validator
-
-    private var cached: Cached?
+    private let storage: CredentialsStorage
 
     /// Initialize a caching wrapper around any credentials provider.
     /// - Parameters:
     ///   - provider: The underlying credentials provider to wrap
+    ///   - storage: The storage implementation to use for caching (defaults to in-memory storage)
     ///   - validator: A closure to determine if cached credentials are still valid (defaults to JWT expiration check)
-    public init(_ provider: CredentialsProvider, validator: @escaping Validator = { _, res in res.hasValidToken() }) {
+    public init(
+        _ provider: CredentialsProvider,
+        storage: CredentialsStorage = InMemoryCredentialsStorage(),
+        validator: @escaping Validator = { _, res in res.hasValidToken() }
+    ) {
         self.provider = provider
+        self.storage = storage
         self.validator = validator
     }
 
     public func fetch(_ request: ConnectionCredentials.Request) async throws -> ConnectionCredentials.Response {
-        if let (cachedRequest, cachedResponse) = cached, cachedRequest == request, validator(cachedRequest, cachedResponse) {
+        if let (cachedRequest, cachedResponse) = await storage.retrieve(),
+           cachedRequest == request,
+           validator(cachedRequest, cachedResponse)
+        {
             log("Using cached credentials", .debug)
             return cachedResponse
         }
 
         let response = try await provider.fetch(request)
-        cached = (request, response)
+        try await storage.store((request, response))
         return response
     }
 
     /// Invalidate the cached credentials, forcing a fresh fetch on the next request.
-    public func invalidate() {
+    public func invalidate() async {
+        await storage.clear()
+    }
+}
+
+// MARK: - Storage
+
+/// Protocol for abstract storage that can persist and retrieve a single cached credential pair.
+/// Implement this protocol to create custom storage implementations e.g. for Keychain.
+public protocol CredentialsStorage: Sendable {
+    /// Store credentials in the storage (replaces any existing credentials)
+    func store(_ credentials: CachingCredentialsProvider.Cached) async throws
+
+    /// Retrieve the cached credentials
+    /// - Returns: The cached credentials if found, nil otherwise
+    func retrieve() async -> CachingCredentialsProvider.Cached?
+
+    /// Clear the stored credentials
+    func clear() async
+}
+
+/// Simple in-memory storage implementation
+public actor InMemoryCredentialsStorage: CredentialsStorage {
+    private var cached: CachingCredentialsProvider.Cached?
+
+    public init() {}
+
+    public func store(_ credentials: CachingCredentialsProvider.Cached) async throws {
+        cached = credentials
+    }
+
+    public func retrieve() async -> CachingCredentialsProvider.Cached? {
+        cached
+    }
+
+    public func clear() async {
         cached = nil
     }
 }
