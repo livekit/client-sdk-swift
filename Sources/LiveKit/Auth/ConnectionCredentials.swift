@@ -40,40 +40,31 @@ public protocol CredentialsProvider: Sendable {
     func fetch(_ request: ConnectionCredentials.Request) async throws -> ConnectionCredentials.Response
 }
 
-// MARK: - Implementation
-
 extension ConnectionCredentials.Literal: CredentialsProvider {
     public func fetch(_: ConnectionCredentials.Request) async throws -> ConnectionCredentials.Response {
         self
     }
 }
 
-public struct SandboxTokenServer: CredentialsProvider, Loggable {
-    private static let baseURL = URL(string: "https://cloud-api.livekit.io")!
+// MARK: - Token Server
 
-    public struct Options: Sendable {
-        let id: String
-        let baseURL: URL? = nil
-    }
+public protocol TokenServer: CredentialsProvider {
+    var url: URL { get }
+    var method: String { get }
+    var headers: [String: String] { get }
+}
 
-    private let options: Options
+public extension TokenServer {
+    var method: String { "POST" }
+    var headers: [String: String] { [:] }
 
-    public init(options: Options) {
-        self.options = options
-    }
+    func fetch(_ request: ConnectionCredentials.Request) async throws -> ConnectionCredentials.Response {
+        var urlRequest = URLRequest(url: url)
 
-    public init(id: String) {
-        options = .init(id: id)
-    }
-
-    public func fetch(_ request: ConnectionCredentials.Request) async throws -> ConnectionCredentials.Response {
-        log("Using sandbox token server is not applicable for production environemnt", .info)
-
-        let baseURL = options.baseURL ?? Self.baseURL
-        var urlRequest = URLRequest(url: baseURL.appendingPathComponent("api/sandbox/connection-details"))
-
-        urlRequest.httpMethod = "POST"
-        urlRequest.addValue(options.id.trimmingCharacters(in: CharacterSet(charactersIn: "\"")), forHTTPHeaderField: "X-Sandbox-ID")
+        urlRequest.httpMethod = method
+        for (key, value) in headers {
+            urlRequest.addValue(value, forHTTPHeaderField: key)
+        }
         urlRequest.httpBody = try JSONEncoder().encode(request)
 
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
@@ -87,6 +78,19 @@ public struct SandboxTokenServer: CredentialsProvider, Loggable {
         }
 
         return try JSONDecoder().decode(ConnectionCredentials.Response.self, from: data)
+    }
+}
+
+public struct SandboxTokenServer: TokenServer {
+    public let url = URL(string: "https://cloud-api.livekit.io/api/sandbox/connection-details")!
+    public var headers: [String: String] {
+        ["X-Sandbox-ID": id.trimmingCharacters(in: CharacterSet(charactersIn: "\""))]
+    }
+
+    public let id: String
+
+    public init(id: String) {
+        self.id = id
     }
 }
 
