@@ -57,7 +57,7 @@ jobs:
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md
           - os: macos-26
             xcode: latest
-            platform: "iOS Simulator,name=iPhone 16 Pro,OS=26.0"
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.0"
           - os: macos-26
             xcode: latest
             platform: "macOS"
