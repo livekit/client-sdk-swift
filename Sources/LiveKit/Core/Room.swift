@@ -423,10 +423,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     }
 
     public func connect(credentialsProvider: CredentialsProvider,
+                        credentialsOptions: ConnectionCredentials.Options = .init(),
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) async throws
     {
-        let credentials = try await credentialsProvider.fetch(.init())
+        let credentials = try await credentialsProvider.fetch(credentialsOptions)
         try await connect(url: credentials.serverUrl.absoluteString, token: credentials.participantToken, connectOptions: connectOptions, roomOptions: roomOptions)
     }
 
