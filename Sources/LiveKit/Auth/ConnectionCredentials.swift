@@ -119,12 +119,13 @@ public struct SandboxTokenServer: TokenServer {
 // MARK: - Cache
 
 public actor CachingCredentialsProvider: CredentialsProvider, Loggable {
+    public typealias Cached = (ConnectionCredentials.Request, ConnectionCredentials.Response)
     public typealias Validator = (ConnectionCredentials.Request, ConnectionCredentials.Response) -> Bool
 
     private let provider: CredentialsProvider
     private let validator: Validator
 
-    private var cached: (ConnectionCredentials.Request, ConnectionCredentials.Response)?
+    private var cached: Cached?
 
     public init(_ provider: CredentialsProvider, validator: @escaping Validator = { _, res in res.hasValidToken() }) {
         self.provider = provider
@@ -159,22 +160,23 @@ public extension ConnectionCredentials.Response {
         let payloadData = parts[1]
 
         struct JWTPayload: Decodable {
+            let nbf: Double
             let exp: Double
         }
 
-        guard let payloadJSON = payloadData.base64URLDecode(),
+        guard let payloadJSON = payloadData.base64Decode(),
               let payload = try? JSONDecoder().decode(JWTPayload.self, from: payloadJSON)
         else {
             return false
         }
 
         let now = Date().timeIntervalSince1970
-        return payload.exp > now - tolerance
+        return payload.nbf <= now && payload.exp > now - tolerance
     }
 }
 
 private extension String {
-    func base64URLDecode() -> Data? {
+    func base64Decode() -> Data? {
         var base64 = self
         base64 = base64.replacingOccurrences(of: "-", with: "+")
         base64 = base64.replacingOccurrences(of: "_", with: "/")
