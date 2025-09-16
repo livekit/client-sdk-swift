@@ -17,20 +17,28 @@
 import Foundation
 
 public enum ConnectionCredentials {
-    public struct Request: Encodable, Equatable, Sendable {
+    public struct Request: Encodable, Sendable, Equatable {
         let roomName: String?
         let participantName: String?
         let participantIdentity: String?
         let participantMetadata: String?
         let participantAttributes: [String: String]?
-//        let roomConfiguration: RoomConfiguration?
+        let roomConfiguration: RoomConfiguration?
 
-        public init(roomName: String? = nil, participantName: String? = nil, participantIdentity: String? = nil, participantMetadata: String? = nil, participantAttributes: [String: String]? = nil) {
+        public init(
+            roomName: String? = nil,
+            participantName: String? = nil,
+            participantIdentity: String? = nil,
+            participantMetadata: String? = nil,
+            participantAttributes: [String: String]? = nil,
+            roomConfiguration: RoomConfiguration? = nil
+        ) {
             self.roomName = roomName
             self.participantName = participantName
             self.participantIdentity = participantIdentity
             self.participantMetadata = participantMetadata
             self.participantAttributes = participantAttributes
+            self.roomConfiguration = roomConfiguration
         }
     }
 
@@ -111,12 +119,14 @@ public struct SandboxTokenServer: TokenServer {
 // MARK: - Cache
 
 public actor CachingCredentialsProvider: CredentialsProvider, Loggable {
+    public typealias Validator = (ConnectionCredentials.Request, ConnectionCredentials.Response) -> Bool
+
     private let provider: CredentialsProvider
-    private let validator: (ConnectionCredentials.Request, ConnectionCredentials.Response) -> Bool
+    private let validator: Validator
 
     private var cached: (ConnectionCredentials.Request, ConnectionCredentials.Response)?
 
-    public init(_ provider: CredentialsProvider, validator: @escaping (ConnectionCredentials.Request, ConnectionCredentials.Response) -> Bool = { _, res in res.hasValidToken() }) {
+    public init(_ provider: CredentialsProvider, validator: @escaping Validator = { _, res in res.hasValidToken() }) {
         self.provider = provider
         self.validator = validator
     }
