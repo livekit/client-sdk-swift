@@ -309,6 +309,18 @@ public class AudioManager: Loggable {
         try checkAdmResult(code: result)
     }
 
+    public func setAudioEngineIOPermissions(isInputAllowed: Bool, isOutputAllowed: Bool) throws {
+        let permissions = LKRTCAudioEngineIOPermissions(isInputAllowed: ObjCBool(isInputAllowed),
+                                                        isOutputAllowed: ObjCBool(isOutputAllowed))
+        let result = RTC.audioDeviceModule.setAudioEngineIOPermissions(permissions)
+        try checkAdmResult(code: result)
+    }
+
+    public var audioEngineIOPermissions: (isInputAllowed: Bool, isOutputAllowed: Bool) {
+        let result = RTC.audioDeviceModule.audioEngineIOPermissions
+        return (result.isInputAllowed.boolValue, result.isOutputAllowed.boolValue)
+    }
+
     /// Set a chain of ``AudioEngineObserver``s.
     /// Defaults to having a single ``AudioSessionEngineObserver`` initially.
     ///

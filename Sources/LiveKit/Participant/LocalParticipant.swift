@@ -693,8 +693,12 @@ extension LocalParticipant {
 
             // At this point at least 1 audio frame should be generated to continue
             if let track = track as? LocalAudioTrack {
-                log("[Publish] Waiting for audio frame...")
-                try await track.startWaitingForFrames()
+                // Only wait for frames if audio engine has perms to start
+                let perms = AudioManager.shared.audioEngineIOPermissions
+                if perms.isInputAllowed == true {
+                    log("[Publish] Waiting for audio frame...")
+                    try await track.startWaitingForFrames()
+                }
             }
 
             if track is LocalVideoTrack {
