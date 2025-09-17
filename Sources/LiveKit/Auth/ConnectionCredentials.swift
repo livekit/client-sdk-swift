@@ -134,7 +134,7 @@ public extension TokenServer {
             throw LiveKitError(.network, message: "Error generating token from the token server, no response")
         }
 
-        guard (200 ... 299).contains(httpResponse.statusCode) else {
+        guard (200 ..< 300).contains(httpResponse.statusCode) else {
             throw LiveKitError(.network, message: "Error generating token from the token server, received \(httpResponse)")
         }
 
@@ -170,8 +170,8 @@ public actor CachingCredentialsProvider: CredentialsProvider, Loggable {
     public typealias Validator = (ConnectionCredentials.Request, ConnectionCredentials.Response) -> Bool
 
     private let provider: CredentialsProvider
-    private let validator: Validator
     private let store: CredentialsStore
+    private let validator: Validator
 
     /// Initialize a caching wrapper around any credentials provider.
     /// - Parameters:
@@ -197,6 +197,7 @@ public actor CachingCredentialsProvider: CredentialsProvider, Loggable {
             return cachedResponse
         }
 
+        log("Requesting new credentials", .debug)
         let response = try await provider.fetch(request)
         await store.store((request, response))
         return response
