@@ -16,6 +16,8 @@
 
 import Foundation
 
+#warning("Fix camel case after deploying backend")
+
 /// `ConnectionCredentials` represent the credentials needed for connecting to a new Room.
 /// - SeeAlso: [LiveKit's Authentication Documentation](https://docs.livekit.io/home/get-started/authentication/) for more information.
 public enum ConnectionCredentials {
@@ -132,7 +134,7 @@ public extension TokenServer {
 public struct SandboxTokenServer: TokenServer {
     public let url = URL(string: "https://cloud-api.livekit.io/api/sandbox/connection-details")!
     public var headers: [String: String] {
-        ["X-Sandbox-ID": id.trimmingCharacters(in: CharacterSet(charactersIn: "\""))]
+        ["X-Sandbox-ID": id]
     }
 
     /// The sandbox ID provided by LiveKit Cloud.
@@ -140,13 +142,13 @@ public struct SandboxTokenServer: TokenServer {
 
     /// Initialize with a sandbox ID from LiveKit Cloud.
     public init(id: String) {
-        self.id = id
+        self.id = id.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
     }
 }
 
 // MARK: - Cache
 
-/// `CachingCredentialsProvider` handles caching of credentials from any other `CredentialsProvider` using configurable storage.
+/// `CachingCredentialsProvider` handles caching of credentials from any other `CredentialsProvider` using configurable store.
 public actor CachingCredentialsProvider: CredentialsProvider, Loggable {
     /// A tuple containing the request and response that were cached.
     public typealias Cached = (ConnectionCredentials.Request, ConnectionCredentials.Response)
@@ -155,25 +157,25 @@ public actor CachingCredentialsProvider: CredentialsProvider, Loggable {
 
     private let provider: CredentialsProvider
     private let validator: Validator
-    private let storage: CredentialsStorage
+    private let store: CredentialsStore
 
     /// Initialize a caching wrapper around any credentials provider.
     /// - Parameters:
     ///   - provider: The underlying credentials provider to wrap
-    ///   - storage: The storage implementation to use for caching (defaults to in-memory storage)
+    ///   - store: The store implementation to use for caching (defaults to in-memory store)
     ///   - validator: A closure to determine if cached credentials are still valid (defaults to JWT expiration check)
     public init(
         _ provider: CredentialsProvider,
-        storage: CredentialsStorage = InMemoryCredentialsStorage(),
+        store: CredentialsStore = InMemoryCredentialsStore(),
         validator: @escaping Validator = { _, res in res.hasValidToken() }
     ) {
         self.provider = provider
-        self.storage = storage
+        self.store = store
         self.validator = validator
     }
 
     public func fetch(_ request: ConnectionCredentials.Request) async throws -> ConnectionCredentials.Response {
-        if let (cachedRequest, cachedResponse) = await storage.retrieve(),
+        if let (cachedRequest, cachedResponse) = await store.retrieve(),
            cachedRequest == request,
            validator(cachedRequest, cachedResponse)
         {
@@ -182,23 +184,29 @@ public actor CachingCredentialsProvider: CredentialsProvider, Loggable {
         }
 
         let response = try await provider.fetch(request)
-        try await storage.store((request, response))
+        await store.store((request, response))
         return response
     }
 
     /// Invalidate the cached credentials, forcing a fresh fetch on the next request.
     public func invalidate() async {
-        await storage.clear()
+        await store.clear()
+    }
+
+    /// Get the cached credentials
+    /// - Returns: The cached credentials if found, nil otherwise
+    public func getCachedCredentials() async -> CachingCredentialsProvider.Cached? {
+        await store.retrieve()
     }
 }
 
-// MARK: - Storage
+// MARK: - Store
 
-/// Protocol for abstract storage that can persist and retrieve a single cached credential pair.
-/// Implement this protocol to create custom storage implementations e.g. for Keychain.
-public protocol CredentialsStorage: Sendable {
-    /// Store credentials in the storage (replaces any existing credentials)
-    func store(_ credentials: CachingCredentialsProvider.Cached) async throws
+/// Protocol for abstract store that can persist and retrieve a single cached credential pair.
+/// Implement this protocol to create custom store implementations e.g. for Keychain.
+public protocol CredentialsStore: Sendable {
+    /// Store credentials in the store (replaces any existing credentials)
+    func store(_ credentials: CachingCredentialsProvider.Cached) async
 
     /// Retrieve the cached credentials
     /// - Returns: The cached credentials if found, nil otherwise
@@ -208,13 +216,13 @@ public protocol CredentialsStorage: Sendable {
     func clear() async
 }
 
-/// Simple in-memory storage implementation
-public actor InMemoryCredentialsStorage: CredentialsStorage {
+/// Simple in-memory store implementation
+public actor InMemoryCredentialsStore: CredentialsStore {
     private var cached: CachingCredentialsProvider.Cached?
 
     public init() {}
 
-    public func store(_ credentials: CachingCredentialsProvider.Cached) async throws {
+    public func store(_ credentials: CachingCredentialsProvider.Cached) async {
         cached = credentials
     }
 
