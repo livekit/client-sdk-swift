@@ -23,6 +23,7 @@ internal import LiveKitWebRTC
 
 protocol DataChannelDelegate: Sendable {
     func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket)
+    func dataChannel(_ dataChannelPair: DataChannelPair, didFailToDecryptDataPacket dataPacket: Livekit_DataPacket, error: LiveKitError)
 }
 
 class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
@@ -33,6 +34,8 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     let openCompleter = AsyncCompleter<Void>(label: "Data channel open", defaultTimeout: .defaultPublisherDataChannelOpen)
 
     var isOpen: Bool { _state.isOpen }
+
+    var e2eeManager: E2EEManager?
 
     // MARK: - Private
 
@@ -87,7 +90,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         func peek() -> PublishDataRequest? { queue.first }
 
         mutating func enqueue(_ request: PublishDataRequest) {
-            queue.append(request)
+            queue.append(request.withoutContinuation())
             currentAmount += UInt64(request.data.data.count)
         }
 
@@ -110,6 +113,10 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         let data: LKRTCDataBuffer
         let sequence: UInt32
         let continuation: CheckedContinuation<Void, any Error>?
+
+        func withoutContinuation() -> Self {
+            .init(data: data, sequence: sequence, continuation: nil)
+        }
     }
 
     private struct ChannelEvent: Sendable {
@@ -234,8 +241,9 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             log("Wrong packet sequence while retrying: \(first.sequence) > \(lastSeq + 1), \(first.sequence - lastSeq - 1) packets missing", .warning)
         }
         while let request = buffer.dequeue() {
+            assert(request.continuation == nil, "Continuation may fire multiple times while retrying causing crash")
             if request.sequence > lastSeq {
-                let event = ChannelEvent(channelKind: .reliable, detail: .publishData(PublishDataRequest(data: request.data, sequence: request.sequence, continuation: nil)))
+                let event = ChannelEvent(channelKind: .reliable, detail: .publishData(request))
                 _state.eventContinuation?.yield(event)
             }
         }
@@ -315,7 +323,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     func send(dataPacket packet: Livekit_DataPacket) async throws {
-        let packet = withSequence(packet)
+        let packet = try withEncryption(withSequence(packet))
         let serializedData = try packet.serializedData()
         let rtcData = RTC.createDataBuffer(data: serializedData)
 
@@ -331,6 +339,20 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             )
             _state.eventContinuation?.yield(event)
         }
+    }
+
+    private func withEncryption(_ packet: Livekit_DataPacket) throws -> Livekit_DataPacket {
+        guard let e2eeManager, e2eeManager.isDataChannelEncryptionEnabled,
+              let payload = Livekit_EncryptedPacketPayload(dataPacket: packet) else { return packet }
+        var packet = packet
+        do {
+            let payloadData = try payload.serializedData()
+            let rtcEncryptedPacket = try e2eeManager.encrypt(data: payloadData)
+            packet.encryptedPacket = Livekit_EncryptedPacket(rtcPacket: rtcEncryptedPacket)
+        } catch {
+            throw LiveKitError(.encryptionFailed, internalError: error)
+        }
+        return packet
     }
 
     private func withSequence(_ packet: Livekit_DataPacket) -> Livekit_DataPacket {
@@ -413,8 +435,29 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
             }
         }
 
-        delegates.notify {
-            $0.dataChannel(self, didReceiveDataPacket: dataPacket)
+        if let encryptedPacket = dataPacket.encryptedPacketOrNil,
+           let e2eeManager
+        {
+            do {
+                let decryptedData = try e2eeManager.handle(encryptedData: encryptedPacket.toRTCEncryptedPacket(), participantIdentity: dataPacket.participantIdentity)
+                let decryptedPayload = try Livekit_EncryptedPacketPayload(serializedBytes: decryptedData)
+
+                var dataPacket = dataPacket
+                decryptedPayload.applyTo(&dataPacket)
+
+                delegates.notify { [dataPacket] in
+                    $0.dataChannel(self, didReceiveDataPacket: dataPacket)
+                }
+            } catch {
+                log("Failed to decrypt data packet: \(error)", .error)
+                delegates.notify {
+                    $0.dataChannel(self, didFailToDecryptDataPacket: dataPacket, error: LiveKitError(.decryptionFailed, internalError: error))
+                }
+            }
+        } else {
+            delegates.notify {
+                $0.dataChannel(self, didReceiveDataPacket: dataPacket)
+            }
         }
     }
 }

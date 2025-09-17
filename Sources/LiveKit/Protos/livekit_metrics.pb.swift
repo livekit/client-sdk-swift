@@ -321,40 +321,12 @@ struct Livekit_EventMetric: Sendable {
 fileprivate let _protobuf_package = "livekit"
 
 extension Livekit_MetricLabel: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "AGENTS_LLM_TTFT"),
-    1: .same(proto: "AGENTS_STT_TTFT"),
-    2: .same(proto: "AGENTS_TTS_TTFB"),
-    3: .same(proto: "CLIENT_VIDEO_SUBSCRIBER_FREEZE_COUNT"),
-    4: .same(proto: "CLIENT_VIDEO_SUBSCRIBER_TOTAL_FREEZE_DURATION"),
-    5: .same(proto: "CLIENT_VIDEO_SUBSCRIBER_PAUSE_COUNT"),
-    6: .same(proto: "CLIENT_VIDEO_SUBSCRIBER_TOTAL_PAUSES_DURATION"),
-    7: .same(proto: "CLIENT_AUDIO_SUBSCRIBER_CONCEALED_SAMPLES"),
-    8: .same(proto: "CLIENT_AUDIO_SUBSCRIBER_SILENT_CONCEALED_SAMPLES"),
-    9: .same(proto: "CLIENT_AUDIO_SUBSCRIBER_CONCEALMENT_EVENTS"),
-    10: .same(proto: "CLIENT_AUDIO_SUBSCRIBER_INTERRUPTION_COUNT"),
-    11: .same(proto: "CLIENT_AUDIO_SUBSCRIBER_TOTAL_INTERRUPTION_DURATION"),
-    12: .same(proto: "CLIENT_SUBSCRIBER_JITTER_BUFFER_DELAY"),
-    13: .same(proto: "CLIENT_SUBSCRIBER_JITTER_BUFFER_EMITTED_COUNT"),
-    14: .same(proto: "CLIENT_VIDEO_PUBLISHER_QUALITY_LIMITATION_DURATION_BANDWIDTH"),
-    15: .same(proto: "CLIENT_VIDEO_PUBLISHER_QUALITY_LIMITATION_DURATION_CPU"),
-    16: .same(proto: "CLIENT_VIDEO_PUBLISHER_QUALITY_LIMITATION_DURATION_OTHER"),
-    17: .same(proto: "PUBLISHER_RTT"),
-    18: .same(proto: "SERVER_MESH_RTT"),
-    19: .same(proto: "SUBSCRIBER_RTT"),
-    4096: .same(proto: "METRIC_LABEL_PREDEFINED_MAX_VALUE"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0AGENTS_LLM_TTFT\0\u{1}AGENTS_STT_TTFT\0\u{1}AGENTS_TTS_TTFB\0\u{1}CLIENT_VIDEO_SUBSCRIBER_FREEZE_COUNT\0\u{1}CLIENT_VIDEO_SUBSCRIBER_TOTAL_FREEZE_DURATION\0\u{1}CLIENT_VIDEO_SUBSCRIBER_PAUSE_COUNT\0\u{1}CLIENT_VIDEO_SUBSCRIBER_TOTAL_PAUSES_DURATION\0\u{1}CLIENT_AUDIO_SUBSCRIBER_CONCEALED_SAMPLES\0\u{1}CLIENT_AUDIO_SUBSCRIBER_SILENT_CONCEALED_SAMPLES\0\u{1}CLIENT_AUDIO_SUBSCRIBER_CONCEALMENT_EVENTS\0\u{1}CLIENT_AUDIO_SUBSCRIBER_INTERRUPTION_COUNT\0\u{1}CLIENT_AUDIO_SUBSCRIBER_TOTAL_INTERRUPTION_DURATION\0\u{1}CLIENT_SUBSCRIBER_JITTER_BUFFER_DELAY\0\u{1}CLIENT_SUBSCRIBER_JITTER_BUFFER_EMITTED_COUNT\0\u{1}CLIENT_VIDEO_PUBLISHER_QUALITY_LIMITATION_DURATION_BANDWIDTH\0\u{1}CLIENT_VIDEO_PUBLISHER_QUALITY_LIMITATION_DURATION_CPU\0\u{1}CLIENT_VIDEO_PUBLISHER_QUALITY_LIMITATION_DURATION_OTHER\0\u{1}PUBLISHER_RTT\0\u{1}SERVER_MESH_RTT\0\u{1}SUBSCRIBER_RTT\0\u{2}m?METRIC_LABEL_PREDEFINED_MAX_VALUE\0")
 }
 
 extension Livekit_MetricsBatch: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".MetricsBatch"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "timestamp_ms"),
-    2: .standard(proto: "normalized_timestamp"),
-    3: .standard(proto: "str_data"),
-    4: .standard(proto: "time_series"),
-    5: .same(proto: "events"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}timestamp_ms\0\u{3}normalized_timestamp\0\u{3}str_data\0\u{3}time_series\0\u{1}events\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -408,13 +380,7 @@ extension Livekit_MetricsBatch: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
 
 extension Livekit_TimeSeriesMetric: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".TimeSeriesMetric"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "label"),
-    2: .standard(proto: "participant_identity"),
-    3: .standard(proto: "track_sid"),
-    4: .same(proto: "samples"),
-    5: .same(proto: "rid"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}label\0\u{3}participant_identity\0\u{3}track_sid\0\u{1}samples\0\u{1}rid\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -464,11 +430,7 @@ extension Livekit_TimeSeriesMetric: SwiftProtobuf.Message, SwiftProtobuf._Messag
 
 extension Livekit_MetricSample: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".MetricSample"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "timestamp_ms"),
-    2: .standard(proto: "normalized_timestamp"),
-    3: .same(proto: "value"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}timestamp_ms\0\u{3}normalized_timestamp\0\u{1}value\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -512,17 +474,7 @@ extension Livekit_MetricSample: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
 
 extension Livekit_EventMetric: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".EventMetric"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "label"),
-    2: .standard(proto: "participant_identity"),
-    3: .standard(proto: "track_sid"),
-    4: .standard(proto: "start_timestamp_ms"),
-    5: .standard(proto: "end_timestamp_ms"),
-    6: .standard(proto: "normalized_start_timestamp"),
-    7: .standard(proto: "normalized_end_timestamp"),
-    8: .same(proto: "metadata"),
-    9: .same(proto: "rid"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}label\0\u{3}participant_identity\0\u{3}track_sid\0\u{3}start_timestamp_ms\0\u{3}end_timestamp_ms\0\u{3}normalized_start_timestamp\0\u{3}normalized_end_timestamp\0\u{1}metadata\0\u{1}rid\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {

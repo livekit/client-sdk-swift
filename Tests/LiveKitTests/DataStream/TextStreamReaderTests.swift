@@ -27,6 +27,7 @@ class TextStreamReaderTests: LKTestCase, @unchecked Sendable {
         timestamp: Date(),
         totalLength: nil,
         attributes: [:],
+        encryptionType: .none,
         operationType: .create,
         version: 1,
         replyToStreamID: nil,

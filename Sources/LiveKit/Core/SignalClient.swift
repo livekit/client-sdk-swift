@@ -352,6 +352,9 @@ private extension SignalClient {
 
         case .roomMoved:
             log("Received roomMoved message")
+
+        case .mediaSectionsRequirement:
+            log("Received mediaSectionsRequirement message")
         }
     }
 }
