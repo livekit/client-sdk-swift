@@ -82,6 +82,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     @objc
     public var publishersCount: Int { _state.numPublishers }
 
+    // Credentials
+    public var credentialsProvider: (any CredentialsProvider)?
+
     // expose engine's vars
     @objc
     public var url: String? { _state.url?.absoluteString }
@@ -429,6 +432,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     {
         let credentials = try await credentialsProvider.fetch(credentialsOptions)
         try await connect(url: credentials.serverURL.absoluteString, token: credentials.participantToken, connectOptions: connectOptions, roomOptions: roomOptions)
+        self.credentialsProvider = credentialsProvider
     }
 
     @objc
