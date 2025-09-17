@@ -37,6 +37,15 @@ public enum ConnectionCredentials {
         /// - SeeAlso: [Room Configuration Documentation](https://docs.livekit.io/home/get-started/authentication/#room-configuration) for more info.
         let roomConfiguration: RoomConfiguration?
 
+        // enum CodingKeys: String, CodingKey {
+        //     case roomName = "room_name"
+        //     case participantName = "participant_name"
+        //     case participantIdentity = "participant_identity"
+        //     case participantMetadata = "participant_metadata"
+        //     case participantAttributes = "participant_attributes"
+        //     case roomConfiguration = "room_configuration"
+        // }
+
         public init(
             roomName: String? = nil,
             participantName: String? = nil,
@@ -57,12 +66,17 @@ public enum ConnectionCredentials {
     /// Response containing the credentials needed to connect to a room.
     public struct Response: Decodable, Sendable {
         /// The WebSocket URL for the LiveKit server.
-        let serverUrl: URL
+        let serverURL: URL
         /// The JWT token containing participant permissions and metadata.
         let participantToken: String
 
-        public init(serverUrl: URL, participantToken: String) {
-            self.serverUrl = serverUrl
+        enum CodingKeys: String, CodingKey {
+            case serverURL = "serverUrl"
+            case participantToken
+        }
+
+        public init(serverURL: URL, participantToken: String) {
+            self.serverURL = serverURL
             self.participantToken = participantToken
         }
     }
@@ -117,11 +131,11 @@ public extension TokenServer {
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
 
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw LiveKitError(.network, message: "Error generating token from sandbox token server, no response")
+            throw LiveKitError(.network, message: "Error generating token from the token server, no response")
         }
 
         guard (200 ... 299).contains(httpResponse.statusCode) else {
-            throw LiveKitError(.network, message: "Error generating token from sandbox token server, received \(httpResponse)")
+            throw LiveKitError(.network, message: "Error generating token from the token server, received \(httpResponse)")
         }
 
         return try JSONDecoder().decode(ConnectionCredentials.Response.self, from: data)
