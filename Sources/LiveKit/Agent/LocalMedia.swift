@@ -15,7 +15,6 @@
  */
 
 @preconcurrency import AVFoundation
-import LiveKit
 
 @MainActor
 open class LocalMedia: ObservableObject {
@@ -64,7 +63,7 @@ open class LocalMedia: ObservableObject {
 
     private func observe(room: Room) {
         Task { [weak self] in
-            for await _ in room.changes {
+            for try await _ in room.changes {
                 guard let self else { return }
 
                 microphoneTrack = room.localParticipant.firstAudioTrack

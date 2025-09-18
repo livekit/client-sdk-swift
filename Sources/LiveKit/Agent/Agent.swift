@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import LiveKit
 
 @MainActor
 open class Agent: ObservableObject {
@@ -33,7 +32,7 @@ open class Agent: ObservableObject {
 
     private func observe(_ participant: Participant) {
         Task { [weak self] in
-            for await _ in participant.changes {
+            for try await _ in participant.changes {
                 guard let self else { return }
 
                 state = participant.agentState
@@ -45,5 +44,11 @@ open class Agent: ObservableObject {
     private func updateTracks(of participant: Participant) {
         audioTrack = participant.audioTracks.first(where: { $0.source == .microphone })?.track as? AudioTrack
         avatarVideoTrack = participant.avatarWorker?.firstCameraVideoTrack
+    }
+}
+
+extension AgentState: CustomStringConvertible {
+    public var description: String {
+        rawValue.capitalized
     }
 }

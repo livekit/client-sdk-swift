@@ -16,43 +16,60 @@
 
 import SwiftUI
 
-extension EnvironmentValues {
+#if swift(>=6.0)
+public extension EnvironmentValues {
     @Entry var agentName: String? = nil
 }
+#else
+public struct AgentNameKey: EnvironmentKey {
+    public static let defaultValue: String? = nil
+}
+
+public extension EnvironmentValues {
+    var agentName: String? {
+        get { self[AgentNameKey.self] }
+        set { self[AgentNameKey.self] = newValue }
+    }
+}
+#endif
 
 @MainActor
 @propertyWrapper
-struct LKConversation: DynamicProperty {
+public struct LKConversation: DynamicProperty {
     @EnvironmentObject private var conversation: Conversation
 
-    var wrappedValue: Conversation {
+    public init() {}
+
+    public var wrappedValue: Conversation {
         conversation
     }
 }
 
 @MainActor
 @propertyWrapper
-struct LKLocalMedia: DynamicProperty {
+public struct LKLocalMedia: DynamicProperty {
     @EnvironmentObject private var localMedia: LocalMedia
 
-    var wrappedValue: LocalMedia {
+    public init() {}
+
+    public var wrappedValue: LocalMedia {
         localMedia
     }
 }
 
 @MainActor
 @propertyWrapper
-struct LKAgent: DynamicProperty {
+public struct LKAgent: DynamicProperty {
     @EnvironmentObject private var conversation: Conversation
     @Environment(\.agentName) private var environmentName
 
     let agentName: String?
 
-    init(named agentName: String? = nil) {
+    public init(named agentName: String? = nil) {
         self.agentName = agentName
     }
 
-    var wrappedValue: Agent? {
+    public var wrappedValue: Agent? {
         if let agentName {
             return conversation.agent(named: agentName)
         } else if let environmentName {
