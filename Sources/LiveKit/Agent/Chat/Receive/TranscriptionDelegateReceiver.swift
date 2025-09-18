@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import LiveKit
 
 /// An actor that receives transcription messages from the room and yields them as messages.
 ///

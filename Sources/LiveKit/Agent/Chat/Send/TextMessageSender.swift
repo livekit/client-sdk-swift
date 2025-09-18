@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import LiveKit
 
 /// An actor that sends local messages to the agent.
 /// Currently, it only supports sending text messages.

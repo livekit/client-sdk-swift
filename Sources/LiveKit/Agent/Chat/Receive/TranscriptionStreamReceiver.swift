@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import LiveKit
 
 /// An actor that converts raw text streams from the LiveKit `Room` into `Message` objects.
 /// - Note: Streams are supported by `livekit-agents` >= 1.0.0.

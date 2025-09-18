@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Collections
 import Foundation
-import LiveKit
+import OrderedCollections
 
 @MainActor
 open class Conversation: ObservableObject {
@@ -86,7 +85,7 @@ open class Conversation: ObservableObject {
 
     private func observe(room: Room, agentName _: String?) {
         Task { [weak self] in
-            for await _ in room.changes {
+            for try await _ in room.changes {
                 guard let self else { return }
 
                 connectionState = room.connectionState
@@ -143,7 +142,7 @@ open class Conversation: ObservableObject {
 
         defer {
             waitForAgentTask = Task {
-                try await Task.sleep(for: .seconds(waitForAgent))
+                try await Task.sleep(nanoseconds: UInt64(TimeInterval(NSEC_PER_SEC) * waitForAgent))
                 try Task.checkCancellation()
                 if connectionState == .connected, agents.isEmpty {
                     await end()
