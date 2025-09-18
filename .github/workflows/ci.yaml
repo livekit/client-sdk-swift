@@ -54,22 +54,22 @@ jobs:
             xcode: 16.4
             platform: "tvOS Simulator,name=Apple TV,OS=18.5"
 
-          # https://github.com/actions/runner-images/tree/main/images/macos
-          # - os: macos-15
-          #   xcode: latest
-          #   platform: "iOS Simulator,name=iPhone 16 Pro,OS=26.0"
-          - os: macos-15
+          # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md
+          - os: macos-26
+            xcode: latest
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.0"
+          - os: macos-26
             xcode: latest
             platform: "macOS"
-          # - os: macos-15
-          #   xcode: latest
-          #   platform: "macOS,variant=Mac Catalyst"
-          # - os: macos-15
-          #   xcode: latest
-          #   platform: "visionOS Simulator,name=Apple Vision Pro,OS=26.0"
-          # - os: macos-15
-          #   xcode: latest
-          #   platform: "tvOS Simulator,name=Apple TV,OS=26.0"
+          - os: macos-26
+            xcode: latest
+            platform: "macOS,variant=Mac Catalyst"
+          - os: macos-26
+            xcode: latest
+            platform: "visionOS Simulator,name=Apple Vision Pro,OS=26.0"
+          - os: macos-26
+            xcode: latest
+            platform: "tvOS Simulator,name=Apple TV,OS=26.0"
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
