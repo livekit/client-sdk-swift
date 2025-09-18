@@ -32,9 +32,9 @@ open class LocalMedia: ObservableObject {
     @Published public private(set) var cameraTrack: (any VideoTrack)?
     @Published public private(set) var screenShareTrack: (any VideoTrack)?
 
-    public var isMicrophoneEnabled: Bool { microphoneTrack != nil }
-    public var isCameraEnabled: Bool { cameraTrack != nil }
-    public var isScreenShareEnabled: Bool { screenShareTrack != nil }
+    @Published public private(set) var isMicrophoneEnabled: Bool = false
+    @Published public private(set) var isCameraEnabled: Bool = false
+    @Published public private(set) var isScreenShareEnabled: Bool = false
 
     @Published public private(set) var audioDevices: [AudioDevice] = AudioManager.shared.inputDevices
     @Published public private(set) var selectedAudioDeviceID: String = AudioManager.shared.inputDevice.deviceId
@@ -46,29 +46,37 @@ open class LocalMedia: ObservableObject {
 
     // MARK: - Dependencies
 
-    private var room: Room
+    private var localParticipant: LocalParticipant
 
     // MARK: - Initialization
 
-    public init(room: Room) {
-        self.room = room
+    public init(localParticipant: LocalParticipant) {
+        self.localParticipant = localParticipant
 
-        observe(room: room)
+        observe(localParticipant)
         observeDevices()
+    }
+
+    public convenience init(room: Room) {
+        self.init(localParticipant: room.localParticipant)
     }
 
     public convenience init(conversation: Conversation) {
         self.init(room: conversation.room)
     }
 
-    private func observe(room: Room) {
+    private func observe(_ localParticipant: LocalParticipant) {
         Task { [weak self] in
-            for try await _ in room.changes {
+            for try await _ in localParticipant.changes {
                 guard let self else { return }
 
-                microphoneTrack = room.localParticipant.firstAudioTrack
-                cameraTrack = room.localParticipant.firstCameraVideoTrack
-                screenShareTrack = room.localParticipant.firstScreenShareVideoTrack
+                microphoneTrack = localParticipant.firstAudioTrack
+                cameraTrack = localParticipant.firstCameraVideoTrack
+                screenShareTrack = localParticipant.firstScreenShareVideoTrack
+
+                isMicrophoneEnabled = localParticipant.isMicrophoneEnabled()
+                isCameraEnabled = localParticipant.isCameraEnabled()
+                isScreenShareEnabled = localParticipant.isScreenShareEnabled()
             }
         }
     }
@@ -101,7 +109,7 @@ open class LocalMedia: ObservableObject {
 
     public func toggleMicrophone() async {
         do {
-            try await room.localParticipant.setMicrophone(enabled: !isMicrophoneEnabled)
+            try await localParticipant.setMicrophone(enabled: !isMicrophoneEnabled)
         } catch {
             self.error = .mediaDevice(error)
         }
@@ -111,11 +119,11 @@ open class LocalMedia: ObservableObject {
         let enable = !isCameraEnabled
         do {
             if enable, disableScreenShare, isScreenShareEnabled {
-                try await room.localParticipant.setScreenShare(enabled: false)
+                try await localParticipant.setScreenShare(enabled: false)
             }
 
             let device = try await CameraCapturer.captureDevices().first(where: { $0.uniqueID == selectedVideoDeviceID })
-            try await room.localParticipant.setCamera(enabled: enable, captureOptions: CameraCaptureOptions(device: device))
+            try await localParticipant.setCamera(enabled: enable, captureOptions: CameraCaptureOptions(device: device))
         } catch {
             self.error = .mediaDevice(error)
         }
@@ -125,9 +133,9 @@ open class LocalMedia: ObservableObject {
         let enable = !isScreenShareEnabled
         do {
             if enable, disableCamera, isCameraEnabled {
-                try await room.localParticipant.setCamera(enabled: false)
+                try await localParticipant.setCamera(enabled: false)
             }
-            try await room.localParticipant.setScreenShare(enabled: enable)
+            try await localParticipant.setScreenShare(enabled: enable)
         } catch {
             self.error = .mediaDevice(error)
         }
@@ -158,7 +166,7 @@ open class LocalMedia: ObservableObject {
     // MARK: - Private
 
     private func getCameraCapturer() -> CameraCapturer? {
-        guard let cameraTrack = room.localParticipant.firstCameraVideoTrack as? LocalVideoTrack else { return nil }
+        guard let cameraTrack = localParticipant.firstCameraVideoTrack as? LocalVideoTrack else { return nil }
         return cameraTrack.capturer as? CameraCapturer
     }
 }
