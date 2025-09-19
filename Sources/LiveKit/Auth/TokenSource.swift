@@ -173,7 +173,7 @@ public actor CachingTokenSource: TokenSource, Loggable {
     public init(
         _ source: TokenSource,
         store: TokenStore = InMemoryTokenStore(),
-        validator: @escaping TokenValidator = { _, res in res.hasValidToken() }
+        validator: @escaping TokenValidator = { _, response in response.hasValidToken() }
     ) {
         self.source = source
         self.store = store
@@ -201,9 +201,9 @@ public actor CachingTokenSource: TokenSource, Loggable {
     }
 
     /// Get the cached credentials
-    /// - Returns: The cached credentials if found, nil otherwise
-    public func getCachedCredentials() async -> CachingTokenSource.Cached? {
-        await store.retrieve()
+    /// - Returns: The cached token if found, nil otherwise
+    public func cachedToken() async -> Token.Response? {
+        await store.retrieve()?.1
     }
 }
 
