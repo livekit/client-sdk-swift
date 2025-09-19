@@ -35,7 +35,7 @@ public extension EnvironmentValues {
 
 @MainActor
 @propertyWrapper
-public struct LKConversation: DynamicProperty {
+public struct LiveKitConversation: DynamicProperty {
     @EnvironmentObject private var conversation: Conversation
 
     public init() {}
@@ -47,7 +47,7 @@ public struct LKConversation: DynamicProperty {
 
 @MainActor
 @propertyWrapper
-public struct LKLocalMedia: DynamicProperty {
+public struct LiveKitLocalMedia: DynamicProperty {
     @EnvironmentObject private var localMedia: LocalMedia
 
     public init() {}
@@ -59,13 +59,13 @@ public struct LKLocalMedia: DynamicProperty {
 
 @MainActor
 @propertyWrapper
-public struct LKAgent: DynamicProperty {
+public struct LiveKitAgent: DynamicProperty {
     @EnvironmentObject private var conversation: Conversation
     @Environment(\.agentName) private var environmentName
 
     let agentName: String?
 
-    public init(named agentName: String? = nil) {
+    public init(_ agentName: String? = nil) {
         self.agentName = agentName
     }
 
