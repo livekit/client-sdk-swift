@@ -26,18 +26,19 @@ public enum Token {
     /// Request parameters for generating connection credentials.
     public struct Request: Encodable, Sendable, Equatable {
         /// The name of the room being requested when generating credentials.
-        let roomName: String?
+        public let roomName: String?
         /// The name of the participant being requested for this client when generating credentials.
-        let participantName: String?
+        public let participantName: String?
         /// The identity of the participant being requested for this client when generating credentials.
-        let participantIdentity: String?
+        public let participantIdentity: String?
         /// Any participant metadata being included along with the credentials generation operation.
-        let participantMetadata: String?
+        public let participantMetadata: String?
         /// Any participant attributes being included along with the credentials generation operation.
-        let participantAttributes: [String: String]?
-        /// A `RoomConfiguration` object can be passed to request extra parameters should be included when generating connection credentials - dispatching agents, etc.
+        public let participantAttributes: [String: String]?
+        /// A `RoomConfiguration` object can be passed to request extra parameters when generating connection credentials.
+        /// Used for advanced room configuration like dispatching agents, setting room limits, etc.
         /// - SeeAlso: [Room Configuration Documentation](https://docs.livekit.io/home/get-started/authentication/#room-configuration) for more info.
-        let roomConfiguration: RoomConfiguration?
+        public let roomConfiguration: RoomConfiguration?
 
         // enum CodingKeys: String, CodingKey {
         //     case roomName = "room_name"
@@ -68,9 +69,9 @@ public enum Token {
     /// Response containing the credentials needed to connect to a room.
     public struct Response: Decodable, Sendable {
         /// The WebSocket URL for the LiveKit server.
-        let serverURL: URL
+        public let serverURL: URL
         /// The JWT token containing participant permissions and metadata.
-        let participantToken: String
+        public let participantToken: String
 
         enum CodingKeys: String, CodingKey {
             case serverURL = "serverUrl"
@@ -92,6 +93,10 @@ public enum Token {
 /// Protocol for types that can provide connection credentials.
 /// Implement this protocol to create custom credential providers (e.g., fetching from your backend API).
 public protocol TokenSource: Sendable {
+    /// Fetch connection credentials for the given request.
+    /// - Parameter request: The token request containing room and participant information
+    /// - Returns: A token response containing the server URL and participant token
+    /// - Throws: An error if the token generation fails
     func fetch(_ request: Token.Request) async throws -> Token.Response
 }
 
@@ -150,6 +155,10 @@ public actor CachingTokenSource: TokenSource, Loggable {
     /// A tuple containing the request and response that were cached.
     public typealias Cached = (Token.Request, Token.Response)
     /// A closure that validates whether cached credentials are still valid.
+    /// - Parameters:
+    ///   - request: The original token request
+    ///   - response: The cached token response
+    /// - Returns: `true` if the cached credentials are still valid, `false` otherwise
     public typealias TokenValidator = (Token.Request, Token.Response) -> Bool
 
     private let source: TokenSource
@@ -236,6 +245,9 @@ public actor InMemoryTokenStore: TokenStore {
 // MARK: - Validation
 
 public extension Token.Response {
+    /// Validates whether the JWT token is still valid.
+    /// - Parameter tolerance: Time tolerance in seconds for token expiration check (default: 60 seconds)
+    /// - Returns: `true` if the token is valid and not expired, `false` otherwise
     func hasValidToken(withTolerance tolerance: TimeInterval = 60) -> Bool {
         let parts = participantToken.components(separatedBy: ".")
         guard parts.count == 3 else {
