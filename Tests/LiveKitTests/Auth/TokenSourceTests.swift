@@ -37,7 +37,7 @@ class TokenSourceTests: LKTestCase {
                 identity: request.participantIdentity ?? "test-identity"
             )
             tokenGenerator.name = request.participantName ?? participantName
-            tokenGenerator.videoGrant = VideoGrant(room: request.roomName ?? "test-room", roomJoin: true)
+            tokenGenerator.videoGrant = LiveKitJWTPayload.VideoGrant(room: request.roomName ?? "test-room", roomJoin: true)
 
             let token = try tokenGenerator.sign()
 
@@ -76,7 +76,7 @@ class TokenSourceTests: LKTestCase {
                 ttl: -60
             )
             tokenGenerator.name = request.participantName ?? "test-participant"
-            tokenGenerator.videoGrant = VideoGrant(room: request.roomName ?? "test-room", roomJoin: true)
+            tokenGenerator.videoGrant = LiveKitJWTPayload.VideoGrant(room: request.roomName ?? "test-room", roomJoin: true)
 
             let token = try tokenGenerator.sign()
 
