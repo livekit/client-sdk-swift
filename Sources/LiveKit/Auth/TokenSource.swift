@@ -249,39 +249,23 @@ public extension Token.Response {
     /// - Parameter tolerance: Time tolerance in seconds for token expiration check (default: 60 seconds)
     /// - Returns: `true` if the token is valid and not expired, `false` otherwise
     func hasValidToken(withTolerance tolerance: TimeInterval = 60) -> Bool {
-        let parts = participantToken.components(separatedBy: ".")
-        guard parts.count == 3 else {
+        guard let jwt = jwt() else {
             return false
         }
 
-        let payloadData = parts[1]
-
-        struct JWTPayload: Decodable {
-            let nbf: Double
-            let exp: Double
-        }
-
-        guard let payloadJSON = payloadData.base64Decode(),
-              let payload = try? JSONDecoder().decode(JWTPayload.self, from: payloadJSON)
-        else {
+        do {
+            try jwt.nbf.verifyNotBefore()
+            try jwt.exp.verifyNotExpired(currentDate: Date().addingTimeInterval(tolerance))
+        } catch {
             return false
         }
 
-        let now = Date().timeIntervalSince1970
-        return payload.nbf <= now && payload.exp > now - tolerance
+        return true
     }
-}
 
-private extension String {
-    func base64Decode() -> Data? {
-        var base64 = self
-        base64 = base64.replacingOccurrences(of: "-", with: "+")
-        base64 = base64.replacingOccurrences(of: "_", with: "/")
-
-        while base64.count % 4 != 0 {
-            base64.append("=")
-        }
-
-        return Data(base64Encoded: base64)
+    /// Extracts the JWT payload from the participant token.
+    /// - Returns: The JWT payload if found, nil otherwise
+    func jwt() -> LiveKitJWTPayload? {
+        LiveKitJWTPayload.fromUnverified(token: participantToken)
     }
 }
