@@ -18,6 +18,8 @@ import Foundation
 
 #warning("Fix camel case after deploying backend")
 
+// MARK: - Token
+
 /// `Token` represent the credentials needed for connecting to a new Room.
 /// - SeeAlso: [LiveKit's Authentication Documentation](https://docs.livekit.io/home/get-started/authentication/) for more information.
 public enum Token {
@@ -85,7 +87,7 @@ public enum Token {
     public typealias Literal = Response
 }
 
-// MARK: - Provider
+// MARK: - Source
 
 /// Protocol for types that can provide connection credentials.
 /// Implement this protocol to create custom credential providers (e.g., fetching from your backend API).
@@ -94,14 +96,13 @@ public protocol TokenSource: Sendable {
 }
 
 /// `Token.Literal` contains a single set of credentials, hard-coded or acquired from a static source.
-/// - Note: It does not support refreshing credentials.
 extension Token.Literal: TokenSource {
     public func fetch(_: Token.Request) async throws -> Token.Response {
         self
     }
 }
 
-// MARK: - Token Server
+// MARK: - Endpoint
 
 /// Protocol for token servers that fetch credentials via HTTP requests.
 /// Provides a default implementation of `fetch` that can be used to integrate with custom backend token generation endpoints.
@@ -139,24 +140,6 @@ public extension TokenEndpoint {
         }
 
         return try JSONDecoder().decode(Token.Response.self, from: data)
-    }
-}
-
-/// `Sandbox` queries LiveKit Sandbox token server for credentials,
-/// which supports quick prototyping/getting started types of use cases.
-/// - Warning: This token endpoint is **INSECURE** and should **NOT** be used in production.
-public struct Sandbox: TokenEndpoint {
-    public let url = URL(string: "https://cloud-api.livekit.io/api/sandbox/connection-details")!
-    public var headers: [String: String] {
-        ["X-Sandbox-ID": id]
-    }
-
-    /// The sandbox ID provided by LiveKit Cloud.
-    public let id: String
-
-    /// Initialize with a sandbox ID from LiveKit Cloud.
-    public init(id: String) {
-        self.id = id.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
     }
 }
 
