@@ -30,6 +30,6 @@ public struct Sandbox: TokenEndpoint {
 
     /// Initialize with a sandbox ID from LiveKit Cloud.
     public init(id: String) {
-        self.id = id.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+        self.id = id.trimmingCharacters(in: .alphanumerics.inverted)
     }
 }
