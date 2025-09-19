@@ -83,7 +83,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     public var publishersCount: Int { _state.numPublishers }
 
     // Credentials
-    public var credentialsProvider: (any CredentialsProvider)?
+    public var tokenSource: (any TokenSource)?
 
     // expose engine's vars
     @objc
@@ -425,14 +425,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         log("Connected to \(String(describing: self))", .info)
     }
 
-    public func connect(credentialsProvider: CredentialsProvider,
-                        credentialsOptions: ConnectionCredentials.Options = .init(),
+    public func connect(tokenSource: TokenSource,
+                        tokenOptions: Token.Options = .init(),
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) async throws
     {
-        let credentials = try await credentialsProvider.fetch(credentialsOptions)
-        try await connect(url: credentials.serverURL.absoluteString, token: credentials.participantToken, connectOptions: connectOptions, roomOptions: roomOptions)
-        self.credentialsProvider = credentialsProvider
+        self.tokenSource = tokenSource
+
+        let token = try await tokenSource.fetch(tokenOptions)
+        try await connect(url: token.serverURL.absoluteString, token: token.participantToken, connectOptions: connectOptions, roomOptions: roomOptions)
     }
 
     @objc

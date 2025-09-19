@@ -18,9 +18,9 @@ import Foundation
 
 #warning("Fix camel case after deploying backend")
 
-/// `ConnectionCredentials` represent the credentials needed for connecting to a new Room.
+/// `Token` represent the credentials needed for connecting to a new Room.
 /// - SeeAlso: [LiveKit's Authentication Documentation](https://docs.livekit.io/home/get-started/authentication/) for more information.
-public enum ConnectionCredentials {
+public enum Token {
     /// Request parameters for generating connection credentials.
     public struct Request: Encodable, Sendable, Equatable {
         /// The name of the room being requested when generating credentials.
@@ -89,14 +89,14 @@ public enum ConnectionCredentials {
 
 /// Protocol for types that can provide connection credentials.
 /// Implement this protocol to create custom credential providers (e.g., fetching from your backend API).
-public protocol CredentialsProvider: Sendable {
-    func fetch(_ request: ConnectionCredentials.Request) async throws -> ConnectionCredentials.Response
+public protocol TokenSource: Sendable {
+    func fetch(_ request: Token.Request) async throws -> Token.Response
 }
 
-/// `ConnectionCredentials.Literal` contains a single set of credentials, hard-coded or acquired from a static source.
-/// - Note: It does not support refresing credentials.
-extension ConnectionCredentials.Literal: CredentialsProvider {
-    public func fetch(_: ConnectionCredentials.Request) async throws -> ConnectionCredentials.Response {
+/// `Token.Literal` contains a single set of credentials, hard-coded or acquired from a static source.
+/// - Note: It does not support refreshing credentials.
+extension Token.Literal: TokenSource {
+    public func fetch(_: Token.Request) async throws -> Token.Response {
         self
     }
 }
@@ -105,8 +105,8 @@ extension ConnectionCredentials.Literal: CredentialsProvider {
 
 /// Protocol for token servers that fetch credentials via HTTP requests.
 /// Provides a default implementation of `fetch` that can be used to integrate with custom backend token generation endpoints.
-/// - Note: The response is expected to be a `ConnectionCredentials.Response` object.
-public protocol TokenServer: CredentialsProvider {
+/// - Note: The response is expected to be a `Token.Response` object.
+public protocol TokenEndpoint: TokenSource {
     /// The URL endpoint for token generation.
     var url: URL { get }
     /// The HTTP method to use (defaults to "POST").
@@ -115,11 +115,11 @@ public protocol TokenServer: CredentialsProvider {
     var headers: [String: String] { get }
 }
 
-public extension TokenServer {
+public extension TokenEndpoint {
     var method: String { "POST" }
     var headers: [String: String] { [:] }
 
-    func fetch(_ request: ConnectionCredentials.Request) async throws -> ConnectionCredentials.Response {
+    func fetch(_ request: Token.Request) async throws -> Token.Response {
         var urlRequest = URLRequest(url: url)
 
         urlRequest.httpMethod = method
@@ -138,14 +138,14 @@ public extension TokenServer {
             throw LiveKitError(.network, message: "Error generating token from the token server, received \(httpResponse)")
         }
 
-        return try JSONDecoder().decode(ConnectionCredentials.Response.self, from: data)
+        return try JSONDecoder().decode(Token.Response.self, from: data)
     }
 }
 
-/// `SandboxTokenServer` queries LiveKit Sandbox token server for credentials,
+/// `Sandbox` queries LiveKit Sandbox token server for credentials,
 /// which supports quick prototyping/getting started types of use cases.
-/// - Warning: This token provider is **INSECURE** and should **NOT** be used in production.
-public struct SandboxTokenServer: TokenServer {
+/// - Warning: This token endpoint is **INSECURE** and should **NOT** be used in production.
+public struct Sandbox: TokenEndpoint {
     public let url = URL(string: "https://cloud-api.livekit.io/api/sandbox/connection-details")!
     public var headers: [String: String] {
         ["X-Sandbox-ID": id]
@@ -162,33 +162,33 @@ public struct SandboxTokenServer: TokenServer {
 
 // MARK: - Cache
 
-/// `CachingCredentialsProvider` handles caching of credentials from any other `CredentialsProvider` using configurable store.
-public actor CachingCredentialsProvider: CredentialsProvider, Loggable {
+/// `CachingTokenSource` handles caching of credentials from any other `TokenSource` using configurable store.
+public actor CachingTokenSource: TokenSource, Loggable {
     /// A tuple containing the request and response that were cached.
-    public typealias Cached = (ConnectionCredentials.Request, ConnectionCredentials.Response)
+    public typealias Cached = (Token.Request, Token.Response)
     /// A closure that validates whether cached credentials are still valid.
-    public typealias Validator = (ConnectionCredentials.Request, ConnectionCredentials.Response) -> Bool
+    public typealias TokenValidator = (Token.Request, Token.Response) -> Bool
 
-    private let provider: CredentialsProvider
-    private let store: CredentialsStore
-    private let validator: Validator
+    private let source: TokenSource
+    private let store: TokenStore
+    private let validator: TokenValidator
 
     /// Initialize a caching wrapper around any credentials provider.
     /// - Parameters:
-    ///   - provider: The underlying credentials provider to wrap
+    ///   - source: The underlying token source to wrap
     ///   - store: The store implementation to use for caching (defaults to in-memory store)
     ///   - validator: A closure to determine if cached credentials are still valid (defaults to JWT expiration check)
     public init(
-        _ provider: CredentialsProvider,
-        store: CredentialsStore = InMemoryCredentialsStore(),
-        validator: @escaping Validator = { _, res in res.hasValidToken() }
+        _ source: TokenSource,
+        store: TokenStore = InMemoryTokenStore(),
+        validator: @escaping TokenValidator = { _, res in res.hasValidToken() }
     ) {
-        self.provider = provider
+        self.source = source
         self.store = store
         self.validator = validator
     }
 
-    public func fetch(_ request: ConnectionCredentials.Request) async throws -> ConnectionCredentials.Response {
+    public func fetch(_ request: Token.Request) async throws -> Token.Response {
         if let (cachedRequest, cachedResponse) = await store.retrieve(),
            cachedRequest == request,
            validator(cachedRequest, cachedResponse)
@@ -198,7 +198,7 @@ public actor CachingCredentialsProvider: CredentialsProvider, Loggable {
         }
 
         log("Requesting new credentials", .debug)
-        let response = try await provider.fetch(request)
+        let response = try await source.fetch(request)
         await store.store((request, response))
         return response
     }
@@ -210,7 +210,7 @@ public actor CachingCredentialsProvider: CredentialsProvider, Loggable {
 
     /// Get the cached credentials
     /// - Returns: The cached credentials if found, nil otherwise
-    public func getCachedCredentials() async -> CachingCredentialsProvider.Cached? {
+    public func getCachedCredentials() async -> CachingTokenSource.Cached? {
         await store.retrieve()
     }
 }
@@ -219,29 +219,29 @@ public actor CachingCredentialsProvider: CredentialsProvider, Loggable {
 
 /// Protocol for abstract store that can persist and retrieve a single cached credential pair.
 /// Implement this protocol to create custom store implementations e.g. for Keychain.
-public protocol CredentialsStore: Sendable {
+public protocol TokenStore: Sendable {
     /// Store credentials in the store (replaces any existing credentials)
-    func store(_ credentials: CachingCredentialsProvider.Cached) async
+    func store(_ credentials: CachingTokenSource.Cached) async
 
     /// Retrieve the cached credentials
     /// - Returns: The cached credentials if found, nil otherwise
-    func retrieve() async -> CachingCredentialsProvider.Cached?
+    func retrieve() async -> CachingTokenSource.Cached?
 
     /// Clear the stored credentials
     func clear() async
 }
 
 /// Simple in-memory store implementation
-public actor InMemoryCredentialsStore: CredentialsStore {
-    private var cached: CachingCredentialsProvider.Cached?
+public actor InMemoryTokenStore: TokenStore {
+    private var cached: CachingTokenSource.Cached?
 
     public init() {}
 
-    public func store(_ credentials: CachingCredentialsProvider.Cached) async {
+    public func store(_ credentials: CachingTokenSource.Cached) async {
         cached = credentials
     }
 
-    public func retrieve() async -> CachingCredentialsProvider.Cached? {
+    public func retrieve() async -> CachingTokenSource.Cached? {
         cached
     }
 
@@ -252,7 +252,7 @@ public actor InMemoryCredentialsStore: CredentialsStore {
 
 // MARK: - Validation
 
-public extension ConnectionCredentials.Response {
+public extension Token.Response {
     func hasValidToken(withTolerance tolerance: TimeInterval = 60) -> Bool {
         let parts = participantToken.components(separatedBy: ".")
         guard parts.count == 3 else {
