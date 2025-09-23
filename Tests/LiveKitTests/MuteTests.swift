@@ -69,23 +69,23 @@ func applyEngineTransition(_ transition: TestEngineTransition) {
     var engineState = adm.engineState
 
     if case let .value(value) = transition.outputEnabled {
-        engineState.outputEnabled = value
+        engineState.outputEnabled = ObjCBool(value)
     }
 
     if case let .value(value) = transition.outputRunning {
-        engineState.outputRunning = value
+        engineState.outputRunning = ObjCBool(value)
     }
 
     if case let .value(value) = transition.inputEnabled {
-        engineState.inputEnabled = value
+        engineState.inputEnabled = ObjCBool(value)
     }
 
     if case let .value(value) = transition.inputRunning {
-        engineState.inputRunning = value
+        engineState.inputRunning = ObjCBool(value)
     }
 
     if case let .value(value) = transition.inputMuted {
-        engineState.inputMuted = value
+        engineState.inputMuted = ObjCBool(value)
     }
 
     if case let .value(value) = transition.legacyMuteMode {
