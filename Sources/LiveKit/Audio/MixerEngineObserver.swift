@@ -91,6 +91,7 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
     }
 
     public func engineDidCreate(_ engine: AVAudioEngine) -> Int {
+        log("isManualRenderingMode: \(engine.isInManualRenderingMode)")
         let (appNode, appMixerNode, micNode, micMixerNode) = _state.read {
             ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode)
         }
@@ -105,6 +106,7 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
     }
 
     public func engineWillRelease(_ engine: AVAudioEngine) -> Int {
+        log("isManualRenderingMode: \(engine.isInManualRenderingMode)")
         // Invoke next
         let nextResult = next?.engineWillRelease(engine)
 
@@ -121,6 +123,7 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
     }
 
     public func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int {
+        log("isManualRenderingMode: \(engine.isInManualRenderingMode)")
         // Get the main input mixer node, for manual rendering mode this is currently the mainMixerNode
         let mainMixerNode = engine.isInManualRenderingMode ? engine.mainMixerNode : (context[kLKRTCAudioEngineInputMixerNodeKey] as? AVAudioMixerNode)
 
@@ -172,6 +175,7 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
     }
 
     public func engineWillConnectOutput(_ engine: AVAudioEngine, src: AVAudioNode, dst: AVAudioNode?, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int {
+        log("isManualRenderingMode: \(engine.isInManualRenderingMode)")
         // Get the main mixer
         let outputVolume = _state.mutate {
             $0.mainMixerNode = engine.mainMixerNode
