@@ -269,14 +269,15 @@ public class AudioManager: Loggable {
         set { RTC.audioDeviceModule.isVoiceProcessingAGCEnabled = newValue }
     }
 
-    /// Enables manual-rendering (no-device) mode of AVAudioEngine.
-    /// Currently experimental.
-    public var isManualRenderingMode: Bool { RTC.audioDeviceModule.isManualRenderingMode }
-
+    /// Enables manual rendering (no-device) mode of AVAudioEngine.
+    /// In this mode, you can provide audio buffers by calling `AudioManager.shared.mixer.capture(appAudio:)` continuously.
+    /// Remote audio will not play out automatically. Get remote mixed audio buffers with `AudioManager.shared.add(localAudioRenderer:)` or individual tracks with ``RemoteAudioTrack/add(audioRenderer:)``.
     public func setManualRenderingMode(_ enabled: Bool) throws {
         let result = RTC.audioDeviceModule.setManualRenderingMode(enabled)
         try checkAdmResult(code: result)
     }
+
+    public var isManualRenderingMode: Bool { RTC.audioDeviceModule.isManualRenderingMode }
 
     // MARK: - Recording
 
