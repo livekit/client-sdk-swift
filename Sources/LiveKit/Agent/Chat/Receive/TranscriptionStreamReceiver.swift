@@ -54,7 +54,7 @@ import Foundation
 /// Message(id: "4", timestamp: 2025-01-01 12:00:30 +0000, content: .userTranscript("Hello Apple!"))
 /// ```
 ///
-actor TranscriptionStreamReceiver: MessageReceiver {
+actor TranscriptionStreamReceiver: MessageReceiver, Loggable {
     private struct PartialMessageID: Hashable {
         let segmentID: String
         let participantID: Participant.Identity
@@ -75,25 +75,21 @@ actor TranscriptionStreamReceiver: MessageReceiver {
         }
     }
 
-    private let transcriptionTopic = "lk.transcription"
-    private enum TranscriptionAttributes: String {
-        case final = "lk.transcription_final"
-        case segment = "lk.segment_id"
-    }
-
     private let room: Room
+    private let topic: String
 
     private lazy var partialMessages: [PartialMessageID: PartialMessage] = [:]
 
-    init(room: Room) {
+    init(room: Room, topic: String = "lk.transcription") {
         self.room = room
+        self.topic = topic
     }
 
     /// Creates a new message stream for the chat topic.
     func messages() async throws -> AsyncStream<ReceivedMessage> {
         let (stream, continuation) = AsyncStream.makeStream(of: ReceivedMessage.self)
 
-        try await room.registerTextStreamHandler(for: transcriptionTopic) { [weak self] reader, participantIdentity in
+        try await room.registerTextStreamHandler(for: topic) { [weak self] reader, participantIdentity in
             guard let self else { return }
             for try await message in reader where !message.isEmpty {
                 await continuation.yield(processIncoming(partialMessage: message, reader: reader, participantIdentity: participantIdentity))
@@ -103,7 +99,7 @@ actor TranscriptionStreamReceiver: MessageReceiver {
         continuation.onTermination = { [weak self] _ in
             Task {
                 guard let self else { return }
-                await self.room.unregisterTextStreamHandler(for: self.transcriptionTopic)
+                await self.room.unregisterTextStreamHandler(for: self.topic)
             }
         }
 
@@ -113,7 +109,12 @@ actor TranscriptionStreamReceiver: MessageReceiver {
     /// Aggregates the incoming text into a message, storing the partial content in the `partialMessages` dictionary.
     /// - Note: When the message is finalized, or a new message is started, the dictionary is purged to limit memory usage.
     private func processIncoming(partialMessage message: String, reader: TextStreamReader, participantIdentity: Participant.Identity) -> ReceivedMessage {
-        let segmentID = reader.info.attributes[TranscriptionAttributes.segment.rawValue] ?? reader.info.id
+        let attributes = reader.info.attributes.mapped(to: TranscriptionAttributes.self)
+        if attributes == nil {
+            log("Unable to read message attributes from \(reader.info.attributes)", .error)
+        }
+
+        let segmentID = attributes?.lkSegmentID ?? reader.info.id
         let participantID = participantIdentity
         let partialID = PartialMessageID(segmentID: segmentID, participantID: participantID)
 
@@ -146,7 +147,7 @@ actor TranscriptionStreamReceiver: MessageReceiver {
             cleanupPreviousTurn(participantIdentity, exceptSegmentID: segmentID)
         }
 
-        let isFinal = reader.info.attributes[TranscriptionAttributes.final.rawValue] == "true"
+        let isFinal = attributes?.lkTranscriptionFinal ?? false
         if isFinal {
             partialMessages[partialID] = nil
         }
