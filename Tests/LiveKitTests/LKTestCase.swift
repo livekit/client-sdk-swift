@@ -32,3 +32,9 @@ class LKTestCase: XCTestCase {
         super.setUp()
     }
 }
+
+extension LKTestCase {
+    func sleep(forSeconds seconds: UInt) async {
+        try? await Task.sleep(nanoseconds: UInt64(seconds) * 1_000_000_000)
+    }
+}
