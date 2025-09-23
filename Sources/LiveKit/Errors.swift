@@ -30,6 +30,7 @@ public enum LiveKitErrorType: Int, Sendable {
     case webRTC = 201
 
     case network // Network issue
+    case validation // Network issue
 
     // Server
     case duplicateIdentity = 500
@@ -76,6 +77,8 @@ extension LiveKitErrorType: CustomStringConvertible {
             "WebRTC error"
         case .network:
             "Network error"
+        case .validation:
+            "Validation error"
         case .duplicateIdentity:
             "Duplicate Participant identity"
         case .serverShutdown:
@@ -111,10 +114,10 @@ extension LiveKitErrorType: CustomStringConvertible {
 public class LiveKitError: NSError, @unchecked Sendable {
     public let type: LiveKitErrorType
     public let message: String?
-    public let underlyingError: Error?
+    public let internalError: Error?
 
     override public var underlyingErrors: [Error] {
-        [underlyingError].compactMap { $0 }
+        [internalError].compactMap { $0 }
     }
 
     public init(_ type: LiveKitErrorType,
@@ -122,15 +125,18 @@ public class LiveKitError: NSError, @unchecked Sendable {
                 internalError: Error? = nil)
     {
         func _computeDescription() -> String {
+            var suffix = ""
             if let message {
-                return "\(String(describing: type))(\(message))"
+                suffix = "(\(message))"
+            } else if let internalError {
+                suffix = "(\(internalError.localizedDescription))"
             }
-            return String(describing: type)
+            return String(describing: type) + suffix
         }
 
         self.type = type
         self.message = message
-        underlyingError = internalError
+        self.internalError = internalError
         super.init(domain: "io.livekit.swift-sdk",
                    code: type.rawValue,
                    userInfo: [NSLocalizedDescriptionKey: _computeDescription()])
