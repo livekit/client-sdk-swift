@@ -16,7 +16,9 @@
 
 @testable import LiveKit
 import OrderedCollections
-import XCTest
+#if canImport(LiveKitTestSupport)
+import LiveKitTestSupport
+#endif
 
 actor MessageCollector {
     private var updates: [ReceivedMessage] = []
