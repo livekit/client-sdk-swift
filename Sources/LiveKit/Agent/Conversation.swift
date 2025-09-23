@@ -58,7 +58,7 @@ open class Conversation: ObservableObject {
 
     public let room: Room
 
-    private let credentials: any CredentialsProvider
+    private let tokenSource: any TokenSource
     private let senders: [any MessageSender]
     private let receivers: [any MessageReceiver]
 
@@ -68,8 +68,8 @@ open class Conversation: ObservableObject {
 
     // MARK: - Init
 
-    public init(credentials: CredentialsProvider, room: Room = .init(), agentName: String? = nil, senders: [any MessageSender]? = nil, receivers: [any MessageReceiver]? = nil) {
-        self.credentials = credentials
+    public init(tokenSource: TokenSource, room: Room = .init(), agentName: String? = nil, senders: [any MessageSender]? = nil, receivers: [any MessageReceiver]? = nil) {
+        self.tokenSource = tokenSource
         self.room = room
 
         let textMessageSender = TextMessageSender(room: room)
@@ -155,11 +155,11 @@ open class Conversation: ObservableObject {
             if preConnectAudio {
                 try await room.withPreConnectAudio(timeout: waitForAgent) {
                     await MainActor.run { self.isListening = true }
-                    try await self.room.connect(credentialsProvider: self.credentials, connectOptions: options, roomOptions: roomOptions)
+                    try await self.room.connect(tokenSource: self.tokenSource, connectOptions: options, roomOptions: roomOptions)
                     await MainActor.run { self.isListening = false }
                 }
             } else {
-                try await room.connect(credentialsProvider: credentials, connectOptions: options, roomOptions: roomOptions)
+                try await room.connect(tokenSource: tokenSource, connectOptions: options, roomOptions: roomOptions)
             }
         } catch {
             self.error = .failedToConnect(error)
