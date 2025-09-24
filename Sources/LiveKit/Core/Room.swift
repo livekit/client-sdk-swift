@@ -426,13 +426,12 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     }
 
     public func connect(tokenSource: TokenSource,
-                        tokenOptions: Token.Options = .init(),
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) async throws
     {
         self.tokenSource = tokenSource
 
-        let token = try await tokenSource.fetch(tokenOptions)
+        let token = try await tokenSource.generate()
         try await connect(url: token.serverURL.absoluteString, token: token.participantToken, connectOptions: connectOptions, roomOptions: roomOptions)
     }
 
