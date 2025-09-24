@@ -16,8 +16,6 @@
 
 import Foundation
 
-#warning("Fix camel case after deploying backend")
-
 // MARK: - Token
 
 /// `Token` represent the credentials needed for connecting to a new Room.
@@ -40,14 +38,14 @@ public enum Token {
         /// - SeeAlso: [Room Configuration Documentation](https://docs.livekit.io/home/get-started/authentication/#room-configuration) for more info.
         public let roomConfiguration: RoomConfiguration?
 
-        // enum CodingKeys: String, CodingKey {
-        //     case roomName = "room_name"
-        //     case participantName = "participant_name"
-        //     case participantIdentity = "participant_identity"
-        //     case participantMetadata = "participant_metadata"
-        //     case participantAttributes = "participant_attributes"
-        //     case roomConfiguration = "room_configuration"
-        // }
+        enum CodingKeys: String, CodingKey {
+            case roomName = "room_name"
+            case participantName = "participant_name"
+            case participantIdentity = "participant_identity"
+            case participantMetadata = "participant_metadata"
+            case participantAttributes = "participant_attributes"
+            case roomConfiguration = "room_configuration"
+        }
 
         public init(
             roomName: String? = nil,
@@ -74,8 +72,8 @@ public enum Token {
         public let participantToken: String
 
         enum CodingKeys: String, CodingKey {
-            case serverURL = "serverUrl"
-            case participantToken
+            case serverURL = "server_url"
+            case participantToken = "participant_token"
         }
 
         public init(serverURL: URL, participantToken: String) {
