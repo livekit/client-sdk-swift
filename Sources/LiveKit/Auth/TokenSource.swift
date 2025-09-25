@@ -82,6 +82,7 @@ public enum Token {
         }
     }
 
+    public typealias Options = Request
     public typealias Literal = Response
 }
 
@@ -90,22 +91,18 @@ public enum Token {
 /// Protocol for types that can provide connection credentials.
 /// Implement this protocol to create custom credential providers (e.g., fetching from your backend API).
 public protocol TokenSource: Sendable {
-    var request: Token.Request? { get async }
-    mutating func setRequest(_ request: Token.Request) async
-    mutating func clearRequest() async
-    /// Get connection credentials for the given request.
+    /// Fetch connection credentials for the given request.
+    /// - Parameter request: The token request containing room and participant information
     /// - Returns: A token response containing the server URL and participant token
     /// - Throws: An error if the token generation fails
-    func generate() async throws -> Token.Response
+    func fetch(_ request: Token.Request) async throws -> Token.Response
 }
 
 /// `Token.Literal` contains a single set of credentials, hard-coded or acquired from a static source.
 extension Token.Literal: TokenSource {
-    public var request: Token.Request? { nil }
-    public func setRequest(_: Token.Request) {}
-    public func clearRequest() {}
-
-    public func generate() async throws -> Token.Response { self }
+    public func fetch(_: Token.Request) async throws -> Token.Response {
+        self
+    }
 }
 
 // MARK: - Endpoint
@@ -126,18 +123,16 @@ public extension TokenEndpoint {
     var method: String { "POST" }
     var headers: [String: String] { [:] }
 
-    func generate() async throws -> Token.Response {
+    func fetch(_ request: Token.Request) async throws -> Token.Response {
         var urlRequest = URLRequest(url: url)
 
         urlRequest.httpMethod = method
         for (key, value) in headers {
             urlRequest.addValue(value, forHTTPHeaderField: key)
         }
-        urlRequest.httpBody = try await JSONEncoder().encode(request)
+        urlRequest.httpBody = try JSONEncoder().encode(request)
 
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
-
-        try Task.checkCancellation()
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw LiveKitError(.network, message: "Error generating token from the token server, no response")
@@ -164,20 +159,7 @@ public actor CachingTokenSource: TokenSource, Loggable {
     /// - Returns: `true` if the cached credentials are still valid, `false` otherwise
     public typealias TokenValidator = (Token.Request, Token.Response) -> Bool
 
-    public var request: Token.Request? {
-        get async { await source.request }
-    }
-
-    public func setRequest(_ request: Token.Request) async {
-        await source.setRequest(request)
-    }
-
-    public func clearRequest() async {
-        await source.clearRequest()
-        await store.clear()
-    }
-
-    private var source: TokenSource
+    private let source: TokenSource
     private let store: TokenStore
     private let validator: TokenValidator
 
@@ -196,10 +178,9 @@ public actor CachingTokenSource: TokenSource, Loggable {
         self.validator = validator
     }
 
-    public func generate() async throws -> Token.Response {
-        let request = await request ?? .init()
-
-        if let (cachedRequest, cachedResponse) = await store.retrieve(), cachedRequest == request,
+    public func fetch(_ request: Token.Request) async throws -> Token.Response {
+        if let (cachedRequest, cachedResponse) = await store.retrieve(),
+           cachedRequest == request,
            validator(cachedRequest, cachedResponse)
         {
             log("Using cached credentials", .debug)
@@ -207,18 +188,20 @@ public actor CachingTokenSource: TokenSource, Loggable {
         }
 
         log("Requesting new credentials", .debug)
-        let response = try await source.generate()
-
-        guard validator(request, response) else {
-            throw LiveKitError(.network, message: "Invalid credentials")
-        }
-
+        let response = try await source.fetch(request)
         await store.store((request, response))
         return response
     }
 
-    var cachedResponse: Token.Response? {
-        get async { await store.retrieve()?.1 }
+    /// Invalidate the cached credentials, forcing a fresh fetch on the next request.
+    public func invalidate() async {
+        await store.clear()
+    }
+
+    /// Get the cached credentials
+    /// - Returns: The cached token if found, nil otherwise
+    public func cachedToken() async -> Token.Response? {
+        await store.retrieve()?.1
     }
 }
 
