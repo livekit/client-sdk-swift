@@ -25,15 +25,6 @@ public struct Sandbox: TokenEndpoint {
         ["X-Sandbox-ID": id]
     }
 
-    public var request: Token.Request?
-    public mutating func setRequest(_ request: Token.Request) {
-        self.request = request
-    }
-
-    public mutating func clearRequest() {
-        request = nil
-    }
-
     /// The sandbox ID provided by LiveKit Cloud.
     public let id: String
 
