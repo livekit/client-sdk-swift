@@ -18,30 +18,36 @@
 @testable import LiveKit
 import XCTest
 
-class AudioEngineAvailabilityTests: LKTestCase {
-    // Check if audio engine will stop when availability is set to .none,
-    // then resume (restart) when availability is set back to .default.
-    func testRecording() async throws {
+class AudioEnginePermissionTests: LKTestCase {
+    #if os(iOS) || os(visionOS) || os(tvOS)
+    // Check if audio engine will fail to start instead of crashing when `AVAudioSession.category` isn't
+    // configured correctly. Only for non-macOS platforms.
+    func testAudioSessionPermission() async throws {
         // Test without enabling VP
         try AudioManager.shared.setVoiceProcessingEnabled(false)
 
         // First check
         XCTAssertFalse(AudioManager.shared.isEngineRunning)
 
-        // Start
-        try AudioManager.shared.startLocalRecording()
-        XCTAssertTrue(AudioManager.shared.isEngineRunning)
+        // Set no engine observer
+        AudioManager.shared.set(engineObservers: [])
 
-        // Disable both input & output
-        try AudioManager.shared.setEngineAvailability(.none)
+        // Attempt to start, should fail
+        XCTAssertThrowsError(try AudioManager.shared.startLocalRecording())
         XCTAssertFalse(AudioManager.shared.isEngineRunning)
 
-        // Re-enable both input & output (default)
-        try AudioManager.shared.setEngineAvailability(.default)
+        // Set audio session engine observers
+        AudioManager.shared.set(engineObservers: [AudioSessionEngineObserver()])
+
+        // Attempt to start
+        try AudioManager.shared.startLocalRecording()
         XCTAssertTrue(AudioManager.shared.isEngineRunning)
 
         // Stop
         try AudioManager.shared.stopLocalRecording()
         XCTAssertFalse(AudioManager.shared.isEngineRunning)
+
+        print("Category: \(AVAudioSession.sharedInstance().category)")
     }
+    #endif
 }

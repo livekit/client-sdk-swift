@@ -303,16 +303,6 @@ class AudioEngineTests: LKTestCase, @unchecked Sendable {
     }
     #endif
 
-    func testFailingPublish() async throws {
-        AudioManager.shared.set(engineObservers: [FailingEngineObserver()])
-        // Should fail
-        // swiftformat:disable redundantSelf hoistAwait
-        await XCTAssertThrowsErrorAsync(try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
-            print("Publishing mic...")
-            try await rooms[0].localParticipant.setMicrophone(enabled: true)
-        })
-    }
-
     // Test if audio engine can start while another AVAudioEngine is running with VP enabled.
     func testMultipleAudioEngine() async throws {
         // Start sample audio engine with VP.
@@ -340,15 +330,6 @@ class AudioEngineTests: LKTestCase, @unchecked Sendable {
 
         // Render for 5 seconds...
         try? await Task.sleep(nanoseconds: 5 * 1_000_000_000)
-    }
-}
-
-final class FailingEngineObserver: AudioEngineObserver, @unchecked Sendable {
-    var next: (any LiveKit.AudioEngineObserver)?
-
-    func engineWillEnable(_: AVAudioEngine, isPlayoutEnabled _: Bool, isRecordingEnabled _: Bool) -> Int {
-        // Fail
-        -4101
     }
 }
 
