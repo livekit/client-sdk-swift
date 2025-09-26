@@ -134,6 +134,7 @@ extension ConnectionState: CustomStringConvertible {
         case .connecting: ".connecting"
         case .reconnecting: ".reconnecting"
         case .connected: ".connected"
+        case .disconnecting: ".disconnecting"
         }
     }
 }
