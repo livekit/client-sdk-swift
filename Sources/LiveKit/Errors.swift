@@ -55,6 +55,10 @@ public enum LiveKitErrorType: Int, Sendable {
     case audioSession = 802
 
     case codecNotSupported = 901
+
+    // LiveKit Cloud
+    case onlyForCloud = 1001
+    case regionUrlProvider = 1002
 }
 
 extension LiveKitErrorType: CustomStringConvertible {
