@@ -86,9 +86,9 @@ extension LKTestCase {
     }
 
     // Set up variable number of Rooms
-    func withRooms(_ options: [RoomTestingOptions] = [],
-                   sharedKey: String = UUID().uuidString,
-                   _ block: @escaping ([Room]) async throws -> Void) async throws
+    func withRooms<T>(_ options: [RoomTestingOptions] = [],
+                      sharedKey: String = UUID().uuidString,
+                      _ block: @escaping ([Room]) async throws -> T) async throws -> T
     {
         let e2eeOptions = E2EEOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
 
@@ -180,7 +180,7 @@ extension LKTestCase {
 
         let allRooms = rooms.map(\.room)
         // Execute block
-        try await block(allRooms)
+        let result = try await block(allRooms)
 
         // Disconnect all Rooms concurrently
         try await withThrowingTaskGroup(of: Void.self) { group in
@@ -191,6 +191,8 @@ extension LKTestCase {
             }
             try await group.waitForAll()
         }
+
+        return result
     }
 }
 
