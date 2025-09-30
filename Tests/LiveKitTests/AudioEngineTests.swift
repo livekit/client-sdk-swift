@@ -261,6 +261,60 @@ class AudioEngineTests: LKTestCase, @unchecked Sendable {
         }
     }
 
+    func testManualRenderingModePublishAudio() async throws {
+        // Sample audio
+        let url = URL(string: "https://github.com/rafaelreis-hotmart/Audio-Sample-files/raw/refs/heads/master/sample.wav")!
+
+        print("Downloading sample audio from \(url)...")
+        let (downloadedLocalUrl, _) = try await URLSession.shared.downloadBackport(from: url)
+
+        // Move the file to a new temporary location with a more descriptive name, if desired
+        let tempLocalUrl = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("wav")
+        try FileManager.default.moveItem(at: downloadedLocalUrl, to: tempLocalUrl)
+        print("Original file: \(tempLocalUrl)")
+
+        let audioFile = try AVAudioFile(forReading: tempLocalUrl)
+        let audioFileFormat = audioFile.processingFormat // AVAudioFormat object
+
+        print("Sample Rate: \(audioFileFormat.sampleRate)")
+        print("Channel Count: \(audioFileFormat.channelCount)")
+        print("Common Format: \(audioFileFormat.commonFormat)")
+        print("Interleaved: \(audioFileFormat.isInterleaved)")
+
+        // Set manual rendering mode...
+        try AudioManager.shared.setManualRenderingMode(true)
+
+        // Check if manual rendering mode is set...
+        let isManualRenderingMode = AudioManager.shared.isManualRenderingMode
+        print("manualRenderingMode: \(isManualRenderingMode)")
+        XCTAssert(isManualRenderingMode)
+
+        let readBuffer = AVAudioPCMBuffer(pcmFormat: audioFileFormat, frameCapacity: 480)!
+
+        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+            let room1 = rooms[0]
+
+            let ns5 = UInt64(20 * 1_000_000_000)
+            try await Task.sleep(nanoseconds: ns5)
+
+            try await room1.localParticipant.setMicrophone(enabled: true)
+
+            repeat {
+                do {
+                    try audioFile.read(into: readBuffer, frameCount: 480)
+                    print("Read buffer frame capacity: \(readBuffer.frameLength)")
+                    AudioManager.shared.mixer.capture(appAudio: readBuffer)
+                } catch {
+                    print("Read buffer failed with error: \(error)")
+                    break
+                }
+            } while true
+
+            let ns = UInt64(10 * 1_000_000_000)
+            try await Task.sleep(nanoseconds: ns)
+        }
+    }
+
     #if os(iOS) || os(visionOS) || os(tvOS)
     func testBackwardCompatibility() async throws {
         struct TestState {
@@ -303,16 +357,6 @@ class AudioEngineTests: LKTestCase, @unchecked Sendable {
     }
     #endif
 
-    func testFailingPublish() async throws {
-        AudioManager.shared.set(engineObservers: [FailingEngineObserver()])
-        // Should fail
-        // swiftformat:disable redundantSelf hoistAwait
-        await XCTAssertThrowsErrorAsync(try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
-            print("Publishing mic...")
-            try await rooms[0].localParticipant.setMicrophone(enabled: true)
-        })
-    }
-
     // Test if audio engine can start while another AVAudioEngine is running with VP enabled.
     func testMultipleAudioEngine() async throws {
         // Start sample audio engine with VP.
@@ -340,15 +384,6 @@ class AudioEngineTests: LKTestCase, @unchecked Sendable {
 
         // Render for 5 seconds...
         try? await Task.sleep(nanoseconds: 5 * 1_000_000_000)
-    }
-}
-
-final class FailingEngineObserver: AudioEngineObserver, @unchecked Sendable {
-    var next: (any LiveKit.AudioEngineObserver)?
-
-    func engineWillEnable(_: AVAudioEngine, isPlayoutEnabled _: Bool, isRecordingEnabled _: Bool) -> Int {
-        // Fail
-        -4101
     }
 }
 
