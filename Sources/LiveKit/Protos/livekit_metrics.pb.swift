@@ -192,7 +192,7 @@ struct Livekit_MetricsBatch: Sendable {
   /// This is useful for storing participant identities, track names, etc.
   /// There is also a predefined list of labels that can be used to reference common metrics.
   /// They have reserved indices from 0 to (METRIC_LABEL_PREDEFINED_MAX_VALUE - 1).
-  /// Indexes pointing at str_data should start from METRIC_LABEL_PREDEFINED_MAX_VALUE, 
+  /// Indexes pointing at str_data should start from METRIC_LABEL_PREDEFINED_MAX_VALUE,
   /// such that str_data[0] == index of METRIC_LABEL_PREDEFINED_MAX_VALUE.
   var strData: [String] = []
 
@@ -314,6 +314,29 @@ struct Livekit_EventMetric: Sendable {
   fileprivate var _endTimestampMs: Int64? = nil
   fileprivate var _normalizedStartTimestamp: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
   fileprivate var _normalizedEndTimestamp: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+}
+
+struct Livekit_MetricsRecordingHeader: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var roomID: String = String()
+
+  var enableUserDataTraining: Bool {
+    get {return _enableUserDataTraining ?? false}
+    set {_enableUserDataTraining = newValue}
+  }
+  /// Returns true if `enableUserDataTraining` has been explicitly set.
+  var hasEnableUserDataTraining: Bool {return self._enableUserDataTraining != nil}
+  /// Clears the value of `enableUserDataTraining`. Subsequent reads from it will return its default value.
+  mutating func clearEnableUserDataTraining() {self._enableUserDataTraining = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _enableUserDataTraining: Bool? = nil
 }
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
@@ -541,6 +564,45 @@ extension Livekit_EventMetric: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
     if lhs._normalizedEndTimestamp != rhs._normalizedEndTimestamp {return false}
     if lhs.metadata != rhs.metadata {return false}
     if lhs.rid != rhs.rid {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".MetricsRecordingHeader"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}room_id\0\u{3}enable_user_data_training\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.roomID) }()
+      case 2: try { try decoder.decodeSingularBoolField(value: &self._enableUserDataTraining) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if !self.roomID.isEmpty {
+      try visitor.visitSingularStringField(value: self.roomID, fieldNumber: 1)
+    }
+    try { if let v = self._enableUserDataTraining {
+      try visitor.visitSingularBoolField(value: v, fieldNumber: 2)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_MetricsRecordingHeader, rhs: Livekit_MetricsRecordingHeader) -> Bool {
+    if lhs.roomID != rhs.roomID {return false}
+    if lhs._enableUserDataTraining != rhs._enableUserDataTraining {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
