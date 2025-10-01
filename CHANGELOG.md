@@ -1,10 +1,11 @@
 # Changelog
 
-## [2.7.3] - 2025-09-30
+## [2.8.0] - 2025-10-01
 
 ### Added
 
-- audio engine availability control
+- Added support for data channel encryption, deprecated existing E2EE options
+- Added audio engine availability control
 - Added .disconnected connection state
 
 ### Changed
