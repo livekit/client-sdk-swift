@@ -32,6 +32,9 @@ public protocol StreamInfo: Sendable {
 
     /// Additional attributes as needed for your application.
     var attributes: [String: String] { get }
+
+    /// The encryption type used for this stream.
+    var encryptionType: EncryptionType { get }
 }
 
 /// Information about a text data stream.
@@ -42,6 +45,7 @@ public final class TextStreamInfo: NSObject, StreamInfo {
     public let timestamp: Date
     public let totalLength: Int?
     public let attributes: [String: String]
+    public let encryptionType: EncryptionType
 
     @objc(TextStreamInfoOperationType)
     public enum OperationType: Int, Sendable {
@@ -63,6 +67,7 @@ public final class TextStreamInfo: NSObject, StreamInfo {
         timestamp: Date,
         totalLength: Int?,
         attributes: [String: String],
+        encryptionType: EncryptionType,
         operationType: OperationType,
         version: Int,
         replyToStreamID: String?,
@@ -74,6 +79,7 @@ public final class TextStreamInfo: NSObject, StreamInfo {
         self.timestamp = timestamp
         self.totalLength = totalLength
         self.attributes = attributes
+        self.encryptionType = encryptionType
         self.operationType = operationType
         self.version = version
         self.replyToStreamID = replyToStreamID
@@ -90,6 +96,7 @@ public final class ByteStreamInfo: NSObject, StreamInfo {
     public let timestamp: Date
     public let totalLength: Int?
     public let attributes: [String: String]
+    public let encryptionType: EncryptionType
 
     /// The MIME type of the stream data.
     public let mimeType: String
@@ -103,6 +110,7 @@ public final class ByteStreamInfo: NSObject, StreamInfo {
         timestamp: Date,
         totalLength: Int?,
         attributes: [String: String],
+        encryptionType: EncryptionType,
         mimeType: String,
         name: String?
     ) {
@@ -112,6 +120,7 @@ public final class ByteStreamInfo: NSObject, StreamInfo {
         self.timestamp = timestamp
         self.totalLength = totalLength
         self.attributes = attributes
+        self.encryptionType = encryptionType
         self.name = name
     }
 }
