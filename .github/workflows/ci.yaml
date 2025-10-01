@@ -179,6 +179,32 @@ jobs:
           name: docs
           path: docs.zip
           retention-days: 1
+  check-protocol:
+    name: Check Protocol
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          
+      - name: Install swift-protobuf
+        run: brew install protobuf swift-protobuf
+        
+      - name: Generate Swift protobuf files
+        run: make proto
+        
+      - name: Check working tree
+        run: |
+          if ! git diff --quiet; then
+            echo "::error::Working tree is not clean after running 'make proto'"
+            echo "The following files have been modified:"
+            git diff --name-only
+            echo ""
+            echo "Please run 'make proto' locally and commit the changes."
+            exit 1
+          else
+            echo "Working tree is clean - all Swift protobuf files are up to date"
+          fi
   check-changes:
     name: Check Changes
     if: github.event_name == 'pull_request'
