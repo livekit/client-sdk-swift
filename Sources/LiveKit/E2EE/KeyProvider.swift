@@ -20,8 +20,10 @@ internal import LiveKitWebRTC
 
 public let defaultRatchetSalt: String = "LKFrameEncryptionKey"
 public let defaultMagicBytes: String = "LK-ROCKS"
+// Disable automatic ratcheting for the default shared key mode
 public let defaultRatchetWindowSize: Int32 = 0
 public let defaultFailureTolerance: Int32 = -1
+public let defaultKeyRingSize: Int32 = 16
 
 @objc
 public final class KeyProviderOptions: NSObject, Sendable {
@@ -40,17 +42,22 @@ public final class KeyProviderOptions: NSObject, Sendable {
     @objc
     public let failureTolerance: Int32
 
+    @objc
+    public let keyRingSize: Int32
+
     public init(sharedKey: Bool = true,
                 ratchetSalt: Data = defaultRatchetSalt.data(using: .utf8)!,
                 ratchetWindowSize: Int32 = defaultRatchetWindowSize,
                 uncryptedMagicBytes: Data = defaultMagicBytes.data(using: .utf8)!,
-                failureTolerance: Int32 = defaultFailureTolerance)
+                failureTolerance: Int32 = defaultFailureTolerance,
+                keyRingSize: Int32 = defaultKeyRingSize)
     {
         self.sharedKey = sharedKey
         self.ratchetSalt = ratchetSalt
         self.ratchetWindowSize = ratchetWindowSize
         self.uncryptedMagicBytes = uncryptedMagicBytes
         self.failureTolerance = failureTolerance
+        self.keyRingSize = keyRingSize
     }
 
     // MARK: - Equal
@@ -61,7 +68,8 @@ public final class KeyProviderOptions: NSObject, Sendable {
             ratchetSalt == other.ratchetSalt &&
             ratchetWindowSize == other.ratchetWindowSize &&
             uncryptedMagicBytes == other.uncryptedMagicBytes &&
-            failureTolerance == other.failureTolerance
+            failureTolerance == other.failureTolerance &&
+            keyRingSize == other.keyRingSize
     }
 
     override public var hash: Int {
@@ -71,6 +79,7 @@ public final class KeyProviderOptions: NSObject, Sendable {
         hasher.combine(ratchetWindowSize)
         hasher.combine(uncryptedMagicBytes)
         hasher.combine(failureTolerance)
+        hasher.combine(keyRingSize)
         return hasher.finalize()
     }
 }
@@ -84,6 +93,16 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
 
     let rtcKeyProvider: LKRTCFrameCryptorKeyProvider
 
+    // MARK: - State
+
+    struct State {
+        var currentKeyIndex: Int32 = 0
+    }
+
+    private let _state = StateSync(State())
+
+    // MARK: Init
+
     public init(isSharedKey: Bool, sharedKey: String? = nil) {
         options = KeyProviderOptions(sharedKey: isSharedKey)
         rtcKeyProvider = LKRTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
@@ -91,7 +110,7 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
                                                       sharedKeyMode: isSharedKey,
                                                       uncryptedMagicBytes: options.uncryptedMagicBytes,
                                                       failureTolerance: options.failureTolerance,
-                                                      keyRingSize: 16)
+                                                      keyRingSize: options.keyRingSize)
         if isSharedKey, sharedKey != nil {
             let keyData = sharedKey!.data(using: .utf8)!
             rtcKeyProvider.setSharedKey(keyData, with: 0)
@@ -103,28 +122,37 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
         rtcKeyProvider = LKRTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
                                                       ratchetWindowSize: options.ratchetWindowSize,
                                                       sharedKeyMode: options.sharedKey,
-                                                      uncryptedMagicBytes: options.uncryptedMagicBytes)
+                                                      uncryptedMagicBytes: options.uncryptedMagicBytes,
+                                                      failureTolerance: options.failureTolerance,
+                                                      keyRingSize: options.keyRingSize)
     }
 
-    public func setKey(key: String, participantId: String? = nil, index: Int32? = 0) {
+    // MARK: - Key management
+
+    public func setKey(key: String, participantId: String? = nil, index: Int32? = nil) {
+        let targetIndex = index ?? getCurrentKeyIndex()
+
         if options.sharedKey {
             let keyData = key.data(using: .utf8)!
-            rtcKeyProvider.setSharedKey(keyData, with: index ?? 0)
-            return
+            rtcKeyProvider.setSharedKey(keyData, with: targetIndex)
+        } else {
+            if participantId == nil {
+                log("setKey: Please provide valid participantId for non-SharedKey mode.")
+                return
+            }
+
+            let keyData = key.data(using: .utf8)!
+            rtcKeyProvider.setKey(keyData, with: targetIndex, forParticipant: participantId!)
         }
 
-        if participantId == nil {
-            log("setKey: Please provide valid participantId for non-SharedKey mode.")
-            return
-        }
-
-        let keyData = key.data(using: .utf8)!
-        rtcKeyProvider.setKey(keyData, with: index!, forParticipant: participantId!)
+        setCurrentKeyIndex(targetIndex)
     }
 
-    public func ratchetKey(participantId: String? = nil, index: Int32? = 0) -> Data? {
+    public func ratchetKey(participantId: String? = nil, index: Int32? = nil) -> Data? {
+        let targetIndex = index ?? getCurrentKeyIndex()
+
         if options.sharedKey {
-            return rtcKeyProvider.ratchetSharedKey(index ?? 0)
+            return rtcKeyProvider.ratchetSharedKey(targetIndex)
         }
 
         if participantId == nil {
@@ -132,12 +160,14 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
             return nil
         }
 
-        return rtcKeyProvider.ratchetKey(participantId!, with: index ?? 0)
+        return rtcKeyProvider.ratchetKey(participantId!, with: targetIndex)
     }
 
-    public func exportKey(participantId: String? = nil, index: Int32? = 0) -> Data? {
+    public func exportKey(participantId: String? = nil, index: Int32? = nil) -> Data? {
+        let targetIndex = index ?? getCurrentKeyIndex()
+
         if options.sharedKey {
-            return rtcKeyProvider.exportSharedKey(index ?? 0)
+            return rtcKeyProvider.exportSharedKey(targetIndex)
         }
 
         if participantId == nil {
@@ -145,11 +175,21 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
             return nil
         }
 
-        return rtcKeyProvider.exportKey(participantId!, with: index ?? 0)
+        return rtcKeyProvider.exportKey(participantId!, with: targetIndex)
     }
 
     public func setSifTrailer(trailer: Data) {
         rtcKeyProvider.setSifTrailer(trailer)
+    }
+
+    @objc
+    public func getCurrentKeyIndex() -> Int32 {
+        _state.currentKeyIndex
+    }
+
+    @objc
+    public func setCurrentKeyIndex(_ index: Int32) {
+        _state.mutate { $0.currentKeyIndex = index % options.keyRingSize }
     }
 
     // MARK: - Equal
