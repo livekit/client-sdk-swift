@@ -458,7 +458,7 @@ extension LocalParticipant {
         log("[Publish] Added transceiver...")
 
         // Set codec...
-        transceiver.set(preferredVideoCodec: videoCodec)
+        try transceiver.set(preferredVideoCodec: videoCodec)
 
         let sender = transceiver.sender
 
@@ -635,7 +635,7 @@ extension LocalParticipant {
                                                          name: addTrackName,
                                                          type: track.kind.toPBType(),
                                                          source: track.source.toPBType(),
-                                                         encryption: room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none,
+                                                         encryption: room.e2eeManager?.frameEncryptionType.toPBType() ?? .none,
                                                          populatorFunc)
             }
 
@@ -667,7 +667,7 @@ extension LocalParticipant {
                     }
 
                     if let preferredCodec = publishOptions.preferredCodec {
-                        transceiver.set(preferredVideoCodec: preferredCodec)
+                        try transceiver.set(preferredVideoCodec: preferredCodec)
                     }
                 }
 
@@ -693,8 +693,11 @@ extension LocalParticipant {
 
             // At this point at least 1 audio frame should be generated to continue
             if let track = track as? LocalAudioTrack {
-                log("[Publish] Waiting for audio frame...")
-                try await track.startWaitingForFrames()
+                // Only wait for frames if audio engine is allowed to start
+                if AudioManager.shared.engineAvailability.isInputAvailable {
+                    log("[Publish] Waiting for audio frame...")
+                    try await track.startWaitingForFrames()
+                }
             }
 
             if track is LocalVideoTrack {

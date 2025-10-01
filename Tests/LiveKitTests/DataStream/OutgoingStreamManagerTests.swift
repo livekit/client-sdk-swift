@@ -64,6 +64,8 @@ class OutgoingStreamManagerTests: LKTestCase {
 
             default: XCTFail("Produced unexpected packet type")
             }
+        } encryptionProvider: {
+            .none
         }
 
         let writer = try await manager.streamBytes(
@@ -128,6 +130,8 @@ class OutgoingStreamManagerTests: LKTestCase {
 
             default: XCTFail("Produced unexpected packet type")
             }
+        } encryptionProvider: {
+            .none
         }
 
         let writer = try await manager.streamText(
@@ -158,6 +162,8 @@ class OutgoingStreamManagerTests: LKTestCase {
                 throw testError
             default: break
             }
+        } encryptionProvider: {
+            .none
         }
 
         let writer = try await manager.streamText(
