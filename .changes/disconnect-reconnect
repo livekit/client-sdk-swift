@@ -1,1 +1,0 @@
-patch type="fixed" "Fixed race condition between reconnect and disconnect leading to failed disconnects"
