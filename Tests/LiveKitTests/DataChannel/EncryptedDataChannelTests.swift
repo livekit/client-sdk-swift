@@ -138,7 +138,7 @@ class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
             await self.fulfillment(of: [self.decryptionErrorExpectation], timeout: 5)
 
             XCTAssertNotNil(self.lastDecryptionError, "Decryption error should have occurred")
-            XCTAssertNil(self.receivedData, "No data should be received when decryption fails")
+            XCTAssert(self.receivedData.isEmpty, "No data should be received when decryption fails")
         }
     }
 
@@ -188,7 +188,7 @@ class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
             await self.fulfillment(of: [self.decryptionErrorExpectation], timeout: 5)
 
             XCTAssertNotNil(self.lastDecryptionError, "Decryption error should have occurred with mismatched per-participant keys")
-            XCTAssertNil(self.receivedData, "No data should be received when per-participant key decryption fails")
+            XCTAssert(self.receivedData.isEmpty, "No data should be received when per-participant key decryption fails")
         }
     }
 
