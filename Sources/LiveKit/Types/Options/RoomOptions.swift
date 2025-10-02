@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public final class RoomOptions: NSObject, Sendable {
+public final class RoomOptions: NSObject, Sendable, Loggable {
     // default options for capturing
     @objc
     public let defaultCameraCaptureOptions: CameraCaptureOptions
@@ -101,34 +101,6 @@ public final class RoomOptions: NSObject, Sendable {
                 stopLocalTrackOnUnpublish: Bool = true,
                 suspendLocalVideoTracksInBackground: Bool = true,
                 e2eeOptions: E2EEOptions? = nil,
-                reportRemoteTrackStatistics: Bool = false)
-    {
-        self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
-        self.defaultScreenShareCaptureOptions = defaultScreenShareCaptureOptions
-        self.defaultAudioCaptureOptions = defaultAudioCaptureOptions
-        self.defaultVideoPublishOptions = defaultVideoPublishOptions
-        self.defaultAudioPublishOptions = defaultAudioPublishOptions
-        self.defaultDataPublishOptions = defaultDataPublishOptions
-        self.adaptiveStream = adaptiveStream
-        self.dynacast = dynacast
-        self.stopLocalTrackOnUnpublish = stopLocalTrackOnUnpublish
-        self.suspendLocalVideoTracksInBackground = suspendLocalVideoTracksInBackground
-        self.e2eeOptions = e2eeOptions
-        encryptionOptions = nil // don't pass both
-        self.reportRemoteTrackStatistics = reportRemoteTrackStatistics
-    }
-
-    @objc
-    public init(defaultCameraCaptureOptions: CameraCaptureOptions = CameraCaptureOptions(),
-                defaultScreenShareCaptureOptions: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
-                defaultAudioCaptureOptions: AudioCaptureOptions = AudioCaptureOptions(),
-                defaultVideoPublishOptions: VideoPublishOptions = VideoPublishOptions(),
-                defaultAudioPublishOptions: AudioPublishOptions = AudioPublishOptions(),
-                defaultDataPublishOptions: DataPublishOptions = DataPublishOptions(),
-                adaptiveStream: Bool = false,
-                dynacast: Bool = false,
-                stopLocalTrackOnUnpublish: Bool = true,
-                suspendLocalVideoTracksInBackground: Bool = true,
                 encryptionOptions: EncryptionOptions? = nil,
                 reportRemoteTrackStatistics: Bool = false)
     {
@@ -142,9 +114,15 @@ public final class RoomOptions: NSObject, Sendable {
         self.dynacast = dynacast
         self.stopLocalTrackOnUnpublish = stopLocalTrackOnUnpublish
         self.suspendLocalVideoTracksInBackground = suspendLocalVideoTracksInBackground
-        e2eeOptions = nil // don't pass both
+        self.e2eeOptions = e2eeOptions
         self.encryptionOptions = encryptionOptions
         self.reportRemoteTrackStatistics = reportRemoteTrackStatistics
+
+        super.init()
+
+        if e2eeOptions != nil, encryptionOptions != nil {
+            log("Specifying both 'e2eeOptions' and 'encryptionOptions' is not supported. Migrate to 'EncryptionOptions' to enable data channel encryption (requires support from all platforms).", .error)
+        }
     }
 
     // MARK: - Equal
