@@ -40,6 +40,7 @@ enum Livekit_AudioCodec: SwiftProtobuf.Enum, Swift.CaseIterable {
   case defaultAc // = 0
   case opus // = 1
   case aac // = 2
+  case acMp3 // = 3
   case UNRECOGNIZED(Int)
 
   init() {
@@ -51,6 +52,7 @@ enum Livekit_AudioCodec: SwiftProtobuf.Enum, Swift.CaseIterable {
     case 0: self = .defaultAc
     case 1: self = .opus
     case 2: self = .aac
+    case 3: self = .acMp3
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -60,6 +62,7 @@ enum Livekit_AudioCodec: SwiftProtobuf.Enum, Swift.CaseIterable {
     case .defaultAc: return 0
     case .opus: return 1
     case .aac: return 2
+    case .acMp3: return 3
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -69,6 +72,7 @@ enum Livekit_AudioCodec: SwiftProtobuf.Enum, Swift.CaseIterable {
     .defaultAc,
     .opus,
     .aac,
+    .acMp3,
   ]
 
 }
@@ -705,7 +709,7 @@ struct Livekit_ListUpdate: Sendable {
   var add: [String] = []
 
   /// delete items from a list
-  var del: [String] = []
+  var remove: [String] = []
 
   /// sets the list to an empty list
   var clear: Bool = false
@@ -1316,6 +1320,7 @@ struct Livekit_VideoLayer: Sendable {
     case unused // = 0
     case oneSpatialLayerPerStream // = 1
     case multipleSpatialLayersPerStream // = 2
+    case oneSpatialLayerPerStreamIncompleteRtcpSr // = 3
     case UNRECOGNIZED(Int)
 
     init() {
@@ -1327,6 +1332,7 @@ struct Livekit_VideoLayer: Sendable {
       case 0: self = .unused
       case 1: self = .oneSpatialLayerPerStream
       case 2: self = .multipleSpatialLayersPerStream
+      case 3: self = .oneSpatialLayerPerStreamIncompleteRtcpSr
       default: self = .UNRECOGNIZED(rawValue)
       }
     }
@@ -1336,6 +1342,7 @@ struct Livekit_VideoLayer: Sendable {
       case .unused: return 0
       case .oneSpatialLayerPerStream: return 1
       case .multipleSpatialLayersPerStream: return 2
+      case .oneSpatialLayerPerStreamIncompleteRtcpSr: return 3
       case .UNRECOGNIZED(let i): return i
       }
     }
@@ -1345,6 +1352,7 @@ struct Livekit_VideoLayer: Sendable {
       .unused,
       .oneSpatialLayerPerStream,
       .multipleSpatialLayersPerStream,
+      .oneSpatialLayerPerStreamIncompleteRtcpSr,
     ]
 
   }
@@ -2919,12 +2927,26 @@ struct Livekit_WebhookConfig: Sendable {
   init() {}
 }
 
+struct Livekit_SubscribedAudioCodec: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var codec: String = String()
+
+  var enabled: Bool = false
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "livekit"
 
 extension Livekit_AudioCodec: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0DEFAULT_AC\0\u{1}OPUS\0\u{1}AAC\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0DEFAULT_AC\0\u{1}OPUS\0\u{1}AAC\0\u{1}AC_MP3\0")
 }
 
 extension Livekit_VideoCodec: SwiftProtobuf._ProtoNameProviding {
@@ -3042,7 +3064,7 @@ extension Livekit_TokenPagination: SwiftProtobuf.Message, SwiftProtobuf._Message
 
 extension Livekit_ListUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ListUpdate"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}set\0\u{1}add\0\u{1}del\0\u{1}clear\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}set\0\u{1}add\0\u{1}remove\0\u{1}clear\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3052,7 +3074,7 @@ extension Livekit_ListUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
       switch fieldNumber {
       case 1: try { try decoder.decodeRepeatedStringField(value: &self.set) }()
       case 2: try { try decoder.decodeRepeatedStringField(value: &self.add) }()
-      case 3: try { try decoder.decodeRepeatedStringField(value: &self.del) }()
+      case 3: try { try decoder.decodeRepeatedStringField(value: &self.remove) }()
       case 4: try { try decoder.decodeSingularBoolField(value: &self.clear) }()
       default: break
       }
@@ -3066,8 +3088,8 @@ extension Livekit_ListUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     if !self.add.isEmpty {
       try visitor.visitRepeatedStringField(value: self.add, fieldNumber: 2)
     }
-    if !self.del.isEmpty {
-      try visitor.visitRepeatedStringField(value: self.del, fieldNumber: 3)
+    if !self.remove.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.remove, fieldNumber: 3)
     }
     if self.clear != false {
       try visitor.visitSingularBoolField(value: self.clear, fieldNumber: 4)
@@ -3078,7 +3100,7 @@ extension Livekit_ListUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
   static func ==(lhs: Livekit_ListUpdate, rhs: Livekit_ListUpdate) -> Bool {
     if lhs.set != rhs.set {return false}
     if lhs.add != rhs.add {return false}
-    if lhs.del != rhs.del {return false}
+    if lhs.remove != rhs.remove {return false}
     if lhs.clear != rhs.clear {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
@@ -3858,7 +3880,7 @@ extension Livekit_VideoLayer: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
 }
 
 extension Livekit_VideoLayer.Mode: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0MODE_UNUSED\0\u{1}ONE_SPATIAL_LAYER_PER_STREAM\0\u{1}MULTIPLE_SPATIAL_LAYERS_PER_STREAM\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0MODE_UNUSED\0\u{1}ONE_SPATIAL_LAYER_PER_STREAM\0\u{1}MULTIPLE_SPATIAL_LAYERS_PER_STREAM\0\u{1}ONE_SPATIAL_LAYER_PER_STREAM_INCOMPLETE_RTCP_SR\0")
 }
 
 extension Livekit_DataPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
@@ -6355,6 +6377,41 @@ extension Livekit_WebhookConfig: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
   static func ==(lhs: Livekit_WebhookConfig, rhs: Livekit_WebhookConfig) -> Bool {
     if lhs.url != rhs.url {return false}
     if lhs.signingKey != rhs.signingKey {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_SubscribedAudioCodec: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".SubscribedAudioCodec"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}codec\0\u{1}enabled\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.codec) }()
+      case 2: try { try decoder.decodeSingularBoolField(value: &self.enabled) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.codec.isEmpty {
+      try visitor.visitSingularStringField(value: self.codec, fieldNumber: 1)
+    }
+    if self.enabled != false {
+      try visitor.visitSingularBoolField(value: self.enabled, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_SubscribedAudioCodec, rhs: Livekit_SubscribedAudioCodec) -> Bool {
+    if lhs.codec != rhs.codec {return false}
+    if lhs.enabled != rhs.enabled {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

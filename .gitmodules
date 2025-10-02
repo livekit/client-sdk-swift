@@ -1,0 +1,3 @@
+[submodule "protocol"]
+	path = protocol
+	url = ../protocol.git

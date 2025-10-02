@@ -341,20 +341,11 @@ private extension SignalClient {
         case let .pongResp(pongResp):
             await _onReceivedPongResp(pongResp)
 
-        case .subscriptionResponse:
-            log("Received subscriptionResponse message")
-
-        case .requestResponse:
-            log("Received requestResponse message")
-
         case let .trackSubscribed(trackSubscribed):
             _delegate.notifyDetached { await $0.signalClient(self, didSubscribeTrack: Track.Sid(from: trackSubscribed.trackSid)) }
 
-        case .roomMoved:
-            log("Received roomMoved message")
-
-        case .mediaSectionsRequirement:
-            log("Received mediaSectionsRequirement message")
+        default:
+            log("Unhandled signal message: \(message)", .warning)
         }
     }
 }
