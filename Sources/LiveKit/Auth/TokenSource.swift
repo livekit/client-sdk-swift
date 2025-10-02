@@ -88,19 +88,16 @@ public enum Token {
 
 // MARK: - Source
 
-/// Protocol for types that can provide connection credentials.
-/// Implement this protocol to create custom credential providers (e.g., fetching from your backend API).
-public protocol TokenSource: Sendable {
-    /// Fetch connection credentials for the given request.
-    /// - Parameter request: The token request containing room and participant information
-    /// - Returns: A token response containing the server URL and participant token
-    /// - Throws: An error if the token generation fails
+public protocol TokenSourceFixed: Sendable {
+    func fetch() async throws -> Token.Response
+}
+
+public protocol TokenSourceConfigurable: Sendable {
     func fetch(_ request: Token.Request) async throws -> Token.Response
 }
 
-/// `Token.Literal` contains a single set of credentials, hard-coded or acquired from a static source.
-extension Token.Literal: TokenSource {
-    public func fetch(_: Token.Request) async throws -> Token.Response {
+extension Token.Literal: TokenSourceFixed {
+    public func fetch() async throws -> Token.Response {
         self
     }
 }
