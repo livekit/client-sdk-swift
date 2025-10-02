@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public final class RoomOptions: NSObject, Sendable {
+public final class RoomOptions: NSObject, Sendable, Loggable {
     // default options for capturing
     @objc
     public let defaultCameraCaptureOptions: CameraCaptureOptions
@@ -104,10 +104,6 @@ public final class RoomOptions: NSObject, Sendable {
                 encryptionOptions: EncryptionOptions? = nil,
                 reportRemoteTrackStatistics: Bool = false)
     {
-        if e2eeOptions != nil, encryptionOptions != nil {
-            assertionFailure("Specifying both 'e2eeOptions' and 'encryptionOptions' is not supported. Migrate to 'EncryptionOptions' to enable data channel encryption (requires support from all platforms).")
-        }
-
         self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
         self.defaultScreenShareCaptureOptions = defaultScreenShareCaptureOptions
         self.defaultAudioCaptureOptions = defaultAudioCaptureOptions
@@ -121,6 +117,12 @@ public final class RoomOptions: NSObject, Sendable {
         self.e2eeOptions = e2eeOptions
         self.encryptionOptions = encryptionOptions
         self.reportRemoteTrackStatistics = reportRemoteTrackStatistics
+
+        super.init()
+
+        if e2eeOptions != nil, encryptionOptions != nil {
+            log("Specifying both 'e2eeOptions' and 'encryptionOptions' is not supported. Migrate to 'EncryptionOptions' to enable data channel encryption (requires support from all platforms).", .error)
+        }
     }
 
     // MARK: - Equal
