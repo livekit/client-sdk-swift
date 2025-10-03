@@ -19,7 +19,7 @@ import Foundation
 import XCTest
 
 class TokenSourceTests: LKTestCase {
-    actor MockValidJWTSource: TokenSource {
+    actor MockValidJWTSource: TokenSourceConfigurable {
         let serverURL = URL(string: "wss://test.livekit.io")!
         let participantName: String
         var callCount = 0
@@ -28,59 +28,59 @@ class TokenSourceTests: LKTestCase {
             self.participantName = participantName
         }
 
-        func fetch(_ request: Token.Request) async throws -> Token.Response {
+        func fetch(_ options: TokenRequestOptions) async throws -> TokenSourceResponse {
             callCount += 1
 
             let tokenGenerator = TokenGenerator(
                 apiKey: "test-api-key",
                 apiSecret: "test-api-secret",
-                identity: request.participantIdentity ?? "test-identity"
+                identity: options.participantIdentity ?? "test-identity"
             )
-            tokenGenerator.name = request.participantName ?? participantName
-            tokenGenerator.videoGrant = LiveKitJWTPayload.VideoGrant(room: request.roomName ?? "test-room", roomJoin: true)
+            tokenGenerator.name = options.participantName ?? participantName
+            tokenGenerator.videoGrant = LiveKitJWTPayload.VideoGrant(room: options.roomName ?? "test-room", roomJoin: true)
 
             let token = try tokenGenerator.sign()
 
-            return Token.Response(
+            return TokenSourceResponse(
                 serverURL: serverURL,
                 participantToken: token
             )
         }
     }
 
-    actor MockInvalidJWTSource: TokenSource {
+    actor MockInvalidJWTSource: TokenSourceConfigurable {
         let serverURL = URL(string: "wss://test.livekit.io")!
         var callCount = 0
 
-        func fetch(_: Token.Request) async throws -> Token.Response {
+        func fetch(_: TokenRequestOptions) async throws -> TokenSourceResponse {
             callCount += 1
 
-            return Token.Response(
+            return TokenSourceResponse(
                 serverURL: serverURL,
                 participantToken: "invalid.jwt.token"
             )
         }
     }
 
-    actor MockExpiredJWTSource: TokenSource {
+    actor MockExpiredJWTSource: TokenSourceConfigurable {
         let serverURL = URL(string: "wss://test.livekit.io")!
         var callCount = 0
 
-        func fetch(_ request: Token.Request) async throws -> Token.Response {
+        func fetch(_ options: TokenRequestOptions) async throws -> TokenSourceResponse {
             callCount += 1
 
             let tokenGenerator = TokenGenerator(
                 apiKey: "test-api-key",
                 apiSecret: "test-api-secret",
-                identity: request.participantIdentity ?? "test-identity",
+                identity: options.participantIdentity ?? "test-identity",
                 ttl: -60
             )
-            tokenGenerator.name = request.participantName ?? "test-participant"
-            tokenGenerator.videoGrant = LiveKitJWTPayload.VideoGrant(room: request.roomName ?? "test-room", roomJoin: true)
+            tokenGenerator.name = options.participantName ?? "test-participant"
+            tokenGenerator.videoGrant = LiveKitJWTPayload.VideoGrant(room: options.roomName ?? "test-room", roomJoin: true)
 
             let token = try tokenGenerator.sign()
 
-            return Token.Response(
+            return TokenSourceResponse(
                 serverURL: serverURL,
                 participantToken: token
             )
@@ -91,7 +91,7 @@ class TokenSourceTests: LKTestCase {
         let mockSource = MockValidJWTSource(participantName: "alice")
         let cachingSource = CachingTokenSource(mockSource)
 
-        let request = Token.Request(
+        let request = TokenRequestOptions(
             roomName: "test-room",
             participantName: "alice",
             participantIdentity: "alice-id"
@@ -109,7 +109,7 @@ class TokenSourceTests: LKTestCase {
         XCTAssertEqual(response2.participantToken, response1.participantToken)
         XCTAssertEqual(response2.serverURL, response1.serverURL)
 
-        let differentRequest = Token.Request(
+        let differentRequest = TokenRequestOptions(
             roomName: "different-room",
             participantName: "alice",
             participantIdentity: "alice-id"
@@ -129,7 +129,7 @@ class TokenSourceTests: LKTestCase {
         let mockInvalidSource = MockInvalidJWTSource()
         let cachingSource = CachingTokenSource(mockInvalidSource)
 
-        let request = Token.Request(
+        let request = TokenRequestOptions(
             roomName: "test-room",
             participantName: "bob",
             participantIdentity: "bob-id"
@@ -167,7 +167,7 @@ class TokenSourceTests: LKTestCase {
 
         let cachingSource = CachingTokenSource(mockSource, validator: customValidator)
 
-        let charlieRequest = Token.Request(
+        let charlieRequest = TokenRequestOptions(
             roomName: "test-room",
             participantName: "charlie",
             participantIdentity: "charlie-id"
@@ -183,7 +183,7 @@ class TokenSourceTests: LKTestCase {
         XCTAssertEqual(callCount2, 1)
         XCTAssertEqual(response2.participantToken, response1.participantToken)
 
-        let aliceRequest = Token.Request(
+        let aliceRequest = TokenRequestOptions(
             roomName: "test-room",
             participantName: "alice",
             participantIdentity: "alice-id"
@@ -204,7 +204,7 @@ class TokenSourceTests: LKTestCase {
 
         let tokenCachingSource = CachingTokenSource(tokenMockSource, validator: tokenContentValidator)
 
-        let roomRequest = Token.Request(
+        let roomRequest = TokenRequestOptions(
             roomName: "test-room",
             participantName: "dave",
             participantIdentity: "dave-id"
@@ -218,7 +218,7 @@ class TokenSourceTests: LKTestCase {
         let tokenCallCount2 = await tokenMockSource.callCount
         XCTAssertEqual(tokenCallCount2, 1)
 
-        let differentRoomRequest = Token.Request(
+        let differentRoomRequest = TokenRequestOptions(
             roomName: "different-room",
             participantName: "dave",
             participantIdentity: "dave-id"
@@ -237,7 +237,7 @@ class TokenSourceTests: LKTestCase {
         let mockSource = MockValidJWTSource(participantName: "concurrent-test")
         let cachingSource = CachingTokenSource(mockSource)
 
-        let request = Token.Request(
+        let request = TokenRequestOptions(
             roomName: "concurrent-room",
             participantName: "concurrent-user",
             participantIdentity: "concurrent-id"
