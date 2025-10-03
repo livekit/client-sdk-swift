@@ -161,7 +161,7 @@ class TokenSourceTests: LKTestCase {
     func testCustomValidator() async throws {
         let mockSource = MockValidJWTSource(participantName: "charlie")
 
-        let customValidator: CachingTokenSource.TokenValidator = { request, response in
+        let customValidator: CachingTokenSource.Validator = { request, response in
             request.participantName == "charlie" && response.hasValidToken()
         }
 
@@ -198,7 +198,7 @@ class TokenSourceTests: LKTestCase {
         XCTAssertEqual(callCount4, 3)
 
         let tokenMockSource = MockValidJWTSource(participantName: "dave")
-        let tokenContentValidator: CachingTokenSource.TokenValidator = { request, response in
+        let tokenContentValidator: CachingTokenSource.Validator = { request, response in
             request.roomName == "test-room" && response.hasValidToken()
         }
 
