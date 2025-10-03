@@ -16,6 +16,16 @@
 
 import Foundation
 
+// MARK: - Source
+
+public protocol TokenSourceFixed: Sendable {
+    func fetch() async throws -> TokenSourceResponse
+}
+
+public protocol TokenSourceConfigurable: Sendable {
+    func fetch(_ options: TokenRequestOptions) async throws -> TokenSourceResponse
+}
+
 // MARK: - Token
 
 /// Request parameters for generating connection credentials.
@@ -84,49 +94,5 @@ public struct TokenSourceResponse: Decodable, Sendable {
         self.participantToken = participantToken
         self.participantName = participantName
         self.roomName = roomName
-    }
-}
-
-// MARK: - Source
-
-public protocol TokenSourceFixed: Sendable {
-    func fetch() async throws -> TokenSourceResponse
-}
-
-public protocol TokenSourceConfigurable: Sendable {
-    func fetch(_ options: TokenRequestOptions) async throws -> TokenSourceResponse
-}
-
-extension TokenSourceResponse: TokenSourceFixed {
-    public func fetch() async throws -> TokenSourceResponse {
-        self
-    }
-}
-
-// MARK: - Validation
-
-public extension TokenSourceResponse {
-    /// Validates whether the JWT token is still valid.
-    /// - Parameter tolerance: Time tolerance in seconds for token expiration check (default: 60 seconds)
-    /// - Returns: `true` if the token is valid and not expired, `false` otherwise
-    func hasValidToken(withTolerance tolerance: TimeInterval = 60) -> Bool {
-        guard let jwt = jwt() else {
-            return false
-        }
-
-        do {
-            try jwt.nbf.verifyNotBefore()
-            try jwt.exp.verifyNotExpired(currentDate: Date().addingTimeInterval(tolerance))
-        } catch {
-            return false
-        }
-
-        return true
-    }
-
-    /// Extracts the JWT payload from the participant token.
-    /// - Returns: The JWT payload if found, nil otherwise
-    func jwt() -> LiveKitJWTPayload? {
-        LiveKitJWTPayload.fromUnverified(token: participantToken)
     }
 }

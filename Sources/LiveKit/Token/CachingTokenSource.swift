@@ -113,3 +113,31 @@ public actor InMemoryTokenStore: TokenStore {
         cached = nil
     }
 }
+
+// MARK: - Validation
+
+public extension TokenSourceResponse {
+    /// Validates whether the JWT token is still valid.
+    /// - Parameter tolerance: Time tolerance in seconds for token expiration check (default: 60 seconds)
+    /// - Returns: `true` if the token is valid and not expired, `false` otherwise
+    func hasValidToken(withTolerance tolerance: TimeInterval = 60) -> Bool {
+        guard let jwt = jwt() else {
+            return false
+        }
+
+        do {
+            try jwt.nbf.verifyNotBefore()
+            try jwt.exp.verifyNotExpired(currentDate: Date().addingTimeInterval(tolerance))
+        } catch {
+            return false
+        }
+
+        return true
+    }
+
+    /// Extracts the JWT payload from the participant token.
+    /// - Returns: The JWT payload if found, nil otherwise
+    func jwt() -> LiveKitJWTPayload? {
+        LiveKitJWTPayload.fromUnverified(token: participantToken)
+    }
+}
