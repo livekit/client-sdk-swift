@@ -18,11 +18,18 @@ import Foundation
 
 /// Protocol for token servers that fetch credentials via HTTP requests.
 /// Provides a default implementation of `fetch` that can be used to integrate with custom backend token generation endpoints.
-/// - Note: The response is expected to be a `Token.Response` object.
+///
+/// The default implementation:
+/// - Sends a POST request to the specified URL
+/// - Encodes the request parameters as ``TokenRequestOptions`` JSON in the request body
+/// - Includes any custom headers specified by the implementation
+/// - Expects the response to be decoded as ``TokenSourceResponse`` JSON
+/// - Validates HTTP status codes (200-299) and throws appropriate errors for failures
 public protocol EndpointTokenSource: TokenSourceConfigurable {
     /// The URL endpoint for token generation.
+    /// This should point to your backend service that generates LiveKit tokens.
     var url: URL { get }
-    /// The HTTP method to use (defaults to "POST").
+    /// The HTTP method to use for the token request (defaults to "POST").
     var method: String { get }
     /// Additional HTTP headers to include with the request.
     var headers: [String: String] { get }
