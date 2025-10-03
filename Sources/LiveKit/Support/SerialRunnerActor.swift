@@ -21,8 +21,8 @@ actor SerialRunnerActor<Value: Sendable> {
 
     func run(block: @Sendable @escaping () async throws -> Value) async throws -> Value {
         let task = Task { [previousTask] in
-            // Wait for the previous task to complete, but cancel it if needed
-            if let previousTask, !Task.isCancelled {
+            // Always wait for the previous task to maintain serial ordering
+            if let previousTask {
                 // If previous task is still running, wait for it
                 _ = try? await previousTask.value
             }
