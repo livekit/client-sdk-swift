@@ -15,9 +15,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  TESTS: "FunctionTests SDKTests RoomTests PublishDataTests PublishBufferCapturerTests VideoViewTests TrackTests"
-
 jobs:
   build-and-test:
     name: Build & Test
@@ -105,19 +102,36 @@ jobs:
             -scheme LiveKit \
             -destination 'platform=${{ matrix.platform }}' | xcbeautify --renderer github-actions
 
-      # Run all tests in parallel instead of sequentially
       - name: Run Tests
         run: |
-          IFS=' ' read -r -a tests <<< "${{ env.TESTS }}"
-          for test in "${tests[@]}"; do
-            echo "::group::Running test $test"
-            set -o pipefail && xcodebuild test-without-building \
-              -scheme LiveKit \
-              -destination 'platform=${{ matrix.platform }}' \
-              -only-testing:LiveKitTests/$test | xcbeautify --renderer github-actions
-            echo "::endgroup::"
-          done
-
+          set -o pipefail
+          echo "::group::Parsing test plan"
+          ALL_TESTS_OUTPUT=$(xcodebuild test-without-building \
+            -scheme LiveKit \
+            -destination 'platform=${{ matrix.platform }}' \
+            -testPlan LiveKit \
+            -enumerate-tests \
+            -test-enumeration-style flat)
+          
+          DISABLED_TESTS=$(echo "$ALL_TESTS_OUTPUT" | grep "(disabled)" | sed 's/^[[:space:]]*//' | sed 's/ (disabled)//')
+          echo "$DISABLED_TESTS"
+          DISABLED_COUNT=$(echo "$DISABLED_TESTS" | wc -l)
+          echo "Disabled tests count: $DISABLED_COUNT"
+          
+          SKIP_ARGS=""
+          while IFS= read -r test; do
+            if [ -n "$test" ]; then
+              SKIP_ARGS="$SKIP_ARGS -skip-testing $test"
+            fi
+          done <<< "$DISABLED_TESTS"
+          echo "::endgroup::"
+          
+          echo "::group::Running tests (skipping $DISABLED_COUNT)..."
+          xcodebuild test-without-building \
+            -scheme LiveKit \
+            -destination 'platform=${{ matrix.platform }}' \
+            $SKIP_ARGS | xcbeautify --renderer github-actions
+          echo "::endgroup::"
       - name: Build for Release
         if: ${{ matrix.symbol-graph }}
         run: |
