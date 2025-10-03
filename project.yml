@@ -1,0 +1,6 @@
+name: ci
+options:
+  xcodeVersion: 15
+packages:
+  LiveKit:
+    path: .

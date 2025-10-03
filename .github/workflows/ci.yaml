@@ -15,9 +15,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  TESTS: "FunctionTests SDKTests RoomTests PublishDataTests PublishBufferCapturerTests VideoViewTests TrackTests"
-
 jobs:
   build-and-test:
     name: Build & Test
@@ -83,8 +80,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install LiveKit Server
-        run: brew install livekit
+      - name: Install dependencies
+        run: brew install livekit xcodegen
 
       - name: Run LiveKit Server
         run: livekit-server --dev &
@@ -99,25 +96,19 @@ jobs:
       - name: Swift Version
         run: xcrun swift --version
 
-      - name: Build for Testing
-        run: |
-          set -o pipefail && xcodebuild build-for-testing \
-            -scheme LiveKit \
-            -destination 'platform=${{ matrix.platform }}' | xcbeautify --renderer github-actions
-
-      # Run all tests in parallel instead of sequentially
       - name: Run Tests
         run: |
-          IFS=' ' read -r -a tests <<< "${{ env.TESTS }}"
-          for test in "${tests[@]}"; do
-            echo "::group::Running test $test"
-            set -o pipefail && xcodebuild test-without-building \
-              -scheme LiveKit \
-              -destination 'platform=${{ matrix.platform }}' \
-              -only-testing:LiveKitTests/$test | xcbeautify --renderer github-actions
-            echo "::endgroup::"
-          done
-
+          set -o pipefail
+          xcodegen
+          xcodebuild build-for-testing \
+            -project ci.xcodeproj \
+            -scheme LiveKit \
+            -destination 'platform=${{ matrix.platform }}' | xcbeautify --renderer github-actions
+          xcodebuild test-without-building \
+            -project ci.xcodeproj \
+            -scheme LiveKit \
+            -destination 'platform=${{ matrix.platform }}' | xcbeautify --renderer github-actions
+          rm -rf ci.xcodeproj
       - name: Build for Release
         if: ${{ matrix.symbol-graph }}
         run: |
