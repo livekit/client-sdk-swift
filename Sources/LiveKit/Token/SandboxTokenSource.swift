@@ -16,11 +16,11 @@
 
 import Foundation
 
-/// `Sandbox` queries LiveKit Sandbox token server for credentials,
+/// `SandboxTokenSource` queries LiveKit Sandbox [token server](https://cloud.livekit.io/projects/p_/sandbox/templates/token-server) for credentials,
 /// which supports quick prototyping/getting started types of use cases.
-/// - Warning: This token endpoint is **INSECURE** and should **NOT** be used in production.
-public struct Sandbox: TokenEndpoint {
-    public let url = URL(string: "https://cloud-api.livekit.io/api/sandbox/connection-details")!
+/// - Warning: This token source is **INSECURE** and should **NOT** be used in production.
+public struct SandboxTokenSource: EndpointTokenSource {
+    public let url = URL(string: "https://cloud-api.livekit.io/api/v2/sandbox/connection-details")!
     public var headers: [String: String] {
         ["X-Sandbox-ID": id]
     }

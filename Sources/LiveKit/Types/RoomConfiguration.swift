@@ -32,6 +32,8 @@ public struct RoomConfiguration: Encodable, Sendable, Equatable {
     /// Metadata of room
     public let metadata: String?
 
+    // Egress configuration ommited, due to complex serialization
+
     /// Minimum playout delay of subscriber
     public let minPlayoutDelay: UInt32?
 
