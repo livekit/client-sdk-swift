@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TESTS: "FunctionTests SDKTests RoomTests PublishDataTests PublishBufferCapturerTests VideoViewTests TrackTests"
+  TESTS: "LiveKitCoreTests LiveKitObjCTests"
 
 jobs:
   build-and-test:
@@ -105,7 +105,6 @@ jobs:
             -scheme LiveKit \
             -destination 'platform=${{ matrix.platform }}' | xcbeautify --renderer github-actions
 
-      # Run all tests in parallel instead of sequentially
       - name: Run Tests
         run: |
           IFS=' ' read -r -a tests <<< "${{ env.TESTS }}"
@@ -114,7 +113,7 @@ jobs:
             set -o pipefail && xcodebuild test-without-building \
               -scheme LiveKit \
               -destination 'platform=${{ matrix.platform }}' \
-              -only-testing:LiveKitTests/$test | xcbeautify --renderer github-actions
+              -only-testing:$test | xcbeautify --renderer github-actions
             echo "::endgroup::"
           done
 
