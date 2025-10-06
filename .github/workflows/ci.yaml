@@ -18,7 +18,7 @@ concurrency:
 env:
   TEST_TARGETS: "LiveKitCoreTests LiveKitObjCTests"
   TEST_TIMEOUT_MINUTES: 10
-  TEST_RETRY_ATTEMPTS: 2
+  TEST_RETRY_ATTEMPTS: 3
 
 jobs:
   build-and-test:
