@@ -17,7 +17,7 @@ concurrency:
 
 env:
   TEST_TARGETS: "LiveKitCoreTests LiveKitObjCTests"
-  TEST_TIMEOUT: 60
+  TEST_TIMEOUT: 180
   TEST_ITERATIONS: 3
 
 jobs:
@@ -111,7 +111,7 @@ jobs:
         run: |
           IFS=' ' read -r -a tests <<< "${{ env.TEST_TARGETS }}"
           for test in "${tests[@]}"; do
-            echo "::group::Running test target: $test"
+            echo "::group::$test"
             set -o pipefail && xcodebuild test-without-building \
               -scheme LiveKit \
               -destination 'platform=${{ matrix.platform }}' \
@@ -119,7 +119,8 @@ jobs:
               -test-timeouts-enabled YES \
               -default-test-execution-time-allowance ${{ env.TEST_TIMEOUT }} \
               -retry-tests-on-failure \
-              -test-iterations ${{ env.TEST_ITERATIONS }} | xcbeautify --renderer github-actions
+              -test-iterations ${{ env.TEST_ITERATIONS }} \
+              -parallel-testing-enabled YES | xcbeautify --renderer github-actions
             echo "::endgroup::"
           done
 
