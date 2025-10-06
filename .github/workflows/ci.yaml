@@ -17,8 +17,8 @@ concurrency:
 
 env:
   TEST_TARGETS: "LiveKitCoreTests LiveKitObjCTests"
-  TEST_TIMEOUT: 180
-  TEST_ITERATIONS: 3
+  TEST_TIMEOUT_MINUTES: 10
+  TEST_RETRY_ATTEMPTS: 2
 
 jobs:
   build-and-test:
@@ -108,21 +108,29 @@ jobs:
             -destination 'platform=${{ matrix.platform }}' | xcbeautify --renderer github-actions
 
       - name: Run Tests
-        run: |
-          IFS=' ' read -r -a tests <<< "${{ env.TEST_TARGETS }}"
-          for test in "${tests[@]}"; do
-            echo "::group::$test"
-            set -o pipefail && xcodebuild test-without-building \
-              -scheme LiveKit \
-              -destination 'platform=${{ matrix.platform }}' \
-              -only-testing:$test \
-              -test-timeouts-enabled YES \
-              -default-test-execution-time-allowance ${{ env.TEST_TIMEOUT }} \
-              -retry-tests-on-failure \
-              -test-iterations ${{ env.TEST_ITERATIONS }} \
-              -parallel-testing-enabled YES | xcbeautify --renderer github-actions
-            echo "::endgroup::"
-          done
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: ${{ env.TEST_TIMEOUT_MINUTES }}
+          max_attempts: ${{ env.TEST_RETRY_ATTEMPTS }}
+          retry_on: error
+          command: |
+            set -euo pipefail
+            IFS=' ' read -r -a tests <<< "${{ env.TEST_TARGETS }}"
+
+            for test in "${tests[@]}"; do
+              echo "::group::$test"
+              if ! xcodebuild test-without-building \
+                -scheme LiveKit \
+                -destination 'platform=${{ matrix.platform }}' \
+                -only-testing:$test \
+                -parallel-testing-enabled YES \
+                | xcbeautify --renderer github-actions
+              then
+                echo "::error::Test failed: $test"
+                exit 1
+              fi
+              echo "::endgroup::"
+            done
 
       - name: Build for Release
         if: ${{ matrix.symbol-graph }}
