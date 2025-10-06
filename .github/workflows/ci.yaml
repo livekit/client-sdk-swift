@@ -19,7 +19,6 @@ env:
   TEST_TARGETS: "LiveKitCoreTests LiveKitObjCTests"
   TEST_TIMEOUT_MINUTES: 10
   TEST_RETRY_ATTEMPTS: 2
-  TEST_WORKERS: 4
 
 jobs:
   build-and-test:
@@ -125,7 +124,6 @@ jobs:
                 -destination 'platform=${{ matrix.platform }}' \
                 -only-testing:$test \
                 -parallel-testing-enabled YES \
-                -parallel-testing-worker-count "${{ env.TEST_WORKERS }}" \
                 | xcbeautify --renderer github-actions
               then
                 echo "::error::Test failed: $test"
