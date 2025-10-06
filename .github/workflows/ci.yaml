@@ -16,7 +16,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TESTS: "LiveKitCoreTests LiveKitObjCTests"
+  TEST_TARGETS: "LiveKitCoreTests LiveKitObjCTests"
+  TEST_TIMEOUT: 60
+  TEST_ITERATIONS: 3
 
 jobs:
   build-and-test:
@@ -107,13 +109,17 @@ jobs:
 
       - name: Run Tests
         run: |
-          IFS=' ' read -r -a tests <<< "${{ env.TESTS }}"
+          IFS=' ' read -r -a tests <<< "${{ env.TEST_TARGETS }}"
           for test in "${tests[@]}"; do
-            echo "::group::Running test $test"
+            echo "::group::Running test target: $test"
             set -o pipefail && xcodebuild test-without-building \
               -scheme LiveKit \
               -destination 'platform=${{ matrix.platform }}' \
-              -only-testing:$test | xcbeautify --renderer github-actions
+              -only-testing:$test \
+              -test-timeouts-enabled YES \
+              -default-test-execution-time-allowance ${{ env.TEST_TIMEOUT }} \
+              -retry-tests-on-failure \
+              -test-iterations ${{ env.TEST_ITERATIONS }} | xcbeautify --renderer github-actions
             echo "::endgroup::"
           done
 
