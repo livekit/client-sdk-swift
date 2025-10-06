@@ -58,7 +58,7 @@ class RealiableDataChannelTests: LKTestCase, @unchecked Sendable {
                 }
 
                 try await sending.send(userPacket: userPacket, kind: .reliable)
-                try await Task.sleep(nanoseconds: 10_000_000) // 10 ms
+                try await Task.sleep(nanoseconds: 50_000_000) // 50 ms
             }
         }
 
