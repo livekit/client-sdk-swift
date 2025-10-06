@@ -69,6 +69,14 @@ jobs:
             platform: "macOS"
           - os: macos-26
             xcode: latest
+            platform: "macOS"
+            asan: true
+          - os: macos-26
+            xcode: latest
+            platform: "macOS"
+            tsan: true
+          - os: macos-26
+            xcode: latest
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-26
             xcode: latest
@@ -105,7 +113,10 @@ jobs:
         run: |
           set -o pipefail && xcodebuild build-for-testing \
             -scheme LiveKit \
-            -destination 'platform=${{ matrix.platform }}' | xcbeautify --renderer github-actions
+            -destination 'platform=${{ matrix.platform }}' \
+            -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
+            -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
+            | xcbeautify --renderer github-actions
 
       - name: Run Tests
         uses: nick-fields/retry@v3
