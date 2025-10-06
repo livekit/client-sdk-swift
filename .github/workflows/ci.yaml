@@ -132,6 +132,8 @@ jobs:
               if ! xcodebuild test-without-building \
                 -scheme LiveKit \
                 -destination 'platform=${{ matrix.platform }}' \
+                -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
+                -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
                 -only-testing:$test \
                 -parallel-testing-enabled YES \
                 | xcbeautify --renderer github-actions
