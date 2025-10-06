@@ -112,7 +112,6 @@ jobs:
         with:
           timeout_minutes: ${{ env.TEST_TIMEOUT_MINUTES }}
           max_attempts: ${{ env.TEST_RETRY_ATTEMPTS }}
-          retry_on: error
           command: |
             set -euo pipefail
             IFS=' ' read -r -a tests <<< "${{ env.TEST_TARGETS }}"
