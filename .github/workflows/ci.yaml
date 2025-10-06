@@ -45,11 +45,9 @@ jobs:
           - os: macos-15
             xcode: 16.4
             platform: "iOS Simulator,name=iPhone 16 Pro,OS=18.5"
-            symbol-graph: true
           - os: macos-15
             xcode: 16.4
             platform: "macOS"
-            symbol-graph: true
           - os: macos-15
             xcode: 16.4
             platform: "macOS,variant=Mac Catalyst"
@@ -64,9 +62,11 @@ jobs:
           - os: macos-26
             xcode: latest
             platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.0"
+            symbol-graph: true
           - os: macos-26
             xcode: latest
             platform: "macOS"
+            symbol-graph: true
           - os: macos-26
             xcode: latest
             platform: "macOS"
