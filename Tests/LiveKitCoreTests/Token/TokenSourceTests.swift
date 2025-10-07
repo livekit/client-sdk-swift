@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
 @testable import LiveKit
-import XCTest
+import LiveKitTestSupport
 
 class TokenSourceTests: LKTestCase {
     actor MockValidJWTSource: TokenSourceConfigurable {

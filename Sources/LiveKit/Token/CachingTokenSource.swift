@@ -23,14 +23,33 @@ import Foundation
 public actor CachingTokenSource: TokenSourceConfigurable, Loggable {
     /// A tuple containing the request and response that were cached.
     public typealias Cached = (TokenRequestOptions, TokenSourceResponse)
+
     /// A closure that validates whether cached credentials are still valid.
     ///
     /// The validator receives the original request options and cached response, and should return
     /// `true` if the cached credentials are still valid for the given request.
     public typealias Validator = @Sendable (TokenRequestOptions, TokenSourceResponse) -> Bool
 
+    /// Protocol for storing and retrieving cached token credentials.
+    ///
+    /// Implement this protocol to create custom storage solutions like Keychain,
+    /// or database-backed storage for token caching.
+    public protocol Store: Sendable {
+        /// Store credentials in the store.
+        ///
+        /// This replaces any existing cached credentials with the new ones.
+        func store(_ credentials: CachingTokenSource.Cached) async
+
+        /// Retrieve the cached credentials.
+        /// - Returns: The cached credentials if found, nil otherwise
+        func retrieve() async -> CachingTokenSource.Cached?
+
+        /// Clear all stored credentials.
+        func clear() async
+    }
+
     private let source: TokenSourceConfigurable
-    private let store: TokenStore
+    private let store: Store
     private let validator: Validator
 
     /// Initialize a caching wrapper around any token source.
@@ -41,7 +60,7 @@ public actor CachingTokenSource: TokenSourceConfigurable, Loggable {
     ///   - validator: A closure to determine if cached credentials are still valid (defaults to JWT expiration check)
     public init(
         _ source: TokenSourceConfigurable,
-        store: TokenStore = InMemoryTokenStore(),
+        store: Store = InMemoryTokenStore(),
         validator: @escaping Validator = { _, response in response.hasValidToken() }
     ) {
         self.source = source
@@ -86,36 +105,20 @@ public extension TokenSourceConfigurable {
     ///   - store: The store implementation to use for caching (defaults to in-memory store)
     ///   - validator: A closure to determine if cached credentials are still valid (defaults to JWT expiration check)
     /// - Returns: A caching token source that wraps this token source
-    func cached(store: TokenStore = InMemoryTokenStore(), validator: @escaping CachingTokenSource.Validator = { _, response in response.hasValidToken() }) -> CachingTokenSource {
+    func cached(store: CachingTokenSource.Store = InMemoryTokenStore(),
+                validator: @escaping CachingTokenSource.Validator = { _, response in response.hasValidToken() }) -> CachingTokenSource
+    {
         CachingTokenSource(self, store: store, validator: validator)
     }
 }
 
 // MARK: - Store
 
-/// Protocol for storing and retrieving cached token credentials.
-///
-/// Implement this protocol to create custom storage solutions like Keychain,
-/// or database-backed storage for token caching.
-public protocol TokenStore: Sendable {
-    /// Store credentials in the store.
-    ///
-    /// This replaces any existing cached credentials with the new ones.
-    func store(_ credentials: CachingTokenSource.Cached) async
-
-    /// Retrieve the cached credentials.
-    /// - Returns: The cached credentials if found, nil otherwise
-    func retrieve() async -> CachingTokenSource.Cached?
-
-    /// Clear all stored credentials.
-    func clear() async
-}
-
 /// A simple in-memory store implementation for token caching.
 ///
 /// This store keeps credentials in memory and is lost when the app is terminated.
 /// Suitable for development and testing, but consider persistent storage for production.
-public actor InMemoryTokenStore: TokenStore {
+public actor InMemoryTokenStore: CachingTokenSource.Store {
     private var cached: CachingTokenSource.Cached?
 
     public init() {}
