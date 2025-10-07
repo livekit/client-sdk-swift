@@ -53,18 +53,33 @@ let package = Package(
                 .enableExperimentalFeature("AccessLevelOnImport"),
             ]
         ),
-        .testTarget(
-            name: "LiveKitTests",
+        .target(
+            name: "LiveKitTestSupport",
             dependencies: [
                 "LiveKit",
                 .product(name: "JWTKit", package: "jwt-kit"),
+            ],
+            path: "Tests/LiveKitTestSupport"
+        ),
+        .testTarget(
+            name: "LiveKitCoreTests",
+            dependencies: [
+                "LiveKit",
+                "LiveKitTestSupport",
             ]
         ),
         .testTarget(
-            name: "LiveKitTestsObjC",
+            name: "LiveKitAudioTests",
             dependencies: [
                 "LiveKit",
-                .product(name: "JWTKit", package: "jwt-kit"),
+                "LiveKitTestSupport",
+            ]
+        ),
+        .testTarget(
+            name: "LiveKitObjCTests",
+            dependencies: [
+                "LiveKit",
+                "LiveKitTestSupport",
             ]
         ),
     ],
