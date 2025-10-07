@@ -1,4 +1,4 @@
-PROTO_SOURCE=../protocol/protobufs
+PROTO_SOURCE=./protocol/protobufs
 
 proto: protoc protoc-swift
 	protoc --swift_out=Sources/LiveKit/protos -I=${PROTO_SOURCE} \

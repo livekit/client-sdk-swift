@@ -19,11 +19,14 @@ import Foundation
 /// Manages state of outgoing data streams.
 actor OutgoingStreamManager: Loggable {
     typealias PacketHandler = @Sendable (Livekit_DataPacket) async throws -> Void
+    typealias EncryptionProvider = @Sendable () -> EncryptionType
 
     private nonisolated let packetHandler: PacketHandler
+    private nonisolated let encryptionProvider: EncryptionProvider
 
-    init(packetHandler: @escaping PacketHandler) {
+    init(packetHandler: @escaping PacketHandler, encryptionProvider: @escaping EncryptionProvider) {
         self.packetHandler = packetHandler
+        self.encryptionProvider = encryptionProvider
     }
 
     // MARK: - Opening streams
@@ -35,6 +38,7 @@ actor OutgoingStreamManager: Loggable {
             timestamp: Date(),
             totalLength: text.utf8.count, // Number of bytes in UTF-8 representation
             attributes: options.attributes,
+            encryptionType: encryptionProvider(),
             operationType: .create,
             version: options.version,
             replyToStreamID: options.replyToStreamID,
@@ -61,6 +65,7 @@ actor OutgoingStreamManager: Loggable {
             timestamp: Date(),
             totalLength: fileInfo.size, // Not overridable
             attributes: options.attributes,
+            encryptionType: encryptionProvider(),
             mimeType: options.mimeType ?? fileInfo.mimeType ?? Self.byteMimeType,
             name: options.name ?? fileInfo.name
         )
@@ -81,6 +86,7 @@ actor OutgoingStreamManager: Loggable {
             timestamp: Date(),
             totalLength: nil,
             attributes: options.attributes,
+            encryptionType: encryptionProvider(),
             operationType: .create,
             version: options.version,
             replyToStreamID: options.replyToStreamID,
@@ -100,6 +106,7 @@ actor OutgoingStreamManager: Loggable {
             timestamp: Date(),
             totalLength: options.totalSize,
             attributes: options.attributes,
+            encryptionType: encryptionProvider(),
             mimeType: options.mimeType ?? Self.byteMimeType,
             name: options.name
         )
@@ -257,7 +264,7 @@ extension Livekit_DataStream.Header {
     init(_ streamInfo: StreamInfo) {
         self = Livekit_DataStream.Header.with {
             $0.streamID = streamInfo.id
-            $0.mimeType = OutgoingStreamManager.textMimeType
+            $0.mimeType = (streamInfo as? ByteStreamInfo)?.mimeType ?? OutgoingStreamManager.textMimeType
             $0.topic = streamInfo.topic
             $0.timestampDate = streamInfo.timestamp
             if let totalLength = streamInfo.totalLength {
