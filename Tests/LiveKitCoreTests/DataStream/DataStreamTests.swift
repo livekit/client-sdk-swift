@@ -15,7 +15,9 @@
  */
 
 import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class DataStreamTests: LKTestCase {
     private enum Method {

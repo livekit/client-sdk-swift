@@ -15,7 +15,9 @@
  */
 
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class IncomingStreamManagerTests: LKTestCase, @unchecked Sendable {
     private var manager: IncomingStreamManager!

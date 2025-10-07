@@ -15,7 +15,9 @@
  */
 
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class QueueActorTests: LKTestCase {
     private lazy var queue = QueueActor<String> { print($0) }

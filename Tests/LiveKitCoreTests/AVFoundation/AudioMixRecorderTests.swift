@@ -16,7 +16,9 @@
 
 import AVFAudio
 import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 final class AudioMixRecorderTests: LKTestCase {
     let audioSettings16k: [String: Any] = [

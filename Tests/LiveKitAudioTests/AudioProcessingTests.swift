@@ -20,7 +20,9 @@ import Foundation
 import LiveKitWebRTC
 
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class AudioProcessingTests: LKTestCase, AudioCustomProcessingDelegate, @unchecked Sendable {
     var _initSampleRate: Double = 0.0

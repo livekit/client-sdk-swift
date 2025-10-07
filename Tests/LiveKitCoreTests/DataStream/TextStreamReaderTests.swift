@@ -15,7 +15,9 @@
  */
 
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class TextStreamReaderTests: LKTestCase, @unchecked Sendable {
     private var continuation: StreamReaderSource.Continuation!

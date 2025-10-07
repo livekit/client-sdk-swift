@@ -15,7 +15,9 @@
  */
 
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class ParticipantTests: LKTestCase {
     func testLocalParticipantIdentity() async throws {
