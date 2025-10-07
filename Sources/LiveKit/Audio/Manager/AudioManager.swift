@@ -129,10 +129,8 @@ public class AudioManager: Loggable {
     public var capturePostProcessingDelegate: AudioCustomProcessingDelegate? {
         didSet {
             if let capturePostProcessingDelegate {
-                //
+                // Clear WebRTC delegate first - this triggers audioProcessingRelease() on the old target
                 RTC.audioProcessingModule.capturePostProcessingDelegate = nil
-                capturePostProcessingDelegateAdapter.set(target: nil)
-                //
                 capturePostProcessingDelegateAdapter.set(target: capturePostProcessingDelegate)
                 RTC.audioProcessingModule.capturePostProcessingDelegate = capturePostProcessingDelegateAdapter
             } else {
@@ -150,10 +148,8 @@ public class AudioManager: Loggable {
     public var renderPreProcessingDelegate: AudioCustomProcessingDelegate? {
         didSet {
             if let renderPreProcessingDelegate {
-                //
+                // Clear WebRTC delegate first - this triggers release() on the old target
                 RTC.audioProcessingModule.renderPreProcessingDelegate = nil
-                renderPreProcessingDelegateAdapter.set(target: nil)
-                //
                 renderPreProcessingDelegateAdapter.set(target: renderPreProcessingDelegate)
                 RTC.audioProcessingModule.renderPreProcessingDelegate = renderPreProcessingDelegateAdapter
             } else {
