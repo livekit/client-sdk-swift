@@ -182,4 +182,77 @@ class AudioRendererTests: LKTestCase {
         XCTAssertNil(weakRenderer1, "Renderer 1 should be deallocated")
         XCTAssertNil(weakRenderer2, "Renderer 2 should be deallocated")
     }
+
+    // Test RemoteAudioTrack.add(audioRenderer:) memory management
+    func testRemoteAudioTrackRendererDeallocation() async throws {
+        let deinitExpectation = expectation(description: "Renderer should deinit")
+
+        weak var weakRenderer: TestAudioRenderer?
+        weak var weakTrack: RemoteAudioTrack?
+
+        autoreleasepool {
+            // Create a mock remote audio track
+            let audioSource = RTC.createAudioSource(nil)
+            let rtcTrack = RTC.createAudioTrack(source: audioSource)
+            let track = RemoteAudioTrack(name: "remote-test-track",
+                                         source: .microphone,
+                                         track: rtcTrack,
+                                         reportStatistics: false)
+            weakTrack = track
+
+            let renderer = TestAudioRenderer(id: "remote-track", onDeinit: {
+                deinitExpectation.fulfill()
+            })
+            weakRenderer = renderer
+
+            // Add renderer via RemoteAudioTrack
+            track.add(audioRenderer: renderer)
+
+            // Verify both exist
+            XCTAssertNotNil(weakRenderer, "Renderer should exist while in scope")
+            XCTAssertNotNil(weakTrack, "Track should exist while in scope")
+
+            // Remove renderer
+            track.remove(audioRenderer: renderer)
+        }
+
+        // Wait for deallocation
+        await fulfillment(of: [deinitExpectation], timeout: 3.0)
+
+        // Verify renderer was deallocated
+        XCTAssertNil(weakRenderer, "Renderer should be deallocated after removal and scope exit")
+    }
+
+    // Test RemoteAudioTrack renderer weak reference without explicit removal
+    func testRemoteAudioTrackRendererWeakReference() async throws {
+        let deinitExpectation = expectation(description: "Renderer should deinit")
+
+        weak var weakRenderer: TestAudioRenderer?
+
+        autoreleasepool {
+            // Create a mock remote audio track
+            let audioSource = RTC.createAudioSource(nil)
+            let rtcTrack = RTC.createAudioTrack(source: audioSource)
+            let track = RemoteAudioTrack(name: "remote-test-track-weak",
+                                         source: .microphone,
+                                         track: rtcTrack,
+                                         reportStatistics: false)
+
+            let renderer = TestAudioRenderer(id: "remote-track-weak", onDeinit: {
+                deinitExpectation.fulfill()
+            })
+            weakRenderer = renderer
+
+            // Add renderer but don't remove it
+            track.add(audioRenderer: renderer)
+
+            XCTAssertNotNil(weakRenderer, "Renderer should exist while in scope")
+        }
+
+        // Wait for deallocation - should happen even without explicit removal
+        await fulfillment(of: [deinitExpectation], timeout: 3.0)
+
+        // Verify renderer was deallocated
+        XCTAssertNil(weakRenderer, "Renderer should be deallocated after scope exit (weak reference)")
+    }
 }
