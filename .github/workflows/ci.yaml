@@ -86,7 +86,7 @@ jobs:
             platform: "tvOS Simulator,name=Apple TV,OS=26.0"
 
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 35
     defaults:
       run:
         shell: bash
