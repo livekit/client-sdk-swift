@@ -14,14 +14,11 @@
  * limitations under the License.
  */
 
-import Accelerate
-import AVFoundation
-import Foundation
-import LiveKitWebRTC
-
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
-import XCTest
+#endif
+import LiveKitWebRTC
 
 private enum CallType {
     case initialize
