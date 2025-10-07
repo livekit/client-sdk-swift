@@ -30,22 +30,8 @@
     {
       "target" : {
         "containerPath" : "container:LKTestHost.xcodeproj",
-        "identifier" : "AC99ED5C2E95320700DD50B6",
-        "name" : "LiveKitAudioTests"
-      }
-    },
-    {
-      "target" : {
-        "containerPath" : "container:LKTestHost.xcodeproj",
         "identifier" : "7B7356772D9CB604003BB6F4",
         "name" : "LiveKitCoreTests"
-      }
-    },
-    {
-      "target" : {
-        "containerPath" : "container:LKTestHost.xcodeproj",
-        "identifier" : "AC99ED712E95321100DD50B6",
-        "name" : "LiveKitObjCTests"
       }
     }
   ],

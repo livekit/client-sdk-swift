@@ -9,14 +9,11 @@
 /* Begin PBXBuildFile section */
 		7B7356972D9CB629003BB6F4 /* LiveKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7B7356962D9CB629003BB6F4 /* LiveKit */; };
 		7B73570F2D9CB6B9003BB6F4 /* JWTKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7B73570E2D9CB6B9003BB6F4 /* JWTKit */; };
-		7BEF53122D9CD13100214147 /* All.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = 7BEF53112D9CD13100214147 /* All.xctestplan */; };
+		7BEF53122D9CD13100214147 /* Core.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = 7BEF53112D9CD13100214147 /* Core.xctestplan */; };
 		7BF642E72D9CC1FE0058A1F7 /* LiveKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7BF642E62D9CC1FE0058A1F7 /* LiveKit */; };
 		AC99ED652E95320700DD50B6 /* LiveKit in Frameworks */ = {isa = PBXBuildFile; productRef = AC99ED622E95320700DD50B6 /* LiveKit */; };
 		AC99ED662E95320700DD50B6 /* LiveKit in Frameworks */ = {isa = PBXBuildFile; productRef = AC99ED5F2E95320700DD50B6 /* LiveKit */; };
 		AC99ED672E95320700DD50B6 /* JWTKit in Frameworks */ = {isa = PBXBuildFile; productRef = AC99ED602E95320700DD50B6 /* JWTKit */; };
-		AC99ED7A2E95321100DD50B6 /* LiveKit in Frameworks */ = {isa = PBXBuildFile; productRef = AC99ED772E95321100DD50B6 /* LiveKit */; };
-		AC99ED7B2E95321100DD50B6 /* LiveKit in Frameworks */ = {isa = PBXBuildFile; productRef = AC99ED742E95321100DD50B6 /* LiveKit */; };
-		AC99ED7C2E95321100DD50B6 /* JWTKit in Frameworks */ = {isa = PBXBuildFile; productRef = AC99ED752E95321100DD50B6 /* JWTKit */; };
 		AC99EE682E9532C700DD50B6 /* Audio.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = AC99EE672E9532C700DD50B6 /* Audio.xctestplan */; };
 /* End PBXBuildFile section */
 
@@ -35,21 +32,13 @@
 			remoteGlobalIDString = 7B7356692D9CB603003BB6F4;
 			remoteInfo = LKTestHost;
 		};
-		AC99ED732E95321100DD50B6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7B7356622D9CB603003BB6F4 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 7B7356692D9CB603003BB6F4;
-			remoteInfo = LKTestHost;
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		7B73566A2D9CB603003BB6F4 /* LKTestHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LKTestHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7B7356782D9CB604003BB6F4 /* LiveKitCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LiveKitCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		7BEF53112D9CD13100214147 /* All.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = All.xctestplan; sourceTree = "<group>"; };
+		7BEF53112D9CD13100214147 /* Core.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = Core.xctestplan; sourceTree = "<group>"; };
 		AC99ED6C2E95320700DD50B6 /* LiveKitAudioTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LiveKitAudioTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		AC99ED812E95321100DD50B6 /* LiveKitObjCTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LiveKitObjCTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AC99EE672E9532C700DD50B6 /* Audio.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = Audio.xctestplan; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -70,12 +59,6 @@
 				7B7357142D9CC10A003BB6F4 /* Exceptions for "LKTestHost" folder in "LKTestHost" target */,
 			);
 			path = LKTestHost;
-			sourceTree = "<group>";
-		};
-		7B73567B2D9CB604003BB6F4 /* LiveKitObjCTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			name = LiveKitObjCTests;
-			path = ../LiveKitObjCTests;
 			sourceTree = "<group>";
 		};
 		AC99ECDC2E9530C700DD50B6 /* LiveKitAudioTests */ = {
@@ -126,28 +109,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AC99ED792E95321100DD50B6 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				AC99ED7A2E95321100DD50B6 /* LiveKit in Frameworks */,
-				AC99ED7B2E95321100DD50B6 /* LiveKit in Frameworks */,
-				AC99ED7C2E95321100DD50B6 /* JWTKit in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		7B7356612D9CB603003BB6F4 = {
 			isa = PBXGroup;
 			children = (
-				7B73566C2D9CB603003BB6F4 /* LKTestHost */,
-				7BEF53112D9CD13100214147 /* All.xctestplan */,
 				AC99EE672E9532C700DD50B6 /* Audio.xctestplan */,
+				7BEF53112D9CD13100214147 /* Core.xctestplan */,
+				7B73566C2D9CB603003BB6F4 /* LKTestHost */,
 				AC99ECDC2E9530C700DD50B6 /* LiveKitAudioTests */,
 				AC99ED112E9530C700DD50B6 /* LiveKitCoreTests */,
-				7B73567B2D9CB604003BB6F4 /* LiveKitObjCTests */,
 				AC99ED532E95311100DD50B6 /* LiveKitTestSupport */,
 				7B73566B2D9CB603003BB6F4 /* Products */,
 			);
@@ -159,7 +131,6 @@
 				7B73566A2D9CB603003BB6F4 /* LKTestHost.app */,
 				7B7356782D9CB604003BB6F4 /* LiveKitCoreTests.xctest */,
 				AC99ED6C2E95320700DD50B6 /* LiveKitAudioTests.xctest */,
-				AC99ED812E95321100DD50B6 /* LiveKitObjCTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -243,33 +214,6 @@
 			productReference = AC99ED6C2E95320700DD50B6 /* LiveKitAudioTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		AC99ED712E95321100DD50B6 /* LiveKitObjCTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = AC99ED7E2E95321100DD50B6 /* Build configuration list for PBXNativeTarget "LiveKitObjCTests" */;
-			buildPhases = (
-				AC99ED782E95321100DD50B6 /* Sources */,
-				AC99ED792E95321100DD50B6 /* Frameworks */,
-				AC99ED7D2E95321100DD50B6 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				AC99ED722E95321100DD50B6 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				7B73567B2D9CB604003BB6F4 /* LiveKitObjCTests */,
-				AC99ED532E95311100DD50B6 /* LiveKitTestSupport */,
-			);
-			name = LiveKitObjCTests;
-			packageProductDependencies = (
-				AC99ED742E95321100DD50B6 /* LiveKit */,
-				AC99ED752E95321100DD50B6 /* JWTKit */,
-				AC99ED772E95321100DD50B6 /* LiveKit */,
-			);
-			productName = LKTestHostTests;
-			productReference = AC99ED812E95321100DD50B6 /* LiveKitObjCTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -308,9 +252,8 @@
 			projectRoot = "";
 			targets = (
 				7B7356692D9CB603003BB6F4 /* LKTestHost */,
-				7B7356772D9CB604003BB6F4 /* LiveKitCoreTests */,
 				AC99ED5C2E95320700DD50B6 /* LiveKitAudioTests */,
-				AC99ED712E95321100DD50B6 /* LiveKitObjCTests */,
+				7B7356772D9CB604003BB6F4 /* LiveKitCoreTests */,
 			);
 		};
 /* End PBXProject section */
@@ -321,7 +264,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AC99EE682E9532C700DD50B6 /* Audio.xctestplan in Resources */,
-				7BEF53122D9CD13100214147 /* All.xctestplan in Resources */,
+				7BEF53122D9CD13100214147 /* Core.xctestplan in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -333,13 +276,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AC99ED682E95320700DD50B6 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		AC99ED7D2E95321100DD50B6 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -370,13 +306,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AC99ED782E95321100DD50B6 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -389,11 +318,6 @@
 			isa = PBXTargetDependency;
 			target = 7B7356692D9CB603003BB6F4 /* LKTestHost */;
 			targetProxy = AC99ED5E2E95320700DD50B6 /* PBXContainerItemProxy */;
-		};
-		AC99ED722E95321100DD50B6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 7B7356692D9CB603003BB6F4 /* LKTestHost */;
-			targetProxy = AC99ED732E95321100DD50B6 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -696,52 +620,6 @@
 			};
 			name = Release;
 		};
-		AC99ED7F2E95321100DD50B6 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 76TVFCUKK7;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.3;
-				MACOSX_DEPLOYMENT_TARGET = 15.3;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "io.livekit.client-sdk-swift.LKTestHostTests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LKTestHost.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LKTestHost";
-				XROS_DEPLOYMENT_TARGET = 2.4;
-			};
-			name = Debug;
-		};
-		AC99ED802E95321100DD50B6 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 76TVFCUKK7;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.3;
-				MACOSX_DEPLOYMENT_TARGET = 15.3;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "io.livekit.client-sdk-swift.LKTestHostTests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LKTestHost.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LKTestHost";
-				XROS_DEPLOYMENT_TARGET = 2.4;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -781,15 +659,6 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		AC99ED7E2E95321100DD50B6 /* Build configuration list for PBXNativeTarget "LiveKitObjCTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				AC99ED7F2E95321100DD50B6 /* Debug */,
-				AC99ED802E95321100DD50B6 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -809,14 +678,6 @@
 			};
 		};
 		AC99ED612E95320700DD50B6 /* XCRemoteSwiftPackageReference "jwt-kit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/vapor/jwt-kit.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 4.13.4;
-			};
-		};
-		AC99ED762E95321100DD50B6 /* XCRemoteSwiftPackageReference "jwt-kit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/vapor/jwt-kit.git";
 			requirement = {
@@ -850,19 +711,6 @@
 			productName = JWTKit;
 		};
 		AC99ED622E95320700DD50B6 /* LiveKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = LiveKit;
-		};
-		AC99ED742E95321100DD50B6 /* LiveKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = LiveKit;
-		};
-		AC99ED752E95321100DD50B6 /* JWTKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = AC99ED762E95321100DD50B6 /* XCRemoteSwiftPackageReference "jwt-kit" */;
-			productName = JWTKit;
-		};
-		AC99ED772E95321100DD50B6 /* LiveKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = LiveKit;
 		};
