@@ -20,6 +20,7 @@ import Foundation
 import LiveKitWebRTC
 
 @testable import LiveKit
+import LiveKitTestSupport
 import XCTest
 
 private enum CallType {
@@ -46,7 +47,7 @@ private class ProcessingDelegateTester: AudioCustomProcessingDelegate, @unchecke
     }
 
     func audioProcessingProcess(audioBuffer: LiveKit.LKAudioBuffer) {
-        _state.mutate { $0.entries.append(.initialize) }
+        _state.mutate { $0.entries.append(.process) }
         print("ProcessingDelegate(\(label)).Process(audioBuffer: \(audioBuffer.frames))")
     }
 
@@ -73,15 +74,35 @@ class AudioProcessingLifecycle: LKTestCase {
                 let ns = UInt64(1 * 1_000_000_000)
                 try await Task.sleep(nanoseconds: ns)
             }
+
+            // Verify processorA was initialized and received audio
+            let stateA = processorA._state.copy()
+            XCTAssertTrue(stateA.entries.contains(.initialize), "Processor A should have been initialized")
+            XCTAssertTrue(stateA.entries.contains(.process), "Processor A should have processed audio")
+
+            // Switch to processorB
             AudioManager.shared.capturePostProcessingDelegate = processorB
             do {
                 // 1 secs...
                 let ns = UInt64(1 * 1_000_000_000)
                 try await Task.sleep(nanoseconds: ns)
             }
+
+            // Verify processorA was released
+            let stateA2 = processorA._state.copy()
+            XCTAssertTrue(stateA2.entries.contains(.release), "Processor A should have been released")
+
+            // Verify processorB was initialized and received audio
+            let stateB = processorB._state.copy()
+            XCTAssertTrue(stateB.entries.contains(.initialize), "Processor B should have been initialized")
+            XCTAssertTrue(stateB.entries.contains(.process), "Processor B should have processed audio")
         }
 
         // Remove processing delegate
         AudioManager.shared.capturePostProcessingDelegate = nil
+
+        // Verify processorB was released
+        let stateB2 = processorB._state.copy()
+        XCTAssertTrue(stateB2.entries.contains(.release), "Processor B should have been released")
     }
 }
