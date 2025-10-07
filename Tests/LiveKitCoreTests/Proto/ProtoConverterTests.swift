@@ -53,7 +53,7 @@ enum Comparator {
     struct FieldInfo {
         let name: String
         let type: String
-        let baseType: String // Unwrapped from Optional if needed
+        let nonOptionalType: String
     }
 
     static func extractFields(from instance: some Any, excludedFields: Set<String> = []) -> [FieldInfo] {
@@ -80,10 +80,10 @@ enum Comparator {
                 // But add the public version instead
                 let publicName = String(label.dropFirst())
                 let typeString = String(describing: type(of: child.value))
-                let baseType = extractBaseType(from: typeString)
+                let nonOptional = extractNonOptionalType(from: typeString)
 
                 if !fields.contains(where: { $0.name == publicName }) {
-                    fields.append(FieldInfo(name: publicName, type: typeString, baseType: baseType))
+                    fields.append(FieldInfo(name: publicName, type: typeString, nonOptionalType: nonOptional))
                 }
                 continue
             }
@@ -94,15 +94,15 @@ enum Comparator {
             }
 
             let typeString = String(describing: type(of: child.value))
-            let baseType = extractBaseType(from: typeString)
+            let nonOptional = extractNonOptionalType(from: typeString)
 
-            fields.append(FieldInfo(name: label, type: typeString, baseType: baseType))
+            fields.append(FieldInfo(name: label, type: typeString, nonOptionalType: nonOptional))
         }
 
         return fields.sorted { $0.name < $1.name }
     }
 
-    static func extractBaseType(from typeString: String) -> String {
+    static func extractNonOptionalType(from typeString: String) -> String {
         if typeString.hasPrefix("Optional<"), typeString.hasSuffix(">") {
             let start = typeString.index(typeString.startIndex, offsetBy: 9)
             let end = typeString.index(before: typeString.endIndex)
@@ -131,7 +131,7 @@ enum Comparator {
                 continue
             }
 
-            if protoField.baseType != customField.baseType {
+            if protoField.nonOptionalType != customField.nonOptionalType {
                 if !allowedTypeMismatches.contains(protoField.name) {
                     errors.append(.typeMismatch(
                         field: protoField.name,
