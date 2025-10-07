@@ -126,7 +126,7 @@ public class AudioManager: Loggable {
     /// Add a delegate to modify the local audio buffer before it is sent to the network
     /// - Note: Only one delegate can be set at a time, but you can create one to wrap others if needed
     /// - Note: If you only need to observe the buffer (rather than modify it), use ``add(localAudioRenderer:)`` instead
-    public weak var capturePostProcessingDelegate: AudioCustomProcessingDelegate? {
+    public var capturePostProcessingDelegate: AudioCustomProcessingDelegate? {
         didSet {
             if let capturePostProcessingDelegate {
                 //
@@ -139,6 +139,7 @@ public class AudioManager: Loggable {
                 RTC.audioProcessingModule.capturePostProcessingDelegate = nil
                 capturePostProcessingDelegateAdapter.set(target: nil)
             }
+            capturePostProcessingDelegateSubject.send(capturePostProcessingDelegate)
         }
     }
 
@@ -147,8 +148,19 @@ public class AudioManager: Loggable {
     /// - Note: If you only need to observe the buffer (rather than modify it), use ``add(remoteAudioRenderer:)`` instead
     /// - Note: If you need to observe the buffer for individual tracks, use ``RemoteAudioTrack/add(audioRenderer:)`` instead
     public var renderPreProcessingDelegate: AudioCustomProcessingDelegate? {
-        get { renderPreProcessingDelegateAdapter.target }
-        set { renderPreProcessingDelegateAdapter.set(target: newValue) }
+        didSet {
+            if let renderPreProcessingDelegate {
+                //
+                RTC.audioProcessingModule.renderPreProcessingDelegate = nil
+                renderPreProcessingDelegateAdapter.set(target: nil)
+                //
+                renderPreProcessingDelegateAdapter.set(target: renderPreProcessingDelegate)
+                RTC.audioProcessingModule.renderPreProcessingDelegate = renderPreProcessingDelegateAdapter
+            } else {
+                RTC.audioProcessingModule.renderPreProcessingDelegate = nil
+                renderPreProcessingDelegateAdapter.set(target: nil)
+            }
+        }
     }
 
     // MARK: - AudioDeviceModule
