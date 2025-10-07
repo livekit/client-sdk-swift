@@ -78,12 +78,12 @@ public extension LKTestCase {
                                             apiSecret: apiSecret,
                                             identity: identity)
 
-        tokenGenerator.videoGrant = VideoGrant(room: room,
-                                               roomJoin: true,
-                                               canPublish: canPublish,
-                                               canSubscribe: canSubscribe,
-                                               canPublishData: canPublishData,
-                                               canPublishSources: canPublishSources.map(String.init))
+        tokenGenerator.videoGrant = LiveKitJWTPayload.VideoGrant(room: room,
+                                                                 roomJoin: true,
+                                                                 canPublish: canPublish,
+                                                                 canSubscribe: canSubscribe,
+                                                                 canPublishData: canPublishData,
+                                                                 canPublishSources: canPublishSources.map(String.init))
         return try tokenGenerator.sign()
     }
 
