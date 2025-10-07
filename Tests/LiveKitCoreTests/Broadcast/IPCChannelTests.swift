@@ -17,7 +17,9 @@
 #if os(iOS)
 
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 import Network
 
 final class IPCChannelTests: LKTestCase, @unchecked Sendable {

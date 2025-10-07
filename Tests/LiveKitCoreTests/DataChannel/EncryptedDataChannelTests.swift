@@ -15,7 +15,9 @@
  */
 
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 import LiveKitWebRTC
 
 class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {

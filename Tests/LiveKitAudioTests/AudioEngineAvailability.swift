@@ -16,7 +16,9 @@
 
 @preconcurrency import AVFoundation
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class AudioEngineAvailabilityTests: LKTestCase {
     // Check if audio engine will stop when availability is set to .none,

@@ -15,7 +15,9 @@
  */
 
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class ThreadSafetyTests: LKTestCase, @unchecked Sendable {
     struct TestState: Equatable {

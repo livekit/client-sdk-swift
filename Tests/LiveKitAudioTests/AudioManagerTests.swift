@@ -16,7 +16,9 @@
 
 @preconcurrency import AVFoundation
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 import LiveKitWebRTC
 
 class AudioManagerTests: LKTestCase {

@@ -15,7 +15,9 @@
  */
 
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class RpcTests: LKTestCase {
     // Test performing RPC calls and verifying outgoing packets

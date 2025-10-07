@@ -15,7 +15,9 @@
  */
 
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class SerialRunnerActorTests: LKTestCase, @unchecked Sendable {
     let serialRunner = SerialRunnerActor<Void>()

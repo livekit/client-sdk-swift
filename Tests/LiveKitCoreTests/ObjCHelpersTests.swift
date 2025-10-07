@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 import LKObjCHelpers
 
 class ObjCHelperTests: LKTestCase {

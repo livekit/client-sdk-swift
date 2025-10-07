@@ -16,7 +16,9 @@
 
 import AVFAudio
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class AudioConverterTests: LKTestCase {
     func testConvertFormat() async throws {

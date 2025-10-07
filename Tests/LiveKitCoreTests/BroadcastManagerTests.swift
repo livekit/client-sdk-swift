@@ -18,7 +18,9 @@
 
 import Combine
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class BroadcastManagerTests: LKTestCase, @unchecked Sendable {
     private var manager: BroadcastManager!

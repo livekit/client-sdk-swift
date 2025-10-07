@@ -16,7 +16,9 @@
 
 @preconcurrency import AVFoundation
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 final class TestEngineObserver: AudioEngineObserver, @unchecked Sendable {
     var next: (any LiveKit.AudioEngineObserver)?

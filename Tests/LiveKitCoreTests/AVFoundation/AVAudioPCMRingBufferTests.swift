@@ -16,7 +16,9 @@
 
 import AVFAudio
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 #if os(iOS) && targetEnvironment(macCatalyst)
 // Required for UnsafeMutableAudioBufferListPointer.

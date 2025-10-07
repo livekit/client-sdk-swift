@@ -15,7 +15,9 @@
  */
 
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 // swiftformat:disable preferForLoop
 class TTLDictionaryTests: LKTestCase {

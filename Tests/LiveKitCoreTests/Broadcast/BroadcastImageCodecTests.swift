@@ -17,7 +17,9 @@
 #if os(iOS)
 
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 final class BroadcastImageCodecTests: LKTestCase {
     private var codec: BroadcastImageCodec!

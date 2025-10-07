@@ -16,7 +16,9 @@
 
 import Combine
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class DarwinNotificationCenterTests: LKTestCase {
     func testPublisher() throws {
