@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.8.1] - 2025-10-02
+
+### Fixed
+
+- RoomOptions init collision
+
 ## [2.8.0] - 2025-10-01
 
 ### Added

@@ -264,7 +264,7 @@ extension Livekit_DataStream.Header {
     init(_ streamInfo: StreamInfo) {
         self = Livekit_DataStream.Header.with {
             $0.streamID = streamInfo.id
-            $0.mimeType = OutgoingStreamManager.textMimeType
+            $0.mimeType = (streamInfo as? ByteStreamInfo)?.mimeType ?? OutgoingStreamManager.textMimeType
             $0.topic = streamInfo.topic
             $0.timestampDate = streamInfo.timestamp
             if let totalLength = streamInfo.totalLength {

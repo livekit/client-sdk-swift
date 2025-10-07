@@ -54,16 +54,32 @@ let package = Package(
                 .enableExperimentalFeature("AccessLevelOnImport"),
             ]
         ),
-        .testTarget(
-            name: "LiveKitTests",
+        .target(
+            name: "LiveKitTestSupport",
             dependencies: [
                 "LiveKit",
+            ],
+            path: "Tests/LiveKitTestSupport"
+        ),
+        .testTarget(
+            name: "LiveKitCoreTests",
+            dependencies: [
+                "LiveKit",
+                "LiveKitTestSupport",
             ]
         ),
         .testTarget(
-            name: "LiveKitTestsObjC",
+            name: "LiveKitAudioTests",
             dependencies: [
                 "LiveKit",
+                "LiveKitTestSupport",
+            ]
+        ),
+        .testTarget(
+            name: "LiveKitObjCTests",
+            dependencies: [
+                "LiveKit",
+                "LiveKitTestSupport",
             ]
         ),
     ],
