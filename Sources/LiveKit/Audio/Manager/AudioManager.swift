@@ -117,9 +117,17 @@ public class AudioManager: Loggable {
 
     // MARK: - AudioProcessingModule
 
-    private lazy var capturePostProcessingDelegateAdapter = AudioCustomProcessingDelegateAdapter(label: "capturePost")
+    private lazy var capturePostProcessingDelegateAdapter = AudioCustomProcessingDelegateAdapter(
+        label: "capturePost",
+        rtcDelegateGetter: { RTC.audioProcessingModule.capturePostProcessingDelegate },
+        rtcDelegateSetter: { RTC.audioProcessingModule.capturePostProcessingDelegate = $0 }
+    )
 
-    private lazy var renderPreProcessingDelegateAdapter = AudioCustomProcessingDelegateAdapter(label: "renderPre")
+    private lazy var renderPreProcessingDelegateAdapter = AudioCustomProcessingDelegateAdapter(
+        label: "renderPre",
+        rtcDelegateGetter: { RTC.audioProcessingModule.renderPreProcessingDelegate },
+        rtcDelegateSetter: { RTC.audioProcessingModule.renderPreProcessingDelegate = $0 }
+    )
 
     let capturePostProcessingDelegateSubject = CurrentValueSubject<AudioCustomProcessingDelegate?, Never>(nil)
 
@@ -128,15 +136,7 @@ public class AudioManager: Loggable {
     /// - Note: If you only need to observe the buffer (rather than modify it), use ``add(localAudioRenderer:)`` instead
     public var capturePostProcessingDelegate: AudioCustomProcessingDelegate? {
         didSet {
-            if let capturePostProcessingDelegate {
-                // Clear WebRTC delegate first - this triggers audioProcessingRelease() on the old target
-                RTC.audioProcessingModule.capturePostProcessingDelegate = nil
-                capturePostProcessingDelegateAdapter.set(target: capturePostProcessingDelegate)
-                RTC.audioProcessingModule.capturePostProcessingDelegate = capturePostProcessingDelegateAdapter
-            } else {
-                RTC.audioProcessingModule.capturePostProcessingDelegate = nil
-                capturePostProcessingDelegateAdapter.set(target: nil)
-            }
+            capturePostProcessingDelegateAdapter.set(target: capturePostProcessingDelegate, oldTarget: oldValue)
             capturePostProcessingDelegateSubject.send(capturePostProcessingDelegate)
         }
     }
@@ -147,15 +147,7 @@ public class AudioManager: Loggable {
     /// - Note: If you need to observe the buffer for individual tracks, use ``RemoteAudioTrack/add(audioRenderer:)`` instead
     public var renderPreProcessingDelegate: AudioCustomProcessingDelegate? {
         didSet {
-            if let renderPreProcessingDelegate {
-                // Clear WebRTC delegate first - this triggers release() on the old target
-                RTC.audioProcessingModule.renderPreProcessingDelegate = nil
-                renderPreProcessingDelegateAdapter.set(target: renderPreProcessingDelegate)
-                RTC.audioProcessingModule.renderPreProcessingDelegate = renderPreProcessingDelegateAdapter
-            } else {
-                RTC.audioProcessingModule.renderPreProcessingDelegate = nil
-                renderPreProcessingDelegateAdapter.set(target: nil)
-            }
+            renderPreProcessingDelegateAdapter.set(target: renderPreProcessingDelegate, oldTarget: oldValue)
         }
     }
 

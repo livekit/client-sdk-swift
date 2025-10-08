@@ -66,11 +66,7 @@ class AudioProcessingLifecycle: LKTestCase {
             let room1 = rooms[0]
             // Publish mic
             try await room1.localParticipant.setMicrophone(enabled: true)
-            do {
-                // 1 secs...
-                let ns = UInt64(1 * 1_000_000_000)
-                try await Task.sleep(nanoseconds: ns)
-            }
+            await self.sleep(forSeconds: 1)
 
             // Verify processorA was initialized and received audio
             let stateA = processorA._state.copy()
@@ -79,11 +75,7 @@ class AudioProcessingLifecycle: LKTestCase {
 
             // Switch to processorB
             AudioManager.shared.capturePostProcessingDelegate = processorB
-            do {
-                // 1 secs...
-                let ns = UInt64(1 * 1_000_000_000)
-                try await Task.sleep(nanoseconds: ns)
-            }
+            await self.sleep(forSeconds: 1)
 
             // Verify processorA was released
             let stateA2 = processorA._state.copy()
@@ -101,5 +93,54 @@ class AudioProcessingLifecycle: LKTestCase {
         // Verify processorB was released
         let stateB2 = processorB._state.copy()
         XCTAssertTrue(stateB2.entries.contains(.release), "Processor B should have been released")
+    }
+
+    func testLocalAudioTrackRendererAPI() async throws {
+        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+            let room1 = rooms[0]
+
+            // Create a test renderer
+            let renderer = TestAudioRenderer()
+
+            // Publish microphone
+            try await room1.localParticipant.setMicrophone(enabled: true)
+
+            // Get the local audio track
+            guard let localAudioTrack = room1.localParticipant.audioTracks.first?.track as? LocalAudioTrack else {
+                XCTFail("No local audio track found")
+                return
+            }
+
+            // Add renderer via LocalAudioTrack extension method
+            localAudioTrack.add(audioRenderer: renderer)
+
+            // Wait for audio to flow
+            await self.sleep(forSeconds: 1)
+
+            // Verify renderer received audio
+            let count = renderer.renderCount.copy()
+            XCTAssertGreaterThan(count, 0, "Renderer should have received audio buffers via LocalAudioTrack.add()")
+
+            // Remove renderer
+            localAudioTrack.remove(audioRenderer: renderer)
+
+            // Reset count
+            renderer.renderCount.mutate { $0 = 0 }
+
+            // Wait a bit
+            await self.sleep(forSeconds: 1)
+
+            // Verify no more audio is received
+            let countAfterRemove = renderer.renderCount.copy()
+            XCTAssertEqual(countAfterRemove, 0, "Renderer should not receive audio after removal")
+        }
+    }
+}
+
+private class TestAudioRenderer: AudioRenderer, @unchecked Sendable {
+    let renderCount = StateSync<Int>(0)
+
+    func render(pcmBuffer _: AVAudioPCMBuffer) {
+        renderCount.mutate { $0 += 1 }
     }
 }
