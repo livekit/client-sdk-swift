@@ -131,14 +131,12 @@ enum Comparator {
                 continue
             }
 
-            if protoField.nonOptionalType != customField.nonOptionalType {
-                if !allowedTypeMismatches.contains(protoField.name) {
-                    errors.append(.typeMismatch(
-                        field: protoField.name,
-                        proto: protoField.type,
-                        custom: customField.type
-                    ))
-                }
+            if protoField.nonOptionalType != customField.nonOptionalType, !allowedTypeMismatches.contains(protoField.name) {
+                errors.append(.typeMismatch(
+                    field: protoField.name,
+                    proto: protoField.type,
+                    custom: customField.type
+                ))
             }
         }
 
