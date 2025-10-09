@@ -25,7 +25,7 @@ typealias ScopedMetadataContainer = [String: ScopedMetadata]
 
 extension Loggable {
     /// Automatically captures current type (class name) to ``Logger.Metadata``
-    func log(_ message: String? = nil,
+    func log(_ message: CustomStringConvertible? = nil,
              _ level: LiveKitSDK.LogLevel = .debug,
              file: String = #fileID,
              type type_: Any.Type? = nil,
@@ -43,7 +43,7 @@ extension Loggable {
 
 extension Logger {
     /// Adds `type` param to capture current type (usually class)
-    func log(_ message: String,
+    func log(_ message: CustomStringConvertible,
              _ level: LiveKitSDK.LogLevel = .debug,
              source _: @autoclosure () -> String? = nil,
              file: String = #fileID,
