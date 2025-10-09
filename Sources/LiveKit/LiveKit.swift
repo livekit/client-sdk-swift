@@ -15,10 +15,10 @@
  */
 
 import Foundation
+import OSLog
 internal import LiveKitWebRTC
-internal import Logging
 
-let logger = LiveKitSDK.logger
+let logger = OSLog(subsystem: "io.livekit.sdk", category: "LiveKit")
 
 /// The open source platform for real-time communication.
 ///
@@ -32,40 +32,31 @@ let logger = LiveKitSDK.logger
 /// to try out the features.
 @objc
 public class LiveKitSDK: NSObject {
+    override private init() {}
+
     @objc(sdkVersion)
     public static let version = "2.8.1"
 
-    private struct State {
-        var logLevel: LogLevel = .warning
+    struct State {
+        var logHandler: LogHandler = OSLogHandler()
     }
 
-    private static let state = StateSync(State())
-
-    static let logger = {
-        // Should be called before any logging
-        LoggingSystem.bootstrap {
-            var logHandler = StreamLogHandler.standardOutput(label: $0)
-            logHandler.logLevel = state.logLevel.internalLevel
-            return logHandler
-        }
-        LKRTCSetMinDebugLogLevel(state.logLevel.rtcLevel)
-        return Logger(label: "")
-    }()
+    static let state = StateSync(State())
 
     @objc
     public enum LogLevel: Int, Sendable {
-        case trace
+        case trace // drop?
         case debug
         case info
         case warning
         case error
 
-        var internalLevel: Logger.Level {
+        var osLogType: OSLogType {
             switch self {
-            case .trace: .trace
+            case .trace: .debug
             case .debug: .debug
             case .info: .info
-            case .warning: .warning
+            case .warning: .default
             case .error: .error
             }
         }
@@ -85,8 +76,8 @@ public class LiveKitSDK: NSObject {
     /// - Note: This must be called before initializing any other LiveKit SDK objects like `Room`
     /// e.g. in `App.init()` or `AppDelegate`/`SceneDelegate`.
     @objc
-    public static func setLogLevel(_ level: LogLevel) {
-        state.mutate { $0.logLevel = level }
+    public static func setLogLevel(_: LogLevel) {
+//        state.mutate { $0.logLevel = level }
     }
 
     /// Enable debug logging

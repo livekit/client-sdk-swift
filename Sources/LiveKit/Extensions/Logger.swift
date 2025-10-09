@@ -15,13 +15,13 @@
  */
 
 import Foundation
-internal import Logging
+import OSLog
 
 /// Allows to extend with custom `log` method which automatically captures current type (class name).
 public protocol Loggable {}
 
 public typealias ScopedMetadata = CustomStringConvertible
-typealias ScopedMetadataContainer = [String: ScopedMetadata]
+public typealias ScopedMetadataContainer = [String: ScopedMetadata]
 
 extension Loggable {
     /// Automatically captures current type (class name) to ``Logger.Metadata``
@@ -32,35 +32,80 @@ extension Loggable {
              function: String = #function,
              line: UInt = #line)
     {
-        LiveKitSDK.logger.log(message ?? "",
-                              level,
-                              file: file,
-                              type: type_ ?? type(of: self),
-                              function: function,
-                              line: line)
+        LiveKitSDK.state.logHandler.log(message ?? "",
+                                        level,
+                                        file: file,
+                                        type: type_ ?? type(of: self),
+                                        function: function,
+                                        line: line)
     }
 }
 
-extension Logger {
+public class LogHandler {
+    public func log(_: CustomStringConvertible,
+                    _: LiveKitSDK.LogLevel = .debug,
+                    source _: @autoclosure () -> String? = nil,
+                    file _: String = #fileID,
+                    type _: Any.Type,
+                    function _: String = #function,
+                    line _: UInt = #line,
+                    metaData _: ScopedMetadataContainer = ScopedMetadataContainer())
+    {
+        // no-op
+    }
+}
+
+public class OSLogHandler: LogHandler {
+    let osLog = OSLog(subsystem: "io.livekit.sdk", category: "LiveKit")
+
+    override public func log(_ message: any CustomStringConvertible, _ level: LiveKitSDK.LogLevel = .debug, source _: @autoclosure () -> String? = nil, file _: String = #fileID, type: any Any.Type, function: String = #function, line _: UInt = #line, metaData: ScopedMetadataContainer = ScopedMetadataContainer()) {
+        func _buildScopedMetadataString() -> String {
+            guard !metaData.isEmpty else { return "" }
+            return " [\(metaData.map { "\($0): \($1)" }.joined(separator: ", "))]"
+        }
+
+        let formattedMessage = "\(String(describing: type)).\(function) \(message)\(_buildScopedMetadataString())"
+        os_log("%{public}@", log: osLog, type: level.osLogType, formattedMessage)
+    }
+}
+
+extension OSLog {
     /// Adds `type` param to capture current type (usually class)
-    func log(_ message: CustomStringConvertible,
-             _ level: LiveKitSDK.LogLevel = .debug,
-             source _: @autoclosure () -> String? = nil,
-             file: String = #fileID,
-             type: Any.Type,
-             function: String = #function,
-             line: UInt = #line,
-             metaData: ScopedMetadataContainer = ScopedMetadataContainer())
+    public func log(_ message: CustomStringConvertible,
+                    _ level: LiveKitSDK.LogLevel = .debug,
+                    source _: @autoclosure () -> String? = nil,
+                    file _: String = #fileID,
+                    type: Any.Type,
+                    function: String = #function,
+                    line _: UInt = #line,
+                    metaData: ScopedMetadataContainer = ScopedMetadataContainer())
     {
         func _buildScopedMetadataString() -> String {
             guard !metaData.isEmpty else { return "" }
             return " [\(metaData.map { "\($0): \($1)" }.joined(separator: ", "))]"
         }
 
-        log(level: level.internalLevel,
-            "\(String(describing: type)).\(function) \(message)\(_buildScopedMetadataString())",
-            file: file,
-            function: function,
-            line: line)
+        let formattedMessage = "\(String(describing: type)).\(function) \(message)\(_buildScopedMetadataString())"
+        os_log("%{public}@", log: self, type: level.osLogType, formattedMessage)
+    }
+
+    func trace(_ message: CustomStringConvertible, file _: String = #fileID, function _: String = #function, line _: UInt = #line) {
+        os_log("%{public}@", log: self, type: .debug, "\(message)")
+    }
+
+    func debug(_ message: CustomStringConvertible, file _: String = #fileID, function _: String = #function, line _: UInt = #line) {
+        os_log("%{public}@", log: self, type: .debug, "\(message)")
+    }
+
+    func info(_ message: CustomStringConvertible, file _: String = #fileID, function _: String = #function, line _: UInt = #line) {
+        os_log("%{public}@", log: self, type: .info, "\(message)")
+    }
+
+    func warning(_ message: CustomStringConvertible, file _: String = #fileID, function _: String = #function, line _: UInt = #line) {
+        os_log("%{public}@", log: self, type: .default, "\(message)")
+    }
+
+    func error(_ message: CustomStringConvertible, file _: String = #fileID, function _: String = #function, line _: UInt = #line) {
+        os_log("%{public}@", log: self, type: .error, "\(message)")
     }
 }

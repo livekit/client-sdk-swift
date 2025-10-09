@@ -19,7 +19,6 @@
 #if canImport(ReplayKit)
 import ReplayKit
 #endif
-internal import Logging
 
 import Combine
 import OSLog
@@ -33,9 +32,10 @@ open class LKSampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
     private var uploader: BroadcastUploader?
     private var cancellable = Set<AnyCancellable>()
 
+    private lazy var logger: OSLog = enableLogging ? OSLog(subsystem: Bundle.main.bundleIdentifier ?? "", category: "LKSampleHandler") : .disabled
+
     override public init() {
         super.init()
-        bootstrapLogging()
         logger.info("LKSampleHandler created")
 
         createUploader()
@@ -43,7 +43,7 @@ open class LKSampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
         DarwinNotificationCenter.shared
             .publisher(for: .broadcastRequestStop)
             .sink { [weak self] _ in
-                logger.info("Received stop request")
+                self?.logger.info("Received stop request")
                 self?.finishBroadcastWithoutError()
             }
             .store(in: &cancellable)
@@ -140,20 +140,6 @@ open class LKSampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
     /// - SeeAlso: ``enableLogging``
     ///
     open var verboseLogging: Bool { false }
-
-    private func bootstrapLogging() {
-        guard enableLogging else { return }
-
-        let bundleIdentifier = Bundle.main.bundleIdentifier ?? ""
-        let logger = OSLog(subsystem: bundleIdentifier, category: "LKSampleHandler")
-        let logLevel = verboseLogging ? Logger.Level.trace : .info
-
-        LoggingSystem.bootstrap { _ in
-            var logHandler = OSLogHandler(logger)
-            logHandler.logLevel = logLevel
-            return logHandler
-        }
-    }
 }
 
 #endif
