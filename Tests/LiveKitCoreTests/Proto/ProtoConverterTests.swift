@@ -23,7 +23,7 @@ class ProtoConverterTests: LKTestCase {
     func testParticipantPermissions() {
         let errors = Comparator.compareStructures(
             proto: Livekit_ParticipantPermission(),
-            custom: ParticipantPermissions(),
+            sdk: ParticipantPermissions(),
             excludedFields: ["agent"], // deprecated
             allowedTypeMismatches: ["canPublishSources"] // Array vs Set
         )
@@ -36,7 +36,7 @@ enum Comparator {
     enum ComparisonError: Error, CustomStringConvertible {
         case missingField(String)
         case extraField(String)
-        case typeMismatch(field: String, proto: String, custom: String)
+        case typeMismatch(field: String, proto: String, sdk: String)
 
         var description: String {
             switch self {
@@ -44,8 +44,8 @@ enum Comparator {
                 "Missing field: '\(field)'"
             case let .extraField(field):
                 "Extra field: '\(field)'"
-            case let .typeMismatch(field, proto, custom):
-                "Type mismatch for '\(field)': proto has \(proto), custom has \(custom)"
+            case let .typeMismatch(field, proto, sdk):
+                "Type mismatch for '\(field)': proto has \(proto), sdk has \(sdk)"
             }
         }
     }
@@ -113,36 +113,36 @@ enum Comparator {
 
     static func compareStructures(
         proto: some Any,
-        custom: some Any,
+        sdk: some Any,
         excludedFields: Set<String> = [],
         allowedTypeMismatches: Set<String> = []
     ) -> [ComparisonError] {
         let protoFields = extractFields(from: proto, excludedFields: excludedFields)
-        let customFields = extractFields(from: custom, excludedFields: excludedFields)
+        let sdkFields = extractFields(from: sdk, excludedFields: excludedFields)
 
         var errors: [ComparisonError] = []
 
         let protoFieldMap = Dictionary(uniqueKeysWithValues: protoFields.map { ($0.name, $0) })
-        let customFieldMap = Dictionary(uniqueKeysWithValues: customFields.map { ($0.name, $0) })
+        let sdkFieldMap = Dictionary(uniqueKeysWithValues: sdkFields.map { ($0.name, $0) })
 
         for protoField in protoFields {
-            guard let customField = customFieldMap[protoField.name] else {
+            guard let sdkField = sdkFieldMap[protoField.name] else {
                 errors.append(.missingField(protoField.name))
                 continue
             }
 
-            if protoField.nonOptionalType != customField.nonOptionalType, !allowedTypeMismatches.contains(protoField.name) {
+            if protoField.nonOptionalType != sdkField.nonOptionalType, !allowedTypeMismatches.contains(protoField.name) {
                 errors.append(.typeMismatch(
                     field: protoField.name,
                     proto: protoField.type,
-                    custom: customField.type
+                    sdk: sdkField.type
                 ))
             }
         }
 
-        for customField in customFields {
-            if protoFieldMap[customField.name] == nil {
-                errors.append(.extraField(customField.name))
+        for sdkField in sdkFields {
+            if protoFieldMap[sdkField.name] == nil {
+                errors.append(.extraField(sdkField.name))
             }
         }
 
