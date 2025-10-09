@@ -27,7 +27,7 @@ class TextStreamInfoTests: LKTestCase {
             timestamp: Date(timeIntervalSince1970: 100),
             totalLength: 128,
             attributes: ["key": "value"],
-            encryptionType: .none,
+            encryptionType: .gcm,
             operationType: .reaction,
             version: 10,
             replyToStreamID: "replyID",
@@ -40,18 +40,20 @@ class TextStreamInfoTests: LKTestCase {
         XCTAssertEqual(header.timestamp, Int64(info.timestamp.timeIntervalSince1970 * TimeInterval(1000)))
         XCTAssertEqual(header.totalLength, UInt64(info.totalLength ?? -1))
         XCTAssertEqual(header.attributes, info.attributes)
+        XCTAssertEqual(header.encryptionType.rawValue, info.encryptionType.rawValue)
         XCTAssertEqual(header.textHeader.operationType.rawValue, info.operationType.rawValue)
         XCTAssertEqual(header.textHeader.version, Int32(info.version))
         XCTAssertEqual(header.textHeader.replyToStreamID, info.replyToStreamID)
         XCTAssertEqual(header.textHeader.attachedStreamIds, info.attachedStreamIDs)
         XCTAssertEqual(header.textHeader.generated, info.generated)
 
-        let newInfo = TextStreamInfo(header, header.textHeader, .none)
+        let newInfo = TextStreamInfo(header, header.textHeader, .gcm)
         XCTAssertEqual(newInfo.id, info.id)
         XCTAssertEqual(newInfo.topic, info.topic)
         XCTAssertEqual(newInfo.timestamp, info.timestamp)
         XCTAssertEqual(newInfo.totalLength, info.totalLength)
         XCTAssertEqual(newInfo.attributes, info.attributes)
+        XCTAssertEqual(newInfo.encryptionType, info.encryptionType)
         XCTAssertEqual(newInfo.operationType, info.operationType)
         XCTAssertEqual(newInfo.version, info.version)
         XCTAssertEqual(newInfo.replyToStreamID, info.replyToStreamID)

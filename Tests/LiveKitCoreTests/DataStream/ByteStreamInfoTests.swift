@@ -27,7 +27,7 @@ class ByteStreamInfoTests: LKTestCase {
             timestamp: Date(timeIntervalSince1970: 100),
             totalLength: 128,
             attributes: ["key": "value"],
-            encryptionType: .none,
+            encryptionType: .gcm,
             mimeType: "image/jpeg",
             name: "filename.bin"
         )
@@ -38,15 +38,17 @@ class ByteStreamInfoTests: LKTestCase {
         XCTAssertEqual(header.timestamp, Int64(info.timestamp.timeIntervalSince1970 * TimeInterval(1000)))
         XCTAssertEqual(header.totalLength, UInt64(info.totalLength ?? -1))
         XCTAssertEqual(header.attributes, info.attributes)
+        XCTAssertEqual(header.encryptionType.rawValue, info.encryptionType.rawValue)
         XCTAssertEqual(header.byteHeader.name, info.name)
 
-        let newInfo = ByteStreamInfo(header, header.byteHeader, .none)
+        let newInfo = ByteStreamInfo(header, header.byteHeader, .gcm)
         XCTAssertEqual(newInfo.id, info.id)
         XCTAssertEqual(newInfo.mimeType, info.mimeType)
         XCTAssertEqual(newInfo.topic, info.topic)
         XCTAssertEqual(newInfo.timestamp, info.timestamp)
         XCTAssertEqual(newInfo.totalLength, info.totalLength)
         XCTAssertEqual(newInfo.attributes, info.attributes)
+        XCTAssertEqual(newInfo.encryptionType, info.encryptionType)
         XCTAssertEqual(newInfo.name, info.name)
     }
 }

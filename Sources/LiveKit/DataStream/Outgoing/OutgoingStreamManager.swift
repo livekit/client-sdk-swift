@@ -271,6 +271,7 @@ extension Livekit_DataStream.Header {
                 $0.totalLength = UInt64(totalLength)
             }
             $0.attributes = streamInfo.attributes
+            $0.encryptionType = streamInfo.encryptionType.toPBType()
             $0.contentHeader = Livekit_DataStream.Header.OneOf_ContentHeader(streamInfo)
         }
     }

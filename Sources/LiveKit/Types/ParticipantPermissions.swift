@@ -42,12 +42,22 @@ public class ParticipantPermissions: NSObject, @unchecked Sendable {
     @objc
     public let recorder: Bool
 
+    /// Indicates participant can update own metadata and attributes
+    @objc
+    public let canUpdateMetadata: Bool
+
+    /// Indicates participant can subscribe to metrics
+    @objc
+    public let canSubscribeMetrics: Bool
+
     init(canSubscribe: Bool = false,
          canPublish: Bool = false,
          canPublishData: Bool = false,
          canPublishSources: Set<Track.Source> = [],
          hidden: Bool = false,
-         recorder: Bool = false)
+         recorder: Bool = false,
+         canUpdateMetadata: Bool = false,
+         canSubscribeMetrics: Bool = false)
     {
         self.canSubscribe = canSubscribe
         self.canPublish = canPublish
@@ -55,6 +65,8 @@ public class ParticipantPermissions: NSObject, @unchecked Sendable {
         self.canPublishSources = Set(canPublishSources.map(\.rawValue))
         self.hidden = hidden
         self.recorder = recorder
+        self.canUpdateMetadata = canUpdateMetadata
+        self.canSubscribeMetrics = canSubscribeMetrics
     }
 
     // MARK: - Equal
@@ -66,7 +78,9 @@ public class ParticipantPermissions: NSObject, @unchecked Sendable {
             canPublishData == other.canPublishData &&
             canPublishSources == other.canPublishSources &&
             hidden == other.hidden &&
-            recorder == other.recorder
+            recorder == other.recorder &&
+            canUpdateMetadata == other.canUpdateMetadata &&
+            canSubscribeMetrics == other.canSubscribeMetrics
     }
 
     override public var hash: Int {
@@ -77,6 +91,8 @@ public class ParticipantPermissions: NSObject, @unchecked Sendable {
         hasher.combine(canPublishSources)
         hasher.combine(hidden)
         hasher.combine(recorder)
+        hasher.combine(canUpdateMetadata)
+        hasher.combine(canSubscribeMetrics)
         return hasher.finalize()
     }
 }
@@ -88,6 +104,8 @@ extension Livekit_ParticipantPermission {
                                canPublishData: canPublishData,
                                canPublishSources: Set(canPublishSources.map { $0.toLKType() }),
                                hidden: hidden,
-                               recorder: recorder)
+                               recorder: recorder,
+                               canUpdateMetadata: canUpdateMetadata,
+                               canSubscribeMetrics: canSubscribeMetrics)
     }
 }
