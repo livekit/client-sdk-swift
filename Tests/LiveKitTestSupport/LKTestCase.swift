@@ -22,7 +22,7 @@ import LiveKitWebRTC
 /// Subclass of XCTestCase that performs global initialization.
 open class LKTestCase: XCTestCase {
     override open func setUp() {
-        LiveKitSDK.setLoggerStandardOutput(level: .info)
+        LiveKitSDK.setLogLevel(.info)
         continueAfterFailure = false // Fail early
         super.setUp()
     }

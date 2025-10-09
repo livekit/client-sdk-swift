@@ -81,9 +81,21 @@ public class LiveKitSDK: NSObject {
         }
     }
 
+    /// Adjust the global log level
+    /// - Note: This must be called before initializing any other LiveKit SDK objects like `Room`
+    /// e.g. in `App.init()` or `AppDelegate`/`SceneDelegate`.
     @objc
-    public static func setLoggerStandardOutput(level: LogLevel = .warning) {
+    public static func setLogLevel(_ level: LogLevel) {
         state.mutate { $0.logLevel = level }
+    }
+
+    /// Enable debug logging
+    /// - Note: This must be called before initializing any other LiveKit SDK objects like `Room`
+    /// e.g. in `App.init()` or `AppDelegate`/`SceneDelegate`.
+    @available(*, deprecated, renamed: "setLogLevel")
+    @objc
+    public static func setLoggerStandardOutput() {
+        setLogLevel(.debug)
     }
 
     /// Notify the SDK to start initializing for faster connection/publishing later on. This is non-blocking.
