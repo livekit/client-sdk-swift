@@ -49,7 +49,7 @@ public class LiveKitSDK: NSObject {
             return logHandler
         }
         LKRTCSetMinDebugLogLevel(state.logLevel.rtcLevel)
-        return Logger(label: "LiveKitSDK")
+        return Logger(label: "")
     }()
 
     @objc
