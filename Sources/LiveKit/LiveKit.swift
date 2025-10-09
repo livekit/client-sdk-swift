@@ -18,7 +18,7 @@ import Foundation
 internal import LiveKitWebRTC
 internal import Logging
 
-let logger = Logger(label: "LiveKitSDK")
+let logger = LiveKitSDK.logger
 
 /// The open source platform for real-time communication.
 ///
@@ -35,13 +35,55 @@ public class LiveKitSDK: NSObject {
     @objc(sdkVersion)
     public static let version = "2.8.1"
 
-    @objc
-    public static func setLoggerStandardOutput() {
+    private struct State {
+        var logLevel: LogLevel = .warning
+    }
+
+    private static let state = StateSync(State())
+
+    static let logger = {
+        // Should be called before any logging
         LoggingSystem.bootstrap {
             var logHandler = StreamLogHandler.standardOutput(label: $0)
-            logHandler.logLevel = .debug
+            logHandler.logLevel = state.logLevel.internalLevel
             return logHandler
         }
+        LKRTCSetMinDebugLogLevel(state.logLevel.rtcLevel)
+        return Logger(label: "LiveKitSDK")
+    }()
+
+    @objc
+    public enum LogLevel: Int, Sendable {
+        case trace
+        case debug
+        case info
+        case warning
+        case error
+
+        var internalLevel: Logger.Level {
+            switch self {
+            case .trace: .trace
+            case .debug: .debug
+            case .info: .info
+            case .warning: .warning
+            case .error: .error
+            }
+        }
+
+        var rtcLevel: LKRTCLoggingSeverity {
+            switch self {
+            case .trace: .verbose
+            case .debug: .verbose
+            case .info: .info
+            case .warning: .warning
+            case .error: .error
+            }
+        }
+    }
+
+    @objc
+    public static func setLoggerStandardOutput(level: LogLevel = .warning) {
+        state.mutate { $0.logLevel = level }
     }
 
     /// Notify the SDK to start initializing for faster connection/publishing later on. This is non-blocking.
