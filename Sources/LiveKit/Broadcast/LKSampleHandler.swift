@@ -32,7 +32,7 @@ open class LKSampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
     private var uploader: BroadcastUploader?
     private var cancellable = Set<AnyCancellable>()
 
-    private lazy var logger: OSLog = enableLogging ? OSLog(subsystem: Bundle.main.bundleIdentifier ?? "", category: "LKSampleHandler") : .disabled
+    private lazy var logger: OSLog = enableLogging ? OSLog(subsystem: "io.livekit.sdk", category: "LKSampleHandler") : .disabled
 
     override public init() {
         super.init()

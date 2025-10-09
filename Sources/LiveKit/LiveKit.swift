@@ -18,7 +18,7 @@ import Foundation
 import OSLog
 internal import LiveKitWebRTC
 
-let logger = OSLog(subsystem: "io.livekit.sdk", category: "LiveKit")
+let logger = LiveKitSDK.state.logHandler
 
 /// The open source platform for real-time communication.
 ///
@@ -37,52 +37,20 @@ public class LiveKitSDK: NSObject {
     @objc(sdkVersion)
     public static let version = "2.8.1"
 
-    struct State {
+    fileprivate struct State {
         var logHandler: LogHandler = OSLogHandler()
     }
 
-    static let state = StateSync(State())
+    fileprivate static let state = StateSync(State())
 
-    @objc
-    public enum LogLevel: Int, Sendable {
-        case trace // drop?
-        case debug
-        case info
-        case warning
-        case error
-
-        var osLogType: OSLogType {
-            switch self {
-            case .trace: .debug
-            case .debug: .debug
-            case .info: .info
-            case .warning: .default
-            case .error: .error
-            }
-        }
-
-        var rtcLevel: LKRTCLoggingSeverity {
-            switch self {
-            case .trace: .verbose
-            case .debug: .verbose
-            case .info: .info
-            case .warning: .warning
-            case .error: .error
-            }
-        }
+    public static func setLogHandler(_ handler: LogHandler) {
+        state.mutate { $0.logHandler = handler }
     }
 
-    /// Adjust the global log level
-    /// - Note: This must be called before initializing any other LiveKit SDK objects like `Room`
-    /// e.g. in `App.init()` or `AppDelegate`/`SceneDelegate`.
-    @objc
-    public static func setLogLevel(_: LogLevel) {
-//        state.mutate { $0.logLevel = level }
+    public static func setLogLevel(_ level: LogLevel) {
+        setLogHandler(OSLogHandler(minLevel: level))
     }
 
-    /// Enable debug logging
-    /// - Note: This must be called before initializing any other LiveKit SDK objects like `Room`
-    /// e.g. in `App.init()` or `AppDelegate`/`SceneDelegate`.
     @available(*, deprecated, renamed: "setLogLevel")
     @objc
     public static func setLoggerStandardOutput() {
