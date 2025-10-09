@@ -15,10 +15,10 @@
  */
 
 import Foundation
+import OSLog
 internal import LiveKitWebRTC
-internal import Logging
 
-let logger = Logger(label: "LiveKitSDK")
+let logger = LiveKitSDK.state.logHandler
 
 /// The open source platform for real-time communication.
 ///
@@ -32,16 +32,29 @@ let logger = Logger(label: "LiveKitSDK")
 /// to try out the features.
 @objc
 public class LiveKitSDK: NSObject {
+    override private init() {}
+
     @objc(sdkVersion)
     public static let version = "2.8.1"
 
+    fileprivate struct State {
+        var logHandler: LogHandler = OSLogHandler()
+    }
+
+    fileprivate static let state = StateSync(State())
+
+    public static func setLogHandler(_ handler: LogHandler) {
+        state.mutate { $0.logHandler = handler }
+    }
+
+    public static func setLogLevel(_ level: LogLevel) {
+        setLogHandler(OSLogHandler(minLevel: level))
+    }
+
+    @available(*, deprecated, renamed: "setLogLevel")
     @objc
     public static func setLoggerStandardOutput() {
-        LoggingSystem.bootstrap {
-            var logHandler = StreamLogHandler.standardOutput(label: $0)
-            logHandler.logLevel = .debug
-            return logHandler
-        }
+        setLogLevel(.debug)
     }
 
     /// Notify the SDK to start initializing for faster connection/publishing later on. This is non-blocking.

@@ -19,7 +19,6 @@
 #if canImport(ReplayKit)
 import ReplayKit
 #endif
-internal import Logging
 
 import Combine
 import OSLog
@@ -33,17 +32,18 @@ open class LKSampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
     private var uploader: BroadcastUploader?
     private var cancellable = Set<AnyCancellable>()
 
+    private lazy var log: OSLog = enableLogging ? OSLog(subsystem: "io.livekit.sdk", category: "LKSampleHandler") : .disabled
+
     override public init() {
         super.init()
-        bootstrapLogging()
-        logger.info("LKSampleHandler created")
+        os_log("LKSampleHandler created", log: log, type: .info)
 
         createUploader()
 
         DarwinNotificationCenter.shared
             .publisher(for: .broadcastRequestStop)
             .sink { [weak self] _ in
-                logger.info("Received stop request")
+                os_log("Received stop request", log: self?.log ?? .disabled, type: .info)
                 self?.finishBroadcastWithoutError()
             }
             .store(in: &cancellable)
@@ -51,23 +51,23 @@ open class LKSampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
 
     override public func broadcastStarted(withSetupInfo _: [String: NSObject]?) {
         // User has requested to start the broadcast. Setup info from the UI extension can be supplied but optional.
-        logger.info("Broadcast started")
+        os_log("Broadcast started", log: log, type: .info)
         DarwinNotificationCenter.shared.postNotification(.broadcastStarted)
     }
 
     override public func broadcastPaused() {
         // User has requested to pause the broadcast. Samples will stop being delivered.
-        logger.info("Broadcast paused")
+        os_log("Broadcast paused", log: log, type: .info)
     }
 
     override public func broadcastResumed() {
         // User has requested to resume the broadcast. Samples delivery will resume.
-        logger.info("Broadcast resumed")
+        os_log("Broadcast resumed", log: log, type: .info)
     }
 
     override public func broadcastFinished() {
         // User has requested to finish the broadcast.
-        logger.info("Broadcast finished")
+        os_log("Broadcast finished", log: log, type: .info)
         DarwinNotificationCenter.shared.postNotification(.broadcastStopped)
         uploader?.close()
     }
@@ -77,7 +77,7 @@ open class LKSampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
             try uploader?.upload(sampleBuffer, with: type)
         } catch {
             guard case .connectionClosed = error as? BroadcastUploader.Error else {
-                logger.error("Failed to send sample: \(error)")
+                os_log("Failed to send sample: %{public}@", log: log, type: .error, String(describing: error))
                 return
             }
             finishBroadcastWithoutError()
@@ -112,15 +112,15 @@ open class LKSampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
 
     private func createUploader() {
         guard let socketPath = BroadcastBundleInfo.socketPath else {
-            logger.error("Bundle settings improperly configured for screen capture")
+            os_log("Bundle settings improperly configured for screen capture", log: log, type: .error)
             return
         }
         Task {
             do {
                 uploader = try await BroadcastUploader(socketPath: socketPath)
-                logger.info("Uploader connected")
+                os_log("Uploader connected", log: log, type: .info)
             } catch {
-                logger.error("Uploader connection failed: \(error)")
+                os_log("Uploader connection failed: %{public}@", log: log, type: .error, String(describing: error))
                 connectionDidClose(error: error)
             }
         }
@@ -140,20 +140,6 @@ open class LKSampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
     /// - SeeAlso: ``enableLogging``
     ///
     open var verboseLogging: Bool { false }
-
-    private func bootstrapLogging() {
-        guard enableLogging else { return }
-
-        let bundleIdentifier = Bundle.main.bundleIdentifier ?? ""
-        let logger = OSLog(subsystem: bundleIdentifier, category: "LKSampleHandler")
-        let logLevel = verboseLogging ? Logger.Level.trace : .info
-
-        LoggingSystem.bootstrap { _ in
-            var logHandler = OSLogHandler(logger)
-            logHandler.logLevel = logLevel
-            return logHandler
-        }
-    }
 }
 
 #endif

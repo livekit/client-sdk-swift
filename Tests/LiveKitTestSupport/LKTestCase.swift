@@ -21,14 +21,8 @@ import LiveKitWebRTC
 
 /// Subclass of XCTestCase that performs global initialization.
 open class LKTestCase: XCTestCase {
-    private static let _globalSetup: Bool = {
-        LiveKitSDK.setLoggerStandardOutput()
-        LKRTCSetMinDebugLogLevel(.info)
-        return true
-    }()
-
     override open func setUp() {
-        assert(Self._globalSetup, "Global initialization failed")
+        LiveKitSDK.setLogLevel(.info)
         continueAfterFailure = false // Fail early
         super.setUp()
     }

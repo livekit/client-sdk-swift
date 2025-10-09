@@ -44,6 +44,7 @@ extension LKRTCRtpCapabilities: @unchecked Swift.Sendable {}
 extension LKRTCConfiguration: @unchecked Swift.Sendable {}
 extension LKRTCVideoCapturer: @unchecked Swift.Sendable {}
 extension LKRTCDefaultAudioProcessingModule: @unchecked Swift.Sendable {}
+extension LKRTCCallbackLogger: @unchecked Swift.Sendable {}
 
 // MARK: Collections
 
