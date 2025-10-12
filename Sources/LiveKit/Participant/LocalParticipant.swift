@@ -314,11 +314,10 @@ public extension LocalParticipant {
             if let publication = self.getTrackPublication(source: .camera) as? LocalTrackPublication {
                 if enabled {
                     try await publication.unmute()
-                    return publication
                 } else {
                     try await publication.mute()
-                    return publication
                 }
+                return publication
             } else if enabled {
                 let localTrack = LocalVideoTrack.createCameraTrack(options: captureOptions ?? room._state.roomOptions.defaultCameraCaptureOptions,
                                                                    reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
@@ -342,11 +341,10 @@ public extension LocalParticipant {
             if let publication = self.getTrackPublication(source: .microphone) as? LocalTrackPublication {
                 if enabled {
                     try await publication.unmute()
-                    return publication
                 } else {
                     try await publication.mute()
-                    return publication
                 }
+                return publication
             } else if enabled {
                 let localTrack = LocalAudioTrack.createTrack(options: captureOptions ?? room._state.roomOptions.defaultAudioCaptureOptions,
                                                              reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
@@ -379,11 +377,10 @@ public extension LocalParticipant {
             if let publication = self.getTrackPublication(source: .screenShareVideo) as? LocalTrackPublication {
                 if enabled {
                     try await publication.unmute()
-                    return publication
                 } else {
                     try await self.unpublish(publication: publication)
-                    return publication
                 }
+                return publication
             } else if enabled {
                 #if os(iOS)
 
@@ -410,7 +407,7 @@ public extension LocalParticipant {
                 if #available(macOS 12.3, *) {
                     let mainDisplay = try await MacOSScreenCapturer.mainDisplaySource()
                     let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
-                                                                            options: (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions,
+                                                                            options: captureOptions ?? room._state.roomOptions.defaultScreenShareCaptureOptions,
                                                                             reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
                     return try await self._publish(track: track, options: publishOptions)
                 }
