@@ -22,6 +22,7 @@ internal import LiveKitWebRTC
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 typealias NativeRendererView = LKRTCVideoRenderer & Mirrorable & NativeViewType
 
+@available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
 @objc
 public class VideoView: NativeView, Loggable {
     // MARK: - MulticastDelegate
@@ -515,6 +516,7 @@ public class VideoView: NativeView, Loggable {
 
 // MARK: - Private
 
+@available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
 @MainActor
 private extension VideoView {
     private func ensureDebugTextView() -> TextView {
@@ -583,6 +585,7 @@ private extension VideoView {
 
 // MARK: - RTCVideoRenderer
 
+@available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
 extension VideoView: VideoRenderer {
     public var isAdaptiveStreamEnabled: Bool {
         _state.read { $0.didLayout && !$0.isHidden && $0.isEnabled }
@@ -732,6 +735,7 @@ extension VideoView: VideoRenderer {
 
 // MARK: - Internal
 
+@available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
 extension VideoView {
     nonisolated static func track(_ track1: VideoTrack?, isEqualWith track2: VideoTrack?) -> Bool {
         // equal if both tracks are nil
@@ -745,6 +749,7 @@ extension VideoView {
 
 // MARK: - Static helper methods
 
+@available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
 extension VideoView {
     public static func isMetalAvailable() -> Bool {
         #if os(iOS)
@@ -834,6 +839,7 @@ extension NSView {
 #endif
 
 #if os(iOS) || os(macOS)
+@available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
 extension LKRTCMTLVideoView: Mirrorable {
     func set(isMirrored: Bool) {
         if isMirrored {
@@ -857,6 +863,7 @@ extension LKRTCMTLVideoView: Mirrorable {
 #endif
 
 #if os(iOS)
+@available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
 extension VideoView.TransitionMode {
     func toAnimationOption(fromPosition position: AVCaptureDevice.Position? = nil) -> UIView.AnimationOptions? {
         switch self {

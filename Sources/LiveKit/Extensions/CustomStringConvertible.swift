@@ -156,12 +156,14 @@ extension Livekit_SignalResponse: CustomStringConvertible {
 
 // MARK: - NativeView
 
+@available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
 public extension VideoView {
     override var description: String {
         "VideoView(track: \(String(describing: track)))"
     }
 }
 
+@available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
 extension VideoView.RenderMode: CustomStringConvertible {
     public var description: String {
         switch self {

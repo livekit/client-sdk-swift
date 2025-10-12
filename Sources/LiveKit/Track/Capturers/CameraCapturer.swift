@@ -23,6 +23,7 @@ import ReplayKit
 
 internal import LiveKitWebRTC
 
+@available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
 public class CameraCapturer: VideoCapturer, @unchecked Sendable {
     /// Current device used for capturing
     @objc
@@ -261,6 +262,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
     }
 }
 
+@available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
 class VideoCapturerDelegateAdapter: NSObject, LKRTCVideoCapturerDelegate, Loggable {
     weak var cameraCapturer: CameraCapturer?
 
@@ -284,6 +286,7 @@ class VideoCapturerDelegateAdapter: NSObject, LKRTCVideoCapturerDelegate, Loggab
     }
 }
 
+@available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
 public extension LocalVideoTrack {
     @objc
     static func createCameraTrack() -> LocalVideoTrack {
