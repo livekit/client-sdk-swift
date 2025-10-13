@@ -18,7 +18,8 @@ import Foundation
 import OSLog
 internal import LiveKitWebRTC
 
-let logger = LiveKitSDK.state.logHandler
+// Lazily initialized to the first log handler set
+let logger = LiveKitSDK.state.logger
 
 /// The open source platform for real-time communication.
 ///
@@ -38,21 +39,21 @@ public class LiveKitSDK: NSObject, Loggable {
     public static let version = "2.8.1"
 
     fileprivate struct State {
-        var logHandler: LogHandler = OSLogHandler()
+        var logger: Logger = OSLogger()
     }
 
     fileprivate static let state = StateSync(State())
 
-    public static func setLogHandler(_ handler: LogHandler) {
-        state.mutate { $0.logHandler = handler }
+    public static func setLogger(_ logger: Logger) {
+        state.mutate { $0.logger = logger }
     }
 
     public static func setLogLevel(_ level: LogLevel) {
-        setLogHandler(OSLogHandler(minLevel: level))
+        setLogger(OSLogger(minLevel: level))
     }
 
     public static func disableLogging() {
-        setLogHandler(DisabledLogHandler())
+        setLogger(DisabledLogger())
     }
 
     @available(*, deprecated, renamed: "setLogLevel")

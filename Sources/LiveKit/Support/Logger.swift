@@ -17,6 +17,136 @@
 import OSLog
 internal import LiveKitWebRTC
 
+// MARK: - Handler
+
+public typealias ScopedMetadata = CustomStringConvertible
+public typealias ScopedMetadataContainer = [String: ScopedMetadata]
+
+public protocol Logger: Sendable {
+    func log(
+        _ message: @autoclosure () -> CustomStringConvertible,
+        _ level: LogLevel,
+        source: @autoclosure () -> String?,
+        file: StaticString,
+        type: Any.Type,
+        function: StaticString,
+        line: UInt,
+        metaData: ScopedMetadataContainer
+    )
+}
+
+// Default arguments
+public extension Logger {
+    func log(
+        _ message: @autoclosure () -> CustomStringConvertible,
+        _ level: LogLevel = .debug,
+        source: @autoclosure () -> String? = nil,
+        file: StaticString = #fileID,
+        type: Any.Type,
+        function: StaticString = #function,
+        line: UInt = #line,
+        metaData: ScopedMetadataContainer = ScopedMetadataContainer()
+    ) {
+        log(message(), level, source: source(), file: file, type: type, function: function, line: line, metaData: metaData)
+    }
+}
+
+/// A no-op logger
+public struct DisabledLogger: Logger {
+    public func log(
+        _: @autoclosure () -> CustomStringConvertible,
+        _: LogLevel,
+        source _: @autoclosure () -> String?,
+        file _: StaticString,
+        type _: Any.Type,
+        function _: StaticString,
+        line _: UInt,
+        metaData _: ScopedMetadataContainer
+    ) {}
+}
+
+/// A loggerthat logs to OSLog
+/// - Parameter minLevel: The minimum level to log
+/// - Parameter rtc: Whether to log WebRTC output
+public final class OSLogger: Logger {
+    private let osLog = OSLog(subsystem: "io.livekit.sdk", category: "LiveKit")
+    private let rtcLog = OSLog(subsystem: "io.livekit.sdk", category: "WebRTC")
+    private let rtcLogger = LKRTCCallbackLogger()
+
+    private let minLevel: LogLevel
+
+    public init(minLevel: LogLevel = .info, rtc: Bool = false) {
+        self.minLevel = minLevel
+
+        guard rtc else { return }
+
+        rtcLogger.severity = minLevel.rtcSeverity
+        rtcLogger.start { [rtcLog] message, severity in
+            os_log("%{public}@", log: rtcLog, type: severity.osLogType, message)
+        }
+    }
+
+    deinit {
+        rtcLogger.stop()
+    }
+
+    public func log(
+        _ message: @autoclosure () -> CustomStringConvertible,
+        _ level: LogLevel,
+        source _: @autoclosure () -> String?,
+        file _: StaticString,
+        type: Any.Type,
+        function: StaticString,
+        line _: UInt,
+        metaData: ScopedMetadataContainer
+    ) {
+        guard level >= minLevel else { return }
+
+        func buildScopedMetadataString() -> String {
+            guard !metaData.isEmpty else { return "" }
+            return " [\(metaData.map { "\($0): \($1)" }.joined(separator: ", "))]"
+        }
+
+        let formattedMessage = "\(type).\(function) \(message())\(buildScopedMetadataString())"
+        os_log("%{public}@", log: osLog, type: level.osLogType, formattedMessage)
+    }
+}
+
+// MARK: - Loggable
+
+/// Allows to extend with custom `log` method which automatically captures current type (class name).
+public protocol Loggable {}
+
+extension Loggable {
+    func log(_ message: CustomStringConvertible? = nil,
+             _ level: LogLevel = .debug,
+             file: StaticString = #fileID,
+             function: StaticString = #function,
+             line: UInt = #line)
+    {
+        logger.log(message ?? "",
+                   level,
+                   file: file,
+                   type: Self.self,
+                   function: function,
+                   line: line)
+    }
+
+    static func log(_ message: CustomStringConvertible? = nil,
+                    _ level: LogLevel = .debug,
+                    file: StaticString = #fileID,
+                    function: StaticString = #function,
+                    line: UInt = #line)
+    {
+        logger.log(message ?? "",
+                   level,
+                   file: file,
+                   type: Self.self,
+                   function: function,
+                   line: line)
+    }
+}
+
 // MARK: - Level
 
 @frozen public enum LogLevel: Int, Sendable, Comparable {
@@ -55,133 +185,8 @@ extension LKRTCLoggingSeverity {
         case .info: .info
         case .warning: .default
         case .error: .error
-        case .none: .error
-        @unknown default: .error
+        case .none: .debug
+        @unknown default: .debug
         }
-    }
-}
-
-// MARK: - Loggable
-
-/// Allows to extend with custom `log` method which automatically captures current type (class name).
-public protocol Loggable {}
-
-public typealias ScopedMetadata = CustomStringConvertible
-public typealias ScopedMetadataContainer = [String: ScopedMetadata]
-
-extension Loggable {
-    func log(_ message: CustomStringConvertible? = nil,
-             _ level: LogLevel = .debug,
-             file: String = #fileID,
-             function: String = #function,
-             line: UInt = #line)
-    {
-        logger.log(message ?? "",
-                   level,
-                   file: file,
-                   type: Self.self,
-                   function: function,
-                   line: line)
-    }
-
-    static func log(_ message: CustomStringConvertible? = nil,
-                    _ level: LogLevel = .debug,
-                    file: String = #fileID,
-                    function: String = #function,
-                    line: UInt = #line)
-    {
-        logger.log(message ?? "",
-                   level,
-                   file: file,
-                   type: Self.self,
-                   function: function,
-                   line: line)
-    }
-}
-
-// MARK: - Handler
-
-public protocol LogHandler: Sendable {
-    func log(
-        _ message: CustomStringConvertible,
-        _ level: LogLevel,
-        source: () -> String?,
-        file: String,
-        type: Any.Type,
-        function: String,
-        line: UInt,
-        metaData: ScopedMetadataContainer
-    )
-}
-
-public extension LogHandler {
-    func log(
-        _ message: CustomStringConvertible,
-        _ level: LogLevel = .debug,
-        source: @autoclosure () -> String? = nil,
-        file: String = #fileID,
-        type: Any.Type,
-        function: String = #function,
-        line: UInt = #line,
-        metaData: ScopedMetadataContainer = ScopedMetadataContainer()
-    ) {
-        log(message, level, source: source, file: file, type: type, function: function, line: line, metaData: metaData)
-    }
-}
-
-public struct DisabledLogHandler: LogHandler {
-    public func log(
-        _: CustomStringConvertible,
-        _: LogLevel,
-        source _: () -> String?,
-        file _: String,
-        type _: Any.Type,
-        function _: String,
-        line _: UInt,
-        metaData _: ScopedMetadataContainer
-    ) {}
-}
-
-public final class OSLogHandler: LogHandler {
-    private let osLog = OSLog(subsystem: "io.livekit.sdk", category: "LiveKit")
-    private let rtcLog = OSLog(subsystem: "io.livekit.sdk", category: "WebRTC")
-    private let rtcLogger = LKRTCCallbackLogger()
-
-    private let level: LogLevel
-
-    public init(minLevel: LogLevel = .info, rtc: Bool = false) {
-        level = minLevel
-
-        guard rtc else { return }
-
-        rtcLogger.severity = level.rtcSeverity
-        rtcLogger.start { [rtcLog] message, severity in
-            os_log("%{public}@", log: rtcLog, type: severity.osLogType, message)
-        }
-    }
-
-    deinit {
-        rtcLogger.stop()
-    }
-
-    public func log(
-        _ message: CustomStringConvertible,
-        _ level: LogLevel,
-        source _: () -> String?,
-        file _: String,
-        type: Any.Type,
-        function: String,
-        line _: UInt,
-        metaData: ScopedMetadataContainer
-    ) {
-        guard level >= self.level else { return }
-
-        func buildScopedMetadataString() -> String {
-            guard !metaData.isEmpty else { return "" }
-            return " [\(metaData.map { "\($0): \($1)" }.joined(separator: ", "))]"
-        }
-
-        let formattedMessage = "\(String(describing: type)).\(function) \(message)\(buildScopedMetadataString())"
-        os_log("%{public}@", log: osLog, type: level.osLogType, formattedMessage)
     }
 }
