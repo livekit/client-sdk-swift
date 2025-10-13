@@ -18,7 +18,6 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-@available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
 @objc
 public protocol VideoViewDelegate: AnyObject, Sendable {
     /// Dimensions of the VideoView itself has updated

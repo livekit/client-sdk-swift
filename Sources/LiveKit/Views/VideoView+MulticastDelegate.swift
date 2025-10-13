@@ -16,7 +16,6 @@
 
 import Foundation
 
-@available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
 extension VideoView: MulticastDelegateProtocol {
     @objc(addDelegate:)
     public nonisolated func add(delegate: VideoViewDelegate) {

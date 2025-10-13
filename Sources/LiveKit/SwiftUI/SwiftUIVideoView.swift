@@ -19,7 +19,6 @@ import SwiftUI
 
 /// A ``VideoView`` that can be used in SwiftUI.
 /// Supports both iOS and macOS.
-@available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
 public struct SwiftUIVideoView: NativeViewRepresentable {
     public typealias ViewType = VideoView
 
@@ -81,7 +80,6 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
 }
 
 /// This class receives ``VideoViewDelegate`` events since a struct can't be used for a delegate
-@available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
 @MainActor
 class VideoViewDelegateReceiver: VideoViewDelegate, Loggable {
     @Binding var isRendering: Bool

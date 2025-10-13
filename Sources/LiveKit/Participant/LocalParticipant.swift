@@ -300,33 +300,16 @@ extension LocalParticipant {
 // MARK: - Simplified API
 
 public extension LocalParticipant {
-    @available(iOSApplicationExtension, unavailable, message: "Camera capture is not available in app extensions")
     @objc
     @discardableResult
     func setCamera(enabled: Bool,
                    captureOptions: CameraCaptureOptions? = nil,
                    publishOptions: VideoPublishOptions? = nil) async throws -> LocalTrackPublication?
     {
-        try await _publishSerialRunner.run {
-            let room = try self.requireRoom()
-
-            // Try to get existing publication
-            if let publication = self.getTrackPublication(source: .camera) as? LocalTrackPublication {
-                if enabled {
-                    try await publication.unmute()
-                    return publication
-                } else {
-                    try await publication.mute()
-                    return publication
-                }
-            } else if enabled {
-                let localTrack = LocalVideoTrack.createCameraTrack(options: captureOptions ?? room._state.roomOptions.defaultCameraCaptureOptions,
-                                                                   reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
-                return try await self._publish(track: localTrack, options: publishOptions)
-            }
-
-            return nil
-        }
+        try await set(source: .camera,
+                      enabled: enabled,
+                      captureOptions: captureOptions,
+                      publishOptions: publishOptions)
     }
 
     @objc
@@ -335,26 +318,10 @@ public extension LocalParticipant {
                        captureOptions: AudioCaptureOptions? = nil,
                        publishOptions: AudioPublishOptions? = nil) async throws -> LocalTrackPublication?
     {
-        try await _publishSerialRunner.run {
-            let room = try self.requireRoom()
-
-            // Try to get existing publication
-            if let publication = self.getTrackPublication(source: .microphone) as? LocalTrackPublication {
-                if enabled {
-                    try await publication.unmute()
-                    return publication
-                } else {
-                    try await publication.mute()
-                    return publication
-                }
-            } else if enabled {
-                let localTrack = LocalAudioTrack.createTrack(options: captureOptions ?? room._state.roomOptions.defaultAudioCaptureOptions,
-                                                             reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
-                return try await self._publish(track: localTrack, options: publishOptions)
-            }
-
-            return nil
-        }
+        try await set(source: .microphone,
+                      enabled: enabled,
+                      captureOptions: captureOptions,
+                      publishOptions: publishOptions)
     }
 
     /// Enable or disable screen sharing. This has different behavior depending on the platform.
@@ -368,60 +335,10 @@ public extension LocalParticipant {
     /// For advanced usage, you can create a relevant ``LocalVideoTrack`` and call ``LocalParticipant/publishVideoTrack(track:publishOptions:)``.
     @objc
     @discardableResult
-    func setScreenShare(enabled: Bool,
-                        captureOptions: ScreenShareCaptureOptions? = nil,
-                        publishOptions: VideoPublishOptions? = nil) async throws -> LocalTrackPublication?
-    {
-        try await _publishSerialRunner.run {
-            let room = try self.requireRoom()
-
-            // Try to get existing publication
-            if let publication = self.getTrackPublication(source: .screenShareVideo) as? LocalTrackPublication {
-                if enabled {
-                    try await publication.unmute()
-                    return publication
-                } else {
-                    try await self.unpublish(publication: publication)
-                    return publication
-                }
-            } else if enabled {
-                #if os(iOS)
-
-                let localTrack: LocalVideoTrack
-                let defaultOptions = room._state.roomOptions.defaultScreenShareCaptureOptions
-
-                if defaultOptions.useBroadcastExtension {
-                    if captureOptions != nil {
-                        logger.warning("Ignoring screen capture options passed to local participant's `\(#function)`; using room defaults instead.")
-                        logger.warning("When using a broadcast extension, screen capture options must be set as room defaults.")
-                    }
-                    guard BroadcastManager.shared.isBroadcasting else {
-                        BroadcastManager.shared.requestActivation()
-                        return nil
-                    }
-                    // Wait until broadcasting to publish track
-                    localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: defaultOptions)
-                } else {
-                    let options = captureOptions ?? defaultOptions
-                    localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
-                }
-                return try await self._publish(track: localTrack, options: publishOptions)
-                #elseif os(macOS)
-                if #available(macOS 12.3, *) {
-                    let mainDisplay = try await MacOSScreenCapturer.mainDisplaySource()
-                    let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
-                                                                            options: (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions,
-                                                                            reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
-                    return try await self._publish(track: track, options: publishOptions)
-                }
-                #endif
-            }
-
-            return nil
-        }
+    func setScreenShare(enabled: Bool) async throws -> LocalTrackPublication? {
+        try await set(source: .screenShareVideo, enabled: enabled)
     }
 
-    @available(iOSApplicationExtension, unavailable, message: "Not available in app extensions")
     @objc
     @discardableResult
     func set(source: Track.Source,
@@ -429,21 +346,67 @@ public extension LocalParticipant {
              captureOptions: CaptureOptions? = nil,
              publishOptions: TrackPublishOptions? = nil) async throws -> LocalTrackPublication?
     {
-        switch source {
-        case .camera:
-            try await setCamera(enabled: enabled,
-                                captureOptions: captureOptions as? CameraCaptureOptions,
-                                publishOptions: publishOptions as? VideoPublishOptions)
-        case .microphone:
-            try await setMicrophone(enabled: enabled,
-                                    captureOptions: captureOptions as? AudioCaptureOptions,
-                                    publishOptions: publishOptions as? AudioPublishOptions)
-        case .screenShareVideo:
-            try await setScreenShare(enabled: enabled,
-                                     captureOptions: captureOptions as? ScreenShareCaptureOptions,
-                                     publishOptions: publishOptions as? VideoPublishOptions)
-        default:
-            nil
+        try await _publishSerialRunner.run {
+            let room = try self.requireRoom()
+
+            // Try to get existing publication
+            if let publication = self.getTrackPublication(source: source) as? LocalTrackPublication {
+                if enabled {
+                    try await publication.unmute()
+                    return publication
+                } else {
+                    if source == .camera || source == .microphone {
+                        try await publication.mute()
+                    } else {
+                        try await self.unpublish(publication: publication)
+                    }
+                    return publication
+                }
+            } else if enabled {
+                // Try to create a new track
+                if source == .camera {
+                    let localTrack = LocalVideoTrack.createCameraTrack(options: (captureOptions as? CameraCaptureOptions) ?? room._state.roomOptions.defaultCameraCaptureOptions,
+                                                                       reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+                    return try await self._publish(track: localTrack, options: publishOptions)
+                } else if source == .microphone {
+                    let localTrack = LocalAudioTrack.createTrack(options: (captureOptions as? AudioCaptureOptions) ?? room._state.roomOptions.defaultAudioCaptureOptions,
+                                                                 reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+                    return try await self._publish(track: localTrack, options: publishOptions)
+                } else if source == .screenShareVideo {
+                    #if os(iOS)
+
+                    let localTrack: LocalVideoTrack
+                    let defaultOptions = room._state.roomOptions.defaultScreenShareCaptureOptions
+
+                    if defaultOptions.useBroadcastExtension {
+                        if captureOptions != nil {
+                            logger.warning("Ignoring screen capture options passed to local participant's `\(#function)`; using room defaults instead.")
+                            logger.warning("When using a broadcast extension, screen capture options must be set as room defaults.")
+                        }
+                        guard BroadcastManager.shared.isBroadcasting else {
+                            BroadcastManager.shared.requestActivation()
+                            return nil
+                        }
+                        // Wait until broadcasting to publish track
+                        localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: defaultOptions)
+                    } else {
+                        let options = (captureOptions as? ScreenShareCaptureOptions) ?? defaultOptions
+                        localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
+                    }
+                    return try await self._publish(track: localTrack, options: publishOptions)
+                    #elseif os(macOS)
+                    if #available(macOS 12.3, *) {
+                        let mainDisplay = try await MacOSScreenCapturer.mainDisplaySource()
+                        let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
+                                                                                options: (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions,
+                                                                                reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+                        return try await self._publish(track: track, options: publishOptions)
+                    }
+                    #endif
+                }
+            }
+
+            return nil
         }
     }
 }
