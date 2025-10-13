@@ -72,11 +72,8 @@ public struct DisabledLogger: Logger {
 public final class OSLogger: Logger, @unchecked Sendable {
     private static let subsystem = "io.livekit.sdk"
 
-    private struct Cache {
-        var logs: [String: OSLog] = [:]
-    }
-
-    private var cache = StateSync(Cache())
+    private let queue = DispatchQueue(label: "io.livekit.oslogger", qos: .utility)
+    private var logs: [String: OSLog] = [:]
 
     private lazy var rtcLog = OSLog(subsystem: Self.subsystem, category: "WebRTC")
     private lazy var rtcLogger = LKRTCCallbackLogger()
@@ -110,26 +107,30 @@ public final class OSLogger: Logger, @unchecked Sendable {
     ) {
         guard level >= minLevel else { return }
 
+        let message = message().description
+
         func buildScopedMetadataString() -> String {
             guard !metaData.isEmpty else { return "" }
             return " [\(metaData.map { "\($0): \($1)" }.joined(separator: ", "))]"
         }
 
-        let formattedMessage = "\(type).\(function) \(message())\(buildScopedMetadataString())"
-        os_log("%{public}@", log: getOSLog(for: type), type: level.osLogType, formattedMessage)
-    }
+        let metadata = buildScopedMetadataString()
 
-    private func getOSLog(for type: Any.Type) -> OSLog {
-        let typeName = String(describing: type)
+        queue.async {
+            func getOSLog(for type: Any.Type) -> OSLog {
+                let typeName = String(describing: type)
 
-        return cache.mutate {
-            if let cachedLog = $0.logs[typeName] {
-                return cachedLog
+                if let cachedLog = self.logs[typeName] {
+                    return cachedLog
+                }
+
+                let newLog = OSLog(subsystem: Self.subsystem, category: typeName)
+                self.logs[typeName] = newLog
+                return newLog
             }
 
-            let newLog = OSLog(subsystem: Self.subsystem, category: typeName)
-            $0.logs[typeName] = newLog
-            return newLog
+            let formattedMessage = "\(type).\(function) \(message)\(metadata)"
+            os_log("%{public}@", log: getOSLog(for: type), type: level.osLogType, formattedMessage)
         }
     }
 }
