@@ -68,10 +68,17 @@ public struct DisabledLogger: Logger {
 /// A loggerthat logs to OSLog
 /// - Parameter minLevel: The minimum level to log
 /// - Parameter rtc: Whether to log WebRTC output
-public final class OSLogger: Logger {
-    private let osLog = OSLog(subsystem: "io.livekit.sdk", category: "LiveKit")
-    private let rtcLog = OSLog(subsystem: "io.livekit.sdk", category: "WebRTC")
-    private let rtcLogger = LKRTCCallbackLogger()
+public final class OSLogger: Logger, @unchecked Sendable {
+    private static let subsystem = "io.livekit.sdk"
+
+    private struct Cache {
+        var logs: [String: OSLog] = [:]
+    }
+
+    private var cache = StateSync(Cache())
+
+    private lazy var rtcLog = OSLog(subsystem: Self.subsystem, category: "WebRTC")
+    private lazy var rtcLogger = LKRTCCallbackLogger()
 
     private let minLevel: LogLevel
 
@@ -108,7 +115,21 @@ public final class OSLogger: Logger {
         }
 
         let formattedMessage = "\(type).\(function) \(message())\(buildScopedMetadataString())"
-        os_log("%{public}@", log: osLog, type: level.osLogType, formattedMessage)
+        os_log("%{public}@", log: getOSLog(for: type), type: level.osLogType, formattedMessage)
+    }
+
+    private func getOSLog(for type: Any.Type) -> OSLog {
+        let typeName = String(describing: type)
+
+        return cache.mutate {
+            if let cachedLog = $0.logs[typeName] {
+                return cachedLog
+            }
+
+            let newLog = OSLog(subsystem: Self.subsystem, category: typeName)
+            $0.logs[typeName] = newLog
+            return newLog
+        }
     }
 }
 
