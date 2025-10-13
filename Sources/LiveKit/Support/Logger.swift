@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-import Foundation
 import OSLog
 internal import LiveKitWebRTC
 
 // MARK: - Level
 
-public enum LogLevel: Int, Sendable, Comparable {
+@frozen public enum LogLevel: Int, Sendable, Comparable {
     case debug
     case info
     case warning
@@ -80,7 +79,21 @@ extension Loggable {
         logger.log(message ?? "",
                    level,
                    file: file,
-                   type: type(of: self),
+                   type: Self.self,
+                   function: function,
+                   line: line)
+    }
+
+    static func log(_ message: CustomStringConvertible? = nil,
+                    _ level: LogLevel = .debug,
+                    file: String = #fileID,
+                    function: String = #function,
+                    line: UInt = #line)
+    {
+        logger.log(message ?? "",
+                   level,
+                   file: file,
+                   type: Self.self,
                    function: function,
                    line: line)
     }
@@ -113,44 +126,6 @@ public extension LogHandler {
         metaData: ScopedMetadataContainer = ScopedMetadataContainer()
     ) {
         log(message, level, source: source, file: file, type: type, function: function, line: line, metaData: metaData)
-    }
-}
-
-extension LogHandler {
-    func error(_ message: CustomStringConvertible,
-               file: String = #fileID,
-               type: Any.Type = Any.self,
-               function: String = #function,
-               line: UInt = #line)
-    {
-        log(message, .error, file: file, type: type, function: function, line: line)
-    }
-
-    func warning(_ message: CustomStringConvertible,
-                 file: String = #fileID,
-                 type: Any.Type = Any.self,
-                 function: String = #function,
-                 line: UInt = #line)
-    {
-        log(message, .warning, file: file, type: type, function: function, line: line)
-    }
-
-    func info(_ message: CustomStringConvertible,
-              file: String = #fileID,
-              type: Any.Type = Any.self,
-              function: String = #function,
-              line: UInt = #line)
-    {
-        log(message, .info, file: file, type: type, function: function, line: line)
-    }
-
-    func debug(_ message: CustomStringConvertible,
-               file: String = #fileID,
-               type: Any.Type = Any.self,
-               function: String = #function,
-               line: UInt = #line)
-    {
-        log(message, .debug, file: file, type: type, function: function, line: line)
     }
 }
 

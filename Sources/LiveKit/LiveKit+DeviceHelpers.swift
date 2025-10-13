@@ -33,7 +33,7 @@ public extension LiveKitSDK {
             case .restricted, .denied: return false
             case .authorized: continue // No action needed for authorized status.
             @unknown default:
-                logger.error("Unknown AVAuthorizationStatus")
+                log("Unknown AVAuthorizationStatus", .error)
                 return false
             }
         }
@@ -66,7 +66,7 @@ public extension LiveKitSDK {
             case .authorized:
                 continue // No action needed for authorized status
             @unknown default:
-                logger.error("Unknown AVAuthorizationStatus")
+                log("Unknown AVAuthorizationStatus", .error)
                 return false
             }
         }

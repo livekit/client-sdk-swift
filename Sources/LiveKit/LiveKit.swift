@@ -31,7 +31,7 @@ let logger = LiveKitSDK.state.logHandler
 /// Download the [Multiplatform SwiftUI Example](https://github.com/livekit/multiplatform-swiftui-example)
 /// to try out the features.
 @objc
-public class LiveKitSDK: NSObject {
+public class LiveKitSDK: NSObject, Loggable {
     override private init() {}
 
     @objc(sdkVersion)
