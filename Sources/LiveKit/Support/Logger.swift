@@ -53,6 +53,7 @@ public extension Logger {
 
 /// A no-op logger
 public struct DisabledLogger: Logger {
+    @inlinable
     public func log(
         _: @autoclosure () -> CustomStringConvertible,
         _: LogLevel,
@@ -65,7 +66,7 @@ public struct DisabledLogger: Logger {
     ) {}
 }
 
-/// A loggerthat logs to OSLog
+/// A logger that logs to OSLog
 /// - Parameter minLevel: The minimum level to log
 /// - Parameter rtc: Whether to log WebRTC output
 public final class OSLogger: Logger, @unchecked Sendable {
@@ -176,6 +177,7 @@ extension Loggable {
     case warning
     case error
 
+    @inlinable
     var osLogType: OSLogType {
         switch self {
         case .debug: .debug
@@ -194,6 +196,7 @@ extension Loggable {
         }
     }
 
+    @inlinable
     public static func < (lhs: LogLevel, rhs: LogLevel) -> Bool {
         lhs.rawValue < rhs.rawValue
     }
