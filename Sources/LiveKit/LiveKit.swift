@@ -44,14 +44,23 @@ public class LiveKitSDK: NSObject, Loggable {
 
     fileprivate static let state = StateSync(State())
 
+    /// Set a custom logger for the SDK
+    /// - Note: This method must be called before any other logging is done
+    /// e.g. in the `App.init()` or `AppDelegate/SceneDelegate`
     public static func setLogger(_ logger: Logger) {
         state.mutate { $0.logger = logger }
     }
 
+    /// Adjust the minimum log level for the default `OSLogger`
+    /// - Note: This method must be called before any other logging is done
+    /// e.g. in the `App.init()` or `AppDelegate/SceneDelegate`
     public static func setLogLevel(_ level: LogLevel) {
         setLogger(OSLogger(minLevel: level))
     }
 
+    /// Disable logging for the SDK
+    /// - Note: This method must be called before any other logging is done
+    /// e.g. in the `App.init()` or `AppDelegate/SceneDelegate`
     public static func disableLogging() {
         setLogger(DisabledLogger())
     }

@@ -269,17 +269,13 @@ For the full example, see 👉 [UIKit Minimal Example](https://github.com/liveki
 
 ### How to adjust the log level?
 
-You can adjust the log level by calling `LiveKitSDK.setLogLevel(_:)` before initializing any other LiveKit SDK objects like `Room`:
+The SDK will write to `OSLog` by default (`io.livekit.*`) with a minimum log level of `info`. Logs can be filtered by level, category, etc. using Xcode console.
 
-```swift
-@main
-struct MyApp: App {
-    init() {
-        LiveKitSDK.setLogLevel(.debug)
-    }
-```
+- To adjust the log level, call `LiveKitSDK.setLogLevel(_:)`
+- To set a custom logger (e.g. to pass to a custom logging system), call `LiveKitSDK.setLogger(_:)`
+- To disable logging completely, call `LiveKitSDK.disableLogging()`
 
-The default log level is `warning`.
+All methods must be called before any other logging is done, e.g. in the `App.init()` or `AppDelegate/SceneDelegate`.
 
 ### How to publish camera in 60 FPS?
 
