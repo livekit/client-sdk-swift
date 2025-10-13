@@ -92,10 +92,6 @@ actor Transport: NSObject, Loggable {
         _delegate.add(delegate: delegate)
     }
 
-    deinit {
-        log(nil, .trace)
-    }
-
     func negotiate() async {
         await _debounce.schedule {
             try await self.createAndSendOffer()

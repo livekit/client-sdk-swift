@@ -286,8 +286,6 @@ extension E2EEManager {
             throw LiveKitError(.encryptionFailed, message: "Failed to encrypt data packet")
         }
 
-        log("Encrypted \(encryptedData.data)", .trace)
-
         return encryptedData
     }
 
@@ -299,8 +297,6 @@ extension E2EEManager {
         guard let decryptedData = cryptor.decrypt(participantIdentity, encryptedPacket: encryptedData) else {
             throw LiveKitError(.decryptionFailed, message: "Failed to decrypt data packet")
         }
-
-        log("Decrypted \(decryptedData)", .trace)
 
         return decryptedData
     }

@@ -267,8 +267,6 @@ public class VideoView: NativeView, Loggable {
         _state.onDidMutate = { [weak self] newState, oldState in
             guard let self else { return }
 
-            log("Mutating in main thread: \(Thread.current.isMainThread)", .trace)
-
             let shouldRenderDidUpdate = newState.shouldRender != oldState.shouldRender
             let renderModeDidUpdate = newState.renderMode != oldState.renderMode
             let trackDidUpdate = !Self.track(oldState.track as? VideoTrack, isEqualWith: newState.track as? VideoTrack)
@@ -408,10 +406,6 @@ public class VideoView: NativeView, Loggable {
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-
-    deinit {
-        log(nil, .trace)
     }
 
     override public func performLayout() {
