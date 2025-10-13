@@ -69,7 +69,7 @@ public struct DisabledLogger: Logger {
 /// A logger that logs to OSLog
 /// - Parameter minLevel: The minimum level to log
 /// - Parameter rtc: Whether to log WebRTC output
-public final class OSLogger: Logger, @unchecked Sendable {
+open class OSLogger: Logger, @unchecked Sendable {
     private static let subsystem = "io.livekit.sdk"
 
     private let queue = DispatchQueue(label: "io.livekit.oslogger", qos: .utility)

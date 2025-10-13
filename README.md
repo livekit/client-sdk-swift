@@ -277,6 +277,8 @@ The SDK will write to `OSLog` by default (`io.livekit.*`) with a minimum log lev
 
 All methods must be called before any other logging is done, e.g. in the `App.init()` or `AppDelegate/SceneDelegate`.
 
+Alternatively, you can subclass `OSLogger` and override the `log(...)` method to capture e.g. warning and error logs.
+
 ### How to publish camera in 60 FPS?
 
 - Create a `LocalVideoTrack` by calling `LocalVideoTrack.createCameraTrack(options: CameraCaptureOptions(fps: 60))`.
