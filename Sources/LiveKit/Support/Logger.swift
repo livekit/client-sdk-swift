@@ -159,7 +159,7 @@ extension Loggable {
                     function: StaticString = #function,
                     line: UInt = #line)
     {
-        globalLogger.log(message ?? "",
+        sharedLogger.log(message ?? "",
                          level,
                          file: file,
                          type: Self.self,

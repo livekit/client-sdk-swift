@@ -18,8 +18,8 @@ import Foundation
 import OSLog
 internal import LiveKitWebRTC
 
-// Lazily initialized to the first log handler set
-let globalLogger = LiveKitSDK.state.logger
+// Lazily initialized to the first logger
+let sharedLogger = LiveKitSDK.state.logger
 
 /// The open source platform for real-time communication.
 ///
