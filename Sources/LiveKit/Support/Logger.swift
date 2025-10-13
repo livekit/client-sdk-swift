@@ -147,12 +147,11 @@ extension Loggable {
              function: StaticString = #function,
              line: UInt = #line)
     {
-        globalLogger.log(message ?? "",
-                         level,
-                         file: file,
-                         type: Self.self,
-                         function: function,
-                         line: line)
+        Self.log(message ?? "",
+                 level,
+                 file: file,
+                 function: function,
+                 line: line)
     }
 
     static func log(_ message: CustomStringConvertible? = nil,
