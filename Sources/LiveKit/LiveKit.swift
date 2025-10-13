@@ -19,7 +19,7 @@ import OSLog
 internal import LiveKitWebRTC
 
 // Lazily initialized to the first log handler set
-let logger = LiveKitSDK.state.logger
+let globalLogger = LiveKitSDK.state.logger
 
 /// The open source platform for real-time communication.
 ///

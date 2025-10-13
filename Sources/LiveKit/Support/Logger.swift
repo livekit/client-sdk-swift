@@ -17,7 +17,7 @@
 import OSLog
 internal import LiveKitWebRTC
 
-// MARK: - Handler
+// MARK: - Logger
 
 public typealias ScopedMetadata = CustomStringConvertible
 public typealias ScopedMetadataContainer = [String: ScopedMetadata]
@@ -145,12 +145,12 @@ extension Loggable {
              function: StaticString = #function,
              line: UInt = #line)
     {
-        logger.log(message ?? "",
-                   level,
-                   file: file,
-                   type: Self.self,
-                   function: function,
-                   line: line)
+        globalLogger.log(message ?? "",
+                         level,
+                         file: file,
+                         type: Self.self,
+                         function: function,
+                         line: line)
     }
 
     static func log(_ message: CustomStringConvertible? = nil,
@@ -159,12 +159,12 @@ extension Loggable {
                     function: StaticString = #function,
                     line: UInt = #line)
     {
-        logger.log(message ?? "",
-                   level,
-                   file: file,
-                   type: Self.self,
-                   function: function,
-                   line: line)
+        globalLogger.log(message ?? "",
+                         level,
+                         file: file,
+                         type: Self.self,
+                         function: function,
+                         line: line)
     }
 }
 

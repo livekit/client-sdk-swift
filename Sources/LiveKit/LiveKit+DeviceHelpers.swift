@@ -21,7 +21,7 @@ public extension LiveKitSDK {
     static func ensureDeviceAccess(for types: Set<AVMediaType>) async -> Bool {
         for type in types {
             if ![.video, .audio].contains(type) {
-                logger.log("types must be .video or .audio", .error, type: LiveKitSDK.self)
+                log("types must be .video or .audio", .error)
             }
 
             let status = AVCaptureDevice.authorizationStatus(for: type)
@@ -48,7 +48,7 @@ public extension LiveKitSDK {
 
         for type in types {
             if ![.video, .audio].contains(type) {
-                logger.log("types must be .video or .audio", .error, type: LiveKitSDK.self)
+                log("types must be .video or .audio", .error)
             }
 
             let status = AVCaptureDevice.authorizationStatus(for: type)
