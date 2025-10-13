@@ -129,8 +129,7 @@ open class OSLogger: Logger, @unchecked Sendable {
                 return newLog
             }
 
-            let formattedMessage = "\(type).\(function) \(message)\(metadata)"
-            os_log("%{public}@", log: getOSLog(for: type), type: level.osLogType, formattedMessage)
+            os_log("%{public}@", log: getOSLog(for: type), type: level.osLogType, "\(type).\(function) \(message)\(metadata)")
         }
     }
 }
