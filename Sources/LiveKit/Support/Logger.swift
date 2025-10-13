@@ -172,7 +172,8 @@ extension Loggable {
 
 // MARK: - Level
 
-@frozen public enum LogLevel: Int, Sendable, Comparable {
+@frozen
+public enum LogLevel: Int, Sendable, Comparable {
     case debug
     case info
     case warning
