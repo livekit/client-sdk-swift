@@ -51,6 +51,10 @@ public class LiveKitSDK: NSObject {
         setLogHandler(OSLogHandler(minLevel: level))
     }
 
+    public static func disableLogging() {
+        setLogHandler(DisabledLogHandler())
+    }
+
     @available(*, deprecated, renamed: "setLogLevel")
     @objc
     public static func setLoggerStandardOutput() {

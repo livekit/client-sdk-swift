@@ -21,7 +21,6 @@ internal import LiveKitWebRTC
 // MARK: - Level
 
 public enum LogLevel: Int, Sendable, Comparable {
-    case trace // drop?
     case debug
     case info
     case warning
@@ -29,7 +28,6 @@ public enum LogLevel: Int, Sendable, Comparable {
 
     var osLogType: OSLogType {
         switch self {
-        case .trace: .debug
         case .debug: .debug
         case .info: .info
         case .warning: .default
@@ -39,7 +37,6 @@ public enum LogLevel: Int, Sendable, Comparable {
 
     var rtcSeverity: LKRTCLoggingSeverity {
         switch self {
-        case .trace: .verbose
         case .debug: .verbose
         case .info: .info
         case .warning: .warning
@@ -154,15 +151,6 @@ extension LogHandler {
                line: UInt = #line)
     {
         log(message, .debug, file: file, type: type, function: function, line: line)
-    }
-
-    func trace(_ message: CustomStringConvertible,
-               file: String = #fileID,
-               type: Any.Type = Any.self,
-               function: String = #function,
-               line: UInt = #line)
-    {
-        log(message, .trace, file: file, type: type, function: function, line: line)
     }
 }
 
