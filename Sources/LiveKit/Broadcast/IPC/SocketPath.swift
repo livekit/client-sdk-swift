@@ -19,13 +19,13 @@
 import Network
 
 /// A UNIX domain path valid on this system.
-struct SocketPath {
+struct SocketPath: Loggable {
     let path: String
 
     /// Creates a socket path or returns nil if the given path string is not valid.
     init?(_ path: String) {
         guard Self.isValid(path) else {
-            logger.error("Invalid socket path: \(path)")
+            Self.log("Invalid socket path: \(path)", .error)
             return nil
         }
         self.path = path

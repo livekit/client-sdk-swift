@@ -106,10 +106,6 @@ actor SignalClient: Loggable {
         }
     }
 
-    deinit {
-        log(nil, .trace)
-    }
-
     @discardableResult
     func connect(_ url: URL,
                  _ token: String,
@@ -603,9 +599,6 @@ extension SignalClient {
             }
         }
 
-        // Log timestamp and RTT for debugging
-        log("Sending ping with timestamp: \(timestamp)ms, reporting RTT: \(rtt)ms", .trace)
-
         // Send both requests
         try await _sendRequest(pingRequest)
         try await _sendRequest(pingReqRequest)
@@ -617,7 +610,6 @@ extension SignalClient {
 private extension SignalClient {
     func _onPingIntervalTimer() async throws {
         guard let jr = _state.lastJoinResponse else { return }
-        log("ping/pong sending ping...", .trace)
         try await _sendPing()
 
         _pingTimeoutTimer.setTimerInterval(TimeInterval(jr.pingTimeout))
@@ -631,7 +623,6 @@ private extension SignalClient {
     }
 
     func _onReceivedPong(_: Int64) async {
-        log("ping/pong received pong from server", .trace)
         // Clear timeout timer
         _pingTimeoutTimer.cancel()
     }
@@ -640,7 +631,6 @@ private extension SignalClient {
         let currentTimeMs = Int64(Date().timeIntervalSince1970 * 1000)
         let rtt = currentTimeMs - pongResp.lastPingTimestamp
         _state.mutate { $0.rtt = rtt }
-        log("ping/pong received pongResp from server with RTT: \(rtt)ms", .trace)
         // Clear timeout timer
         _pingTimeoutTimer.cancel()
     }

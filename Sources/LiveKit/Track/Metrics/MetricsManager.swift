@@ -92,7 +92,6 @@ actor MetricsManager: Loggable {
         dataPacket.kind = .reliable
         dataPacket.metrics = Livekit_MetricsBatch(statistics: statistics, identity: props.identity)
         do {
-            log("Sending track metrics...", .trace)
             try await props.transport(dataPacket)
             trackProperties[sid]?.lastSentHash = hash
         } catch {

@@ -310,10 +310,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
     }
 
-    deinit {
-        log(nil, .trace)
-    }
-
     @objc
     public func connect(url: String,
                         token: String,
