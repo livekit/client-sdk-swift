@@ -97,7 +97,7 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
 public extension LocalVideoTrack {
     /// Creates a track that captures screen capture from a broadcast upload extension
     static func createBroadcastScreenCapturerTrack(name: String = Track.screenShareVideoName,
-                                                   source: VideoTrack.Source = .screenShareVideo,
+                                                   source: Track.Source = .screenShareVideo,
                                                    options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                                                    reportStatistics: Bool = false) -> LocalVideoTrack
     {

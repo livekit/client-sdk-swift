@@ -17,4 +17,6 @@
 import Foundation
 
 @objc
-public protocol RemoteTrack where Self: Track {}
+public protocol RemoteTrackProtocol: AnyObject, Sendable {}
+
+public typealias RemoteTrack = RemoteTrackProtocol & Track
