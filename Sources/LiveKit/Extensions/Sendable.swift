@@ -53,3 +53,9 @@ extension NSMapTable: @unchecked Swift.Sendable {} // cannot specify Obj-C gener
 #if swift(<6.2)
 extension Dictionary: Swift.Sendable where Key: Sendable, Value: Sendable {}
 #endif
+
+// MARK: AV
+
+extension AVCaptureDevice: @unchecked Swift.Sendable {}
+extension AVCaptureDevice.Format: @unchecked Swift.Sendable {}
+extension CVPixelBuffer: @unchecked Swift.Sendable {}
