@@ -21,7 +21,6 @@ let package = Package(
         // LK-Prefixed Dynamic WebRTC XCFramework
         .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "137.7151.09"),
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.31.0"),
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.6.2"),
         .package(url: "https://github.com/apple/swift-collections.git", "1.1.0" ..< "1.3.0"),
         .package(url: "https://github.com/vapor/jwt-kit.git", from: "4.13.5"),
         // Only used for DocC generation
@@ -39,7 +38,6 @@ let package = Package(
                 .product(name: "SwiftProtobuf", package: "swift-protobuf"),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
-                .product(name: "Logging", package: "swift-log"),
                 .product(name: "JWTKit", package: "jwt-kit"),
                 "LKObjCHelpers",
             ],

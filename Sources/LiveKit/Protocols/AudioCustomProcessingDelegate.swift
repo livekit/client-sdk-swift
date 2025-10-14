@@ -52,7 +52,7 @@ class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @u
     // MARK: - Private
 
     private struct State {
-        weak var target: AudioCustomProcessingDelegate?
+        var target: AudioCustomProcessingDelegate?
     }
 
     private var _state = StateSync(State())

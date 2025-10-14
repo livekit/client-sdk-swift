@@ -16,7 +16,9 @@
 
 import AVFoundation
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class PublishBufferCapturerTests: LKTestCase {
     func testPublishBufferTrack() async throws {

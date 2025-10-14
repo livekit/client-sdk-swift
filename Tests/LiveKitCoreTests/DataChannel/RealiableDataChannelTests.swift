@@ -15,7 +15,9 @@
  */
 
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class RealiableDataChannelTests: LKTestCase, @unchecked Sendable {
     var receivedExpectation: XCTestExpectation!

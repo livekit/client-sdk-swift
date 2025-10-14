@@ -17,7 +17,9 @@
 import Combine
 import CoreMedia
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class PublishMicrophoneTests: LKTestCase {
     func testConcurrentMicPublish() async throws {

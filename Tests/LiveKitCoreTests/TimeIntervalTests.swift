@@ -15,7 +15,9 @@
  */
 
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 class TimeIntervalTests: LKTestCase {
     /// Tests that the reconnection delay computation follows the expected easeOutCirc pattern:

@@ -17,7 +17,9 @@
 #if os(iOS)
 
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 final class SocketPathTests: LKTestCase {
     func testValid() throws {

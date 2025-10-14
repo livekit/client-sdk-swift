@@ -19,7 +19,9 @@
 import AVFAudio
 import CoreMedia
 @testable import LiveKit
+#if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
+#endif
 
 final class BroadcastAudioCodecTests: XCTestCase {
     private var codec: BroadcastAudioCodec!
