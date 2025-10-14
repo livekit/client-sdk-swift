@@ -38,7 +38,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
 
     @objc
     public var isSpeaking: Bool { _state.isSpeaking }
-        
+
     @objc
     public var lastSpokeAt: Int64 { _state.lastSpokeAt }
 

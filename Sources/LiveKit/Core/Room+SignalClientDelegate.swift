@@ -146,7 +146,7 @@ extension Room: SignalClientDelegate {
 
                 participant._state.mutate {
                     $0.audioLevel = speaker.level
-                    if !$0.isSpeaking && speaker.active {
+                    if !$0.isSpeaking, speaker.active {
                         $0.lastSpokeAt = Int64(Date().timeIntervalSince1970 * 1000)
                     }
                     $0.isSpeaking = speaker.active
