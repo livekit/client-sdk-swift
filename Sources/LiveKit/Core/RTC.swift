@@ -57,7 +57,7 @@ actor RTC {
     static let h264BaselineLevel5CodecInfo: LKRTCVideoCodecInfo = {
         // this should never happen
         guard let profileLevelId = LKRTCH264ProfileLevelId(profile: .constrainedBaseline, level: .level5) else {
-            logger.log("failed to generate profileLevelId", .error, type: Room.self)
+            Room.log("failed to generate profileLevelId", .error)
             fatalError("failed to generate profileLevelId")
         }
 
@@ -91,11 +91,11 @@ actor RTC {
             return ($0.admType, $0.bypassVoiceProcessing)
         }
 
-        logger.log("Initializing SSL...", type: Room.self)
+        Room.log("Initializing SSL...")
 
         LKRTCInitializeSSL()
 
-        logger.log("Initializing PeerConnectionFactory...", type: Room.self)
+        Room.log("Initializing PeerConnectionFactory...")
 
         return LKRTCPeerConnectionFactory(audioDeviceModuleType: admType.toRTCType(),
                                           bypassVoiceProcessing: bypassVoiceProcessing,
