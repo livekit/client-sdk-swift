@@ -1,0 +1,39 @@
+{
+  "configurations" : [
+    {
+      "id" : "059C7256-DC44-445F-881C-433C6BE17762",
+      "name" : "base",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "environmentVariableEntries" : [
+      {
+        "key" : "LIVEKIT_TESTING_URL",
+        "value" : "ws:\/\/localhost:7880"
+      },
+      {
+        "key" : "LIVEKIT_TESTING_API_KEY",
+        "value" : "devkey"
+      },
+      {
+        "key" : "LIVEKIT_TESTING_API_SECRET",
+        "value" : "secret"
+      }
+    ],
+    "testExecutionOrdering" : "random",
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:LKTestHost.xcodeproj",
+        "identifier" : "AC99ED5C2E95320700DD50B6",
+        "name" : "LiveKitAudioTests"
+      }
+    }
+  ],
+  "version" : 1
+}

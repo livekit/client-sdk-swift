@@ -55,6 +55,10 @@ public enum LiveKitErrorType: Int, Sendable {
     case audioSession = 802
 
     case codecNotSupported = 901
+
+    // Encryption
+    case encryptionFailed = 1001
+    case decryptionFailed = 1002
 }
 
 extension LiveKitErrorType: CustomStringConvertible {
@@ -102,13 +106,19 @@ extension LiveKitErrorType: CustomStringConvertible {
             "Audio Engine Error"
         case .audioSession:
             "Audio Session Error"
+        case .codecNotSupported:
+            "Codec not supported"
+        case .encryptionFailed:
+            "Encryption failed"
+        case .decryptionFailed:
+            "Decryption failed"
         default: "Unknown"
         }
     }
 }
 
 @objc
-public class LiveKitError: NSError, @unchecked Sendable {
+public class LiveKitError: NSError, @unchecked Sendable, Loggable {
     public let type: LiveKitErrorType
     public let message: String?
     public let underlyingError: Error?
@@ -154,7 +164,7 @@ extension LiveKitError {
         }
 
         // TODO: Identify more network error types
-        logger.log("Uncategorized error for: \(String(describing: error))", type: LiveKitError.self)
+        log("Uncategorized error for: \(String(describing: error))")
         return LiveKitError(.unknown)
     }
 

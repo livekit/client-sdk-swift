@@ -21,7 +21,7 @@ public extension LiveKitSDK {
     static func ensureDeviceAccess(for types: Set<AVMediaType>) async -> Bool {
         for type in types {
             if ![.video, .audio].contains(type) {
-                logger.log("types must be .video or .audio", .error, type: LiveKitSDK.self)
+                log("types must be .video or .audio", .error)
             }
 
             let status = AVCaptureDevice.authorizationStatus(for: type)
@@ -33,7 +33,7 @@ public extension LiveKitSDK {
             case .restricted, .denied: return false
             case .authorized: continue // No action needed for authorized status.
             @unknown default:
-                logger.error("Unknown AVAuthorizationStatus")
+                log("Unknown AVAuthorizationStatus", .error)
                 return false
             }
         }
@@ -48,7 +48,7 @@ public extension LiveKitSDK {
 
         for type in types {
             if ![.video, .audio].contains(type) {
-                logger.log("types must be .video or .audio", .error, type: LiveKitSDK.self)
+                log("types must be .video or .audio", .error)
             }
 
             let status = AVCaptureDevice.authorizationStatus(for: type)
@@ -66,7 +66,7 @@ public extension LiveKitSDK {
             case .authorized:
                 continue // No action needed for authorized status
             @unknown default:
-                logger.error("Unknown AVAuthorizationStatus")
+                log("Unknown AVAuthorizationStatus", .error)
                 return false
             }
         }

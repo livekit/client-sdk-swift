@@ -20,7 +20,7 @@ import Foundation
 import Network
 
 /// A simple framing protocol suitable for inter-process communication.
-final class IPCProtocol: NWProtocolFramerImplementation {
+final class IPCProtocol: NWProtocolFramerImplementation, Loggable {
     static let definition = NWProtocolFramer.Definition(implementation: IPCProtocol.self)
     static var label: String { "LKIPCProtocol" }
 
@@ -41,7 +41,7 @@ final class IPCProtocol: NWProtocolFramerImplementation {
         do {
             try framer.writeOutputNoCopy(length: messageLength)
         } catch {
-            logger.error("\(Self.label) error: \(error)")
+            log("\(Self.label) error: \(error)", .error)
         }
     }
 

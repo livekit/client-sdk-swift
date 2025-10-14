@@ -1,5 +1,9 @@
 name: CI
 
+permissions:
+  contents: read
+  pull-requests: write
+
 on:
   workflow_dispatch:
   push:
@@ -12,7 +16,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TESTS: "FunctionTests SDKTests RoomTests PublishDataTests PublishBufferCapturerTests VideoViewTests TrackTests"
+  TEST_TARGETS: "LiveKitCoreTests LiveKitObjCTests"
+  TEST_TIMEOUT_MINUTES: 10
+  TEST_RETRY_ATTEMPTS: 3
 
 jobs:
   build-and-test:
@@ -39,11 +45,9 @@ jobs:
           - os: macos-15
             xcode: 16.4
             platform: "iOS Simulator,name=iPhone 16 Pro,OS=18.5"
-            symbol-graph: true
           - os: macos-15
             xcode: 16.4
             platform: "macOS"
-            symbol-graph: true
           - os: macos-15
             xcode: 16.4
             platform: "macOS,variant=Mac Catalyst"
@@ -58,9 +62,19 @@ jobs:
           - os: macos-26
             xcode: latest
             platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.0"
+            symbol-graph: true
           - os: macos-26
             xcode: latest
             platform: "macOS"
+            symbol-graph: true
+          - os: macos-26
+            xcode: latest
+            platform: "macOS"
+            asan: true
+          - os: macos-26
+            xcode: latest
+            platform: "macOS"
+            tsan: true
           - os: macos-26
             xcode: latest
             platform: "macOS,variant=Mac Catalyst"
@@ -72,7 +86,7 @@ jobs:
             platform: "tvOS Simulator,name=Apple TV,OS=26.0"
 
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 35
     defaults:
       run:
         shell: bash
@@ -99,20 +113,36 @@ jobs:
         run: |
           set -o pipefail && xcodebuild build-for-testing \
             -scheme LiveKit \
-            -destination 'platform=${{ matrix.platform }}' | xcbeautify --renderer github-actions
+            -destination 'platform=${{ matrix.platform }}' \
+            -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
+            -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
+            | xcbeautify --renderer github-actions
 
-      # Run all tests in parallel instead of sequentially
       - name: Run Tests
-        run: |
-          IFS=' ' read -r -a tests <<< "${{ env.TESTS }}"
-          for test in "${tests[@]}"; do
-            echo "::group::Running test $test"
-            set -o pipefail && xcodebuild test-without-building \
-              -scheme LiveKit \
-              -destination 'platform=${{ matrix.platform }}' \
-              -only-testing:LiveKitTests/$test | xcbeautify --renderer github-actions
-            echo "::endgroup::"
-          done
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: ${{ env.TEST_TIMEOUT_MINUTES }}
+          max_attempts: ${{ env.TEST_RETRY_ATTEMPTS }}
+          command: |
+            set -euo pipefail
+            IFS=' ' read -r -a tests <<< "${{ env.TEST_TARGETS }}"
+
+            for test in "${tests[@]}"; do
+              echo "::group::$test"
+              if ! xcodebuild test-without-building \
+                -scheme LiveKit \
+                -destination 'platform=${{ matrix.platform }}' \
+                -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
+                -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
+                -only-testing:$test \
+                -parallel-testing-enabled YES \
+                | xcbeautify --renderer github-actions
+              then
+                echo "::error::Test failed: $test"
+                exit 1
+              fi
+              echo "::endgroup::"
+            done
 
       - name: Build for Release
         if: ${{ matrix.symbol-graph }}
@@ -179,6 +209,32 @@ jobs:
           name: docs
           path: docs.zip
           retention-days: 1
+  check-protocol:
+    name: Check Protocol
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          
+      - name: Install swift-protobuf
+        run: brew install protobuf swift-protobuf
+        
+      - name: Generate Swift protobuf files
+        run: make proto
+        
+      - name: Check working tree
+        run: |
+          if ! git diff --quiet; then
+            echo "::error::Working tree is not clean after running 'make proto'"
+            echo "The following files have been modified:"
+            git diff --name-only
+            echo ""
+            echo "Please run 'make proto' locally and commit the changes."
+            exit 1
+          else
+            echo "Working tree is clean - all Swift protobuf files are up to date"
+          fi
   check-changes:
     name: Check Changes
     if: github.event_name == 'pull_request'

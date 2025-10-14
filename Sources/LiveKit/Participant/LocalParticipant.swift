@@ -247,22 +247,22 @@ public class LocalParticipant: Participant, @unchecked Sendable {
 
     private func broadcastStateChanged(_ isBroadcasting: Bool) {
         guard isBroadcasting else {
-            logger.debug("Broadcast stopped")
+            log("Broadcast stopped", .debug)
             return
         }
-        logger.debug("Broadcast started")
+        log("Broadcast started", .debug)
 
         Task { [weak self] in
             guard let self else { return }
 
             guard BroadcastManager.shared.shouldPublishTrack else {
-                logger.debug("Will not publish screen share track")
+                log("Will not publish screen share track", .debug)
                 return
             }
             do {
                 try await setScreenShare(enabled: true)
             } catch {
-                logger.error("Failed to enable screen share: \(error)")
+                log("Failed to enable screen share: \(error)", .error)
             }
         }
     }
@@ -380,8 +380,8 @@ public extension LocalParticipant {
 
                     if defaultOptions.useBroadcastExtension {
                         if captureOptions != nil {
-                            logger.warning("Ignoring screen capture options passed to local participant's `\(#function)`; using room defaults instead.")
-                            logger.warning("When using a broadcast extension, screen capture options must be set as room defaults.")
+                            self.log("Ignoring screen capture options passed to local participant's `\(#function)`; using room defaults instead.", .warning)
+                            self.log("When using a broadcast extension, screen capture options must be set as room defaults.", .warning)
                         }
                         guard BroadcastManager.shared.isBroadcasting else {
                             BroadcastManager.shared.requestActivation()
@@ -635,7 +635,7 @@ extension LocalParticipant {
                                                          name: addTrackName,
                                                          type: track.kind.toPBType(),
                                                          source: track.source.toPBType(),
-                                                         encryption: room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none,
+                                                         encryption: room.e2eeManager?.frameEncryptionType.toPBType() ?? .none,
                                                          populatorFunc)
             }
 
@@ -693,8 +693,11 @@ extension LocalParticipant {
 
             // At this point at least 1 audio frame should be generated to continue
             if let track = track as? LocalAudioTrack {
-                log("[Publish] Waiting for audio frame...")
-                try await track.startWaitingForFrames()
+                // Only wait for frames if audio engine is allowed to start
+                if AudioManager.shared.engineAvailability.isInputAvailable {
+                    log("[Publish] Waiting for audio frame...")
+                    try await track.startWaitingForFrames()
+                }
             }
 
             if track is LocalVideoTrack {
