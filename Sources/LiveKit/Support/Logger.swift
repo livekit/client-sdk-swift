@@ -75,7 +75,6 @@ open class OSLogger: Logger, @unchecked Sendable {
     private let queue = DispatchQueue(label: "io.livekit.oslogger", qos: .utility)
     private var logs: [String: OSLog] = [:]
 
-    private lazy var rtcLog = OSLog(subsystem: Self.subsystem, category: "WebRTC")
     private lazy var rtcLogger = LKRTCCallbackLogger()
 
     private let minLevel: LogLevel
@@ -85,8 +84,9 @@ open class OSLogger: Logger, @unchecked Sendable {
 
         guard rtc else { return }
 
+        let rtcLog = OSLog(subsystem: Self.subsystem, category: "WebRTC")
         rtcLogger.severity = minLevel.rtcSeverity
-        rtcLogger.start { [rtcLog] message, severity in
+        rtcLogger.start { message, severity in
             os_log("%{public}@", log: rtcLog, type: severity.osLogType, message)
         }
     }
