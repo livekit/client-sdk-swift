@@ -44,7 +44,7 @@ public protocol TokenSourceConfigurable: Sendable {
 // MARK: - Token
 
 /// Request parameters for generating connection credentials.
-public struct TokenRequestOptions: Encodable, Sendable, Equatable {
+public struct TokenRequestOptions: Sendable, Equatable {
     /// The name of the room to connect to. Required for most token generation scenarios.
     public let roomName: String?
     /// The display name for the participant in the room. Optional but recommended for user experience.
@@ -55,15 +55,54 @@ public struct TokenRequestOptions: Encodable, Sendable, Equatable {
     public let participantMetadata: String?
     /// Custom attributes for the participant. Useful for storing key-value data like user roles or preferences.
     public let participantAttributes: [String: String]?
-    /// Advanced room configuration options for token generation.
-    ///
-    /// Use this for advanced features like:
-    /// - Dispatching agents to the room
-    /// - Setting room limits and constraints
-    /// - Configuring recording or streaming options
-    ///
-    /// - SeeAlso: [Room Configuration Documentation](https://docs.livekit.io/home/get-started/authentication/#room-configuration) for more info.
-    public let roomConfiguration: RoomConfiguration?
+    /// Name of the agent to dispatch
+    public let agentName: String?
+    /// Metadata passed to the agent job
+    public let agentMetadata: String?
+
+    public init(
+        roomName: String? = nil,
+        participantName: String? = nil,
+        participantIdentity: String? = nil,
+        participantMetadata: String? = nil,
+        participantAttributes: [String: String]? = nil,
+        agentName: String? = nil,
+        agentMetadata: String? = nil
+    ) {
+        self.roomName = roomName
+        self.participantName = participantName
+        self.participantIdentity = participantIdentity
+        self.participantMetadata = participantMetadata
+        self.participantAttributes = participantAttributes
+        self.agentName = agentName
+        self.agentMetadata = agentMetadata
+    }
+
+    func toRequest() -> TokenSourceRequest {
+        let agents: [RoomAgentDispatch]? = if agentName != nil || agentMetadata != nil {
+            [RoomAgentDispatch(agentName: agentName, metadata: agentMetadata)]
+        } else {
+            nil
+        }
+
+        return TokenSourceRequest(
+            roomName: roomName,
+            participantName: participantName,
+            participantIdentity: participantIdentity,
+            participantMetadata: participantMetadata,
+            participantAttributes: participantAttributes,
+            roomConfiguration: RoomConfiguration(agents: agents)
+        )
+    }
+}
+
+struct TokenSourceRequest: Sendable, Encodable {
+    let roomName: String?
+    let participantName: String?
+    let participantIdentity: String?
+    let participantMetadata: String?
+    let participantAttributes: [String: String]?
+    let roomConfiguration: RoomConfiguration?
 
     enum CodingKeys: String, CodingKey {
         case roomName = "room_name"
@@ -72,22 +111,6 @@ public struct TokenRequestOptions: Encodable, Sendable, Equatable {
         case participantMetadata = "participant_metadata"
         case participantAttributes = "participant_attributes"
         case roomConfiguration = "room_config"
-    }
-
-    public init(
-        roomName: String? = nil,
-        participantName: String? = nil,
-        participantIdentity: String? = nil,
-        participantMetadata: String? = nil,
-        participantAttributes: [String: String]? = nil,
-        roomConfiguration: RoomConfiguration? = nil
-    ) {
-        self.roomName = roomName
-        self.participantName = participantName
-        self.participantIdentity = participantIdentity
-        self.participantMetadata = participantMetadata
-        self.participantAttributes = participantAttributes
-        self.roomConfiguration = roomConfiguration
     }
 }
 

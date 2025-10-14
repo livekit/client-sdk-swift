@@ -46,7 +46,8 @@ public extension EndpointTokenSource {
         for (key, value) in headers {
             urlRequest.addValue(value, forHTTPHeaderField: key)
         }
-        urlRequest.httpBody = try JSONEncoder().encode(options)
+        urlRequest.httpBody = try JSONEncoder().encode(options.toRequest())
+        urlRequest.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
 
