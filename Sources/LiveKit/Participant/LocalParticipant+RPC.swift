@@ -24,10 +24,10 @@ public extension LocalParticipant {
     ///   - destinationIdentity: The identity of the destination participant
     ///   - method: The method name to call
     ///   - payload: The payload to pass to the method
-    ///   - responseTimeout: Timeout for receiving a response after the initial connection (in milliseconds).
-    ///     If a value less than 8000 ms is provided, it will be automatically clamped to 8000 ms
+    ///   - responseTimeout: Timeout for receiving a response after the initial connection (in seconds).
+    ///     If a value less than 8s is provided, it will be automatically clamped to 8s
     ///     to ensure sufficient time for round-trip latency buffering.
-    ///     Default: 15000 ms.
+    ///     Default: 15s.
     /// - Returns: The response payload
     /// - Throws: RpcError on failure. Details in RpcError.message
     func performRpc(destinationIdentity: Identity,
