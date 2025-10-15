@@ -37,8 +37,12 @@ extension VideoView {
         /// Auto reset to default zoom level when pinch is released.
         public static let resetOnRelease = PinchToZoomOptions(rawValue: 1 << 2)
     }
+}
 
-    #if os(iOS)
+#if os(iOS)
+@available(iOSApplicationExtension, unavailable, message: "Camera capture is not supported in app extensions.")
+@available(tvOSApplicationExtension, unavailable, message: "Camera capture is not supported in app extensions.")
+extension VideoView {
     func _rampZoomFactorToAllowedBounds(options: PinchToZoomOptions) {
         guard let device = _currentCaptureDevice else { return }
 
@@ -112,5 +116,5 @@ extension VideoView {
 
         return lowerBound ... upperBound
     }
-    #endif
 }
+#endif
