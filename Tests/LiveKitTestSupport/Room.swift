@@ -210,7 +210,7 @@ public extension Room {
 
 public final class RoomWatcher<T: Decodable & Sendable>: RoomDelegate, Sendable {
     public let id: String
-    public let didReceiveDataCompleters = CompleterMapActor<T>(label: "Data receive completer", defaultTimeout: 10)
+    public let didReceiveDataCompleters = CompleterMapActor<T>(label: "Data receive completer", defaultTimeout: 15)
 
     // MARK: - Private
 
