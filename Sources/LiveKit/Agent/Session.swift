@@ -132,6 +132,10 @@ open class Session: ObservableObject {
                   receivers: receivers)
     }
 
+    deinit {
+        waitForAgentTask?.cancel()
+    }
+
     private func observe(room: Room) {
         Task { [weak self] in
             for try await _ in room.changes {
@@ -192,9 +196,10 @@ open class Session: ObservableObject {
         let timeout = options.agentConnectTimeout
 
         defer {
-            waitForAgentTask = Task {
+            waitForAgentTask = Task { [weak self] in
                 try await Task.sleep(nanoseconds: UInt64(timeout * Double(NSEC_PER_SEC)))
                 try Task.checkCancellation()
+                guard let self else { return }
                 if connectionState == .connected, agents.isEmpty {
                     self.error = .agentNotConnected
                 }
