@@ -17,12 +17,12 @@
 import Foundation
 
 @objc
-public protocol LocalTrack where Self: Track {
+public protocol LocalTrackProtocol: AnyObject, Sendable {
     @objc
     var publishOptions: TrackPublishOptions? { get }
 
     @objc
-    var publishState: PublishState { get }
+    var publishState: Track.PublishState { get }
 
     @objc
     func mute() async throws
@@ -30,3 +30,5 @@ public protocol LocalTrack where Self: Track {
     @objc
     func unmute() async throws
 }
+
+public typealias LocalTrack = LocalTrackProtocol & Track

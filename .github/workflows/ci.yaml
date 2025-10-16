@@ -151,6 +151,7 @@ jobs:
             -scheme LiveKit \
             -configuration Release \
             -destination 'platform=${{ matrix.platform }}'  \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
             OTHER_SWIFT_FLAGS="-Xfrontend -emit-symbol-graph\
                                -Xfrontend -emit-symbol-graph-dir\
                                -Xfrontend \"${PWD}/symbol-graph\"" \
