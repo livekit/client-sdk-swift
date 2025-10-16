@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Combine
 import Foundation
 import OrderedCollections
 
@@ -27,7 +28,14 @@ open class Session: ObservableObject {
         case failedToSend(Swift.Error)
 
         public var errorDescription: String? {
-            "TODO"
+            switch self {
+            case .agentNotConnected:
+                "Agent not connected"
+            case let .failedToConnect(error):
+                "Failed to connect: \(error.localizedDescription)"
+            case let .failedToSend(error):
+                "Failed to send: \(error.localizedDescription)"
+            }
         }
     }
 

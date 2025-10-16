@@ -15,6 +15,8 @@
  */
 
 @preconcurrency import AVFoundation
+import Combine
+import Foundation
 
 @MainActor
 open class LocalMedia: ObservableObject {
@@ -22,6 +24,13 @@ open class LocalMedia: ObservableObject {
 
     public enum Error: LocalizedError {
         case mediaDevice(Swift.Error)
+
+        public var errorDescription: String? {
+            switch self {
+            case let .mediaDevice(error):
+                "Media device error: \(error.localizedDescription)"
+            }
+        }
     }
 
     // MARK: - Devices
