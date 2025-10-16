@@ -61,8 +61,8 @@ open class LocalMedia: ObservableObject {
         self.init(localParticipant: room.localParticipant)
     }
 
-    public convenience init(conversation: Conversation) {
-        self.init(room: conversation.room)
+    public convenience init(session: Session) {
+        self.init(room: session.room)
     }
 
     private func observe(_ localParticipant: LocalParticipant) {

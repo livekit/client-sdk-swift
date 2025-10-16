@@ -18,7 +18,7 @@ import Foundation
 import OrderedCollections
 
 @MainActor
-open class Conversation: ObservableObject {
+open class Session: ObservableObject {
     // MARK: - Error
 
     public enum Error: LocalizedError {

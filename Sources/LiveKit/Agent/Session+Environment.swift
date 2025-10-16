@@ -35,13 +35,13 @@ public extension EnvironmentValues {
 
 @MainActor
 @propertyWrapper
-public struct LiveKitConversation: DynamicProperty {
-    @EnvironmentObject private var conversation: Conversation
+public struct LiveKitSession: DynamicProperty {
+    @EnvironmentObject private var session: Session
 
     public init() {}
 
-    public var wrappedValue: Conversation {
-        conversation
+    public var wrappedValue: Session {
+        session
     }
 }
 
@@ -60,7 +60,7 @@ public struct LiveKitLocalMedia: DynamicProperty {
 @MainActor
 @propertyWrapper
 public struct LiveKitAgent: DynamicProperty {
-    @EnvironmentObject private var conversation: Conversation
+    @EnvironmentObject private var session: Session
     @Environment(\.agentName) private var environmentName
 
     let agentName: String?
@@ -71,10 +71,10 @@ public struct LiveKitAgent: DynamicProperty {
 
     public var wrappedValue: Agent? {
         if let agentName {
-            return conversation.agent(named: agentName)
+            return session.agent(named: agentName)
         } else if let environmentName {
-            return conversation.agent(named: environmentName)
+            return session.agent(named: environmentName)
         }
-        return conversation.agents.values.first
+        return session.agents.values.first
     }
 }
