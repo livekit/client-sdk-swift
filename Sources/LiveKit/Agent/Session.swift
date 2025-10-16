@@ -64,7 +64,7 @@ open class Session: ObservableObject {
     }
 
     private let tokenSourceConfiguration: TokenSourceConfiguration
-    private var options: Options
+    private var options: SessionOptions
 
     private let senders: [any MessageSender]
     private let receivers: [any MessageReceiver]
@@ -76,7 +76,7 @@ open class Session: ObservableObject {
     // MARK: - Init
 
     private init(tokenSourceConfiguration: TokenSourceConfiguration,
-                 options: Options,
+                 options: SessionOptions,
                  senders: [any MessageSender]?,
                  receivers: [any MessageReceiver]?)
     {
@@ -96,7 +96,7 @@ open class Session: ObservableObject {
     }
 
     public convenience init(tokenSource: any TokenSourceFixed,
-                            options: Options = .init(),
+                            options: SessionOptions = .init(),
                             senders: [any MessageSender]? = nil,
                             receivers: [any MessageReceiver]? = nil)
     {
@@ -108,7 +108,7 @@ open class Session: ObservableObject {
 
     public convenience init(tokenSource: any TokenSourceConfigurable,
                             tokenOptions: TokenRequestOptions = .init(),
-                            options: Options = .init(),
+                            options: SessionOptions = .init(),
                             senders: [any MessageSender]? = nil,
                             receivers: [any MessageReceiver]? = nil)
     {
@@ -121,7 +121,7 @@ open class Session: ObservableObject {
     public convenience init(agentName: String,
                             agentMetadata: String? = nil,
                             tokenSource: any TokenSourceConfigurable,
-                            options: Options = .init(),
+                            options: SessionOptions = .init(),
                             senders: [any MessageSender]? = nil,
                             receivers: [any MessageReceiver]? = nil)
     {

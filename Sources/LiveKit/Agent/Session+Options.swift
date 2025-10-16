@@ -16,20 +16,18 @@
 
 import Foundation
 
-public extension Session {
-    struct Options: Sendable {
-        public var room: Room
-        public var preConnectAudio: Bool
-        public var agentConnectTimeout: TimeInterval
+public struct SessionOptions: Sendable {
+    public var room: Room
+    public var preConnectAudio: Bool
+    public var agentConnectTimeout: TimeInterval
 
-        public init(
-            room: Room = .init(),
-            preConnectAudio: Bool = true,
-            agentConnectTimeout: TimeInterval = 20
-        ) {
-            self.room = room
-            self.preConnectAudio = preConnectAudio
-            self.agentConnectTimeout = agentConnectTimeout
-        }
+    public init(
+        room: Room = .init(),
+        preConnectAudio: Bool = true,
+        agentConnectTimeout: TimeInterval = 20
+    ) {
+        self.room = room
+        self.preConnectAudio = preConnectAudio
+        self.agentConnectTimeout = agentConnectTimeout
     }
 }
