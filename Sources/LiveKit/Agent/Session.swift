@@ -58,13 +58,13 @@ open class Session: ObservableObject {
 
     public let room: Room
 
-    private enum AnyTokenSource {
+    private enum TokenSourceConfiguration {
         case fixed(any TokenSourceFixed)
-        case configurable(any TokenSourceConfigurable)
+        case configurable(any TokenSourceConfigurable, TokenRequestOptions)
     }
 
-    private let tokenSource: AnyTokenSource
-    private let agentName: String?
+    private let tokenSourceConfiguration: TokenSourceConfiguration
+    private var options: Options
 
     private let senders: [any MessageSender]
     private let receivers: [any MessageReceiver]
@@ -75,45 +75,64 @@ open class Session: ObservableObject {
 
     // MARK: - Init
 
-    private init(tokenSource: AnyTokenSource,
-                 agentName: String?,
-                 room: Room,
+    private init(tokenSourceConfiguration: TokenSourceConfiguration,
+                 options: Options,
                  senders: [any MessageSender]?,
                  receivers: [any MessageReceiver]?)
     {
-        self.tokenSource = tokenSource
-        self.agentName = agentName
-        self.room = room
+        self.tokenSourceConfiguration = tokenSourceConfiguration
+        self.options = options
+        room = options.room
 
         let textMessageSender = TextMessageSender(room: room)
-        let senders = senders ?? [textMessageSender]
-        let receivers = receivers ?? [textMessageSender, TranscriptionStreamReceiver(room: room)]
+        let resolvedSenders = senders ?? [textMessageSender]
+        let resolvedReceivers = receivers ?? [textMessageSender, TranscriptionStreamReceiver(room: room)]
 
-        self.senders = senders
-        self.receivers = receivers
+        self.senders = resolvedSenders
+        self.receivers = resolvedReceivers
 
-        observe(room: room, agentName: agentName)
-        observe(receivers: receivers)
+        observe(room: room)
+        observe(receivers: resolvedReceivers)
     }
 
-    public convenience init(tokenSource: some TokenSourceFixed,
-                            room: Room = .init(),
+    public convenience init(tokenSource: any TokenSourceFixed,
+                            options: Options = .init(),
                             senders: [any MessageSender]? = nil,
                             receivers: [any MessageReceiver]? = nil)
     {
-        self.init(tokenSource: .fixed(tokenSource), agentName: nil, room: room, senders: senders, receivers: receivers)
+        self.init(tokenSourceConfiguration: .fixed(tokenSource),
+                  options: options,
+                  senders: senders,
+                  receivers: receivers)
     }
 
-    public convenience init(tokenSource: some TokenSourceConfigurable,
-                            room: Room = .init(),
-                            agentName: String? = nil,
+    public convenience init(tokenSource: any TokenSourceConfigurable,
+                            tokenOptions: TokenRequestOptions = .init(),
+                            options: Options = .init(),
                             senders: [any MessageSender]? = nil,
                             receivers: [any MessageReceiver]? = nil)
     {
-        self.init(tokenSource: .configurable(tokenSource), agentName: agentName, room: room, senders: senders, receivers: receivers)
+        self.init(tokenSourceConfiguration: .configurable(tokenSource, tokenOptions),
+                  options: options,
+                  senders: senders,
+                  receivers: receivers)
     }
 
-    private func observe(room: Room, agentName _: String?) {
+    public convenience init(agentName: String,
+                            agentMetadata: String? = nil,
+                            tokenSource: any TokenSourceConfigurable,
+                            options: Options = .init(),
+                            senders: [any MessageSender]? = nil,
+                            receivers: [any MessageReceiver]? = nil)
+    {
+        self.init(tokenSource: tokenSource,
+                  tokenOptions: .init(agentName: agentName, agentMetadata: agentMetadata),
+                  options: options,
+                  senders: senders,
+                  receivers: receivers)
+    }
+
+    private func observe(room: Room) {
         Task { [weak self] in
             for try await _ in room.changes {
                 guard let self else { return }
@@ -164,45 +183,37 @@ open class Session: ObservableObject {
 
     // MARK: - Lifecycle
 
-    public func start(preConnectAudio: Bool = true, waitForAgent: TimeInterval = 20, options: ConnectOptions? = nil, roomOptions: RoomOptions? = nil) async {
+    public func start() async {
         guard connectionState == .disconnected else { return }
 
         error = nil
         waitForAgentTask?.cancel()
 
+        let timeout = options.agentConnectTimeout
+
         defer {
             waitForAgentTask = Task {
-                try await Task.sleep(nanoseconds: UInt64(TimeInterval(NSEC_PER_SEC) * waitForAgent))
+                try await Task.sleep(nanoseconds: UInt64(timeout * Double(NSEC_PER_SEC)))
                 try Task.checkCancellation()
                 if connectionState == .connected, agents.isEmpty {
-                    await end()
                     self.error = .agentNotConnected
                 }
             }
         }
 
         do {
-            let response: TokenSourceResponse = switch tokenSource {
-            case let .fixed(s):
-                try await s.fetch()
-            case let .configurable(s):
-                try await s.fetch(TokenRequestOptions(agentName: agentName))
-            }
+            let response = try await fetchToken()
 
-            if preConnectAudio {
-                try await room.withPreConnectAudio(timeout: waitForAgent) {
+            if options.preConnectAudio {
+                try await room.withPreConnectAudio(timeout: timeout) {
                     await MainActor.run { self.isListening = true }
                     try await self.room.connect(url: response.serverURL.absoluteString,
-                                                token: response.participantToken,
-                                                connectOptions: options,
-                                                roomOptions: roomOptions)
+                                                token: response.participantToken)
                     await MainActor.run { self.isListening = false }
                 }
             } else {
                 try await room.connect(url: response.serverURL.absoluteString,
-                                       token: response.participantToken,
-                                       connectOptions: options,
-                                       roomOptions: roomOptions)
+                                       token: response.participantToken)
             }
         } catch {
             self.error = .failedToConnect(error)
@@ -238,5 +249,16 @@ open class Session: ObservableObject {
 
     public func restoreMessageHistory(_ messages: [ReceivedMessage]) {
         self.messages = .init(uniqueKeysWithValues: messages.sorted(by: { $0.timestamp < $1.timestamp }).map { ($0.id, $0) })
+    }
+
+    // MARK: - Helpers
+
+    private func fetchToken() async throws -> TokenSourceResponse {
+        switch tokenSourceConfiguration {
+        case let .fixed(source):
+            try await source.fetch()
+        case let .configurable(source, options):
+            try await source.fetch(options)
+        }
     }
 }

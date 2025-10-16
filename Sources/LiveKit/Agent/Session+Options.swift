@@ -17,25 +17,16 @@
 import Foundation
 
 public extension Session {
-    struct Options {
-        public var tokenRequestOptions: TokenRequestOptions
-        public var connectOptions: ConnectOptions
-        public var roomOptions: RoomOptions
+    struct Options: Sendable {
         public var room: Room
         public var preConnectAudio: Bool
         public var agentConnectTimeout: TimeInterval
 
         public init(
-            tokenRequestOptions: TokenRequestOptions = .init(),
-            connectOptions: ConnectOptions = .init(),
-            roomOptions: RoomOptions = .init(),
             room: Room = .init(),
             preConnectAudio: Bool = true,
             agentConnectTimeout: TimeInterval = 20
         ) {
-            self.tokenRequestOptions = tokenRequestOptions
-            self.connectOptions = connectOptions
-            self.roomOptions = roomOptions
             self.room = room
             self.preConnectAudio = preConnectAudio
             self.agentConnectTimeout = agentConnectTimeout
