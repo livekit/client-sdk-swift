@@ -158,6 +158,7 @@ jobs:
             -configuration Release \
             -destination 'platform=${{ matrix.platform }}'  \
             APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
             OTHER_SWIFT_FLAGS="-Xfrontend -emit-symbol-graph\
                                -Xfrontend -emit-symbol-graph-dir\
                                -Xfrontend \"${PWD}/symbol-graph\"" \
