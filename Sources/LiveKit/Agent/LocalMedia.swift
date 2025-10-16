@@ -96,8 +96,8 @@ open class LocalMedia: ObservableObject {
             try await AudioManager.shared.setRecordingAlwaysPreparedMode(true)
         }
 
-        AudioManager.shared.onDeviceUpdate = { [weak self] _ in
-            Task { @MainActor in
+        AudioManager.shared.onDeviceUpdate = { _ in
+            Task { @MainActor [weak self] in
                 self?.audioDevices = AudioManager.shared.inputDevices
                 self?.selectedAudioDeviceID = AudioManager.shared.defaultInputDevice.deviceId
             }

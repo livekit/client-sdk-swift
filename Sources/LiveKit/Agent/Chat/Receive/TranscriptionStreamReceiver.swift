@@ -89,17 +89,18 @@ actor TranscriptionStreamReceiver: MessageReceiver, Loggable {
     func messages() async throws -> AsyncStream<ReceivedMessage> {
         let (stream, continuation) = AsyncStream.makeStream(of: ReceivedMessage.self)
 
+        let topic = topic
+
         try await room.registerTextStreamHandler(for: topic) { [weak self] reader, participantIdentity in
-            guard let self else { return }
             for try await message in reader where !message.isEmpty {
+                guard let self else { return }
                 await continuation.yield(processIncoming(partialMessage: message, reader: reader, participantIdentity: participantIdentity))
             }
         }
 
-        continuation.onTermination = { [weak self] _ in
-            Task {
-                guard let self else { return }
-                await self.room.unregisterTextStreamHandler(for: self.topic)
+        continuation.onTermination = { _ in
+            Task { [weak self] in
+                await self?.room.unregisterTextStreamHandler(for: topic)
             }
         }
 
