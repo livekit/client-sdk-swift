@@ -136,7 +136,6 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
     }
 
     func resume(returning value: T) {
-        log("\(label)", .trace)
         resume(with: .success(value))
     }
 

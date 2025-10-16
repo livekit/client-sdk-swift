@@ -50,14 +50,14 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
 
     private func createReceiver() -> Bool {
         guard let socketPath = BroadcastBundleInfo.socketPath else {
-            logger.error("Bundle settings improperly configured for screen capture")
+            log("Bundle settings improperly configured for screen capture", .error)
             return false
         }
         Task { [weak self] in
             guard let self else { return }
             do {
                 let receiver = try await BroadcastReceiver(socketPath: socketPath)
-                logger.debug("Broadcast receiver connected")
+                log("Broadcast receiver connected", .debug)
                 self.receiver = receiver
 
                 if appAudio {
@@ -70,9 +70,9 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
                     case let .audio(buffer): AudioManager.shared.mixer.capture(appAudio: buffer)
                     }
                 }
-                logger.debug("Broadcast receiver closed")
+                log("Broadcast receiver closed", .debug)
             } catch {
-                logger.error("Broadcast receiver error: \(error)")
+                log("Broadcast receiver error: \(error)", .error)
             }
             _ = try? await stopCapture()
         }
@@ -97,7 +97,7 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
 public extension LocalVideoTrack {
     /// Creates a track that captures screen capture from a broadcast upload extension
     static func createBroadcastScreenCapturerTrack(name: String = Track.screenShareVideoName,
-                                                   source: VideoTrack.Source = .screenShareVideo,
+                                                   source: Track.Source = .screenShareVideo,
                                                    options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                                                    reportStatistics: Bool = false) -> LocalVideoTrack
     {

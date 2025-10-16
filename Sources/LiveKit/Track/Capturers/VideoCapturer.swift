@@ -223,8 +223,7 @@ extension VideoCapturer {
             // kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
             // kCVPixelFormatType_32BGRA
             // kCVPixelFormatType_32ARGB
-            logger.log("Skipping capture for unsupported pixel format: \(pixelFormat.toString())", .warning,
-                       type: type(of: self))
+            log("Skipping capture for unsupported pixel format: \(pixelFormat.toString())", .warning)
             return
         }
 
@@ -232,8 +231,7 @@ extension VideoCapturer {
                                           height: Int32(CVPixelBufferGetHeight(pixelBuffer)))
 
         guard sourceDimensions.isEncodeSafe else {
-            logger.log("Skipping capture for dimensions: \(sourceDimensions)", .warning,
-                       type: type(of: self))
+            log("Skipping capture for dimensions: \(sourceDimensions)", .warning)
             return
         }
 
@@ -257,7 +255,7 @@ extension VideoCapturer {
               CMSampleBufferIsValid(sampleBuffer),
               CMSampleBufferDataIsReady(sampleBuffer)
         else {
-            logger.log("Failed to capture, buffer is not ready", .warning, type: type(of: self))
+            log("Failed to capture, buffer is not ready", .warning)
             return
         }
 
@@ -274,7 +272,7 @@ extension VideoCapturer {
         }
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-            logger.log("Failed to capture, pixel buffer not found", .warning, type: type(of: self))
+            log("Failed to capture, pixel buffer not found", .warning)
             return
         }
 

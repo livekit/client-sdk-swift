@@ -30,7 +30,7 @@ public extension LocalParticipant {
     func performRpc(destinationIdentity: Identity,
                     method: String,
                     payload: String,
-                    responseTimeout: TimeInterval = 10) async throws -> String
+                    responseTimeout: TimeInterval = 15) async throws -> String
     {
         let room = try requireRoom()
 
@@ -39,7 +39,7 @@ public extension LocalParticipant {
         }
 
         let requestId = UUID().uuidString
-        let maxRoundTripLatency: TimeInterval = 2
+        let maxRoundTripLatency: TimeInterval = 7
         let effectiveTimeout = responseTimeout - maxRoundTripLatency
 
         try await publishRpcRequest(destinationIdentity: destinationIdentity,

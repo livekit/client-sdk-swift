@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Combine
 import Foundation
 
 #if canImport(Network)
@@ -308,10 +309,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 self.objectWillChange.send()
             }
         }
-    }
-
-    deinit {
-        log(nil, .trace)
     }
 
     @objc

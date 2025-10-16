@@ -48,7 +48,7 @@ final class BroadcastReceiver: Sendable {
         channel.close()
     }
 
-    struct AsyncSampleSequence: AsyncSequence, AsyncIteratorProtocol {
+    struct AsyncSampleSequence: AsyncSequence, AsyncIteratorProtocol, Loggable {
         fileprivate let upstream: IPCChannel.AsyncMessageSequence<BroadcastIPCHeader>
 
         private let imageCodec = BroadcastImageCodec()
@@ -66,7 +66,7 @@ final class BroadcastReceiver: Sendable {
                     return IncomingSample.audio(audioBuffer)
 
                 default:
-                    logger.debug("Unhandled incoming message: \(header)")
+                    log("Unhandled incoming message: \(header)", .debug)
                     continue
                 }
             }
