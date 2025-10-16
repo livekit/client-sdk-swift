@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-import Foundation
-import os
+import os.lock
 
 #if canImport(Synchronization)
 import Synchronization

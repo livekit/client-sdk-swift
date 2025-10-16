@@ -75,10 +75,6 @@ public class LocalTrackPublication: TrackPublication, @unchecked Sendable {
 
         return oldValue
     }
-
-    deinit {
-        log(nil, .trace)
-    }
 }
 
 extension LocalTrackPublication {

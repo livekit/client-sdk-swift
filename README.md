@@ -267,7 +267,19 @@ For the full example, see 👉 [UIKit Minimal Example](https://github.com/liveki
 
 # Frequently asked questions
 
-### How to publish camera in 60 FPS ?
+### How to adjust the log level?
+
+The SDK will write to `OSLog` by default (`io.livekit.*`) with a minimum log level of `info`. Logs can be filtered by level, category, etc. using Xcode console.
+
+- To adjust the log level, call `LiveKitSDK.setLogLevel(_:)`
+- To set a custom logger (e.g. to pass to a custom logging system), call `LiveKitSDK.setLogger(_:)`
+- To disable logging completely, call `LiveKitSDK.disableLogging()`
+
+All methods must be called before any other logging is done, e.g. in the `App.init()` or `AppDelegate/SceneDelegate`.
+
+Alternatively, you can subclass `OSLogger` and override the `log(...)` method to capture e.g. warning and error logs.
+
+### How to publish camera in 60 FPS?
 
 - Create a `LocalVideoTrack` by calling `LocalVideoTrack.createCameraTrack(options: CameraCaptureOptions(fps: 60))`.
 - Publish with `LocalParticipant.publish(videoTrack: track, publishOptions: VideoPublishOptions(encoding: VideoEncoding(maxFps: 60)))`.
