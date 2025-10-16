@@ -58,7 +58,14 @@ open class Conversation: ObservableObject {
 
     public let room: Room
 
-    private let tokenSource: any TokenSource
+    private enum AnyTokenSource {
+        case fixed(any TokenSourceFixed)
+        case configurable(any TokenSourceConfigurable)
+    }
+
+    private let tokenSource: AnyTokenSource
+    private let agentName: String?
+
     private let senders: [any MessageSender]
     private let receivers: [any MessageReceiver]
 
@@ -68,8 +75,14 @@ open class Conversation: ObservableObject {
 
     // MARK: - Init
 
-    public init(tokenSource: TokenSource, room: Room = .init(), agentName: String? = nil, senders: [any MessageSender]? = nil, receivers: [any MessageReceiver]? = nil) {
+    private init(tokenSource: AnyTokenSource,
+                 agentName: String?,
+                 room: Room,
+                 senders: [any MessageSender]?,
+                 receivers: [any MessageReceiver]?)
+    {
         self.tokenSource = tokenSource
+        self.agentName = agentName
         self.room = room
 
         let textMessageSender = TextMessageSender(room: room)
@@ -81,6 +94,23 @@ open class Conversation: ObservableObject {
 
         observe(room: room, agentName: agentName)
         observe(receivers: receivers)
+    }
+
+    public convenience init(tokenSource: some TokenSourceFixed,
+                            room: Room = .init(),
+                            senders: [any MessageSender]? = nil,
+                            receivers: [any MessageReceiver]? = nil)
+    {
+        self.init(tokenSource: .fixed(tokenSource), agentName: nil, room: room, senders: senders, receivers: receivers)
+    }
+
+    public convenience init(tokenSource: some TokenSourceConfigurable,
+                            room: Room = .init(),
+                            agentName: String? = nil,
+                            senders: [any MessageSender]? = nil,
+                            receivers: [any MessageReceiver]? = nil)
+    {
+        self.init(tokenSource: .configurable(tokenSource), agentName: agentName, room: room, senders: senders, receivers: receivers)
     }
 
     private func observe(room: Room, agentName _: String?) {
@@ -152,14 +182,27 @@ open class Conversation: ObservableObject {
         }
 
         do {
+            let response: TokenSourceResponse = switch tokenSource {
+            case let .fixed(s):
+                try await s.fetch()
+            case let .configurable(s):
+                try await s.fetch(TokenRequestOptions(agentName: agentName))
+            }
+
             if preConnectAudio {
                 try await room.withPreConnectAudio(timeout: waitForAgent) {
                     await MainActor.run { self.isListening = true }
-                    try await self.room.connect(tokenSource: self.tokenSource, connectOptions: options, roomOptions: roomOptions)
+                    try await self.room.connect(url: response.serverURL.absoluteString,
+                                                token: response.participantToken,
+                                                connectOptions: options,
+                                                roomOptions: roomOptions)
                     await MainActor.run { self.isListening = false }
                 }
             } else {
-                try await room.connect(tokenSource: tokenSource, connectOptions: options, roomOptions: roomOptions)
+                try await room.connect(url: response.serverURL.absoluteString,
+                                       token: response.participantToken,
+                                       connectOptions: options,
+                                       roomOptions: roomOptions)
             }
         } catch {
             self.error = .failedToConnect(error)
