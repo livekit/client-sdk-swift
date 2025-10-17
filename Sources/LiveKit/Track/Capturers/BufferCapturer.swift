@@ -59,7 +59,7 @@ public class BufferCapturer: VideoCapturer, @unchecked Sendable {
 public extension LocalVideoTrack {
     /// Creates a track that can directly capture `CVPixelBuffer` or `CMSampleBuffer` for convienience
     static func createBufferTrack(name: String = Track.screenShareVideoName,
-                                  source: VideoTrack.Source = .screenShareVideo,
+                                  source: Track.Source = .screenShareVideo,
                                   options: BufferCaptureOptions = BufferCaptureOptions(),
                                   reportStatistics: Bool = false) -> LocalVideoTrack
     {
