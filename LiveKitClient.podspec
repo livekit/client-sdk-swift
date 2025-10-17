@@ -14,7 +14,7 @@ Pod::Spec.new do |spec|
 
   spec.source_files = "Sources/**/*"
 
-  spec.dependency("LiveKitWebRTC", "= 137.7151.09")
+  spec.dependency("LiveKitWebRTC", "= 137.7151.10")
   spec.dependency("SwiftProtobuf")
   spec.dependency("DequeModule", "= 1.1.4")
   spec.dependency("OrderedCollections", " = 1.1.4")
