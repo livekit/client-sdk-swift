@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import JWTKit
 @testable import LiveKit
+import LiveKitFFI
 
 public class TokenGenerator {
     // 30 mins
@@ -31,10 +31,6 @@ public class TokenGenerator {
     public var metadata: String?
     public var videoGrant: LiveKitJWTPayload.VideoGrant?
 
-    // MARK: - Private
-
-    private let signers = JWTSigners()
-
     public init(apiKey: String,
                 apiSecret: String,
                 identity: String,
@@ -47,19 +43,40 @@ public class TokenGenerator {
     }
 
     public func sign() throws -> String {
-        // Add HMAC with SHA-256 signer.
-        signers.use(.hs256(key: apiSecret))
+        var ffiVideoGrants: VideoGrants?
+        if let grant = videoGrant {
+            ffiVideoGrants = VideoGrants(
+                roomCreate: grant.roomCreate ?? false,
+                roomList: grant.roomList ?? false,
+                roomRecord: grant.roomRecord ?? false,
+                roomAdmin: grant.roomAdmin ?? false,
+                roomJoin: grant.roomJoin ?? false,
+                room: grant.room ?? "",
+                destinationRoom: "",
+                canPublish: grant.canPublish ?? false,
+                canSubscribe: grant.canSubscribe ?? false,
+                canPublishData: grant.canPublishData ?? false,
+                canPublishSources: grant.canPublishSources ?? [],
+                canUpdateOwnMetadata: false,
+                ingressAdmin: false,
+                hidden: grant.hidden ?? false,
+                recorder: grant.recorder ?? false
+            )
+        }
 
-        let n = Date().timeIntervalSince1970
+        let credentials = ApiCredentials(key: apiKey, secret: apiSecret)
+        let options = TokenOptions(
+            ttl: ttl,
+            videoGrants: ffiVideoGrants,
+            sipGrants: nil,
+            identity: identity,
+            name: name,
+            metadata: metadata,
+            attributes: nil,
+            sha256: nil,
+            roomName: videoGrant?.room
+        )
 
-        let p = LiveKitJWTPayload(exp: .init(value: Date(timeIntervalSince1970: floor(n + ttl))),
-                                  iss: .init(stringLiteral: apiKey),
-                                  nbf: .init(value: Date(timeIntervalSince1970: floor(n))),
-                                  sub: .init(stringLiteral: identity),
-                                  name: name,
-                                  metadata: metadata,
-                                  video: videoGrant)
-
-        return try signers.sign(p)
+        return try generateToken(options: options, credentials: credentials)
     }
 }
