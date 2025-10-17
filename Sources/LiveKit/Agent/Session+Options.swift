@@ -14,8 +14,20 @@
  * limitations under the License.
  */
 
-extension AgentState: CustomStringConvertible {
-    public var description: String {
-        rawValue.capitalized
+import Foundation
+
+public struct SessionOptions: Sendable {
+    public var room: Room
+    public var preConnectAudio: Bool
+    public var agentConnectTimeout: TimeInterval
+
+    public init(
+        room: Room = .init(),
+        preConnectAudio: Bool = true,
+        agentConnectTimeout: TimeInterval = 20
+    ) {
+        self.room = room
+        self.preConnectAudio = preConnectAudio
+        self.agentConnectTimeout = agentConnectTimeout
     }
 }
