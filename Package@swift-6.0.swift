@@ -20,7 +20,7 @@ let package = Package(
     ],
     dependencies: [
         // LK-Prefixed Dynamic WebRTC XCFramework
-        .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "137.7151.09"),
+        .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "137.7151.10"),
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.31.0"),
         .package(url: "https://github.com/apple/swift-collections.git", "1.1.0" ..< "1.3.0"),
         .package(url: "https://github.com/vapor/jwt-kit.git", from: "4.13.5"),
