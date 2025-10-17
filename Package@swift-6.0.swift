@@ -26,6 +26,8 @@ let package = Package(
         .package(url: "https://github.com/vapor/jwt-kit.git", from: "4.13.5"),
         // Only used for DocC generation
         .package(url: "https://github.com/apple/swift-docc-plugin.git", from: "1.3.0"),
+        // Local uniffi bindings
+        .package(path: "../rust-sdks/livekit-uniffi"),
     ],
     targets: [
         .target(
@@ -56,6 +58,7 @@ let package = Package(
             name: "LiveKitTestSupport",
             dependencies: [
                 "LiveKit",
+                .product(name: "LiveKitFFI", package: "livekit-uniffi"),
             ],
             path: "Tests/LiveKitTestSupport"
         ),
