@@ -126,18 +126,18 @@ open class Session: ObservableObject {
                   receivers: receivers)
     }
 
-    public convenience init(agentName: String,
-                            agentMetadata: String? = nil,
-                            tokenSource: any TokenSourceConfigurable,
-                            options: SessionOptions = .init(),
-                            senders: [any MessageSender]? = nil,
-                            receivers: [any MessageReceiver]? = nil)
+    public static func withAgent(_ agentName: String,
+                                 agentMetadata: String? = nil,
+                                 tokenSource: any TokenSourceConfigurable,
+                                 options: SessionOptions = .init(),
+                                 senders: [any MessageSender]? = nil,
+                                 receivers: [any MessageReceiver]? = nil) -> Session
     {
-        self.init(tokenSource: tokenSource,
-                  tokenOptions: .init(agentName: agentName, agentMetadata: agentMetadata),
-                  options: options,
-                  senders: senders,
-                  receivers: receivers)
+        Session(tokenSource: tokenSource,
+                tokenOptions: .init(agentName: agentName, agentMetadata: agentMetadata),
+                options: options,
+                senders: senders,
+                receivers: receivers)
     }
 
     deinit {
