@@ -57,14 +57,51 @@ class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @u
 
     private var _state = StateSync(State())
 
-    func set(target: AudioCustomProcessingDelegate?) {
+    private let rtcDelegateGetter: () -> LKRTCAudioCustomProcessingDelegate?
+    private let rtcDelegateSetter: (LKRTCAudioCustomProcessingDelegate?) -> Void
+
+    func set(target: AudioCustomProcessingDelegate?, oldTarget: AudioCustomProcessingDelegate? = nil) {
+        // Clear WebRTC delegate first if there's an old target - this triggers audioProcessingRelease() on it
+        if oldTarget != nil {
+            rtcDelegateSetter(nil)
+        }
         _state.mutate { $0.target = target }
+        updateRTCConnection()
     }
 
-    init(label: String) {
+    init(label: String,
+         rtcDelegateGetter: @escaping () -> LKRTCAudioCustomProcessingDelegate?,
+         rtcDelegateSetter: @escaping (LKRTCAudioCustomProcessingDelegate?) -> Void)
+    {
         self.label = label
+        self.rtcDelegateGetter = rtcDelegateGetter
+        self.rtcDelegateSetter = rtcDelegateSetter
         super.init(label: "AudioCustomProcessingDelegateAdapter.\(label)")
         log("label: \(label)")
+    }
+
+    // Override add/remove to manage RTC connection
+    override func add(delegate: AudioRenderer) {
+        super.add(delegate: delegate)
+        updateRTCConnection()
+    }
+
+    override func remove(delegate: AudioRenderer) {
+        super.remove(delegate: delegate)
+        updateRTCConnection()
+    }
+
+    private func updateRTCConnection() {
+        let shouldBeConnected = target != nil || isDelegatesNotEmpty
+        let isConnected = rtcDelegateGetter() === self
+
+        if shouldBeConnected, !isConnected {
+            // Connect
+            rtcDelegateSetter(self)
+        } else if !shouldBeConnected, isConnected {
+            // Disconnect
+            rtcDelegateSetter(nil)
+        }
     }
 
     // MARK: - AudioCustomProcessingDelegate
