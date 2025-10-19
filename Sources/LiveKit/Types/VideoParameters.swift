@@ -22,11 +22,11 @@ extension Collection<VideoParameters> {
     {
         if isEmpty {
             // Must have at least 1 element
-            logger.log("isEmpty", .error, type: (any Collection).self)
+            sharedLogger.log("isEmpty", .error, type: (any Collection).self)
         }
 
         if dimensions == nil, videoEncoding == nil {
-            logger.log("dimensions or videoEncoding parameter is required", .error, type: (any Collection).self)
+            sharedLogger.log("dimensions or videoEncoding parameter is required", .error, type: (any Collection).self)
         }
 
         var result = 0

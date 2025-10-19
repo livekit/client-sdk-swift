@@ -94,7 +94,7 @@ public class ARCameraCapturer: VideoCapturer {
 public extension LocalVideoTrack {
     /// Creates a track that can directly capture `CVPixelBuffer` or `CMSampleBuffer` for convenience
     static func createARCameraTrack(name: String = Track.cameraName,
-                                    source: VideoTrack.Source = .camera,
+                                    source: Track.Source = .camera,
                                     options: ARCameraCaptureOptions = ARCameraCaptureOptions(),
                                     reportStatistics: Bool = false) -> LocalVideoTrack
     {

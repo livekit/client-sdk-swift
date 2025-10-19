@@ -20,7 +20,7 @@ import CoreMedia
 import ReplayKit
 
 /// Uploads broadcast samples to another process.
-final class BroadcastUploader: Sendable {
+final class BroadcastUploader: Sendable, Loggable {
     private let channel: IPCChannel
 
     private let imageCodec = BroadcastImageCodec()
@@ -98,7 +98,7 @@ final class BroadcastUploader: Sendable {
             case let .wantsAudio(wantsAudio):
                 state.mutate { $0.shouldUploadAudio = wantsAudio }
             default:
-                logger.debug("Unhandled incoming message: \(header)")
+                log("Unhandled incoming message: \(header)", .debug)
                 continue
             }
         }

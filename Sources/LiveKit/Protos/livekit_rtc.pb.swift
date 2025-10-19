@@ -148,7 +148,7 @@ struct Livekit_SignalRequest: Sendable {
 
   var message: Livekit_SignalRequest.OneOf_Message? = nil
 
-  /// initial join exchange, for publisher
+  /// participant offer for publisher
   var offer: Livekit_SessionDescription {
     get {
       if case .offer(let v)? = message {return v}
@@ -157,7 +157,7 @@ struct Livekit_SignalRequest: Sendable {
     set {message = .offer(newValue)}
   }
 
-  /// participant answering publisher offer
+  /// participant answering subscriber offer
   var answer: Livekit_SessionDescription {
     get {
       if case .answer(let v)? = message {return v}
@@ -304,9 +304,9 @@ struct Livekit_SignalRequest: Sendable {
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable, Sendable {
-    /// initial join exchange, for publisher
+    /// participant offer for publisher
     case offer(Livekit_SessionDescription)
-    /// participant answering publisher offer
+    /// participant answering subscriber offer
     case answer(Livekit_SessionDescription)
     case trickle(Livekit_TrickleRequest)
     case addTrack(Livekit_AddTrackRequest)
@@ -559,6 +559,24 @@ struct Livekit_SignalResponse: Sendable {
     set {message = .roomMoved(newValue)}
   }
 
+  /// notify number of required media sections to satisfy subscribed tracks
+  var mediaSectionsRequirement: Livekit_MediaSectionsRequirement {
+    get {
+      if case .mediaSectionsRequirement(let v)? = message {return v}
+      return Livekit_MediaSectionsRequirement()
+    }
+    set {message = .mediaSectionsRequirement(newValue)}
+  }
+
+  /// when audio subscription changes, used to enable simulcasting of audio codecs based on subscriptions
+  var subscribedAudioCodecUpdate: Livekit_SubscribedAudioCodecUpdate {
+    get {
+      if case .subscribedAudioCodecUpdate(let v)? = message {return v}
+      return Livekit_SubscribedAudioCodecUpdate()
+    }
+    set {message = .subscribedAudioCodecUpdate(newValue)}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable, Sendable {
@@ -609,6 +627,10 @@ struct Livekit_SignalResponse: Sendable {
     case trackSubscribed(Livekit_TrackSubscribed)
     /// notify to the participant when they have been moved to a new room
     case roomMoved(Livekit_RoomMovedResponse)
+    /// notify number of required media sections to satisfy subscribed tracks
+    case mediaSectionsRequirement(Livekit_MediaSectionsRequirement)
+    /// when audio subscription changes, used to enable simulcasting of audio codecs based on subscriptions
+    case subscribedAudioCodecUpdate(Livekit_SubscribedAudioCodecUpdate)
 
   }
 
@@ -623,6 +645,10 @@ struct Livekit_SimulcastCodec: Sendable {
   var codec: String = String()
 
   var cid: String = String()
+
+  var layers: [Livekit_VideoLayer] = []
+
+  var videoLayerMode: Livekit_VideoLayer.Mode = .unused
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -650,7 +676,6 @@ struct Livekit_AddTrackRequest: @unchecked Sendable {
     set {_uniqueStorage()._type = newValue}
   }
 
-  /// to be deprecated in favor of layers
   var width: UInt32 {
     get {return _storage._width}
     set {_uniqueStorage()._width = newValue}
@@ -1322,6 +1347,20 @@ struct Livekit_SubscribedQualityUpdate: Sendable {
   init() {}
 }
 
+struct Livekit_SubscribedAudioCodecUpdate: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var trackSid: String = String()
+
+  var subscribedAudioCodecs: [Livekit_SubscribedAudioCodec] = []
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
 struct Livekit_TrackPermission: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -1418,7 +1457,9 @@ struct Livekit_SyncState: Sendable {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// last subscribe answer before reconnecting
+  /// last subscribe/publish answer before reconnecting
+  /// subscribe answer if using dual peer connection
+  /// publish answer if using single peer connection
   var answer: Livekit_SessionDescription {
     get {return _answer ?? Livekit_SessionDescription()}
     set {_answer = newValue}
@@ -1441,7 +1482,9 @@ struct Livekit_SyncState: Sendable {
 
   var dataChannels: [Livekit_DataChannelInfo] = []
 
-  /// last received server side offer before reconnecting
+  /// last received server side offer/sent client side offer before reconnecting
+  /// received server side offer if using dual peer connection
+  /// sent client side offer if using single peer connection
   var offer: Livekit_SessionDescription {
     get {return _offer ?? Livekit_SessionDescription()}
     set {_offer = newValue}
@@ -1694,7 +1737,67 @@ struct Livekit_RequestResponse: Sendable {
 
   var message: String = String()
 
+  var request: Livekit_RequestResponse.OneOf_Request? = nil
+
+  var trickle: Livekit_TrickleRequest {
+    get {
+      if case .trickle(let v)? = request {return v}
+      return Livekit_TrickleRequest()
+    }
+    set {request = .trickle(newValue)}
+  }
+
+  var addTrack: Livekit_AddTrackRequest {
+    get {
+      if case .addTrack(let v)? = request {return v}
+      return Livekit_AddTrackRequest()
+    }
+    set {request = .addTrack(newValue)}
+  }
+
+  var mute: Livekit_MuteTrackRequest {
+    get {
+      if case .mute(let v)? = request {return v}
+      return Livekit_MuteTrackRequest()
+    }
+    set {request = .mute(newValue)}
+  }
+
+  var updateMetadata: Livekit_UpdateParticipantMetadata {
+    get {
+      if case .updateMetadata(let v)? = request {return v}
+      return Livekit_UpdateParticipantMetadata()
+    }
+    set {request = .updateMetadata(newValue)}
+  }
+
+  var updateAudioTrack: Livekit_UpdateLocalAudioTrack {
+    get {
+      if case .updateAudioTrack(let v)? = request {return v}
+      return Livekit_UpdateLocalAudioTrack()
+    }
+    set {request = .updateAudioTrack(newValue)}
+  }
+
+  var updateVideoTrack: Livekit_UpdateLocalVideoTrack {
+    get {
+      if case .updateVideoTrack(let v)? = request {return v}
+      return Livekit_UpdateLocalVideoTrack()
+    }
+    set {request = .updateVideoTrack(newValue)}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  enum OneOf_Request: Equatable, Sendable {
+    case trickle(Livekit_TrickleRequest)
+    case addTrack(Livekit_AddTrackRequest)
+    case mute(Livekit_MuteTrackRequest)
+    case updateMetadata(Livekit_UpdateParticipantMetadata)
+    case updateAudioTrack(Livekit_UpdateLocalAudioTrack)
+    case updateVideoTrack(Livekit_UpdateLocalVideoTrack)
+
+  }
 
   enum Reason: SwiftProtobuf.Enum, Swift.CaseIterable {
     typealias RawValue = Int
@@ -1702,6 +1805,9 @@ struct Livekit_RequestResponse: Sendable {
     case notFound // = 1
     case notAllowed // = 2
     case limitExceeded // = 3
+    case queued // = 4
+    case unsupportedType // = 5
+    case unclassifiedError // = 6
     case UNRECOGNIZED(Int)
 
     init() {
@@ -1714,6 +1820,9 @@ struct Livekit_RequestResponse: Sendable {
       case 1: self = .notFound
       case 2: self = .notAllowed
       case 3: self = .limitExceeded
+      case 4: self = .queued
+      case 5: self = .unsupportedType
+      case 6: self = .unclassifiedError
       default: self = .UNRECOGNIZED(rawValue)
       }
     }
@@ -1724,6 +1833,9 @@ struct Livekit_RequestResponse: Sendable {
       case .notFound: return 1
       case .notAllowed: return 2
       case .limitExceeded: return 3
+      case .queued: return 4
+      case .unsupportedType: return 5
+      case .unclassifiedError: return 6
       case .UNRECOGNIZED(let i): return i
       }
     }
@@ -1734,6 +1846,9 @@ struct Livekit_RequestResponse: Sendable {
       .notFound,
       .notAllowed,
       .limitExceeded,
+      .queued,
+      .unsupportedType,
+      .unclassifiedError,
     ]
 
   }
@@ -1753,53 +1868,197 @@ struct Livekit_TrackSubscribed: Sendable {
   init() {}
 }
 
+struct Livekit_ConnectionSettings: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var autoSubscribe: Bool = false
+
+  var adaptiveStream: Bool = false
+
+  var subscriberAllowPause: Bool {
+    get {return _subscriberAllowPause ?? false}
+    set {_subscriberAllowPause = newValue}
+  }
+  /// Returns true if `subscriberAllowPause` has been explicitly set.
+  var hasSubscriberAllowPause: Bool {return self._subscriberAllowPause != nil}
+  /// Clears the value of `subscriberAllowPause`. Subsequent reads from it will return its default value.
+  mutating func clearSubscriberAllowPause() {self._subscriberAllowPause = nil}
+
+  var disableIceLite: Bool = false
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _subscriberAllowPause: Bool? = nil
+}
+
+struct Livekit_JoinRequest: @unchecked Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var clientInfo: Livekit_ClientInfo {
+    get {return _storage._clientInfo ?? Livekit_ClientInfo()}
+    set {_uniqueStorage()._clientInfo = newValue}
+  }
+  /// Returns true if `clientInfo` has been explicitly set.
+  var hasClientInfo: Bool {return _storage._clientInfo != nil}
+  /// Clears the value of `clientInfo`. Subsequent reads from it will return its default value.
+  mutating func clearClientInfo() {_uniqueStorage()._clientInfo = nil}
+
+  var connectionSettings: Livekit_ConnectionSettings {
+    get {return _storage._connectionSettings ?? Livekit_ConnectionSettings()}
+    set {_uniqueStorage()._connectionSettings = newValue}
+  }
+  /// Returns true if `connectionSettings` has been explicitly set.
+  var hasConnectionSettings: Bool {return _storage._connectionSettings != nil}
+  /// Clears the value of `connectionSettings`. Subsequent reads from it will return its default value.
+  mutating func clearConnectionSettings() {_uniqueStorage()._connectionSettings = nil}
+
+  /// if not empty, will overwrite `metadata` in token
+  var metadata: String {
+    get {return _storage._metadata}
+    set {_uniqueStorage()._metadata = newValue}
+  }
+
+  /// will set keys provided via this
+  /// will overwrite if the same key is in the token
+  /// will not delete keys from token if there is a key collision and this sets that key to empty value
+  var participantAttributes: Dictionary<String,String> {
+    get {return _storage._participantAttributes}
+    set {_uniqueStorage()._participantAttributes = newValue}
+  }
+
+  var addTrackRequests: [Livekit_AddTrackRequest] {
+    get {return _storage._addTrackRequests}
+    set {_uniqueStorage()._addTrackRequests = newValue}
+  }
+
+  var publisherOffer: Livekit_SessionDescription {
+    get {return _storage._publisherOffer ?? Livekit_SessionDescription()}
+    set {_uniqueStorage()._publisherOffer = newValue}
+  }
+  /// Returns true if `publisherOffer` has been explicitly set.
+  var hasPublisherOffer: Bool {return _storage._publisherOffer != nil}
+  /// Clears the value of `publisherOffer`. Subsequent reads from it will return its default value.
+  mutating func clearPublisherOffer() {_uniqueStorage()._publisherOffer = nil}
+
+  var reconnect: Bool {
+    get {return _storage._reconnect}
+    set {_uniqueStorage()._reconnect = newValue}
+  }
+
+  var reconnectReason: Livekit_ReconnectReason {
+    get {return _storage._reconnectReason}
+    set {_uniqueStorage()._reconnectReason = newValue}
+  }
+
+  var participantSid: String {
+    get {return _storage._participantSid}
+    set {_uniqueStorage()._participantSid = newValue}
+  }
+
+  var syncState: Livekit_SyncState {
+    get {return _storage._syncState ?? Livekit_SyncState()}
+    set {_uniqueStorage()._syncState = newValue}
+  }
+  /// Returns true if `syncState` has been explicitly set.
+  var hasSyncState: Bool {return _storage._syncState != nil}
+  /// Clears the value of `syncState`. Subsequent reads from it will return its default value.
+  mutating func clearSyncState() {_uniqueStorage()._syncState = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _storage = _StorageClass.defaultInstance
+}
+
+struct Livekit_WrappedJoinRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var compression: Livekit_WrappedJoinRequest.Compression = .none
+
+  /// marshalled JoinRequest + potentially compressed
+  var joinRequest: Data = Data()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  enum Compression: SwiftProtobuf.Enum, Swift.CaseIterable {
+    typealias RawValue = Int
+    case none // = 0
+    case gzip // = 1
+    case UNRECOGNIZED(Int)
+
+    init() {
+      self = .none
+    }
+
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 0: self = .none
+      case 1: self = .gzip
+      default: self = .UNRECOGNIZED(rawValue)
+      }
+    }
+
+    var rawValue: Int {
+      switch self {
+      case .none: return 0
+      case .gzip: return 1
+      case .UNRECOGNIZED(let i): return i
+      }
+    }
+
+    // The compiler won't synthesize support with the UNRECOGNIZED case.
+    static let allCases: [Livekit_WrappedJoinRequest.Compression] = [
+      .none,
+      .gzip,
+    ]
+
+  }
+
+  init() {}
+}
+
+struct Livekit_MediaSectionsRequirement: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var numAudios: UInt32 = 0
+
+  var numVideos: UInt32 = 0
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "livekit"
 
 extension Livekit_SignalTarget: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "PUBLISHER"),
-    1: .same(proto: "SUBSCRIBER"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0PUBLISHER\0\u{1}SUBSCRIBER\0")
 }
 
 extension Livekit_StreamState: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "ACTIVE"),
-    1: .same(proto: "PAUSED"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0ACTIVE\0\u{1}PAUSED\0")
 }
 
 extension Livekit_CandidateProtocol: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "UDP"),
-    1: .same(proto: "TCP"),
-    2: .same(proto: "TLS"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0UDP\0\u{1}TCP\0\u{1}TLS\0")
 }
 
 extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SignalRequest"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "offer"),
-    2: .same(proto: "answer"),
-    3: .same(proto: "trickle"),
-    4: .standard(proto: "add_track"),
-    5: .same(proto: "mute"),
-    6: .same(proto: "subscription"),
-    7: .standard(proto: "track_setting"),
-    8: .same(proto: "leave"),
-    10: .standard(proto: "update_layers"),
-    11: .standard(proto: "subscription_permission"),
-    12: .standard(proto: "sync_state"),
-    13: .same(proto: "simulate"),
-    14: .same(proto: "ping"),
-    15: .standard(proto: "update_metadata"),
-    16: .standard(proto: "ping_req"),
-    17: .standard(proto: "update_audio_track"),
-    18: .standard(proto: "update_video_track"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}offer\0\u{1}answer\0\u{1}trickle\0\u{3}add_track\0\u{1}mute\0\u{1}subscription\0\u{3}track_setting\0\u{1}leave\0\u{4}\u{2}update_layers\0\u{3}subscription_permission\0\u{3}sync_state\0\u{1}simulate\0\u{1}ping\0\u{3}update_metadata\0\u{3}ping_req\0\u{3}update_audio_track\0\u{3}update_video_track\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -2116,31 +2375,7 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
 
 extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SignalResponse"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "join"),
-    2: .same(proto: "answer"),
-    3: .same(proto: "offer"),
-    4: .same(proto: "trickle"),
-    5: .same(proto: "update"),
-    6: .standard(proto: "track_published"),
-    8: .same(proto: "leave"),
-    9: .same(proto: "mute"),
-    10: .standard(proto: "speakers_changed"),
-    11: .standard(proto: "room_update"),
-    12: .standard(proto: "connection_quality"),
-    13: .standard(proto: "stream_state_update"),
-    14: .standard(proto: "subscribed_quality_update"),
-    15: .standard(proto: "subscription_permission_update"),
-    16: .standard(proto: "refresh_token"),
-    17: .standard(proto: "track_unpublished"),
-    18: .same(proto: "pong"),
-    19: .same(proto: "reconnect"),
-    20: .standard(proto: "pong_resp"),
-    21: .standard(proto: "subscription_response"),
-    22: .standard(proto: "request_response"),
-    23: .standard(proto: "track_subscribed"),
-    24: .standard(proto: "room_moved"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}join\0\u{1}answer\0\u{1}offer\0\u{1}trickle\0\u{1}update\0\u{3}track_published\0\u{2}\u{2}leave\0\u{1}mute\0\u{3}speakers_changed\0\u{3}room_update\0\u{3}connection_quality\0\u{3}stream_state_update\0\u{3}subscribed_quality_update\0\u{3}subscription_permission_update\0\u{3}refresh_token\0\u{3}track_unpublished\0\u{1}pong\0\u{1}reconnect\0\u{3}pong_resp\0\u{3}subscription_response\0\u{3}request_response\0\u{3}track_subscribed\0\u{3}room_moved\0\u{3}media_sections_requirement\0\u{3}subscribed_audio_codec_update\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -2437,6 +2672,32 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
           self.message = .roomMoved(v)
         }
       }()
+      case 25: try {
+        var v: Livekit_MediaSectionsRequirement?
+        var hadOneofValue = false
+        if let current = self.message {
+          hadOneofValue = true
+          if case .mediaSectionsRequirement(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.message = .mediaSectionsRequirement(v)
+        }
+      }()
+      case 26: try {
+        var v: Livekit_SubscribedAudioCodecUpdate?
+        var hadOneofValue = false
+        if let current = self.message {
+          hadOneofValue = true
+          if case .subscribedAudioCodecUpdate(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.message = .subscribedAudioCodecUpdate(v)
+        }
+      }()
       default: break
       }
     }
@@ -2540,6 +2801,14 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
       guard case .roomMoved(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 24)
     }()
+    case .mediaSectionsRequirement?: try {
+      guard case .mediaSectionsRequirement(let v)? = self.message else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 25)
+    }()
+    case .subscribedAudioCodecUpdate?: try {
+      guard case .subscribedAudioCodecUpdate(let v)? = self.message else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 26)
+    }()
     case nil: break
     }
     try unknownFields.traverse(visitor: &visitor)
@@ -2554,10 +2823,7 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
 
 extension Livekit_SimulcastCodec: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SimulcastCodec"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "codec"),
-    2: .same(proto: "cid"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}codec\0\u{1}cid\0\u{2}\u{2}layers\0\u{3}video_layer_mode\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -2567,6 +2833,8 @@ extension Livekit_SimulcastCodec: SwiftProtobuf.Message, SwiftProtobuf._MessageI
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self.codec) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self.cid) }()
+      case 4: try { try decoder.decodeRepeatedMessageField(value: &self.layers) }()
+      case 5: try { try decoder.decodeSingularEnumField(value: &self.videoLayerMode) }()
       default: break
       }
     }
@@ -2579,12 +2847,20 @@ extension Livekit_SimulcastCodec: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     if !self.cid.isEmpty {
       try visitor.visitSingularStringField(value: self.cid, fieldNumber: 2)
     }
+    if !self.layers.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.layers, fieldNumber: 4)
+    }
+    if self.videoLayerMode != .unused {
+      try visitor.visitSingularEnumField(value: self.videoLayerMode, fieldNumber: 5)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_SimulcastCodec, rhs: Livekit_SimulcastCodec) -> Bool {
     if lhs.codec != rhs.codec {return false}
     if lhs.cid != rhs.cid {return false}
+    if lhs.layers != rhs.layers {return false}
+    if lhs.videoLayerMode != rhs.videoLayerMode {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -2592,25 +2868,7 @@ extension Livekit_SimulcastCodec: SwiftProtobuf.Message, SwiftProtobuf._MessageI
 
 extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".AddTrackRequest"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "cid"),
-    2: .same(proto: "name"),
-    3: .same(proto: "type"),
-    4: .same(proto: "width"),
-    5: .same(proto: "height"),
-    6: .same(proto: "muted"),
-    7: .standard(proto: "disable_dtx"),
-    8: .same(proto: "source"),
-    9: .same(proto: "layers"),
-    10: .standard(proto: "simulcast_codecs"),
-    11: .same(proto: "sid"),
-    12: .same(proto: "stereo"),
-    13: .standard(proto: "disable_red"),
-    14: .same(proto: "encryption"),
-    15: .same(proto: "stream"),
-    16: .standard(proto: "backup_codec_policy"),
-    17: .standard(proto: "audio_features"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}cid\0\u{1}name\0\u{1}type\0\u{1}width\0\u{1}height\0\u{1}muted\0\u{3}disable_dtx\0\u{1}source\0\u{1}layers\0\u{3}simulcast_codecs\0\u{1}sid\0\u{1}stereo\0\u{3}disable_red\0\u{1}encryption\0\u{1}stream\0\u{3}backup_codec_policy\0\u{3}audio_features\0")
 
   fileprivate class _StorageClass {
     var _cid: String = String()
@@ -2788,11 +3046,7 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
 
 extension Livekit_TrickleRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".TrickleRequest"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "candidateInit"),
-    2: .same(proto: "target"),
-    3: .same(proto: "final"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}candidateInit\0\u{1}target\0\u{1}final\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -2832,10 +3086,7 @@ extension Livekit_TrickleRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageI
 
 extension Livekit_MuteTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".MuteTrackRequest"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "sid"),
-    2: .same(proto: "muted"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}sid\0\u{1}muted\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -2870,23 +3121,7 @@ extension Livekit_MuteTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Messag
 
 extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".JoinResponse"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "room"),
-    2: .same(proto: "participant"),
-    3: .standard(proto: "other_participants"),
-    4: .standard(proto: "server_version"),
-    5: .standard(proto: "ice_servers"),
-    6: .standard(proto: "subscriber_primary"),
-    7: .standard(proto: "alternative_url"),
-    8: .standard(proto: "client_configuration"),
-    9: .standard(proto: "server_region"),
-    10: .standard(proto: "ping_timeout"),
-    11: .standard(proto: "ping_interval"),
-    12: .standard(proto: "server_info"),
-    13: .standard(proto: "sif_trailer"),
-    14: .standard(proto: "enabled_publish_codecs"),
-    15: .standard(proto: "fast_publish"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}room\0\u{1}participant\0\u{3}other_participants\0\u{3}server_version\0\u{3}ice_servers\0\u{3}subscriber_primary\0\u{3}alternative_url\0\u{3}client_configuration\0\u{3}server_region\0\u{3}ping_timeout\0\u{3}ping_interval\0\u{3}server_info\0\u{3}sif_trailer\0\u{3}enabled_publish_codecs\0\u{3}fast_publish\0")
 
   fileprivate class _StorageClass {
     var _room: Livekit_Room? = nil
@@ -3054,12 +3289,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
 
 extension Livekit_ReconnectResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ReconnectResponse"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "ice_servers"),
-    2: .standard(proto: "client_configuration"),
-    3: .standard(proto: "server_info"),
-    4: .standard(proto: "last_message_seq"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}ice_servers\0\u{3}client_configuration\0\u{3}server_info\0\u{3}last_message_seq\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3108,10 +3338,7 @@ extension Livekit_ReconnectResponse: SwiftProtobuf.Message, SwiftProtobuf._Messa
 
 extension Livekit_TrackPublishedResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".TrackPublishedResponse"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "cid"),
-    2: .same(proto: "track"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}cid\0\u{1}track\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3150,9 +3377,7 @@ extension Livekit_TrackPublishedResponse: SwiftProtobuf.Message, SwiftProtobuf._
 
 extension Livekit_TrackUnpublishedResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".TrackUnpublishedResponse"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "track_sid"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3182,11 +3407,7 @@ extension Livekit_TrackUnpublishedResponse: SwiftProtobuf.Message, SwiftProtobuf
 
 extension Livekit_SessionDescription: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SessionDescription"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "type"),
-    2: .same(proto: "sdp"),
-    3: .same(proto: "id"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}type\0\u{1}sdp\0\u{1}id\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3226,9 +3447,7 @@ extension Livekit_SessionDescription: SwiftProtobuf.Message, SwiftProtobuf._Mess
 
 extension Livekit_ParticipantUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ParticipantUpdate"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "participants"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}participants\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3258,11 +3477,7 @@ extension Livekit_ParticipantUpdate: SwiftProtobuf.Message, SwiftProtobuf._Messa
 
 extension Livekit_UpdateSubscription: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UpdateSubscription"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "track_sids"),
-    2: .same(proto: "subscribe"),
-    3: .standard(proto: "participant_tracks"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sids\0\u{1}subscribe\0\u{3}participant_tracks\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3302,15 +3517,7 @@ extension Livekit_UpdateSubscription: SwiftProtobuf.Message, SwiftProtobuf._Mess
 
 extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UpdateTrackSettings"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "track_sids"),
-    3: .same(proto: "disabled"),
-    4: .same(proto: "quality"),
-    5: .same(proto: "width"),
-    6: .same(proto: "height"),
-    7: .same(proto: "fps"),
-    8: .same(proto: "priority"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sids\0\u{2}\u{2}disabled\0\u{1}quality\0\u{1}width\0\u{1}height\0\u{1}fps\0\u{1}priority\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3370,10 +3577,7 @@ extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftProtobuf._Mes
 
 extension Livekit_UpdateLocalAudioTrack: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UpdateLocalAudioTrack"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "track_sid"),
-    2: .same(proto: "features"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0\u{1}features\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3408,11 +3612,7 @@ extension Livekit_UpdateLocalAudioTrack: SwiftProtobuf.Message, SwiftProtobuf._M
 
 extension Livekit_UpdateLocalVideoTrack: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UpdateLocalVideoTrack"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "track_sid"),
-    2: .same(proto: "width"),
-    3: .same(proto: "height"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0\u{1}width\0\u{1}height\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3452,12 +3652,7 @@ extension Livekit_UpdateLocalVideoTrack: SwiftProtobuf.Message, SwiftProtobuf._M
 
 extension Livekit_LeaveRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".LeaveRequest"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "can_reconnect"),
-    2: .same(proto: "reason"),
-    3: .same(proto: "action"),
-    4: .same(proto: "regions"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}can_reconnect\0\u{1}reason\0\u{1}action\0\u{1}regions\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3505,19 +3700,12 @@ extension Livekit_LeaveRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
 }
 
 extension Livekit_LeaveRequest.Action: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "DISCONNECT"),
-    1: .same(proto: "RESUME"),
-    2: .same(proto: "RECONNECT"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0DISCONNECT\0\u{1}RESUME\0\u{1}RECONNECT\0")
 }
 
 extension Livekit_UpdateVideoLayers: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UpdateVideoLayers"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "track_sid"),
-    2: .same(proto: "layers"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0\u{1}layers\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3552,12 +3740,7 @@ extension Livekit_UpdateVideoLayers: SwiftProtobuf.Message, SwiftProtobuf._Messa
 
 extension Livekit_UpdateParticipantMetadata: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UpdateParticipantMetadata"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "metadata"),
-    2: .same(proto: "name"),
-    3: .same(proto: "attributes"),
-    4: .standard(proto: "request_id"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}metadata\0\u{1}name\0\u{1}attributes\0\u{3}request_id\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3602,11 +3785,7 @@ extension Livekit_UpdateParticipantMetadata: SwiftProtobuf.Message, SwiftProtobu
 
 extension Livekit_ICEServer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ICEServer"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "urls"),
-    2: .same(proto: "username"),
-    3: .same(proto: "credential"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}urls\0\u{1}username\0\u{1}credential\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3646,9 +3825,7 @@ extension Livekit_ICEServer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
 
 extension Livekit_SpeakersChanged: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SpeakersChanged"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "speakers"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}speakers\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3678,9 +3855,7 @@ extension Livekit_SpeakersChanged: SwiftProtobuf.Message, SwiftProtobuf._Message
 
 extension Livekit_RoomUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RoomUpdate"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "room"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}room\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3714,11 +3889,7 @@ extension Livekit_RoomUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
 
 extension Livekit_ConnectionQualityInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ConnectionQualityInfo"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "participant_sid"),
-    2: .same(proto: "quality"),
-    3: .same(proto: "score"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}participant_sid\0\u{1}quality\0\u{1}score\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3758,9 +3929,7 @@ extension Livekit_ConnectionQualityInfo: SwiftProtobuf.Message, SwiftProtobuf._M
 
 extension Livekit_ConnectionQualityUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ConnectionQualityUpdate"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "updates"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}updates\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3790,11 +3959,7 @@ extension Livekit_ConnectionQualityUpdate: SwiftProtobuf.Message, SwiftProtobuf.
 
 extension Livekit_StreamStateInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".StreamStateInfo"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "participant_sid"),
-    2: .standard(proto: "track_sid"),
-    3: .same(proto: "state"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}participant_sid\0\u{3}track_sid\0\u{1}state\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3834,9 +3999,7 @@ extension Livekit_StreamStateInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
 
 extension Livekit_StreamStateUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".StreamStateUpdate"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "stream_states"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}stream_states\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3866,10 +4029,7 @@ extension Livekit_StreamStateUpdate: SwiftProtobuf.Message, SwiftProtobuf._Messa
 
 extension Livekit_SubscribedQuality: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscribedQuality"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "quality"),
-    2: .same(proto: "enabled"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}quality\0\u{1}enabled\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3904,10 +4064,7 @@ extension Livekit_SubscribedQuality: SwiftProtobuf.Message, SwiftProtobuf._Messa
 
 extension Livekit_SubscribedCodec: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscribedCodec"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "codec"),
-    2: .same(proto: "qualities"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}codec\0\u{1}qualities\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3942,11 +4099,7 @@ extension Livekit_SubscribedCodec: SwiftProtobuf.Message, SwiftProtobuf._Message
 
 extension Livekit_SubscribedQualityUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscribedQualityUpdate"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "track_sid"),
-    2: .standard(proto: "subscribed_qualities"),
-    3: .standard(proto: "subscribed_codecs"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0\u{3}subscribed_qualities\0\u{3}subscribed_codecs\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3984,14 +4137,44 @@ extension Livekit_SubscribedQualityUpdate: SwiftProtobuf.Message, SwiftProtobuf.
   }
 }
 
+extension Livekit_SubscribedAudioCodecUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".SubscribedAudioCodecUpdate"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0\u{3}subscribed_audio_codecs\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.trackSid) }()
+      case 2: try { try decoder.decodeRepeatedMessageField(value: &self.subscribedAudioCodecs) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.trackSid.isEmpty {
+      try visitor.visitSingularStringField(value: self.trackSid, fieldNumber: 1)
+    }
+    if !self.subscribedAudioCodecs.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.subscribedAudioCodecs, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_SubscribedAudioCodecUpdate, rhs: Livekit_SubscribedAudioCodecUpdate) -> Bool {
+    if lhs.trackSid != rhs.trackSid {return false}
+    if lhs.subscribedAudioCodecs != rhs.subscribedAudioCodecs {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
 extension Livekit_TrackPermission: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".TrackPermission"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "participant_sid"),
-    2: .standard(proto: "all_tracks"),
-    3: .standard(proto: "track_sids"),
-    4: .standard(proto: "participant_identity"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}participant_sid\0\u{3}all_tracks\0\u{3}track_sids\0\u{3}participant_identity\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -4036,10 +4219,7 @@ extension Livekit_TrackPermission: SwiftProtobuf.Message, SwiftProtobuf._Message
 
 extension Livekit_SubscriptionPermission: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscriptionPermission"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "all_participants"),
-    2: .standard(proto: "track_permissions"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}all_participants\0\u{3}track_permissions\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -4074,11 +4254,7 @@ extension Livekit_SubscriptionPermission: SwiftProtobuf.Message, SwiftProtobuf._
 
 extension Livekit_SubscriptionPermissionUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscriptionPermissionUpdate"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "participant_sid"),
-    2: .standard(proto: "track_sid"),
-    3: .same(proto: "allowed"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}participant_sid\0\u{3}track_sid\0\u{1}allowed\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -4118,12 +4294,7 @@ extension Livekit_SubscriptionPermissionUpdate: SwiftProtobuf.Message, SwiftProt
 
 extension Livekit_RoomMovedResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RoomMovedResponse"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "room"),
-    2: .same(proto: "token"),
-    3: .same(proto: "participant"),
-    4: .standard(proto: "other_participants"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}room\0\u{1}token\0\u{1}participant\0\u{3}other_participants\0")
 
   fileprivate class _StorageClass {
     var _room: Livekit_Room? = nil
@@ -4214,15 +4385,7 @@ extension Livekit_RoomMovedResponse: SwiftProtobuf.Message, SwiftProtobuf._Messa
 
 extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SyncState"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "answer"),
-    2: .same(proto: "subscription"),
-    3: .standard(proto: "publish_tracks"),
-    4: .standard(proto: "data_channels"),
-    5: .same(proto: "offer"),
-    6: .standard(proto: "track_sids_disabled"),
-    7: .standard(proto: "datachannel_receive_states"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}answer\0\u{1}subscription\0\u{3}publish_tracks\0\u{3}data_channels\0\u{1}offer\0\u{3}track_sids_disabled\0\u{3}datachannel_receive_states\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -4286,10 +4449,7 @@ extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
 
 extension Livekit_DataChannelReceiveState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".DataChannelReceiveState"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "publisher_sid"),
-    2: .standard(proto: "last_seq"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}publisher_sid\0\u{3}last_seq\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -4324,11 +4484,7 @@ extension Livekit_DataChannelReceiveState: SwiftProtobuf.Message, SwiftProtobuf.
 
 extension Livekit_DataChannelInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".DataChannelInfo"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "label"),
-    2: .same(proto: "id"),
-    3: .same(proto: "target"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}label\0\u{1}id\0\u{1}target\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -4368,17 +4524,7 @@ extension Livekit_DataChannelInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
 
 extension Livekit_SimulateScenario: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SimulateScenario"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "speaker_update"),
-    2: .standard(proto: "node_failure"),
-    3: .same(proto: "migration"),
-    4: .standard(proto: "server_leave"),
-    5: .standard(proto: "switch_candidate_protocol"),
-    6: .standard(proto: "subscriber_bandwidth"),
-    7: .standard(proto: "disconnect_signal_on_resume"),
-    8: .standard(proto: "disconnect_signal_on_resume_no_messages"),
-    9: .standard(proto: "leave_request_full_reconnect"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}speaker_update\0\u{3}node_failure\0\u{1}migration\0\u{3}server_leave\0\u{3}switch_candidate_protocol\0\u{3}subscriber_bandwidth\0\u{3}disconnect_signal_on_resume\0\u{3}disconnect_signal_on_resume_no_messages\0\u{3}leave_request_full_reconnect\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -4519,10 +4665,7 @@ extension Livekit_SimulateScenario: SwiftProtobuf.Message, SwiftProtobuf._Messag
 
 extension Livekit_Ping: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Ping"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "timestamp"),
-    2: .same(proto: "rtt"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}timestamp\0\u{1}rtt\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -4557,10 +4700,7 @@ extension Livekit_Ping: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
 
 extension Livekit_Pong: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Pong"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "last_ping_timestamp"),
-    2: .same(proto: "timestamp"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}last_ping_timestamp\0\u{1}timestamp\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -4595,9 +4735,7 @@ extension Livekit_Pong: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
 
 extension Livekit_RegionSettings: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RegionSettings"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "regions"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}regions\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -4627,11 +4765,7 @@ extension Livekit_RegionSettings: SwiftProtobuf.Message, SwiftProtobuf._MessageI
 
 extension Livekit_RegionInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RegionInfo"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "region"),
-    2: .same(proto: "url"),
-    3: .same(proto: "distance"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}region\0\u{1}url\0\u{1}distance\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -4671,10 +4805,7 @@ extension Livekit_RegionInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
 
 extension Livekit_SubscriptionResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscriptionResponse"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "track_sid"),
-    2: .same(proto: "err"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0\u{1}err\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -4709,11 +4840,7 @@ extension Livekit_SubscriptionResponse: SwiftProtobuf.Message, SwiftProtobuf._Me
 
 extension Livekit_RequestResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RequestResponse"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "request_id"),
-    2: .same(proto: "reason"),
-    3: .same(proto: "message"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}request_id\0\u{1}reason\0\u{1}message\0\u{1}trickle\0\u{3}add_track\0\u{1}mute\0\u{3}update_metadata\0\u{3}update_audio_track\0\u{3}update_video_track\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -4724,12 +4851,94 @@ extension Livekit_RequestResponse: SwiftProtobuf.Message, SwiftProtobuf._Message
       case 1: try { try decoder.decodeSingularUInt32Field(value: &self.requestID) }()
       case 2: try { try decoder.decodeSingularEnumField(value: &self.reason) }()
       case 3: try { try decoder.decodeSingularStringField(value: &self.message) }()
+      case 4: try {
+        var v: Livekit_TrickleRequest?
+        var hadOneofValue = false
+        if let current = self.request {
+          hadOneofValue = true
+          if case .trickle(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.request = .trickle(v)
+        }
+      }()
+      case 5: try {
+        var v: Livekit_AddTrackRequest?
+        var hadOneofValue = false
+        if let current = self.request {
+          hadOneofValue = true
+          if case .addTrack(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.request = .addTrack(v)
+        }
+      }()
+      case 6: try {
+        var v: Livekit_MuteTrackRequest?
+        var hadOneofValue = false
+        if let current = self.request {
+          hadOneofValue = true
+          if case .mute(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.request = .mute(v)
+        }
+      }()
+      case 7: try {
+        var v: Livekit_UpdateParticipantMetadata?
+        var hadOneofValue = false
+        if let current = self.request {
+          hadOneofValue = true
+          if case .updateMetadata(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.request = .updateMetadata(v)
+        }
+      }()
+      case 8: try {
+        var v: Livekit_UpdateLocalAudioTrack?
+        var hadOneofValue = false
+        if let current = self.request {
+          hadOneofValue = true
+          if case .updateAudioTrack(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.request = .updateAudioTrack(v)
+        }
+      }()
+      case 9: try {
+        var v: Livekit_UpdateLocalVideoTrack?
+        var hadOneofValue = false
+        if let current = self.request {
+          hadOneofValue = true
+          if case .updateVideoTrack(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.request = .updateVideoTrack(v)
+        }
+      }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if self.requestID != 0 {
       try visitor.visitSingularUInt32Field(value: self.requestID, fieldNumber: 1)
     }
@@ -4739,6 +4948,33 @@ extension Livekit_RequestResponse: SwiftProtobuf.Message, SwiftProtobuf._Message
     if !self.message.isEmpty {
       try visitor.visitSingularStringField(value: self.message, fieldNumber: 3)
     }
+    switch self.request {
+    case .trickle?: try {
+      guard case .trickle(let v)? = self.request else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+    }()
+    case .addTrack?: try {
+      guard case .addTrack(let v)? = self.request else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
+    }()
+    case .mute?: try {
+      guard case .mute(let v)? = self.request else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+    }()
+    case .updateMetadata?: try {
+      guard case .updateMetadata(let v)? = self.request else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+    }()
+    case .updateAudioTrack?: try {
+      guard case .updateAudioTrack(let v)? = self.request else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
+    }()
+    case .updateVideoTrack?: try {
+      guard case .updateVideoTrack(let v)? = self.request else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 9)
+    }()
+    case nil: break
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -4746,25 +4982,19 @@ extension Livekit_RequestResponse: SwiftProtobuf.Message, SwiftProtobuf._Message
     if lhs.requestID != rhs.requestID {return false}
     if lhs.reason != rhs.reason {return false}
     if lhs.message != rhs.message {return false}
+    if lhs.request != rhs.request {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
 extension Livekit_RequestResponse.Reason: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "OK"),
-    1: .same(proto: "NOT_FOUND"),
-    2: .same(proto: "NOT_ALLOWED"),
-    3: .same(proto: "LIMIT_EXCEEDED"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0OK\0\u{1}NOT_FOUND\0\u{1}NOT_ALLOWED\0\u{1}LIMIT_EXCEEDED\0\u{1}QUEUED\0\u{1}UNSUPPORTED_TYPE\0\u{1}UNCLASSIFIED_ERROR\0")
 }
 
 extension Livekit_TrackSubscribed: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".TrackSubscribed"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "track_sid"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -4787,6 +5017,262 @@ extension Livekit_TrackSubscribed: SwiftProtobuf.Message, SwiftProtobuf._Message
 
   static func ==(lhs: Livekit_TrackSubscribed, rhs: Livekit_TrackSubscribed) -> Bool {
     if lhs.trackSid != rhs.trackSid {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_ConnectionSettings: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".ConnectionSettings"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}auto_subscribe\0\u{3}adaptive_stream\0\u{3}subscriber_allow_pause\0\u{3}disable_ice_lite\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBoolField(value: &self.autoSubscribe) }()
+      case 2: try { try decoder.decodeSingularBoolField(value: &self.adaptiveStream) }()
+      case 3: try { try decoder.decodeSingularBoolField(value: &self._subscriberAllowPause) }()
+      case 4: try { try decoder.decodeSingularBoolField(value: &self.disableIceLite) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if self.autoSubscribe != false {
+      try visitor.visitSingularBoolField(value: self.autoSubscribe, fieldNumber: 1)
+    }
+    if self.adaptiveStream != false {
+      try visitor.visitSingularBoolField(value: self.adaptiveStream, fieldNumber: 2)
+    }
+    try { if let v = self._subscriberAllowPause {
+      try visitor.visitSingularBoolField(value: v, fieldNumber: 3)
+    } }()
+    if self.disableIceLite != false {
+      try visitor.visitSingularBoolField(value: self.disableIceLite, fieldNumber: 4)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_ConnectionSettings, rhs: Livekit_ConnectionSettings) -> Bool {
+    if lhs.autoSubscribe != rhs.autoSubscribe {return false}
+    if lhs.adaptiveStream != rhs.adaptiveStream {return false}
+    if lhs._subscriberAllowPause != rhs._subscriberAllowPause {return false}
+    if lhs.disableIceLite != rhs.disableIceLite {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_JoinRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".JoinRequest"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}client_info\0\u{3}connection_settings\0\u{1}metadata\0\u{3}participant_attributes\0\u{3}add_track_requests\0\u{3}publisher_offer\0\u{1}reconnect\0\u{3}reconnect_reason\0\u{3}participant_sid\0\u{3}sync_state\0")
+
+  fileprivate class _StorageClass {
+    var _clientInfo: Livekit_ClientInfo? = nil
+    var _connectionSettings: Livekit_ConnectionSettings? = nil
+    var _metadata: String = String()
+    var _participantAttributes: Dictionary<String,String> = [:]
+    var _addTrackRequests: [Livekit_AddTrackRequest] = []
+    var _publisherOffer: Livekit_SessionDescription? = nil
+    var _reconnect: Bool = false
+    var _reconnectReason: Livekit_ReconnectReason = .rrUnknown
+    var _participantSid: String = String()
+    var _syncState: Livekit_SyncState? = nil
+
+      // This property is used as the initial default value for new instances of the type.
+      // The type itself is protecting the reference to its storage via CoW semantics.
+      // This will force a copy to be made of this reference when the first mutation occurs;
+      // hence, it is safe to mark this as `nonisolated(unsafe)`.
+      static nonisolated(unsafe) let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _clientInfo = source._clientInfo
+      _connectionSettings = source._connectionSettings
+      _metadata = source._metadata
+      _participantAttributes = source._participantAttributes
+      _addTrackRequests = source._addTrackRequests
+      _publisherOffer = source._publisherOffer
+      _reconnect = source._reconnect
+      _reconnectReason = source._reconnectReason
+      _participantSid = source._participantSid
+      _syncState = source._syncState
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularMessageField(value: &_storage._clientInfo) }()
+        case 2: try { try decoder.decodeSingularMessageField(value: &_storage._connectionSettings) }()
+        case 3: try { try decoder.decodeSingularStringField(value: &_storage._metadata) }()
+        case 4: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &_storage._participantAttributes) }()
+        case 5: try { try decoder.decodeRepeatedMessageField(value: &_storage._addTrackRequests) }()
+        case 6: try { try decoder.decodeSingularMessageField(value: &_storage._publisherOffer) }()
+        case 7: try { try decoder.decodeSingularBoolField(value: &_storage._reconnect) }()
+        case 8: try { try decoder.decodeSingularEnumField(value: &_storage._reconnectReason) }()
+        case 9: try { try decoder.decodeSingularStringField(value: &_storage._participantSid) }()
+        case 10: try { try decoder.decodeSingularMessageField(value: &_storage._syncState) }()
+        default: break
+        }
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      try { if let v = _storage._clientInfo {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+      } }()
+      try { if let v = _storage._connectionSettings {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+      } }()
+      if !_storage._metadata.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._metadata, fieldNumber: 3)
+      }
+      if !_storage._participantAttributes.isEmpty {
+        try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: _storage._participantAttributes, fieldNumber: 4)
+      }
+      if !_storage._addTrackRequests.isEmpty {
+        try visitor.visitRepeatedMessageField(value: _storage._addTrackRequests, fieldNumber: 5)
+      }
+      try { if let v = _storage._publisherOffer {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+      } }()
+      if _storage._reconnect != false {
+        try visitor.visitSingularBoolField(value: _storage._reconnect, fieldNumber: 7)
+      }
+      if _storage._reconnectReason != .rrUnknown {
+        try visitor.visitSingularEnumField(value: _storage._reconnectReason, fieldNumber: 8)
+      }
+      if !_storage._participantSid.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._participantSid, fieldNumber: 9)
+      }
+      try { if let v = _storage._syncState {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 10)
+      } }()
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_JoinRequest, rhs: Livekit_JoinRequest) -> Bool {
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._clientInfo != rhs_storage._clientInfo {return false}
+        if _storage._connectionSettings != rhs_storage._connectionSettings {return false}
+        if _storage._metadata != rhs_storage._metadata {return false}
+        if _storage._participantAttributes != rhs_storage._participantAttributes {return false}
+        if _storage._addTrackRequests != rhs_storage._addTrackRequests {return false}
+        if _storage._publisherOffer != rhs_storage._publisherOffer {return false}
+        if _storage._reconnect != rhs_storage._reconnect {return false}
+        if _storage._reconnectReason != rhs_storage._reconnectReason {return false}
+        if _storage._participantSid != rhs_storage._participantSid {return false}
+        if _storage._syncState != rhs_storage._syncState {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_WrappedJoinRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".WrappedJoinRequest"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}compression\0\u{3}join_request\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularEnumField(value: &self.compression) }()
+      case 2: try { try decoder.decodeSingularBytesField(value: &self.joinRequest) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.compression != .none {
+      try visitor.visitSingularEnumField(value: self.compression, fieldNumber: 1)
+    }
+    if !self.joinRequest.isEmpty {
+      try visitor.visitSingularBytesField(value: self.joinRequest, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_WrappedJoinRequest, rhs: Livekit_WrappedJoinRequest) -> Bool {
+    if lhs.compression != rhs.compression {return false}
+    if lhs.joinRequest != rhs.joinRequest {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_WrappedJoinRequest.Compression: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0NONE\0\u{1}GZIP\0")
+}
+
+extension Livekit_MediaSectionsRequirement: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".MediaSectionsRequirement"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}num_audios\0\u{3}num_videos\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularUInt32Field(value: &self.numAudios) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.numVideos) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.numAudios != 0 {
+      try visitor.visitSingularUInt32Field(value: self.numAudios, fieldNumber: 1)
+    }
+    if self.numVideos != 0 {
+      try visitor.visitSingularUInt32Field(value: self.numVideos, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_MediaSectionsRequirement, rhs: Livekit_MediaSectionsRequirement) -> Bool {
+    if lhs.numAudios != rhs.numAudios {return false}
+    if lhs.numVideos != rhs.numVideos {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

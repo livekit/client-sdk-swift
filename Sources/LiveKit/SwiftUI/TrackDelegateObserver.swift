@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Combine
 import Foundation
 
 /// Helper class to observer ``TrackDelegate`` from Swift UI.

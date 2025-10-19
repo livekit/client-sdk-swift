@@ -49,7 +49,7 @@ func format(bps: UInt64) -> String {
     return String(rate.rounded(to: 2)) + ordinals[ordinal] + "bps"
 }
 
-class Utils {
+class Utils: Loggable {
     private static let processInfo = ProcessInfo()
 
     /// Returns current OS.
@@ -224,11 +224,11 @@ class Utils {
 
         if let videoCodec, videoCodec.isSVC {
             // SVC mode
-            logger.log("Using SVC mode", type: Utils.self)
+            log("Using SVC mode")
             return [RTC.createRtpEncodingParameters(encoding: encoding, scalabilityMode: .L3T3_KEY)]
         } else if !publishOptions.simulcast {
             // Not-simulcast mode
-            logger.log("Simulcast not enabled", type: Utils.self)
+            log("Simulcast not enabled")
             return [RTC.createRtpEncodingParameters(encoding: encoding)]
         }
 
@@ -241,7 +241,7 @@ class Utils {
         let preferredPresets = (isScreenShare ? publishOptions.screenShareSimulcastLayers : publishOptions.simulcastLayers)
         let presets = (!preferredPresets.isEmpty ? preferredPresets : baseParameters.defaultSimulcastLayers(isScreenShare: isScreenShare)).sorted { $0 < $1 }
 
-        logger.log("Using presets: \(presets), count: \(presets.count) isScreenShare: \(isScreenShare)", type: Utils.self)
+        log("Using presets: \(presets), count: \(presets.count) isScreenShare: \(isScreenShare)")
 
         let lowPreset = presets[0]
         let midPreset = presets[safe: 1]

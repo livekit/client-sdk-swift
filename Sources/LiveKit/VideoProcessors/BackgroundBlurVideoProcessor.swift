@@ -171,5 +171,3 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
         return cachedPixelBuffer
     }
 }
-
-extension CVPixelBuffer: @unchecked Swift.Sendable {}
