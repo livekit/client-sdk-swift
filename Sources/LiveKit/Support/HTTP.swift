@@ -17,8 +17,6 @@
 import Foundation
 
 class HTTP: NSObject {
-    static let statusCodeOK = 200
-
     private static let operationQueue = OperationQueue()
 
     private static let session: URLSession = .init(configuration: .default,
@@ -39,12 +37,12 @@ class HTTP: NSObject {
             throw URLError(.badServerResponse)
         }
 
-        // Valid if 200
-        if httpResponse.statusCode == statusCodeOK {
+        // Valid if 2xx success status code
+        if (200 ..< 300).contains(httpResponse.statusCode) {
             return
         }
 
-        // For non-200 status codes, throw validation error with response body
+        // For non-2xx status codes, throw validation error with response body
         let message = String(data: data, encoding: .utf8)
         throw LiveKitError(.validation, message: message ?? "(No server message)")
     }
