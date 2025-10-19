@@ -162,20 +162,20 @@ actor SignalClient: Loggable {
             }
 
             return connectResponse
-        } catch {
+        } catch let connectionError {
             // Skip validation if user cancelled
-            if error is CancellationError {
-                await cleanUp(withError: error)
-                throw error
+            if connectionError is CancellationError {
+                await cleanUp(withError: connectionError)
+                throw connectionError
             }
 
             // Skip validation if reconnect mode
             if reconnectMode != nil {
-                await cleanUp(withError: error)
-                throw LiveKitError(.network, internalError: error)
+                await cleanUp(withError: connectionError)
+                throw LiveKitError(.network, internalError: connectionError)
             }
 
-            await cleanUp(withError: error)
+            await cleanUp(withError: connectionError)
 
             // Attempt to validate with server
             let validateUrl = try Utils.buildUrl(url,
@@ -187,13 +187,13 @@ actor SignalClient: Loggable {
             do {
                 try await HTTP.requestValidation(from: validateUrl, token: token)
                 // Re-throw original error since validation passed
-                throw LiveKitError(.network, internalError: error)
+                throw LiveKitError(.network, internalError: connectionError)
             } catch let validationError as LiveKitError where validationError.type == .validation {
                 // Re-throw validation error
                 throw validationError
             } catch {
                 // Re-throw original connection error for network issues during validation
-                throw LiveKitError(.network, internalError: error)
+                throw LiveKitError(.network, internalError: connectionError)
             }
         }
     }
