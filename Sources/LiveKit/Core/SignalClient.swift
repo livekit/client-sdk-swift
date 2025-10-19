@@ -106,10 +106,6 @@ actor SignalClient: Loggable {
         }
     }
 
-    deinit {
-        log(nil, .trace)
-    }
-
     @discardableResult
     func connect(_ url: URL,
                  _ token: String,
@@ -347,17 +343,11 @@ private extension SignalClient {
         case let .pongResp(pongResp):
             await _onReceivedPongResp(pongResp)
 
-        case .subscriptionResponse:
-            log("Received subscriptionResponse message")
-
-        case .requestResponse:
-            log("Received requestResponse message")
-
         case let .trackSubscribed(trackSubscribed):
             _delegate.notifyDetached { await $0.signalClient(self, didSubscribeTrack: Track.Sid(from: trackSubscribed.trackSid)) }
 
-        case .roomMoved:
-            log("Received roomMoved message")
+        default:
+            log("Unhandled signal message: \(message)", .warning)
         }
     }
 }
@@ -615,9 +605,6 @@ extension SignalClient {
             }
         }
 
-        // Log timestamp and RTT for debugging
-        log("Sending ping with timestamp: \(timestamp)ms, reporting RTT: \(rtt)ms", .trace)
-
         // Send both requests
         try await _sendRequest(pingRequest)
         try await _sendRequest(pingReqRequest)
@@ -629,7 +616,6 @@ extension SignalClient {
 private extension SignalClient {
     func _onPingIntervalTimer() async throws {
         guard let jr = _state.lastJoinResponse else { return }
-        log("ping/pong sending ping...", .trace)
         try await _sendPing()
 
         _pingTimeoutTimer.setTimerInterval(TimeInterval(jr.pingTimeout))
@@ -643,7 +629,6 @@ private extension SignalClient {
     }
 
     func _onReceivedPong(_: Int64) async {
-        log("ping/pong received pong from server", .trace)
         // Clear timeout timer
         _pingTimeoutTimer.cancel()
     }
@@ -652,7 +637,6 @@ private extension SignalClient {
         let currentTimeMs = Int64(Date().timeIntervalSince1970 * 1000)
         let rtt = currentTimeMs - pongResp.lastPingTimestamp
         _state.mutate { $0.rtt = rtt }
-        log("ping/pong received pongResp from server with RTT: \(rtt)ms", .trace)
         // Clear timeout timer
         _pingTimeoutTimer.cancel()
     }

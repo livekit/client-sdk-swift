@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.8.1] - 2025-10-02
+
+### Fixed
+
+- RoomOptions init collision
+
+## [2.8.0] - 2025-10-01
+
+### Added
+
+- Added support for data channel encryption, deprecated existing E2EE options
+- Added audio engine availability control
+- Added .disconnected connection state
+
+### Changed
+
+- Auth token in header instead of query param
+- Audio capturing for manual rendering mode
+
+### Fixed
+
+- Renderer lifecycle in the video view causing flickering effect
+- Restrict transceiver memory leak fix to video tracks
+- Screen sharing getting stuck on macOS when the display is turned off
+- Only check audio recording perms for device rendering mode
+- Fixed race condition between reconnect and disconnect leading to failed disconnects
+
 ## [2.7.2] - 2025-08-29
 
 ### Fixed

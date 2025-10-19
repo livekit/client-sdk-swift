@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public final class RoomOptions: NSObject, Sendable {
+public final class RoomOptions: NSObject, Sendable, Loggable {
     // default options for capturing
     @objc
     public let defaultCameraCaptureOptions: CameraCaptureOptions
@@ -64,7 +64,11 @@ public final class RoomOptions: NSObject, Sendable {
     public let suspendLocalVideoTracksInBackground: Bool
 
     /// E2EE Options
+    @objc
     public let e2eeOptions: E2EEOptions?
+    /// Encryption
+    @objc
+    public let encryptionOptions: EncryptionOptions?
 
     @objc
     public let reportRemoteTrackStatistics: Bool
@@ -81,6 +85,7 @@ public final class RoomOptions: NSObject, Sendable {
         stopLocalTrackOnUnpublish = true
         suspendLocalVideoTracksInBackground = true
         e2eeOptions = nil
+        encryptionOptions = nil
         reportRemoteTrackStatistics = false
     }
 
@@ -96,6 +101,7 @@ public final class RoomOptions: NSObject, Sendable {
                 stopLocalTrackOnUnpublish: Bool = true,
                 suspendLocalVideoTracksInBackground: Bool = true,
                 e2eeOptions: E2EEOptions? = nil,
+                encryptionOptions: EncryptionOptions? = nil,
                 reportRemoteTrackStatistics: Bool = false)
     {
         self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
@@ -109,7 +115,14 @@ public final class RoomOptions: NSObject, Sendable {
         self.stopLocalTrackOnUnpublish = stopLocalTrackOnUnpublish
         self.suspendLocalVideoTracksInBackground = suspendLocalVideoTracksInBackground
         self.e2eeOptions = e2eeOptions
+        self.encryptionOptions = encryptionOptions
         self.reportRemoteTrackStatistics = reportRemoteTrackStatistics
+
+        super.init()
+
+        if e2eeOptions != nil, encryptionOptions != nil {
+            log("Specifying both 'e2eeOptions' and 'encryptionOptions' is not supported. Migrate to 'EncryptionOptions' to enable data channel encryption (requires support from all platforms).", .error)
+        }
     }
 
     // MARK: - Equal
@@ -127,6 +140,7 @@ public final class RoomOptions: NSObject, Sendable {
             stopLocalTrackOnUnpublish == other.stopLocalTrackOnUnpublish &&
             suspendLocalVideoTracksInBackground == other.suspendLocalVideoTracksInBackground &&
             e2eeOptions == other.e2eeOptions &&
+            encryptionOptions == other.encryptionOptions &&
             reportRemoteTrackStatistics == other.reportRemoteTrackStatistics
     }
 
@@ -143,6 +157,7 @@ public final class RoomOptions: NSObject, Sendable {
         hasher.combine(stopLocalTrackOnUnpublish)
         hasher.combine(suspendLocalVideoTracksInBackground)
         hasher.combine(e2eeOptions)
+        hasher.combine(encryptionOptions)
         hasher.combine(reportRemoteTrackStatistics)
         return hasher.finalize()
     }

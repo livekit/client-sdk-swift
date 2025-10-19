@@ -117,17 +117,17 @@ public class AudioManager: Loggable {
 
     // MARK: - AudioProcessingModule
 
-    private lazy var capturePostProcessingDelegateAdapter: AudioCustomProcessingDelegateAdapter = {
-        let adapter = AudioCustomProcessingDelegateAdapter(label: "capturePost")
-        RTC.audioProcessingModule.capturePostProcessingDelegate = adapter
-        return adapter
-    }()
+    private lazy var capturePostProcessingDelegateAdapter = AudioCustomProcessingDelegateAdapter(
+        label: "capturePost",
+        rtcDelegateGetter: { RTC.audioProcessingModule.capturePostProcessingDelegate },
+        rtcDelegateSetter: { RTC.audioProcessingModule.capturePostProcessingDelegate = $0 }
+    )
 
-    private lazy var renderPreProcessingDelegateAdapter: AudioCustomProcessingDelegateAdapter = {
-        let adapter = AudioCustomProcessingDelegateAdapter(label: "renderPre")
-        RTC.audioProcessingModule.renderPreProcessingDelegate = adapter
-        return adapter
-    }()
+    private lazy var renderPreProcessingDelegateAdapter = AudioCustomProcessingDelegateAdapter(
+        label: "renderPre",
+        rtcDelegateGetter: { RTC.audioProcessingModule.renderPreProcessingDelegate },
+        rtcDelegateSetter: { RTC.audioProcessingModule.renderPreProcessingDelegate = $0 }
+    )
 
     let capturePostProcessingDelegateSubject = CurrentValueSubject<AudioCustomProcessingDelegate?, Never>(nil)
 
@@ -135,10 +135,9 @@ public class AudioManager: Loggable {
     /// - Note: Only one delegate can be set at a time, but you can create one to wrap others if needed
     /// - Note: If you only need to observe the buffer (rather than modify it), use ``add(localAudioRenderer:)`` instead
     public var capturePostProcessingDelegate: AudioCustomProcessingDelegate? {
-        get { capturePostProcessingDelegateAdapter.target }
-        set {
-            capturePostProcessingDelegateAdapter.set(target: newValue)
-            capturePostProcessingDelegateSubject.send(newValue)
+        didSet {
+            capturePostProcessingDelegateAdapter.set(target: capturePostProcessingDelegate, oldTarget: oldValue)
+            capturePostProcessingDelegateSubject.send(capturePostProcessingDelegate)
         }
     }
 
@@ -147,8 +146,9 @@ public class AudioManager: Loggable {
     /// - Note: If you only need to observe the buffer (rather than modify it), use ``add(remoteAudioRenderer:)`` instead
     /// - Note: If you need to observe the buffer for individual tracks, use ``RemoteAudioTrack/add(audioRenderer:)`` instead
     public var renderPreProcessingDelegate: AudioCustomProcessingDelegate? {
-        get { renderPreProcessingDelegateAdapter.target }
-        set { renderPreProcessingDelegateAdapter.set(target: newValue) }
+        didSet {
+            renderPreProcessingDelegateAdapter.set(target: renderPreProcessingDelegate, oldTarget: oldValue)
+        }
     }
 
     // MARK: - AudioDeviceModule
@@ -269,14 +269,15 @@ public class AudioManager: Loggable {
         set { RTC.audioDeviceModule.isVoiceProcessingAGCEnabled = newValue }
     }
 
-    /// Enables manual-rendering (no-device) mode of AVAudioEngine.
-    /// Currently experimental.
-    public var isManualRenderingMode: Bool { RTC.audioDeviceModule.isManualRenderingMode }
-
+    /// Enables manual rendering (no-device) mode of AVAudioEngine.
+    /// In this mode, you can provide audio buffers by calling `AudioManager.shared.mixer.capture(appAudio:)` continuously.
+    /// Remote audio will not play out automatically. Get remote mixed audio buffers with `AudioManager.shared.add(localAudioRenderer:)` or individual tracks with ``RemoteAudioTrack/add(audioRenderer:)``.
     public func setManualRenderingMode(_ enabled: Bool) throws {
         let result = RTC.audioDeviceModule.setManualRenderingMode(enabled)
         try checkAdmResult(code: result)
     }
+
+    public var isManualRenderingMode: Bool { RTC.audioDeviceModule.isManualRenderingMode }
 
     // MARK: - Recording
 
@@ -307,6 +308,30 @@ public class AudioManager: Loggable {
     public func stopLocalRecording() throws {
         let result = RTC.audioDeviceModule.stopRecording()
         try checkAdmResult(code: result)
+    }
+
+    /// Sets whether the internal `AVAudioEngine` is allowed to run.
+    ///
+    /// This flag has the highest priority over any API that may start the engine
+    /// (e.g., enabling the mic, ``startLocalRecording()``, or starting playback).
+    ///
+    /// - Behavior:
+    ///   - When set to a disabled availability, the engine will stop if running,
+    ///     and it will not start, even if recording or playback is requested.
+    ///   - When set back to enabled, the engine will start as soon as possible
+    ///     if recording and/or playback had been previously requested while disabled
+    ///     (i.e., pending requests are honored once availability allows).
+    ///
+    /// This is useful when you need to set up connections without touching the audio
+    /// device yet (e.g., CallKit flows), or to guarantee the engine remains off
+    /// regardless of subscription/publication requests.
+    public func setEngineAvailability(_ availability: AudioEngineAvailability) throws {
+        let result = RTC.audioDeviceModule.setEngineAvailability(availability.toRTCType())
+        try checkAdmResult(code: result)
+    }
+
+    public var engineAvailability: AudioEngineAvailability {
+        RTC.audioDeviceModule.engineAvailability.toLKType()
     }
 
     /// Set a chain of ``AudioEngineObserver``s.

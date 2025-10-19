@@ -17,7 +17,7 @@
 internal import LiveKitWebRTC
 
 @objc
-public class RemoteVideoTrack: Track, RemoteTrack, @unchecked Sendable {
+public class RemoteVideoTrack: Track, RemoteTrackProtocol, @unchecked Sendable {
     init(name: String,
          source: Track.Source,
          track: LKRTCMediaStreamTrack,
@@ -33,7 +33,7 @@ public class RemoteVideoTrack: Track, RemoteTrack, @unchecked Sendable {
 
 // MARK: - VideoTrack Protocol
 
-extension RemoteVideoTrack: VideoTrack {
+extension RemoteVideoTrack: VideoTrackProtocol {
     public func add(videoRenderer: VideoRenderer) {
         guard let rtcVideoTrack = mediaTrack as? LKRTCVideoTrack else {
             log("mediaTrack is not a RTCVideoTrack", .error)
