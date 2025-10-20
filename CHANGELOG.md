@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.9.0] - 2025-10-20
+
+### Added
+
+- Improved logging with the interface for custom loggers
+- Add lastSpokeAt property to Participant
+- Abstract token source for easier token fetching in production and faster integration with sandbox environment
+
+### Fixed
+
+- clamp response timeout in performRpc to minimal 1s
+- Audio processing delegate lifecycle
+- Byte stream MIME type defaulting to text/plain
+- App extension compile issues
+- Breaking change: Library evolution support (xcframework). May break existing `*Track` extensions.
+- Serial operations cancellation semantics
+
 ## [2.8.1] - 2025-10-02
 
 ### Fixed
