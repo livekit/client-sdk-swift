@@ -14,50 +14,51 @@
  * limitations under the License.
  */
 
-import JWTKit
+// To be swapped with ffi
+internal import JWTKit
 
 /// JWT payload structure for LiveKit authentication tokens.
-public struct LiveKitJWTPayload: JWTPayload, Codable, Equatable {
+struct LiveKitJWTPayload: JWTPayload, Codable, Equatable {
     /// Video-specific permissions and room access grants for the participant.
-    public struct VideoGrant: Codable, Equatable {
+    struct VideoGrant: Codable, Equatable {
         /// Name of the room. Required for admin or join permissions.
-        public let room: String?
+        let room: String?
         /// Permission to create new rooms.
-        public let roomCreate: Bool?
+        let roomCreate: Bool?
         /// Permission to join a room as a participant. Requires `room` to be set.
-        public let roomJoin: Bool?
+        let roomJoin: Bool?
         /// Permission to list available rooms.
-        public let roomList: Bool?
+        let roomList: Bool?
         /// Permission to start recording sessions.
-        public let roomRecord: Bool?
+        let roomRecord: Bool?
         /// Permission to control a specific room. Requires `room` to be set.
-        public let roomAdmin: Bool?
+        let roomAdmin: Bool?
 
         /// Allow participant to publish tracks. If neither `canPublish` or `canSubscribe` is set, both are enabled.
-        public let canPublish: Bool?
+        let canPublish: Bool?
         /// Allow participant to subscribe to other participants' tracks.
-        public let canSubscribe: Bool?
+        let canSubscribe: Bool?
         /// Allow participant to publish data messages. Defaults to `true` if not set.
-        public let canPublishData: Bool?
+        let canPublishData: Bool?
         /// Allowed track sources for publishing (e.g., "camera", "microphone", "screen_share").
-        public let canPublishSources: [String]?
+        let canPublishSources: [String]?
         /// Hide participant from other participants in the room.
-        public let hidden: Bool?
+        let hidden: Bool?
         /// Mark participant as a recorder. When set, allows room to indicate it's being recorded.
-        public let recorder: Bool?
+        let recorder: Bool?
 
-        public init(room: String? = nil,
-                    roomCreate: Bool? = nil,
-                    roomJoin: Bool? = nil,
-                    roomList: Bool? = nil,
-                    roomRecord: Bool? = nil,
-                    roomAdmin: Bool? = nil,
-                    canPublish: Bool? = nil,
-                    canSubscribe: Bool? = nil,
-                    canPublishData: Bool? = nil,
-                    canPublishSources: [String]? = nil,
-                    hidden: Bool? = nil,
-                    recorder: Bool? = nil)
+        init(room: String? = nil,
+             roomCreate: Bool? = nil,
+             roomJoin: Bool? = nil,
+             roomList: Bool? = nil,
+             roomRecord: Bool? = nil,
+             roomAdmin: Bool? = nil,
+             canPublish: Bool? = nil,
+             canSubscribe: Bool? = nil,
+             canPublishData: Bool? = nil,
+             canPublishSources: [String]? = nil,
+             hidden: Bool? = nil,
+             recorder: Bool? = nil)
         {
             self.room = room
             self.roomCreate = roomCreate
@@ -75,23 +76,23 @@ public struct LiveKitJWTPayload: JWTPayload, Codable, Equatable {
     }
 
     /// JWT expiration time claim (when the token expires).
-    public let exp: ExpirationClaim
+    let exp: ExpirationClaim
     /// JWT issuer claim (who issued the token).
-    public let iss: IssuerClaim
+    let iss: IssuerClaim
     /// JWT not-before claim (when the token becomes valid).
-    public let nbf: NotBeforeClaim
+    let nbf: NotBeforeClaim
     /// JWT subject claim (the participant identity).
-    public let sub: SubjectClaim
+    let sub: SubjectClaim
 
     /// Display name for the participant in the room.
-    public let name: String?
+    let name: String?
     /// Custom metadata associated with the participant.
-    public let metadata: String?
+    let metadata: String?
     /// Video-specific permissions and room access grants.
-    public let video: VideoGrant?
+    let video: VideoGrant?
 
     /// Verifies the JWT token's validity by checking expiration and not-before claims.
-    public func verify(using _: JWTSigner) throws {
+    func verify(using _: JWTSigner) throws {
         try nbf.verifyNotBefore()
         try exp.verifyNotExpired()
     }
