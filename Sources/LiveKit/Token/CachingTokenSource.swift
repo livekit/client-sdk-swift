@@ -161,7 +161,7 @@ public extension TokenSourceResponse {
     /// Extracts the JWT payload from the participant token.
     ///
     /// - Returns: The JWT payload if successfully parsed, nil otherwise
-    func jwt() -> LiveKitJWTPayload? {
+    internal func jwt() -> LiveKitJWTPayload? {
         LiveKitJWTPayload.fromUnverified(token: participantToken)
     }
 }
