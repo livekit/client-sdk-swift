@@ -41,6 +41,7 @@ let package = Package(
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "JWTKit", package: "jwt-kit"),
+                .product(name: "LiveKitFFI", package: "livekit-uniffi"),
                 "LKObjCHelpers",
             ],
             exclude: [
@@ -57,7 +58,6 @@ let package = Package(
             name: "LiveKitTestSupport",
             dependencies: [
                 "LiveKit",
-                .product(name: "LiveKitFFI", package: "livekit-uniffi"),
             ],
             path: "Tests/LiveKitTestSupport"
         ),
