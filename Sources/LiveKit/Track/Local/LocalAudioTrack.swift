@@ -21,7 +21,7 @@ import Foundation
 internal import LiveKitWebRTC
 
 @objc
-public class LocalAudioTrack: Track, LocalTrack, AudioTrack, @unchecked Sendable {
+public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @unchecked Sendable {
     /// ``AudioCaptureOptions`` used to create this track.
     public let captureOptions: AudioCaptureOptions
 

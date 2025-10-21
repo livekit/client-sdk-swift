@@ -15,10 +15,11 @@
  */
 
 import Foundation
+import OSLog
 internal import LiveKitWebRTC
-internal import Logging
 
-let logger = Logger(label: "LiveKitSDK")
+// Lazily initialized to the first logger
+let sharedLogger = LiveKitSDK.state.logger
 
 /// The open source platform for real-time communication.
 ///
@@ -31,17 +32,45 @@ let logger = Logger(label: "LiveKitSDK")
 /// Download the [Multiplatform SwiftUI Example](https://github.com/livekit/multiplatform-swiftui-example)
 /// to try out the features.
 @objc
-public class LiveKitSDK: NSObject {
-    @objc(sdkVersion)
-    public static let version = "2.8.1"
+public class LiveKitSDK: NSObject, Loggable {
+    override private init() {}
 
+    @objc(sdkVersion)
+    public static let version = "2.9.0"
+
+    fileprivate struct State {
+        var logger: Logger = OSLogger()
+    }
+
+    fileprivate static let state = StateSync(State())
+
+    /// Set a custom logger for the SDK
+    /// - Note: This method must be called before any other logging is done
+    /// e.g. in the `App.init()` or `AppDelegate/SceneDelegate`
+    public static func setLogger(_ logger: Logger) {
+        state.mutate { $0.logger = logger }
+    }
+
+    /// Adjust the minimum log level for the default `OSLogger`
+    /// - Note: This method must be called before any other logging is done
+    /// e.g. in the `App.init()` or `AppDelegate/SceneDelegate`
+    @objc
+    public static func setLogLevel(_ level: LogLevel) {
+        setLogger(OSLogger(minLevel: level))
+    }
+
+    /// Disable logging for the SDK
+    /// - Note: This method must be called before any other logging is done
+    /// e.g. in the `App.init()` or `AppDelegate/SceneDelegate`
+    @objc
+    public static func disableLogging() {
+        setLogger(DisabledLogger())
+    }
+
+    @available(*, deprecated, renamed: "setLogLevel")
     @objc
     public static func setLoggerStandardOutput() {
-        LoggingSystem.bootstrap {
-            var logHandler = StreamLogHandler.standardOutput(label: $0)
-            logHandler.logLevel = .debug
-            return logHandler
-        }
+        setLogLevel(.debug)
     }
 
     /// Notify the SDK to start initializing for faster connection/publishing later on. This is non-blocking.

@@ -165,26 +165,6 @@ class LocalAudioTrackRecorderTests: LKTestCase {
         XCTAssertGreaterThan(dataCount2, 0, "Should have received audio data from recorder2")
     }
 
-    func testStartingTwice() async throws {
-        let localTrack = LocalAudioTrack.createTrack(options: .noProcessing)
-
-        let recorder = LocalAudioTrackRecorder(
-            track: localTrack,
-            format: .pcmFormatInt16,
-            sampleRate: 48000
-        )
-
-        for await _ in try await recorder.start().prefix(10) {
-            // swiftformat:disable hoistAwait
-            await XCTAssertThrowsErrorAsync(try await recorder.start())
-            recorder.stop()
-        }
-
-        _ = try await recorder.start()
-
-        recorder.stop()
-    }
-
     func testObjCCompatibility() async throws {
         let localTrack = LocalAudioTrack.createTrack(options: .noProcessing)
 

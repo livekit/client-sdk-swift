@@ -65,6 +65,10 @@ jobs:
             symbol-graph: true
           - os: macos-26
             xcode: latest
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.0"
+            extension-api-only: true
+          - os: macos-26
+            xcode: latest
             platform: "macOS"
             symbol-graph: true
           - os: macos-26
@@ -116,6 +120,7 @@ jobs:
             -destination 'platform=${{ matrix.platform }}' \
             -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
             -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
+            APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
             | xcbeautify --renderer github-actions
 
       - name: Run Tests
@@ -134,6 +139,7 @@ jobs:
                 -destination 'platform=${{ matrix.platform }}' \
                 -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
                 -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
+                APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
                 -only-testing:$test \
                 -parallel-testing-enabled YES \
                 | xcbeautify --renderer github-actions
@@ -151,6 +157,8 @@ jobs:
             -scheme LiveKit \
             -configuration Release \
             -destination 'platform=${{ matrix.platform }}'  \
+            APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
             OTHER_SWIFT_FLAGS="-Xfrontend -emit-symbol-graph\
                                -Xfrontend -emit-symbol-graph-dir\
                                -Xfrontend \"${PWD}/symbol-graph\"" \

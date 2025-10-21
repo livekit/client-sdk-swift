@@ -136,8 +136,6 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_: SignalClient, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) async {
-        log("speakers: \(speakers)", .trace)
-
         let activeSpeakers = _state.mutate { state -> [Participant] in
             var lastSpeakers = state.activeSpeakers.reduce(into: [Sid: Participant]()) { $0[$1.sid] = $1 }
             for speaker in speakers {
@@ -148,6 +146,9 @@ extension Room: SignalClientDelegate {
 
                 participant._state.mutate {
                     $0.audioLevel = speaker.level
+                    if !$0.isSpeaking, speaker.active {
+                        $0.lastSpokeAt = Date()
+                    }
                     $0.isSpeaking = speaker.active
                 }
 
@@ -171,8 +172,6 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_: SignalClient, didUpdateConnectionQuality connectionQuality: [Livekit_ConnectionQualityInfo]) async {
-        log("connectionQuality: \(connectionQuality)", .trace)
-
         for entry in connectionQuality {
             let participantSid = Participant.Sid(from: entry.participantSid)
             if participantSid == localParticipant.sid {
