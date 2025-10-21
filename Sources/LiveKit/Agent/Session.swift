@@ -57,8 +57,9 @@ open class Session: ObservableObject {
         }
     }
 
-    @Published public private(set) var agents: [Participant.Identity: Agent] = [:]
-    public var hasAgents: Bool { !agents.isEmpty }
+    @Published private var agents: [Agent.Identity: Agent] = [:]
+    public var agent: Agent? { agents.values.first }
+    public var hasAgent: Bool { !agents.isEmpty }
 
     @Published public private(set) var messages: OrderedDictionary<ReceivedMessage.ID, ReceivedMessage> = [:]
 
@@ -185,12 +186,12 @@ open class Session: ObservableObject {
 
     // MARK: - Agents
 
-    public func agent(named name: String) -> Agent? {
-        agents.values.first { $0.participant.attributes["lk.agent_name"] == name || $0.participant.identity?.stringValue == name }
+    private func agent(named agentName: String) -> Agent? {
+        agents.values.first { $0.participant.attributes["lk.agent_name"] == agentName }
     }
 
-    public subscript(name: String) -> Agent? {
-        agent(named: name)
+    private subscript(agentName: String) -> Agent? {
+        agent(named: agentName)
     }
 
     // MARK: - Lifecycle

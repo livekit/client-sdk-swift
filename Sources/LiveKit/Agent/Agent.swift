@@ -19,6 +19,8 @@ import Foundation
 
 @MainActor
 open class Agent: ObservableObject {
+    public typealias Identity = Participant.Identity
+
     @Published public private(set) var state: AgentState = .idle
 
     @Published public private(set) var audioTrack: (any AudioTrack)?
