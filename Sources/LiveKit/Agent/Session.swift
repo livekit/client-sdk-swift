@@ -59,9 +59,9 @@ open class Session: ObservableObject {
         }
     }
 
-    @Published private var agents: [Agent.Identity: Agent] = [:]
-    public var agent: Agent? { agents.values.first }
-    public var hasAgent: Bool { !agents.isEmpty }
+    @Published private var agentsDict: OrderedDictionary<Agent.Identity, Agent> = [:]
+    public var agent: Agent? { agentsDict.values.first }
+    public var hasAgent: Bool { !agentsDict.isEmpty }
 
     @Published private var messagesDict: OrderedDictionary<ReceivedMessage.ID, ReceivedMessage> = [:]
     public var messages: [ReceivedMessage] { messagesDict.values.elements }
@@ -162,10 +162,10 @@ open class Session: ObservableObject {
     private func updateAgents(in room: Room) {
         let agentParticipants = room.agentParticipants
 
-        var newAgents: [Participant.Identity: Agent] = [:]
+        var newAgents: OrderedDictionary<Agent.Identity, Agent> = [:]
 
         for (identity, participant) in agentParticipants {
-            if let existingAgent = agents[identity] {
+            if let existingAgent = agentsDict[identity] {
                 newAgents[identity] = existingAgent
             } else {
                 let newAgent = Agent(participant: participant)
@@ -173,7 +173,7 @@ open class Session: ObservableObject {
             }
         }
 
-        agents = newAgents
+        agentsDict = newAgents
     }
 
     private func observe(receivers: [any MessageReceiver]) {
@@ -190,7 +190,7 @@ open class Session: ObservableObject {
     // MARK: - Agents
 
     private func agent(named agentName: String) -> Agent? {
-        agents.values.first { $0.participant.attributes[Self.agentNameAttribute] == agentName }
+        agentsDict.values.first { $0.participant.attributes[Self.agentNameAttribute] == agentName }
     }
 
     private subscript(agentName: String) -> Agent? {
@@ -212,7 +212,7 @@ open class Session: ObservableObject {
                 try await Task.sleep(nanoseconds: UInt64(timeout * Double(NSEC_PER_SEC)))
                 try Task.checkCancellation()
                 guard let self else { return }
-                if connectionState == .connected, agents.isEmpty {
+                if connectionState == .connected, !hasAgent {
                     self.error = .agentNotConnected
                 }
             }
