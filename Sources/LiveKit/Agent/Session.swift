@@ -20,6 +20,8 @@ import OrderedCollections
 
 @MainActor
 open class Session: ObservableObject {
+    private static let agentNameAttribute = "lk.agent_name"
+
     // MARK: - Error
 
     public enum Error: LocalizedError {
@@ -44,11 +46,11 @@ open class Session: ObservableObject {
     @Published public private(set) var error: Error?
 
     @Published public private(set) var connectionState: ConnectionState = .disconnected
-    @Published public private(set) var isListening = false
+    @Published public private(set) var bufferingSpeechLocally = false
     public var isReady: Bool {
         switch connectionState {
-        case .disconnected where isListening,
-             .connecting where isListening,
+        case .disconnected where bufferingSpeechLocally,
+             .connecting where bufferingSpeechLocally,
              .connected,
              .reconnecting:
             true
@@ -61,7 +63,8 @@ open class Session: ObservableObject {
     public var agent: Agent? { agents.values.first }
     public var hasAgent: Bool { !agents.isEmpty }
 
-    @Published public private(set) var messages: OrderedDictionary<ReceivedMessage.ID, ReceivedMessage> = [:]
+    @Published private var messagesDict: OrderedDictionary<ReceivedMessage.ID, ReceivedMessage> = [:]
+    public var messages: [ReceivedMessage] { messagesDict.values.elements }
 
     // MARK: - Dependencies
 
@@ -178,7 +181,7 @@ open class Session: ObservableObject {
             Task { [weak self] in
                 for await message in try await receiver.messages() {
                     guard let self else { return }
-                    messages.updateValue(message, forKey: message.id)
+                    messagesDict.updateValue(message, forKey: message.id)
                 }
             }
         }
@@ -187,7 +190,7 @@ open class Session: ObservableObject {
     // MARK: - Agents
 
     private func agent(named agentName: String) -> Agent? {
-        agents.values.first { $0.participant.attributes["lk.agent_name"] == agentName }
+        agents.values.first { $0.participant.attributes[Self.agentNameAttribute] == agentName }
     }
 
     private subscript(agentName: String) -> Agent? {
@@ -220,10 +223,10 @@ open class Session: ObservableObject {
 
             if options.preConnectAudio {
                 try await room.withPreConnectAudio(timeout: timeout) {
-                    await MainActor.run { self.isListening = true }
+                    await MainActor.run { self.bufferingSpeechLocally = true }
                     try await self.room.connect(url: response.serverURL.absoluteString,
                                                 token: response.participantToken)
-                    await MainActor.run { self.isListening = false }
+                    await MainActor.run { self.bufferingSpeechLocally = false }
                 }
             } else {
                 try await room.connect(url: response.serverURL.absoluteString,
@@ -258,11 +261,11 @@ open class Session: ObservableObject {
     }
 
     public func getMessageHistory() -> [ReceivedMessage] {
-        messages.values.elements
+        messages
     }
 
     public func restoreMessageHistory(_ messages: [ReceivedMessage]) {
-        self.messages = .init(uniqueKeysWithValues: messages.sorted(by: { $0.timestamp < $1.timestamp }).map { ($0.id, $0) })
+        messagesDict = .init(uniqueKeysWithValues: messages.sorted(by: { $0.timestamp < $1.timestamp }).map { ($0.id, $0) })
     }
 
     // MARK: - Helpers
