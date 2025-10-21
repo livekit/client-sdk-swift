@@ -36,7 +36,7 @@ public class LiveKitSDK: NSObject, Loggable {
     override private init() {}
 
     @objc(sdkVersion)
-    public static let version = "2.8.1"
+    public static let version = "2.9.0"
 
     fileprivate struct State {
         var logger: Logger = OSLogger()
@@ -54,6 +54,7 @@ public class LiveKitSDK: NSObject, Loggable {
     /// Adjust the minimum log level for the default `OSLogger`
     /// - Note: This method must be called before any other logging is done
     /// e.g. in the `App.init()` or `AppDelegate/SceneDelegate`
+    @objc
     public static func setLogLevel(_ level: LogLevel) {
         setLogger(OSLogger(minLevel: level))
     }
@@ -61,6 +62,7 @@ public class LiveKitSDK: NSObject, Loggable {
     /// Disable logging for the SDK
     /// - Note: This method must be called before any other logging is done
     /// e.g. in the `App.init()` or `AppDelegate/SceneDelegate`
+    @objc
     public static func disableLogging() {
         setLogger(DisabledLogger())
     }
