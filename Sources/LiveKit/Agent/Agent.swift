@@ -31,11 +31,15 @@ public struct Agent {
     enum State {
         case disconnected
         case connecting
-        case connected(AgentState, (any AudioTrack)?, (any VideoTrack)?)
+        case connected(agentState: AgentState, audioTrack: (any AudioTrack)?, avatarVideoTrack: (any VideoTrack)?)
         case failed(Error)
     }
 
-    var state: State = .disconnected
+    let state: State
+
+    init(state: State = .disconnected) {
+        self.state = state
+    }
 
     public var isConnected: Bool {
         switch state {
@@ -81,13 +85,13 @@ public struct Agent {
     }
 
     static func listening() -> Agent {
-        Agent(state: .connected(.listening, nil, nil))
+        Agent(state: .connected(agentState: .listening, audioTrack: nil, avatarVideoTrack: nil))
     }
 
     static func connected(participant: Participant) -> Agent {
-        Agent(state: .connected(participant.agentState,
-                                participant.audioTracks.first(where: { $0.source == .microphone })?.track as? AudioTrack,
-                                participant.avatarWorker?.firstCameraVideoTrack))
+        Agent(state: .connected(agentState: participant.agentState,
+                                audioTrack: participant.audioTracks.first(where: { $0.source == .microphone })?.track as? AudioTrack,
+                                avatarVideoTrack: participant.avatarWorker?.firstCameraVideoTrack))
     }
 }
 
