@@ -141,7 +141,7 @@ jobs:
                 -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
                 APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
                 -only-testing:$test \
-                -parallel-testing-enabled YES \
+                -parallel-testing-enabled NO \
                 | xcbeautify --renderer github-actions
               then
                 echo "::error::Test failed: $test"
