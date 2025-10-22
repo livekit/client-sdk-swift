@@ -170,6 +170,7 @@ extension Loggable {
 
 // MARK: - Level
 
+@objc
 @frozen
 public enum LogLevel: Int, Sendable, Comparable {
     case debug

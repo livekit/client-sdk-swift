@@ -17,7 +17,7 @@ concurrency:
 
 env:
   TEST_TARGETS: "LiveKitCoreTests LiveKitObjCTests"
-  TEST_TIMEOUT_MINUTES: 10
+  TEST_TIMEOUT_MINUTES: 15
   TEST_RETRY_ATTEMPTS: 3
 
 jobs:
@@ -65,6 +65,10 @@ jobs:
             symbol-graph: true
           - os: macos-26
             xcode: latest
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.0"
+            extension-api-only: true
+          - os: macos-26
+            xcode: latest
             platform: "macOS"
             symbol-graph: true
           - os: macos-26
@@ -86,7 +90,7 @@ jobs:
             platform: "tvOS Simulator,name=Apple TV,OS=26.0"
 
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 35
+    timeout-minutes: 60
     defaults:
       run:
         shell: bash
@@ -116,6 +120,7 @@ jobs:
             -destination 'platform=${{ matrix.platform }}' \
             -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
             -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
+            APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
             | xcbeautify --renderer github-actions
 
       - name: Run Tests
@@ -134,8 +139,9 @@ jobs:
                 -destination 'platform=${{ matrix.platform }}' \
                 -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
                 -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
+                APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
                 -only-testing:$test \
-                -parallel-testing-enabled YES \
+                -parallel-testing-enabled NO \
                 | xcbeautify --renderer github-actions
               then
                 echo "::error::Test failed: $test"
@@ -151,6 +157,7 @@ jobs:
             -scheme LiveKit \
             -configuration Release \
             -destination 'platform=${{ matrix.platform }}'  \
+            APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
             BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
             OTHER_SWIFT_FLAGS="-Xfrontend -emit-symbol-graph\
                                -Xfrontend -emit-symbol-graph-dir\

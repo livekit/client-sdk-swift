@@ -1,1 +1,0 @@
-minor type="fixed" "Breaking change: Library evolution support (xcframework). May break existing `*Track` extensions."

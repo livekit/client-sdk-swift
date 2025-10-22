@@ -82,6 +82,24 @@ extension Room {
             }
         }
 
+        // Notify when reconnection starts
+        if oldState.isReconnectingWithMode == nil, state.isReconnectingWithMode != nil {
+            if let startMode = state.isReconnectingWithMode {
+                delegates.notify(label: { "room.didStartReconnectWithMode: \(startMode)" }) {
+                    $0.room?(self, didStartReconnectWithMode: startMode)
+                }
+            }
+        }
+
+        // Notify when reconnection completes
+        if oldState.isReconnectingWithMode != nil, state.isReconnectingWithMode == nil {
+            if let completedMode = oldState.isReconnectingWithMode {
+                delegates.notify(label: { "room.didCompleteReconnectWithMode: \(completedMode)" }) {
+                    $0.room?(self, didCompleteReconnectWithMode: completedMode)
+                }
+            }
+        }
+
         // Notify when reconnection mode changes
         if state.isReconnectingWithMode != oldState.isReconnectingWithMode,
            let mode = state.isReconnectingWithMode
@@ -107,6 +125,9 @@ extension Room {
                 if participantSid == localParticipant.sid {
                     localParticipant._state.mutate {
                         $0.audioLevel = speaker.level
+                        if !$0.isSpeaking {
+                            $0.lastSpokeAt = Date()
+                        }
                         $0.isSpeaking = true
                     }
                     activeSpeakers.append(localParticipant)
@@ -114,6 +135,9 @@ extension Room {
                     if let participant = state.remoteParticipant(forSid: participantSid) {
                         participant._state.mutate {
                             $0.audioLevel = speaker.level
+                            if !$0.isSpeaking {
+                                $0.lastSpokeAt = Date()
+                            }
                             $0.isSpeaking = true
                         }
                         activeSpeakers.append(participant)
