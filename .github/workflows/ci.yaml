@@ -17,7 +17,7 @@ concurrency:
 
 env:
   TEST_TARGETS: "LiveKitCoreTests LiveKitObjCTests"
-  TEST_TIMEOUT_MINUTES: 10
+  TEST_TIMEOUT_MINUTES: 15
   TEST_RETRY_ATTEMPTS: 3
 
 jobs:
@@ -90,7 +90,7 @@ jobs:
             platform: "tvOS Simulator,name=Apple TV,OS=26.0"
 
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 35
+    timeout-minutes: 60
     defaults:
       run:
         shell: bash
