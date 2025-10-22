@@ -36,7 +36,8 @@ public protocol RoomDelegate: AnyObject, Sendable {
     // MARK: - Connection Events
 
     /// ``Room/connectionState`` has updated.
-    /// - Note: This method is not called for ``ReconnectMode/quick``, use ``RoomDelegate/room(_:didStartReconnectWithMode:)`` instead.
+    /// - Note: This method is not called for ``ReconnectMode/quick``, use ``RoomDelegate/room(_:didStartReconnectWithMode:)``
+    /// and ``RoomDelegate/room(_:didCompleteReconnectWithMode:)`` instead.
     @objc optional
     func room(_ room: Room, didUpdateConnectionState connectionState: ConnectionState, from oldConnectionState: ConnectionState)
 
@@ -50,6 +51,7 @@ public protocol RoomDelegate: AnyObject, Sendable {
     func roomIsReconnecting(_ room: Room)
 
     /// Successfully re-connected to the room.
+    /// - Note: This method is not called for ``ReconnectMode/quick``, use ``RoomDelegate/room(_:didCompleteReconnectWithMode:)`` instead.
     @objc optional
     func roomDidReconnect(_ room: Room)
 
