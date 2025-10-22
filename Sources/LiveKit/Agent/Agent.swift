@@ -28,19 +28,26 @@ public struct Agent {
         }
     }
 
-    public enum State {
+    enum State {
         case disconnected
         case connecting
         case connected(AgentState, (any AudioTrack)?, (any VideoTrack)?)
         case failed(Error)
     }
 
-    public var state: State = .disconnected
+    var state: State = .disconnected
 
     public var isConnected: Bool {
         switch state {
         case .connected: true
         default: false
+        }
+    }
+
+    public var agentState: AgentState? {
+        switch state {
+        case let .connected(agentState, _, _): agentState
+        default: nil
         }
     }
 
