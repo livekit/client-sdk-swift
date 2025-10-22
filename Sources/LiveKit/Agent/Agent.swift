@@ -16,7 +16,7 @@
 
 import Foundation
 
-public enum Agent {
+public struct Agent {
     public enum Error: LocalizedError {
         case timeout
 
@@ -28,36 +28,59 @@ public enum Agent {
         }
     }
 
-    case disconnected
-    case connecting
-    case connected(AgentState, (any AudioTrack)?, (any VideoTrack)?)
-    case failed(Error)
+    public enum State {
+        case disconnected
+        case connecting
+        case connected(AgentState, (any AudioTrack)?, (any VideoTrack)?)
+        case failed(Error)
+    }
+
+    public var state: State = .disconnected
 
     public var isConnected: Bool {
-        switch self {
+        switch state {
         case .connected: true
         default: false
         }
     }
 
     public var audioTrack: (any AudioTrack)? {
-        switch self {
+        switch state {
         case let .connected(_, audioTrack, _): audioTrack
         default: nil
         }
     }
 
     public var avatarVideoTrack: (any VideoTrack)? {
-        switch self {
+        switch state {
         case let .connected(_, _, avatarVideoTrack): avatarVideoTrack
         default: nil
         }
     }
 
+    public var error: Error? {
+        switch state {
+        case let .failed(error): error
+        default: nil
+        }
+    }
+
+    static func connecting() -> Agent {
+        Agent(state: .connecting)
+    }
+
+    static func failed(_ error: Error) -> Agent {
+        Agent(state: .failed(error))
+    }
+
+    static func listening() -> Agent {
+        Agent(state: .connected(.listening, nil, nil))
+    }
+
     static func connected(participant: Participant) -> Agent {
-        .connected(participant.agentState,
-                   participant.audioTracks.first(where: { $0.source == .microphone })?.track as? AudioTrack,
-                   participant.avatarWorker?.firstCameraVideoTrack)
+        Agent(state: .connected(participant.agentState,
+                                participant.audioTracks.first(where: { $0.source == .microphone })?.track as? AudioTrack,
+                                participant.avatarWorker?.firstCameraVideoTrack))
     }
 }
 

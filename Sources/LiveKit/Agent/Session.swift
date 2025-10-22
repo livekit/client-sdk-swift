@@ -52,7 +52,7 @@ open class Session: ObservableObject {
         }
     }
 
-    @Published public private(set) var agent: Agent = .disconnected
+    @Published public private(set) var agent = Agent()
 
     @Published private var messagesDict: OrderedDictionary<ReceivedMessage.ID, ReceivedMessage> = [:]
     public var messages: [ReceivedMessage] { messagesDict.values.elements }
@@ -145,22 +145,23 @@ open class Session: ObservableObject {
                 guard let self else { return }
 
                 connectionState = room.connectionState
-                updateAgents(in: room)
+                agent = updatedAgent(in: room)
             }
         }
     }
 
-    private func updateAgents(in room: Room) {
-        let agentParticipants = room.agentParticipants
+    private func updatedAgent(in room: Room) -> Agent {
+        var agent = Agent()
 
-        if agentParticipants.isEmpty, !agent.isConnected {
-            agent = .connecting
-            return
+        if connectionState != .disconnected {
+            agent = .connecting()
         }
 
-        if let firstAgent = agentParticipants.values.first {
+        if let firstAgent = room.agentParticipants.values.first {
             agent = .connected(participant: firstAgent)
         }
+
+        return agent
     }
 
     private func observe(receivers: [any MessageReceiver]) {
@@ -200,7 +201,7 @@ open class Session: ObservableObject {
 
             if options.preConnectAudio {
                 try await room.withPreConnectAudio(timeout: timeout) {
-                    await MainActor.run { self.agent = .connected(.listening, nil, nil) }
+                    await MainActor.run { self.agent = .listening() }
                     try await self.room.connect(url: response.serverURL.absoluteString,
                                                 token: response.participantToken)
                 }
