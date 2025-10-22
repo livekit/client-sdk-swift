@@ -14,39 +14,50 @@
  * limitations under the License.
  */
 
-import Combine
 import Foundation
 
-@MainActor
-open class Agent: ObservableObject {
-    public typealias Identity = Participant.Identity
+public enum Agent {
+    public enum Error: LocalizedError {
+        case timeout
 
-    @Published public private(set) var state: AgentState = .idle
-
-    @Published public private(set) var audioTrack: (any AudioTrack)?
-    @Published public private(set) var avatarVideoTrack: (any VideoTrack)?
-
-    public let participant: Participant
-
-    public init(participant: Participant) {
-        self.participant = participant
-        observe(participant)
-    }
-
-    private func observe(_ participant: Participant) {
-        Task { [weak self] in
-            for try await _ in participant.changes {
-                guard let self else { return }
-
-                state = participant.agentState
-                updateTracks(of: participant)
+        public var errorDescription: String? {
+            switch self {
+            case .timeout:
+                "Agent not connected"
             }
         }
     }
 
-    private func updateTracks(of participant: Participant) {
-        audioTrack = participant.audioTracks.first(where: { $0.source == .microphone })?.track as? AudioTrack
-        avatarVideoTrack = participant.avatarWorker?.firstCameraVideoTrack
+    case disconnected
+    case connecting
+    case connected(AgentState, (any AudioTrack)?, (any VideoTrack)?)
+    case failed(Error)
+
+    public var isConnected: Bool {
+        switch self {
+        case .connected: true
+        default: false
+        }
+    }
+
+    public var audioTrack: (any AudioTrack)? {
+        switch self {
+        case let .connected(_, audioTrack, _): audioTrack
+        default: nil
+        }
+    }
+
+    public var avatarVideoTrack: (any VideoTrack)? {
+        switch self {
+        case let .connected(_, _, avatarVideoTrack): avatarVideoTrack
+        default: nil
+        }
+    }
+
+    static func connected(participant: Participant) -> Agent {
+        .connected(participant.agentState,
+                   participant.audioTracks.first(where: { $0.source == .microphone })?.track as? AudioTrack,
+                   participant.avatarWorker?.firstCameraVideoTrack)
     }
 }
 

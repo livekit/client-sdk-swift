@@ -25,14 +25,11 @@ open class Session: ObservableObject {
     // MARK: - Error
 
     public enum Error: LocalizedError {
-        case agentNotConnected
         case failedToConnect(Swift.Error)
         case failedToSend(Swift.Error)
 
         public var errorDescription: String? {
             switch self {
-            case .agentNotConnected:
-                "Agent not connected"
             case let .failedToConnect(error):
                 "Failed to connect: \(error.localizedDescription)"
             case let .failedToSend(error):
@@ -46,22 +43,16 @@ open class Session: ObservableObject {
     @Published public private(set) var error: Error?
 
     @Published public private(set) var connectionState: ConnectionState = .disconnected
-    @Published public private(set) var bufferingSpeechLocally = false
-    public var isReady: Bool {
+    public var isConnected: Bool {
         switch connectionState {
-        case .disconnected where bufferingSpeechLocally,
-             .connecting where bufferingSpeechLocally,
-             .connected,
-             .reconnecting:
+        case .connecting, .connected:
             true
         default:
             false
         }
     }
 
-    @Published private var agentsDict: OrderedDictionary<Agent.Identity, Agent> = [:]
-    public var agent: Agent? { agentsDict.values.first }
-    public var hasAgent: Bool { !agentsDict.isEmpty }
+    @Published public private(set) var agent: Agent = .disconnected
 
     @Published private var messagesDict: OrderedDictionary<ReceivedMessage.ID, ReceivedMessage> = [:]
     public var messages: [ReceivedMessage] { messagesDict.values.elements }
@@ -162,18 +153,14 @@ open class Session: ObservableObject {
     private func updateAgents(in room: Room) {
         let agentParticipants = room.agentParticipants
 
-        var newAgents: OrderedDictionary<Agent.Identity, Agent> = [:]
-
-        for (identity, participant) in agentParticipants {
-            if let existingAgent = agentsDict[identity] {
-                newAgents[identity] = existingAgent
-            } else {
-                let newAgent = Agent(participant: participant)
-                newAgents[identity] = newAgent
-            }
+        if agentParticipants.isEmpty, !agent.isConnected {
+            agent = .connecting
+            return
         }
 
-        agentsDict = newAgents
+        if let firstAgent = agentParticipants.values.first {
+            agent = .connected(participant: firstAgent)
+        }
     }
 
     private func observe(receivers: [any MessageReceiver]) {
@@ -185,16 +172,6 @@ open class Session: ObservableObject {
                 }
             }
         }
-    }
-
-    // MARK: - Agents
-
-    private func agent(named agentName: String) -> Agent? {
-        agentsDict.values.first { $0.participant.attributes[Self.agentNameAttribute] == agentName }
-    }
-
-    private subscript(agentName: String) -> Agent? {
-        agent(named: agentName)
     }
 
     // MARK: - Lifecycle
@@ -212,8 +189,8 @@ open class Session: ObservableObject {
                 try await Task.sleep(nanoseconds: UInt64(timeout * Double(NSEC_PER_SEC)))
                 try Task.checkCancellation()
                 guard let self else { return }
-                if connectionState == .connected, !hasAgent {
-                    self.error = .agentNotConnected
+                if isConnected, !agent.isConnected {
+                    self.agent = .failed(.timeout)
                 }
             }
         }
@@ -223,10 +200,9 @@ open class Session: ObservableObject {
 
             if options.preConnectAudio {
                 try await room.withPreConnectAudio(timeout: timeout) {
-                    await MainActor.run { self.bufferingSpeechLocally = true }
+                    await MainActor.run { self.agent = .connected(.listening, nil, nil) }
                     try await self.room.connect(url: response.serverURL.absoluteString,
                                                 token: response.participantToken)
-                    await MainActor.run { self.bufferingSpeechLocally = false }
                 }
             } else {
                 try await room.connect(url: response.serverURL.absoluteString,
