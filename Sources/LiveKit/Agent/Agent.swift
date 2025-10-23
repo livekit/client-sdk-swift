@@ -65,8 +65,8 @@ public struct Agent: Loggable {
         switch state {
         case .connecting, .connected:
             state = .connected(agentState: participant.agentState,
-                               audioTrack: participant.audioTracks.first(where: { $0.source == .microphone })?.track as? AudioTrack,
-                               avatarVideoTrack: participant.avatarWorker?.firstCameraVideoTrack)
+                               audioTrack: participant.agentAudioTrack,
+                               avatarVideoTrack: participant.avatarVideoTrack)
         default:
             log("Invalid transition from \(state) to connected", .warning)
         }
@@ -116,6 +116,16 @@ public struct Agent: Loggable {
         case let .failed(error): error
         default: nil
         }
+    }
+}
+
+private extension Participant {
+    var agentAudioTrack: (any AudioTrack)? {
+        audioTracks.first(where: { $0.source == .microphone })?.track as? AudioTrack
+    }
+
+    var avatarVideoTrack: (any VideoTrack)? {
+        avatarWorker?.firstCameraVideoTrack
     }
 }
 
