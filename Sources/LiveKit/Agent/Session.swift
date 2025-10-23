@@ -202,7 +202,7 @@ open class Session: ObservableObject {
         } else if let firstAgent = room.agentParticipants.values.first {
             agent.connected(participant: firstAgent)
         } else {
-            agent.connecting()
+            agent.connecting(buffering: options.preConnectAudio)
         }
     }
 
@@ -234,7 +234,7 @@ open class Session: ObservableObject {
                 try Task.checkCancellation()
                 guard let self else { return }
                 if isConnected, !agent.isConnected {
-                    self.agent.failed(.timeout)
+                    self.agent.failed(error: .timeout)
                 }
             }
         }
@@ -250,7 +250,7 @@ open class Session: ObservableObject {
                 try await room.withPreConnectAudio(timeout: timeout) {
                     await MainActor.run {
                         self.connectionState = .connecting
-                        self.agent.listening()
+                        self.agent.connecting(buffering: true)
                     }
                     try await connect()
                 }

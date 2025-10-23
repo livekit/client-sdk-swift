@@ -48,9 +48,9 @@ public struct Agent: Loggable {
 
     private enum State {
         case disconnected
-        case connecting
+        case connecting(buffering: Bool)
         case connected(agentState: AgentState, audioTrack: (any AudioTrack)?, avatarVideoTrack: (any VideoTrack)?)
-        case failed(Error)
+        case failed(error: Error)
     }
 
     private var state: State = .disconnected
@@ -63,29 +63,19 @@ public struct Agent: Loggable {
         state = .disconnected
     }
 
-    mutating func failed(_ error: Error) {
+    mutating func failed(error: Error) {
         log("Agent failed with error \(error) from \(state)")
         // From any state
-        state = .failed(error)
+        state = .failed(error: error)
     }
 
-    mutating func connecting() {
+    mutating func connecting(buffering: Bool) {
         log("Agent connecting from \(state)")
         switch state {
-        case .disconnected, .connecting, .connected: // pre-connect is listening (connected)
-            state = .connecting
+        case .disconnected, .connecting:
+            state = .connecting(buffering: buffering)
         default:
             log("Invalid transition from \(state) to connecting", .warning)
-        }
-    }
-
-    mutating func listening() {
-        log("Agent listening from \(state)")
-        switch state {
-        case .disconnected:
-            state = .connected(agentState: .listening, audioTrack: nil, avatarVideoTrack: nil)
-        default:
-            log("Invalid transition from \(state) to listening", .warning)
         }
     }
 
