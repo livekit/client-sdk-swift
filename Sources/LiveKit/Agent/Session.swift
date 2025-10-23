@@ -239,18 +239,20 @@ open class Session: ObservableObject {
             }
         }
 
-        do {
-            let response = try await fetchToken()
+        let connect = { @Sendable in
+            let response = try await self.fetchToken()
+            try await self.room.connect(url: response.serverURL.absoluteString,
+                                        token: response.participantToken)
+        }
 
+        do {
             if options.preConnectAudio {
                 try await room.withPreConnectAudio(timeout: timeout) {
                     await MainActor.run { self.agent.listening() }
-                    try await self.room.connect(url: response.serverURL.absoluteString,
-                                                token: response.participantToken)
+                    try await connect()
                 }
             } else {
-                try await room.connect(url: response.serverURL.absoluteString,
-                                       token: response.participantToken)
+                try await connect()
             }
         } catch {
             self.error = .failedToConnect(error)
