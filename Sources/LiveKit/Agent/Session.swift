@@ -62,7 +62,7 @@ open class Session: ObservableObject {
     @Published public private(set) var error: Error?
 
     /// The current connection state of the session.
-    @Published public private(set) var connectionState: ConnectionState = .disconnected
+    @Published private var connectionState: ConnectionState = .disconnected
     /// A boolean value indicating whether the session is connected.
     public var isConnected: Bool {
         switch connectionState {
