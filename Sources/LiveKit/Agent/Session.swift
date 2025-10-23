@@ -66,7 +66,7 @@ open class Session: ObservableObject {
     /// A boolean value indicating whether the session is connected.
     public var isConnected: Bool {
         switch connectionState {
-        case .connecting, .connected:
+        case .connecting, .connected, .reconnecting: // pre-connect is connecting
             true
         default:
             false
@@ -263,7 +263,7 @@ open class Session: ObservableObject {
     }
 
     /// Resets the last error.
-    public func resetError() {
+    public func dismissError() {
         error = nil
     }
 

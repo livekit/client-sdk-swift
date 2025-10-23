@@ -137,6 +137,11 @@ open class LocalMedia: ObservableObject {
         AudioManager.shared.onDeviceUpdate = nil
     }
 
+    /// Resets the last error.
+    public func dismissError() {
+        error = nil
+    }
+
     // MARK: - Toggle
 
     /// Toggles the microphone on or off.
