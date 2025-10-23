@@ -20,8 +20,6 @@ import Foundation
 ///
 /// A message sender is responsible for sending messages to the agent.
 /// It is used to send messages to the agent and update the message feed.
-///
-/// - SeeAlso: ``SentMessage``
 public protocol MessageSender: Sendable {
     func send(_ message: SentMessage) async throws
 }

@@ -18,6 +18,11 @@
 import Combine
 import Foundation
 
+/// An ``ObservableObject`` that can be used to control the local participant's media devices.
+///
+/// This class provides a convenient way to manage local media tracks, including enabling/disabling
+/// microphone and camera, and selecting audio and video devices. It is designed to be used
+/// in SwiftUI views.
 @MainActor
 open class LocalMedia: ObservableObject {
     // MARK: - Error
@@ -35,22 +40,34 @@ open class LocalMedia: ObservableObject {
 
     // MARK: - Devices
 
+    /// The last error that occurred.
     @Published public private(set) var error: Error?
 
+    /// The local microphone track.
     @Published public private(set) var microphoneTrack: (any AudioTrack)?
+    /// The local camera track.
     @Published public private(set) var cameraTrack: (any VideoTrack)?
+    /// The local screen share track.
     @Published public private(set) var screenShareTrack: (any VideoTrack)?
 
+    /// A boolean value indicating whether the microphone is enabled.
     @Published public private(set) var isMicrophoneEnabled: Bool = false
+    /// A boolean value indicating whether the camera is enabled.
     @Published public private(set) var isCameraEnabled: Bool = false
+    /// A boolean value indicating whether screen sharing is enabled.
     @Published public private(set) var isScreenShareEnabled: Bool = false
 
+    /// The available audio input devices.
     @Published public private(set) var audioDevices: [AudioDevice] = AudioManager.shared.inputDevices
+    /// The ID of the selected audio input device.
     @Published public private(set) var selectedAudioDeviceID: String = AudioManager.shared.inputDevice.deviceId
 
+    /// The available video capture devices.
     @Published public private(set) var videoDevices: [AVCaptureDevice] = []
+    /// The ID of the selected video capture device.
     @Published public private(set) var selectedVideoDeviceID: String?
 
+    /// A boolean value indicating whether the camera position can be switched.
     @Published public private(set) var canSwitchCamera = false
 
     // MARK: - Dependencies
@@ -59,6 +76,8 @@ open class LocalMedia: ObservableObject {
 
     // MARK: - Initialization
 
+    /// Initializes a new ``LocalMedia`` object.
+    /// - Parameter localParticipant: The ``LocalParticipant`` to control.
     public init(localParticipant: LocalParticipant) {
         self.localParticipant = localParticipant
 
@@ -66,10 +85,14 @@ open class LocalMedia: ObservableObject {
         observeDevices()
     }
 
+    /// Initializes a new ``LocalMedia`` object.
+    /// - Parameter room: The ``Room`` to control.
     public convenience init(room: Room) {
         self.init(localParticipant: room.localParticipant)
     }
 
+    /// Initializes a new ``LocalMedia`` object.
+    /// - Parameter session: The ``Session`` to control.
     public convenience init(session: Session) {
         self.init(room: session.room)
     }
@@ -116,6 +139,7 @@ open class LocalMedia: ObservableObject {
 
     // MARK: - Toggle
 
+    /// Toggles the microphone on or off.
     public func toggleMicrophone() async {
         do {
             try await localParticipant.setMicrophone(enabled: !isMicrophoneEnabled)
@@ -124,6 +148,8 @@ open class LocalMedia: ObservableObject {
         }
     }
 
+    /// Toggles the camera on or off.
+    /// - Parameter disableScreenShare: If `true`, screen sharing will be disabled when the camera is enabled.
     public func toggleCamera(disableScreenShare: Bool = false) async {
         let enable = !isCameraEnabled
         do {
@@ -138,6 +164,8 @@ open class LocalMedia: ObservableObject {
         }
     }
 
+    /// Toggles screen sharing on or off.
+    /// - Parameter disableCamera: If `true`, the camera will be disabled when screen sharing is enabled.
     public func toggleScreenShare(disableCamera: Bool = false) async {
         let enable = !isScreenShareEnabled
         do {
@@ -152,6 +180,8 @@ open class LocalMedia: ObservableObject {
 
     // MARK: - Select
 
+    /// Selects an audio input device.
+    /// - Parameter audioDevice: The ``AudioDevice`` to select.
     public func select(audioDevice: AudioDevice) {
         selectedAudioDeviceID = audioDevice.deviceId
 
@@ -159,6 +189,8 @@ open class LocalMedia: ObservableObject {
         AudioManager.shared.inputDevice = device
     }
 
+    /// Selects a video capture device.
+    /// - Parameter videoDevice: The ``AVCaptureDevice`` to select.
     public func select(videoDevice: AVCaptureDevice) async {
         selectedVideoDeviceID = videoDevice.uniqueID
 
@@ -167,6 +199,7 @@ open class LocalMedia: ObservableObject {
         _ = try? await cameraCapturer.set(options: captureOptions)
     }
 
+    /// Switches the camera position.
     public func switchCamera() async {
         guard let cameraCapturer = getCameraCapturer() else { return }
         _ = try? await cameraCapturer.switchCameraPosition()

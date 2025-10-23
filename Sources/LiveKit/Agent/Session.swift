@@ -18,6 +18,24 @@ import Combine
 import Foundation
 import OrderedCollections
 
+/// A ``Session`` represents a connection to a LiveKit Room that can contain an ``Agent``.
+///
+/// ``Session`` is the main entry point for interacting with a LiveKit agent. It encapsulates
+/// the connection to a LiveKit ``Room``, manages the agent's lifecycle, and handles
+/// communication between the user and the agent.
+///
+/// ``Session`` is created with a token source and optional configuration. The ``start()``
+/// method establishes the connection, and the ``end()`` method terminates it. The session's
+/// state, including connection status and any errors, is published for observation,
+/// making it suitable for use in SwiftUI applications.
+///
+/// Communication with the agent is handled through messages. The ``send(text:)`` method
+/// sends a user message, and the ``messages`` property provides an ordered history of the
+/// conversation. The session can be configured with custom message senders and receivers
+/// to support different communication channels, such as text messages or transcription streams.
+///
+/// - SeeAlso: [LiveKit SwiftUI Agent Starter](https://github.com/livekit-examples/agent-starter-swift).
+/// - SeeAlso: [LiveKit Agents documentation](https://docs.livekit.io/agents/).
 @MainActor
 open class Session: ObservableObject {
     private static let agentNameAttribute = "lk.agent_name"
@@ -40,9 +58,12 @@ open class Session: ObservableObject {
 
     // MARK: - Published
 
+    /// The last error that occurred.
     @Published public private(set) var error: Error?
 
+    /// The current connection state of the session.
     @Published public private(set) var connectionState: ConnectionState = .disconnected
+    /// A boolean value indicating whether the session is connected.
     public var isConnected: Bool {
         switch connectionState {
         case .connecting, .connected:
@@ -52,13 +73,16 @@ open class Session: ObservableObject {
         }
     }
 
+    /// The ``Agent`` associated with this session.
     @Published public private(set) var agent = Agent()
 
     @Published private var messagesDict: OrderedDictionary<ReceivedMessage.ID, ReceivedMessage> = [:]
+    /// The ordered list of received messages.
     public var messages: [ReceivedMessage] { messagesDict.values.elements }
 
     // MARK: - Dependencies
 
+    /// The underlying ``Room`` object for the session.
     public let room: Room
 
     private enum TokenSourceConfiguration {
@@ -98,6 +122,12 @@ open class Session: ObservableObject {
         observe(receivers: resolvedReceivers)
     }
 
+    /// Initializes a new ``Session`` with a fixed token source.
+    /// - Parameters:
+    ///   - tokenSource: A token source that provides a fixed token.
+    ///   - options: The session options.
+    ///   - senders: An array of message senders.
+    ///   - receivers: An array of message receivers.
     public convenience init(tokenSource: any TokenSourceFixed,
                             options: SessionOptions = .init(),
                             senders: [any MessageSender]? = nil,
@@ -109,6 +139,13 @@ open class Session: ObservableObject {
                   receivers: receivers)
     }
 
+    /// Initializes a new ``Session`` with a configurable token source.
+    /// - Parameters:
+    ///   - tokenSource: A token source that can generate tokens with specific options.
+    ///   - tokenOptions: The options for generating the token.
+    ///   - options: The session options.
+    ///   - senders: An array of message senders.
+    ///   - receivers: An array of message receivers.
     public convenience init(tokenSource: any TokenSourceConfigurable,
                             tokenOptions: TokenRequestOptions = .init(),
                             options: SessionOptions = .init(),
@@ -121,6 +158,15 @@ open class Session: ObservableObject {
                   receivers: receivers)
     }
 
+    /// Creates a new ``Session`` configured for a specific agent.
+    /// - Parameters:
+    ///   - agentName: The name of the agent to dispatch.
+    ///   - agentMetadata: Metadata passed to the agent.
+    ///   - tokenSource: A configurable token source.
+    ///   - options: The session options.
+    ///   - senders: An array of message senders.
+    ///   - receivers: An array of message receivers.
+    /// - Returns: A new ``Session`` instance.
     public static func withAgent(_ agentName: String,
                                  agentMetadata: String? = nil,
                                  tokenSource: any TokenSourceConfigurable,
@@ -173,6 +219,7 @@ open class Session: ObservableObject {
 
     // MARK: - Lifecycle
 
+    /// Starts the session.
     public func start() async {
         guard connectionState == .disconnected else { return }
 
@@ -210,16 +257,21 @@ open class Session: ObservableObject {
         }
     }
 
+    /// Terminates the session.
     public func end() async {
         await room.disconnect()
     }
 
+    /// Resets the last error.
     public func resetError() {
         error = nil
     }
 
     // MARK: - Messages
 
+    /// Sends a text message.
+    /// - Parameter text: The text to send.
+    /// - Returns: The ``SentMessage`` that was sent.
     @discardableResult
     public func send(text: String) async -> SentMessage {
         let message = SentMessage(id: UUID().uuidString, timestamp: Date(), content: .userInput(text))
@@ -233,10 +285,14 @@ open class Session: ObservableObject {
         return message
     }
 
+    /// Gets the message history.
+    /// - Returns: An array of ``ReceivedMessage``.
     public func getMessageHistory() -> [ReceivedMessage] {
         messages
     }
 
+    /// Restores the message history.
+    /// - Parameter messages: An array of ``ReceivedMessage`` to restore.
     public func restoreMessageHistory(_ messages: [ReceivedMessage]) {
         messagesDict = .init(uniqueKeysWithValues: messages.sorted(by: { $0.timestamp < $1.timestamp }).map { ($0.id, $0) })
     }

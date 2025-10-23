@@ -16,6 +16,20 @@
 
 import Foundation
 
+/// Represents a LiveKit Agent.
+///
+/// The ``Agent`` struct represents the state of a LiveKit agent within a ``Session``.
+/// It provides information about the agent's connection status, its current state
+/// (e.g., listening, thinking, speaking), and its media tracks.
+///
+/// The ``Agent``'s properties are updated automatically by the ``Session`` as the agent's
+/// state changes. This allows the application to react to the agent's
+/// behavior, such as displaying its avatar video or indicating when it is speaking.
+/// The ``agentState`` property is particularly useful for building UIs that reflect
+/// the agent's current activity.
+///
+/// - SeeAlso: [LiveKit SwiftUI Agent Starter](https://github.com/livekit-examples/agent-starter-swift).
+/// - SeeAlso: [LiveKit Agents documentation](https://docs.livekit.io/agents/).
 public struct Agent: Loggable {
     // MARK: - Error
 
@@ -25,7 +39,7 @@ public struct Agent: Loggable {
         public var errorDescription: String? {
             switch self {
             case .timeout:
-                "Agent not connected"
+                "Agent did not connect"
             }
         }
     }
@@ -44,7 +58,7 @@ public struct Agent: Loggable {
     // MARK: - Transitions
 
     mutating func disconnected() {
-        log("Agent disconnected from \(state)", .debug)
+        log("Agent disconnected from \(state)")
         // From any state
         state = .disconnected
     }
@@ -89,6 +103,7 @@ public struct Agent: Loggable {
 
     // MARK: - Public
 
+    /// A boolean value indicating whether the agent is connected.
     public var isConnected: Bool {
         switch state {
         case .connected: true
@@ -96,6 +111,7 @@ public struct Agent: Loggable {
         }
     }
 
+    /// The current conversational state of the agent.
     public var agentState: AgentState? {
         switch state {
         case let .connected(agentState, _, _): agentState
@@ -103,6 +119,7 @@ public struct Agent: Loggable {
         }
     }
 
+    /// The agent's audio track.
     public var audioTrack: (any AudioTrack)? {
         switch state {
         case let .connected(_, audioTrack, _): audioTrack
@@ -110,6 +127,7 @@ public struct Agent: Loggable {
         }
     }
 
+    /// The agent's avatar video track.
     public var avatarVideoTrack: (any VideoTrack)? {
         switch state {
         case let .connected(_, _, avatarVideoTrack): avatarVideoTrack
@@ -117,6 +135,7 @@ public struct Agent: Loggable {
         }
     }
 
+    /// The last error that occurred.
     public var error: Error? {
         switch state {
         case let .failed(error): error
