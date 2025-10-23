@@ -17,7 +17,7 @@
 @preconcurrency import Combine
 
 extension ObservableObject {
-    /// An async sequence that emits the `objectWillChange` events.
+    /// An async stream that emits the `objectWillChange` events.
     var changes: AsyncStream<Void> {
         AsyncStream { continuation in
             let cancellable = objectWillChange.sink { _ in

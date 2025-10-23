@@ -143,25 +143,21 @@ open class Session: ObservableObject {
         Task { [weak self] in
             for try await _ in room.changes {
                 guard let self else { return }
-
-                connectionState = room.connectionState
-                agent = updatedAgent(in: room)
+                updateAgent(in: room)
             }
         }
     }
 
-    private func updatedAgent(in room: Room) -> Agent {
-        var agent = Agent()
+    private func updateAgent(in room: Room) {
+        connectionState = room.connectionState
 
-        if connectionState != .disconnected {
+        if connectionState == .disconnected {
+            agent.disconnected()
+        } else if let firstAgent = room.agentParticipants.values.first {
+            agent.connected(participant: firstAgent)
+        } else {
             agent.connecting()
         }
-
-        if let firstAgent = room.agentParticipants.values.first {
-            agent.connected(participant: firstAgent)
-        }
-
-        return agent
     }
 
     private func observe(receivers: [any MessageReceiver]) {

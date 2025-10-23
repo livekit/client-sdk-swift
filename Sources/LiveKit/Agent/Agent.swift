@@ -43,9 +43,22 @@ public struct Agent: Loggable {
 
     // MARK: - Transitions
 
+    mutating func disconnected() {
+        log("Agent disconnected from \(state)", .debug)
+        // From any state
+        state = .disconnected
+    }
+
+    mutating func failed(_ error: Error) {
+        log("Agent failed with error \(error) from \(state)")
+        // From any state
+        state = .failed(error)
+    }
+
     mutating func connecting() {
+        log("Agent connecting from \(state)")
         switch state {
-        case .disconnected:
+        case .disconnected, .connecting, .connected: // pre-connect is listening (connected)
             state = .connecting
         default:
             log("Invalid transition from \(state) to connecting", .warning)
@@ -53,8 +66,9 @@ public struct Agent: Loggable {
     }
 
     mutating func listening() {
+        log("Agent listening from \(state)")
         switch state {
-        case .disconnected, .connecting:
+        case .disconnected:
             state = .connected(agentState: .listening, audioTrack: nil, avatarVideoTrack: nil)
         default:
             log("Invalid transition from \(state) to listening", .warning)
@@ -62,6 +76,7 @@ public struct Agent: Loggable {
     }
 
     mutating func connected(participant: Participant) {
+        log("Agent connected to \(participant) from \(state)")
         switch state {
         case .connecting, .connected:
             state = .connected(agentState: participant.agentState,
@@ -69,15 +84,6 @@ public struct Agent: Loggable {
                                avatarVideoTrack: participant.avatarVideoTrack)
         default:
             log("Invalid transition from \(state) to connected", .warning)
-        }
-    }
-
-    mutating func failed(_ error: Error) {
-        switch state {
-        case .disconnected, .connecting, .connected:
-            state = .failed(error)
-        default:
-            log("Invalid transition from \(state) to failed", .warning)
         }
     }
 
