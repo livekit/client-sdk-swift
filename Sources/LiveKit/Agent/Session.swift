@@ -255,7 +255,9 @@ open class Session: ObservableObject {
                     try await connect()
                 }
             } else {
+                agent.connecting(buffering: false)
                 try await connect()
+                try await room.localParticipant.setMicrophone(enabled: true)
             }
         } catch {
             self.error = .failedToConnect(error)
