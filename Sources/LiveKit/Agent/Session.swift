@@ -248,7 +248,10 @@ open class Session: ObservableObject {
         do {
             if options.preConnectAudio {
                 try await room.withPreConnectAudio(timeout: timeout) {
-                    await MainActor.run { self.agent.listening() }
+                    await MainActor.run {
+                        self.connectionState = .connecting
+                        self.agent.listening()
+                    }
                     try await connect()
                 }
             } else {
