@@ -38,7 +38,7 @@ open class Session: ObservableObject {
         }
     }
 
-    // MARK: - State
+    // MARK: - Published
 
     @Published public private(set) var error: Error?
 
@@ -154,11 +154,11 @@ open class Session: ObservableObject {
         var agent = Agent()
 
         if connectionState != .disconnected {
-            agent = .connecting()
+            agent.connecting()
         }
 
         if let firstAgent = room.agentParticipants.values.first {
-            agent = .connected(participant: firstAgent)
+            agent.connected(participant: firstAgent)
         }
 
         return agent
@@ -191,7 +191,7 @@ open class Session: ObservableObject {
                 try Task.checkCancellation()
                 guard let self else { return }
                 if isConnected, !agent.isConnected {
-                    self.agent = .failed(.timeout)
+                    self.agent.failed(.timeout)
                 }
             }
         }
@@ -201,7 +201,7 @@ open class Session: ObservableObject {
 
             if options.preConnectAudio {
                 try await room.withPreConnectAudio(timeout: timeout) {
-                    await MainActor.run { self.agent = .listening() }
+                    await MainActor.run { self.agent.listening() }
                     try await self.room.connect(url: response.serverURL.absoluteString,
                                                 token: response.participantToken)
                 }

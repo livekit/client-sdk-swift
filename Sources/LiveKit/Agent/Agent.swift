@@ -16,7 +16,9 @@
 
 import Foundation
 
-public struct Agent {
+public struct Agent: Loggable {
+    // MARK: - Error
+
     public enum Error: LocalizedError {
         case timeout
 
@@ -28,18 +30,58 @@ public struct Agent {
         }
     }
 
-    enum State {
+    // MARK: - State
+
+    private enum State {
         case disconnected
         case connecting
         case connected(agentState: AgentState, audioTrack: (any AudioTrack)?, avatarVideoTrack: (any VideoTrack)?)
         case failed(Error)
     }
 
-    let state: State
+    private var state: State = .disconnected
 
-    init(state: State = .disconnected) {
-        self.state = state
+    // MARK: - Transitions
+
+    mutating func connecting() {
+        switch state {
+        case .disconnected:
+            state = .connecting
+        default:
+            log("Invalid transition from \(state) to connecting", .warning)
+        }
     }
+
+    mutating func listening() {
+        switch state {
+        case .disconnected, .connecting:
+            state = .connected(agentState: .listening, audioTrack: nil, avatarVideoTrack: nil)
+        default:
+            log("Invalid transition from \(state) to listening", .warning)
+        }
+    }
+
+    mutating func connected(participant: Participant) {
+        switch state {
+        case .connecting, .connected:
+            state = .connected(agentState: participant.agentState,
+                               audioTrack: participant.audioTracks.first(where: { $0.source == .microphone })?.track as? AudioTrack,
+                               avatarVideoTrack: participant.avatarWorker?.firstCameraVideoTrack)
+        default:
+            log("Invalid transition from \(state) to connected", .warning)
+        }
+    }
+
+    mutating func failed(_ error: Error) {
+        switch state {
+        case .disconnected, .connecting, .connected:
+            state = .failed(error)
+        default:
+            log("Invalid transition from \(state) to failed", .warning)
+        }
+    }
+
+    // MARK: - Public
 
     public var isConnected: Bool {
         switch state {
@@ -74,24 +116,6 @@ public struct Agent {
         case let .failed(error): error
         default: nil
         }
-    }
-
-    static func connecting() -> Agent {
-        Agent(state: .connecting)
-    }
-
-    static func failed(_ error: Error) -> Agent {
-        Agent(state: .failed(error))
-    }
-
-    static func listening() -> Agent {
-        Agent(state: .connected(agentState: .listening, audioTrack: nil, avatarVideoTrack: nil))
-    }
-
-    static func connected(participant: Participant) -> Agent {
-        Agent(state: .connected(agentState: participant.agentState,
-                                audioTrack: participant.audioTracks.first(where: { $0.source == .microphone })?.track as? AudioTrack,
-                                avatarVideoTrack: participant.avatarWorker?.firstCameraVideoTrack))
     }
 }
 
