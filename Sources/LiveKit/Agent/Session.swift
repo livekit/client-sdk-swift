@@ -286,18 +286,19 @@ open class Session: ObservableObject {
 
     /// Sends a text message.
     /// - Parameter text: The text to send.
-    /// - Returns: The ``SentMessage`` that was sent.
+    /// - Returns: The ``SentMessage`` that was sent, or `nil` if the message failed to send.
     @discardableResult
-    public func send(text: String) async -> SentMessage {
+    public func send(text: String) async -> SentMessage? {
         let message = SentMessage(id: UUID().uuidString, timestamp: Date(), content: .userInput(text))
         do {
             for sender in senders {
                 try await sender.send(message)
             }
+            return message
         } catch {
             self.error = .sender(error)
+            return nil
         }
-        return message
     }
 
     /// Gets the message history.
