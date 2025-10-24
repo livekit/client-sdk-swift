@@ -28,6 +28,7 @@ public func XCTAssertThrowsErrorAsync(_ expression: @autoclosure () async throws
 public extension LKTestCase {
     func noLeaks(of instance: AnyObject & Sendable, file: StaticString = #filePath, line: UInt = #line) {
         addTeardownBlock { [weak instance] in
+            try await Task.sleep(nanoseconds: NSEC_PER_SEC)
             XCTAssertNil(instance, "Leaked object: \(String(describing: instance))", file: file, line: line)
         }
     }

@@ -36,7 +36,8 @@ public protocol RoomDelegate: AnyObject, Sendable {
     // MARK: - Connection Events
 
     /// ``Room/connectionState`` has updated.
-    /// - Note: This method is not called for ``ReconnectMode/quick``, use ``RoomDelegate/room(_:didUpdateReconnectMode:)`` instead.
+    /// - Note: This method is not called for ``ReconnectMode/quick``, use ``RoomDelegate/room(_:didStartReconnectWithMode:)``
+    /// and ``RoomDelegate/room(_:didCompleteReconnectWithMode:)`` instead.
     @objc optional
     func room(_ room: Room, didUpdateConnectionState connectionState: ConnectionState, from oldConnectionState: ConnectionState)
 
@@ -45,13 +46,24 @@ public protocol RoomDelegate: AnyObject, Sendable {
     func roomDidConnect(_ room: Room)
 
     /// Previously connected to room but re-attempting to connect due to network issues.
-    /// - Note: This method is not called for ``ReconnectMode/quick``, use ``RoomDelegate/room(_:didUpdateReconnectMode:)`` instead.
+    /// - Note: This method is not called for ``ReconnectMode/quick``, use ``RoomDelegate/room(_:didStartReconnectWithMode:)`` instead.
     @objc optional
     func roomIsReconnecting(_ room: Room)
 
     /// Successfully re-connected to the room.
+    /// - Note: This method is not called for ``ReconnectMode/quick``, use ``RoomDelegate/room(_:didCompleteReconnectWithMode:)`` instead.
     @objc optional
     func roomDidReconnect(_ room: Room)
+
+    /// Reconnection started.
+    /// - Parameter reconnectMode: The mode being used for reconnection
+    @objc optional
+    func room(_ room: Room, didStartReconnectWithMode reconnectMode: ReconnectMode)
+
+    /// Reconnection completed successfully.
+    /// - Parameter reconnectMode: The mode that was used for reconnection
+    @objc optional
+    func room(_ room: Room, didCompleteReconnectWithMode reconnectMode: ReconnectMode)
 
     /// ``Room`` reconnect mode has updated.
     @objc optional
