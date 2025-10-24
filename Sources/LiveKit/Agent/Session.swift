@@ -45,6 +45,7 @@ open class Session: ObservableObject {
     public enum Error: LocalizedError {
         case failedToConnect(Swift.Error)
         case failedToSend(Swift.Error)
+        case receiverError(Swift.Error)
 
         public var errorDescription: String? {
             switch self {
@@ -52,6 +53,8 @@ open class Session: ObservableObject {
                 "Failed to connect: \(error.localizedDescription)"
             case let .failedToSend(error):
                 "Failed to send: \(error.localizedDescription)"
+            case let .receiverError(error):
+                "Message receiver failed: \(error.localizedDescription)"
             }
         }
     }
@@ -209,9 +212,13 @@ open class Session: ObservableObject {
     private func observe(receivers: [any MessageReceiver]) {
         for receiver in receivers {
             Task { [weak self] in
-                for await message in try await receiver.messages() {
-                    guard let self else { return }
-                    messagesDict.updateValue(message, forKey: message.id)
+                do {
+                    for await message in try await receiver.messages() {
+                        guard let self else { return }
+                        messagesDict.updateValue(message, forKey: message.id)
+                    }
+                } catch {
+                    self?.error = .receiverError(error)
                 }
             }
         }
