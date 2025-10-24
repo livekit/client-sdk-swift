@@ -43,17 +43,17 @@ open class Session: ObservableObject {
     // MARK: - Error
 
     public enum Error: LocalizedError {
-        case failedToConnect(Swift.Error)
-        case failedToSend(Swift.Error)
-        case receiverError(Swift.Error)
+        case connection(Swift.Error)
+        case sender(Swift.Error)
+        case receiver(Swift.Error)
 
         public var errorDescription: String? {
             switch self {
-            case let .failedToConnect(error):
-                "Failed to connect: \(error.localizedDescription)"
-            case let .failedToSend(error):
-                "Failed to send: \(error.localizedDescription)"
-            case let .receiverError(error):
+            case let .connection(error):
+                "Connection failed: \(error.localizedDescription)"
+            case let .sender(error):
+                "Message sender failed: \(error.localizedDescription)"
+            case let .receiver(error):
                 "Message receiver failed: \(error.localizedDescription)"
             }
         }
@@ -218,7 +218,7 @@ open class Session: ObservableObject {
                         messagesDict.updateValue(message, forKey: message.id)
                     }
                 } catch {
-                    self?.error = .receiverError(error)
+                    self?.error = .receiver(error)
                 }
             }
         }
@@ -266,7 +266,7 @@ open class Session: ObservableObject {
                 }
             }
         } catch {
-            self.error = .failedToConnect(error)
+            self.error = .connection(error)
             connectionState = .disconnected
             agent.disconnected()
         }
@@ -295,7 +295,7 @@ open class Session: ObservableObject {
                 try await sender.send(message)
             }
         } catch {
-            self.error = .failedToSend(error)
+            self.error = .sender(error)
         }
         return message
     }
