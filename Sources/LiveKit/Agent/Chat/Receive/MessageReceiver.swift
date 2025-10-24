@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
-extension AgentState: CustomStringConvertible {
-    public var description: String {
-        rawValue.capitalized
-    }
+import Foundation
+
+/// A protocol that defines a message receiver.
+///
+/// A message receiver is responsible for creating a stream of messages from the agent.
+/// It is used to receive messages from the agent and update the message feed.
+public protocol MessageReceiver: Sendable {
+    func messages() async throws -> AsyncStream<ReceivedMessage>
 }
