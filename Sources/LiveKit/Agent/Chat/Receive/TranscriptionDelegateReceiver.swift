@@ -37,6 +37,7 @@ actor TranscriptionDelegateReceiver: MessageReceiver, RoomDelegate {
     }
 
     deinit {
+        continuation?.finish()
         room.remove(delegate: self)
     }
 

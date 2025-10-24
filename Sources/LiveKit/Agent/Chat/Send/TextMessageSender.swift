@@ -33,6 +33,10 @@ actor TextMessageSender: MessageSender, MessageReceiver {
         self.topic = topic
     }
 
+    deinit {
+        messageContinuation?.finish()
+    }
+
     func send(_ message: SentMessage) async throws {
         guard case let .userInput(text) = message.content else { return }
 
