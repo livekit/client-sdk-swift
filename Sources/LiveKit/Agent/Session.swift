@@ -255,12 +255,15 @@ open class Session: ObservableObject {
                     try await connect()
                 }
             } else {
+                connectionState = .connecting
                 agent.connecting(buffering: false)
                 try await connect()
                 try await room.localParticipant.setMicrophone(enabled: true)
             }
         } catch {
             self.error = .failedToConnect(error)
+            connectionState = .disconnected
+            agent.disconnected()
         }
     }
 
