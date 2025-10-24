@@ -197,11 +197,13 @@ open class LocalMedia: ObservableObject {
     /// Selects a video capture device.
     /// - Parameter videoDevice: The ``AVCaptureDevice`` to select.
     public func select(videoDevice: AVCaptureDevice) async {
-        selectedVideoDeviceID = videoDevice.uniqueID
-
         guard let cameraCapturer = getCameraCapturer() else { return }
-        let captureOptions = CameraCaptureOptions(device: videoDevice)
-        _ = try? await cameraCapturer.set(options: captureOptions)
+        do {
+            try await cameraCapturer.set(options: .init(device: videoDevice))
+            selectedVideoDeviceID = videoDevice.uniqueID
+        } catch {
+            self.error = .mediaDevice(error)
+        }
     }
 
     /// Switches the camera position.
