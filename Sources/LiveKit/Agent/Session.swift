@@ -228,17 +228,6 @@ open class Session: ObservableObject {
 
         let timeout = options.agentConnectTimeout
 
-        defer {
-            waitForAgentTask = Task { [weak self] in
-                try await Task.sleep(nanoseconds: UInt64(timeout * Double(NSEC_PER_SEC)))
-                try Task.checkCancellation()
-                guard let self else { return }
-                if isConnected, !agent.isConnected {
-                    self.agent.failed(error: .timeout)
-                }
-            }
-        }
-
         let connect = { @Sendable in
             let response = try await self.fetchToken()
             try await self.room.connect(url: response.serverURL.absoluteString,
@@ -259,6 +248,15 @@ open class Session: ObservableObject {
                 agent.connecting(buffering: false)
                 try await connect()
                 try await room.localParticipant.setMicrophone(enabled: true)
+            }
+
+            waitForAgentTask = Task { [weak self] in
+                try await Task.sleep(nanoseconds: UInt64(timeout * Double(NSEC_PER_SEC)))
+                try Task.checkCancellation()
+                guard let self else { return }
+                if isConnected, !agent.isConnected {
+                    agent.failed(error: .timeout)
+                }
             }
         } catch {
             self.error = .failedToConnect(error)
