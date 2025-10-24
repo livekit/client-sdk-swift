@@ -113,14 +113,10 @@ public struct PrintLogger: Logger {
 open class OSLogger: Logger, @unchecked Sendable {
     private static let subsystem = "io.livekit.sdk"
 
-    private static let queue = DispatchQueue(label: "io.livekit.oslogger", qos: .utility)
-
-    private nonisolated(unsafe) static var ffiBootstrapped = false
-
+    private let queue = DispatchQueue(label: "io.livekit.oslogger", qos: .utility)
     private var logs: [String: OSLog] = [:]
 
     private lazy var rtcLogger = LKRTCCallbackLogger()
-    private var ffiLogForwardTask: Task<Void, Never>?
 
     private let minLevel: LogLevel
 
@@ -138,7 +134,6 @@ open class OSLogger: Logger, @unchecked Sendable {
 
     deinit {
         rtcLogger.stop()
-        ffiLogForwardTask?.cancel()
     }
 
     public func log(
@@ -162,7 +157,7 @@ open class OSLogger: Logger, @unchecked Sendable {
 
         let metadata = buildScopedMetadataString()
 
-        Self.queue.async {
+        queue.async {
             func getOSLog(for type: Any.Type) -> OSLog {
                 let typeName = String(describing: type)
 
@@ -189,18 +184,15 @@ open class OSLogger: Logger, @unchecked Sendable {
     }
 
     private func startFFILogForwarding(minLevel: LogLevel) {
-        Self.queue.sync {
-            if !Self.ffiBootstrapped {
-                logForwardBootstrap(level: minLevel.logForwardFilter)
-                Self.ffiBootstrapped = true
-            }
-        }
+        Task(priority: .utility) { [weak self] in
+            guard self != nil else { return } // don't initialize global level when releasing
+            logForwardBootstrap(level: minLevel.logForwardFilter)
 
-        let ffiLog = OSLog(subsystem: Self.subsystem, category: "FFI")
+            let ffiLog = OSLog(subsystem: Self.subsystem, category: "FFI")
+            let ffiStream = AsyncStream(unfolding: logForwardReceive)
 
-        ffiLogForwardTask = Task(priority: .utility) {
-            for await entry in AsyncStream(unfolding: logForwardReceive) {
-                guard !Task.isCancelled else { break }
+            for await entry in ffiStream {
+                guard self != nil else { return }
 
                 let message = "\(entry.target) \(entry.message)"
 
