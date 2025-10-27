@@ -20,6 +20,35 @@ import Foundation
 extension AgentAttributes: Hashable {}
 extension AgentAttributes: Equatable {}
 
+// Bool as String encoding
+extension TranscriptionAttributes {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        lkSegmentID = try container.decodeIfPresent(String.self, forKey: .lkSegmentID)
+        lkTranscribedTrackID = try container.decodeIfPresent(String.self, forKey: .lkTranscribedTrackID)
+
+        // Decode as Bool first, fallback to String
+        if let boolValue = try? container.decodeIfPresent(Bool.self, forKey: .lkTranscriptionFinal) {
+            lkTranscriptionFinal = boolValue
+        } else if let stringValue = try? container.decodeIfPresent(String.self, forKey: .lkTranscriptionFinal) {
+            lkTranscriptionFinal = (stringValue as NSString).boolValue
+        } else {
+            lkTranscriptionFinal = nil
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(lkSegmentID, forKey: .lkSegmentID)
+        try container.encodeIfPresent(lkTranscribedTrackID, forKey: .lkTranscribedTrackID)
+
+        // Always encode Bool as a string if it exists
+        if let boolValue = lkTranscriptionFinal {
+            try container.encode(boolValue ? "true" : "false", forKey: .lkTranscriptionFinal)
+        }
+    }
+}
+
 // MARK: - AgentAttributes
 
 struct AgentAttributes: Codable, Sendable {
