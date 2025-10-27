@@ -91,6 +91,15 @@ open class Session: ObservableObject {
     private enum TokenSourceConfiguration {
         case fixed(any TokenSourceFixed)
         case configurable(any TokenSourceConfigurable, TokenRequestOptions)
+
+        func fetch() async throws -> TokenSourceResponse {
+            switch self {
+            case let .fixed(source):
+                try await source.fetch()
+            case let .configurable(source, options):
+                try await source.fetch(options)
+            }
+        }
     }
 
     private let tokenSourceConfiguration: TokenSourceConfiguration
@@ -236,7 +245,7 @@ open class Session: ObservableObject {
         let timeout = options.agentConnectTimeout
 
         let connect = { @Sendable in
-            let response = try await self.fetchToken()
+            let response = try await self.tokenSourceConfiguration.fetch()
             try await self.room.connect(url: response.serverURL.absoluteString,
                                         token: response.participantToken)
         }
@@ -311,16 +320,5 @@ open class Session: ObservableObject {
     /// - Parameter messages: An array of ``ReceivedMessage`` to restore.
     public func restoreMessageHistory(_ messages: [ReceivedMessage]) {
         messagesDict = .init(uniqueKeysWithValues: messages.sorted(by: { $0.timestamp < $1.timestamp }).map { ($0.id, $0) })
-    }
-
-    // MARK: - Helpers
-
-    private func fetchToken() async throws -> TokenSourceResponse {
-        switch tokenSourceConfiguration {
-        case let .fixed(source):
-            try await source.fetch()
-        case let .configurable(source, options):
-            try await source.fetch(options)
-        }
     }
 }
