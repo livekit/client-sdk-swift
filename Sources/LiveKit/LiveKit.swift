@@ -15,11 +15,7 @@
  */
 
 import Foundation
-import OSLog
 internal import LiveKitWebRTC
-
-// Lazily initialized to the first logger
-let sharedLogger = LiveKitSDK.state.logger
 
 /// The open source platform for real-time communication.
 ///
@@ -80,3 +76,6 @@ public class LiveKitSDK: NSObject, Loggable {
         DeviceManager.prepare()
     }
 }
+
+// Lazily initialized to the first logger
+let sharedLogger = LiveKitSDK.state.logger
