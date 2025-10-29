@@ -66,6 +66,29 @@ public struct DisabledLogger: Logger {
     ) {}
 }
 
+/// A simple `print` logger suitable for debugging in terminal environments outside Xcode
+public struct PrintLogger: Logger {
+    private let minLevel: LogLevel
+
+    public init(minLevel: LogLevel = .info) {
+        self.minLevel = minLevel
+    }
+
+    public func log(
+        _ message: @autoclosure () -> CustomStringConvertible,
+        _ level: LogLevel,
+        source _: @autoclosure () -> String?,
+        file _: StaticString,
+        type: Any.Type,
+        function: StaticString,
+        line _: UInt,
+        metaData _: ScopedMetadataContainer
+    ) {
+        guard level >= minLevel else { return }
+        print("[\(level)] \(type).\(function) \(message())")
+    }
+}
+
 /// A logger that logs to OSLog
 /// - Parameter minLevel: The minimum level to log
 /// - Parameter rtc: Whether to log WebRTC output
@@ -172,7 +195,7 @@ extension Loggable {
 
 @objc
 @frozen
-public enum LogLevel: Int, Sendable, Comparable {
+public enum LogLevel: Int, Sendable, Comparable, CustomStringConvertible {
     case debug
     case info
     case warning
@@ -200,6 +223,15 @@ public enum LogLevel: Int, Sendable, Comparable {
     @inlinable
     public static func < (lhs: LogLevel, rhs: LogLevel) -> Bool {
         lhs.rawValue < rhs.rawValue
+    }
+
+    public var description: String {
+        switch self {
+        case .debug: "Debug"
+        case .info: "Info"
+        case .warning: "Warning"
+        case .error: "Error"
+        }
     }
 }
 
