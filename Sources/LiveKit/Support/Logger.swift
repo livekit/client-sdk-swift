@@ -69,9 +69,11 @@ public struct DisabledLogger: Logger {
 /// A simple `print` logger suitable for debugging in terminal environments outside Xcode
 public struct PrintLogger: Logger {
     private let minLevel: LogLevel
+    private let colors: Bool
 
-    public init(minLevel: LogLevel = .info) {
+    public init(minLevel: LogLevel = .info, colors: Bool = true) {
         self.minLevel = minLevel
+        self.colors = colors
     }
 
     public func log(
@@ -85,7 +87,21 @@ public struct PrintLogger: Logger {
         metaData _: ScopedMetadataContainer
     ) {
         guard level >= minLevel else { return }
-        print("[\(level)] \(type).\(function) \(message())")
+        print("[\(colorCode(level))\(level)\(resetCode)] \(type).\(function) \(message())")
+    }
+
+    private func colorCode(_ level: LogLevel) -> String {
+        guard colors else { return "" }
+        switch level {
+        case .debug: return "\u{001B}[36m"
+        case .info: return "\u{001B}[94m"
+        case .warning: return "\u{001B}[33m"
+        case .error: return "\u{001B}[31m"
+        }
+    }
+
+    private var resetCode: String {
+        colors ? "\u{001B}[0m" : ""
     }
 }
 
