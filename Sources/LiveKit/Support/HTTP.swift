@@ -23,20 +23,24 @@ class HTTP: NSObject {
                                                    delegate: nil,
                                                    delegateQueue: operationQueue)
 
-    static func requestValidation(from url: URL, token: String) async throws -> String {
-        // let data = try await requestData(from: url, token: token)
+    static func requestValidation(from url: URL, token: String) async throws {
         var request = URLRequest(url: url,
                                  cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
                                  timeoutInterval: .defaultHTTPConnect)
         // Attach token to header
         request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
         // Make the data request
-        let (data, _) = try await session.data(for: request)
-        // Convert to string
-        guard let string = String(data: data, encoding: .utf8) else {
-            throw LiveKitError(.failedToConvertData, message: "Failed to convert string")
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
         }
 
-        return string
+        // For non-2xx status codes, throw validation error with response body
+        if !(200 ..< 300).contains(httpResponse.statusCode) {
+            let message = String(data: data, encoding: .utf8)
+            throw LiveKitError(.validation, message: message ?? "(No server message)")
+        }
     }
 }
