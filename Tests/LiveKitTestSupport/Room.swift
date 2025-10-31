@@ -15,6 +15,7 @@
  */
 
 @testable import LiveKit
+import LiveKitFFI
 
 public struct RoomTestingOptions {
     public let delegate: RoomDelegate?
@@ -78,12 +79,24 @@ public extension LKTestCase {
                                             apiSecret: apiSecret,
                                             identity: identity)
 
-        tokenGenerator.videoGrant = LiveKitJWTPayload.VideoGrant(room: room,
-                                                                 roomJoin: true,
-                                                                 canPublish: canPublish,
-                                                                 canSubscribe: canSubscribe,
-                                                                 canPublishData: canPublishData,
-                                                                 canPublishSources: canPublishSources.map(String.init))
+        tokenGenerator.videoGrants = VideoGrants(
+            roomCreate: false,
+            roomList: false,
+            roomRecord: false,
+            roomAdmin: false,
+            roomJoin: true,
+            room: room,
+            destinationRoom: "",
+            canPublish: canPublish,
+            canSubscribe: canSubscribe,
+            canPublishData: canPublishData,
+            canPublishSources: canPublishSources.map(String.init),
+            canUpdateOwnMetadata: false,
+            ingressAdmin: false,
+            hidden: false,
+            recorder: false
+        )
+
         return try tokenGenerator.sign()
     }
 

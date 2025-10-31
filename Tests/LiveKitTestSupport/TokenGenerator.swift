@@ -29,7 +29,7 @@ public class TokenGenerator {
     public var ttl: TimeInterval
     public var name: String?
     public var metadata: String?
-    public var videoGrant: LiveKitJWTPayload.VideoGrant?
+    public var videoGrants: VideoGrants?
 
     public init(apiKey: String,
                 apiSecret: String,
@@ -43,40 +43,19 @@ public class TokenGenerator {
     }
 
     public func sign() throws -> String {
-        var ffiVideoGrants: VideoGrants?
-        if let grant = videoGrant {
-            ffiVideoGrants = VideoGrants(
-                roomCreate: grant.roomCreate ?? false,
-                roomList: grant.roomList ?? false,
-                roomRecord: grant.roomRecord ?? false,
-                roomAdmin: grant.roomAdmin ?? false,
-                roomJoin: grant.roomJoin ?? false,
-                room: grant.room ?? "",
-                destinationRoom: "",
-                canPublish: grant.canPublish ?? false,
-                canSubscribe: grant.canSubscribe ?? false,
-                canPublishData: grant.canPublishData ?? false,
-                canPublishSources: grant.canPublishSources ?? [],
-                canUpdateOwnMetadata: false,
-                ingressAdmin: false,
-                hidden: grant.hidden ?? false,
-                recorder: grant.recorder ?? false
-            )
-        }
-
         let credentials = ApiCredentials(key: apiKey, secret: apiSecret)
         let options = TokenOptions(
             ttl: ttl,
-            videoGrants: ffiVideoGrants,
+            videoGrants: videoGrants,
             sipGrants: nil,
             identity: identity,
             name: name,
             metadata: metadata,
             attributes: nil,
             sha256: nil,
-            roomName: videoGrant?.room
+            roomName: videoGrants?.room
         )
 
-        return try generateToken(options: options, credentials: credentials)
+        return try tokenGenerate(options: options, credentials: credentials)
     }
 }
