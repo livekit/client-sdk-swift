@@ -48,16 +48,39 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
     }
 
+    public struct SessionRequirement: Sendable {
+        public static let none = Self(isPlayoutEnabled: false, isRecordingEnabled: false)
+        public static let playbackOnly = Self(isPlayoutEnabled: true, isRecordingEnabled: false)
+        public static let recordingOnly = Self(isPlayoutEnabled: false, isRecordingEnabled: true)
+        public static let playbackAndRecording = Self(isPlayoutEnabled: true, isRecordingEnabled: true)
+
+        public let isPlayoutEnabled: Bool
+        public let isRecordingEnabled: Bool
+
+        public init(isPlayoutEnabled: Bool = false, isRecordingEnabled: Bool = false) {
+            self.isPlayoutEnabled = isPlayoutEnabled
+            self.isRecordingEnabled = isRecordingEnabled
+        }
+    }
+
     struct State: Sendable {
         var next: (any AudioEngineObserver)?
 
         var isAutomaticConfigurationEnabled: Bool = true
-        var isPlayoutEnabled: Bool = false
-        var isRecordingEnabled: Bool = false
         var isSpeakerOutputPreferred: Bool = true
+
+        //
+        var sessionRequirements: [UUID: SessionRequirement] = [:]
+
+        // Computed
+        var isPlayoutEnabled: Bool { sessionRequirements.values.contains(where: \.isPlayoutEnabled) }
+        var isRecordingEnabled: Bool { sessionRequirements.values.contains(where: \.isRecordingEnabled) }
     }
 
     let _state = StateSync(State())
+
+    // Session requirement id for this object
+    private let sessionRequirementId = UUID()
 
     public var next: (any AudioEngineObserver)? {
         get { _state.next }
@@ -83,6 +106,10 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         }
     }
 
+    public func set(requirement: SessionRequirement, for id: UUID) {
+        _state.mutate { $0.sessionRequirements[id] = requirement }
+    }
+
     @Sendable func configure(oldState: State, newState: State) {
         let session = LKRTCAudioSession.sharedInstance()
 
@@ -91,6 +118,8 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             session.unlockForConfiguration()
             log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
         }
+
+        log("configure isRecordingEnabled: \(newState.isRecordingEnabled), isPlayoutEnabled: \(newState.isPlayoutEnabled)")
 
         if (!newState.isPlayoutEnabled && !newState.isRecordingEnabled) && (oldState.isPlayoutEnabled || oldState.isRecordingEnabled) {
             do {
@@ -123,10 +152,8 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     }
 
     public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
-        _state.mutate {
-            $0.isPlayoutEnabled = isPlayoutEnabled
-            $0.isRecordingEnabled = isRecordingEnabled
-        }
+        let requirement = SessionRequirement(isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+        set(requirement: requirement, for: sessionRequirementId)
 
         // Call next last
         return _state.next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
@@ -136,10 +163,8 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         // Call next first
         let nextResult = _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
 
-        _state.mutate {
-            $0.isPlayoutEnabled = isPlayoutEnabled
-            $0.isRecordingEnabled = isRecordingEnabled
-        }
+        let requirement = SessionRequirement(isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+        set(requirement: requirement, for: sessionRequirementId)
 
         return nextResult ?? 0
     }
