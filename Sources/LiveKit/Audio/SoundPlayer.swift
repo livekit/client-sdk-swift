@@ -21,6 +21,9 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
     private let playerNodes = AVAudioPlayerNodePool()
     public let outputFormat: AVAudioFormat
 
+    // Session requirement id for this object
+    private let sessionRequirementId = UUID()
+
     private struct State {
         var sounds: [String: AVAudioPCMBuffer] = [:]
     }
@@ -41,6 +44,11 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
 
         playerNodes.connect(to: engine, node: engine.mainMixerNode, format: outputFormat)
 
+        // Request
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        AudioManager.shared.audioSession.set(requirement: .playbackOnly, for: sessionRequirementId)
+        #endif
+
         try engine.start()
         log("Audio engine started")
     }
@@ -54,6 +62,10 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
 
         playerNodes.stop()
         engine.stop()
+
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        AudioManager.shared.audioSession.set(requirement: .none, for: sessionRequirementId)
+        #endif
 
         log("Audio engine stopped")
     }
