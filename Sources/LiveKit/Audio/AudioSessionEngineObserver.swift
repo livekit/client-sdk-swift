@@ -92,14 +92,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
         }
 
-        if (!newState.isPlayoutEnabled && !newState.isRecordingEnabled) && (oldState.isPlayoutEnabled || oldState.isRecordingEnabled) {
-            do {
-                log("AudioSession deactivating...")
-                try session.setActive(false)
-            } catch {
-                log("AudioSession failed to deactivate with error: \(error)", .error)
-            }
-        } else if newState.isRecordingEnabled || newState.isPlayoutEnabled {
+        if newState.isRecordingEnabled || newState.isPlayoutEnabled {
             // Configure and activate the session with the appropriate category
             let playAndRecord: AudioSessionConfiguration = newState.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver
             let config: AudioSessionConfiguration = newState.isRecordingEnabled ? playAndRecord : .playback
