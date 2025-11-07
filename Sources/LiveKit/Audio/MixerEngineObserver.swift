@@ -224,7 +224,7 @@ extension MixerEngineObserver {
 
         appNode.scheduleBuffer(buffer)
 
-        if !appNode.isPlaying {
+        if !appNode.isPlaying, let engine = appNode.engine, engine.isRunning {
             appNode.play()
         }
     }
