@@ -159,9 +159,10 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
             if AVCaptureMultiCamSession.isMultiCamSupported {
                 // Get the list of devices already on the shared multi-cam session.
                 let existingDevices = captureSession.inputs.compactMap { $0 as? AVCaptureDeviceInput }.map(\.device)
-                log("Existing devices: \(existingDevices)")
+                log("Existing multicam devices: \(existingDevices)")
                 // Compute other multi-cam compatible devices.
                 devices = try await DeviceManager.shared.multiCamCompatibleDevices(for: Set(existingDevices))
+                log("Compabible multicam devices: \(devices)")
             } else {
                 devices = try await CameraCapturer.captureDevices()
             }
@@ -194,20 +195,60 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
 
         // default to the largest supported dimensions (backup)
         var selectedFormat = sortedFormats.last
+        var selectedPredicateName: String? = nil
 
         if let preferredFormat = options.preferredFormat,
            let foundFormat = sortedFormats.first(where: { $0.format == preferredFormat })
         {
             // Use the preferred capture format if specified in options
             selectedFormat = foundFormat
+            selectedPredicateName = "preferred"
         } else {
-            if let foundFormat = sortedFormats.first(where: { ($0.dimensions.width >= self.options.dimensions.width && $0.dimensions.height >= self.options.dimensions.height) && $0.format.fpsRange().contains(self.options.fps) && $0.format.filterForMulticamSupport }) {
-                // Use the first format that satisfies preferred dimensions & fps
-                selectedFormat = foundFormat
-            } else if let foundFormat = sortedFormats.first(where: { $0.dimensions.width >= self.options.dimensions.width && $0.dimensions.height >= self.options.dimensions.height }) {
-                // Use the first format that satisfies preferred dimensions (without fps)
-                selectedFormat = foundFormat
+            let targetDimensions = options.dimensions
+            let targetFps = options.fps
+
+            typealias FormatTuple = (format: AVCaptureDevice.Format, dimensions: Dimensions)
+
+            func manhattanDistance(_ format: FormatTuple) -> Int {
+                let widthDiff = abs(format.dimensions.width - targetDimensions.width)
+                let heightDiff = abs(format.dimensions.height - targetDimensions.height)
+                return Int(widthDiff) + Int(heightDiff)
             }
+
+            let any: (FormatTuple) -> Bool = { _ in true }
+            let matchesFps: (FormatTuple) -> Bool = { $0.format.fpsRange().contains(targetFps) }
+            let supportsMulticam: (FormatTuple) -> Bool = { $0.format.filterForMulticamSupport }
+            let byManhattanDistance: (FormatTuple, FormatTuple) -> Bool = { manhattanDistance($0) < manhattanDistance($1) }
+
+            #if os(iOS) || os(tvOS)
+            let isMulticamActive = AVCaptureMultiCamSession.isMultiCamSupported && !captureSession.inputs.isEmpty
+            let criteria: [(name: String, filter: (FormatTuple) -> Bool)] = isMulticamActive ? [
+                (name: "fps, multicam", filter: { matchesFps($0) && supportsMulticam($0) }),
+                (name: "multicam", filter: supportsMulticam),
+                (name: "fps", filter: matchesFps),
+                (name: "(fallback)", filter: any),
+            ] : [
+                (name: "fps", filter: matchesFps),
+                (name: "(fallback)", filter: any),
+            ]
+            #else
+            let criteria: [(name: String, filter: (FormatTuple) -> Bool)] = [
+                (name: "fps", filter: matchesFps),
+                (name: "(fallback)", filter: any),
+            ]
+            #endif
+
+            for (name, filter) in criteria {
+                if let foundFormat = sortedFormats.sorted(by: byManhattanDistance).first(where: filter) {
+                    selectedFormat = foundFormat
+                    selectedPredicateName = name
+                    break
+                }
+            }
+        }
+
+        if let selectedPredicateName {
+            log("Format selected using predicate: \(selectedPredicateName)")
         }
 
         // format should be resolved at this point
