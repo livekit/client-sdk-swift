@@ -207,12 +207,6 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
             let targetDimensions = options.dimensions
             let targetFps = options.fps
 
-            #if os(iOS) || os(tvOS)
-            let isMulticamActive = AVCaptureMultiCamSession.isMultiCamSupported && !captureSession.inputs.isEmpty
-            #else
-            let isMulticamActive = false
-            #endif
-
             typealias FormatTuple = (format: AVCaptureDevice.Format, dimensions: Dimensions)
 
             func manhattanDistance(_ format: FormatTuple) -> Int {
@@ -226,6 +220,8 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
             let supportsMulticam: (FormatTuple) -> Bool = { $0.format.filterForMulticamSupport }
             let byManhattanDistance: (FormatTuple, FormatTuple) -> Bool = { manhattanDistance($0) < manhattanDistance($1) }
 
+            #if os(iOS) || os(tvOS)
+            let isMulticamActive = AVCaptureMultiCamSession.isMultiCamSupported && !captureSession.inputs.isEmpty
             let criteria: [(name: String, filter: (FormatTuple) -> Bool)] = isMulticamActive ? [
                 (name: "fps, multicam", filter: { matchesFps($0) && supportsMulticam($0) }),
                 (name: "multicam", filter: supportsMulticam),
@@ -235,6 +231,12 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
                 (name: "fps", filter: matchesFps),
                 (name: "(fallback)", filter: any),
             ]
+            #else
+            let criteria: [(name: String, filter: (FormatTuple) -> Bool)] = [
+                (name: "fps", filter: matchesFps),
+                (name: "(fallback)", filter: any),
+            ]
+            #endif
 
             for (name, filter) in criteria {
                 if let foundFormat = sortedFormats.sorted(by: byManhattanDistance).first(where: filter) {
