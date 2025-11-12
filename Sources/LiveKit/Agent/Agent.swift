@@ -35,11 +35,14 @@ public struct Agent: Loggable {
 
     public enum Error: LocalizedError {
         case timeout
+        case left
 
         public var errorDescription: String? {
             switch self {
             case .timeout:
-                "Agent did not connect"
+                "Agent did not connect to the room"
+            case .left:
+                "Agent left the room unexpectedly"
             }
         }
     }

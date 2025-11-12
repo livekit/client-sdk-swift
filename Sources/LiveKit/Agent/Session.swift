@@ -213,6 +213,8 @@ open class Session: ObservableObject {
             agent.disconnected()
         } else if let firstAgent = room.agentParticipants.values.first {
             agent.connected(participant: firstAgent)
+        } else if agent.isConnected {
+            agent.failed(error: .left)
         } else {
             agent.connecting(buffering: options.preConnectAudio)
         }
