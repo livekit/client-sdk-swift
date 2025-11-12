@@ -18,6 +18,7 @@
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
+import LiveKitFFI
 
 class TokenSourceTests: LKTestCase {
     actor MockValidJWTSource: TokenSourceConfigurable {
@@ -38,7 +39,23 @@ class TokenSourceTests: LKTestCase {
                 identity: options.participantIdentity ?? "test-identity"
             )
             tokenGenerator.name = options.participantName ?? participantName
-            tokenGenerator.videoGrant = LiveKitJWTPayload.VideoGrant(room: options.roomName ?? "test-room", roomJoin: true)
+            tokenGenerator.videoGrants = VideoGrants(
+                roomCreate: false,
+                roomList: false,
+                roomRecord: false,
+                roomAdmin: false,
+                roomJoin: true,
+                room: options.roomName ?? "test-room",
+                destinationRoom: "",
+                canPublish: false,
+                canSubscribe: false,
+                canPublishData: false,
+                canPublishSources: [],
+                canUpdateOwnMetadata: false,
+                ingressAdmin: false,
+                hidden: false,
+                recorder: false
+            )
 
             let token = try tokenGenerator.sign()
 
@@ -74,10 +91,26 @@ class TokenSourceTests: LKTestCase {
                 apiKey: "test-api-key",
                 apiSecret: "test-api-secret",
                 identity: options.participantIdentity ?? "test-identity",
-                ttl: -60
+                ttl: 0
             )
             tokenGenerator.name = options.participantName ?? "test-participant"
-            tokenGenerator.videoGrant = LiveKitJWTPayload.VideoGrant(room: options.roomName ?? "test-room", roomJoin: true)
+            tokenGenerator.videoGrants = VideoGrants(
+                roomCreate: false,
+                roomList: false,
+                roomRecord: false,
+                roomAdmin: false,
+                roomJoin: true,
+                room: options.roomName ?? "test-room",
+                destinationRoom: "",
+                canPublish: false,
+                canSubscribe: false,
+                canPublishData: false,
+                canPublishSources: [],
+                canUpdateOwnMetadata: false,
+                ingressAdmin: false,
+                hidden: false,
+                recorder: false
+            )
 
             let token = try tokenGenerator.sign()
 
