@@ -30,6 +30,7 @@ public class TokenGenerator {
     public var name: String?
     public var metadata: String?
     public var videoGrant: LiveKitJWTPayload.VideoGrant?
+    public var roomConfiguration: LiveKitJWTPayload.RoomConfiguration?
 
     // MARK: - Private
 
@@ -58,7 +59,8 @@ public class TokenGenerator {
                                   sub: .init(stringLiteral: identity),
                                   name: name,
                                   metadata: metadata,
-                                  video: videoGrant)
+                                  video: videoGrant,
+                                  roomConfiguration: roomConfiguration)
 
         return try signers.sign(p)
     }
