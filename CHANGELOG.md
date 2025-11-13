@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.10.0] - 2025-11-13
+
+### Added
+
+- Separate delegate methods for reconnect start/completion
+- Agent and Session APIs for creating agent-based apps
+
+### Fixed
+
+- Improved capture format logic for multicam devices
+
 ## [2.9.0] - 2025-10-20
 
 ### Added
