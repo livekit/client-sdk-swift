@@ -213,6 +213,8 @@ open class Session: ObservableObject {
             agent.disconnected()
         } else if let firstAgent = room.agentParticipants.values.first {
             agent.connected(participant: firstAgent)
+        } else if agent.isConnected {
+            agent.failed(error: .left)
         } else {
             agent.connecting(buffering: options.preConnectAudio)
         }
@@ -248,30 +250,34 @@ open class Session: ObservableObject {
             let response = try await self.tokenSourceConfiguration.fetch()
             try await self.room.connect(url: response.serverURL.absoluteString,
                                         token: response.participantToken)
+            return response.dispatchesAgent()
         }
 
         do {
+            let dispatchesAgent: Bool
             if options.preConnectAudio {
-                try await room.withPreConnectAudio(timeout: timeout) {
+                dispatchesAgent = try await room.withPreConnectAudio(timeout: timeout) {
                     await MainActor.run {
                         self.connectionState = .connecting
                         self.agent.connecting(buffering: true)
                     }
-                    try await connect()
+                    return try await connect()
                 }
             } else {
                 connectionState = .connecting
                 agent.connecting(buffering: false)
-                try await connect()
+                dispatchesAgent = try await connect()
                 try await room.localParticipant.setMicrophone(enabled: true)
             }
 
-            waitForAgentTask = Task { [weak self] in
-                try await Task.sleep(nanoseconds: UInt64(timeout * Double(NSEC_PER_SEC)))
-                try Task.checkCancellation()
-                guard let self else { return }
-                if isConnected, !agent.isConnected {
-                    agent.failed(error: .timeout)
+            if dispatchesAgent {
+                waitForAgentTask = Task { [weak self] in
+                    try await Task.sleep(nanoseconds: UInt64(timeout * Double(NSEC_PER_SEC)))
+                    try Task.checkCancellation()
+                    guard let self else { return }
+                    if isConnected, !agent.isConnected {
+                        agent.failed(error: .timeout)
+                    }
                 }
             }
         } catch {
