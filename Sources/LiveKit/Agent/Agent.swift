@@ -139,19 +139,6 @@ public extension Agent {
         }
     }
 
-    /// A boolean value indicating whether the client has disconnected from the agent.
-    ///
-    /// Returns `true` when the agent session has ended, either for an expected or unexpected reason
-    /// (including failures).
-    var isFinished: Bool {
-        switch state {
-        case .disconnected, .failed:
-            true
-        default:
-            false
-        }
-    }
-
     /// A boolean value indicating whether the agent is currently connecting or setting itself up.
     ///
     /// Returns `true` during the connection phase (before pre-connect buffering begins) or
@@ -167,6 +154,19 @@ public extension Agent {
             default:
                 false
             }
+        default:
+            false
+        }
+    }
+
+    /// A boolean value indicating whether the client has disconnected from the agent.
+    ///
+    /// Returns `true` when the agent session has ended, either for an expected or unexpected reason
+    /// (including failures).
+    var isFinished: Bool {
+        switch state {
+        case .disconnected, .failed:
+            true
         default:
             false
         }
