@@ -56,42 +56,30 @@ public struct Agent: Loggable {
         case failed(error: Error)
     }
 
-    private var state: State = .disconnected
+    private var state: State = .disconnected {
+        didSet {
+            log("\(oldValue) → \(state)")
+        }
+    }
 
     // MARK: - Transitions
 
     mutating func disconnected() {
-        log("Agent disconnected from \(state)")
-        // From any state
         state = .disconnected
     }
 
     mutating func failed(error: Error) {
-        log("Agent failed with error \(error) from \(state)")
-        // From any state
         state = .failed(error: error)
     }
 
     mutating func connecting(buffering: Bool) {
-        log("Agent connecting from \(state)")
-        switch state {
-        case .disconnected, .connecting:
-            state = .connecting(buffering: buffering)
-        default:
-            log("Invalid transition from \(state) to connecting", .warning)
-        }
+        state = .connecting(buffering: buffering)
     }
 
     mutating func connected(participant: Participant) {
-        log("Agent connected to \(participant) from \(state)")
-        switch state {
-        case .connecting, .connected:
-            state = .connected(agentState: participant.agentState,
-                               audioTrack: participant.agentAudioTrack,
-                               avatarVideoTrack: participant.avatarVideoTrack)
-        default:
-            log("Invalid transition from \(state) to connected", .warning)
-        }
+        state = .connected(agentState: participant.agentState,
+                           audioTrack: participant.agentAudioTrack,
+                           avatarVideoTrack: participant.avatarVideoTrack)
     }
 }
 
