@@ -206,6 +206,13 @@ extension MixerEngineObserver {
 
     // Capture appAudio and apply conversion automatically suitable for internal audio engine.
     public func capture(appAudio inputBuffer: AVAudioPCMBuffer) {
+        guard let converter = converter(for: inputBuffer.format) else {
+            log("Failed to get converter for input buffer format: \(inputBuffer.format)", .warning)
+            return
+        }
+
+        let buffer = converter.convert(from: inputBuffer)
+
         let (isConnected, appNode) = _state.read {
             ($0.isInputConnected, $0.appNode)
         }
@@ -215,15 +222,9 @@ extension MixerEngineObserver {
             return
         }
 
-        // Create or update the converter if needed
-        let converter = converter(for: inputBuffer.format)
-
-        guard let converter else { return }
-
-        let buffer = converter.convert(from: inputBuffer)
         appNode.scheduleBuffer(buffer)
 
-        if !appNode.isPlaying {
+        if !appNode.isPlaying, let engine = appNode.engine, engine.isRunning {
             appNode.play()
         }
     }
