@@ -161,10 +161,10 @@ extension Room {
                                           primary: !isSubscriberPrimary,
                                           delegate: self)
 
-            await publisher.set { [weak self] offer in
+            await publisher.set { [weak self] offer, offerId in
                 guard let self else { return }
-                log("Publisher onOffer \(offer.sdp)")
-                try await signalClient.send(offer: offer)
+                log("Publisher onOffer with offerId: \(offerId), sdp: \(offer.sdp)")
+                try await signalClient.send(offer: offer, offerId: offerId)
             }
 
             // data over pub channel for backwards compatibility
@@ -462,8 +462,8 @@ extension Room {
             $0.subscribe = !autoSubscribe
         }
 
-        try await signalClient.sendSyncState(answer: previousAnswer?.toPBType(),
-                                             offer: previousOffer?.toPBType(),
+        try await signalClient.sendSyncState(answer: previousAnswer?.toPBType(offerId: 0),
+                                             offer: previousOffer?.toPBType(offerId: 0),
                                              subscription: subscription,
                                              publishTracks: localParticipant.publishedTracksInfo(),
                                              dataChannels: publisherDataChannel.infos(),

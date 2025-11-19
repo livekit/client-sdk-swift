@@ -279,10 +279,12 @@ private extension SignalClient {
             await _restartPingTimer()
 
         case let .answer(sd):
-            _delegate.notifyDetached { await $0.signalClient(self, didReceiveAnswer: sd.toRTCType()) }
+            let (rtcDescription, offerId) = sd.toRTCType()
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveAnswer: rtcDescription, offerId: offerId) }
 
         case let .offer(sd):
-            _delegate.notifyDetached { await $0.signalClient(self, didReceiveOffer: sd.toRTCType()) }
+            let (rtcDescription, offerId) = sd.toRTCType()
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveOffer: rtcDescription, offerId: offerId) }
 
         case let .trickle(trickle):
             guard let rtcCandidate = try? RTC.createIceCandidate(fromJsonString: trickle.candidateInit) else {
@@ -358,17 +360,17 @@ extension SignalClient {
 // MARK: - Send methods
 
 extension SignalClient {
-    func send(offer: LKRTCSessionDescription) async throws {
+    func send(offer: LKRTCSessionDescription, offerId: UInt32) async throws {
         let r = Livekit_SignalRequest.with {
-            $0.offer = offer.toPBType()
+            $0.offer = offer.toPBType(offerId: offerId)
         }
 
         try await _sendRequest(r)
     }
 
-    func send(answer: LKRTCSessionDescription) async throws {
+    func send(answer: LKRTCSessionDescription, offerId: UInt32) async throws {
         let r = Livekit_SignalRequest.with {
-            $0.answer = answer.toPBType()
+            $0.answer = answer.toPBType(offerId: offerId)
         }
 
         try await _sendRequest(r)
