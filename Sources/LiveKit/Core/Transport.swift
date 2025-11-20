@@ -179,6 +179,7 @@ actor Transport: NSObject, Loggable {
         }
 
         if signalingState == .haveLocalOffer, iceRestart, let sd = remoteDescription {
+            _reNegotiate = false // Clear flag to prevent double offer
             try await set(remoteDescription: sd)
             return try await _negotiateSequence()
         }
