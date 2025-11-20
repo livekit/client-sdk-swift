@@ -322,7 +322,7 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription, offerId: UInt32) async {
-        log("Received answer with offerId: \(offerId)")
+        log("Received answer for offerId: \(offerId)")
 
         do {
             let publisher = try requirePublisher()
@@ -346,7 +346,7 @@ extension Room: SignalClientDelegate {
             try await subscriber.set(localDescription: answer)
             try await signalClient.send(answer: answer, offerId: offerId)
         } catch {
-            log("Failed to send answer with offerId: \(offerId), error: \(error)", .error)
+            log("Failed to send answer for offerId: \(offerId), error: \(error)", .error)
         }
     }
 

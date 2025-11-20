@@ -126,13 +126,15 @@ actor SignalClient: Loggable {
                                      participantSid: participantSid,
                                      adaptiveStream: adaptiveStream)
 
-        if reconnectMode != nil {
-            log("[Connect] with url: \(url)")
+        let isReconnect = reconnectMode != nil
+
+        if isReconnect {
+            log("Reconnecting with url: \(url)")
         } else {
             log("Connecting with url: \(url)")
         }
 
-        _state.mutate { $0.connectionState = (reconnectMode != nil ? .reconnecting : .connecting) }
+        _state.mutate { $0.connectionState = (isReconnect ? .reconnecting : .connecting) }
 
         do {
             let socket = try await WebSocket(url: url,

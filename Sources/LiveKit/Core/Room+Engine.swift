@@ -318,7 +318,13 @@ extension Room {
 
             log("[Connect] Waiting for subscriber to connect...")
             // Wait for primary transport to connect (if not already)
-            try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
+            do {
+                try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
+                log("[Connect] Subscriber transport connected")
+            } catch {
+                log("[Connect] Subscriber transport failed to connect, error: \(error)", .error)
+                throw error
+            }
             try Task.checkCancellation()
 
             // send SyncState before offer
@@ -330,7 +336,13 @@ extension Room {
                 // Only if published, wait for publisher to connect...
                 log("[Connect] Waiting for publisher to connect...")
                 try await publisher.createAndSendOffer(iceRestart: true)
-                try await publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
+                do {
+                    try await publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
+                    log("[Connect] Publisher transport connected")
+                } catch {
+                    log("[Connect] Publisher transport failed to connect, error: \(error)", .error)
+                    throw error
+                }
             }
         }
 
