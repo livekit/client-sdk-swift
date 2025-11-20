@@ -128,7 +128,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         var rtpReceiver: LKRTCRtpReceiver?
 
         // All VideoRendererAdapters attached to this track, key/value for direct removal.
-        var videoRendererAdapters = NSMapTable<VideoRenderer, VideoRendererAdapter>.weakToStrongObjects()
+        var videoRendererAdapters = MapTable<VideoRenderer, VideoRendererAdapter>.weakToStrongObjects()
     }
 
     let _state: StateSync<State>
