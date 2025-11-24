@@ -90,6 +90,14 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         capturer.captureSession
     }
 
+    private var isMulticamSession: Bool {
+        #if os(iOS) || os(tvOS)
+        captureSession is AVCaptureMultiCamSession
+        #else
+        false
+        #endif
+    }
+
     // RTCCameraVideoCapturer used internally for now
     private lazy var capturer: LKRTCCameraVideoCapturer = .init(delegate: adapter)
 
@@ -154,9 +162,8 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         var device: AVCaptureDevice? = options.device
 
         if device == nil {
-            #if os(iOS) || os(tvOS)
             var devices: [AVCaptureDevice]
-            if AVCaptureMultiCamSession.isMultiCamSupported {
+            if isMulticamSession {
                 // Get the list of devices already on the shared multi-cam session.
                 let existingDevices = captureSession.inputs.compactMap { $0 as? AVCaptureDeviceInput }.map(\.device)
                 log("Existing multicam devices: \(existingDevices)")
@@ -166,9 +173,6 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
             } else {
                 devices = try await CameraCapturer.captureDevices()
             }
-            #else
-            var devices = try await CameraCapturer.captureDevices()
-            #endif
 
             #if !os(visionOS)
             // Filter by deviceType if specified in options.
@@ -220,9 +224,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
             let supportsMulticam: (FormatTuple) -> Bool = { $0.format.filterForMulticamSupport }
             let byManhattanDistance: (FormatTuple, FormatTuple) -> Bool = { manhattanDistance($0) < manhattanDistance($1) }
 
-            #if os(iOS) || os(tvOS)
-            let isMulticamActive = AVCaptureMultiCamSession.isMultiCamSupported && !captureSession.inputs.isEmpty
-            let criteria: [(name: String, filter: (FormatTuple) -> Bool)] = isMulticamActive ? [
+            let criteria: [(name: String, filter: (FormatTuple) -> Bool)] = isMulticamSession ? [
                 (name: "fps, multicam", filter: { matchesFps($0) && supportsMulticam($0) }),
                 (name: "multicam", filter: supportsMulticam),
                 (name: "fps", filter: matchesFps),
@@ -231,12 +233,6 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
                 (name: "fps", filter: matchesFps),
                 (name: "(fallback)", filter: any),
             ]
-            #else
-            let criteria: [(name: String, filter: (FormatTuple) -> Bool)] = [
-                (name: "fps", filter: matchesFps),
-                (name: "(fallback)", filter: any),
-            ]
-            #endif
 
             for (name, filter) in criteria {
                 if let foundFormat = sortedFormats.sorted(by: byManhattanDistance).first(where: filter) {
