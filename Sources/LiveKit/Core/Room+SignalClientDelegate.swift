@@ -32,10 +32,12 @@ extension Room: SignalClientDelegate {
            // engine is currently connected state
            case .connected = _state.connectionState
         {
-            do {
-                try await startReconnect(reason: .websocket)
-            } catch {
-                log("Failed calling startReconnect, error: \(error)", .error)
+            Task {
+                do {
+                    try await startReconnect(reason: .websocket)
+                } catch {
+                    log("Failed calling startReconnect, error: \(error)", .error)
+                }
             }
         }
     }
