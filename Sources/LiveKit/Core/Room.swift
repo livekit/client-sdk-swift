@@ -635,9 +635,12 @@ extension Room: DataChannelDelegate {
         case let .rpcResponse(response): room(didReceiveRpcResponse: response)
         case let .rpcAck(ack): room(didReceiveRpcAck: ack)
         case let .rpcRequest(request): room(didReceiveRpcRequest: request, from: dataPacket.participantIdentity)
-        case let .streamHeader(header): Task { await incomingStreamManager.handle(header: header, from: dataPacket.participantIdentity, encryptionType: dataPacket.encryptedPacket.encryptionType.toLKType()) }
-        case let .streamChunk(chunk): Task { await incomingStreamManager.handle(chunk: chunk, encryptionType: dataPacket.encryptedPacket.encryptionType.toLKType()) }
-        case let .streamTrailer(trailer): Task { await incomingStreamManager.handle(trailer: trailer, encryptionType: dataPacket.encryptedPacket.encryptionType.toLKType()) }
+        case let .streamHeader(header):
+            incomingStreamManager.handle(.header(header, dataPacket.participantIdentity, dataPacket.encryptedPacket.encryptionType.toLKType()))
+        case let .streamChunk(chunk):
+            incomingStreamManager.handle(.chunk(chunk, dataPacket.encryptedPacket.encryptionType.toLKType()))
+        case let .streamTrailer(trailer):
+            incomingStreamManager.handle(.trailer(trailer, dataPacket.encryptedPacket.encryptionType.toLKType()))
         default: return
         }
     }
