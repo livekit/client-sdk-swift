@@ -221,18 +221,28 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
 
             let any: (FormatTuple) -> Bool = { _ in true }
             let matchesFps: (FormatTuple) -> Bool = { $0.format.fpsRange().contains(targetFps) }
+            let matchesAspectRatio: (FormatTuple) -> Bool = {
+                let sourceRatio = Double($0.dimensions.width) / Double($0.dimensions.height)
+                let targetRatio = Double(targetDimensions.width) / Double(targetDimensions.height)
+                // Allow 5% tolerance for aspect ratio mismatch
+                return abs(sourceRatio - targetRatio) / targetRatio < 0.05
+            }
             let supportsMultiCam: (FormatTuple) -> Bool = { $0.format.filterForMultiCamSupport }
             let byManhattanDistance: (FormatTuple, FormatTuple) -> Bool = { manhattanDistance($0) < manhattanDistance($1) }
 
-            let criteria: [(name: String, filter: (FormatTuple) -> Bool)] = isMultiCamSession ? [
-                (name: "fps, multiCam", filter: { matchesFps($0) && supportsMultiCam($0) }),
+            var criteria: [(name: String, filter: (FormatTuple) -> Bool)] = isMultiCamSession ? [
+                (name: "multiCam, aspectRatio, fps", filter: { supportsMultiCam($0) && matchesAspectRatio($0) && matchesFps($0) }),
+                (name: "multiCam, aspectRatio", filter: { supportsMultiCam($0) && matchesAspectRatio($0) }),
+                (name: "multiCam, fps", filter: { supportsMultiCam($0) && matchesFps($0) }),
                 (name: "multiCam", filter: supportsMultiCam),
+            ] : []
+
+            criteria.append(contentsOf: [
+                (name: "aspectRatio, fps", filter: { matchesAspectRatio($0) && matchesFps($0) }),
+                (name: "aspectRatio", filter: matchesAspectRatio),
                 (name: "fps", filter: matchesFps),
                 (name: "(fallback)", filter: any),
-            ] : [
-                (name: "fps", filter: matchesFps),
-                (name: "(fallback)", filter: any),
-            ]
+            ])
 
             for (name, filter) in criteria {
                 if let foundFormat = sortedFormats.sorted(by: byManhattanDistance).first(where: filter) {
