@@ -90,7 +90,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         capturer.captureSession
     }
 
-    private var isMulticamSession: Bool {
+    private var isMultiCamSession: Bool {
         #if os(iOS) || os(tvOS)
         captureSession is AVCaptureMultiCamSession
         #else
@@ -163,13 +163,13 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
 
         if device == nil {
             var devices: [AVCaptureDevice]
-            if isMulticamSession {
+            if isMultiCamSession {
                 // Get the list of devices already on the shared multi-cam session.
                 let existingDevices = captureSession.inputs.compactMap { $0 as? AVCaptureDeviceInput }.map(\.device)
-                log("Existing multicam devices: \(existingDevices)")
+                log("Existing multiCam devices: \(existingDevices)")
                 // Compute other multi-cam compatible devices.
                 devices = try await DeviceManager.shared.multiCamCompatibleDevices(for: Set(existingDevices))
-                log("Compabible multicam devices: \(devices)")
+                log("Compabible multiCam devices: \(devices)")
             } else {
                 devices = try await CameraCapturer.captureDevices()
             }
@@ -221,12 +221,12 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
 
             let any: (FormatTuple) -> Bool = { _ in true }
             let matchesFps: (FormatTuple) -> Bool = { $0.format.fpsRange().contains(targetFps) }
-            let supportsMulticam: (FormatTuple) -> Bool = { $0.format.filterForMulticamSupport }
+            let supportsMultiCam: (FormatTuple) -> Bool = { $0.format.filterForMultiCamSupport }
             let byManhattanDistance: (FormatTuple, FormatTuple) -> Bool = { manhattanDistance($0) < manhattanDistance($1) }
 
-            let criteria: [(name: String, filter: (FormatTuple) -> Bool)] = isMulticamSession ? [
-                (name: "fps, multicam", filter: { matchesFps($0) && supportsMulticam($0) }),
-                (name: "multicam", filter: supportsMulticam),
+            let criteria: [(name: String, filter: (FormatTuple) -> Bool)] = isMultiCamSession ? [
+                (name: "fps, multiCam", filter: { matchesFps($0) && supportsMultiCam($0) }),
+                (name: "multiCam", filter: supportsMultiCam),
                 (name: "fps", filter: matchesFps),
                 (name: "(fallback)", filter: any),
             ] : [
@@ -380,7 +380,7 @@ extension AVCaptureDevice.Format {
 
     // Used for filtering.
     // Only include multi-cam supported devices if in multi-cam mode. Otherwise, always include the devices.
-    var filterForMulticamSupport: Bool {
+    var filterForMultiCamSupport: Bool {
         #if os(iOS) || os(tvOS)
         return AVCaptureMultiCamSession.isMultiCamSupported ? isMultiCamSupported : true
         #else
