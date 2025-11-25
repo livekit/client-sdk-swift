@@ -169,7 +169,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
                 log("Existing multiCam devices: \(existingDevices)")
                 // Compute other multi-cam compatible devices.
                 devices = try await DeviceManager.shared.multiCamCompatibleDevices(for: Set(existingDevices))
-                log("Compabible multiCam devices: \(devices)")
+                log("Compatible multiCam devices: \(devices)")
             } else {
                 devices = try await CameraCapturer.captureDevices()
             }
@@ -224,8 +224,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
             let matchesAspectRatio: (FormatTuple) -> Bool = {
                 let sourceRatio = Double($0.dimensions.width) / Double($0.dimensions.height)
                 let targetRatio = Double(targetDimensions.width) / Double(targetDimensions.height)
-                // Allow 5% tolerance for aspect ratio mismatch
-                return abs(sourceRatio - targetRatio) / targetRatio < 0.05
+                return abs(sourceRatio - targetRatio) / targetRatio < CGFloat.aspectRatioTolerance
             }
             let supportsMultiCam: (FormatTuple) -> Bool = { $0.format.filterForMultiCamSupport }
             let byManhattanDistance: (FormatTuple, FormatTuple) -> Bool = { manhattanDistance($0) < manhattanDistance($1) }
