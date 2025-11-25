@@ -25,7 +25,7 @@ public final class CameraCaptureOptions: NSObject, VideoCaptureOptions, Sendable
     public let deviceType: AVCaptureDevice.DeviceType?
     #endif
 
-    /// Exact devce to use.
+    /// Exact device to use.
     @objc
     public let device: AVCaptureDevice?
 
