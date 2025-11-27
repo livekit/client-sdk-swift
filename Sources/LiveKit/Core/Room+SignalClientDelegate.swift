@@ -45,12 +45,16 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason) async {
         log("canReconnect: \(canReconnect), reason: \(reason)")
 
+        let error = LiveKitError.from(reason: reason)
+
         if canReconnect {
             // force .full for next reconnect
             _state.mutate { $0.nextReconnectMode = .full }
+            // Abort current connection attempt
+            await signalClient.cleanUp(withError: error)
         } else {
             // Server indicates it's not recoverable
-            await cleanUp(withError: LiveKitError.from(reason: reason))
+            await cleanUp(withError: error)
         }
     }
 
