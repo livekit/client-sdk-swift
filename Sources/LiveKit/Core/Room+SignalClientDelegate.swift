@@ -42,19 +42,22 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason) async {
-        log("canReconnect: \(canReconnect), reason: \(reason)")
+    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest.Action, reason: Livekit_DisconnectReason) async {
+        log("action: \(action), reason: \(reason)")
 
         let error = LiveKitError.from(reason: reason)
-
-        if canReconnect {
-            // force .full for next reconnect
+        switch action {
+        case .reconnect:
+            // Force .full for next reconnect
             _state.mutate { $0.nextReconnectMode = .full }
-            // Abort current connection attempt
+            fallthrough
+        case .resume:
+            // Abort current attempt
             await signalClient.cleanUp(withError: error)
-        } else {
-            // Server indicates it's not recoverable
+        case .disconnect:
             await cleanUp(withError: error)
+        default:
+            log("Unknown leave action: \(action), ignoring", .warning)
         }
     }
 
