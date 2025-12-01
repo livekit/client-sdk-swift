@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 
 #if canImport(ReplayKit)
 import ReplayKit
