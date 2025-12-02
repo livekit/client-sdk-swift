@@ -135,6 +135,46 @@ extension Room: SignalClientDelegate {
         }
     }
 
+    func signalClient(_: SignalClient, didReceiveRoomMoved response: Livekit_RoomMovedResponse) async {
+        log("didReceiveRoomMoved to room: \(response.hasRoom ? response.room.name : "unknown")")
+
+        // Update room info if available
+        if response.hasRoom {
+            _state.mutate {
+                $0.metadata = response.room.metadata
+                $0.isRecording = response.room.activeRecording
+                $0.numParticipants = Int(response.room.numParticipants)
+                $0.numPublishers = Int(response.room.numPublishers)
+            }
+        }
+
+        // Disconnect all remote participants
+        let participantsToDisconnect = Array(_state.remoteParticipants.values)
+        for participant in participantsToDisconnect {
+            guard let identity = participant.identity else { continue }
+            await participant.unpublishAll(notify: false)
+            _state.mutate { $0.remoteParticipants.removeValue(forKey: identity) }
+        }
+
+        // Emit room moved event with new room name
+        if response.hasRoom {
+            delegates.notify(label: { "room.didMoveToRoomNamed \(response.room.name)" }) {
+                $0.room?(self, didMoveToRoomNamed: response.room.name)
+            }
+        }
+
+        // Re-add participants
+        var participantsToAdd: [Livekit_ParticipantInfo] = []
+        if response.hasParticipant {
+            participantsToAdd.append(response.participant)
+        }
+        participantsToAdd.append(contentsOf: response.otherParticipants)
+
+        for info in participantsToAdd {
+            _state.mutate { $0.updateRemoteParticipant(info: info, room: self) }
+        }
+    }
+
     func signalClient(_: SignalClient, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) async {
         let activeSpeakers = _state.mutate { state -> [Participant] in
             var lastSpeakers = state.activeSpeakers.reduce(into: [Sid: Participant]()) { $0[$1.sid] = $1 }
