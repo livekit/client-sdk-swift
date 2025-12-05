@@ -49,7 +49,9 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     }
 
     deinit {
-        cleanUpFrameWatcher()
+        if let watcher = _frameWatcherState.frameWatcher {
+            remove(audioRenderer: watcher)
+        }
     }
 
     public static func createTrack(name: String = Track.microphoneName,
