@@ -52,6 +52,10 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
         return _state.isSubscribePreferred != false && super.isSubscribed
     }
 
+    var isDesired: Bool {
+        _state.isSubscribePreferred != false
+    }
+
     @objc
     public var subscriptionState: SubscriptionState {
         if !isSubscriptionAllowed { return .notAllowed }
