@@ -162,33 +162,39 @@ actor SignalClient: Loggable {
             }
 
             return connectResponse
-        } catch {
+        } catch let connectionError {
             // Skip validation if user cancelled
-            if error is CancellationError {
-                await cleanUp(withError: error)
-                throw error
+            if connectionError is CancellationError {
+                await cleanUp(withError: connectionError)
+                throw connectionError
             }
 
             // Skip validation if reconnect mode
             if reconnectMode != nil {
-                await cleanUp(withError: error)
-                throw error
+                await cleanUp(withError: connectionError)
+                throw LiveKitError(.network, internalError: connectionError)
             }
 
-            await cleanUp(withError: error)
+            await cleanUp(withError: connectionError)
 
-            // Validate...
+            // Attempt to validate with server
             let validateUrl = try Utils.buildUrl(url,
                                                  connectOptions: connectOptions,
                                                  participantSid: participantSid,
                                                  adaptiveStream: adaptiveStream,
                                                  validate: true)
-
             log("Validating with url: \(validateUrl)...")
-            let validationResponse = try await HTTP.requestValidation(from: validateUrl, token: token)
-            log("Validate response: \(validationResponse)")
-            // re-throw with validation response
-            throw LiveKitError(.network, message: "Validation response: \"\(validationResponse)\"")
+            do {
+                try await HTTP.requestValidation(from: validateUrl, token: token)
+                // Re-throw original error since validation passed
+                throw LiveKitError(.network, internalError: connectionError)
+            } catch let validationError as LiveKitError where validationError.type == .validation {
+                // Re-throw validation error
+                throw validationError
+            } catch {
+                // Re-throw original connection error for network issues during validation
+                throw LiveKitError(.network, internalError: connectionError)
+            }
         }
     }
 
