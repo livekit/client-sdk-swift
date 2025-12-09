@@ -26,6 +26,9 @@ public typealias AudioFrameProcessor = AudioCustomProcessingDelegate & FrameProc
 /// Used to modify audio buffers before they are sent to the network or played to the user
 @objc
 public protocol AudioCustomProcessingDelegate: Sendable {
+    @objc
+    var isEnabled: Bool { get set }
+
     /// An optional identifier for the audio processor implementation.
     /// This can be used to identify different types of audio processing (e.g. noise cancellation).
     /// Generally you can leave this as the default value.
@@ -114,7 +117,10 @@ class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @u
 
     func audioProcessingProcess(audioBuffer: LKRTCAudioBuffer) {
         let lkAudioBuffer = LKAudioBuffer(audioBuffer: audioBuffer)
-        target?.audioProcessingProcess(audioBuffer: lkAudioBuffer)
+
+        if let target, target.isEnabled {
+            target.audioProcessingProcess(audioBuffer: lkAudioBuffer)
+        }
 
         // Convert to pcmBuffer and notify only if an audioRenderer is added.
         if isDelegatesNotEmpty, let pcmBuffer = lkAudioBuffer.toAVAudioPCMBuffer() {

@@ -20,5 +20,7 @@ public typealias VideoFrameProcessor = FrameProcessor & VideoProcessor
 
 @objc
 public protocol VideoProcessor {
+    var isEnabled: Bool { get set }
+
     func process(frame: VideoFrame) -> VideoFrame?
 }

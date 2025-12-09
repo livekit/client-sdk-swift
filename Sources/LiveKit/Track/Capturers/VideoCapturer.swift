@@ -313,7 +313,7 @@ extension VideoCapturer {
             }
 
             // Apply processing if we have a processor attached.
-            if let processor = _state.processor {
+            if let processor = _state.processor, processor.isEnabled {
                 guard let processedFrame = processor.process(frame: lkFrame) else {
                     log("VideoProcessor didn't return a frame, skipping frame.", .warning)
                     return

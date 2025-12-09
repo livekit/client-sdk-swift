@@ -18,16 +18,13 @@ import Foundation
 
 @objc
 public protocol FrameProcessor: RoomDelegate, Sendable {
-    @objc
-    var isEnabled: Bool { get set }
-
     /// Contextual information about the track.
     @objc optional
-    func update(roomName: String, participantIdentity: String, publicationSid: String)
+    func updateStreamInfo(roomName: String, participantIdentity: String, publicationSid: String)
 
     /// Credentials information.
     @objc optional
-    func update(token: String, url: String)
+    func updateCredentials(token: String, url: String)
 
     /// Called when the processor is no longer needed.
     @objc optional

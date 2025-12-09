@@ -16,6 +16,7 @@
 
 import Foundation
 
+@objc
 public extension Room {
     func add(audioFrameProcessor: AudioFrameProcessor) {
         add(delegate: audioFrameProcessor)
