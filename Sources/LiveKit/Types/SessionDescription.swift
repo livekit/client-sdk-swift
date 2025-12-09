@@ -17,9 +17,10 @@
 internal import LiveKitWebRTC
 
 extension LKRTCSessionDescription {
-    func toPBType() -> Livekit_SessionDescription {
+    func toPBType(offerId: UInt32) -> Livekit_SessionDescription {
         var sd = Livekit_SessionDescription()
         sd.sdp = sdp
+        sd.id = offerId
 
         switch type {
         case .answer: sd.type = "answer"
@@ -33,7 +34,7 @@ extension LKRTCSessionDescription {
 }
 
 extension Livekit_SessionDescription {
-    func toRTCType() -> LKRTCSessionDescription {
+    func toRTCType() -> (LKRTCSessionDescription, UInt32) {
         var sdpType: LKRTCSdpType
         switch type {
         case "answer": sdpType = .answer
@@ -42,6 +43,6 @@ extension Livekit_SessionDescription {
         default: fatalError("Unknown state \(type)") // This should never happen
         }
 
-        return RTC.createSessionDescription(type: sdpType, sdp: sdp)
+        return (RTC.createSessionDescription(type: sdpType, sdp: sdp), id)
     }
 }

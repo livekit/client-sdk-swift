@@ -61,11 +61,11 @@ jobs:
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md
           - os: macos-26
             xcode: latest
-            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.1"
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.2"
             symbol-graph: true
           - os: macos-26
             xcode: latest
-            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.1"
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.2"
             extension-api-only: true
           - os: macos-26
             xcode: latest
@@ -84,10 +84,10 @@ jobs:
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-26
             xcode: latest
-            platform: "visionOS Simulator,name=Apple Vision Pro,OS=26.1"
+            platform: "visionOS Simulator,name=Apple Vision Pro,OS=26.2"
           - os: macos-26
             xcode: latest
-            platform: "tvOS Simulator,name=Apple TV,OS=26.1"
+            platform: "tvOS Simulator,name=Apple TV,OS=26.2"
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
