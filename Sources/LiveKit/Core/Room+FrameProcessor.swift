@@ -16,9 +16,14 @@
 
 import Foundation
 
-public typealias VideoFrameProcessor = FrameProcessor & VideoProcessor
+public extension Room {
+    func add(audioFrameProcessor: AudioFrameProcessor) {
+        add(delegate: audioFrameProcessor)
+        AudioManager.shared.capturePostProcessingDelegate = audioFrameProcessor
+    }
 
-@objc
-public protocol VideoProcessor {
-    func process(frame: VideoFrame) -> VideoFrame?
+    func add(videoFrameProcessor: VideoFrameProcessor) {
+        add(delegate: videoFrameProcessor)
+        (localParticipant.firstCameraVideoTrack as? LocalVideoTrack)?.capturer.processor = videoFrameProcessor
+    }
 }

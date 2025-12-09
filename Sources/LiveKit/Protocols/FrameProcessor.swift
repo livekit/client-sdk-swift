@@ -16,9 +16,20 @@
 
 import Foundation
 
-public typealias VideoFrameProcessor = FrameProcessor & VideoProcessor
-
 @objc
-public protocol VideoProcessor {
-    func process(frame: VideoFrame) -> VideoFrame?
+public protocol FrameProcessor: RoomDelegate, Sendable {
+    @objc
+    var isEnabled: Bool { get set }
+
+    /// Contextual information about the track.
+    @objc optional
+    func update(roomName: String, participantIdentity: String, publicationSid: String)
+
+    /// Credentials information.
+    @objc optional
+    func update(token: String, url: String)
+
+    /// Called when the processor is no longer needed.
+    @objc optional
+    func close()
 }

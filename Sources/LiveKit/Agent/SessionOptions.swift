@@ -32,10 +32,19 @@ public struct SessionOptions: Sendable {
     public init(
         room: Room = .init(),
         preConnectAudio: Bool = true,
-        agentConnectTimeout: TimeInterval = 20
+        agentConnectTimeout: TimeInterval = 20,
+        audioProcessor: AudioFrameProcessor? = nil,
+        videoProcessor: VideoFrameProcessor? = nil
     ) {
         self.room = room
         self.preConnectAudio = preConnectAudio
         self.agentConnectTimeout = agentConnectTimeout
+
+        if let audioProcessor {
+            room.add(audioFrameProcessor: audioProcessor)
+        }
+        if let videoProcessor {
+            room.add(videoFrameProcessor: videoProcessor)
+        }
     }
 }
