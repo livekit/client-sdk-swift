@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 
 /// Message header for communication between uploader and receiver.
 enum BroadcastIPCHeader: Codable {
