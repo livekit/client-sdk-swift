@@ -119,13 +119,11 @@ public class AudioManager: Loggable {
 
     private lazy var capturePostProcessingDelegateAdapter = AudioCustomProcessingDelegateAdapter(
         label: "capturePost",
-        rtcDelegateGetter: { RTC.audioProcessingModule.capturePostProcessingDelegate },
         rtcDelegateSetter: { RTC.audioProcessingModule.capturePostProcessingDelegate = $0 }
     )
 
     private lazy var renderPreProcessingDelegateAdapter = AudioCustomProcessingDelegateAdapter(
         label: "renderPre",
-        rtcDelegateGetter: { RTC.audioProcessingModule.renderPreProcessingDelegate },
         rtcDelegateSetter: { RTC.audioProcessingModule.renderPreProcessingDelegate = $0 }
     )
 
