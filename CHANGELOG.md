@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.10.1] - 2025-11-26
+
+### Changed
+
+- Allowed Agent recovery from failed state
+- Removed '@unchecked Sendable' extensions on common types
+
+### Fixed
+
+- Timeouts when publishing camera tracks
+- Processing data packets out-of-order leading to stream corruption
+
+## [2.10.0] - 2025-11-13
+
+### Added
+
+- Separate delegate methods for reconnect start/completion
+- Agent and Session APIs for creating agent-based apps
+
+### Fixed
+
+- Improved capture format logic for multicam devices
+
 ## [2.9.0] - 2025-10-20
 
 ### Added

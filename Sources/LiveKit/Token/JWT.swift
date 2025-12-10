@@ -19,6 +19,17 @@ internal import JWTKit
 
 /// JWT payload structure for LiveKit authentication tokens.
 struct LiveKitJWTPayload: JWTPayload, Codable, Equatable {
+    /// Room configuration embedded in the JWT token.
+    struct RoomConfiguration: Codable, Equatable {
+        /// Agent dispatch configuration.
+        struct AgentDispatch: Codable, Equatable {
+            let agentName: String?
+            let metadata: String?
+        }
+
+        let agents: [AgentDispatch]?
+    }
+
     /// Video-specific permissions and room access grants for the participant.
     struct VideoGrant: Codable, Equatable {
         /// Name of the room. Required for admin or join permissions.
@@ -90,6 +101,14 @@ struct LiveKitJWTPayload: JWTPayload, Codable, Equatable {
     let metadata: String?
     /// Video-specific permissions and room access grants.
     let video: VideoGrant?
+    /// Room configuration, including agent dispatch information.
+    let roomConfiguration: RoomConfiguration?
+
+    enum CodingKeys: String, CodingKey {
+        case exp, iss, nbf, sub
+        case name, metadata, video
+        case roomConfiguration = "roomConfig"
+    }
 
     /// Verifies the JWT token's validity by checking expiration and not-before claims.
     func verify(using _: JWTSigner) throws {
