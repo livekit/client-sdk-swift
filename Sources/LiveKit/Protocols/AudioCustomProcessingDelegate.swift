@@ -53,7 +53,7 @@ class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @u
 
     private struct State {
         var target: AudioCustomProcessingDelegate?
-        var isConnected: Bool = false
+        var isAttached: Bool = false
     }
 
     private var _state = StateSync(State())
@@ -64,10 +64,10 @@ class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @u
         // Clear WebRTC delegate first if there's an old target - this triggers audioProcessingRelease() on it
         if oldTarget != nil {
             rtcDelegateSetter(nil)
-            _state.mutate { $0.isConnected = false }
+            _state.mutate { $0.isAttached = false }
         }
         _state.mutate { $0.target = target }
-        updateRTCConnection()
+        updateRTCAttachment()
     }
 
     init(label: String,
@@ -79,23 +79,23 @@ class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @u
         log("label: \(label)")
     }
 
-    // Override add/remove to manage RTC connection
+    // Override add/remove to manage RTC attachment
     override func add(delegate: AudioRenderer) {
         super.add(delegate: delegate)
-        updateRTCConnection()
+        updateRTCAttachment()
     }
 
     override func remove(delegate: AudioRenderer) {
         super.remove(delegate: delegate)
-        updateRTCConnection()
+        updateRTCAttachment()
     }
 
-    private func updateRTCConnection() {
+    private func updateRTCAttachment() {
         let result = _state.mutate { state -> (didChange: Bool, delegate: LKRTCAudioCustomProcessingDelegate?) in
-            let shouldConnect = state.target != nil || isDelegatesNotEmpty
-            guard shouldConnect != state.isConnected else { return (false, nil) }
-            state.isConnected = shouldConnect
-            return (true, shouldConnect ? self : nil)
+            let shouldAttach = state.target != nil || isDelegatesNotEmpty
+            guard shouldAttach != state.isAttached else { return (false, nil) }
+            state.isAttached = shouldAttach
+            return (true, shouldAttach ? self : nil)
         }
 
         guard result.didChange else { return }
