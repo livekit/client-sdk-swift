@@ -649,14 +649,7 @@ extension LocalParticipant {
                 if track is LocalVideoTrack {
                     let publishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
 
-                    let degradationPreference: LKRTCDegradationPreference =
-                        if let rtcDegradationPreference = publishOptions.degradationPreference.toRTCType() {
-                            rtcDegradationPreference
-                        } else if track.source == .screenShareVideo || publishOptions.simulcast {
-                            .maintainResolution
-                        } else {
-                            .balanced
-                        }
+                    let degradationPreference = publishOptions.degradationPreference.toRTCType() ?? .maintainResolution
 
                     self.log("[publish] set degradationPreference to \(degradationPreference)")
                     let params = transceiver.sender.parameters
