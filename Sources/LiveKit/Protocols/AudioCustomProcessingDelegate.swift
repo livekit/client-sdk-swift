@@ -53,28 +53,27 @@ class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @u
 
     private struct State {
         var target: AudioCustomProcessingDelegate?
+        var isConnected: Bool = false
     }
 
     private var _state = StateSync(State())
 
-    private let rtcDelegateGetter: () -> LKRTCAudioCustomProcessingDelegate?
     private let rtcDelegateSetter: (LKRTCAudioCustomProcessingDelegate?) -> Void
 
     func set(target: AudioCustomProcessingDelegate?, oldTarget: AudioCustomProcessingDelegate? = nil) {
         // Clear WebRTC delegate first if there's an old target - this triggers audioProcessingRelease() on it
         if oldTarget != nil {
             rtcDelegateSetter(nil)
+            _state.mutate { $0.isConnected = false }
         }
         _state.mutate { $0.target = target }
         updateRTCConnection()
     }
 
     init(label: String,
-         rtcDelegateGetter: @escaping () -> LKRTCAudioCustomProcessingDelegate?,
          rtcDelegateSetter: @escaping (LKRTCAudioCustomProcessingDelegate?) -> Void)
     {
         self.label = label
-        self.rtcDelegateGetter = rtcDelegateGetter
         self.rtcDelegateSetter = rtcDelegateSetter
         super.init(label: "AudioCustomProcessingDelegateAdapter.\(label)")
         log("label: \(label)")
@@ -92,16 +91,16 @@ class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @u
     }
 
     private func updateRTCConnection() {
-        let shouldBeConnected = target != nil || isDelegatesNotEmpty
-        let isConnected = rtcDelegateGetter() === self
-
-        if shouldBeConnected, !isConnected {
-            // Connect
-            rtcDelegateSetter(self)
-        } else if !shouldBeConnected, isConnected {
-            // Disconnect
-            rtcDelegateSetter(nil)
+        let (shouldBeConnected, wasConnected) = _state.read { state in
+            (state.target != nil || isDelegatesNotEmpty, state.isConnected)
         }
+
+        guard shouldBeConnected != wasConnected else { return }
+
+        // Call into WebRTC outside the lock to avoid re-entrancy from callbacks.
+        rtcDelegateSetter(shouldBeConnected ? self : nil)
+
+        _state.mutate { $0.isConnected = shouldBeConnected }
     }
 
     // MARK: - AudioCustomProcessingDelegate
