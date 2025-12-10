@@ -91,16 +91,17 @@ class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @u
     }
 
     private func updateRTCConnection() {
-        let (shouldBeConnected, wasConnected) = _state.read { state in
-            (state.target != nil || isDelegatesNotEmpty, state.isConnected)
+        let result = _state.mutate { state -> (didChange: Bool, delegate: LKRTCAudioCustomProcessingDelegate?) in
+            let shouldConnect = state.target != nil || isDelegatesNotEmpty
+            guard shouldConnect != state.isConnected else { return (false, nil) }
+            state.isConnected = shouldConnect
+            return (true, shouldConnect ? self : nil)
         }
 
-        guard shouldBeConnected != wasConnected else { return }
+        guard result.didChange else { return }
 
         // Call into WebRTC outside the lock to avoid re-entrancy from callbacks.
-        rtcDelegateSetter(shouldBeConnected ? self : nil)
-
-        _state.mutate { $0.isConnected = shouldBeConnected }
+        rtcDelegateSetter(result.delegate)
     }
 
     // MARK: - AudioCustomProcessingDelegate
