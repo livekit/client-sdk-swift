@@ -21,7 +21,7 @@ internal import LiveKitWebRTC
 
 public let kLiveKitKrispAudioProcessorName = "livekit_krisp_noise_cancellation"
 
-public typealias AudioFrameProcessor = AudioCustomProcessingDelegate & FrameProcessor
+public typealias AudioFrameProcessor = AudioCustomProcessingDelegate & RoomDelegate
 
 /// Used to modify audio buffers before they are sent to the network or played to the user
 @objc

@@ -16,7 +16,7 @@
 
 import Foundation
 
-public typealias VideoFrameProcessor = FrameProcessor & VideoProcessor
+public typealias VideoFrameProcessor = RoomDelegate & VideoProcessor
 
 @objc
 public protocol VideoProcessor {
