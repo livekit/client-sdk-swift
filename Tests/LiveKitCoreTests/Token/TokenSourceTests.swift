@@ -39,22 +39,16 @@ class TokenSourceTests: LKTestCase {
                 identity: options.participantIdentity ?? "test-identity"
             )
             tokenGenerator.name = options.participantName ?? participantName
-            tokenGenerator.videoGrants = VideoGrants(
-                roomCreate: false,
-                roomList: false,
-                roomRecord: false,
-                roomAdmin: false,
-                roomJoin: true,
-                room: options.roomName ?? "test-room",
-                destinationRoom: "",
-                canPublish: false,
-                canSubscribe: false,
-                canPublishData: false,
-                canPublishSources: [],
-                canUpdateOwnMetadata: false,
-                ingressAdmin: false,
-                hidden: false,
-                recorder: false
+            tokenGenerator.roomConfiguration = RoomConfiguration(
+                name: options.roomName ?? "test-room",
+                emptyTimeout: 0,
+                departureTimeout: 0,
+                maxParticipants: 0,
+                metadata: "",
+                minPlayoutDelay: 0,
+                maxPlayoutDelay: 0,
+                syncStreams: false,
+                agents: []
             )
 
             let token = try tokenGenerator.sign()
@@ -94,22 +88,16 @@ class TokenSourceTests: LKTestCase {
                 ttl: 0
             )
             tokenGenerator.name = options.participantName ?? "test-participant"
-            tokenGenerator.videoGrants = VideoGrants(
-                roomCreate: false,
-                roomList: false,
-                roomRecord: false,
-                roomAdmin: false,
-                roomJoin: true,
-                room: options.roomName ?? "test-room",
-                destinationRoom: "",
-                canPublish: false,
-                canSubscribe: false,
-                canPublishData: false,
-                canPublishSources: [],
-                canUpdateOwnMetadata: false,
-                ingressAdmin: false,
-                hidden: false,
-                recorder: false
+            tokenGenerator.roomConfiguration = RoomConfiguration(
+                name: options.roomName ?? "test-room",
+                emptyTimeout: 0,
+                departureTimeout: 0,
+                maxParticipants: 0,
+                metadata: "",
+                minPlayoutDelay: 0,
+                maxPlayoutDelay: 0,
+                syncStreams: false,
+                agents: []
             )
 
             let token = try tokenGenerator.sign()

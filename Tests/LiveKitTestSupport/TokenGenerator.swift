@@ -29,7 +29,8 @@ public class TokenGenerator {
     public var ttl: TimeInterval
     public var name: String?
     public var metadata: String?
-    public var videoGrants: VideoGrants?
+    public var videoGrants: LiveKitUniFFI.VideoGrants?
+    public var roomConfiguration: LiveKitUniFFI.RoomConfiguration?
 
     public init(apiKey: String,
                 apiSecret: String,
@@ -53,7 +54,7 @@ public class TokenGenerator {
             metadata: metadata,
             attributes: nil,
             sha256: nil,
-            roomName: videoGrants?.room
+            roomConfiguration: roomConfiguration
         )
 
         return try tokenGenerate(options: options, credentials: credentials)
