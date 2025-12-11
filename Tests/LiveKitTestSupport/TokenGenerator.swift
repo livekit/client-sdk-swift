@@ -29,6 +29,7 @@ public class TokenGenerator {
     public var ttl: TimeInterval
     public var name: String?
     public var metadata: String?
+
     public var videoGrants: LiveKitUniFFI.VideoGrants?
     public var roomConfiguration: LiveKitUniFFI.RoomConfiguration?
 

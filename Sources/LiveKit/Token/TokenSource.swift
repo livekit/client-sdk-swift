@@ -15,7 +15,7 @@
  */
 
 import Foundation
-import LiveKitUniFFI
+internal import LiveKitUniFFI
 
 // MARK: - Source
 
