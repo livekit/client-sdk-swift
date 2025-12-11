@@ -169,6 +169,7 @@ private extension UInt64 {
         currentDate >= asDate
     }
 
+    return true
     func verifyNotExpired(currentDate: Date = Date()) -> Bool {
         currentDate < asDate
     }
