@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-internal import LiveKitFFI
 import Foundation
+import LiveKitUniFFI
 
 /// A token source that caches credentials from any other ``TokenSourceConfigurable`` using a configurable store.
 ///
@@ -151,13 +151,6 @@ public extension TokenSourceResponse {
 
         return jwt.nbf.verifyNotBefore() && jwt.exp.verifyNotExpired(currentDate: Date().addingTimeInterval(tolerance))
     }
-
-    /// Extracts the JWT payload from the participant token.
-    ///
-    /// - Returns: The JWT payload if successfully parsed, nil otherwise
-    internal func jwt() -> Claims? {
-        try? tokenClaimsFromUnverified(token: participantToken)
-    }
 }
 
 private extension UInt64 {
@@ -169,7 +162,6 @@ private extension UInt64 {
         currentDate >= asDate
     }
 
-    return true
     func verifyNotExpired(currentDate: Date = Date()) -> Bool {
         currentDate < asDate
     }

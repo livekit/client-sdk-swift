@@ -18,7 +18,7 @@
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
-import LiveKitFFI
+import LiveKitUniFFI
 
 class TokenSourceTests: LKTestCase {
     actor MockValidJWTSource: TokenSourceConfigurable {

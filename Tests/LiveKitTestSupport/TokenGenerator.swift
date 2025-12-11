@@ -15,7 +15,7 @@
  */
 
 @testable import LiveKit
-import LiveKitFFI
+import LiveKitUniFFI
 
 public class TokenGenerator {
     // 30 mins

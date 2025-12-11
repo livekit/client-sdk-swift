@@ -27,7 +27,7 @@ let package = Package(
         // Only used for DocC generation
         .package(url: "https://github.com/apple/swift-docc-plugin.git", from: "1.3.0"),
         // Local uniffi bindings
-        .package(path: "../rust-sdks/livekit-uniffi"),
+        .package(path: "../rust-sdks/livekit-uniffi/packages/LiveKitUniFFI"),
     ],
     targets: [
         .target(
@@ -42,7 +42,7 @@ let package = Package(
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "JWTKit", package: "jwt-kit"),
-                .product(name: "LiveKitFFI", package: "livekit-uniffi"),
+                "LiveKitUniFFI",
                 "LKObjCHelpers",
             ],
             exclude: [

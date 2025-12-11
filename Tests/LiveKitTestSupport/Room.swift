@@ -15,7 +15,7 @@
  */
 
 @testable import LiveKit
-import LiveKitFFI
+import LiveKitUniFFI
 
 public struct RoomTestingOptions {
     public let delegate: RoomDelegate?

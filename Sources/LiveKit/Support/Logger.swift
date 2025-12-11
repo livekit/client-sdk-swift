@@ -16,7 +16,7 @@
 
 import OSLog
 internal import LiveKitWebRTC
-internal import LiveKitFFI
+import LiveKitUniFFI
 
 // MARK: - Logger
 
