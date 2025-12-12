@@ -309,6 +309,7 @@ extension LogForwardLevel {
         case .warn: .default
         case .info: .info
         case .debug, .trace: .debug
+        @unknown default: .debug
         }
     }
 }
