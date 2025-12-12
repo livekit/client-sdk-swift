@@ -18,7 +18,6 @@ Pod::Spec.new do |spec|
   spec.dependency("SwiftProtobuf")
   spec.dependency("DequeModule", "= 1.1.4")
   spec.dependency("OrderedCollections", " = 1.1.4")
-  spec.dependency("JWTKit", "= 4.13.5")
 
   spec.resource_bundles = {"Privacy" => ["Sources/LiveKit/PrivacyInfo.xcprivacy"]}
 
