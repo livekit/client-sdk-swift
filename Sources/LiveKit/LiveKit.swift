@@ -16,6 +16,7 @@
 
 import Foundation
 internal import LiveKitWebRTC
+internal import LiveKitUniFFI
 
 /// The open source platform for real-time communication.
 ///
@@ -33,6 +34,7 @@ public class LiveKitSDK: NSObject, Loggable {
 
     @objc(sdkVersion)
     public static let version = "2.10.1"
+    public static let ffiVersion = buildVersion()
 
     fileprivate struct State {
         var logger: Logger = OSLogger()

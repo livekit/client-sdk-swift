@@ -15,6 +15,7 @@
  */
 
 import Foundation
+internal import LiveKitUniFFI
 
 // MARK: - Source
 
@@ -144,8 +145,8 @@ public extension TokenSourceResponse {
     /// Extracts the JWT payload from the participant token.
     ///
     /// - Returns: The JWT payload if successfully parsed, nil otherwise
-    internal func jwt() -> LiveKitJWTPayload? {
-        LiveKitJWTPayload.fromUnverified(token: participantToken)
+    internal func jwt() -> Claims? {
+        try? tokenClaimsFromUnverified(token: participantToken)
     }
 
     /// Checks if the JWT token contains agent dispatch configuration.
