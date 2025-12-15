@@ -74,6 +74,28 @@ extension Room {
 
     // MARK: - Internal
 
+    func regionManagerShouldRetryConnection(for error: Error) -> Bool {
+        if let liveKitError = error as? LiveKitError {
+            switch liveKitError.type {
+            case .network, .timedOut:
+                return true
+            default:
+                return false
+            }
+        }
+
+        if error is URLError {
+            return true
+        }
+
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain {
+            return true
+        }
+
+        return false
+    }
+
     func regionManagerTryResolveBest() async throws -> RegionInfo? {
         do {
             return try await regionManagerResolveBest()

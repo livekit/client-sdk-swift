@@ -443,6 +443,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                         throw liveKitError
                     }
 
+                    if !regionManagerShouldRetryConnection(for: error) {
+                        throw error
+                    }
+
                     if let region = nextRegion {
                         nextRegion = nil
                         log("Connect failed with region: \(region)")

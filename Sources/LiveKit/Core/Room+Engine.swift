@@ -369,6 +369,14 @@ extension Room {
                         throw error
                     }
 
+                    if let liveKitError = error as? LiveKitError, liveKitError.type == .validation {
+                        throw liveKitError
+                    }
+
+                    if !regionManagerShouldRetryConnection(for: error) {
+                        throw error
+                    }
+
                     if let region = nextRegion {
                         nextRegion = nil
                         log("Connect failed with region: \(region)")
