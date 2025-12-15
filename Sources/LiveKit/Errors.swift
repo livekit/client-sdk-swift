@@ -30,7 +30,7 @@ public enum LiveKitErrorType: Int, Sendable {
     case webRTC = 201
 
     case network // Network issue
-    case validation // Network issue
+    case validation // Validation issue
 
     // Server
     case duplicateIdentity = 500
@@ -150,9 +150,14 @@ public class LiveKitError: NSError, @unchecked Sendable, Loggable {
         self.type = type
         self.message = message
         self.internalError = internalError
+
+        var userInfo: [String: Any] = [NSLocalizedDescriptionKey: _computeDescription()]
+        if let internalError {
+            userInfo[NSUnderlyingErrorKey] = internalError as NSError
+        }
         super.init(domain: "io.livekit.swift-sdk",
                    code: type.rawValue,
-                   userInfo: [NSLocalizedDescriptionKey: _computeDescription()])
+                   userInfo: userInfo)
     }
 
     @available(*, unavailable)
