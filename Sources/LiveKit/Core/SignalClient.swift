@@ -106,6 +106,10 @@ actor SignalClient: Loggable {
         }
     }
 
+    deinit {
+        _state.messageLoopTask?.cancel()
+    }
+
     @discardableResult
     func connect(_ url: URL,
                  _ token: String,
@@ -139,14 +143,15 @@ actor SignalClient: Loggable {
                                              token: token,
                                              connectOptions: connectOptions)
 
-            let task = Task.detached {
-                self.log("Did enter WebSocket message loop...")
+            let task = Task.detached { [weak self] in
+                self?.log("Did enter WebSocket message loop...")
                 do {
                     for try await message in socket {
-                        await self._onWebSocketMessage(message: message)
+                        guard let self else { break }
+                        await _onWebSocketMessage(message: message)
                     }
                 } catch {
-                    await self.cleanUp(withError: error)
+                    await self?.cleanUp(withError: error)
                 }
             }
             _state.mutate { $0.messageLoopTask = task }
