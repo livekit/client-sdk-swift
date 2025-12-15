@@ -381,6 +381,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var nextRegion: RegionInfo?
 
         if providedUrl.isCloud {
+            let shouldResetRegionAttempts = _regionState.read { $0.remaining.isEmpty && !$0.all.isEmpty }
+            if shouldResetRegionAttempts {
+                regionManagerResetAttempts()
+            }
+
             if regionManager(shouldRequestSettingsForUrl: providedUrl) {
                 regionManagerPrepareRegionSettings()
             } else {
