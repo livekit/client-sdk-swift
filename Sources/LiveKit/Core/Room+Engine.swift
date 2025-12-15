@@ -351,47 +351,25 @@ extension Room {
                 throw LiveKitError(.invalidState)
             }
 
-            var nextUrl = connectedUrl
-            var nextRegion: RegionInfo?
-
-            while true {
-                do {
-                    // Prepare for next connect attempt.
-                    await cleanUp(isFullReconnect: true)
-
-                    try await fullConnectSequence(nextUrl, token)
-                    _state.mutate { $0.connectedUrl = nextUrl }
-                    // Exit loop on successful connection
-                    break
-                } catch {
-                    // Re-throw if is cancel.
-                    if error is CancellationError {
-                        throw error
-                    }
-
-                    if let liveKitError = error as? LiveKitError, liveKitError.type == .validation {
-                        throw liveKitError
-                    }
-
-                    if !regionManagerShouldRetryConnection(for: error) {
-                        throw error
-                    }
-
-                    if let region = nextRegion {
-                        nextRegion = nil
-                        log("Connect failed with region: \(region)")
-                        regionManager(addFailedRegion: region)
-                    }
-
-                    try Task.checkCancellation()
-
-                    if providedUrl.isCloud {
-                        let region = try await regionManagerResolveBest()
-                        nextUrl = region.url
-                        nextRegion = region
-                    }
-                }
+            let finalUrl: URL
+            if providedUrl.isCloud {
+                finalUrl = try await connectWithCloudRegionFailover(providedUrl: providedUrl,
+                                                                    initialUrl: connectedUrl,
+                                                                    initialRegion: nil,
+                                                                    token: token,
+                                                                    prepareBeforeFirstAttempt: { [weak self] in
+                                                                        await self?.cleanUp(isFullReconnect: true)
+                                                                    },
+                                                                    prepareAfterFailure: { [weak self] in
+                                                                        await self?.cleanUp(isFullReconnect: true)
+                                                                    })
+            } else {
+                await cleanUp(isFullReconnect: true)
+                try await fullConnectSequence(connectedUrl, token)
+                finalUrl = connectedUrl
             }
+
+            _state.mutate { $0.connectedUrl = finalUrl }
         }
 
         do {

@@ -74,6 +74,60 @@ extension Room {
 
     // MARK: - Internal
 
+    /// Connects using LiveKit Cloud region settings and fails over across regions on retryable errors.
+    func connectWithCloudRegionFailover(
+        providedUrl: URL,
+        initialUrl: URL,
+        initialRegion: RegionInfo?,
+        token: String,
+        prepareBeforeFirstAttempt: (@Sendable () async -> Void)? = nil,
+        prepareAfterFailure: @Sendable () async -> Void
+    ) async throws -> URL {
+        precondition(providedUrl.isCloud, "connectWithCloudRegionFailover is only valid for LiveKit Cloud URLs")
+
+        var nextUrl = initialUrl
+        var nextRegion = initialRegion
+
+        if let prepareBeforeFirstAttempt {
+            await prepareBeforeFirstAttempt()
+        }
+
+        while true {
+            do {
+                try await fullConnectSequence(nextUrl, token)
+                return nextUrl
+            } catch {
+                // Re-throw if is cancel.
+                if error is CancellationError {
+                    throw error
+                }
+
+                if let liveKitError = error as? LiveKitError, liveKitError.type == .validation {
+                    // Don't retry other regions for validation errors.
+                    throw liveKitError
+                }
+
+                if !regionManagerShouldRetryConnection(for: error) {
+                    throw error
+                }
+
+                if let region = nextRegion {
+                    nextRegion = nil
+                    log("Connect failed with region: \(region)")
+                    regionManager(addFailedRegion: region)
+                }
+
+                try Task.checkCancellation()
+
+                await prepareAfterFailure()
+
+                let region = try await regionManagerResolveBest()
+                nextUrl = region.url
+                nextRegion = region
+            }
+        }
+    }
+
     func regionManagerShouldRetryConnection(for error: Error) -> Bool {
         if let liveKitError = error as? LiveKitError {
             switch liveKitError.type {

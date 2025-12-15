@@ -417,52 +417,28 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
 
         do {
-            // Region connect loop
-            while true {
-                do {
-                    try await fullConnectSequence(nextUrl, token)
-                    // Connect sequence successful
-                    log("Connect sequence completed")
-                    // Final check if cancelled, don't fire connected events
-                    try Task.checkCancellation()
+            let finalUrl: URL
+            if providedUrl.isCloud {
+                finalUrl = try await connectWithCloudRegionFailover(providedUrl: providedUrl,
+                                                                    initialUrl: nextUrl,
+                                                                    initialRegion: nextRegion,
+                                                                    token: token,
+                                                                    prepareAfterFailure: { [weak self] in
+                                                                        await self?.cleanUp(isFullReconnect: true)
+                                                                    })
+            } else {
+                try await fullConnectSequence(nextUrl, token)
+                finalUrl = nextUrl
+            }
 
-                    _state.mutate {
-                        $0.connectedUrl = nextUrl
-                        $0.connectionState = .connected
-                    }
-                    // Exit loop on successful connection
-                    break
-                } catch {
-                    // Re-throw and exit loop if not cloud URL or is cancelled by user.
-                    if !providedUrl.isCloud || error is CancellationError {
-                        throw error
-                    }
+            // Connect sequence successful
+            log("Connect sequence completed")
+            // Final check if cancelled, don't fire connected events
+            try Task.checkCancellation()
 
-                    if let liveKitError = error as? LiveKitError, liveKitError.type == .validation {
-                        // Don't retry other regions for validation errors.
-                        throw liveKitError
-                    }
-
-                    if !regionManagerShouldRetryConnection(for: error) {
-                        throw error
-                    }
-
-                    if let region = nextRegion {
-                        nextRegion = nil
-                        log("Connect failed with region: \(region)")
-                        regionManager(addFailedRegion: region)
-                    }
-
-                    try Task.checkCancellation()
-                    // Prepare for next connect attempt.
-                    await cleanUp(isFullReconnect: true)
-
-                    if providedUrl.isCloud {
-                        let region = try await regionManagerResolveBest()
-                        nextUrl = region.url
-                        nextRegion = region
-                    }
-                }
+            _state.mutate {
+                $0.connectedUrl = finalUrl
+                $0.connectionState = .connected
             }
             // Publish mic if mic task was created
             if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled {
