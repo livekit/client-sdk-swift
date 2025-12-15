@@ -111,15 +111,13 @@ class RegionUrlProviderTests: XCTestCase {
     }
 
     func testRegionManagerShouldRetryConnection() {
-        let room = Room()
+        XCTAssertTrue(LiveKitError(.network).isRetryableForRegionFailover)
+        XCTAssertTrue(LiveKitError(.timedOut).isRetryableForRegionFailover)
+        XCTAssertFalse(LiveKitError(.validation).isRetryableForRegionFailover)
 
-        XCTAssertTrue(room.regionManagerShouldRetryConnection(for: LiveKitError(.network)))
-        XCTAssertTrue(room.regionManagerShouldRetryConnection(for: LiveKitError(.timedOut)))
-        XCTAssertFalse(room.regionManagerShouldRetryConnection(for: LiveKitError(.validation)))
-
-        XCTAssertTrue(room.regionManagerShouldRetryConnection(for: URLError(.timedOut)))
-        XCTAssertTrue(room.regionManagerShouldRetryConnection(for: NSError(domain: NSURLErrorDomain, code: -1)))
-        XCTAssertFalse(room.regionManagerShouldRetryConnection(for: NSError(domain: "other", code: -1)))
+        XCTAssertTrue(URLError(.timedOut).isRetryableForRegionFailover)
+        XCTAssertTrue(NSError(domain: NSURLErrorDomain, code: -1).isRetryableForRegionFailover)
+        XCTAssertFalse(NSError(domain: "other", code: -1).isRetryableForRegionFailover)
     }
 
     func testFetchRegionSettingsClassifies4xxAsValidation() async {

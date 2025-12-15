@@ -107,7 +107,7 @@ extension Room {
                     throw liveKitError
                 }
 
-                if !regionManagerShouldRetryConnection(for: error) {
+                guard error.isRetryableForRegionFailover else {
                     throw error
                 }
 
@@ -126,28 +126,6 @@ extension Room {
                 nextRegion = region
             }
         }
-    }
-
-    func regionManagerShouldRetryConnection(for error: Error) -> Bool {
-        if let liveKitError = error as? LiveKitError {
-            switch liveKitError.type {
-            case .network, .timedOut:
-                return true
-            default:
-                return false
-            }
-        }
-
-        if error is URLError {
-            return true
-        }
-
-        let nsError = error as NSError
-        if nsError.domain == NSURLErrorDomain {
-            return true
-        }
-
-        return false
     }
 
     func regionManagerUpdateFromServerReportedRegions(_ regions: Livekit_RegionSettings, providedUrl: URL) {
