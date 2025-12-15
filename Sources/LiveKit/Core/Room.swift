@@ -433,6 +433,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                         throw error
                     }
 
+                    if let liveKitError = error as? LiveKitError, liveKitError.type == .validation {
+                        // Don't retry other regions for validation errors.
+                        throw liveKitError
+                    }
+
                     if let region = nextRegion {
                         nextRegion = nil
                         log("Connect failed with region: \(region)")
