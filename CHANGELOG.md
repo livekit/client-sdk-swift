@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.10.2] - 2025-12-10
+
+### Fixed
+
+- Screen sharing not publishing frames with VP9/AV1 codecs
+- Crash in VideoView when video dimensions are both 0
+- Crash when moving apps to background during broadcast
+- Crash in LocalAudioTrack.deinit
+- Default degradation preference for non-simulcast tracks
+- Race condition during sync preventing track subscription
+
 ## [2.10.1] - 2025-11-26
 
 ### Changed
