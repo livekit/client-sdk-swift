@@ -29,7 +29,7 @@ final class BroadcastUploader: Sendable, Loggable {
     private struct State {
         var isUploadingImage = false
         var shouldUploadAudio = false
-        var messageLoopTask: Task<Void, Error>?
+        var messageLoopTask: AnyTaskCancellable?
     }
 
     private let state = StateSync(State())
@@ -49,7 +49,7 @@ final class BroadcastUploader: Sendable, Loggable {
                 guard let self else { break }
                 processMessage(header)
             }
-        }
+        }.cancellable()
         state.mutate { $0.messageLoopTask = task }
     }
 
@@ -65,7 +65,6 @@ final class BroadcastUploader: Sendable, Loggable {
     /// Close the connection to the receiver.
     func close() {
         state.mutate {
-            $0.messageLoopTask?.cancel()
             $0.messageLoopTask = nil
         }
         channel.close()

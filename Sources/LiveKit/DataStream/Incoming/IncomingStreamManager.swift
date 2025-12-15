@@ -24,6 +24,7 @@ actor IncomingStreamManager: Loggable {
         let openTime: TimeInterval
         let continuation: StreamReaderSource.Continuation
         var readLength = 0
+        var task: AnyTaskCancellable?
     }
 
     /// Mapping between stream ID and descriptor for open streams.
@@ -42,16 +43,20 @@ actor IncomingStreamManager: Loggable {
     }
 
     private let eventContinuation: AsyncStream<StreamEvent>.Continuation
+    private var eventLoopTask: AnyTaskCancellable?
 
     init() {
         let (stream, continuation) = AsyncStream.makeStream(of: StreamEvent.self)
         eventContinuation = continuation
 
-        Task { [weak self] in
-            for await event in stream {
-                guard let self else { break }
-                await process(event)
-            }
+        Task {
+            await observe(events: stream)
+        }
+    }
+
+    private func observe(events stream: AsyncStream<StreamEvent>) {
+        eventLoopTask = Task.observing(stream, by: self) { observer, event in
+            await observer.process(event)
         }
     }
 
@@ -128,16 +133,17 @@ actor IncomingStreamManager: Loggable {
             continuation = $0
         }
 
-        let descriptor = Descriptor(
+        var descriptor = Descriptor(
             info: info,
             openTime: Date.timeIntervalSinceReferenceDate,
             continuation: continuation
         )
-        openStreams[info.id] = descriptor
 
-        Task.detached {
+        descriptor.task = Task.detached {
             try await handler(source, identity)
-        }
+        }.cancellable()
+
+        openStreams[info.id] = descriptor
     }
 
     /// Close the stream with the given id.

@@ -110,7 +110,8 @@ open class Session: ObservableObject {
 
     // MARK: - Internal state
 
-    private var waitForAgentTask: Task<Void, Swift.Error>?
+    private var tasks = Set<AnyTaskCancellable>()
+    private var waitForAgentTask: AnyTaskCancellable?
 
     // MARK: - Init
 
@@ -193,17 +194,10 @@ open class Session: ObservableObject {
                 receivers: receivers)
     }
 
-    deinit {
-        waitForAgentTask?.cancel()
-    }
-
     private func observe(room: Room) {
-        Task { [weak self] in
-            for try await _ in room.changes {
-                guard let self else { return }
-                updateAgent(in: room)
-            }
-        }
+        Task.observingOnMainActor(room.changes, by: self) { observer, _ in
+            observer.updateAgent(in: room)
+        }.store(in: &tasks)
     }
 
     private func updateAgent(in room: Room) {
@@ -221,18 +215,25 @@ open class Session: ObservableObject {
     }
 
     private func observe(receivers: [any MessageReceiver]) {
+        let (stream, continuation) = AsyncStream.makeStream(of: ReceivedMessage.self)
+
+        // Multiple producers → single stream
         for receiver in receivers {
             Task { [weak self] in
                 do {
                     for await message in try await receiver.messages() {
-                        guard let self else { return }
-                        messagesDict.updateValue(message, forKey: message.id)
+                        continuation.yield(message)
                     }
                 } catch {
                     self?.error = .receiver(error)
                 }
-            }
+            }.cancellable().store(in: &tasks)
         }
+
+        // Single consumer
+        Task.observingOnMainActor(stream, by: self) { owner, message in
+            owner.messagesDict.updateValue(message, forKey: message.id)
+        }.store(in: &tasks)
     }
 
     // MARK: - Lifecycle
@@ -278,7 +279,7 @@ open class Session: ObservableObject {
                     if isConnected, !agent.isConnected {
                         agent.failed(error: .timeout)
                     }
-                }
+                }.cancellable()
             }
         } catch {
             self.error = .connection(error)

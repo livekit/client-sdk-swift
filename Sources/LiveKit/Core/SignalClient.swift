@@ -87,7 +87,7 @@ actor SignalClient: Loggable {
         var connectionState: ConnectionState = .disconnected
         var disconnectError: LiveKitError?
         var socket: WebSocket?
-        var messageLoopTask: Task<Void, Never>?
+        var messageLoopTask: AnyTaskCancellable?
         var lastJoinResponse: Livekit_JoinResponse?
         var rtt: Int64 = 0
     }
@@ -104,10 +104,6 @@ actor SignalClient: Loggable {
                 _delegate.notifyDetached { await $0.signalClient(self, didUpdateConnectionState: newState.connectionState, oldState: oldState.connectionState, disconnectError: self.disconnectError) }
             }
         }
-    }
-
-    deinit {
-        _state.messageLoopTask?.cancel()
     }
 
     @discardableResult
@@ -153,7 +149,7 @@ actor SignalClient: Loggable {
                 } catch {
                     await self?.cleanUp(withError: error)
                 }
-            }
+            }.cancellable()
             _state.mutate { $0.messageLoopTask = task }
 
             let connectResponse = try await _connectResponseCompleter.wait()
@@ -219,7 +215,6 @@ actor SignalClient: Loggable {
         _pingTimeoutTimer.cancel()
 
         _state.mutate {
-            $0.messageLoopTask?.cancel()
             $0.messageLoopTask = nil
             $0.socket?.close()
             $0.socket = nil

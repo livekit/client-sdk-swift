@@ -51,8 +51,15 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
+    private struct Buffers: Sendable {
+        var lossyBuffer = SendBuffer()
+        var reliableBuffer = SendBuffer()
+        var reliableRetryBuffer = RetryBuffer(minAmount: DataChannelPair.reliableRetryAmount)
+    }
+
     private let _state: StateSync<State>
     private let eventContinuation: AsyncStream<ChannelEvent>.Continuation
+    private var eventLoopTask: AnyTaskCancellable?
 
     fileprivate enum ChannelKind {
         case lossy, reliable
@@ -132,35 +139,30 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Event handling
 
-    private func processEvent(
-        _ event: ChannelEvent,
-        lossyBuffer: inout SendBuffer,
-        reliableBuffer: inout SendBuffer,
-        reliableRetryBuffer: inout RetryBuffer
-    ) {
+    private func processEvent(_ event: ChannelEvent, buffers: inout Buffers) {
         switch event.detail {
         case let .publishData(request):
             switch event.channelKind {
-            case .lossy: lossyBuffer.enqueue(request)
-            case .reliable: reliableBuffer.enqueue(request)
+            case .lossy: buffers.lossyBuffer.enqueue(request)
+            case .reliable: buffers.reliableBuffer.enqueue(request)
             }
         case let .publishedData(request):
             switch event.channelKind {
             case .lossy: ()
-            case .reliable: reliableRetryBuffer.enqueue(request)
+            case .reliable: buffers.reliableRetryBuffer.enqueue(request)
             }
         case let .bufferedAmountChanged(amount):
             switch event.channelKind {
             case .lossy:
-                updateTarget(buffer: &lossyBuffer, newAmount: amount)
+                updateTarget(buffer: &buffers.lossyBuffer, newAmount: amount)
             case .reliable:
-                updateTarget(buffer: &reliableBuffer, newAmount: amount)
-                reliableRetryBuffer.trim(toAmount: amount)
+                updateTarget(buffer: &buffers.reliableBuffer, newAmount: amount)
+                buffers.reliableRetryBuffer.trim(toAmount: amount)
             }
         case let .retryRequested(lastSeq):
             switch event.channelKind {
             case .lossy: ()
-            case .reliable: retry(buffer: &reliableRetryBuffer, from: lastSeq)
+            case .reliable: retry(buffer: &buffers.reliableRetryBuffer, from: lastSeq)
             }
         }
 
@@ -168,13 +170,13 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         case .lossy:
             processSendQueue(
                 threshold: Self.lossyLowThreshold,
-                buffer: &lossyBuffer,
+                buffer: &buffers.lossyBuffer,
                 kind: .lossy
             )
         case .reliable:
             processSendQueue(
                 threshold: Self.reliableLowThreshold,
-                buffer: &reliableBuffer,
+                buffer: &buffers.reliableBuffer,
                 kind: .reliable
             )
         }
@@ -259,23 +261,11 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         if let delegate {
             delegates.add(delegate: delegate)
         }
+
         super.init()
 
-        Task { [weak self] in
-            // Buffer state is maintained locally across events
-            var lossyBuffer = SendBuffer()
-            var reliableBuffer = SendBuffer()
-            var reliableRetryBuffer = RetryBuffer(minAmount: Self.reliableRetryAmount)
-
-            for await event in eventStream {
-                guard let self else { break }
-                processEvent(
-                    event,
-                    lossyBuffer: &lossyBuffer,
-                    reliableBuffer: &reliableBuffer,
-                    reliableRetryBuffer: &reliableRetryBuffer
-                )
-            }
+        eventLoopTask = Task.observing(eventStream, by: self, state: Buffers()) { observer, event, buffers in
+            observer.processEvent(event, buffers: &buffers)
         }
     }
 
