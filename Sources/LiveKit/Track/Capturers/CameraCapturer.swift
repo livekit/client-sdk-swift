@@ -425,6 +425,8 @@ extension LKRTCVideoFrame {
         let sourceRatio = Double(width) / Double(height)
         let targetRatio = Double(scaleWidth) / Double(scaleHeight)
 
+        guard targetRatio.isFinite else { return nil }
+
         // Calculate crop dimensions
         let (cropWidth, cropHeight): (Int32, Int32)
         if sourceRatio > targetRatio {

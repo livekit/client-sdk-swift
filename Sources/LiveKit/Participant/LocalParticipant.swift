@@ -649,22 +649,13 @@ extension LocalParticipant {
                 if track is LocalVideoTrack {
                     let publishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
 
-                    let setDegradationPreference: NSNumber? = {
-                        if let rtcDegradationPreference = publishOptions.degradationPreference.toRTCType() {
-                            return NSNumber(value: rtcDegradationPreference.rawValue)
-                        } else if track.source == .screenShareVideo || publishOptions.simulcast {
-                            return NSNumber(value: LKRTCDegradationPreference.maintainResolution.rawValue)
-                        }
-                        return nil
-                    }()
+                    let degradationPreference = publishOptions.degradationPreference.toRTCType() ?? .maintainResolution
 
-                    if let setDegradationPreference {
-                        self.log("[publish] set degradationPreference to \(setDegradationPreference)")
-                        let params = transceiver.sender.parameters
-                        params.degradationPreference = setDegradationPreference
-                        // Changing params directly doesn't work so we need to update params and set it back to sender.parameters
-                        transceiver.sender.parameters = params
-                    }
+                    self.log("[publish] set degradationPreference to \(degradationPreference)")
+                    let params = transceiver.sender.parameters
+                    params.degradationPreference = NSNumber(value: degradationPreference.rawValue)
+                    // Changing params directly doesn't work so we need to update params and set it back to sender.parameters
+                    transceiver.sender.parameters = params
 
                     if let preferredCodec = publishOptions.preferredCodec {
                         try transceiver.set(preferredVideoCodec: preferredCodec)
