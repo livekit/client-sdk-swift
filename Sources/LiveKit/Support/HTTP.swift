@@ -39,8 +39,17 @@ class HTTP: NSObject {
 
         // For non-2xx status codes, throw validation error with response body
         if !(200 ..< 300).contains(httpResponse.statusCode) {
-            let message = String(data: data, encoding: .utf8)
-            throw LiveKitError(.validation, message: message ?? "(No server message)")
+            let statusCode = httpResponse.statusCode
+            let rawBody = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            let body = if let rawBody, !rawBody.isEmpty {
+                rawBody.count > 1024 ? String(rawBody.prefix(1024)) + "..." : rawBody
+            } else {
+                "(No server message)"
+            }
+
+            throw LiveKitError(.validation, message: "HTTP \(statusCode): \(body)")
         }
     }
 }
