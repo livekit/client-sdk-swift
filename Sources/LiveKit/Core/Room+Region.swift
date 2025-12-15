@@ -205,9 +205,24 @@ extension Room {
         }
 
         // Check the status code.
-        guard httpResponse.isStatusCodeOK else {
-            log("[Region] Failed to fetch region settings, error: \(String(describing: httpResponse))", .error)
-            throw LiveKitError(.regionUrlProvider, message: "Failed to fetch region settings with status code: \(httpResponse.statusCode)")
+        let statusCode = httpResponse.statusCode
+        guard (200 ..< 300).contains(statusCode) else {
+            let rawBody = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let body = if let rawBody, !rawBody.isEmpty {
+                rawBody.count > 1024 ? String(rawBody.prefix(1024)) + "..." : rawBody
+            } else {
+                "(No server message)"
+            }
+
+            log("[Region] Failed to fetch region settings, status: \(statusCode), body: \(body)", .error)
+
+            // Treat 4xx as validation errors
+            if (400 ..< 500).contains(statusCode) {
+                throw LiveKitError(.validation, message: "Region settings error: HTTP \(statusCode): \(body)")
+            }
+
+            throw LiveKitError(.regionUrlProvider, message: "Failed to fetch region settings: HTTP \(statusCode): \(body)")
         }
 
         do {
