@@ -96,6 +96,30 @@ extension Room {
         return false
     }
 
+    func regionManagerUpdateFromServerReportedRegions(_ regions: Livekit_RegionSettings, providedUrl: URL) {
+        guard providedUrl.isCloud else { return }
+
+        let allRegions = regions.regions.compactMap { $0.toLKType() }
+        guard !allRegions.isEmpty else { return }
+
+        // Preserve previously failed regions while updating the server-provided region list.
+        let failedRegionIds = _regionState.read { state in
+            let allIds = Set(state.all.map(\.regionId))
+            let remainingIds = Set(state.remaining.map(\.regionId))
+            return allIds.subtracting(remainingIds)
+        }
+
+        let remainingRegions = allRegions.filter { !failedRegionIds.contains($0.regionId) }
+
+        log("[Region] Updating regions from server-reported settings (\(allRegions.count)), remaining: \(remainingRegions.count)")
+        _regionState.mutate {
+            $0.url = providedUrl
+            $0.all = allRegions
+            $0.remaining = remainingRegions
+            $0.lastRequested = Date()
+        }
+    }
+
     func regionManagerTryResolveBest() async throws -> RegionInfo? {
         do {
             return try await regionManagerResolveBest()

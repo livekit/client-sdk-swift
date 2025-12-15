@@ -43,17 +43,8 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?) async {
         log("canReconnect: \(canReconnect), reason: \(reason)")
 
-        if let regions, let providedUrl = _state.providedUrl, providedUrl.isCloud {
-            let allRegions = regions.regions.compactMap { $0.toLKType() }
-            if !allRegions.isEmpty {
-                log("[Region] Updating regions from server-reported settings (\(allRegions.count))")
-                _regionState.mutate {
-                    $0.url = providedUrl
-                    $0.all = allRegions
-                    $0.remaining = allRegions
-                    $0.lastRequested = Date()
-                }
-            }
+        if let regions, let providedUrl = _state.providedUrl {
+            regionManagerUpdateFromServerReportedRegions(regions, providedUrl: providedUrl)
         }
 
         if canReconnect {
