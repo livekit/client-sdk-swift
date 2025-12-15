@@ -19,8 +19,6 @@ import Foundation
 // MARK: - Room+Region
 
 extension Room {
-    static let regionManagerCacheInterval: TimeInterval = 30
-
     // MARK: - Public
 
     // prepareConnection should be called as soon as the page is loaded, in order
@@ -50,7 +48,7 @@ extension Room {
                 }
 
                 // Try to get the best region and warm that connection
-                if let bestRegion = try await regionManagerTryResolveBest() {
+                if let bestRegion = await regionManager.tryResolveBest(providedUrl: providedUrl, token: token) {
                     // Warm connection to the best region
                     await HTTP.prewarmConnection(url: bestRegion.url)
                     log("Prepared connection to \(bestRegion.url)")
@@ -114,168 +112,17 @@ extension Room {
                 if let region = nextRegion {
                     nextRegion = nil
                     log("Connect failed with region: \(region)")
-                    regionManager(addFailedRegion: region)
+                    await regionManager.markFailed(region: region)
                 }
 
                 try Task.checkCancellation()
 
                 await prepareAfterFailure()
 
-                let region = try await regionManagerResolveBest()
+                let region = try await regionManager.resolveBest(providedUrl: providedUrl, token: token)
                 nextUrl = region.url
                 nextRegion = region
             }
-        }
-    }
-
-    func regionManagerUpdateFromServerReportedRegions(_ regions: Livekit_RegionSettings, providedUrl: URL) {
-        guard providedUrl.isCloud else { return }
-
-        let allRegions = regions.regions.compactMap { $0.toLKType() }
-        guard !allRegions.isEmpty else { return }
-
-        // Preserve previously failed regions while updating the server-provided region list.
-        let failedRegionIds = _regionState.read { state in
-            let allIds = Set(state.all.map(\.regionId))
-            let remainingIds = Set(state.remaining.map(\.regionId))
-            return allIds.subtracting(remainingIds)
-        }
-
-        let remainingRegions = allRegions.filter { !failedRegionIds.contains($0.regionId) }
-
-        log("[Region] Updating regions from server-reported settings (\(allRegions.count)), remaining: \(remainingRegions.count)")
-        _regionState.mutate {
-            $0.url = providedUrl
-            $0.all = allRegions
-            $0.remaining = remainingRegions
-            $0.lastRequested = Date()
-        }
-    }
-
-    func regionManagerTryResolveBest() async throws -> RegionInfo? {
-        do {
-            return try await regionManagerResolveBest()
-        } catch {
-            log("[Region] Failed to resolve best region: \(error)")
-            return nil
-        }
-    }
-
-    func regionManagerResolveBest() async throws -> RegionInfo {
-        try await regionManagerRequestSettings()
-
-        guard let selectedRegion = _regionState.remaining.first else {
-            throw LiveKitError(.regionUrlProvider, message: "No more remaining regions.")
-        }
-
-        log("[Region] Resolved region: \(String(describing: selectedRegion))")
-
-        return selectedRegion
-    }
-
-    func regionManager(addFailedRegion region: RegionInfo) {
-        _regionState.mutate {
-            $0.remaining.removeAll { $0 == region }
-        }
-    }
-
-    func regionManagerResetAttempts() {
-        _regionState.mutate {
-            $0.remaining = $0.all
-        }
-    }
-
-    func regionManagerPrepareRegionSettings() {
-        Task.detached { [weak self] in
-            do {
-                try await self?.regionManagerRequestSettings()
-            } catch {
-                self?.log("[Region] Failed to prepare region settings: \(error)", .warning)
-            }
-        }
-    }
-
-    func regionManager(shouldRequestSettingsForUrl providedUrl: URL) -> Bool {
-        guard providedUrl.isCloud else { return false }
-        return _regionState.read {
-            guard providedUrl == $0.url, let regionSettingsUpdated = $0.lastRequested else { return true }
-            let interval = Date().timeIntervalSince(regionSettingsUpdated)
-            return interval > Self.regionManagerCacheInterval
-        }
-    }
-
-    // MARK: - Private
-
-    private func regionManagerRequestSettings() async throws {
-        let (providedUrl, token) = _state.read { ($0.providedUrl, $0.token) }
-
-        guard let providedUrl, let token else {
-            throw LiveKitError(.invalidState)
-        }
-
-        // Ensure url is for cloud.
-        guard providedUrl.isCloud else {
-            throw LiveKitError(.onlyForCloud)
-        }
-
-        guard regionManager(shouldRequestSettingsForUrl: providedUrl) else {
-            return
-        }
-
-        // Make a request which ignores cache.
-        var request = URLRequest(url: providedUrl.regionSettingsUrl(),
-                                 cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
-
-        request.addValue("Bearer \(token)", forHTTPHeaderField: "authorization")
-
-        log("[Region] Requesting region settings...")
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        // Response must be a HTTPURLResponse.
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw LiveKitError(.regionUrlProvider, message: "Failed to fetch region settings")
-        }
-
-        // Check the status code.
-        let statusCode = httpResponse.statusCode
-        guard (200 ..< 300).contains(statusCode) else {
-            let rawBody = String(data: data, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            let body = if let rawBody, !rawBody.isEmpty {
-                rawBody.count > 1024 ? String(rawBody.prefix(1024)) + "..." : rawBody
-            } else {
-                "(No server message)"
-            }
-
-            log("[Region] Failed to fetch region settings, status: \(statusCode), body: \(body)", .error)
-
-            // Treat 4xx as validation errors
-            if (400 ..< 500).contains(statusCode) {
-                throw LiveKitError(.validation, message: "Region settings error: HTTP \(statusCode): \(body)")
-            }
-
-            throw LiveKitError(.regionUrlProvider, message: "Failed to fetch region settings: HTTP \(statusCode): \(body)")
-        }
-
-        do {
-            // Try to parse the JSON data.
-            let regionSettings = try Livekit_RegionSettings(jsonUTF8Data: data)
-            let allRegions = regionSettings.regions.compactMap { $0.toLKType() }
-
-            if allRegions.isEmpty {
-                throw LiveKitError(.regionUrlProvider, message: "Fetched region data is empty.")
-            }
-
-            log("[Region] all regions: \(String(describing: allRegions))")
-
-            _regionState.mutate {
-                $0.url = providedUrl
-                $0.all = allRegions
-                $0.remaining = allRegions
-                $0.lastRequested = Date()
-            }
-        } catch {
-            throw LiveKitError(.regionUrlProvider, message: "Failed to parse region settings with error: \(error)")
         }
     }
 }

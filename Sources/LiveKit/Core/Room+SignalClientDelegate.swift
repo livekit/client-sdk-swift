@@ -44,7 +44,7 @@ extension Room: SignalClientDelegate {
         log("canReconnect: \(canReconnect), reason: \(reason)")
 
         if let regions, let providedUrl = _state.providedUrl {
-            regionManagerUpdateFromServerReportedRegions(regions, providedUrl: providedUrl)
+            await regionManager.updateFromServerReportedRegions(regions, providedUrl: providedUrl)
         }
 
         if canReconnect {

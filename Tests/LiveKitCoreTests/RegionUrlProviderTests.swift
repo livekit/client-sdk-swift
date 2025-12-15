@@ -47,51 +47,47 @@ class RegionUrlProviderTests: XCTestCase {
         let providedUrl = URL(string: "https://example.livekit.cloud")!
 
         // See if request should be initiated.
-        XCTAssert(room.regionManager(shouldRequestSettingsForUrl: providedUrl), "Should require to request region settings")
+        let shouldRequestInitially = await room.regionManager.shouldRequestSettings(for: providedUrl)
+        XCTAssertTrue(shouldRequestInitially, "Should require to request region settings")
 
-        // Set test data.
-        room._state.mutate {
-            $0.providedUrl = providedUrl
-            $0.token = ""
-        }
-
-        room._regionState.mutate {
-            $0.url = providedUrl
-            $0.all = testRegionSettings
-            $0.remaining = testRegionSettings
-            $0.lastRequested = Date()
-        }
+        await room.regionManager.setStateForTesting(.init(url: providedUrl,
+                                                          lastRequested: Date(),
+                                                          all: testRegionSettings,
+                                                          remaining: testRegionSettings))
 
         // See if request is not required to be initiated.
-        XCTAssert(!room.regionManager(shouldRequestSettingsForUrl: providedUrl), "Should require to request region settings")
+        let shouldRequestAfterSeed = await room.regionManager.shouldRequestSettings(for: providedUrl)
+        XCTAssertFalse(shouldRequestAfterSeed, "Should not require to request region settings")
 
-        let attempt1 = try await room.regionManagerResolveBest()
+        let attempt1 = try await room.regionManager.resolveBest(providedUrl: providedUrl, token: "")
         print("Next url: \(String(describing: attempt1))")
         XCTAssert(attempt1.url == testRegionSettings[0].url)
-        room.regionManager(addFailedRegion: attempt1)
+        await room.regionManager.markFailed(region: attempt1)
 
-        let attempt2 = try await room.regionManagerResolveBest()
+        let attempt2 = try await room.regionManager.resolveBest(providedUrl: providedUrl, token: "")
         print("Next url: \(String(describing: attempt2))")
         XCTAssert(attempt2.url == testRegionSettings[1].url)
-        room.regionManager(addFailedRegion: attempt2)
+        await room.regionManager.markFailed(region: attempt2)
 
-        let attempt3 = try await room.regionManagerResolveBest()
+        let attempt3 = try await room.regionManager.resolveBest(providedUrl: providedUrl, token: "")
         print("Next url: \(String(describing: attempt3))")
         XCTAssert(attempt3.url == testRegionSettings[2].url)
-        room.regionManager(addFailedRegion: attempt3)
+        await room.regionManager.markFailed(region: attempt3)
 
         // No more regions
-        let attempt4 = try? await room.regionManagerResolveBest()
+        let attempt4 = try? await room.regionManager.resolveBest(providedUrl: providedUrl, token: "")
         XCTAssert(attempt4 == nil)
 
         // Simulate cache time elapse.
-        room._regionState.mutate {
-            // Roll back time.
-            $0.lastRequested = Date().addingTimeInterval(-Room.regionManagerCacheInterval)
-        }
+        let snapshot = await room.regionManager.snapshot()
+        await room.regionManager.setStateForTesting(.init(url: snapshot.url,
+                                                          lastRequested: Date().addingTimeInterval(-(RegionManager.cacheInterval + 1)),
+                                                          all: snapshot.all,
+                                                          remaining: snapshot.remaining))
 
         // After cache time elapsed, should require to request region settings again.
-        XCTAssert(room.regionManager(shouldRequestSettingsForUrl: providedUrl), "Should require to request region settings")
+        let shouldRequestAfterCache = await room.regionManager.shouldRequestSettings(for: providedUrl)
+        XCTAssertTrue(shouldRequestAfterCache, "Should require to request region settings")
     }
 
     func testIsCloud() {
@@ -123,10 +119,6 @@ class RegionUrlProviderTests: XCTestCase {
     func testFetchRegionSettingsClassifies4xxAsValidation() async {
         let room = Room()
         let providedUrl = URL(string: "https://example.livekit.cloud")!
-        room._state.mutate {
-            $0.providedUrl = providedUrl
-            $0.token = "token"
-        }
 
         MockURLProtocol.allowedHosts = [providedUrl.host!]
         MockURLProtocol.allowedPaths = ["/settings/regions"]
@@ -136,7 +128,7 @@ class RegionUrlProviderTests: XCTestCase {
         URLProtocol.registerClass(MockURLProtocol.self)
 
         do {
-            _ = try await room.regionManagerResolveBest()
+            _ = try await room.regionManager.resolveBest(providedUrl: providedUrl, token: "token")
             XCTFail("Expected to throw")
         } catch {
             guard let liveKitError = error as? LiveKitError else {
@@ -150,10 +142,6 @@ class RegionUrlProviderTests: XCTestCase {
     func testFetchRegionSettingsClassifies5xxAsRegionUrlProvider() async {
         let room = Room()
         let providedUrl = URL(string: "https://example.livekit.cloud")!
-        room._state.mutate {
-            $0.providedUrl = providedUrl
-            $0.token = "token"
-        }
 
         MockURLProtocol.allowedHosts = [providedUrl.host!]
         MockURLProtocol.allowedPaths = ["/settings/regions"]
@@ -163,7 +151,7 @@ class RegionUrlProviderTests: XCTestCase {
         URLProtocol.registerClass(MockURLProtocol.self)
 
         do {
-            _ = try await room.regionManagerResolveBest()
+            _ = try await room.regionManager.resolveBest(providedUrl: providedUrl, token: "token")
             XCTFail("Expected to throw")
         } catch {
             guard let liveKitError = error as? LiveKitError else {
@@ -177,10 +165,6 @@ class RegionUrlProviderTests: XCTestCase {
     func testFetchRegionSettingsParsesRegions() async throws {
         let room = Room()
         let providedUrl = URL(string: "https://example.livekit.cloud")!
-        room._state.mutate {
-            $0.providedUrl = providedUrl
-            $0.token = "token"
-        }
 
         let body = Data("""
         {
@@ -199,16 +183,16 @@ class RegionUrlProviderTests: XCTestCase {
         }
         URLProtocol.registerClass(MockURLProtocol.self)
 
-        let region = try await room.regionManagerResolveBest()
+        let region = try await room.regionManager.resolveBest(providedUrl: providedUrl, token: "token")
         XCTAssertEqual(region.regionId, "a")
 
-        let state = room._regionState.copy()
+        let state = await room.regionManager.snapshot()
         XCTAssertEqual(state.all.count, 2)
         XCTAssertEqual(state.remaining.count, 2)
         XCTAssertEqual(state.url, providedUrl)
     }
 
-    func testUpdateFromServerReportedRegionsPreservesFailedRegions() {
+    func testUpdateFromServerReportedRegionsPreservesFailedRegions() async {
         let room = Room()
         let providedUrl = URL(string: "https://example.livekit.cloud")!
 
@@ -216,13 +200,10 @@ class RegionUrlProviderTests: XCTestCase {
         let b = RegionInfo(region: "b", url: "https://regionb.livekit.cloud", distance: 200)!
         let c = RegionInfo(region: "c", url: "https://regionc.livekit.cloud", distance: 300)!
 
-        room._regionState.mutate {
-            $0.url = providedUrl
-            $0.all = [a, b, c]
-            // Mark b as failed by removing it from remaining.
-            $0.remaining = [a, c]
-            $0.lastRequested = Date()
-        }
+        await room.regionManager.setStateForTesting(.init(url: providedUrl,
+                                                          lastRequested: Date(),
+                                                          all: [a, b, c],
+                                                          remaining: [a, c]))
 
         let serverRegions = Livekit_RegionSettings.with {
             $0.regions = [
@@ -232,9 +213,9 @@ class RegionUrlProviderTests: XCTestCase {
             ]
         }
 
-        room.regionManagerUpdateFromServerReportedRegions(serverRegions, providedUrl: providedUrl)
+        await room.regionManager.updateFromServerReportedRegions(serverRegions, providedUrl: providedUrl)
 
-        let updated = room._regionState.copy()
+        let updated = await room.regionManager.snapshot()
         XCTAssertEqual(updated.all.map(\.regionId), ["a", "b", "c"])
         XCTAssertEqual(updated.remaining.map(\.regionId), ["a", "c"])
     }

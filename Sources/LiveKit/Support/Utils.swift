@@ -278,7 +278,7 @@ extension MutableCollection {
 
 extension HTTPURLResponse {
     var isStatusCodeOK: Bool {
-        (200 ... 299).contains(statusCode)
+        (200 ..< 300).contains(statusCode)
     }
 }
 

@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public class RegionInfo: NSObject {
+public class RegionInfo: NSObject, @unchecked Sendable {
     let regionId: String
     let url: URL
     let distance: Int64

@@ -196,10 +196,7 @@ extension LiveKitError {
 }
 
 extension Error {
-    /// Returns `true` when this error represents a network failure that should trigger a region failover / retry.
-    ///
-    /// This intentionally excludes validation-like failures (e.g. invalid token) where retrying other regions
-    /// will not help.
+    /// Returns `true` for network/timeouts that should trigger region failover.
     var isRetryableForRegionFailover: Bool {
         if let liveKitError = self as? LiveKitError {
             switch liveKitError.type {

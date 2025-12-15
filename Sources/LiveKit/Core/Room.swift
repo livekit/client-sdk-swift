@@ -201,16 +201,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
     }
 
-    struct RegionState {
-        // Region
-        var url: URL?
-        var lastRequested: Date?
-        var all: [RegionInfo] = []
-        var remaining: [RegionInfo] = []
-    }
-
     let _state: StateSync<State>
-    let _regionState = StateSync(RegionState())
+    let regionManager = RegionManager()
 
     private let _sidCompleter = AsyncCompleter<Sid>(label: "sid", defaultTimeout: .resolveSid)
 
@@ -381,16 +373,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var nextRegion: RegionInfo?
 
         if providedUrl.isCloud {
-            let shouldResetRegionAttempts = _regionState.read { $0.remaining.isEmpty && !$0.all.isEmpty }
-            if shouldResetRegionAttempts {
-                regionManagerResetAttempts()
-            }
+            await regionManager.resetAttemptsIfExhausted()
 
-            if regionManager(shouldRequestSettingsForUrl: providedUrl) {
-                regionManagerPrepareRegionSettings()
+            if await regionManager.shouldRequestSettings(for: providedUrl) {
+                await regionManager.prepareSettingsFetch(providedUrl: providedUrl, token: token)
             } else {
                 // If region info already available, use it instead of provided url.
-                let region = try await regionManagerResolveBest()
+                let region = try await regionManager.resolveBest(providedUrl: providedUrl, token: token)
                 nextUrl = region.url
                 nextRegion = region
             }

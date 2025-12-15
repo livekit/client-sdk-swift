@@ -438,7 +438,7 @@ extension Room {
 
             if let providedUrl = _state.providedUrl, providedUrl.isCloud {
                 // Clear failed region attempts after a successful reconnect.
-                regionManagerResetAttempts()
+                await regionManager.resetAttempts()
             }
         } catch {
             log("[Connect] Sequence failed with error: \(error)")
