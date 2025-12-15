@@ -29,6 +29,7 @@ final class BroadcastUploader: Sendable, Loggable {
     private struct State {
         var isUploadingImage = false
         var shouldUploadAudio = false
+        var messageLoopTask: Task<Void, Error>?
     }
 
     private let state = StateSync(State())
@@ -40,8 +41,20 @@ final class BroadcastUploader: Sendable, Loggable {
 
     /// Creates an uploader with an open connection to another process.
     init(socketPath: SocketPath) async throws {
-        channel = try await IPCChannel(connectingTo: socketPath)
-        Task { try await handleIncomingMessages() }
+        let channel = try await IPCChannel(connectingTo: socketPath)
+        self.channel = channel
+
+        let task = Task { [weak self, channel] in
+            for try await (header, _) in channel.incomingMessages(BroadcastIPCHeader.self) {
+                guard let self else { break }
+                processMessage(header)
+            }
+        }
+        state.mutate { $0.messageLoopTask = task }
+    }
+
+    deinit {
+        close()
     }
 
     /// Whether or not the connection to the receiver has been closed.
@@ -51,6 +64,10 @@ final class BroadcastUploader: Sendable, Loggable {
 
     /// Close the connection to the receiver.
     func close() {
+        state.mutate {
+            $0.messageLoopTask?.cancel()
+            $0.messageLoopTask = nil
+        }
         channel.close()
     }
 
@@ -71,10 +88,10 @@ final class BroadcastUploader: Sendable, Loggable {
             let rotation = VideoRotation(sampleBuffer.replayKitOrientation ?? .up)
             do {
                 let (metadata, imageData) = try imageCodec.encode(sampleBuffer)
-                Task {
+                Task { [weak self, channel] in
                     let header = BroadcastIPCHeader.image(metadata, rotation)
                     try await channel.send(header: header, payload: imageData)
-                    state.mutate { $0.isUploadingImage = false }
+                    self?.state.mutate { $0.isUploadingImage = false }
                 }
             } catch {
                 state.mutate { $0.isUploadingImage = false }
@@ -83,7 +100,7 @@ final class BroadcastUploader: Sendable, Loggable {
         case .audioApp:
             guard state.shouldUploadAudio else { return }
             let (metadata, audioData) = try audioCodec.encode(sampleBuffer)
-            Task {
+            Task { [channel] in
                 let header = BroadcastIPCHeader.audio(metadata)
                 try await channel.send(header: header, payload: audioData)
             }
@@ -92,15 +109,12 @@ final class BroadcastUploader: Sendable, Loggable {
         }
     }
 
-    private func handleIncomingMessages() async throws {
-        for try await (header, _) in channel.incomingMessages(BroadcastIPCHeader.self) {
-            switch header {
-            case let .wantsAudio(wantsAudio):
-                state.mutate { $0.shouldUploadAudio = wantsAudio }
-            default:
-                log("Unhandled incoming message: \(header)", .debug)
-                continue
-            }
+    private func processMessage(_ header: BroadcastIPCHeader) {
+        switch header {
+        case let .wantsAudio(wantsAudio):
+            state.mutate { $0.shouldUploadAudio = wantsAudio }
+        default:
+            log("Unhandled incoming message: \(header)", .debug)
         }
     }
 }
