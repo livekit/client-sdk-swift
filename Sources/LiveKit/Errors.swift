@@ -57,7 +57,6 @@ public enum LiveKitErrorType: Int, Sendable {
 
     case codecNotSupported = 901
 
-    // LiveKit Cloud
     // Encryption
     case encryptionFailed = 1001
     case decryptionFailed = 1002
