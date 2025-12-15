@@ -18,6 +18,12 @@
 import XCTest
 
 class RegionUrlProviderTests: XCTestCase {
+    override func tearDown() {
+        super.tearDown()
+        URLProtocol.unregisterClass(MockURLProtocol.self)
+        MockURLProtocol.reset()
+    }
+
     func testResolveUrl() async throws {
         let room = Room()
 
@@ -86,5 +92,152 @@ class RegionUrlProviderTests: XCTestCase {
 
         // After cache time elapsed, should require to request region settings again.
         XCTAssert(room.regionManager(shouldRequestSettingsForUrl: providedUrl), "Should require to request region settings")
+    }
+
+    func testIsCloud() {
+        XCTAssertTrue(URL(string: "wss://test.livekit.cloud")!.isCloud)
+        XCTAssertTrue(URL(string: "wss://test.livekit.run")!.isCloud)
+        XCTAssertFalse(URL(string: "wss://self-hosted.example.com")!.isCloud)
+        XCTAssertFalse(URL(string: "ws://localhost:7880")!.isCloud)
+    }
+
+    func testRegionSettingsUrlConversion() {
+        XCTAssertEqual(URL(string: "wss://test.livekit.cloud")!.regionSettingsUrl().absoluteString,
+                       "https://test.livekit.cloud/settings/regions")
+        XCTAssertEqual(URL(string: "ws://test.livekit.cloud")!.regionSettingsUrl().absoluteString,
+                       "http://test.livekit.cloud/settings/regions")
+        XCTAssertEqual(URL(string: "https://test.livekit.cloud")!.regionSettingsUrl().absoluteString,
+                       "https://test.livekit.cloud/settings/regions")
+    }
+
+    func testRegionManagerShouldRetryConnection() {
+        let room = Room()
+
+        XCTAssertTrue(room.regionManagerShouldRetryConnection(for: LiveKitError(.network)))
+        XCTAssertTrue(room.regionManagerShouldRetryConnection(for: LiveKitError(.timedOut)))
+        XCTAssertFalse(room.regionManagerShouldRetryConnection(for: LiveKitError(.validation)))
+
+        XCTAssertTrue(room.regionManagerShouldRetryConnection(for: URLError(.timedOut)))
+        XCTAssertTrue(room.regionManagerShouldRetryConnection(for: NSError(domain: NSURLErrorDomain, code: -1)))
+        XCTAssertFalse(room.regionManagerShouldRetryConnection(for: NSError(domain: "other", code: -1)))
+    }
+
+    func testFetchRegionSettingsClassifies4xxAsValidation() async {
+        let room = Room()
+        let providedUrl = URL(string: "https://example.livekit.cloud")!
+        room._state.mutate {
+            $0.providedUrl = providedUrl
+            $0.token = "token"
+        }
+
+        MockURLProtocol.allowedHosts = [providedUrl.host!]
+        MockURLProtocol.allowedPaths = ["/settings/regions"]
+        MockURLProtocol.requestHandler = { _ in
+            .init(statusCode: 404, headers: [:], body: Data("not found".utf8))
+        }
+        URLProtocol.registerClass(MockURLProtocol.self)
+
+        do {
+            _ = try await room.regionManagerResolveBest()
+            XCTFail("Expected to throw")
+        } catch {
+            guard let liveKitError = error as? LiveKitError else {
+                XCTFail("Expected LiveKitError, got \(error)")
+                return
+            }
+            XCTAssertEqual(liveKitError.type, .validation)
+        }
+    }
+
+    func testFetchRegionSettingsClassifies5xxAsRegionUrlProvider() async {
+        let room = Room()
+        let providedUrl = URL(string: "https://example.livekit.cloud")!
+        room._state.mutate {
+            $0.providedUrl = providedUrl
+            $0.token = "token"
+        }
+
+        MockURLProtocol.allowedHosts = [providedUrl.host!]
+        MockURLProtocol.allowedPaths = ["/settings/regions"]
+        MockURLProtocol.requestHandler = { _ in
+            .init(statusCode: 500, headers: [:], body: Data("server error".utf8))
+        }
+        URLProtocol.registerClass(MockURLProtocol.self)
+
+        do {
+            _ = try await room.regionManagerResolveBest()
+            XCTFail("Expected to throw")
+        } catch {
+            guard let liveKitError = error as? LiveKitError else {
+                XCTFail("Expected LiveKitError, got \(error)")
+                return
+            }
+            XCTAssertEqual(liveKitError.type, .regionUrlProvider)
+        }
+    }
+
+    func testFetchRegionSettingsParsesRegions() async throws {
+        let room = Room()
+        let providedUrl = URL(string: "https://example.livekit.cloud")!
+        room._state.mutate {
+            $0.providedUrl = providedUrl
+            $0.token = "token"
+        }
+
+        let body = Data("""
+        {
+          "regions": [
+            { "region": "a", "url": "https://regiona.livekit.cloud", "distance": "100" },
+            { "region": "b", "url": "https://regionb.livekit.cloud", "distance": "200" }
+          ]
+        }
+        """.utf8)
+
+        MockURLProtocol.allowedHosts = [providedUrl.host!]
+        MockURLProtocol.allowedPaths = ["/settings/regions"]
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.value(forHTTPHeaderField: "authorization"), "Bearer token")
+            return .init(statusCode: 200, headers: [:], body: body)
+        }
+        URLProtocol.registerClass(MockURLProtocol.self)
+
+        let region = try await room.regionManagerResolveBest()
+        XCTAssertEqual(region.regionId, "a")
+
+        let state = room._regionState.copy()
+        XCTAssertEqual(state.all.count, 2)
+        XCTAssertEqual(state.remaining.count, 2)
+        XCTAssertEqual(state.url, providedUrl)
+    }
+
+    func testUpdateFromServerReportedRegionsPreservesFailedRegions() {
+        let room = Room()
+        let providedUrl = URL(string: "https://example.livekit.cloud")!
+
+        let a = RegionInfo(region: "a", url: "https://regiona.livekit.cloud", distance: 100)!
+        let b = RegionInfo(region: "b", url: "https://regionb.livekit.cloud", distance: 200)!
+        let c = RegionInfo(region: "c", url: "https://regionc.livekit.cloud", distance: 300)!
+
+        room._regionState.mutate {
+            $0.url = providedUrl
+            $0.all = [a, b, c]
+            // Mark b as failed by removing it from remaining.
+            $0.remaining = [a, c]
+            $0.lastRequested = Date()
+        }
+
+        let serverRegions = Livekit_RegionSettings.with {
+            $0.regions = [
+                .with { $0.region = "a"; $0.url = a.url.absoluteString; $0.distance = a.distance },
+                .with { $0.region = "b"; $0.url = b.url.absoluteString; $0.distance = b.distance },
+                .with { $0.region = "c"; $0.url = c.url.absoluteString; $0.distance = c.distance },
+            ]
+        }
+
+        room.regionManagerUpdateFromServerReportedRegions(serverRegions, providedUrl: providedUrl)
+
+        let updated = room._regionState.copy()
+        XCTAssertEqual(updated.all.map(\.regionId), ["a", "b", "c"])
+        XCTAssertEqual(updated.remaining.map(\.regionId), ["a", "c"])
     }
 }
