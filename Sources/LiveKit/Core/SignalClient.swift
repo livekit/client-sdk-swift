@@ -192,8 +192,16 @@ actor SignalClient: Loggable {
                 // Re-throw validation error
                 throw validationError
             } catch {
-                // Re-throw original connection error for network issues during validation
-                throw LiveKitError(.network, internalError: connectionError)
+                let validationMessage = if let liveKitError = error as? LiveKitError {
+                    liveKitError.message ?? liveKitError.localizedDescription
+                } else {
+                    error.localizedDescription
+                }
+
+                // Preserve validation request failure details while keeping the original connection error.
+                throw LiveKitError(.network,
+                                   message: "Validation request failed: \(validationMessage)",
+                                   internalError: connectionError)
             }
         }
     }

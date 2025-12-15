@@ -37,8 +37,7 @@ class HTTP: NSObject {
             throw URLError(.badServerResponse)
         }
 
-        // For non-2xx status codes, throw validation error with response body
-        if !(200 ..< 300).contains(httpResponse.statusCode) {
+        guard (200 ..< 300).contains(httpResponse.statusCode) else {
             let statusCode = httpResponse.statusCode
             let rawBody = String(data: data, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -49,7 +48,15 @@ class HTTP: NSObject {
                 "(No server message)"
             }
 
-            throw LiveKitError(.validation, message: "HTTP \(statusCode): \(body)")
+            let details = "HTTP \(statusCode): \(body)"
+
+            // Treat request/token/permissions issues as validation errors.
+            if (400 ..< 500).contains(statusCode), statusCode != 429 {
+                throw LiveKitError(.validation, message: details)
+            }
+
+            // Treat server/rate-limit issues as network errors.
+            throw LiveKitError(.network, message: "Validation endpoint error: \(details)")
         }
     }
 }
