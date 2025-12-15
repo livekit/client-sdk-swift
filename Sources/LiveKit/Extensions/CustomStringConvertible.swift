@@ -134,6 +134,7 @@ extension ConnectionState: CustomStringConvertible {
         case .connecting: ".connecting"
         case .reconnecting: ".reconnecting"
         case .connected: ".connected"
+        case .disconnecting: ".disconnecting"
         }
     }
 }
@@ -203,7 +204,7 @@ extension AVCaptureDevice.Format {
         var values: [String] = []
         values.append("fps: \(fpsRange())")
         #if os(iOS)
-        values.append("isMulticamSupported: \(isMultiCamSupported)")
+        values.append("isMultiCamSupported: \(isMultiCamSupported)")
         #endif
         return "Format(\(values.joined(separator: ", ")))"
     }

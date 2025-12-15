@@ -387,16 +387,16 @@ extension Room {
         }
 
         do {
-            try await Task.retrying(totalAttempts: _state.connectOptions.reconnectAttempts,
-                                    retryDelay: { @Sendable attempt in
-                                        let delay = TimeInterval.computeReconnectDelay(forAttempt: attempt,
-                                                                                       baseDelay: self._state.connectOptions.reconnectAttemptDelay,
-                                                                                       maxDelay: self._state.connectOptions.reconnectMaxDelay,
-                                                                                       totalAttempts: self._state.connectOptions.reconnectAttempts,
-                                                                                       addJitter: true)
-                                        self.log("[Connect] Retry cycle waiting for \(String(format: "%.2f", delay)) seconds before attempt \(attempt + 1)")
-                                        return delay
-                                    }) { currentAttempt, totalAttempts in
+            let reconnectTask = Task.retrying(totalAttempts: _state.connectOptions.reconnectAttempts,
+                                              retryDelay: { @Sendable attempt in
+                                                  let delay = TimeInterval.computeReconnectDelay(forAttempt: attempt,
+                                                                                                 baseDelay: self._state.connectOptions.reconnectAttemptDelay,
+                                                                                                 maxDelay: self._state.connectOptions.reconnectMaxDelay,
+                                                                                                 totalAttempts: self._state.connectOptions.reconnectAttempts,
+                                                                                                 addJitter: true)
+                                                  self.log("[Connect] Retry cycle waiting for \(String(format: "%.2f", delay)) seconds before attempt \(attempt + 1)")
+                                                  return delay
+                                              }) { currentAttempt, totalAttempts in
                 // Not reconnecting state anymore
                 guard let currentMode = self._state.isReconnectingWithMode else {
                     self.log("[Connect] Not in reconnect state anymore, exiting retry cycle.")
@@ -433,12 +433,19 @@ extension Room {
                     // Re-throw
                     throw error
                 }
-            }.value
+            }
+
+            _state.mutate {
+                $0.reconnectTask = reconnectTask
+            }
+
+            try await reconnectTask.value
 
             // Re-connect sequence successful
             log("[Connect] Sequence completed")
             _state.mutate {
                 $0.connectionState = .connected
+                $0.reconnectTask = nil
                 $0.isReconnectingWithMode = nil
                 $0.nextReconnectMode = nil
             }
@@ -471,9 +478,12 @@ extension Room {
         // 2. autosubscribe off, we send subscribed tracks.
 
         let autoSubscribe = _state.connectOptions.autoSubscribe
+        // Use isDesired (subscription intent) instead of isSubscribed (actual state)
+        // to avoid race condition during quick reconnect where tracks aren't attached yet.
         let trackSids = _state.remoteParticipants.values.flatMap { participant in
             participant._state.trackPublications.values
-                .filter { $0.isSubscribed != autoSubscribe }
+                .compactMap { $0 as? RemoteTrackPublication }
+                .filter { $0.isDesired != autoSubscribe }
                 .map(\.sid)
         }
 

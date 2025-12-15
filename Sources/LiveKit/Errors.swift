@@ -30,6 +30,7 @@ public enum LiveKitErrorType: Int, Sendable {
     case webRTC = 201
 
     case network // Network issue
+    case validation // Validation issue
 
     // Server
     case duplicateIdentity = 500
@@ -57,8 +58,13 @@ public enum LiveKitErrorType: Int, Sendable {
     case codecNotSupported = 901
 
     // LiveKit Cloud
-    case onlyForCloud = 1001
-    case regionUrlProvider = 1002
+    // Encryption
+    case encryptionFailed = 1001
+    case decryptionFailed = 1002
+
+    // LiveKit Cloud
+    case onlyForCloud = 1101
+    case regionUrlProvider = 1102
 }
 
 extension LiveKitErrorType: CustomStringConvertible {
@@ -80,6 +86,8 @@ extension LiveKitErrorType: CustomStringConvertible {
             "WebRTC error"
         case .network:
             "Network error"
+        case .validation:
+            "Validation error"
         case .duplicateIdentity:
             "Duplicate Participant identity"
         case .serverShutdown:
@@ -106,19 +114,32 @@ extension LiveKitErrorType: CustomStringConvertible {
             "Audio Engine Error"
         case .audioSession:
             "Audio Session Error"
+        case .codecNotSupported:
+            "Codec not supported"
+        case .encryptionFailed:
+            "Encryption failed"
+        case .decryptionFailed:
+            "Decryption failed"
+        case .onlyForCloud:
+            "Only for LiveKit Cloud"
+        case .regionUrlProvider:
+            "Region URL provider error"
         default: "Unknown"
         }
     }
 }
 
 @objc
-public class LiveKitError: NSError, @unchecked Sendable {
+public class LiveKitError: NSError, @unchecked Sendable, Loggable {
     public let type: LiveKitErrorType
     public let message: String?
-    public let underlyingError: Error?
+    public let internalError: Error?
+
+    @available(*, deprecated, renamed: "internalError")
+    public var underlyingError: Error? { internalError }
 
     override public var underlyingErrors: [Error] {
-        [underlyingError].compactMap { $0 }
+        [internalError].compactMap { $0 }
     }
 
     public init(_ type: LiveKitErrorType,
@@ -126,18 +147,26 @@ public class LiveKitError: NSError, @unchecked Sendable {
                 internalError: Error? = nil)
     {
         func _computeDescription() -> String {
+            var suffix = ""
             if let message {
-                return "\(String(describing: type))(\(message))"
+                suffix = "(\(message))"
+            } else if let internalError {
+                suffix = "(\(internalError.localizedDescription))"
             }
-            return String(describing: type)
+            return String(describing: type) + suffix
         }
 
         self.type = type
         self.message = message
-        underlyingError = internalError
+        self.internalError = internalError
+
+        var userInfo: [String: Any] = [NSLocalizedDescriptionKey: _computeDescription()]
+        if let internalError {
+            userInfo[NSUnderlyingErrorKey] = internalError as NSError
+        }
         super.init(domain: "io.livekit.swift-sdk",
                    code: type.rawValue,
-                   userInfo: [NSLocalizedDescriptionKey: _computeDescription()])
+                   userInfo: userInfo)
     }
 
     @available(*, unavailable)
@@ -158,7 +187,7 @@ extension LiveKitError {
         }
 
         // TODO: Identify more network error types
-        logger.log("Uncategorized error for: \(String(describing: error))", type: LiveKitError.self)
+        log("Uncategorized error for: \(String(describing: error))")
         return LiveKitError(.unknown)
     }
 

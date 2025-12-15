@@ -1,0 +1,39 @@
+{
+  "configurations" : [
+    {
+      "id" : "4083664C-CBD4-4DC9-A23B-AD78C697A794",
+      "name" : "base",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "environmentVariableEntries" : [
+      {
+        "key" : "LIVEKIT_TESTING_URL",
+        "value" : "ws:\/\/localhost:7880"
+      },
+      {
+        "key" : "LIVEKIT_TESTING_API_KEY",
+        "value" : "devkey"
+      },
+      {
+        "key" : "LIVEKIT_TESTING_API_SECRET",
+        "value" : "secret"
+      }
+    ],
+    "testExecutionOrdering" : "random",
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:LKTestHost.xcodeproj",
+        "identifier" : "7B7356772D9CB604003BB6F4",
+        "name" : "LiveKitCoreTests"
+      }
+    }
+  ],
+  "version" : 1
+}

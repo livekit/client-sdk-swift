@@ -44,11 +44,15 @@ extension LKRTCRtpCapabilities: @unchecked Swift.Sendable {}
 extension LKRTCConfiguration: @unchecked Swift.Sendable {}
 extension LKRTCVideoCapturer: @unchecked Swift.Sendable {}
 extension LKRTCDefaultAudioProcessingModule: @unchecked Swift.Sendable {}
+extension LKRTCCallbackLogger: @unchecked Swift.Sendable {}
 
 // MARK: Collections
 
-extension NSHashTable: @unchecked Swift.Sendable {} // cannot specify Obj-C generics
-extension NSMapTable: @unchecked Swift.Sendable {} // cannot specify Obj-C generics
 #if swift(<6.2)
 extension Dictionary: Swift.Sendable where Key: Sendable, Value: Sendable {}
 #endif
+
+// MARK: AV
+
+extension AVCaptureDevice: @unchecked Swift.Sendable {}
+extension AVCaptureDevice.Format: @unchecked Swift.Sendable {}

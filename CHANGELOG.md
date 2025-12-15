@@ -1,5 +1,83 @@
 # Changelog
 
+## [2.10.2] - 2025-12-10
+
+### Fixed
+
+- Screen sharing not publishing frames with VP9/AV1 codecs
+- Crash in VideoView when video dimensions are both 0
+- Crash when moving apps to background during broadcast
+- Crash in LocalAudioTrack.deinit
+- Default degradation preference for non-simulcast tracks
+- Race condition during sync preventing track subscription
+
+## [2.10.1] - 2025-11-26
+
+### Changed
+
+- Allowed Agent recovery from failed state
+- Removed '@unchecked Sendable' extensions on common types
+
+### Fixed
+
+- Timeouts when publishing camera tracks
+- Processing data packets out-of-order leading to stream corruption
+
+## [2.10.0] - 2025-11-13
+
+### Added
+
+- Separate delegate methods for reconnect start/completion
+- Agent and Session APIs for creating agent-based apps
+
+### Fixed
+
+- Improved capture format logic for multicam devices
+
+## [2.9.0] - 2025-10-20
+
+### Added
+
+- Improved logging with the interface for custom loggers
+- Add lastSpokeAt property to Participant
+- Abstract token source for easier token fetching in production and faster integration with sandbox environment
+
+### Fixed
+
+- clamp response timeout in performRpc to minimal 1s
+- Audio processing delegate lifecycle
+- Byte stream MIME type defaulting to text/plain
+- App extension compile issues
+- Breaking change: Library evolution support (xcframework). May break existing `*Track` extensions.
+- Serial operations cancellation semantics
+
+## [2.8.1] - 2025-10-02
+
+### Fixed
+
+- RoomOptions init collision
+
+## [2.8.0] - 2025-10-01
+
+### Added
+
+- Added support for data channel encryption, deprecated existing E2EE options
+- Added audio engine availability control
+- Added .disconnected connection state
+
+### Changed
+
+- Auth token in header instead of query param
+- Audio capturing for manual rendering mode
+
+### Fixed
+
+- Renderer lifecycle in the video view causing flickering effect
+- Restrict transceiver memory leak fix to video tracks
+- Screen sharing getting stuck on macOS when the display is turned off
+- Only check audio recording perms for device rendering mode
+- Fixed race condition between reconnect and disconnect leading to failed disconnects
+
 ## [2.7.2] - 2025-08-29
 
 ### Fixed

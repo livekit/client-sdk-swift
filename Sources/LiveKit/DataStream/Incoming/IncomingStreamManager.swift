@@ -34,6 +34,42 @@ actor IncomingStreamManager: Loggable {
     private var byteStreamHandlers: [String: ByteStreamHandler] = [:]
     private var textStreamHandlers: [String: TextStreamHandler] = [:]
 
+    /// Events are processed in a serial (FIFO) order
+    enum StreamEvent: Sendable {
+        case header(Livekit_DataStream.Header, String, EncryptionType)
+        case chunk(Livekit_DataStream.Chunk, EncryptionType)
+        case trailer(Livekit_DataStream.Trailer, EncryptionType)
+    }
+
+    private let eventContinuation: AsyncStream<StreamEvent>.Continuation
+
+    init() {
+        let (stream, continuation) = AsyncStream.makeStream(of: StreamEvent.self)
+        eventContinuation = continuation
+
+        Task { [weak self] in
+            for await event in stream {
+                guard let self else { break }
+                await process(event)
+            }
+        }
+    }
+
+    nonisolated func handle(_ event: StreamEvent) {
+        eventContinuation.yield(event)
+    }
+
+    private func process(_ event: StreamEvent) {
+        switch event {
+        case let .header(header, identityString, encryptionType):
+            handle(header: header, from: identityString, encryptionType: encryptionType)
+        case let .chunk(chunk, encryptionType):
+            handle(chunk: chunk, encryptionType: encryptionType)
+        case let .trailer(trailer, encryptionType):
+            handle(trailer: trailer, encryptionType: encryptionType)
+        }
+    }
+
     // MARK: - Handler registration
 
     func registerByteStreamHandler(for topic: String, _ onNewStream: @escaping ByteStreamHandler) throws {
@@ -61,10 +97,10 @@ actor IncomingStreamManager: Loggable {
     // MARK: - Packet processing
 
     /// Handles a data stream header.
-    func handle(header: Livekit_DataStream.Header, from identityString: String) {
+    private func handle(header: Livekit_DataStream.Header, from identityString: String, encryptionType: EncryptionType) {
         let identity = Participant.Identity(from: identityString)
 
-        guard let streamInfo = Self.streamInfo(from: header) else {
+        guard let streamInfo = Self.streamInfo(from: header, encryptionType: encryptionType) else {
             return
         }
         openStream(with: streamInfo, from: identity)
@@ -77,7 +113,7 @@ actor IncomingStreamManager: Loggable {
         guard let handler = handler(for: info) else {
             let topic = info.topic
             if !failedToOpenStreams.contains(topic) {
-                logger.warning("Unable to find handler for incoming stream: \(info.id), topic: \(topic), opened by: \(identity)")
+                log("Unable to find handler for incoming stream: \(info.id), topic: \(topic), opened by: \(identity)", .warning)
                 failedToOpenStreams.insert(topic)
             }
             return
@@ -110,8 +146,17 @@ actor IncomingStreamManager: Loggable {
     }
 
     /// Handles a data stream chunk.
-    func handle(chunk: Livekit_DataStream.Chunk) {
+    private func handle(chunk: Livekit_DataStream.Chunk, encryptionType: EncryptionType) {
         guard !chunk.content.isEmpty, let descriptor = openStreams[chunk.streamID] else { return }
+
+        if descriptor.info.encryptionType != encryptionType {
+            let error = StreamError.encryptionTypeMismatch(
+                expected: descriptor.info.encryptionType,
+                received: encryptionType
+            )
+            descriptor.continuation.finish(throwing: error)
+            return
+        }
 
         let readLength = descriptor.readLength + chunk.content.count
 
@@ -126,10 +171,20 @@ actor IncomingStreamManager: Loggable {
     }
 
     /// Handles a data stream trailer.
-    func handle(trailer: Livekit_DataStream.Trailer) {
+    private func handle(trailer: Livekit_DataStream.Trailer, encryptionType: EncryptionType) {
         guard let descriptor = openStreams[trailer.streamID] else {
             return
         }
+
+        if descriptor.info.encryptionType != encryptionType {
+            let error = StreamError.encryptionTypeMismatch(
+                expected: descriptor.info.encryptionType,
+                received: encryptionType
+            )
+            descriptor.continuation.finish(throwing: error)
+            return
+        }
+
         if let totalLength = descriptor.info.totalLength {
             guard descriptor.readLength == totalLength else {
                 descriptor.continuation.finish(throwing: StreamError.incomplete)
@@ -168,6 +223,7 @@ actor IncomingStreamManager: Loggable {
     // MARK: - Clean up
 
     deinit {
+        eventContinuation.finish()
         guard !openStreams.isEmpty else { return }
         for descriptor in openStreams.values {
             descriptor.continuation.finish(throwing: StreamError.terminated)
@@ -186,10 +242,10 @@ public typealias TextStreamHandler = @Sendable (TextStreamReader, Participant.Id
 // MARK: - From protocol types
 
 extension IncomingStreamManager {
-    static func streamInfo(from header: Livekit_DataStream.Header) -> StreamInfo? {
+    static func streamInfo(from header: Livekit_DataStream.Header, encryptionType: EncryptionType) -> StreamInfo? {
         switch header.contentHeader {
-        case let .byteHeader(byteHeader): ByteStreamInfo(header, byteHeader)
-        case let .textHeader(textHeader): TextStreamInfo(header, textHeader)
+        case let .byteHeader(byteHeader): ByteStreamInfo(header, byteHeader, encryptionType)
+        case let .textHeader(textHeader): TextStreamInfo(header, textHeader, encryptionType)
         default: nil
         }
     }
@@ -198,7 +254,8 @@ extension IncomingStreamManager {
 extension ByteStreamInfo {
     convenience init(
         _ header: Livekit_DataStream.Header,
-        _ byteHeader: Livekit_DataStream.ByteHeader
+        _ byteHeader: Livekit_DataStream.ByteHeader,
+        _ encryptionType: EncryptionType
     ) {
         self.init(
             id: header.streamID,
@@ -206,6 +263,7 @@ extension ByteStreamInfo {
             timestamp: header.timestampDate,
             totalLength: header.hasTotalLength ? Int(header.totalLength) : nil,
             attributes: header.attributes,
+            encryptionType: encryptionType,
             // ---
             mimeType: header.mimeType,
             name: byteHeader.name
@@ -216,7 +274,8 @@ extension ByteStreamInfo {
 extension TextStreamInfo {
     convenience init(
         _ header: Livekit_DataStream.Header,
-        _ textHeader: Livekit_DataStream.TextHeader
+        _ textHeader: Livekit_DataStream.TextHeader,
+        _ encryptionType: EncryptionType
     ) {
         self.init(
             id: header.streamID,
@@ -224,6 +283,7 @@ extension TextStreamInfo {
             timestamp: header.timestampDate,
             totalLength: header.hasTotalLength ? Int(header.totalLength) : nil,
             attributes: header.attributes,
+            encryptionType: encryptionType,
             // ---
             operationType: TextStreamInfo.OperationType(textHeader.operationType),
             version: Int(textHeader.version),

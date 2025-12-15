@@ -267,8 +267,6 @@ public class VideoView: NativeView, Loggable {
         _state.onDidMutate = { [weak self] newState, oldState in
             guard let self else { return }
 
-            log("Mutating in main thread: \(Thread.current.isMainThread)", .trace)
-
             let shouldRenderDidUpdate = newState.shouldRender != oldState.shouldRender
             let renderModeDidUpdate = newState.renderMode != oldState.renderMode
             let trackDidUpdate = !Self.track(oldState.track as? VideoTrack, isEqualWith: newState.track as? VideoTrack)
@@ -410,10 +408,6 @@ public class VideoView: NativeView, Loggable {
         fatalError("init(coder:) has not been implemented")
     }
 
-    deinit {
-        log(nil, .trace)
-    }
-
     override public func performLayout() {
         super.performLayout()
 
@@ -473,10 +467,13 @@ public class VideoView: NativeView, Loggable {
         let hDim = CGFloat(dimensions.height)
         let wRatio = size.width / wDim
         let hRatio = size.height / hDim
+        let ratioDiff = abs(hRatio - wRatio)
 
-        if state.layoutMode == .fill ? hRatio > wRatio : hRatio < wRatio {
+        if !ratioDiff.isFinite || ratioDiff < CGFloat.aspectRatioTolerance {
+            // no-op
+        } else if state.layoutMode == .fill ? hRatio > wRatio : hRatio < wRatio {
             size.width = size.height / hDim * wDim
-        } else if state.layoutMode == .fill ? wRatio > hRatio : wRatio < hRatio {
+        } else {
             size.height = size.width / wDim * hDim
         }
 
@@ -760,10 +757,10 @@ extension VideoView {
     static func createNativeRendererView(for renderMode: VideoView.RenderMode) -> NativeRendererView {
         #if os(iOS) || os(macOS)
         if case .sampleBuffer = renderMode {
-            logger.log("Using AVSampleBufferDisplayLayer for VideoView's Renderer", type: VideoView.self)
+            log("Using AVSampleBufferDisplayLayer for VideoView's Renderer")
             return SampleBufferVideoRenderer()
         } else {
-            logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
+            log("Using RTCMTLVideoView for VideoView's Renderer")
             let result = LKRTCMTLVideoView()
 
             #if os(iOS)
@@ -780,7 +777,7 @@ extension VideoView {
                 #endif
                 // ensure it's capable of rendering 60fps
                 // https://developer.apple.com/documentation/metalkit/mtkview/1536027-preferredframespersecond
-                logger.log("preferredFramesPerSecond = 60", type: VideoView.self)
+                log("preferredFramesPerSecond = 60")
                 mtkView.preferredFramesPerSecond = 60
             }
 

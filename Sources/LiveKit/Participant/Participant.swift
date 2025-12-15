@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Combine
 import Foundation
 
 internal import LiveKitWebRTC
@@ -38,6 +39,9 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
 
     @objc
     public var isSpeaking: Bool { _state.isSpeaking }
+
+    @objc
+    public var lastSpokeAt: Date? { _state.lastSpokeAt }
 
     @objc
     public var metadata: String? { _state.metadata }
@@ -87,6 +91,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
         var name: String?
         var audioLevel: Float = 0.0
         var isSpeaking: Bool = false
+        var lastSpokeAt: Date?
         var metadata: String?
         var joinedAt: Date?
         var kind: Kind = .unknown

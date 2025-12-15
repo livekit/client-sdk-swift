@@ -24,13 +24,16 @@ public extension LocalParticipant {
     ///   - destinationIdentity: The identity of the destination participant
     ///   - method: The method name to call
     ///   - payload: The payload to pass to the method
-    ///   - responseTimeout: Timeout for receiving a response after initial connection. (default 10s)
+    ///   - responseTimeout: Timeout for receiving a response after the initial connection (in seconds).
+    ///     If a value less than 8s is provided, it will be automatically clamped to 8s
+    ///     to ensure sufficient time for round-trip latency buffering.
+    ///     Default: 15s.
     /// - Returns: The response payload
     /// - Throws: RpcError on failure. Details in RpcError.message
     func performRpc(destinationIdentity: Identity,
                     method: String,
                     payload: String,
-                    responseTimeout: TimeInterval = 10) async throws -> String
+                    responseTimeout: TimeInterval = 15) async throws -> String
     {
         let room = try requireRoom()
 
@@ -39,9 +42,9 @@ public extension LocalParticipant {
         }
 
         let requestId = UUID().uuidString
-        let maxRoundTripLatency: TimeInterval = 2
-        let effectiveTimeout = responseTimeout - maxRoundTripLatency
-
+        let maxRoundTripLatency: TimeInterval = 7
+        let minEffectiveTimeout: TimeInterval = 1
+        let effectiveTimeout = max(responseTimeout - maxRoundTripLatency, minEffectiveTimeout)
         try await publishRpcRequest(destinationIdentity: destinationIdentity,
                                     requestId: requestId,
                                     method: method,

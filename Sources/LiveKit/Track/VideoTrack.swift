@@ -19,13 +19,15 @@ import Foundation
 internal import LiveKitWebRTC
 
 @objc
-public protocol VideoTrack where Self: Track {
+public protocol VideoTrackProtocol: AnyObject, Sendable {
     @objc(addVideoRenderer:)
     func add(videoRenderer: VideoRenderer)
 
     @objc(removeVideoRenderer:)
     func remove(videoRenderer: VideoRenderer)
 }
+
+public typealias VideoTrack = Track & VideoTrackProtocol
 
 // Directly add/remove renderers for better performance
 protocol VideoTrack_Internal where Self: Track {
@@ -34,7 +36,7 @@ protocol VideoTrack_Internal where Self: Track {
     func remove(rtcVideoRenderer: LKRTCVideoRenderer)
 }
 
-extension VideoTrack {
+extension VideoTrackProtocol where Self: Track {
     // Update a single SubscribedCodec
     func _set(subscribedCodec: Livekit_SubscribedCodec) throws -> Bool {
         guard let videoCodec = VideoCodec.from(name: subscribedCodec.codec) else { return false }
@@ -67,5 +69,13 @@ extension VideoTrack {
         }
 
         return missingCodecs
+    }
+}
+
+public extension Track {
+    /// The aspect ratio of the video track or 1 if the dimensions are not available.
+    var aspectRatio: CGFloat {
+        guard let dimensions else { return 1 }
+        return CGFloat(dimensions.width) / CGFloat(dimensions.height)
     }
 }

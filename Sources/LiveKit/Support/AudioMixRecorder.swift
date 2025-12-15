@@ -161,7 +161,10 @@ public class AudioMixRecorder: Loggable, @unchecked Sendable {
             source.stop()
         }
         audioEngine.stop()
-        audioFile = nil
+
+        writeQueue.sync {
+            audioFile = nil
+        }
     }
 
     // MARK: - Source

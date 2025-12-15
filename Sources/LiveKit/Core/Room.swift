@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Combine
 import Foundation
 
 #if canImport(Network)
@@ -120,6 +121,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     let incomingStreamManager = IncomingStreamManager()
     lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
         try await self?.send(dataPacket: packet)
+    } encryptionProvider: { [weak self] in
+        self?.e2eeManager?.dataChannelEncryptionType ?? .none
     }
 
     // MARK: - PreConnect
@@ -169,6 +172,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var nextReconnectMode: ReconnectMode?
         var isReconnectingWithMode: ReconnectMode?
         var connectionState: ConnectionState = .disconnected
+        var reconnectTask: Task<Void, Error>?
         var disconnectError: LiveKitError?
         var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
@@ -318,10 +322,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
     }
 
-    deinit {
-        log(nil, .trace)
-    }
-
     @objc
     public func connect(url urlString: String,
                         token: String,
@@ -350,15 +350,26 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             _state.mutate { $0.connectOptions = connectOptions }
         }
 
+        await cleanUp()
+
+        try Task.checkCancellation()
+
         // enable E2EE
         if let e2eeOptions = state.roomOptions.e2eeOptions {
             e2eeManager = E2EEManager(e2eeOptions: e2eeOptions)
             e2eeManager!.setup(room: self)
+        } else if let encryptionOptions = state.roomOptions.encryptionOptions {
+            e2eeManager = E2EEManager(options: encryptionOptions)
+            e2eeManager!.setup(room: self)
+
+            subscriberDataChannel.e2eeManager = e2eeManager
+            publisherDataChannel.e2eeManager = e2eeManager
+        } else {
+            e2eeManager = nil
+
+            subscriberDataChannel.e2eeManager = nil
+            publisherDataChannel.e2eeManager = nil
         }
-
-        await cleanUp()
-
-        try Task.checkCancellation()
 
         _state.mutate {
             $0.providedUrl = providedUrl
@@ -462,8 +473,18 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     @objc
     public func disconnect() async {
-        // Return if already disconnected state
-        if case .disconnected = connectionState { return }
+        let shouldDisconnect = _state.mutate {
+            switch $0.connectionState {
+            case .disconnecting, .disconnected:
+                return false
+            default:
+                $0.connectionState = .disconnecting
+                return true
+            }
+        }
+        guard shouldDisconnect else { return }
+
+        cancelReconnect()
 
         do {
             try await signalClient.sendLeave()
@@ -471,7 +492,19 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             log("Failed to send leave with error: \(error)")
         }
 
+        cancelReconnect()
+
         await cleanUp()
+
+        cancelReconnect()
+    }
+
+    private func cancelReconnect() {
+        _state.mutate {
+            log("Cancelling reconnect task: \(String(describing: $0.reconnectTask))")
+            $0.reconnectTask?.cancel()
+            $0.reconnectTask = nil
+        }
     }
 }
 
@@ -482,6 +515,7 @@ extension Room {
     func cleanUp(withError disconnectError: Error? = nil,
                  isFullReconnect: Bool = false) async
     {
+        guard !Task.isCancelled else { return }
         log("withError: \(String(describing: disconnectError)), isFullReconnect: \(isFullReconnect)")
 
         // Reset completers
@@ -509,11 +543,13 @@ extension Room {
                 token: $0.token,
                 nextReconnectMode: $0.nextReconnectMode,
                 isReconnectingWithMode: $0.isReconnectingWithMode,
-                connectionState: $0.connectionState
+                connectionState: $0.connectionState,
+                reconnectTask: $0.reconnectTask
             ) : State(
                 connectOptions: $0.connectOptions,
                 roomOptions: $0.roomOptions,
                 connectionState: .disconnected,
+                reconnectTask: $0.reconnectTask,
                 disconnectError: LiveKitError.from(error: disconnectError)
             )
         }
@@ -647,15 +683,24 @@ extension Room: DataChannelDelegate {
     func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket) {
         switch dataPacket.value {
         case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
-        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket)
+        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket, encryptionType: dataPacket.encryptedPacket.encryptionType.toLKType())
         case let .transcription(packet): room(didReceiveTranscriptionPacket: packet)
         case let .rpcResponse(response): room(didReceiveRpcResponse: response)
         case let .rpcAck(ack): room(didReceiveRpcAck: ack)
         case let .rpcRequest(request): room(didReceiveRpcRequest: request, from: dataPacket.participantIdentity)
-        case let .streamHeader(header): Task { await incomingStreamManager.handle(header: header, from: dataPacket.participantIdentity) }
-        case let .streamChunk(chunk): Task { await incomingStreamManager.handle(chunk: chunk) }
-        case let .streamTrailer(trailer): Task { await incomingStreamManager.handle(trailer: trailer) }
+        case let .streamHeader(header):
+            incomingStreamManager.handle(.header(header, dataPacket.participantIdentity, dataPacket.encryptedPacket.encryptionType.toLKType()))
+        case let .streamChunk(chunk):
+            incomingStreamManager.handle(.chunk(chunk, dataPacket.encryptedPacket.encryptionType.toLKType()))
+        case let .streamTrailer(trailer):
+            incomingStreamManager.handle(.trailer(trailer, dataPacket.encryptedPacket.encryptionType.toLKType()))
         default: return
+        }
+    }
+
+    func dataChannel(_: DataChannelPair, didFailToDecryptDataPacket _: Livekit_DataPacket, error: LiveKitError) {
+        delegates.notify {
+            $0.room?(self, didFailToDecryptDataWithEror: error)
         }
     }
 }

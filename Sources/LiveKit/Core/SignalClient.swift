@@ -106,10 +106,6 @@ actor SignalClient: Loggable {
         }
     }
 
-    deinit {
-        log(nil, .trace)
-    }
-
     @discardableResult
     func connect(_ url: URL,
                  _ token: String,
@@ -166,33 +162,47 @@ actor SignalClient: Loggable {
             }
 
             return connectResponse
-        } catch {
+        } catch let connectionError {
             // Skip validation if user cancelled
-            if error is CancellationError {
-                await cleanUp(withError: error)
-                throw error
+            if connectionError is CancellationError {
+                await cleanUp(withError: connectionError)
+                throw connectionError
             }
 
             // Skip validation if reconnect mode
             if reconnectMode != nil {
-                await cleanUp(withError: error)
-                throw error
+                await cleanUp(withError: connectionError)
+                throw LiveKitError(.network, internalError: connectionError)
             }
 
-            await cleanUp(withError: error)
+            await cleanUp(withError: connectionError)
 
-            // Validate...
+            // Attempt to validate with server
             let validateUrl = try Utils.buildUrl(url,
                                                  connectOptions: connectOptions,
                                                  participantSid: participantSid,
                                                  adaptiveStream: adaptiveStream,
                                                  validate: true)
-
             log("Validating with url: \(validateUrl)...")
-            let validationResponse = try await HTTP.requestValidation(from: validateUrl, token: token)
-            log("Validate response: \(validationResponse)")
-            // re-throw with validation response
-            throw LiveKitError(.network, message: "Validation response: \"\(validationResponse)\"")
+            do {
+                try await HTTP.requestValidation(from: validateUrl, token: token)
+                // Re-throw original error since validation passed
+                throw LiveKitError(.network, internalError: connectionError)
+            } catch let validationError as LiveKitError where validationError.type == .validation {
+                // Re-throw validation error
+                throw validationError
+            } catch {
+                let validationMessage = if let liveKitError = error as? LiveKitError {
+                    liveKitError.message ?? liveKitError.localizedDescription
+                } else {
+                    error.localizedDescription
+                }
+
+                // Preserve validation request failure details while keeping the original connection error.
+                throw LiveKitError(.network,
+                                   message: "Validation request failed: \(validationMessage)",
+                                   internalError: connectionError)
+            }
         }
     }
 
@@ -341,17 +351,11 @@ private extension SignalClient {
         case let .pongResp(pongResp):
             await _onReceivedPongResp(pongResp)
 
-        case .subscriptionResponse:
-            log("Received subscriptionResponse message")
-
-        case .requestResponse:
-            log("Received requestResponse message")
-
         case let .trackSubscribed(trackSubscribed):
             _delegate.notifyDetached { await $0.signalClient(self, didSubscribeTrack: Track.Sid(from: trackSubscribed.trackSid)) }
 
-        case .roomMoved:
-            log("Received roomMoved message")
+        default:
+            log("Unhandled signal message: \(message)", .warning)
         }
     }
 }
@@ -609,9 +613,6 @@ extension SignalClient {
             }
         }
 
-        // Log timestamp and RTT for debugging
-        log("Sending ping with timestamp: \(timestamp)ms, reporting RTT: \(rtt)ms", .trace)
-
         // Send both requests
         try await _sendRequest(pingRequest)
         try await _sendRequest(pingReqRequest)
@@ -623,7 +624,6 @@ extension SignalClient {
 private extension SignalClient {
     func _onPingIntervalTimer() async throws {
         guard let jr = _state.lastJoinResponse else { return }
-        log("ping/pong sending ping...", .trace)
         try await _sendPing()
 
         _pingTimeoutTimer.setTimerInterval(TimeInterval(jr.pingTimeout))
@@ -637,7 +637,6 @@ private extension SignalClient {
     }
 
     func _onReceivedPong(_: Int64) async {
-        log("ping/pong received pong from server", .trace)
         // Clear timeout timer
         _pingTimeoutTimer.cancel()
     }
@@ -646,7 +645,6 @@ private extension SignalClient {
         let currentTimeMs = Int64(Date().timeIntervalSince1970 * 1000)
         let rtt = currentTimeMs - pongResp.lastPingTimestamp
         _state.mutate { $0.rtt = rtt }
-        log("ping/pong received pongResp from server with RTT: \(rtt)ms", .trace)
         // Clear timeout timer
         _pingTimeoutTimer.cancel()
     }

@@ -186,8 +186,6 @@ extension MacOSScreenCapturer {
             return
         }
 
-        log("No movement detected, resending frame...", .trace)
-
         guard let frame = _screenCapturerState.read({ $0.lastFrame }) else { return }
 
         // create a new frame with new time stamp

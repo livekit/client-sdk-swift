@@ -41,7 +41,7 @@ Add the dependency and also to your target
 let package = Package(
   ...
   dependencies: [
-    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("2.7.2")),
+    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("2.10.2")),
   ],
   targets: [
     .target(
@@ -176,29 +176,39 @@ For more audio related information see the [Audio guide](./Docs/audio.md).
 
 ### Integration with CallKit
 
-To integrate with CallKit for background-triggered incoming calls, LiveKit's audio session must be synchronized with CallKit's audio session:
+When integrating with CallKit, proper timing and coordination between `AVAudioSession` and the SDK’s audio engine is crucial.
 
-1. Add `import LiveKitWebRTC` to your CallProvider file.
-2. In your `CXProviderDelegate` implementation, add the following:
-
-```swift
-func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession){
-    LKRTCAudioSession.sharedInstance().audioSessionDidActivate(audioSession)
-    // ...
-}
-func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
-    LKRTCAudioSession.sharedInstance().audioSessionDidDeactivate(audioSession)
-    // ...
-}
-```
-
-You would also want to turn off automatic `AVAudioSession` configuration.
+1. Disable the SDK’s automatic `AVAudioSession` configuration. also prevent the audio engine from starting outside CallKit’s `didActivate` and `didDeactivate` window.
 
 ```swift
+// As early as possible, before connecting to a Room.
 AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false
+try AudioManager.shared.setEngineAvailability(.none)
 ```
 
-For more audio related information see the [Audio guide](./Docs/audio.md).
+2. Coordinate audio engine availability with CallKit in your `CXProviderDelegate` implementation:
+
+```swift
+func provider(_: CXProvider, didActivate session: AVAudioSession) {
+  do {
+    try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.mixWithOthers])
+    try AudioManager.shared.setEngineAvailability(.default)
+  } catch {
+    // Error
+  }
+}
+
+func provider(_: CXProvider, didDeactivate _: AVAudioSession) {
+  do {
+    try AudioManager.shared.setEngineAvailability(.none)
+  } catch {
+    // Error
+  }
+}
+```
+
+* See our [CallKit example](https://github.com/livekit-examples/swift-example-collection/tree/main/callkit) for full details.
+* For additional audio-related information, see the [Audio guide](./Docs/audio.md).
 
 ### iOS Simulator limitations
 
@@ -267,7 +277,19 @@ For the full example, see 👉 [UIKit Minimal Example](https://github.com/liveki
 
 # Frequently asked questions
 
-### How to publish camera in 60 FPS ?
+### How to adjust the log level?
+
+The SDK will write to `OSLog` by default (`io.livekit.*`) with a minimum log level of `info`. Logs can be filtered by level, category, etc. using Xcode console.
+
+- To adjust the log level, call `LiveKitSDK.setLogLevel(_:)`
+- To set a custom logger (e.g. to pass to a custom logging system), call `LiveKitSDK.setLogger(_:)`
+- To disable logging completely, call `LiveKitSDK.disableLogging()`
+
+All methods must be called before any other logging is done, e.g. in the `App.init()` or `AppDelegate/SceneDelegate`.
+
+Alternatively, you can subclass `OSLogger` and override the `log(...)` method to capture e.g. warning and error logs.
+
+### How to publish camera in 60 FPS?
 
 - Create a `LocalVideoTrack` by calling `LocalVideoTrack.createCameraTrack(options: CameraCaptureOptions(fps: 60))`.
 - Publish with `LocalParticipant.publish(videoTrack: track, publishOptions: VideoPublishOptions(encoding: VideoEncoding(maxFps: 60)))`.
