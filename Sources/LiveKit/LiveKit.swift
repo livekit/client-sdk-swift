@@ -34,7 +34,7 @@ public class LiveKitSDK: NSObject, Loggable {
 
     @objc(sdkVersion)
     public static let version = "2.10.2"
-    public static let ffiVersion = buildVersion()
+    static let ffiVersion = buildVersion()
 
     fileprivate struct State {
         var logger: Logger = OSLogger()
