@@ -126,6 +126,9 @@ public class LiveKitError: NSError, @unchecked Sendable, Loggable {
     public let message: String?
     public let internalError: Error?
 
+    @available(*, deprecated, renamed: "internalError")
+    public var underlyingError: Error? { internalError }
+
     override public var underlyingErrors: [Error] {
         [internalError].compactMap { $0 }
     }
