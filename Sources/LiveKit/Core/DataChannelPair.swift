@@ -265,7 +265,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
         super.init()
 
-        eventLoopTask = Task.observing(eventStream, by: self, state: Buffers()) { observer, event, buffers in
+        eventLoopTask = Task.observing(eventStream, by: self, withMutableState: Buffers()) { observer, event, buffers in
             observer.processEvent(event, buffers: &buffers)
         }
     }

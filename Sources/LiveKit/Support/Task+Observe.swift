@@ -30,10 +30,11 @@ extension Task where Success == Void, Failure == Never {
     static func observing<Observer: AnyObject & Sendable, Sequence: AsyncSequence & Sendable>(
         _ sequence: Sequence,
         by observer: Observer,
+        withPriority priority: TaskPriority = .medium,
         onElement: @Sendable @escaping (Observer, Sequence.Element) async -> Void,
         onFailure: @Sendable @escaping (Observer, Error) async -> Void
     ) -> AnyTaskCancellable where Sequence.Element: Sendable {
-        Task { [weak observer] in
+        Task(priority: priority) { [weak observer] in
             do {
                 for try await element in sequence {
                     guard let observer else { break }
@@ -58,9 +59,10 @@ extension Task where Success == Void, Failure == Never {
     static func observing<Observer: AnyObject & Sendable, Element: Sendable>(
         _ stream: AsyncStream<Element>,
         by observer: Observer,
+        withPriority priority: TaskPriority = .medium,
         onElement: @Sendable @escaping (Observer, Element) async -> Void
     ) -> AnyTaskCancellable {
-        Task { [weak observer] in
+        Task(priority: priority) { [weak observer] in
             for await element in stream {
                 guard let observer else { break }
                 await onElement(observer, element)
@@ -74,10 +76,11 @@ extension Task where Success == Void, Failure == Never {
     static func observingOnMainActor<Observer: AnyObject, Sequence: AsyncSequence & Sendable>(
         _ sequence: Sequence,
         by observer: Observer,
+        withPriority priority: TaskPriority = .medium,
         onElement: @escaping (Observer, Sequence.Element) -> Void,
         onFailure: @escaping (Observer, Error) -> Void
     ) -> AnyTaskCancellable where Sequence.Element: Sendable {
-        Task { @MainActor [weak observer] in
+        Task(priority: priority) { @MainActor [weak observer] in
             do {
                 for try await element in sequence {
                     guard let observer else { break }
@@ -97,9 +100,10 @@ extension Task where Success == Void, Failure == Never {
     static func observingOnMainActor<Observer: AnyObject, Element: Sendable>(
         _ stream: AsyncStream<Element>,
         by observer: Observer,
+        withPriority priority: TaskPriority = .medium,
         onElement: @escaping (Observer, Element) -> Void
     ) -> AnyTaskCancellable {
-        Task { @MainActor [weak observer] in
+        Task(priority: priority) { @MainActor [weak observer] in
             for await element in stream {
                 guard let observer else { break }
                 onElement(observer, element)
@@ -112,11 +116,12 @@ extension Task where Success == Void, Failure == Never {
     static func observing<Observer: AnyObject & Sendable, Sequence: AsyncSequence & Sendable, State: Sendable>(
         _ sequence: Sequence,
         by observer: Observer,
-        state initialState: State,
+        withPriority priority: TaskPriority = .medium,
+        withMutableState initialState: State,
         onElement: @Sendable @escaping (Observer, Sequence.Element, inout State) -> Void,
         onFailure: @Sendable @escaping (Observer, Error, inout State) async -> Void
     ) -> AnyTaskCancellable where Sequence.Element: Sendable {
-        Task { [weak observer] in
+        Task(priority: priority) { [weak observer] in
             var state = initialState
             do {
                 for try await element in sequence {
@@ -136,10 +141,11 @@ extension Task where Success == Void, Failure == Never {
     static func observing<Observer: AnyObject & Sendable, Element: Sendable, State: Sendable>(
         _ stream: AsyncStream<Element>,
         by observer: Observer,
-        state initialState: State,
+        withPriority priority: TaskPriority = .medium,
+        withMutableState initialState: State,
         onElement: @Sendable @escaping (Observer, Element, inout State) -> Void
     ) -> AnyTaskCancellable {
-        Task { [weak observer] in
+        Task(priority: priority) { [weak observer] in
             var state = initialState
             for await element in stream {
                 guard let observer else { break }

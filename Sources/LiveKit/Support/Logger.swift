@@ -117,6 +117,7 @@ open class OSLogger: Logger, @unchecked Sendable {
     private var logs: [String: OSLog] = [:]
 
     private lazy var rtcLogger = LKRTCCallbackLogger()
+    private var ffiTask: AnyTaskCancellable?
 
     private let minLevel: LogLevel
 
@@ -185,18 +186,13 @@ open class OSLogger: Logger, @unchecked Sendable {
 
     private func startFFILogForwarding(minLevel: LogLevel) {
         Task(priority: .utility) { [weak self] in
-            guard self != nil else { return } // don't initialize global level when releasing
+            guard let self else { return } // don't initialize global level when releasing
             logForwardBootstrap(level: minLevel.logForwardFilter)
 
             let ffiLog = OSLog(subsystem: Self.subsystem, category: "FFI")
-            let ffiStream = AsyncStream(unfolding: logForwardReceive)
 
-            for await entry in ffiStream {
-                guard self != nil else { return }
-
-                let message = "\(entry.target) \(entry.message)"
-
-                os_log("%{public}@", log: ffiLog, type: entry.level.osLogType, message)
+            ffiTask = Task.observing(AsyncStream(unfolding: logForwardReceive), by: self, withPriority: .utility) { _, entry in
+                os_log("%{public}@", log: ffiLog, type: entry.level.osLogType, "\(entry.target) \(entry.message)")
             }
         }
     }
