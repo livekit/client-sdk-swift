@@ -139,18 +139,12 @@ actor SignalClient: Loggable {
                                              token: token,
                                              connectOptions: connectOptions)
 
-            let task = Task.detached { [weak self] in
-                self?.log("Did enter WebSocket message loop...")
-                do {
-                    for try await message in socket {
-                        guard let self else { break }
-                        await _onWebSocketMessage(message: message)
-                    }
-                } catch {
-                    await self?.cleanUp(withError: error)
-                }
-            }.cancellable()
-            _state.mutate { $0.messageLoopTask = task }
+            let messageLoopTask = Task.observing(socket, by: self) { observer, message in
+                await observer._onWebSocketMessage(message: message)
+            } onFailure: { observer, error in
+                await observer.cleanUp(withError: error)
+            }
+            _state.mutate { $0.messageLoopTask = messageLoopTask }
 
             let connectResponse = try await _connectResponseCompleter.wait()
             // Check cancellation after received join response

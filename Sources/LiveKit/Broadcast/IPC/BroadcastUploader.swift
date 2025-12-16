@@ -44,13 +44,13 @@ final class BroadcastUploader: Sendable, Loggable {
         let channel = try await IPCChannel(connectingTo: socketPath)
         self.channel = channel
 
-        let task = Task { [weak self, channel] in
-            for try await (header, _) in channel.incomingMessages(BroadcastIPCHeader.self) {
-                guard let self else { break }
-                processMessage(header)
-            }
-        }.cancellable()
-        state.mutate { $0.messageLoopTask = task }
+        let messageLoopTask = Task.observing(channel.incomingMessages(BroadcastIPCHeader.self), by: self) { observer, message in
+            let (header, _) = message
+            observer.processMessage(header)
+        } onFailure: { observer, error in
+            observer.log("IPCChannel returned error: \(error)")
+        }
+        state.mutate { $0.messageLoopTask = messageLoopTask }
     }
 
     deinit {

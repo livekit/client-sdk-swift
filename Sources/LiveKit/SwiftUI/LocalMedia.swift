@@ -118,10 +118,10 @@ open class LocalMedia: ObservableObject, Loggable {
             } catch {
                 log("Failed to setRecordingAlwaysPreparedMode: \(error)", .error)
             }
-        }.cancellable().store(in: &tasks)
+        }
 
-        AudioManager.shared.onDeviceUpdate = { [weak self] _ in
-            Task { @MainActor in
+        AudioManager.shared.onDeviceUpdate = { _ in
+            Task { @MainActor [weak self] in
                 self?.audioDevices = AudioManager.shared.inputDevices
                 self?.selectedAudioDeviceID = AudioManager.shared.defaultInputDevice.deviceId
             }
@@ -135,7 +135,7 @@ open class LocalMedia: ObservableObject, Loggable {
             } catch {
                 log("Failed to configure camera devices: \(error)", .error)
             }
-        }.cancellable().store(in: &tasks)
+        }
     }
 
     deinit {
