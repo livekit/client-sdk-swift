@@ -19,6 +19,34 @@ import Foundation
 // MARK: - Room+Region
 
 extension Room {
+    // MARK: - Internal
+
+    func regionManager(for providedUrl: URL) async -> RegionManager? {
+        guard providedUrl.isCloud, providedUrl.host != nil else {
+            let old = _regionManager.mutate { holder -> RegionManager? in
+                let old = holder.manager
+                holder.manager = nil
+                return old
+            }
+            if let old { await old.cancel() }
+            return nil
+        }
+
+        let (manager, old) = _regionManager.mutate { state -> (RegionManager, RegionManager?) in
+            if let manager = state.manager, manager.providedUrl.matchesRegionManagerKey(of: providedUrl) {
+                return (manager, nil)
+            }
+
+            let old = state.manager
+            let manager = RegionManager(providedUrl: providedUrl)
+            state.manager = manager
+            return (manager, old)
+        }
+
+        if let old { await old.cancel() }
+        return manager
+    }
+
     // MARK: - Public
 
     // prepareConnection should be called as soon as the page is loaded, in order
@@ -40,33 +68,29 @@ extension Room {
 
         log("Preparing connection to \(providedUrlString)")
 
-        do {
-            if providedUrl.isCloud, let token {
-                _state.mutate {
-                    $0.providedUrl = providedUrl
-                    $0.token = token
-                }
+        if providedUrl.isCloud, let token {
+            _state.mutate {
+                $0.providedUrl = providedUrl
+                $0.token = token
+            }
 
-                // Try to get the best region and warm that connection
-                if let bestRegion = await regionManager.tryResolveBest(providedUrl: providedUrl, token: token) {
-                    // Warm connection to the best region
-                    await HTTP.prewarmConnection(url: bestRegion.url)
-                    log("Prepared connection to \(bestRegion.url)")
-                } else {
-                    // Fallback to warming the provided URL
-                    await HTTP.prewarmConnection(url: providedUrl)
-                    log("Prepared connection to \(providedUrl)")
-                }
+            guard let regionManager = await regionManager(for: providedUrl) else {
+                await HTTP.prewarmConnection(url: providedUrl)
+                log("Prepared connection to \(providedUrl)")
+                return
+            }
+
+            if let bestRegion = await regionManager.tryResolveBest(token: token) {
+                await HTTP.prewarmConnection(url: bestRegion.url)
+                log("Prepared connection to \(bestRegion.url)")
             } else {
-                // Not cloud or no token, just warm the provided URL
                 await HTTP.prewarmConnection(url: providedUrl)
                 log("Prepared connection to \(providedUrl)")
             }
-        } catch {
-            log("Error while preparing connection: \(error)")
-            // Still try to warm the provided URL as fallback
+        } else {
+            // Not cloud or no token, just warm the provided URL
             await HTTP.prewarmConnection(url: providedUrl)
-            log("Prepared fallback connection to \(providedUrl)")
+            log("Prepared connection to \(providedUrl)")
         }
     }
 
@@ -74,15 +98,13 @@ extension Room {
 
     /// Connects using LiveKit Cloud region settings and fails over across regions on retryable errors.
     func connectWithCloudRegionFailover(
-        providedUrl: URL,
+        regionManager: RegionManager,
         initialUrl: URL,
         initialRegion: RegionInfo?,
         token: String,
         prepareBeforeFirstAttempt: (@Sendable () async -> Void)? = nil,
         prepareAfterFailure: @Sendable () async -> Void
     ) async throws -> URL {
-        precondition(providedUrl.isCloud, "connectWithCloudRegionFailover is only valid for LiveKit Cloud URLs")
-
         var nextUrl = initialUrl
         var nextRegion = initialRegion
 
@@ -119,7 +141,7 @@ extension Room {
 
                 await prepareAfterFailure()
 
-                let region = try await regionManager.resolveBest(providedUrl: providedUrl, token: token)
+                let region = try await regionManager.resolveBest(token: token)
                 nextUrl = region.url
                 nextRegion = region
             }

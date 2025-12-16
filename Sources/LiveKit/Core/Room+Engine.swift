@@ -353,7 +353,11 @@ extension Room {
 
             let finalUrl: URL
             if providedUrl.isCloud {
-                finalUrl = try await connectWithCloudRegionFailover(providedUrl: providedUrl,
+                guard let regionManager = await regionManager(for: providedUrl) else {
+                    throw LiveKitError(.onlyForCloud)
+                }
+
+                finalUrl = try await connectWithCloudRegionFailover(regionManager: regionManager,
                                                                     initialUrl: connectedUrl,
                                                                     initialRegion: nil,
                                                                     token: token,
@@ -436,7 +440,7 @@ extension Room {
                 $0.nextReconnectMode = nil
             }
 
-            if let providedUrl = _state.providedUrl, providedUrl.isCloud {
+            if let providedUrl = _state.providedUrl, providedUrl.isCloud, let regionManager = await regionManager(for: providedUrl) {
                 // Clear failed region attempts after a successful reconnect.
                 await regionManager.resetAttempts()
             }

@@ -20,7 +20,6 @@ import Foundation
 
 actor RegionManager: Loggable {
     struct State: Sendable {
-        var url: URL?
         var lastRequested: Date?
         var all: [RegionInfo] = []
         var remaining: [RegionInfo] = []
@@ -28,9 +27,20 @@ actor RegionManager: Loggable {
 
     static let cacheInterval: TimeInterval = 30
 
+    nonisolated let providedUrl: URL
     private var state = State()
     private var settingsFetchTask: Task<Void, Error>?
     private var settingsFetchTaskID: UUID?
+
+    init(providedUrl: URL) {
+        self.providedUrl = providedUrl
+    }
+
+    func cancel() {
+        settingsFetchTask?.cancel()
+        settingsFetchTask = nil
+        settingsFetchTaskID = nil
+    }
 
     func resetAttemptsIfExhausted() {
         guard state.remaining.isEmpty, !state.all.isEmpty else { return }
@@ -41,32 +51,36 @@ actor RegionManager: Loggable {
         state.remaining = state.all
     }
 
+    func resetAll() {
+        state = State()
+    }
+
     func markFailed(region: RegionInfo) {
         state.remaining.removeAll { $0 == region }
     }
 
-    func shouldRequestSettings(for providedUrl: URL) -> Bool {
+    func shouldRequestSettings() -> Bool {
         guard providedUrl.isCloud else { return false }
-        guard providedUrl == state.url, let lastRequested = state.lastRequested else { return true }
+        guard let lastRequested = state.lastRequested else { return true }
         return Date().timeIntervalSince(lastRequested) > Self.cacheInterval
     }
 
-    func prepareSettingsFetch(providedUrl: URL, token: String) {
-        guard shouldRequestSettings(for: providedUrl) else { return }
-        startSettingsFetchIfNeeded(providedUrl: providedUrl, token: token)
+    func prepareSettingsFetch(token: String) {
+        guard shouldRequestSettings() else { return }
+        startSettingsFetchIfNeeded(token: token)
     }
 
-    func tryResolveBest(providedUrl: URL, token: String) async -> RegionInfo? {
+    func tryResolveBest(token: String) async -> RegionInfo? {
         do {
-            return try await resolveBest(providedUrl: providedUrl, token: token)
+            return try await resolveBest(token: token)
         } catch {
             log("[Region] Failed to resolve best region: \(error)", .warning)
             return nil
         }
     }
 
-    func resolveBest(providedUrl: URL, token: String) async throws -> RegionInfo {
-        try await requestSettingsIfNeeded(providedUrl: providedUrl, token: token)
+    func resolveBest(token: String) async throws -> RegionInfo {
+        try await requestSettingsIfNeeded(token: token)
         guard let selected = state.remaining.first else {
             throw LiveKitError(.regionUrlProvider, message: "No more remaining regions.")
         }
@@ -75,13 +89,13 @@ actor RegionManager: Loggable {
         return selected
     }
 
-    func updateFromServerReportedRegions(_ regions: Livekit_RegionSettings, providedUrl: URL) {
+    func updateFromServerReportedRegions(_ regions: Livekit_RegionSettings) {
         guard providedUrl.isCloud else { return }
 
         let allRegions = regions.regions.compactMap { $0.toLKType() }
         guard !allRegions.isEmpty else { return }
 
-        // Preserve previously failed regions while updating the server-provided region list.
+        // Keep previously failed regions excluded when updating the list.
         let allIds = Set(state.all.map(\.regionId))
         let remainingIds = Set(state.remaining.map(\.regionId))
         let failedRegionIds = allIds.subtracting(remainingIds)
@@ -89,7 +103,6 @@ actor RegionManager: Loggable {
         let remainingRegions = allRegions.filter { !failedRegionIds.contains($0.regionId) }
         log("[Region] Updating regions from server-reported settings (\(allRegions.count)), remaining: \(remainingRegions.count)", .info)
 
-        state.url = providedUrl
         state.all = allRegions
         state.remaining = remainingRegions
         state.lastRequested = Date()
@@ -105,7 +118,7 @@ actor RegionManager: Loggable {
 
     // MARK: - Private
 
-    private func startSettingsFetchIfNeeded(providedUrl: URL, token: String) {
+    private func startSettingsFetchIfNeeded(token: String) {
         if let task = settingsFetchTask {
             return
         }
@@ -117,7 +130,8 @@ actor RegionManager: Loggable {
             do {
                 let data = try await Self.fetchRegionSettings(providedUrl: providedUrl, token: token)
                 let allRegions = try Self.parseRegionSettings(data: data)
-                await self.applyFetchedRegions(allRegions, providedUrl: providedUrl)
+                try Task.checkCancellation()
+                await self.applyFetchedRegions(allRegions)
                 await self.clearSettingsFetchTask(if: taskID)
             } catch {
                 await self.log("[Region] Failed to fetch region settings: \(error)", .error)
@@ -135,21 +149,20 @@ actor RegionManager: Loggable {
         }
     }
 
-    private func requestSettingsIfNeeded(providedUrl: URL, token: String) async throws {
+    private func requestSettingsIfNeeded(token: String) async throws {
         guard providedUrl.isCloud else {
             throw LiveKitError(.onlyForCloud)
         }
 
-        guard shouldRequestSettings(for: providedUrl) else { return }
-        startSettingsFetchIfNeeded(providedUrl: providedUrl, token: token)
+        guard shouldRequestSettings() else { return }
+        startSettingsFetchIfNeeded(token: token)
         if let task = settingsFetchTask {
             try await task.value
         }
     }
 
-    private func applyFetchedRegions(_ allRegions: [RegionInfo], providedUrl: URL) {
+    private func applyFetchedRegions(_ allRegions: [RegionInfo]) {
         log("[Region] all regions: \(String(describing: allRegions))", .debug)
-        state.url = providedUrl
         state.all = allRegions
         state.remaining = allRegions
         state.lastRequested = Date()

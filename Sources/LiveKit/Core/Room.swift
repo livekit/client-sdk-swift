@@ -202,9 +202,16 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     }
 
     let _state: StateSync<State>
-    let regionManager = RegionManager()
 
     private let _sidCompleter = AsyncCompleter<Sid>(label: "sid", defaultTimeout: .resolveSid)
+
+    // MARK: - Region
+
+    struct RegionManagerState {
+        var manager: RegionManager?
+    }
+
+    let _regionManager = StateSync(RegionManagerState())
 
     // MARK: Objective-C Support
 
@@ -373,15 +380,17 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var nextRegion: RegionInfo?
 
         if providedUrl.isCloud {
-            await regionManager.resetAttemptsIfExhausted()
+            if let regionManager = await regionManager(for: providedUrl) {
+                await regionManager.resetAttemptsIfExhausted()
 
-            if await regionManager.shouldRequestSettings(for: providedUrl) {
-                await regionManager.prepareSettingsFetch(providedUrl: providedUrl, token: token)
-            } else {
-                // If region info already available, use it instead of provided url.
-                let region = try await regionManager.resolveBest(providedUrl: providedUrl, token: token)
-                nextUrl = region.url
-                nextRegion = region
+                if await regionManager.shouldRequestSettings() {
+                    await regionManager.prepareSettingsFetch(token: token)
+                } else {
+                    // If region info already available, use it instead of provided url.
+                    let region = try await regionManager.resolveBest(token: token)
+                    nextUrl = region.url
+                    nextRegion = region
+                }
             }
         }
 
@@ -408,7 +417,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         do {
             let finalUrl: URL
             if providedUrl.isCloud {
-                finalUrl = try await connectWithCloudRegionFailover(providedUrl: providedUrl,
+                guard let regionManager = await regionManager(for: providedUrl) else {
+                    throw LiveKitError(.onlyForCloud)
+                }
+
+                finalUrl = try await connectWithCloudRegionFailover(regionManager: regionManager,
                                                                     initialUrl: nextUrl,
                                                                     initialRegion: nextRegion,
                                                                     token: token,
