@@ -115,10 +115,11 @@ class RegionManagerTests: XCTestCase {
         let regionManager = RegionManager(providedUrl: providedUrl)
 
         MockURLProtocol.allowedHosts = [providedUrl.host!]
-        MockURLProtocol.response = { request in
-            let response = HTTPURLResponse(url: request.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!
-            let data = "not allowed".data(using: .utf8)!
-            return (response, data)
+        MockURLProtocol.allowedPaths = ["/settings/regions"]
+        MockURLProtocol.requestHandler = { (_: URLRequest) in
+            MockURLProtocol.Response(statusCode: 401,
+                                     headers: [:],
+                                     body: "not allowed".data(using: .utf8)!)
         }
         URLProtocol.registerClass(MockURLProtocol.self)
 
@@ -137,10 +138,11 @@ class RegionManagerTests: XCTestCase {
         let regionManager = RegionManager(providedUrl: providedUrl)
 
         MockURLProtocol.allowedHosts = [providedUrl.host!]
-        MockURLProtocol.response = { request in
-            let response = HTTPURLResponse(url: request.url!, statusCode: 500, httpVersion: nil, headerFields: nil)!
-            let data = "server error".data(using: .utf8)!
-            return (response, data)
+        MockURLProtocol.allowedPaths = ["/settings/regions"]
+        MockURLProtocol.requestHandler = { (_: URLRequest) in
+            MockURLProtocol.Response(statusCode: 500,
+                                     headers: [:],
+                                     body: "server error".data(using: .utf8)!)
         }
         URLProtocol.registerClass(MockURLProtocol.self)
 
