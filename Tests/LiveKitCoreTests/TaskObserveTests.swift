@@ -29,10 +29,6 @@ actor TestObserver {
         self.id = id
     }
 
-    deinit {
-        print("TestObserver(\(id)) deinit")
-    }
-
     func recordItem(_ item: Int) {
         processedItems.append(item)
     }
@@ -41,12 +37,6 @@ actor TestObserver {
 // MARK: - Tests
 
 class TaskObserveTests: LKTestCase {
-    override func setUpWithError() throws {}
-
-    override func tearDown() async throws {}
-
-    // MARK: - Stream Tests
-
     func testStreamProcessesAllElements() async throws {
         let observer = TestObserver()
         let stream = AsyncStream<Int> { continuation in
