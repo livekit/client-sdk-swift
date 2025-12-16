@@ -202,6 +202,9 @@ actor SignalClient: Loggable {
     }
 
     func cleanUp(withError disconnectError: Error? = nil) async {
+        if disconnectError is CancellationError { return }
+        if let lkError = disconnectError as? LiveKitError, lkError.type == .cancelled { return }
+
         log("withError: \(String(describing: disconnectError))")
 
         // Cancel ping/pong timers immediately to prevent stale timers from affecting future connections
