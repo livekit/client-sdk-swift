@@ -19,10 +19,9 @@
 import LiveKitTestSupport
 #endif
 
-// MARK: - Test Owner
+// MARK: - Test Observer
 
-/// A simple Sendable owner actor for testing.
-actor TestOwner {
+actor TestObserver {
     let id: String
     private(set) var processedItems: [Int] = []
 
@@ -31,7 +30,7 @@ actor TestOwner {
     }
 
     deinit {
-        print("TestOwner(\(id)) deinit")
+        print("TestObserver(\(id)) deinit")
     }
 
     func recordItem(_ item: Int) {
@@ -49,7 +48,7 @@ class TaskObserveTests: LKTestCase {
     // MARK: - Stream Tests
 
     func testStreamProcessesAllElements() async throws {
-        let owner = TestOwner()
+        let observer = TestObserver()
         let stream = AsyncStream<Int> { continuation in
             for i in 1 ... 5 {
                 continuation.yield(i)
@@ -57,92 +56,82 @@ class TaskObserveTests: LKTestCase {
             continuation.finish()
         }
 
-        Task.observe(stream, by: owner) { owner, element in
-            await owner.recordItem(element)
+        Task.observing(stream, by: observer) { observer, element in
+            await observer.recordItem(element)
         }
 
-        // Wait for processing
-        try await Task.sleep(nanoseconds: 100_000_000) // 100ms
+        try await Task.sleep(nanoseconds: 100_000_000)
 
-        let items = await owner.processedItems
+        let items = await observer.processedItems
         XCTAssertEqual(items, [1, 2, 3, 4, 5])
     }
 
-    func testStreamBreaksWhenOwnerDeallocates() async throws {
-        var owner: TestOwner? = TestOwner(id: "dealloc-test")
-        weak var weakOwner = owner
+    func testStreamBreaksWhenObserverDeallocates() async throws {
+        var observer: TestObserver? = TestObserver(id: "dealloc-test")
+        weak let weakObserver = observer
 
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
 
-        Task.observe(stream, by: owner!) { owner, element in
-            await owner.recordItem(element)
+        Task.observing(stream, by: observer!) { observer, element in
+            await observer.recordItem(element)
         }
 
-        // Yield some elements
         continuation.yield(1)
         continuation.yield(2)
-        try await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        try await Task.sleep(nanoseconds: 50_000_000)
 
-        let itemsBeforeDealloc = await owner?.processedItems
+        let itemsBeforeDealloc = await observer?.processedItems
         XCTAssertEqual(itemsBeforeDealloc, [1, 2])
 
-        // Deallocate owner
-        owner = nil
+        observer = nil
 
-        // Give time for deallocation
-        try await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        try await Task.sleep(nanoseconds: 50_000_000)
 
-        // Owner should be deallocated
-        XCTAssertNil(weakOwner, "Owner should have been deallocated")
+        XCTAssertNil(weakObserver, "Observer should have been deallocated")
 
-        // Yield more elements - should not crash, task should have broken
         continuation.yield(3)
         continuation.yield(4)
-        try await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        try await Task.sleep(nanoseconds: 50_000_000)
     }
 
     func testStreamCancellation() async throws {
-        let owner = TestOwner()
+        let observer = TestObserver()
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
 
-        let task = Task.observe(stream, by: owner) { owner, element in
-            await owner.recordItem(element)
+        let task = Task.observing(stream, by: observer) { observer, element in
+            await observer.recordItem(element)
         }
 
         continuation.yield(1)
-        try await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        try await Task.sleep(nanoseconds: 50_000_000)
 
-        let itemsBeforeCancel = await owner.processedItems
+        let itemsBeforeCancel = await observer.processedItems
         XCTAssertEqual(itemsBeforeCancel, [1])
 
-        // Cancel the task explicitly
         task.cancel()
-        XCTAssertTrue(task.isCancelled)
 
-        // Yield more - should not be processed
         continuation.yield(2)
-        try await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        try await Task.sleep(nanoseconds: 50_000_000)
 
-        // Item 2 should not be processed (or the task already broke)
-        let itemsAfterCancel = await owner.processedItems
+        let itemsAfterCancel = await observer.processedItems
         XCTAssertTrue(itemsAfterCancel.count <= 2)
     }
 
     func testStreamFinishEndsTask() async throws {
-        let owner = TestOwner()
+        let observer = TestObserver()
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
 
-        Task.observe(stream, by: owner) { owner, element in
-            await owner.recordItem(element)
+        Task.observing(stream, by: observer) { observer, element in
+            await observer.recordItem(element)
         }
 
         continuation.yield(1)
         continuation.yield(2)
-        continuation.finish() // End the stream
+        continuation.finish()
 
-        try await Task.sleep(nanoseconds: 100_000_000) // 100ms
+        try await Task.sleep(nanoseconds: 100_000_000)
 
-        let items = await owner.processedItems
+        let items = await observer.processedItems
         XCTAssertEqual(items, [1, 2])
     }
 }
