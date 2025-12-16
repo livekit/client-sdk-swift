@@ -15,6 +15,7 @@
  */
 
 @testable import LiveKit
+import LiveKitTestSupport
 import XCTest
 
 class RegionManagerTests: XCTestCase {
@@ -114,9 +115,9 @@ class RegionManagerTests: XCTestCase {
         let providedUrl = URL(string: "https://example.livekit.cloud")!
         let regionManager = RegionManager(providedUrl: providedUrl)
 
-        MockURLProtocol.allowedHosts = [providedUrl.host!]
-        MockURLProtocol.allowedPaths = ["/settings/regions"]
-        MockURLProtocol.requestHandler = { (_: URLRequest) in
+        MockURLProtocol.setAllowedHosts([providedUrl.host!])
+        MockURLProtocol.setAllowedPaths(["/settings/regions"])
+        MockURLProtocol.setRequestHandler { (_: URLRequest) in
             MockURLProtocol.Response(statusCode: 401,
                                      headers: [:],
                                      body: "not allowed".data(using: .utf8)!)
@@ -137,9 +138,9 @@ class RegionManagerTests: XCTestCase {
         let providedUrl = URL(string: "https://example.livekit.cloud")!
         let regionManager = RegionManager(providedUrl: providedUrl)
 
-        MockURLProtocol.allowedHosts = [providedUrl.host!]
-        MockURLProtocol.allowedPaths = ["/settings/regions"]
-        MockURLProtocol.requestHandler = { (_: URLRequest) in
+        MockURLProtocol.setAllowedHosts([providedUrl.host!])
+        MockURLProtocol.setAllowedPaths(["/settings/regions"])
+        MockURLProtocol.setRequestHandler { (_: URLRequest) in
             MockURLProtocol.Response(statusCode: 500,
                                      headers: [:],
                                      body: "server error".data(using: .utf8)!)

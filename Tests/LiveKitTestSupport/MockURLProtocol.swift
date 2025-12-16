@@ -15,38 +15,64 @@
  */
 
 import Foundation
+import LiveKit
 
-final class MockURLProtocol: URLProtocol {
-    struct Response {
-        let statusCode: Int
-        let headers: [String: String]
-        let body: Data
+public final class MockURLProtocol: URLProtocol {
+    public struct Response: Sendable {
+        public let statusCode: Int
+        public let headers: [String: String]
+        public let body: Data
+
+        public init(statusCode: Int, headers: [String: String], body: Data) {
+            self.statusCode = statusCode
+            self.headers = headers
+            self.body = body
+        }
     }
 
-    static var allowedHosts = Set<String>()
-    static var allowedPaths = Set<String>()
-    static var requestHandler: (@Sendable (URLRequest) throws -> Response)?
-
-    static func reset() {
-        allowedHosts = []
-        allowedPaths = []
-        requestHandler = nil
+    private struct State: Sendable {
+        var allowedHosts = Set<String>()
+        var allowedPaths = Set<String>()
+        var requestHandler: (@Sendable (URLRequest) throws -> Response)?
     }
 
-    override class func canInit(with request: URLRequest) -> Bool {
+    private static let _state = StateSync(State())
+
+    public static func setAllowedHosts(_ hosts: Set<String>) {
+        _state.mutate { $0.allowedHosts = hosts }
+    }
+
+    public static func setAllowedPaths(_ paths: Set<String>) {
+        _state.mutate { $0.allowedPaths = paths }
+    }
+
+    public static func setRequestHandler(_ handler: (@Sendable (URLRequest) throws -> Response)?) {
+        _state.mutate { $0.requestHandler = handler }
+    }
+
+    public static func reset() {
+        _state.mutate {
+            $0.allowedHosts = []
+            $0.allowedPaths = []
+            $0.requestHandler = nil
+        }
+    }
+
+    override public class func canInit(with request: URLRequest) -> Bool {
         guard let url = request.url else { return false }
         guard url.scheme == "http" || url.scheme == "https" else { return false }
+        let (allowedHosts, allowedPaths) = _state.read { ($0.allowedHosts, $0.allowedPaths) }
         guard let host = url.host, allowedHosts.contains(host) else { return false }
         guard allowedPaths.contains(url.path) else { return false }
         return true
     }
 
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+    override public class func canonicalRequest(for request: URLRequest) -> URLRequest {
         request
     }
 
-    override func startLoading() {
-        guard let handler = Self.requestHandler else {
+    override public func startLoading() {
+        guard let handler = Self._state.read({ $0.requestHandler }) else {
             client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
             return
         }
@@ -66,7 +92,7 @@ final class MockURLProtocol: URLProtocol {
         }
     }
 
-    override func stopLoading() {
+    override public func stopLoading() {
         // No-op.
     }
 }
