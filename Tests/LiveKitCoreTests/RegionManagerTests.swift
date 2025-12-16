@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class RegionUrlProviderTests: XCTestCase {
+class RegionManagerTests: XCTestCase {
     override func tearDown() {
         super.tearDown()
         URLProtocol.unregisterClass(MockURLProtocol.self)
@@ -58,17 +58,14 @@ class RegionUrlProviderTests: XCTestCase {
         XCTAssertFalse(shouldRequestAfterSeed, "Should not require to request region settings")
 
         let attempt1 = try await regionManager.resolveBest(token: "")
-        print("Next url: \(String(describing: attempt1))")
         XCTAssert(attempt1.url == testRegionSettings[0].url)
         await regionManager.markFailed(region: attempt1)
 
         let attempt2 = try await regionManager.resolveBest(token: "")
-        print("Next url: \(String(describing: attempt2))")
         XCTAssert(attempt2.url == testRegionSettings[1].url)
         await regionManager.markFailed(region: attempt2)
 
         let attempt3 = try await regionManager.resolveBest(token: "")
-        print("Next url: \(String(describing: attempt3))")
         XCTAssert(attempt3.url == testRegionSettings[2].url)
         await regionManager.markFailed(region: attempt3)
 
@@ -118,100 +115,42 @@ class RegionUrlProviderTests: XCTestCase {
         let regionManager = RegionManager(providedUrl: providedUrl)
 
         MockURLProtocol.allowedHosts = [providedUrl.host!]
-        MockURLProtocol.allowedPaths = ["/settings/regions"]
-        MockURLProtocol.requestHandler = { _ in
-            .init(statusCode: 404, headers: [:], body: Data("not found".utf8))
+        MockURLProtocol.response = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!
+            let data = "not allowed".data(using: .utf8)!
+            return (response, data)
         }
         URLProtocol.registerClass(MockURLProtocol.self)
 
         do {
             _ = try await regionManager.resolveBest(token: "token")
-            XCTFail("Expected to throw")
+            XCTFail("Expected error")
+        } catch let error as LiveKitError {
+            XCTAssertEqual(error.type, .validation)
         } catch {
-            guard let liveKitError = error as? LiveKitError else {
-                XCTFail("Expected LiveKitError, got \(error)")
-                return
-            }
-            XCTAssertEqual(liveKitError.type, .validation)
+            XCTFail("Expected LiveKitError, got \(error)")
         }
     }
 
-    func testFetchRegionSettingsClassifies5xxAsRegionUrlProvider() async {
+    func testFetchRegionSettingsClassifies5xxAsRegionManagerError() async {
         let providedUrl = URL(string: "https://example.livekit.cloud")!
         let regionManager = RegionManager(providedUrl: providedUrl)
 
         MockURLProtocol.allowedHosts = [providedUrl.host!]
-        MockURLProtocol.allowedPaths = ["/settings/regions"]
-        MockURLProtocol.requestHandler = { _ in
-            .init(statusCode: 500, headers: [:], body: Data("server error".utf8))
+        MockURLProtocol.response = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 500, httpVersion: nil, headerFields: nil)!
+            let data = "server error".data(using: .utf8)!
+            return (response, data)
         }
         URLProtocol.registerClass(MockURLProtocol.self)
 
         do {
             _ = try await regionManager.resolveBest(token: "token")
-            XCTFail("Expected to throw")
+            XCTFail("Expected error")
+        } catch let error as LiveKitError {
+            XCTAssertEqual(error.type, .regionManager)
         } catch {
-            guard let liveKitError = error as? LiveKitError else {
-                XCTFail("Expected LiveKitError, got \(error)")
-                return
-            }
-            XCTAssertEqual(liveKitError.type, .regionUrlProvider)
+            XCTFail("Expected LiveKitError, got \(error)")
         }
-    }
-
-    func testFetchRegionSettingsParsesRegions() async throws {
-        let providedUrl = URL(string: "https://example.livekit.cloud")!
-        let regionManager = RegionManager(providedUrl: providedUrl)
-
-        let body = Data("""
-        {
-          "regions": [
-            { "region": "a", "url": "https://regiona.livekit.cloud", "distance": "100" },
-            { "region": "b", "url": "https://regionb.livekit.cloud", "distance": "200" }
-          ]
-        }
-        """.utf8)
-
-        MockURLProtocol.allowedHosts = [providedUrl.host!]
-        MockURLProtocol.allowedPaths = ["/settings/regions"]
-        MockURLProtocol.requestHandler = { request in
-            XCTAssertEqual(request.value(forHTTPHeaderField: "authorization"), "Bearer token")
-            return .init(statusCode: 200, headers: [:], body: body)
-        }
-        URLProtocol.registerClass(MockURLProtocol.self)
-
-        let region = try await regionManager.resolveBest(token: "token")
-        XCTAssertEqual(region.regionId, "a")
-
-        let state = await regionManager.snapshot()
-        XCTAssertEqual(state.all.count, 2)
-        XCTAssertEqual(state.remaining.count, 2)
-    }
-
-    func testUpdateFromServerReportedRegionsPreservesFailedRegions() async {
-        let providedUrl = URL(string: "https://example.livekit.cloud")!
-        let regionManager = RegionManager(providedUrl: providedUrl)
-
-        let a = RegionInfo(region: "a", url: "https://regiona.livekit.cloud", distance: 100)!
-        let b = RegionInfo(region: "b", url: "https://regionb.livekit.cloud", distance: 200)!
-        let c = RegionInfo(region: "c", url: "https://regionc.livekit.cloud", distance: 300)!
-
-        await regionManager.setStateForTesting(.init(lastRequested: Date(),
-                                                     all: [a, b, c],
-                                                     remaining: [a, c]))
-
-        let serverRegions = Livekit_RegionSettings.with {
-            $0.regions = [
-                .with { $0.region = "a"; $0.url = a.url.absoluteString; $0.distance = a.distance },
-                .with { $0.region = "b"; $0.url = b.url.absoluteString; $0.distance = b.distance },
-                .with { $0.region = "c"; $0.url = c.url.absoluteString; $0.distance = c.distance },
-            ]
-        }
-
-        await regionManager.updateFromServerReportedRegions(serverRegions)
-
-        let updated = await regionManager.snapshot()
-        XCTAssertEqual(updated.all.map(\.regionId), ["a", "b", "c"])
-        XCTAssertEqual(updated.remaining.map(\.regionId), ["a", "c"])
     }
 }

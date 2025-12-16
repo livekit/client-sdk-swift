@@ -82,7 +82,7 @@ actor RegionManager: Loggable {
     func resolveBest(token: String) async throws -> RegionInfo {
         try await requestSettingsIfNeeded(token: token)
         guard let selected = state.remaining.first else {
-            throw LiveKitError(.regionUrlProvider, message: "No more remaining regions.")
+            throw LiveKitError(.regionManager, message: "No more remaining regions.")
         }
 
         log("[Region] Resolved region: \(String(describing: selected))", .debug)
@@ -181,7 +181,7 @@ actor RegionManager: Loggable {
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw LiveKitError(.regionUrlProvider, message: "Failed to fetch region settings")
+            throw LiveKitError(.regionManager, message: "Failed to fetch region settings")
         }
 
         let statusCode = httpResponse.statusCode
@@ -198,7 +198,7 @@ actor RegionManager: Loggable {
                 throw LiveKitError(.validation, message: "Region settings error: HTTP \(statusCode): \(body)")
             }
 
-            throw LiveKitError(.regionUrlProvider, message: "Failed to fetch region settings: HTTP \(statusCode): \(body)")
+            throw LiveKitError(.regionManager, message: "Failed to fetch region settings: HTTP \(statusCode): \(body)")
         }
 
         return data
@@ -209,11 +209,11 @@ actor RegionManager: Loggable {
             let regionSettings = try Livekit_RegionSettings(jsonUTF8Data: data)
             let allRegions = regionSettings.regions.compactMap { $0.toLKType() }
             guard !allRegions.isEmpty else {
-                throw LiveKitError(.regionUrlProvider, message: "Fetched region data is empty.")
+                throw LiveKitError(.regionManager, message: "Fetched region data is empty.")
             }
             return allRegions
         } catch {
-            throw LiveKitError(.regionUrlProvider, message: "Failed to parse region settings with error: \(error)")
+            throw LiveKitError(.regionManager, message: "Failed to parse region settings with error: \(error)")
         }
     }
 }

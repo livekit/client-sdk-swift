@@ -63,7 +63,7 @@ public enum LiveKitErrorType: Int, Sendable {
 
     // LiveKit Cloud
     case onlyForCloud = 1101
-    case regionUrlProvider = 1102
+    case regionManager = 1102
 }
 
 extension LiveKitErrorType: CustomStringConvertible {
@@ -121,8 +121,8 @@ extension LiveKitErrorType: CustomStringConvertible {
             "Decryption failed"
         case .onlyForCloud:
             "Only for LiveKit Cloud"
-        case .regionUrlProvider:
-            "Region URL provider error"
+        case .regionManager:
+            "Region manager error"
         default: "Unknown"
         }
     }
