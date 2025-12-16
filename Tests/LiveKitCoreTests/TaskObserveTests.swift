@@ -68,7 +68,7 @@ class TaskObserveTests: LKTestCase {
 
     func testStreamBreaksWhenObserverDeallocates() async throws {
         var observer: TestObserver? = TestObserver(id: "dealloc-test")
-        weak let weakObserver = observer
+        weak var weakObserver = observer
 
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
 
@@ -88,6 +88,7 @@ class TaskObserveTests: LKTestCase {
         try await Task.sleep(nanoseconds: 50_000_000)
 
         XCTAssertNil(weakObserver, "Observer should have been deallocated")
+        weakObserver = nil
 
         continuation.yield(3)
         continuation.yield(4)

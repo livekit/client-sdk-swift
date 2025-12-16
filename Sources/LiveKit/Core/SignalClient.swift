@@ -140,7 +140,7 @@ actor SignalClient: Loggable {
                                              connectOptions: connectOptions)
 
             let messageLoopTask = Task.observing(socket, by: self) { observer, message in
-                await observer._onWebSocketMessage(message: message)
+                await observer.onWebSocketMessage(message)
             } onFailure: { observer, error in
                 await observer.cleanUp(withError: error)
             }
@@ -241,7 +241,7 @@ private extension SignalClient {
         await _requestQueue.processIfResumed(request, elseEnqueue: request.canBeQueued())
     }
 
-    func _onWebSocketMessage(message: URLSessionWebSocketTask.Message) async {
+    func onWebSocketMessage(_ message: URLSessionWebSocketTask.Message) async {
         let response: Livekit_SignalResponse? = switch message {
         case let .data(data): try? Livekit_SignalResponse(serializedBytes: data)
         case let .string(string): try? Livekit_SignalResponse(jsonString: string)

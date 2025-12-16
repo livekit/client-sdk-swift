@@ -45,8 +45,7 @@ final class BroadcastUploader: Sendable, Loggable {
         self.channel = channel
 
         let messageLoopTask = Task.observing(channel.incomingMessages(BroadcastIPCHeader.self), by: self) { observer, message in
-            let (header, _) = message
-            observer.processMessage(header)
+            observer.processMessageHeader(message.0)
         } onFailure: { observer, error in
             observer.log("IPCChannel returned error: \(error)")
         }
@@ -64,9 +63,6 @@ final class BroadcastUploader: Sendable, Loggable {
 
     /// Close the connection to the receiver.
     func close() {
-        state.mutate {
-            $0.messageLoopTask = nil
-        }
         channel.close()
     }
 
@@ -87,10 +83,10 @@ final class BroadcastUploader: Sendable, Loggable {
             let rotation = VideoRotation(sampleBuffer.replayKitOrientation ?? .up)
             do {
                 let (metadata, imageData) = try imageCodec.encode(sampleBuffer)
-                Task { [weak self, channel] in
+                Task {
                     let header = BroadcastIPCHeader.image(metadata, rotation)
                     try await channel.send(header: header, payload: imageData)
-                    self?.state.mutate { $0.isUploadingImage = false }
+                    state.mutate { $0.isUploadingImage = false }
                 }
             } catch {
                 state.mutate { $0.isUploadingImage = false }
@@ -99,7 +95,7 @@ final class BroadcastUploader: Sendable, Loggable {
         case .audioApp:
             guard state.shouldUploadAudio else { return }
             let (metadata, audioData) = try audioCodec.encode(sampleBuffer)
-            Task { [channel] in
+            Task {
                 let header = BroadcastIPCHeader.audio(metadata)
                 try await channel.send(header: header, payload: audioData)
             }
@@ -108,7 +104,7 @@ final class BroadcastUploader: Sendable, Loggable {
         }
     }
 
-    private func processMessage(_ header: BroadcastIPCHeader) {
+    private func processMessageHeader(_ header: BroadcastIPCHeader) {
         switch header {
         case let .wantsAudio(wantsAudio):
             state.mutate { $0.shouldUploadAudio = wantsAudio }

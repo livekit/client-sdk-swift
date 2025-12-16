@@ -58,6 +58,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     private let _state: StateSync<State>
+
     private let eventContinuation: AsyncStream<ChannelEvent>.Continuation
     private var eventLoopTask: AnyTaskCancellable?
 
@@ -255,12 +256,12 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         _state = StateSync(State(lossy: lossyChannel,
                                  reliable: reliableChannel))
 
-        let (eventStream, continuation) = AsyncStream.makeStream(of: ChannelEvent.self)
-        eventContinuation = continuation
-
         if let delegate {
             delegates.add(delegate: delegate)
         }
+
+        let (eventStream, continuation) = AsyncStream.makeStream(of: ChannelEvent.self)
+        eventContinuation = continuation
 
         super.init()
 
