@@ -166,7 +166,11 @@ final class AnyTaskCancellable: Cancellable, Sendable, Hashable {
     private let _cancel: @Sendable () -> Void
 
     init(_ task: Task<some Any, some Any>) {
+        #if swift(>=6.0)
         _cancel = task.cancel
+        #else
+        _cancel = { @Sendable in task.cancel() }
+        #endif
     }
 
     deinit {

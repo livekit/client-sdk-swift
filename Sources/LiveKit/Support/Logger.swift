@@ -305,7 +305,9 @@ extension LogForwardLevel {
         case .warn: .default
         case .info: .info
         case .debug, .trace: .debug
+        #if swift(>=6.0)
         @unknown default: .debug
+        #endif
         }
     }
 }
