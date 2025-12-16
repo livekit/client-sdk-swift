@@ -237,7 +237,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         super.init()
         // log sdk & os versions
-        log("sdk: \(LiveKitSDK.version), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
+        log("sdk: \(LiveKitSDK.version), ffi: \(LiveKitSDK.ffiVersion), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
 
         signalClient._delegate.set(delegate: self)
 
