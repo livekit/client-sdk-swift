@@ -352,6 +352,7 @@ extension Room {
             }
 
             let finalUrl: URL
+            await cleanUp(isFullReconnect: true)
             if providedUrl.isCloud {
                 guard let regionManager = await regionManager(for: providedUrl) else {
                     throw LiveKitError(.onlyForCloud)
@@ -360,15 +361,8 @@ extension Room {
                 finalUrl = try await connectWithCloudRegionFailover(regionManager: regionManager,
                                                                     initialUrl: connectedUrl,
                                                                     initialRegion: nil,
-                                                                    token: token,
-                                                                    prepareBeforeFirstAttempt: { [weak self] in
-                                                                        await self?.cleanUp(isFullReconnect: true)
-                                                                    },
-                                                                    prepareAfterFailure: { [weak self] in
-                                                                        await self?.cleanUp(isFullReconnect: true)
-                                                                    })
+                                                                    token: token)
             } else {
-                await cleanUp(isFullReconnect: true)
                 try await fullConnectSequence(connectedUrl, token)
                 finalUrl = connectedUrl
             }

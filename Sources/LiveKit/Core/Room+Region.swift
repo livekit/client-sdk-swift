@@ -101,16 +101,10 @@ extension Room {
         regionManager: RegionManager,
         initialUrl: URL,
         initialRegion: RegionInfo?,
-        token: String,
-        prepareBeforeFirstAttempt: (@Sendable () async -> Void)? = nil,
-        prepareAfterFailure: @Sendable () async -> Void
+        token: String
     ) async throws -> URL {
         var nextUrl = initialUrl
         var nextRegion = initialRegion
-
-        if let prepareBeforeFirstAttempt {
-            await prepareBeforeFirstAttempt()
-        }
 
         while true {
             do {
@@ -139,7 +133,7 @@ extension Room {
 
                 try Task.checkCancellation()
 
-                await prepareAfterFailure()
+                await cleanUp(isFullReconnect: true)
 
                 let region = try await regionManager.resolveBest(token: token)
                 nextUrl = region.url

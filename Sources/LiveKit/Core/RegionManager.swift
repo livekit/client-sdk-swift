@@ -42,12 +42,11 @@ actor RegionManager: Loggable {
         settingsFetchTaskId = nil
     }
 
-    func resetAttemptsIfExhausted() {
-        guard state.remaining.isEmpty, !state.all.isEmpty else { return }
-        state.remaining = state.all
-    }
-
-    func resetAttempts() {
+    func resetAttempts(onlyIfExhausted: Bool = false) {
+        if onlyIfExhausted {
+            guard state.remaining.isEmpty else { return }
+        }
+        guard !state.all.isEmpty else { return }
         state.remaining = state.all
     }
 
@@ -67,7 +66,7 @@ actor RegionManager: Loggable {
 
     func prepareSettingsFetch(token: String) {
         guard shouldRequestSettings() else { return }
-        startSettingsFetchIfNeeded(token: token)
+        _ = startSettingsFetchIfNeeded(token: token)
     }
 
     func tryResolveBest(token: String) async -> RegionInfo? {
@@ -118,33 +117,27 @@ actor RegionManager: Loggable {
 
     // MARK: - Private
 
-    private func startSettingsFetchIfNeeded(token: String) {
-        if settingsFetchTask != nil { return }
+    private func startSettingsFetchIfNeeded(token: String) -> Task<Void, Error> {
+        if let task = settingsFetchTask { return task }
 
         let taskId = UUID()
         settingsFetchTaskId = taskId
 
         let task = Task { [providedUrl, token, taskId] in
+            defer { clearSettingsFetchTask(matching: taskId) }
             do {
                 let data = try await Self.fetchRegionSettings(providedUrl: providedUrl, token: token)
                 let allRegions = try Self.parseRegionSettings(data: data)
                 try Task.checkCancellation()
                 applyFetchedRegions(allRegions)
-                clearSettingsFetchTask(if: taskId)
             } catch {
                 log("[Region] Failed to fetch region settings: \(error)", .error)
-                clearSettingsFetchTask(if: taskId)
                 throw error
             }
         }
 
         settingsFetchTask = task
-
-        Task { [weak self] in
-            _ = try? await task.value
-            // If the task failed before it could clear itself.
-            await self?.clearSettingsFetchTask(if: taskId)
-        }
+        return task
     }
 
     private func requestSettingsIfNeeded(token: String) async throws {
@@ -153,10 +146,8 @@ actor RegionManager: Loggable {
         }
 
         guard shouldRequestSettings() else { return }
-        startSettingsFetchIfNeeded(token: token)
-        if let task = settingsFetchTask {
-            try await task.value
-        }
+        let task = startSettingsFetchIfNeeded(token: token)
+        try await task.value
     }
 
     private func applyFetchedRegions(_ allRegions: [RegionInfo]) {
@@ -166,8 +157,8 @@ actor RegionManager: Loggable {
         state.lastRequested = Date()
     }
 
-    private func clearSettingsFetchTask(if taskID: UUID) {
-        guard settingsFetchTaskId == taskID else { return }
+    private func clearSettingsFetchTask(matching taskId: UUID) {
+        guard settingsFetchTaskId == taskId else { return }
         settingsFetchTaskId = nil
         settingsFetchTask = nil
     }

@@ -374,10 +374,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         var nextUrl = providedUrl
         var nextRegion: RegionInfo?
+        let regionManager = await regionManager(for: providedUrl)
 
         if providedUrl.isCloud {
-            if let regionManager = await regionManager(for: providedUrl) {
-                await regionManager.resetAttemptsIfExhausted()
+            if let regionManager {
+                await regionManager.resetAttempts(onlyIfExhausted: true)
 
                 if await regionManager.shouldRequestSettings() {
                     await regionManager.prepareSettingsFetch(token: token)
@@ -413,17 +414,14 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         do {
             let finalUrl: URL
             if providedUrl.isCloud {
-                guard let regionManager = await regionManager(for: providedUrl) else {
+                guard let regionManager else {
                     throw LiveKitError(.onlyForCloud)
                 }
 
                 finalUrl = try await connectWithCloudRegionFailover(regionManager: regionManager,
                                                                     initialUrl: nextUrl,
                                                                     initialRegion: nextRegion,
-                                                                    token: token,
-                                                                    prepareAfterFailure: { [weak self] in
-                                                                        await self?.cleanUp(isFullReconnect: true)
-                                                                    })
+                                                                    token: token)
             } else {
                 try await fullConnectSequence(nextUrl, token)
                 finalUrl = nextUrl
