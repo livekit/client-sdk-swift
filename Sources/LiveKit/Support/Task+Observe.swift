@@ -18,78 +18,132 @@ import Combine
 import Foundation
 
 extension Task where Success == Void, Failure == Never {
-    /// Creates a task that observes an async stream with correct weak-owner capture.
+    /// Observe an AsyncSequence that might throw.
     ///
-    /// This factory prevents common retain cycle bugs where `guard let self` at the start
-    /// of a task inadvertently retains `self` for the entire task lifetime. The owner is
-    /// passed explicitly to each iteration, so the task automatically breaks when the
-    /// owner deallocates.
-    ///
-    /// Example usage:
-    /// ```swift
-    /// // Fire-and-forget (most common)
-    /// Task.observing(eventStream, by: self) { owner, event in
-    ///     await owner.handleEvent(event)
-    /// }
-    ///
-    /// // With explicit cancellation (rare)
-    /// let task = Task.observing(stream, by: self) { ... }
-    /// task.cancel()
-    /// ```
-    ///
-    /// The task automatically breaks when:
-    /// - The owner is deallocated
-    /// - The stream completes
-    /// - The task is cancelled
+    /// - Parameters:
+    ///   - sequence: The async sequence to iterate.
+    ///   - observer: The observer object (captured weakly).
+    ///   - onElement: Called for each element.
+    ///   - onFailure: Called when the sequence terminates with an error.
+    /// - Returns: The task, can be ignored if explicit cancellation is not needed.
+    @discardableResult
+    static func observing<Observer: AnyObject & Sendable, Sequence: AsyncSequence & Sendable>(
+        _ sequence: Sequence,
+        by observer: Observer,
+        onElement: @Sendable @escaping (Observer, Sequence.Element) async -> Void,
+        onFailure: @Sendable @escaping (Observer, Error) async -> Void
+    ) -> AnyTaskCancellable where Sequence.Element: Sendable {
+        Task { [weak observer] in
+            do {
+                for try await element in sequence {
+                    guard let observer else { break }
+                    await onElement(observer, element)
+                }
+            } catch {
+                if let observer {
+                    await onFailure(observer, error)
+                }
+            }
+        }.cancellable()
+    }
+
+    /// Observe an AsyncStream (non-throwing).
     ///
     /// - Parameters:
     ///   - stream: The async stream to iterate.
     ///   - observer: The observer object (captured weakly).
-    ///   - operation: Called for each element with the observer passed explicitly.
+    ///   - onElement: Called for each element.
     /// - Returns: The task, can be ignored if explicit cancellation is not needed.
     @discardableResult
     static func observing<Observer: AnyObject & Sendable, Element: Sendable>(
         _ stream: AsyncStream<Element>,
         by observer: Observer,
-        operation: @Sendable @escaping (Observer, Element) async -> Void
+        onElement: @Sendable @escaping (Observer, Element) async -> Void
     ) -> AnyTaskCancellable {
         Task { [weak observer] in
             for await element in stream {
                 guard let observer else { break }
-                await operation(observer, element)
+                await onElement(observer, element)
             }
         }.cancellable()
     }
 
-    /// Variant for main actor observations (UI).
+    /// Variant for main actor observations (UI) - for throwing sequences.
+    @MainActor
+    @discardableResult
+    static func observingOnMainActor<Observer: AnyObject, Sequence: AsyncSequence & Sendable>(
+        _ sequence: Sequence,
+        by observer: Observer,
+        onElement: @escaping (Observer, Sequence.Element) -> Void,
+        onFailure: @escaping (Observer, Error) -> Void
+    ) -> AnyTaskCancellable where Sequence.Element: Sendable {
+        Task { @MainActor [weak observer] in
+            do {
+                for try await element in sequence {
+                    guard let observer else { break }
+                    onElement(observer, element)
+                }
+            } catch {
+                if let observer {
+                    onFailure(observer, error)
+                }
+            }
+        }.cancellable()
+    }
+
+    /// Variant for main actor observations (UI) - for AsyncStream (non-throwing).
     @MainActor
     @discardableResult
     static func observingOnMainActor<Observer: AnyObject, Element: Sendable>(
         _ stream: AsyncStream<Element>,
         by observer: Observer,
-        operation: @escaping (Observer, Element) -> Void
+        onElement: @escaping (Observer, Element) -> Void
     ) -> AnyTaskCancellable {
         Task { @MainActor [weak observer] in
             for await element in stream {
                 guard let observer else { break }
-                operation(observer, element)
+                onElement(observer, element)
             }
         }.cancellable()
     }
 
-    /// Variant with mutable state that persists across iterations.
+    /// Variant with mutable state - for throwing sequences.
+    @discardableResult
+    static func observing<Observer: AnyObject & Sendable, Sequence: AsyncSequence & Sendable, State: Sendable>(
+        _ sequence: Sequence,
+        by observer: Observer,
+        state initialState: State,
+        onElement: @Sendable @escaping (Observer, Sequence.Element, inout State) -> Void,
+        onFailure: @Sendable @escaping (Observer, Error, inout State) async -> Void
+    ) -> AnyTaskCancellable where Sequence.Element: Sendable {
+        Task { [weak observer] in
+            var state = initialState
+            do {
+                for try await element in sequence {
+                    guard let observer else { break }
+                    onElement(observer, element, &state)
+                }
+            } catch {
+                if let observer {
+                    await onFailure(observer, error, &state)
+                }
+            }
+        }.cancellable()
+    }
+
+    /// Variant with mutable state - for AsyncStream (non-throwing).
     @discardableResult
     static func observing<Observer: AnyObject & Sendable, Element: Sendable, State: Sendable>(
         _ stream: AsyncStream<Element>,
         by observer: Observer,
         state initialState: State,
-        operation: @Sendable @escaping (Observer, Element, inout State) -> Void
+        onElement: @Sendable @escaping (Observer, Element, inout State) -> Void
     ) -> AnyTaskCancellable {
         Task { [weak observer] in
             var state = initialState
             for await element in stream {
                 guard let observer else { break }
-                operation(observer, element, &state)
+                onElement(observer, element, &state)
             }
         }.cancellable()
     }
