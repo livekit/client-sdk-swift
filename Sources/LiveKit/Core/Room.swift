@@ -207,11 +207,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     // MARK: - Region
 
-    struct RegionManagerState {
-        var manager: RegionManager?
-    }
-
-    let _regionManager = StateSync(RegionManagerState())
+    let _regionManager = StateSync<RegionManager?>(nil)
 
     // MARK: Objective-C Support
 

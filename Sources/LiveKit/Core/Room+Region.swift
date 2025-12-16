@@ -23,23 +23,23 @@ extension Room {
 
     func regionManager(for providedUrl: URL) async -> RegionManager? {
         guard providedUrl.isCloud, providedUrl.host != nil else {
-            let old = _regionManager.mutate { holder -> RegionManager? in
-                let old = holder.manager
-                holder.manager = nil
+            let old = _regionManager.mutate { manager -> RegionManager? in
+                let old = manager
+                manager = nil
                 return old
             }
             if let old { await old.cancel() }
             return nil
         }
 
-        let (manager, old) = _regionManager.mutate { state -> (RegionManager, RegionManager?) in
-            if let manager = state.manager, manager.providedUrl.matchesRegionManagerKey(of: providedUrl) {
+        let (manager, old) = _regionManager.mutate { current -> (RegionManager, RegionManager?) in
+            if let manager = current, manager.providedUrl.matchesRegionManagerKey(of: providedUrl) {
                 return (manager, nil)
             }
 
-            let old = state.manager
+            let old = current
             let manager = RegionManager(providedUrl: providedUrl)
-            state.manager = manager
+            current = manager
             return (manager, old)
         }
 
