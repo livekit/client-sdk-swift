@@ -23,20 +23,40 @@ class HTTP: NSObject {
                                                    delegate: nil,
                                                    delegateQueue: operationQueue)
 
-    static func requestValidation(from url: URL, token: String) async throws -> String {
-        // let data = try await requestData(from: url, token: token)
+    static func requestValidation(from url: URL, token: String) async throws {
         var request = URLRequest(url: url,
                                  cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
                                  timeoutInterval: .defaultHTTPConnect)
         // Attach token to header
         request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
         // Make the data request
-        let (data, _) = try await session.data(for: request)
-        // Convert to string
-        guard let string = String(data: data, encoding: .utf8) else {
-            throw LiveKitError(.failedToConvertData, message: "Failed to convert string")
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
         }
 
-        return string
+        guard (200 ..< 300).contains(httpResponse.statusCode) else {
+            let statusCode = httpResponse.statusCode
+            let rawBody = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            let body = if let rawBody, !rawBody.isEmpty {
+                rawBody.count > 1024 ? String(rawBody.prefix(1024)) + "..." : rawBody
+            } else {
+                "(No server message)"
+            }
+
+            let details = "HTTP \(statusCode): \(body)"
+
+            // Treat request/token/permissions issues as validation errors.
+            if (400 ..< 500).contains(statusCode), statusCode != 429 {
+                throw LiveKitError(.validation, message: details)
+            }
+
+            // Treat server/rate-limit issues as network errors.
+            throw LiveKitError(.network, message: "Validation endpoint error: \(details)")
+        }
     }
 }
