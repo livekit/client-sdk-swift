@@ -41,11 +41,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
                     await onElement(observer, element)
                 }
             } catch {
-                // Robust Cancellation Handling:
-                // Exit silently on cancellation to prevent noise and logic errors during teardown.
-                if let lkError = error as? LiveKitError, lkError.type == .cancelled { return }
                 if error is CancellationError { return }
-
                 if let observer, let onFailure {
                     await onFailure(observer, error)
                 }
@@ -77,10 +73,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
                     await onElement(observer, element)
                 }
             } catch {
-                // Robust Cancellation Handling
-                if let lkError = error as? LiveKitError, lkError.type == .cancelled { return }
                 if error is CancellationError { return }
-
                 if let observer, let onFailure {
                     await onFailure(observer, error)
                 }
@@ -114,10 +107,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
                     await onElement(observer, element, &state)
                 }
             } catch {
-                // Robust Cancellation Handling
-                if let lkError = error as? LiveKitError, lkError.type == .cancelled { return }
                 if error is CancellationError { return }
-
                 if let observer, let onFailure {
                     await onFailure(observer, error, &state)
                 }

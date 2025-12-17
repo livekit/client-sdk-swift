@@ -202,8 +202,7 @@ actor SignalClient: Loggable {
     }
 
     func cleanUp(withError disconnectError: Error? = nil) async {
-        if disconnectError is CancellationError { return }
-        if let lkError = disconnectError as? LiveKitError, lkError.type == .cancelled { return }
+        if Task.isCancelled { return }
 
         log("withError: \(String(describing: disconnectError))")
 
