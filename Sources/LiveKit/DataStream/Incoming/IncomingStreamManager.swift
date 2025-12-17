@@ -23,8 +23,8 @@ actor IncomingStreamManager: Loggable {
         let info: StreamInfo
         let openTime: TimeInterval
         let continuation: StreamReaderSource.Continuation
+        var task: AnyTaskCancellable?
         var readLength = 0
-        var handlerTask: AnyTaskCancellable?
     }
 
     /// Mapping between stream ID and descriptor for open streams.
@@ -137,7 +137,9 @@ actor IncomingStreamManager: Loggable {
             info: info,
             openTime: Date.timeIntervalSinceReferenceDate,
             continuation: continuation,
-            handlerTask: Task.detached { try await handler(source, identity) }.cancellable()
+            task: Task {
+                try await handler(source, identity)
+            }.cancellable()
         )
 
         openStreams[info.id] = descriptor
