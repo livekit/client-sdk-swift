@@ -469,7 +469,7 @@ public class VideoView: NativeView, Loggable {
         let hRatio = size.height / hDim
         let ratioDiff = abs(hRatio - wRatio)
 
-        if ratioDiff < CGFloat.aspectRatioTolerance {
+        if !ratioDiff.isFinite || ratioDiff < CGFloat.aspectRatioTolerance {
             // no-op
         } else if state.layoutMode == .fill ? hRatio > wRatio : hRatio < wRatio {
             size.width = size.height / hDim * wDim
