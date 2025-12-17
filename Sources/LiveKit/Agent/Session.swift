@@ -243,7 +243,7 @@ open class Session: ObservableObject {
         guard connectionState == .disconnected else { return }
 
         error = nil
-        waitForAgentTask?.cancel()
+        waitForAgentTask = nil
 
         let timeout = options.agentConnectTimeout
 

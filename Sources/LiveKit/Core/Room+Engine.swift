@@ -406,7 +406,7 @@ extension Room {
             }
 
             _state.mutate {
-                $0.reconnectTask = reconnectTask
+                $0.reconnectTask = reconnectTask.cancellable()
             }
 
             try await reconnectTask.value

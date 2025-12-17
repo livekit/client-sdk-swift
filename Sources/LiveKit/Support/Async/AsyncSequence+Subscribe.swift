@@ -28,7 +28,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
     ///   - state: The initial mutable state.
     ///   - onElement: Called for each element.
     ///   - onFailure: Called when the sequence terminates with an error. Cancellation errors are ignored.
-    /// - Returns: The task cancellable. Must be stored to keep the task alive.
+    /// - Returns: The task cancellable.
     func subscribe<O: AnyObject & Sendable, State: Sendable>(
         _ observer: O,
         priority: TaskPriority? = nil,
@@ -61,7 +61,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
     ///   - priority: The priority of the task.
     ///   - onElement: Called for each element.
     ///   - onFailure: Called when the sequence terminates with an error. Cancellation errors are ignored.
-    /// - Returns: The task cancellable. Must be stored to keep the task alive.
+    /// - Returns: The task cancellable.
     func subscribe<O: AnyObject & Sendable>(
         _ observer: O,
         priority: TaskPriority? = nil,
@@ -89,7 +89,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
     ///   - state: The initial mutable state.
     ///   - onElement: Called for each element on the MainActor.
     ///   - onFailure: Called when the sequence terminates with an error on the MainActor. Cancellation errors are ignored.
-    /// - Returns: The task cancellable. Must be stored to keep the task alive.
+    /// - Returns: The task cancellable.
     @MainActor
     func subscribeOnMainActor<O: AnyObject & Sendable, State: Sendable>(
         _ observer: O,
@@ -123,7 +123,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
     ///   - priority: The priority of the task.
     ///   - onElement: Called for each element on the MainActor.
     ///   - onFailure: Called when the sequence terminates with an error on the MainActor. Cancellation errors are ignored.
-    /// - Returns: The task cancellable. Must be stored to keep the task alive.
+    /// - Returns: The task cancellable.
     @MainActor
     func subscribeOnMainActor<O: AnyObject & Sendable>(
         _ observer: O,
