@@ -99,7 +99,7 @@ open class LocalMedia: ObservableObject, Loggable {
     }
 
     private func observe(_ localParticipant: LocalParticipant) {
-        Task.observingOnMainActor(localParticipant.changes, by: self) { observer, _ in
+        localParticipant.changes.subscribeOnMainActor(self) { observer, _ in
             observer.microphoneTrack = localParticipant.firstAudioTrack
             observer.cameraTrack = localParticipant.firstCameraVideoTrack
             observer.screenShareTrack = localParticipant.firstScreenShareVideoTrack

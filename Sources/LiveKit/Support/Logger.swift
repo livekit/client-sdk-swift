@@ -191,7 +191,7 @@ open class OSLogger: Logger, @unchecked Sendable {
 
             let ffiLog = OSLog(subsystem: Self.subsystem, category: "FFI")
 
-            ffiTask = Task.observing(AsyncStream(unfolding: logForwardReceive), by: self, withPriority: .utility) { _, entry in
+            ffiTask = AsyncStream(unfolding: logForwardReceive).subscribe(self, priority: .utility) { _, entry in
                 os_log("%{public}@", log: ffiLog, type: entry.level.osLogType, "\(entry.target) \(entry.message)")
             }
         }

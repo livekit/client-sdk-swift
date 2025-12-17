@@ -139,7 +139,7 @@ actor SignalClient: Loggable {
                                              token: token,
                                              connectOptions: connectOptions)
 
-            let messageLoopTask = Task.observing(socket, by: self) { observer, message in
+            let messageLoopTask = socket.subscribe(self) { observer, message in
                 await observer.onWebSocketMessage(message)
             } onFailure: { observer, error in
                 await observer.cleanUp(withError: error)

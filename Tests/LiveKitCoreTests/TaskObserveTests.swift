@@ -46,7 +46,7 @@ class TaskObserveTests: LKTestCase {
             continuation.finish()
         }
 
-        Task.observing(stream, by: observer) { observer, element in
+        let task = stream.subscribe(observer) { observer, element in
             await observer.recordItem(element)
         }
 
@@ -62,7 +62,7 @@ class TaskObserveTests: LKTestCase {
 
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
 
-        Task.observing(stream, by: observer!) { observer, element in
+        let task = stream.subscribe(observer!) { observer, element in
             await observer.recordItem(element)
         }
 
@@ -89,7 +89,7 @@ class TaskObserveTests: LKTestCase {
         let observer = TestObserver()
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
 
-        let task = Task.observing(stream, by: observer) { observer, element in
+        let task = stream.subscribe(observer) { observer, element in
             await observer.recordItem(element)
         }
 
@@ -112,7 +112,7 @@ class TaskObserveTests: LKTestCase {
         let observer = TestObserver()
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
 
-        Task.observing(stream, by: observer) { observer, element in
+        let task = stream.subscribe(observer) { observer, element in
             await observer.recordItem(element)
         }
 

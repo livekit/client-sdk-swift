@@ -44,7 +44,7 @@ final class BroadcastUploader: Sendable, Loggable {
         let channel = try await IPCChannel(connectingTo: socketPath)
         self.channel = channel
 
-        let messageLoopTask = Task.observing(channel.incomingMessages(BroadcastIPCHeader.self), by: self) { observer, message in
+        let messageLoopTask = channel.incomingMessages(BroadcastIPCHeader.self).subscribe(self) { observer, message in
             observer.processMessageHeader(message.0)
         } onFailure: { observer, error in
             observer.log("IPCChannel returned error: \(error)")

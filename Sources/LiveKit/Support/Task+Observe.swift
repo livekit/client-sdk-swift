@@ -17,139 +17,110 @@
 import Combine
 import Foundation
 
-extension Task where Success == Void, Failure == Never {
-    /// Observe an AsyncSequence that might throw.
+extension AsyncSequence where Element: Sendable, Self: Sendable {
+    /// Subscribe to an AsyncSequence with a lifecycle tied to an observer.
+    ///
+    /// The loop automatically terminates if the observer is deallocated.
     ///
     /// - Parameters:
-    ///   - sequence: The async sequence to iterate.
     ///   - observer: The observer object (captured weakly).
+    ///   - priority: The priority of the task.
     ///   - onElement: Called for each element.
-    ///   - onFailure: Called when the sequence terminates with an error.
-    /// - Returns: The task, can be ignored if explicit cancellation is not needed.
-    @discardableResult
-    static func observing<Observer: AnyObject & Sendable, Sequence: AsyncSequence & Sendable>(
-        _ sequence: Sequence,
-        by observer: Observer,
-        withPriority priority: TaskPriority = .medium,
-        onElement: @Sendable @escaping (Observer, Sequence.Element) async -> Void,
-        onFailure: @Sendable @escaping (Observer, Error) async -> Void
-    ) -> AnyTaskCancellable where Sequence.Element: Sendable {
+    ///   - onFailure: Called when the sequence terminates with an error. Cancellation errors are ignored.
+    /// - Returns: The task cancellable. Must be stored to keep the task alive.
+    func subscribe<O: AnyObject & Sendable>(
+        _ observer: O,
+        priority: TaskPriority? = nil,
+        onElement: @escaping @Sendable (O, Element) async -> Void,
+        onFailure: (@Sendable (O, Error) async -> Void)? = nil
+    ) -> AnyTaskCancellable {
         Task(priority: priority) { [weak observer] in
             do {
-                for try await element in sequence {
+                for try await element in self {
                     guard let observer else { break }
                     await onElement(observer, element)
                 }
             } catch {
-                if let observer {
+                // Robust Cancellation Handling:
+                // Exit silently on cancellation to prevent noise and logic errors during teardown.
+                if let lkError = error as? LiveKitError, lkError.type == .cancelled { return }
+                if error is CancellationError { return }
+
+                if let observer, let onFailure {
                     await onFailure(observer, error)
                 }
             }
         }.cancellable()
     }
 
-    /// Observe an AsyncStream (non-throwing).
+    /// Subscribe to an AsyncSequence with a lifecycle tied to an observer on the MainActor.
+    ///
+    /// The loop automatically terminates if the observer is deallocated.
     ///
     /// - Parameters:
-    ///   - stream: The async stream to iterate.
     ///   - observer: The observer object (captured weakly).
-    ///   - onElement: Called for each element.
-    /// - Returns: The task, can be ignored if explicit cancellation is not needed.
-    @discardableResult
-    static func observing<Observer: AnyObject & Sendable, Element: Sendable>(
-        _ stream: AsyncStream<Element>,
-        by observer: Observer,
-        withPriority priority: TaskPriority = .medium,
-        onElement: @Sendable @escaping (Observer, Element) async -> Void
-    ) -> AnyTaskCancellable {
-        Task(priority: priority) { [weak observer] in
-            for await element in stream {
-                guard let observer else { break }
-                await onElement(observer, element)
-            }
-        }.cancellable()
-    }
-
-    /// Variant for main actor observations (UI) - for throwing sequences.
+    ///   - priority: The priority of the task.
+    ///   - onElement: Called for each element on the MainActor.
+    ///   - onFailure: Called when the sequence terminates with an error on the MainActor. Cancellation errors are ignored.
+    /// - Returns: The task cancellable. Must be stored to keep the task alive.
     @MainActor
-    @discardableResult
-    static func observingOnMainActor<Observer: AnyObject, Sequence: AsyncSequence & Sendable>(
-        _ sequence: Sequence,
-        by observer: Observer,
-        withPriority priority: TaskPriority = .medium,
-        onElement: @escaping (Observer, Sequence.Element) -> Void,
-        onFailure: @escaping (Observer, Error) -> Void
-    ) -> AnyTaskCancellable where Sequence.Element: Sendable {
-        Task(priority: priority) { @MainActor [weak observer] in
-            do {
-                for try await element in sequence {
-                    guard let observer else { break }
-                    onElement(observer, element)
-                }
-            } catch {
-                if let observer {
-                    onFailure(observer, error)
-                }
-            }
-        }.cancellable()
-    }
-
-    /// Variant for main actor observations (UI) - for AsyncStream (non-throwing).
-    @MainActor
-    @discardableResult
-    static func observingOnMainActor<Observer: AnyObject, Element: Sendable>(
-        _ stream: AsyncStream<Element>,
-        by observer: Observer,
-        withPriority priority: TaskPriority = .medium,
-        onElement: @escaping (Observer, Element) -> Void
+    func subscribeOnMainActor<O: AnyObject & Sendable>(
+        _ observer: O,
+        priority: TaskPriority? = nil,
+        onElement: @escaping @MainActor (O, Element) async -> Void,
+        onFailure: (@MainActor (O, Error) async -> Void)? = nil
     ) -> AnyTaskCancellable {
         Task(priority: priority) { @MainActor [weak observer] in
-            for await element in stream {
-                guard let observer else { break }
-                onElement(observer, element)
+            do {
+                for try await element in self {
+                    guard let observer else { break }
+                    await onElement(observer, element)
+                }
+            } catch {
+                // Robust Cancellation Handling
+                if let lkError = error as? LiveKitError, lkError.type == .cancelled { return }
+                if error is CancellationError { return }
+
+                if let observer, let onFailure {
+                    await onFailure(observer, error)
+                }
             }
         }.cancellable()
     }
 
-    /// Variant with mutable state - for throwing sequences.
-    @discardableResult
-    static func observing<Observer: AnyObject & Sendable, Sequence: AsyncSequence & Sendable, State: Sendable>(
-        _ sequence: Sequence,
-        by observer: Observer,
-        withPriority priority: TaskPriority = .medium,
-        withMutableState initialState: State,
-        onElement: @Sendable @escaping (Observer, Sequence.Element, inout State) -> Void,
-        onFailure: @Sendable @escaping (Observer, Error, inout State) async -> Void
-    ) -> AnyTaskCancellable where Sequence.Element: Sendable {
+    /// Subscribe to an AsyncSequence with a lifecycle tied to an observer and mutable state.
+    ///
+    /// The loop automatically terminates if the observer is deallocated.
+    ///
+    /// - Parameters:
+    ///   - observer: The observer object (captured weakly).
+    ///   - priority: The priority of the task.
+    ///   - state: The initial mutable state.
+    ///   - onElement: Called for each element with access to the mutable state.
+    ///   - onFailure: Called when the sequence terminates with an error. Cancellation errors are ignored.
+    /// - Returns: The task cancellable. Must be stored to keep the task alive.
+    func subscribe<O: AnyObject & Sendable, State: Sendable>(
+        _ observer: O,
+        priority: TaskPriority? = nil,
+        state: State,
+        onElement: @escaping @Sendable (O, Element, inout State) async -> Void,
+        onFailure: (@Sendable (O, Error, inout State) async -> Void)? = nil
+    ) -> AnyTaskCancellable {
         Task(priority: priority) { [weak observer] in
-            var state = initialState
+            var state = state
             do {
-                for try await element in sequence {
+                for try await element in self {
                     guard let observer else { break }
-                    onElement(observer, element, &state)
+                    await onElement(observer, element, &state)
                 }
             } catch {
-                if let observer {
+                // Robust Cancellation Handling
+                if let lkError = error as? LiveKitError, lkError.type == .cancelled { return }
+                if error is CancellationError { return }
+
+                if let observer, let onFailure {
                     await onFailure(observer, error, &state)
                 }
-            }
-        }.cancellable()
-    }
-
-    /// Variant with mutable state - for AsyncStream (non-throwing).
-    @discardableResult
-    static func observing<Observer: AnyObject & Sendable, Element: Sendable, State: Sendable>(
-        _ stream: AsyncStream<Element>,
-        by observer: Observer,
-        withPriority priority: TaskPriority = .medium,
-        withMutableState initialState: State,
-        onElement: @Sendable @escaping (Observer, Element, inout State) -> Void
-    ) -> AnyTaskCancellable {
-        Task(priority: priority) { [weak observer] in
-            var state = initialState
-            for await element in stream {
-                guard let observer else { break }
-                onElement(observer, element, &state)
             }
         }.cancellable()
     }

@@ -195,7 +195,7 @@ open class Session: ObservableObject {
     }
 
     private func observe(room: Room) {
-        Task.observingOnMainActor(room.changes, by: self) { observer, _ in
+        room.changes.subscribeOnMainActor(self) { observer, _ in
             observer.updateAgent(in: room)
         }.store(in: &tasks)
     }
@@ -231,8 +231,8 @@ open class Session: ObservableObject {
         }
 
         // Single consumer
-        Task.observingOnMainActor(stream, by: self) { owner, message in
-            owner.messagesDict.updateValue(message, forKey: message.id)
+        stream.subscribeOnMainActor(self) { observer, message in
+            observer.messagesDict.updateValue(message, forKey: message.id)
         }.store(in: &tasks)
     }
 

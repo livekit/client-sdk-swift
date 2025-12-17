@@ -55,7 +55,7 @@ actor IncomingStreamManager: Loggable {
     }
 
     private func observe(events stream: AsyncStream<StreamEvent>) {
-        eventLoopTask = Task.observing(stream, by: self) { observer, event in
+        eventLoopTask = stream.subscribe(self) { observer, event in
             await observer.process(event)
         }
     }
