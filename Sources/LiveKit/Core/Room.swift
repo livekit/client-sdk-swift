@@ -449,7 +449,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     private func cancelReconnect() {
         _state.mutate {
-            log("Cancelling reconnect task: \(String(describing: $0.reconnectTask))")
             $0.reconnectTask = nil
         }
     }
