@@ -50,9 +50,9 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
     public var isMultitaskingAccessSupported: Bool {
         #if (os(iOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
         if #available(iOS 16, *, tvOS 17, *) {
-            self.capturer.captureSession.beginConfiguration()
-            defer { self.capturer.captureSession.commitConfiguration() }
-            return self.capturer.captureSession.isMultitaskingCameraAccessSupported
+            capturer.captureSession.beginConfiguration()
+            defer { capturer.captureSession.commitConfiguration() }
+            return capturer.captureSession.isMultitaskingCameraAccessSupported
         }
         #endif
         return false
@@ -62,7 +62,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         get {
             #if (os(iOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
             if #available(iOS 16, *, tvOS 17, *) {
-                return self.capturer.captureSession.isMultitaskingCameraAccessEnabled
+                return capturer.captureSession.isMultitaskingCameraAccessEnabled
             }
             #endif
             return false
@@ -70,7 +70,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         set {
             #if (os(iOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
             if #available(iOS 16, *, tvOS 17, *) {
-                self.capturer.captureSession.isMultitaskingCameraAccessEnabled = newValue
+                capturer.captureSession.isMultitaskingCameraAccessEnabled = newValue
             }
             #endif
         }
@@ -424,6 +424,8 @@ extension LKRTCVideoFrame {
         // Calculate aspect ratios
         let sourceRatio = Double(width) / Double(height)
         let targetRatio = Double(scaleWidth) / Double(scaleHeight)
+
+        guard targetRatio.isFinite else { return nil }
 
         // Calculate crop dimensions
         let (cropWidth, cropHeight): (Int32, Int32)

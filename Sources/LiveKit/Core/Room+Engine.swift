@@ -448,9 +448,12 @@ extension Room {
         // 2. autosubscribe off, we send subscribed tracks.
 
         let autoSubscribe = _state.connectOptions.autoSubscribe
+        // Use isDesired (subscription intent) instead of isSubscribed (actual state)
+        // to avoid race condition during quick reconnect where tracks aren't attached yet.
         let trackSids = _state.remoteParticipants.values.flatMap { participant in
             participant._state.trackPublications.values
-                .filter { $0.isSubscribed != autoSubscribe }
+                .compactMap { $0 as? RemoteTrackPublication }
+                .filter { $0.isDesired != autoSubscribe }
                 .map(\.sid)
         }
 
