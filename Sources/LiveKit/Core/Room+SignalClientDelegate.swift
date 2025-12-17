@@ -138,22 +138,39 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didReceiveRoomMoved response: Livekit_RoomMovedResponse) async {
         log("didReceiveRoomMoved to room: \(response.hasRoom ? response.room.name : "unknown")")
 
+        // Update token
+        if !response.token.isEmpty {
+            _state.mutate { $0.token = response.token }
+        }
+
         // Update room info if available
         if response.hasRoom {
             _state.mutate {
+                $0.sid = Room.Sid(from: response.room.sid)
+                $0.name = response.room.name
                 $0.metadata = response.room.metadata
                 $0.isRecording = response.room.activeRecording
                 $0.numParticipants = Int(response.room.numParticipants)
                 $0.numPublishers = Int(response.room.numPublishers)
+                $0.maxParticipants = Int(response.room.maxParticipants)
+
+                // Attempt to get millisecond precision.
+                if response.room.creationTimeMs != 0 {
+                    $0.creationTime = Date(timeIntervalSince1970: TimeInterval(Double(response.room.creationTimeMs) / 1000))
+                } else if response.room.creationTime != 0 {
+                    $0.creationTime = Date(timeIntervalSince1970: TimeInterval(response.room.creationTime))
+                }
             }
         }
 
         // Disconnect all remote participants
-        let participantsToDisconnect = Array(_state.remoteParticipants.values)
-        for participant in participantsToDisconnect {
-            guard let identity = participant.identity else { continue }
-            await participant.unpublishAll(notify: false)
-            _state.mutate { $0.remoteParticipants.removeValue(forKey: identity) }
+        let participantsToDisconnect = _state.read { Array($0.remoteParticipants.keys) }
+        for identity in participantsToDisconnect {
+            do {
+                try await _onParticipantDidDisconnect(identity: identity)
+            } catch {
+                log("Failed to disconnect participant \(identity) with error: \(error)", .error)
+            }
         }
 
         // Emit room moved event with new room name
@@ -163,15 +180,22 @@ extension Room: SignalClientDelegate {
             }
         }
 
-        // Re-add participants
-        var participantsToAdd: [Livekit_ParticipantInfo] = []
+        // Update local participant
         if response.hasParticipant {
-            participantsToAdd.append(response.participant)
+            localParticipant.set(info: response.participant, connectionState: _state.connectionState)
         }
-        participantsToAdd.append(contentsOf: response.otherParticipants)
 
-        for info in participantsToAdd {
-            _state.mutate { $0.updateRemoteParticipant(info: info, room: self) }
+        // Re-add participants
+        var newParticipants: [RemoteParticipant] = []
+        for info in response.otherParticipants {
+            let participant = _state.mutate { $0.updateRemoteParticipant(info: info, room: self) }
+            newParticipants.append(participant)
+        }
+
+        for participant in newParticipants {
+            delegates.notify(label: { "room.remoteParticipantDidConnect: \(participant)" }) {
+                $0.room?(self, participantDidConnect: participant)
+            }
         }
     }
 
