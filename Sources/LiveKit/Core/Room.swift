@@ -454,6 +454,18 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             $0.reconnectTask = nil
         }
     }
+
+    deinit {
+        // Ensure Room is removed from AppStateListener to prevent memory leaks
+        // This is a safety net in case cleanUp() wasn't called explicitly
+        // Note: Task may not complete before deinit finishes, but delegates use weak references
+        // so Room will be removed from memory eventually even if this doesn't execute
+        // The primary cleanup should happen in cleanUp() method
+        let room = self
+        Task { @MainActor [unowned room] in
+            AppStateListener.shared.delegates.remove(delegate: room)
+        }
+    }
 }
 
 // MARK: - Internal
@@ -499,6 +511,11 @@ extension Room {
                 reconnectTask: $0.reconnectTask,
                 disconnectError: LiveKitError.from(error: disconnectError)
             )
+        }
+
+        // Stop listening to app state changes to avoid retaining Room longer than needed
+        await MainActor.run {
+            AppStateListener.shared.delegates.remove(delegate: self)
         }
     }
 }
