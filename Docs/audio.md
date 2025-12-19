@@ -61,9 +61,15 @@ You can control how mic mute/unmute works:
 try AudioManager.shared.set(microphoneMuteMode: .voiceProcessing)
 ```
 
-- `.voiceProcessing` (default): Uses `AVAudioEngine.isVoiceProcessingInputMuted`. Fast and does not reconfigure the audio session on mute/unmute.
-- `.restart`: Shuts down the audio engine on mute and restarts it on unmute. This deactivates and reconfigures the audio session, so it is slower and may affect audio session category or volume. Not recommended for most apps.
-- `.inputMixer`: Mutes the input mixer only. The audio engine keeps running and the mic indicator remains on.
+- `.voiceProcessing` (default): Uses `AVAudioEngine.isVoiceProcessingInputMuted`. Fast and does not reconfigure the audio session on mute/unmute. iOS plays a short system sound when muting or unmuting.
+- `.restart`: Shuts down the audio engine on mute and restarts it on unmute. This deactivates and reconfigures the audio session, so it is slower and may affect audio session category or volume. No system sound is played. Not recommended for most apps.
+- `.inputMixer`: Mutes the input mixer only. The audio engine keeps running and the mic indicator remains on. No system sound is played.
+
+| Mode | iOS beep sound | Mic indicator | Speed |
+| --- | --- | --- | --- |
+| `.voiceProcessing` | Yes | Turns off | Fast |
+| `.restart` | No | Turns off | Slow |
+| `.inputMixer` | No | Remains on | Fast |
 
 If you disable automatic audio session configuration (`AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false`), the SDK will not touch the session category. Make sure your app sets `.playAndRecord` before unmuting or publishing the mic.
 ## Capturing Audio Buffers

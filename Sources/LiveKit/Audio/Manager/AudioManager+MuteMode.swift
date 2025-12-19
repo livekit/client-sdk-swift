@@ -30,6 +30,7 @@ public enum MicrophoneMuteMode {
     /// Simply mutes the output of the input mixer.
     /// The mic indicator remains on, and the internal `AVAudioEngine` continues running without reconfiguration.
     /// Does not reconfigure the audio session on mute/unmute.
+    /// No sound effect is played.
     case inputMixer
     case unknown
 }
