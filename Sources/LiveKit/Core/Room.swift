@@ -29,7 +29,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     // MARK: - Metrics
 
-    private lazy var metricsManager = MetricsManager()
+    lazy var metricsManager = MetricsManager()
 
     // MARK: - Public
 
