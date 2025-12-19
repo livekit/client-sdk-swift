@@ -27,6 +27,45 @@ AudioManager.shared.isVoiceProcessingBypassed = false
 ```
 
 This method calls `AVAudioEngine`'s [isVoiceProcessingBypassed](https://developer.apple.com/documentation/avfaudio/avaudioinputnode/isvoiceprocessingbypassed) and works seamlessly at run-time.
+
+## Always-prepared recording mode
+
+If you want to minimize mic publish latency, you can pre-warm the audio engine and keep mic input prepared in a muted state:
+
+```swift
+Task.detached {
+    try? await AudioManager.shared.setRecordingAlwaysPreparedMode(true)
+}
+```
+
+Behavior and trade-offs:
+
+- Starts the audio engine configured for mic input in a muted state, so publishing the mic is almost immediate.
+- The mic privacy indicator typically stays off while the engine is prepared and muted.
+- If `AudioManager.shared.audioSession.isAutomaticConfigurationEnabled` is `true`, the SDK configures the session category to `.playAndRecord`.
+- Mic permission is required and the system prompt will appear if not already granted.
+- This mode persists across Room lifecycles. The audio engine stays running (muted) even after disconnect, so re-joining and publishing is fast.
+- Startup takes a bit longer because voice processing needs to warm up.
+
+Disable it when you no longer need the pre-warmed engine:
+
+```swift
+try await AudioManager.shared.setRecordingAlwaysPreparedMode(false)
+```
+
+## Microphone mute modes
+
+You can control how mic mute/unmute works:
+
+```swift
+try AudioManager.shared.set(microphoneMuteMode: .voiceProcessing)
+```
+
+- `.voiceProcessing` (default): Uses `AVAudioEngine.isVoiceProcessingInputMuted`. Fast and does not reconfigure the audio session on mute/unmute.
+- `.restart`: Shuts down the audio engine on mute and restarts it on unmute. This deactivates and reconfigures the audio session, so it is slower and may affect audio session category or volume. Not recommended for most apps.
+- `.inputMixer`: Mutes the input mixer only. The audio engine keeps running and the mic indicator remains on.
+
+If you disable automatic audio session configuration (`AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false`), the SDK will not touch the session category. Make sure your app sets `.playAndRecord` before unmuting or publishing the mic.
 ## Capturing Audio Buffers
 
 The SDK supports capturing custom audio buffers (`AVAudioPCMBuffer`) instead of or in addition to microphone input.

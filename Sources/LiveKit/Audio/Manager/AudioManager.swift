@@ -279,14 +279,18 @@ public class AudioManager: Loggable {
 
     // MARK: - Recording
 
-    /// Keep recording initialized (mic input) and pre-warm voice processing etc.
-    /// Mic permission is required and dialog will appear if not already granted.
-    /// This will per persisted accross Rooms and connections.
+    /// Keep recording initialized (mic input) and pre-warm voice processing.
+    /// Starts the audio engine configured for mic input in a muted state for low-latency publish.
+    /// If `audioSession.isAutomaticConfigurationEnabled` is `true`, the session category is configured to `.playAndRecord`.
+    /// Mic permission is required and the dialog will appear if not already granted.
+    /// This persists across Room lifecycles and connections until disabled.
     public var isRecordingAlwaysPreparedMode: Bool { RTC.audioDeviceModule.isRecordingAlwaysPreparedMode }
 
-    /// Keep recording initialized (mic input) and pre-warm voice processing etc.
-    /// Mic permission is required and dialog will appear if not already granted.
-    /// This will per persisted accross Rooms and connections.
+    /// Keep recording initialized (mic input) and pre-warm voice processing.
+    /// Starts the audio engine configured for mic input in a muted state for low-latency publish.
+    /// If `audioSession.isAutomaticConfigurationEnabled` is `true`, the session category is configured to `.playAndRecord`.
+    /// Mic permission is required and the dialog will appear if not already granted.
+    /// This persists across Room lifecycles and connections until disabled.
     public func setRecordingAlwaysPreparedMode(_ enabled: Bool) async throws {
         let result = RTC.audioDeviceModule.setRecordingAlwaysPreparedMode(enabled)
         try checkAdmResult(code: result)

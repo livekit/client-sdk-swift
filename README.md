@@ -173,6 +173,7 @@ LiveKit will automatically manage the underlying `AVAudioSession` while connecte
 However, if you'd like to customize this behavior, you would override `AudioManager.customConfigureAudioSessionFunc` to manage the underlying session on your own. See [example here](https://github.com/livekit/client-sdk-swift/blob/1f5959f787805a4b364f228ccfb413c1c4944748/Sources/LiveKit/Track/AudioManager.swift#L153) for the default behavior.
 
 For more audio related information see the [Audio guide](./Docs/audio.md).
+If you want to reduce mic publish latency, you can pre-warm the audio engine with `AudioManager.shared.setRecordingAlwaysPreparedMode(true)`. See the [Audio guide](./Docs/audio.md) for details and trade-offs.
 
 ### Integration with CallKit
 
