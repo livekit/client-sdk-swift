@@ -15,18 +15,18 @@ Apple's voice processing is enabled by default, such as echo cancellation and au
 If your app doesn't require voice processing at all, you can disable it entirely:
 
 ```swift
-AudioManager.shared.isVoiceProcessingEnabled = false
+try AudioManager.shared.setVoiceProcessingEnabled(false)
 ```
 
-This method re-creates the internal `AVAudioEngine` with/without voice processing enabled. It is valid to toggle these settings at run-time but can cause audio glitches, so it is recommended to set it once before connecting to a Room.
+This restarts the internal `AVAudioEngine` to apply the change. It can cause a short audio glitch, so it is recommended to set it once before connecting to a Room. Disabling voice processing also disables muted speaker detection.
 
 If your app requires toggling voice processing at run-time, it is recommended to use:
 
 ```swift
-AudioManager.shared.isVoiceProcessingBypassed = false
+AudioManager.shared.isVoiceProcessingBypassed = true
 ```
 
-This method calls `AVAudioEngine`'s [isVoiceProcessingBypassed](https://developer.apple.com/documentation/avfaudio/avaudioinputnode/isvoiceprocessingbypassed) and works seamlessly at run-time.
+Set it back to `false` to re-enable processing. This uses `AVAudioEngine`'s [isVoiceProcessingBypassed](https://developer.apple.com/documentation/avfaudio/avaudioinputnode/isvoiceprocessingbypassed) and works seamlessly at run-time.
 
 ## Always-prepared recording mode
 
