@@ -40,50 +40,75 @@ class AppStateListener: Loggable {
     static let shared = AppStateListener()
 
     private let _queue = OperationQueue()
+    nonisolated(unsafe) private var _observerTokens: [(NotificationCenter, NSObjectProtocol)] = []
     let delegates = MulticastDelegate<AppStateDelegate>(label: "AppStateDelegate")
+
+    private func _addObserver(name: Notification.Name,
+                              center: NotificationCenter,
+                              handler: @escaping @MainActor () -> Void)
+    {
+        let token = center.addObserver(forName: name,
+                                       object: nil,
+                                       queue: _queue)
+        { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                handler()
+            }
+        }
+
+        _observerTokens.append((center, token))
+    }
+
+    deinit {
+        for (center, token) in _observerTokens {
+            center.removeObserver(token)
+        }
+        _observerTokens.removeAll()
+    }
 
     private init() {
         let defaultCenter = NotificationCenter.default
 
         #if os(iOS) || os(visionOS) || os(tvOS)
-        defaultCenter.addObserver(forName: UIApplication.didEnterBackgroundNotification,
-                                  object: nil,
-                                  queue: _queue)
-        { _ in
+        _addObserver(name: UIApplication.didEnterBackgroundNotification,
+                     center: defaultCenter)
+        { [weak self] in
+            guard let self else { return }
             self.log("UIApplication.didEnterBackground")
             self.delegates.notify { $0.appDidEnterBackground() }
         }
 
-        defaultCenter.addObserver(forName: UIApplication.willEnterForegroundNotification,
-                                  object: nil,
-                                  queue: _queue)
-        { _ in
+        _addObserver(name: UIApplication.willEnterForegroundNotification,
+                     center: defaultCenter)
+        { [weak self] in
+            guard let self else { return }
             self.log("UIApplication.willEnterForeground")
             self.delegates.notify { $0.appWillEnterForeground() }
         }
 
-        defaultCenter.addObserver(forName: UIApplication.willTerminateNotification,
-                                  object: nil,
-                                  queue: _queue)
-        { _ in
+        _addObserver(name: UIApplication.willTerminateNotification,
+                     center: defaultCenter)
+        { [weak self] in
+            guard let self else { return }
             self.log("UIApplication.willTerminate")
             self.delegates.notify { $0.appWillTerminate() }
         }
         #elseif os(macOS)
         let workspaceCenter = NSWorkspace.shared.notificationCenter
 
-        workspaceCenter.addObserver(forName: NSWorkspace.willSleepNotification,
-                                    object: nil,
-                                    queue: _queue)
-        { _ in
+        _addObserver(name: NSWorkspace.willSleepNotification,
+                     center: workspaceCenter)
+        { [weak self] in
+            guard let self else { return }
             self.log("NSWorkspace.willSleepNotification")
             self.delegates.notify { $0.appWillSleep() }
         }
 
-        workspaceCenter.addObserver(forName: NSWorkspace.didWakeNotification,
-                                    object: nil,
-                                    queue: _queue)
-        { _ in
+        _addObserver(name: NSWorkspace.didWakeNotification,
+                     center: workspaceCenter)
+        { [weak self] in
+            guard let self else { return }
             self.log("NSWorkspace.didWakeNotification")
             self.delegates.notify { $0.appDidWake() }
         }
