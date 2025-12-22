@@ -87,6 +87,10 @@ public protocol RoomDelegate: AnyObject, Sendable {
     @objc optional
     func room(_ room: Room, didUpdateIsRecording isRecording: Bool)
 
+    /// Room was moved to a different server.
+    @objc optional
+    func room(_ room: Room, didMoveToRoomNamed roomName: String)
+
     // MARK: - Participant Management
 
     /// A ``RemoteParticipant`` joined the room.

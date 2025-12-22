@@ -205,6 +205,29 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         sender._set(subscribedQualities: qualities)
     }
 
+    override func set(info: Livekit_ParticipantInfo, connectionState: ConnectionState) {
+        super.set(info: info, connectionState: connectionState)
+
+        // Reconcile track mute status
+        for trackInfo in info.tracks {
+            let trackSid = Track.Sid(from: trackInfo.sid)
+            guard let publication = trackPublications[trackSid] as? LocalTrackPublication else { continue }
+
+            let localMuted = publication.isMuted
+            if localMuted != trackInfo.muted {
+                log("updating server mute state after reconcile, track: \(trackSid), muted: \(localMuted)", .debug)
+                Task {
+                    do {
+                        let room = try requireRoom()
+                        try await room.signalClient.sendMuteTrack(trackSid: trackSid.stringValue, muted: localMuted)
+                    } catch {
+                        log("Failed to update server mute state after reconcile, error: \(error)", .error)
+                    }
+                }
+            }
+        }
+    }
+
     override func set(permissions newValue: ParticipantPermissions) -> Bool {
         guard let room = _room else { return false }
         let didUpdate = super.set(permissions: newValue)
