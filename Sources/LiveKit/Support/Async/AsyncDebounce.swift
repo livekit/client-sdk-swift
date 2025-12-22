@@ -17,7 +17,7 @@
 import Foundation
 
 actor Debounce {
-    private var _task: Task<Void, Never>?
+    private var _task: AnyTaskCancellable?
     private let _delay: TimeInterval
 
     init(delay: TimeInterval) {
@@ -39,6 +39,6 @@ actor Debounce {
             if !Task.isCancelled {
                 try? await action()
             }
-        }
+        }.cancellable()
     }
 }
