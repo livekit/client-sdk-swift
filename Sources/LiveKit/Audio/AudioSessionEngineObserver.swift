@@ -29,7 +29,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     ///
     /// > Note: It is recommended to set this value before connecting to a room.
     ///
-    /// Default value: `false`
+    /// Default value: `true`
     public var isAutomaticConfigurationEnabled: Bool {
         get { _state.isAutomaticConfigurationEnabled }
         set { _state.mutate { $0.isAutomaticConfigurationEnabled = newValue } }
@@ -42,7 +42,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     ///
     /// > Note: This value is only used when `isAutomaticConfigurationEnabled` is `true`.
     ///
-    /// Default value: `true`
+    /// Default value: `false`
     public var isAutomaticDeactivationEnabled: Bool {
         get { _state.isAutomaticDeactivationEnabled }
         set { _state.mutate { $0.isAutomaticDeactivationEnabled = newValue } }
