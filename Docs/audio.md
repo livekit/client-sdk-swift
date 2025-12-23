@@ -8,6 +8,23 @@ By default, the SDK automatically configures the `AVAudioSession`. However, this
 AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false
 ```
 
+## Audio engine observers
+
+The SDK uses an `AudioEngineObserver` chain to configure and wire up the audio engine.
+On iOS/visionOS/tvOS, the default is:
+
+```swift
+AudioManager.shared.set(engineObservers: [AudioManager.shared.audioSession, AudioManager.shared.mixer])
+```
+
+If you only want to manage `AVAudioSession` yourself, prefer setting
+`AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false` and keep the
+default observers.
+
+Setting `AudioManager.shared.set(engineObservers: [])` disables all observers (no session
+handling and no mixer setup). Do this only once early in app startup; changing the chain
+while the engine is in use can cause rebuilds or unexpected behavior.
+
 ## Disabling Voice Processing
 
 Apple's voice processing is enabled by default, such as echo cancellation and auto-gain control.
@@ -70,6 +87,14 @@ try AudioManager.shared.set(microphoneMuteMode: .voiceProcessing)
 | `.voiceProcessing` | Yes | Turns off | Fast |
 | `.restart` | No | Turns off | Slow |
 | `.inputMixer` | No | Remains on | Fast |
+
+Notes:
+
+- `.voiceProcessing` uses `AVAudioInputNode.isVoiceProcessingInputMuted`. In our testing,
+  this can behave like an app-wide mute for voice-processing input, affecting other
+  `AVAudioEngine` instances that use the mic. If you have another engine that uses mic
+  input, consider `.inputMixer` or manage muting yourself.
+- If your other engines are playback-only, there is typically no impact.
 
 If you disable automatic audio session configuration (`AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false`), the SDK will not touch the session category. Make sure your app sets `.playAndRecord` before unmuting or publishing the mic.
 ## Capturing Audio Buffers
