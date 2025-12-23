@@ -35,6 +35,19 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         set { _state.mutate { $0.isAutomaticConfigurationEnabled = newValue } }
     }
 
+    /// Controls whether the audio session is deactivated when the audio engine stops.
+    ///
+    /// - When `true`: The `AVAudioSession` is deactivated when both playout and recording are disabled
+    /// - When `false`: The `AVAudioSession` remains active when the audio engine stops
+    ///
+    /// > Note: This value is only used when `isAutomaticConfigurationEnabled` is `true`.
+    ///
+    /// Default value: `true`
+    public var isAutomaticDeactivationEnabled: Bool {
+        get { _state.isAutomaticDeactivationEnabled }
+        set { _state.mutate { $0.isAutomaticDeactivationEnabled = newValue } }
+    }
+
     /// Controls the speaker output preference for audio routing.
     ///
     /// - When `true`: The speaker output is preferred over the receiver output
@@ -52,6 +65,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         var next: (any AudioEngineObserver)?
 
         var isAutomaticConfigurationEnabled: Bool = true
+        var isAutomaticDeactivationEnabled: Bool = true
         var isPlayoutEnabled: Bool = false
         var isRecordingEnabled: Bool = false
         var isSpeakerOutputPreferred: Bool = true
@@ -93,11 +107,15 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         }
 
         if (!newState.isPlayoutEnabled && !newState.isRecordingEnabled) && (oldState.isPlayoutEnabled || oldState.isRecordingEnabled) {
-            do {
-                log("AudioSession deactivating...")
-                try session.setActive(false)
-            } catch {
-                log("AudioSession failed to deactivate with error: \(error)", .error)
+            if newState.isAutomaticDeactivationEnabled {
+                do {
+                    log("AudioSession deactivating...")
+                    try session.setActive(false)
+                } catch {
+                    log("AudioSession failed to deactivate with error: \(error)", .error)
+                }
+            } else {
+                log("AudioSession deactivation skipped (automatic deactivation disabled).")
             }
         } else if newState.isRecordingEnabled || newState.isPlayoutEnabled {
             // Configure and activate the session with the appropriate category
