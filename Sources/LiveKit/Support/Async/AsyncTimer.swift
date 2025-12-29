@@ -26,7 +26,7 @@ final class AsyncTimer: Sendable, Loggable {
     struct State: Sendable {
         var isStarted: Bool = false
         var interval: TimeInterval
-        var task: Task<Void, Never>?
+        var task: AnyTaskCancellable?
         var block: TimerBlock?
     }
 
@@ -77,7 +77,7 @@ final class AsyncTimer: Sendable, Loggable {
                 log("Error in timer block: \(error)", .error)
             }
             await scheduleNextInvocation()
-        }
+        }.cancellable()
         _state.mutate { $0.task = task }
     }
 

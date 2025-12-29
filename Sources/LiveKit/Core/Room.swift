@@ -29,7 +29,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     // MARK: - Metrics
 
-    private lazy var metricsManager = MetricsManager()
+    lazy var metricsManager = MetricsManager()
 
     // MARK: - Public
 
@@ -170,7 +170,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var nextReconnectMode: ReconnectMode?
         var isReconnectingWithMode: ReconnectMode?
         var connectionState: ConnectionState = .disconnected
-        var reconnectTask: Task<Void, Error>?
+        var reconnectTask: AnyTaskCancellable?
         var disconnectError: LiveKitError?
         var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
@@ -449,8 +449,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     private func cancelReconnect() {
         _state.mutate {
-            log("Cancelling reconnect task: \(String(describing: $0.reconnectTask))")
-            $0.reconnectTask?.cancel()
             $0.reconnectTask = nil
         }
     }
