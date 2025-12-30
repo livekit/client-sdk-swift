@@ -188,6 +188,17 @@ extension Room: SignalClientDelegate {
             localParticipant.set(info: response.participant, connectionState: _state.connectionState)
         }
 
+        // Republish all local tracks to the new room
+        log("Re-publishing local tracks after room move...")
+        Task {
+            do {
+                try await localParticipant.republishAllTracks()
+                log("Successfully re-published local tracks after room move")
+            } catch {
+                log("Failed to re-publish local tracks after room move, error: \(error)", .error)
+            }
+        }
+
         // Re-add participants
         var newParticipants: [RemoteParticipant] = []
         for info in response.otherParticipants {
