@@ -88,6 +88,10 @@ public protocol ParticipantDelegate: AnyObject, Sendable {
     @objc(localParticipant:remoteDidSubscribeTrack:) optional
     func participant(_ participant: LocalParticipant, remoteDidSubscribeTrack publication: LocalTrackPublication)
 
+    /// The ``LocalParticipant`` was moved to a different room.
+    @objc(localParticipant:didMoveToRoomNamed:) optional
+    func participant(_ participant: LocalParticipant, didMoveToRoomNamed roomName: String)
+
     // MARK: - RemoteTrackPublication
 
     /// When a new ``RemoteTrackPublication`` is published to ``Room`` after the ``LocalParticipant`` has joined.

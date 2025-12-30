@@ -173,10 +173,13 @@ extension Room: SignalClientDelegate {
             }
         }
 
-        // Emit room moved event with new room name
+        // Emit room moved event with new room name (on both Room and LocalParticipant delegates)
         if response.hasRoom {
             delegates.notify(label: { "room.didMoveToRoomNamed \(response.room.name)" }) {
                 $0.room?(self, didMoveToRoomNamed: response.room.name)
+            }
+            localParticipant.delegates.notify(label: { "participant.didMoveToRoomNamed \(response.room.name)" }) {
+                $0.participant?(self.localParticipant, didMoveToRoomNamed: response.room.name)
             }
         }
 

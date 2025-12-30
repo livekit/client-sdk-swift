@@ -87,7 +87,7 @@ public protocol RoomDelegate: AnyObject, Sendable {
     @objc optional
     func room(_ room: Room, didUpdateIsRecording isRecording: Bool)
 
-    /// Room was moved to a different server.
+    /// The ``LocalParticipant`` was moved to a different room.
     @objc optional
     func room(_ room: Room, didMoveToRoomNamed roomName: String)
 
