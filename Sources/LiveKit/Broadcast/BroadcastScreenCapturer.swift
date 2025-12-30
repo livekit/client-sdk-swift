@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 
 import Foundation
 
@@ -33,9 +33,14 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
 
         guard didStart else { return false }
 
+        var width = CGFloat(options.dimensions.max)
+        var height = CGFloat(options.dimensions.max)
+
+        #if os(iOS)
         let bounds = await UIScreen.main.bounds
-        let width = bounds.size.width
-        let height = bounds.size.height
+        width = bounds.size.width
+        height = bounds.size.height
+        #endif
         let screenDimension = Dimensions(width: Int32(width), height: Int32(height))
 
         // pre fill dimensions, so that we don't have to wait for the broadcast to start to get actual dimensions.
