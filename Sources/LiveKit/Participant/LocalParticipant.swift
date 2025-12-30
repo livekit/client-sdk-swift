@@ -219,7 +219,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
                 Task {
                     do {
                         let room = try requireRoom()
-                        try await room.signalClient.sendMuteTrack(trackSid: trackSid.stringValue, muted: localMuted)
+                        try await room.signalClient.sendMuteTrack(trackSid: trackSid, muted: localMuted)
                     } catch {
                         log("Failed to update server mute state after reconcile, error: \(error)", .error)
                     }
