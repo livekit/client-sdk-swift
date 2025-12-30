@@ -311,6 +311,9 @@ private extension SignalClient {
         case let .roomUpdate(update):
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRoom: update.room) }
 
+        case let .roomMoved(response):
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveRoomMoved: response) }
+
         case let .trackPublished(trackPublished):
             log("[publish] resolving completer for cid: \(trackPublished.cid)")
             // Complete
