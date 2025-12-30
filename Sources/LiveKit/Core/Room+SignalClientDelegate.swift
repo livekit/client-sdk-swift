@@ -190,7 +190,8 @@ extension Room: SignalClientDelegate {
 
         // Republish all local tracks to the new room
         log("Re-publishing local tracks after room move...")
-        Task {
+        Task.detached { [weak self] in
+            guard let self else { return }
             do {
                 try await localParticipant.republishAllTracks()
                 log("Successfully re-published local tracks after room move")
