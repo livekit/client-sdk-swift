@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// swiftlint:disable file_length
+
 import Foundation
 
 #if canImport(Network)
@@ -113,6 +115,7 @@ extension Room {
 // MARK: - Internal
 
 extension Room {
+    // swiftlint:disable:next function_body_length
     func configureTransports(connectResponse: SignalClient.ConnectResponse) async throws {
         func makeConfiguration() -> LKRTCConfiguration {
             let connectOptions = _state.connectOptions
@@ -169,10 +172,10 @@ extension Room {
 
             // data over pub channel for backwards compatibility
 
-            let reliableDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.labels.reliable,
+            let reliableDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.reliable,
                                                                   configuration: RTC.createDataChannelConfiguration())
 
-            let lossyDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
+            let lossyDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.lossy,
                                                                configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
 
             publisherDataChannel.set(reliable: reliableDataChannel)
@@ -268,6 +271,7 @@ extension Room {
         log("\(_state.connectStopwatch)")
     }
 
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func startReconnect(reason: StartReconnectReason, nextReconnectMode: ReconnectMode? = nil) async throws {
         log("[Connect] Starting, reason: \(reason)")
 

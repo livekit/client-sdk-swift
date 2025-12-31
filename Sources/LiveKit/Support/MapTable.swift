@@ -22,7 +22,7 @@ final class MapTable<KeyType, ObjectType>: @unchecked Sendable where KeyType: An
         self.mapTable = mapTable
     }
 
-    class func weakToStrongObjects() -> MapTable<KeyType, ObjectType> {
+    static func weakToStrongObjects() -> MapTable<KeyType, ObjectType> {
         .init(.weakToStrongObjects())
     }
 

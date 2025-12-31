@@ -180,6 +180,7 @@ class TokenSourceTests: LKTestCase {
         XCTAssertEqual(expiredCallCount2, 2)
     }
 
+    // swiftlint:disable:next function_body_length
     func testCustomValidator() async throws {
         let mockSource = MockValidJWTSource(participantName: "charlie")
 

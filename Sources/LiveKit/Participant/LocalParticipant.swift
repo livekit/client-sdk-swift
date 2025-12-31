@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// swiftlint:disable file_length
+
 import Combine
 import Foundation
 
@@ -341,6 +343,7 @@ public extension LocalParticipant {
 
     @objc
     @discardableResult
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func set(source: Track.Source,
              enabled: Bool,
              captureOptions: CaptureOptions? = nil,
@@ -505,6 +508,7 @@ extension [Livekit_SubscribedQuality] {
 
 extension LocalParticipant {
     @discardableResult
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
@@ -529,7 +533,7 @@ extension LocalParticipant {
 
         do {
             var dimensions: Dimensions? // Only for Video
-            var publishName: String? = nil
+            var publishName: String?
 
             var sendEncodings: [LKRTCRtpEncodingParameters]?
             var populatorFunc: SignalClient.AddTrackRequestPopulator?

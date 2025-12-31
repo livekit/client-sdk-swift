@@ -19,6 +19,7 @@ import Foundation
 internal import LiveKitWebRTC
 
 extension Room {
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func engine(_: Room, didMutateState state: Room.State, oldState: Room.State) {
         if state.connectionState != oldState.connectionState {
             // connectionState did update

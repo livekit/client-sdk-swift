@@ -1,0 +1,17 @@
+excluded:
+  - Sources/LiveKit/Protos
+
+disabled_rules:
+  - todo
+  - nesting
+  - identifier_name
+  - multiple_closures_with_trailing_closure
+  # SwiftFormat conflicts
+  - trailing_comma
+  - line_length
+  - opening_brace
+
+type_name:
+  excluded:
+    - ID
+    - OS

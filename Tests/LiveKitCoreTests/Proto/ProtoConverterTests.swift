@@ -140,10 +140,8 @@ enum Comparator {
             }
         }
 
-        for sdkField in sdkFields {
-            if protoFieldMap[sdkField.name] == nil {
-                errors.append(.extraField(sdkField.name))
-            }
+        for sdkField in sdkFields where protoFieldMap[sdkField.name] == nil {
+            errors.append(.extraField(sdkField.name))
         }
 
         return errors

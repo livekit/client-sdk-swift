@@ -48,7 +48,7 @@ class TTLDictionaryTests: LKTestCase {
         XCTAssertTrue(dictionary.keys.isEmpty)
         XCTAssertTrue(dictionary.values.isEmpty)
 
-        dictionary.forEach { _, _ in XCTFail() }
-        _ = dictionary.map { _, _ in XCTFail() }
+        dictionary.forEach { _, _ in XCTFail("Dictionary should be empty") }
+        _ = dictionary.map { _, _ in XCTFail("Dictionary should be empty") }
     }
 }

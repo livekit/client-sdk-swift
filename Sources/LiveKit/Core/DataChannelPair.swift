@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// swiftlint:disable file_length
+
 import DequeModule
 import Foundation
 
@@ -21,11 +23,12 @@ internal import LiveKitWebRTC
 
 // MARK: - Internal delegate
 
-protocol DataChannelDelegate: Sendable {
+protocol DataChannelDelegate: AnyObject, Sendable {
     func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket)
     func dataChannel(_ dataChannelPair: DataChannelPair, didFailToDecryptDataPacket dataPacket: Livekit_DataPacket, error: LiveKitError)
 }
 
+// swiftlint:disable:next type_body_length
 class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Public
 
@@ -133,6 +136,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Event handling
 
+    // swiftlint:disable:next cyclomatic_complexity
     private func handleEvents(
         events: AsyncStream<ChannelEvent>
     ) async {
@@ -476,7 +480,7 @@ private extension DataChannelPair.ChannelKind {
 
 private extension LKRTCDataChannel {
     var kind: DataChannelPair.ChannelKind {
-        guard label == LKRTCDataChannel.labels.lossy else {
+        guard label == LKRTCDataChannel.Labels.lossy else {
             return .reliable
         }
         return .lossy

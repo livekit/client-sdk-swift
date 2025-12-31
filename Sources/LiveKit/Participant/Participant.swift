@@ -114,6 +114,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
 
     let _publishSerialRunner = SerialRunnerActor<LocalTrackPublication?>()
 
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     init(room: Room, sid: Sid? = nil, identity: Identity? = nil) {
         _room = room
 

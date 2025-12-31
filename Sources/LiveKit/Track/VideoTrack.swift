@@ -30,7 +30,7 @@ public protocol VideoTrackProtocol: AnyObject, Sendable {
 public typealias VideoTrack = Track & VideoTrackProtocol
 
 // Directly add/remove renderers for better performance
-protocol VideoTrack_Internal where Self: Track {
+protocol VideoTrackInternal where Self: Track {
     func add(rtcVideoRenderer: LKRTCVideoRenderer)
 
     func remove(rtcVideoRenderer: LKRTCVideoRenderer)

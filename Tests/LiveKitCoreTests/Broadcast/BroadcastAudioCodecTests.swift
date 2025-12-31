@@ -53,6 +53,7 @@ final class BroadcastAudioCodecTests: XCTestCase {
         }
     }
 
+    // swiftlint:disable:next function_body_length
     private func createTestAudioBuffer() -> CMSampleBuffer? {
         let frames = 1024
         let sampleRate: Float64 = 44100.0

@@ -45,7 +45,7 @@ class PublishDeviceOptimizationTests: LKTestCase {
     // No-VP publish flow
     func testNoVpMicPublish() async throws {
         // Turn off Apple's VP
-        try! AudioManager.shared.setVoiceProcessingEnabled(false)
+        try AudioManager.shared.setVoiceProcessingEnabled(false)
 
         var sw = Stopwatch(label: "Test: No-VP publish sequence")
 

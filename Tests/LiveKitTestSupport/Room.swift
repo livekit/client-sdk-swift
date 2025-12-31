@@ -65,6 +65,7 @@ public extension LKTestCase {
         readEnvironmentString(for: "LIVEKIT_TESTING_URL", defaultValue: "ws://localhost:7880")
     }
 
+    // swiftlint:disable:next function_parameter_count
     func liveKitServerToken(for room: String,
                             identity: String,
                             canPublish: Bool,
@@ -101,6 +102,7 @@ public extension LKTestCase {
     }
 
     // Set up variable number of Rooms
+    // swiftlint:disable:next function_body_length
     func withRooms(_ options: [RoomTestingOptions] = [],
                    _ block: @escaping ([Room]) async throws -> Void) async throws
     {

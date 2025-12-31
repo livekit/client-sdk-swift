@@ -74,6 +74,7 @@ public class TrackStatistics: NSObject, @unchecked Sendable, Loggable {
 }
 
 extension LKRTCStatistics {
+    // swiftlint:disable:next cyclomatic_complexity
     func toLKType(prevStatistics: TrackStatistics?) -> Statistics? {
         switch type {
         case "codec": return CodecStatistics(id: id, timestamp: timestamp_us, rawValues: values)

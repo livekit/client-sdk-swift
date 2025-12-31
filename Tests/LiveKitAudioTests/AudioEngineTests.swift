@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// swiftlint:disable file_length
+
 @preconcurrency import AVFoundation
 @testable import LiveKit
 #if canImport(LiveKitTestSupport)
