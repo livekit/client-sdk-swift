@@ -172,10 +172,10 @@ extension Room {
 
             // data over pub channel for backwards compatibility
 
-            let reliableDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.labels.reliable,
+            let reliableDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.reliable,
                                                                   configuration: RTC.createDataChannelConfiguration())
 
-            let lossyDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
+            let lossyDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.lossy,
                                                                configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
 
             publisherDataChannel.set(reliable: reliableDataChannel)

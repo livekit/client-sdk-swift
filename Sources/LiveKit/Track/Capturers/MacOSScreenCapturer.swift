@@ -244,8 +244,7 @@ extension MacOSScreenCapturer: SCStreamOutput {
 
             // Retrieve the content rectangle, scale, and scale factor.
             guard let contentRectDict = attachments[.contentRect],
-                  let contentRectCFDict = contentRectDict as? CFDictionary,
-                  let contentRect = CGRect(dictionaryRepresentation: contentRectCFDict),
+                  let contentRect = CGRect(dictionaryRepresentation: contentRectDict as! CFDictionary),
                   // let contentScale = attachments[.contentScale] as? CGFloat,
                   let scaleFactor = attachments[.scaleFactor] as? CGFloat else { return }
 
