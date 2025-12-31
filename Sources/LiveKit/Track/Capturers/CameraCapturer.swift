@@ -202,7 +202,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
 
         // default to the largest supported dimensions (backup)
         var selectedFormat = sortedFormats.last
-        var selectedPredicateName: String? = nil
+        var selectedPredicateName: String?
 
         if let preferredFormat = options.preferredFormat,
            let foundFormat = sortedFormats.first(where: { $0.format == preferredFormat })

@@ -23,8 +23,7 @@ class TimeIntervalTests: LKTestCase {
     /// Tests that the reconnection delay computation follows the expected easeOutCirc pattern:
     /// - All attempts (0 through n-2): easeOutCirc curve from baseDelay to maxDelay for dramatic early growth
     /// - Last attempt (n-1): exactly maxDelay
-    // swiftlint:disable:next function_body_length
-    func testComputeReconnectDelay() {
+    func testComputeReconnectDelay() { // swiftlint:disable:this function_body_length
         // Default values: baseDelay=0.3, maxDelay=7.0, totalAttempts=10
         let totalAttempts = 10
         let baseDelay = TimeInterval.defaultReconnectDelay // 0.3
@@ -185,8 +184,7 @@ class TimeIntervalTests: LKTestCase {
     }
 
     /// Tests that jitter is properly applied to attempts
-    // swiftlint:disable:next function_body_length
-    func testReconnectDelayJitter() {
+    func testReconnectDelayJitter() { // swiftlint:disable:this function_body_length
         // Set up test values
         let baseDelay = TimeInterval.defaultReconnectDelay
         let maxDelay = TimeInterval.defaultReconnectMaxDelay

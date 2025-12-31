@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 
 // MARK: - Internal delegate
 
-protocol DataChannelDelegate: Sendable {
+protocol DataChannelDelegate: AnyObject, Sendable {
     func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket)
     func dataChannel(_ dataChannelPair: DataChannelPair, didFailToDecryptDataPacket dataPacket: Livekit_DataPacket, error: LiveKitError)
 }

@@ -167,8 +167,8 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
 
                 // start adaptiveStream timer only if it's a video track
                 if isAdaptiveStreamEnabled {
-                    _asTimer.setTimerBlock {
-                        [weak self] in await self?.onAdaptiveStreamTimer()
+                    _asTimer.setTimerBlock { [weak self] in
+                        await self?.onAdaptiveStreamTimer()
                     }
                     _asTimer.restart()
                 }

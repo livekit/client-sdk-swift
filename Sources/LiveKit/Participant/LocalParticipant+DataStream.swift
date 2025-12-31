@@ -150,8 +150,7 @@ public extension LocalParticipant {
         onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
-            do { try await streamHandler(streamText(options: options)) }
-            catch { onError?(error) }
+            do { try await streamHandler(streamText(options: options)) } catch { onError?(error) }
         }
     }
 

@@ -533,7 +533,7 @@ extension LocalParticipant {
 
         do {
             var dimensions: Dimensions? // Only for Video
-            var publishName: String? = nil
+            var publishName: String?
 
             var sendEncodings: [LKRTCRtpEncodingParameters]?
             var populatorFunc: SignalClient.AddTrackRequestPopulator?
