@@ -145,13 +145,29 @@ public class VideoView: NativeView, Loggable {
     @objc
     public nonisolated var isPinchToZoomEnabled: Bool {
         get { _state.pinchToZoomOptions.isEnabled }
-        set { _state.mutate { $0.pinchToZoomOptions.insert(.zoomIn) } }
+        set {
+            _state.mutate {
+                if newValue {
+                    $0.pinchToZoomOptions.insert(.zoomIn)
+                } else {
+                    $0.pinchToZoomOptions.remove(.zoomIn)
+                }
+            }
+        }
     }
 
     @objc
     public nonisolated var isAutoZoomResetEnabled: Bool {
         get { _state.pinchToZoomOptions.contains(.resetOnRelease) }
-        set { _state.mutate { $0.pinchToZoomOptions.insert(.resetOnRelease) } }
+        set {
+            _state.mutate {
+                if newValue {
+                    $0.pinchToZoomOptions.insert(.resetOnRelease)
+                } else {
+                    $0.pinchToZoomOptions.remove(.resetOnRelease)
+                }
+            }
+        }
     }
 
     public nonisolated var pinchToZoomOptions: PinchToZoomOptions {

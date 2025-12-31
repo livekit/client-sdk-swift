@@ -97,7 +97,7 @@ final class AVAudioPCMRingBufferTests: LKTestCase {
         ringBuffer.append(audioBuffer: halfBuffer)
 
         // Read a quarter of the buffer
-        guard let _ = ringBuffer.read(frames: capacity / 4) else {
+        guard ringBuffer.read(frames: capacity / 4) != nil else {
             XCTFail("Failed to read quarter buffer")
             return
         }
