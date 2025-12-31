@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// swiftlint:disable file_length
+
 import Foundation
 
 /// Stats spec defined at https://www.w3.org/TR/webrtc-stats/
@@ -565,6 +567,7 @@ public class InboundRtpStreamStatistics: ReceivedRtpStreamStatistics {
     // Weak reference to previous stat so we can compare later.
     public weak var previous: InboundRtpStreamStatistics?
 
+    // swiftlint:disable:next function_body_length
     init?(id: String,
           timestamp: Double,
           rawValues: [String: NSObject],

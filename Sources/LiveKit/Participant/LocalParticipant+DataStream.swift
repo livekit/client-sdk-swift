@@ -125,8 +125,7 @@ public extension LocalParticipant {
         onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
-            do { try await onCompletion(sendText(text, options: options)) }
-            catch { onError?(error) }
+            do { try await onCompletion(sendText(text, options: options)) } catch { onError?(error) }
         }
     }
 
@@ -139,8 +138,7 @@ public extension LocalParticipant {
         onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
-            do { try await onCompletion(sendFile(fileURL, options: options)) }
-            catch { onError?(error) }
+            do { try await onCompletion(sendFile(fileURL, options: options)) } catch { onError?(error) }
         }
     }
 
@@ -165,8 +163,7 @@ public extension LocalParticipant {
         onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
-            do { try await streamHandler(streamBytes(options: options)) }
-            catch { onError?(error) }
+            do { try await streamHandler(streamBytes(options: options)) } catch { onError?(error) }
         }
     }
 }

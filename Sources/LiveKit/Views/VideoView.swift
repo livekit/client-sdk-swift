@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// swiftlint:disable file_length
+
 @preconcurrency import AVFoundation
 import MetalKit
 
@@ -23,6 +25,7 @@ internal import LiveKitWebRTC
 typealias NativeRendererView = LKRTCVideoRenderer & Mirrorable & NativeViewType
 
 @objc
+// swiftlint:disable:next type_body_length
 public class VideoView: NativeView, Loggable {
     // MARK: - MulticastDelegate
 
@@ -249,6 +252,7 @@ public class VideoView: NativeView, Loggable {
     var _pinchStartZoomFactor: CGFloat = 0.0
     #endif
 
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     override public init(frame: CGRect = .zero) {
         // initial state
         _state = StateSync(State(viewSize: frame.size))
@@ -408,6 +412,7 @@ public class VideoView: NativeView, Loggable {
         fatalError("init(coder:) has not been implemented")
     }
 
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     override public func performLayout() {
         super.performLayout()
 
@@ -596,6 +601,7 @@ extension VideoView: VideoRenderer {
         }
     }
 
+    // swiftlint:disable:next function_body_length
     public func render(frame: VideoFrame, captureDevice: AVCaptureDevice?, captureOptions: VideoCaptureOptions?) {
         let state = _state.copy()
 

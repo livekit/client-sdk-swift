@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// swiftlint:disable file_length
+
 @preconcurrency import AVFoundation
 import Foundation
 
@@ -149,6 +151,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         return try await restartCapture()
     }
 
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     override public func startCapture() async throws -> Bool {
         let didStart = try await super.startCapture()
 

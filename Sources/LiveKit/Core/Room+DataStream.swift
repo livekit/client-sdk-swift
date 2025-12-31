@@ -69,8 +69,7 @@ public extension Room {
         onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
-            do { try await registerByteStreamHandler(for: topic, onNewStream: onNewStream) }
-            catch { onError?(error) }
+            do { try await registerByteStreamHandler(for: topic, onNewStream: onNewStream) } catch { onError?(error) }
         }
     }
 
@@ -82,8 +81,7 @@ public extension Room {
         onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
-            do { try await registerTextStreamHandler(for: topic, onNewStream: onNewStream) }
-            catch { onError?(error) }
+            do { try await registerTextStreamHandler(for: topic, onNewStream: onNewStream) } catch { onError?(error) }
         }
     }
 }
