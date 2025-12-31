@@ -179,7 +179,7 @@ jobs:
       - name: Install SwiftLint
         run: brew install swiftlint
       - name: SwiftLint
-        run: swiftlint lint --reporter github-actions-logging
+        run: swiftlint lint --strict --reporter github-actions-logging
       - name: SwiftFormat Lint
         if: always()
         run: swiftformat --lint . --reporter github-actions-log
