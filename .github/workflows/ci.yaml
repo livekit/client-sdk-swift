@@ -176,6 +176,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - name: SwiftLint
+        run: swiftlint lint --reporter github-actions-logging
       - name: SwiftFormat Lint
         run: swiftformat --lint . --reporter github-actions-log
         # Comes pre-installed on macOS runners
