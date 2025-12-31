@@ -181,6 +181,7 @@ jobs:
       - name: SwiftLint
         run: swiftlint lint --reporter github-actions-logging
       - name: SwiftFormat Lint
+        if: always()
         run: swiftformat --lint . --reporter github-actions-log
         # Comes pre-installed on macOS runners
   build-docs:
