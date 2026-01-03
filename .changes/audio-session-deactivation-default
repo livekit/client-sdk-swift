@@ -1,1 +1,1 @@
-patch type="changed" "Disable automatic audio session deactivation by default"
+patch type="changed" "Use native AVAudioSession directly, add isAutomaticDeactivationEnabled option, and notify others on deactivation"

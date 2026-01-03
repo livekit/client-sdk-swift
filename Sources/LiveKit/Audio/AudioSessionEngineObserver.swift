@@ -18,8 +18,6 @@
 
 import AVFoundation
 
-internal import LiveKitWebRTC
-
 /// An ``AudioEngineObserver`` that configures the `AVAudioSession` based on the state of the audio engine.
 public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @unchecked Sendable {
     /// Controls automatic configuration of the `AVAudioSession` based on audio engine state.
@@ -42,7 +40,10 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     ///
     /// > Note: This value is only used when `isAutomaticConfigurationEnabled` is `true`.
     ///
-    /// Default value: `false`
+    /// > Tip: Set to `false` if your app has other audio features that could be disrupted
+    /// > by deactivating the audio session.
+    ///
+    /// Default value: `true`
     public var isAutomaticDeactivationEnabled: Bool {
         get { _state.isAutomaticDeactivationEnabled }
         set { _state.mutate { $0.isAutomaticDeactivationEnabled = newValue } }
@@ -65,7 +66,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         var next: (any AudioEngineObserver)?
 
         var isAutomaticConfigurationEnabled: Bool = true
-        var isAutomaticDeactivationEnabled: Bool = false
+        var isAutomaticDeactivationEnabled: Bool = true
         var isPlayoutEnabled: Bool = false
         var isRecordingEnabled: Bool = false
         var isSpeakerOutputPreferred: Bool = true
@@ -98,24 +99,18 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     }
 
     @Sendable func configure(oldState: State, newState: State) {
-        let session = LKRTCAudioSession.sharedInstance()
-
-        session.lockForConfiguration()
-        defer {
-            session.unlockForConfiguration()
-            log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
-        }
+        let session = AVAudioSession.sharedInstance()
 
         if (!newState.isPlayoutEnabled && !newState.isRecordingEnabled) && (oldState.isPlayoutEnabled || oldState.isRecordingEnabled) {
             if newState.isAutomaticDeactivationEnabled {
                 do {
                     log("AudioSession deactivating...")
-                    try session.setActive(false)
+                    try session.setActive(false, options: .notifyOthersOnDeactivation)
                 } catch {
                     log("AudioSession failed to deactivate with error: \(error)", .error)
                 }
             } else {
-                log("AudioSession deactivation skipped (automatic deactivation disabled).")
+                log("AudioSession deactivation skipped...")
             }
         } else if newState.isRecordingEnabled || newState.isPlayoutEnabled {
             // Configure and activate the session with the appropriate category
@@ -124,7 +119,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 
             do {
                 log("AudioSession configuring category to: \(config.category)")
-                try session.setConfiguration(config.toRTCType())
+                try session.setCategory(config.category, mode: config.mode, options: config.categoryOptions)
             } catch {
                 log("AudioSession failed to configure with error: \(error)", .error)
             }
