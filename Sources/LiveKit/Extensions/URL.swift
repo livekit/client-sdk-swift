@@ -28,4 +28,60 @@ extension URL {
     var isSecure: Bool {
         scheme == "https" || scheme == "wss"
     }
+
+    /// Checks whether the URL is a LiveKit Cloud URL.
+    var isCloud: Bool {
+        guard let host else { return false }
+        return host.hasSuffix(".livekit.cloud") || host.hasSuffix(".livekit.run")
+    }
+
+    func cloudConfigUrl() -> URL {
+        var components = URLComponents(url: self, resolvingAgainstBaseURL: false)!
+        components.scheme = scheme?.replacingOccurrences(of: "ws", with: "http")
+        components.user = nil
+        components.password = nil
+        components.query = nil
+        components.fragment = nil
+        components.path = "/settings"
+        return components.url!
+    }
+
+    func regionSettingsUrl() -> URL {
+        cloudConfigUrl().appendingPathComponent("regions")
+    }
+
+    /// Returns the canonical base URL used to key per-URL RegionManager instances.
+    func regionManagerKeyURL() -> URL {
+        var components = URLComponents(url: self, resolvingAgainstBaseURL: false)
+        components?.user = nil
+        components?.password = nil
+        components?.query = nil
+        components?.fragment = nil
+
+        var pathSegments = components?.path.split(separator: "/").map(String.init) ?? []
+        if let last = pathSegments.last, ["rtc", "validate"].contains(last) {
+            pathSegments.removeLast()
+        }
+
+        let basePath = pathSegments.isEmpty ? "/" : "/" + pathSegments.joined(separator: "/") + "/"
+        components?.path = basePath
+
+        return components?.url ?? self
+    }
+
+    func matchesRegionManagerKey(of other: URL) -> Bool {
+        regionManagerKeyURL() == other.regionManagerKeyURL()
+    }
+
+    func toSocketUrl() -> URL {
+        var components = URLComponents(url: self, resolvingAgainstBaseURL: false)!
+        components.scheme = scheme?.replacingOccurrences(of: "http", with: "ws")
+        return components.url!
+    }
+
+    func toHTTPUrl() -> URL {
+        var components = URLComponents(url: self, resolvingAgainstBaseURL: false)!
+        components.scheme = scheme?.replacingOccurrences(of: "ws", with: "http")
+        return components.url!
+    }
 }
