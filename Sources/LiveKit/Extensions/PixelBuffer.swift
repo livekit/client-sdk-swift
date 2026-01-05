@@ -60,6 +60,7 @@ public extension CVPixelBuffer {
 }
 
 public extension CMSampleBuffer {
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     static func from(_ pixelBuffer: CVPixelBuffer) -> CMSampleBuffer? {
         var sampleBuffer: CMSampleBuffer?
 
@@ -179,6 +180,7 @@ public extension Data {
 
 extension OSType {
     // Get string representation of CVPixelFormatType
+    // swiftlint:disable:next function_body_length
     func toString() -> String {
         let types = [
             kCVPixelFormatType_TwoComponent8: "kCVPixelFormatType_TwoComponent8",

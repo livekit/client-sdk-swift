@@ -47,7 +47,7 @@ final class IPCProtocol: NWProtocolFramerImplementation, Loggable {
 
     func handleInput(framer: NWProtocolFramer.Instance) -> Int {
         while true {
-            var tempHeader: Header? = nil
+            var tempHeader: Header?
             let parsed = framer.parseInput(
                 minimumIncompleteLength: Header.encodedSize,
                 maximumLength: Header.encodedSize

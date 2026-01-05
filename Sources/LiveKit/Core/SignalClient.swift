@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// swiftlint:disable file_length
+
 import Foundation
 
 internal import LiveKitWebRTC
@@ -107,6 +109,7 @@ actor SignalClient: Loggable {
     }
 
     @discardableResult
+    // swiftlint:disable:next function_body_length
     func connect(_ url: URL,
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
@@ -269,6 +272,7 @@ private extension SignalClient {
         }
     }
 
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func _process(signalResponse: Livekit_SignalResponse) async {
         guard connectionState != .disconnected else {
             log("connectionState is .disconnected", .error)

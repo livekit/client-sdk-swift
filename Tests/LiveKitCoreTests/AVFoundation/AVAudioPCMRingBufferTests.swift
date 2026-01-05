@@ -97,7 +97,7 @@ final class AVAudioPCMRingBufferTests: LKTestCase {
         ringBuffer.append(audioBuffer: halfBuffer)
 
         // Read a quarter of the buffer
-        guard let _ = ringBuffer.read(frames: capacity / 4) else {
+        guard ringBuffer.read(frames: capacity / 4) != nil else {
             XCTFail("Failed to read quarter buffer")
             return
         }
@@ -133,7 +133,7 @@ final class AVAudioPCMRingBufferTests: LKTestCase {
 
         // Fill buffer with test data
         let bufferList = UnsafeMutableAudioBufferListPointer(buffer.mutableAudioBufferList)
-        for audioBuffer in bufferList {
+        for audioBuffer in bufferList where audioBuffer.mData != nil {
             guard let data = audioBuffer.mData else { continue }
 
             // Fill with simple pattern (ramp from 0 to 1)
@@ -159,10 +159,8 @@ final class AVAudioPCMRingBufferTests: LKTestCase {
             let floatData1 = data1.assumingMemoryBound(to: Float.self)
             let floatData2 = data2.assumingMemoryBound(to: Float.self)
 
-            for i in 0 ..< Int(buffer1.frameLength) {
-                if floatData1[i] != floatData2[i] {
-                    return false
-                }
+            for i in 0 ..< Int(buffer1.frameLength) where floatData1[i] != floatData2[i] {
+                return false
             }
         }
 
