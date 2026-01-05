@@ -72,6 +72,7 @@ extension Room {
             _state.mutate {
                 $0.providedUrl = providedUrl
                 $0.token = token
+                $0.preparedRegion = nil
             }
 
             guard let regionManager = await regionManager(for: providedUrl) else {
@@ -81,6 +82,7 @@ extension Room {
             }
 
             if let bestRegion = await regionManager.tryResolveBest(token: token) {
+                _state.mutate { $0.preparedRegion = bestRegion }
                 await HTTP.prewarmConnection(url: bestRegion.url)
                 log("Prepared connection to \(bestRegion.url)")
             } else {

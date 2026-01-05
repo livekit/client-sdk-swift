@@ -167,6 +167,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var providedUrl: URL?
         var connectedUrl: URL?
         var token: String?
+        var preparedRegion: RegionInfo?
 
         // preferred reconnect mode which will be used only for next attempt
         var nextReconnectMode: ReconnectMode?
@@ -366,10 +367,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             publisherDataChannel.e2eeManager = nil
         }
 
-        _state.mutate {
-            $0.providedUrl = providedUrl
-            $0.token = token
-            $0.connectionState = .connecting
+        let preparedRegion = _state.mutate { state -> RegionInfo? in
+            let prepared = (state.providedUrl == providedUrl) ? state.preparedRegion : nil
+            state.preparedRegion = nil
+            state.providedUrl = providedUrl
+            state.token = token
+            state.connectionState = .connecting
+            return prepared
         }
 
         var nextUrl = providedUrl
@@ -380,7 +384,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             if let regionManager {
                 await regionManager.resetAttempts(onlyIfExhausted: true)
 
-                if await regionManager.shouldRequestSettings() {
+                if let preparedRegion {
+                    nextUrl = preparedRegion.url
+                    nextRegion = preparedRegion
+                } else if await regionManager.shouldRequestSettings() {
                     await regionManager.prepareSettingsFetch(token: token)
                 } else {
                     // If region info already available, use it instead of provided url.
