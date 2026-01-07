@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// swiftlint:disable file_length
+
 import AVFoundation
 import Foundation
 
@@ -214,6 +216,7 @@ extension MacOSScreenCapturer: SCStreamDelegate {
 
 @available(macOS 12.3, *)
 extension MacOSScreenCapturer: SCStreamOutput {
+    // swiftlint:disable:next cyclomatic_complexity
     public func stream(_: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer,
                        of outputType: SCStreamOutputType)
     {
@@ -241,7 +244,7 @@ extension MacOSScreenCapturer: SCStreamOutput {
 
             // Retrieve the content rectangle, scale, and scale factor.
             guard let contentRectDict = attachments[.contentRect],
-                  let contentRect = CGRect(dictionaryRepresentation: contentRectDict as! CFDictionary),
+                  let contentRect = CGRect(dictionaryRepresentation: contentRectDict as! CFDictionary), // swiftlint:disable:this force_cast
                   // let contentScale = attachments[.contentScale] as? CGFloat,
                   let scaleFactor = attachments[.scaleFactor] as? CGFloat else { return }
 

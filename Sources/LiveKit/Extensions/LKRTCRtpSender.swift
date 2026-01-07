@@ -28,7 +28,7 @@ extension LKRTCRtpSender: Loggable {
 
         // For SVC mode...
         if let firstEncoding = encodings.first,
-           let _ = ScalabilityMode.fromString(firstEncoding.scalabilityMode)
+           ScalabilityMode.fromString(firstEncoding.scalabilityMode) != nil
         {
             let _enabled = qualities.highest != .off
             if firstEncoding.isActive != _enabled {

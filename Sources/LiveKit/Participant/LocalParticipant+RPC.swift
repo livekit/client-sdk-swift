@@ -185,6 +185,7 @@ extension LocalParticipant {
         try await room.send(dataPacket: dataPacket)
     }
 
+    // swiftlint:disable:next function_body_length function_parameter_count
     func handleIncomingRpcRequest(callerIdentity: Identity,
                                   requestId: String,
                                   method: String,

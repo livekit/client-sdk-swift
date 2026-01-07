@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// swiftlint:disable file_length
+
 import Combine
 import Foundation
 
@@ -22,6 +24,7 @@ import Network
 #endif
 
 @objc
+// swiftlint:disable:next type_body_length
 public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
 
@@ -220,6 +223,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     }
 
     @objc
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     public init(delegate: RoomDelegate? = nil,
                 connectOptions: ConnectOptions? = nil,
                 roomOptions: RoomOptions? = nil)
@@ -319,6 +323,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     }
 
     @objc
+    // swiftlint:disable:next function_body_length
     public func connect(url urlString: String,
                         token: String,
                         connectOptions: ConnectOptions? = nil,

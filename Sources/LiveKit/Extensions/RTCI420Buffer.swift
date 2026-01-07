@@ -19,6 +19,7 @@ import Foundation
 internal import LiveKitWebRTC
 
 extension LKRTCI420Buffer {
+    // swiftlint:disable:next function_body_length
     func toPixelBuffer() -> CVPixelBuffer? {
         // default options
         let options = [

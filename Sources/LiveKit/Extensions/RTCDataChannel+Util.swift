@@ -19,7 +19,7 @@ import Foundation
 internal import LiveKitWebRTC
 
 extension LKRTCDataChannel {
-    enum labels {
+    enum Labels {
         static let reliable = "_reliable"
         static let lossy = "_lossy"
     }
