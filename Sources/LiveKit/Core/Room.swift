@@ -367,6 +367,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             publisherDataChannel.e2eeManager = nil
         }
 
+        if _state.preparedRegion != nil, _state.providedUrl != providedUrl {
+            log("Discarding prepared region, URL changed to \(providedUrl)", .info)
+        }
+
         let preparedRegion = _state.mutate { state -> RegionInfo? in
             let prepared = (state.providedUrl == providedUrl) ? state.preparedRegion : nil
             state.preparedRegion = nil
