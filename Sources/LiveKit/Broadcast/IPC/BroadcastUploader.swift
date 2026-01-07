@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ final class BroadcastUploader: Sendable, Loggable {
     private struct State {
         var isUploadingImage = false
         var shouldUploadAudio = false
+        var messageLoopTask: AnyTaskCancellable?
     }
 
     private let state = StateSync(State())
@@ -40,8 +41,19 @@ final class BroadcastUploader: Sendable, Loggable {
 
     /// Creates an uploader with an open connection to another process.
     init(socketPath: SocketPath) async throws {
-        channel = try await IPCChannel(connectingTo: socketPath)
-        Task { try await handleIncomingMessages() }
+        let channel = try await IPCChannel(connectingTo: socketPath)
+        self.channel = channel
+
+        let messageLoopTask = channel.incomingMessages(BroadcastIPCHeader.self).subscribe(self) { observer, message in
+            observer.processMessageHeader(message.0)
+        } onFailure: { observer, error in
+            observer.log("IPCChannel returned error: \(error)")
+        }
+        state.mutate { $0.messageLoopTask = messageLoopTask }
+    }
+
+    deinit {
+        close()
     }
 
     /// Whether or not the connection to the receiver has been closed.
@@ -92,15 +104,12 @@ final class BroadcastUploader: Sendable, Loggable {
         }
     }
 
-    private func handleIncomingMessages() async throws {
-        for try await (header, _) in channel.incomingMessages(BroadcastIPCHeader.self) {
-            switch header {
-            case let .wantsAudio(wantsAudio):
-                state.mutate { $0.shouldUploadAudio = wantsAudio }
-            default:
-                log("Unhandled incoming message: \(header)", .debug)
-                continue
-            }
+    private func processMessageHeader(_ header: BroadcastIPCHeader) {
+        switch header {
+        case let .wantsAudio(wantsAudio):
+            state.mutate { $0.shouldUploadAudio = wantsAudio }
+        default:
+            log("Unhandled incoming message: \(header)", .debug)
         }
     }
 }
