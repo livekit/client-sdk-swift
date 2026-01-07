@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -410,7 +410,7 @@ extension Room {
             }
 
             _state.mutate {
-                $0.reconnectTask = reconnectTask
+                $0.reconnectTask = reconnectTask.cancellable()
             }
 
             try await reconnectTask.value

@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ actor IncomingStreamManager: Loggable {
         let info: StreamInfo
         let openTime: TimeInterval
         let continuation: StreamReaderSource.Continuation
+        var task: AnyTaskCancellable?
         var readLength = 0
     }
 
@@ -42,16 +43,20 @@ actor IncomingStreamManager: Loggable {
     }
 
     private let eventContinuation: AsyncStream<StreamEvent>.Continuation
+    private var eventLoopTask: AnyTaskCancellable?
 
     init() {
         let (stream, continuation) = AsyncStream.makeStream(of: StreamEvent.self)
         eventContinuation = continuation
 
-        Task { [weak self] in
-            for await event in stream {
-                guard let self else { break }
-                await process(event)
-            }
+        Task {
+            await observe(events: stream)
+        }
+    }
+
+    private func observe(events stream: AsyncStream<StreamEvent>) {
+        eventLoopTask = stream.subscribe(self) { observer, event in
+            await observer.process(event)
         }
     }
 
@@ -131,13 +136,13 @@ actor IncomingStreamManager: Loggable {
         let descriptor = Descriptor(
             info: info,
             openTime: Date.timeIntervalSinceReferenceDate,
-            continuation: continuation
+            continuation: continuation,
+            task: Task {
+                try await handler(source, identity)
+            }.cancellable()
         )
-        openStreams[info.id] = descriptor
 
-        Task.detached {
-            try await handler(source, identity)
-        }
+        openStreams[info.id] = descriptor
     }
 
     /// Close the stream with the given id.

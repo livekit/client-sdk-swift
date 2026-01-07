@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,11 +52,18 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             guard let lossy, let reliable else { return false }
             return reliable.readyState == .open && lossy.readyState == .open
         }
+    }
 
-        var eventContinuation: AsyncStream<ChannelEvent>.Continuation?
+    private struct Buffers: Sendable {
+        var lossyBuffer = SendBuffer()
+        var reliableBuffer = SendBuffer()
+        var reliableRetryBuffer = RetryBuffer(minAmount: DataChannelPair.reliableRetryAmount)
     }
 
     private let _state: StateSync<State>
+
+    private let eventContinuation: AsyncStream<ChannelEvent>.Continuation
+    private var eventLoopTask: AnyTaskCancellable?
 
     fileprivate enum ChannelKind {
         case lossy, reliable
@@ -137,55 +144,46 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Event handling
 
     // swiftlint:disable:next cyclomatic_complexity
-    private func handleEvents(
-        events: AsyncStream<ChannelEvent>
-    ) async {
-        var lossyBuffer = SendBuffer()
-        var reliableBuffer = SendBuffer()
-
-        var reliableRetryBuffer = RetryBuffer(minAmount: Self.reliableRetryAmount)
-
-        for await event in events {
-            switch event.detail {
-            case let .publishData(request):
-                switch event.channelKind {
-                case .lossy: lossyBuffer.enqueue(request)
-                case .reliable: reliableBuffer.enqueue(request)
-                }
-            case let .publishedData(request):
-                switch event.channelKind {
-                case .lossy: ()
-                case .reliable: reliableRetryBuffer.enqueue(request)
-                }
-            case let .bufferedAmountChanged(amount):
-                switch event.channelKind {
-                case .lossy:
-                    updateTarget(buffer: &lossyBuffer, newAmount: amount)
-                case .reliable:
-                    updateTarget(buffer: &reliableBuffer, newAmount: amount)
-                    reliableRetryBuffer.trim(toAmount: amount)
-                }
-            case let .retryRequested(lastSeq):
-                switch event.channelKind {
-                case .lossy: ()
-                case .reliable: retry(buffer: &reliableRetryBuffer, from: lastSeq)
-                }
+    private func processEvent(_ event: ChannelEvent, buffers: inout Buffers) {
+        switch event.detail {
+        case let .publishData(request):
+            switch event.channelKind {
+            case .lossy: buffers.lossyBuffer.enqueue(request)
+            case .reliable: buffers.reliableBuffer.enqueue(request)
             }
-
+        case let .publishedData(request):
+            switch event.channelKind {
+            case .lossy: ()
+            case .reliable: buffers.reliableRetryBuffer.enqueue(request)
+            }
+        case let .bufferedAmountChanged(amount):
             switch event.channelKind {
             case .lossy:
-                processSendQueue(
-                    threshold: Self.lossyLowThreshold,
-                    buffer: &lossyBuffer,
-                    kind: .lossy
-                )
+                updateTarget(buffer: &buffers.lossyBuffer, newAmount: amount)
             case .reliable:
-                processSendQueue(
-                    threshold: Self.reliableLowThreshold,
-                    buffer: &reliableBuffer,
-                    kind: .reliable
-                )
+                updateTarget(buffer: &buffers.reliableBuffer, newAmount: amount)
+                buffers.reliableRetryBuffer.trim(toAmount: amount)
             }
+        case let .retryRequested(lastSeq):
+            switch event.channelKind {
+            case .lossy: ()
+            case .reliable: retry(buffer: &buffers.reliableRetryBuffer, from: lastSeq)
+            }
+        }
+
+        switch event.channelKind {
+        case .lossy:
+            processSendQueue(
+                threshold: Self.lossyLowThreshold,
+                buffer: &buffers.lossyBuffer,
+                kind: .lossy
+            )
+        case .reliable:
+            processSendQueue(
+                threshold: Self.reliableLowThreshold,
+                buffer: &buffers.reliableBuffer,
+                kind: .reliable
+            )
         }
     }
 
@@ -219,7 +217,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             request.continuation?.resume()
 
             let event = ChannelEvent(channelKind: kind, detail: .publishedData(request))
-            _state.eventContinuation?.yield(event)
+            eventContinuation.yield(event)
         }
     }
 
@@ -248,7 +246,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             assert(request.continuation == nil, "Continuation may fire multiple times while retrying causing crash")
             if request.sequence > lastSeq {
                 let event = ChannelEvent(channelKind: .reliable, detail: .publishData(request))
-                _state.eventContinuation?.yield(event)
+                eventContinuation.yield(event)
             }
         }
     }
@@ -265,13 +263,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         if let delegate {
             delegates.add(delegate: delegate)
         }
+
+        let (eventStream, continuation) = AsyncStream.makeStream(of: ChannelEvent.self)
+        eventContinuation = continuation
+
         super.init()
 
-        Task {
-            let eventStream = AsyncStream<ChannelEvent> { continuation in
-                _state.mutate { $0.eventContinuation = continuation }
-            }
-            await handleEvents(events: eventStream)
+        eventLoopTask = eventStream.subscribe(self, state: Buffers()) { observer, event, buffers in
+            observer.processEvent(event, buffers: &buffers)
         }
     }
 
@@ -341,7 +340,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
                 channelKind: ChannelKind(packet.kind), // TODO: field is deprecated
                 detail: .publishData(request)
             )
-            _state.eventContinuation?.yield(event)
+            eventContinuation.yield(event)
         }
     }
 
@@ -371,7 +370,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     func retryReliable(lastSequence: UInt32) {
         let event = ChannelEvent(channelKind: .reliable, detail: .retryRequested(lastSequence))
-        _state.eventContinuation?.yield(event)
+        eventContinuation.yield(event)
     }
 
     // MARK: - Sync state
@@ -402,7 +401,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     private static let reliableReceivedStateTTL: TimeInterval = 30
 
     deinit {
-        _state.eventContinuation?.finish()
+        eventContinuation.finish()
     }
 }
 
@@ -414,7 +413,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
             channelKind: dataChannel.kind,
             detail: .bufferedAmountChanged(amount)
         )
-        _state.eventContinuation?.yield(event)
+        eventContinuation.yield(event)
     }
 
     func dataChannelDidChangeState(_: LKRTCDataChannel) {
