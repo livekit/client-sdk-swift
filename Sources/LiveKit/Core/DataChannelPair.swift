@@ -143,6 +143,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Event handling
 
+    // swiftlint:disable:next cyclomatic_complexity
     private func processEvent(_ event: ChannelEvent, buffers: inout Buffers) {
         switch event.detail {
         case let .publishData(request):
