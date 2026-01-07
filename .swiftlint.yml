@@ -15,3 +15,10 @@ type_name:
   excluded:
     - ID
     - OS
+
+custom_rules:
+  no_manual_task_management:
+    name: "No Manual Task Management"
+    regex: "(let|var)\\s+\\w+\\s*:\\s*Task<Void,\\s*Never>"
+    message: "Prefer AnyTaskCancellable over manually managing Task<Void, Never>. This allows for safer cleanup, similar to Combine's AnyCancellable."
+    severity: warning

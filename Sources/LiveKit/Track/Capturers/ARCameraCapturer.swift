@@ -29,6 +29,7 @@ public class ARCameraCapturer: VideoCapturer {
     /// The ``ARCaptureOptions`` used for this capturer.
     public let options: ARCameraCaptureOptions
 
+    // swiftlint:disable:next no_manual_task_management
     private var captureTask: Task<Void, Never>?
 
     init(delegate: LKRTCVideoCapturerDelegate, options: ARCameraCaptureOptions) {
