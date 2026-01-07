@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// swiftlint:disable file_length
 
 import Foundation
 
@@ -107,6 +109,7 @@ actor SignalClient: Loggable {
     }
 
     @discardableResult
+    // swiftlint:disable:next function_body_length
     func connect(_ url: URL,
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
@@ -265,6 +268,7 @@ private extension SignalClient {
         }
     }
 
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func _process(signalResponse: Livekit_SignalResponse) async {
         guard connectionState != .disconnected else {
             log("connectionState is .disconnected", .error)

@@ -153,6 +153,7 @@ func getCurrentVersion() -> SemanticVersion {
     }
 }
 
+// swiftlint:disable:next cyclomatic_complexity
 func parseChanges() -> [Change] {
     let fileManager = FileManager.default
 

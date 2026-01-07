@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ public typealias ScopedMetadata = CustomStringConvertible
 public typealias ScopedMetadataContainer = [String: ScopedMetadata]
 
 public protocol Logger: Sendable {
+    // swiftlint:disable:next function_parameter_count
     func log(
         _ message: @autoclosure () -> CustomStringConvertible,
         _ level: LogLevel,
@@ -55,6 +56,7 @@ public extension Logger {
 /// A no-op logger
 public struct DisabledLogger: Logger {
     @inlinable
+    // swiftlint:disable:next function_parameter_count
     public func log(
         _: @autoclosure () -> CustomStringConvertible,
         _: LogLevel,
@@ -77,6 +79,7 @@ public struct PrintLogger: Logger {
         self.colors = colors
     }
 
+    // swiftlint:disable:next function_parameter_count
     public func log(
         _ message: @autoclosure () -> CustomStringConvertible,
         _ level: LogLevel,
@@ -137,6 +140,7 @@ open class OSLogger: Logger, @unchecked Sendable {
         rtcLogger.stop()
     }
 
+    // swiftlint:disable:next function_parameter_count
     public func log(
         _ message: @autoclosure () -> CustomStringConvertible,
         _ level: LogLevel,

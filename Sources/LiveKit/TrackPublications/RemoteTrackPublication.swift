@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -167,8 +167,8 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
 
                 // start adaptiveStream timer only if it's a video track
                 if isAdaptiveStreamEnabled {
-                    _asTimer.setTimerBlock {
-                        [weak self] in await self?.onAdaptiveStreamTimer()
+                    _asTimer.setTimerBlock { [weak self] in
+                        await self?.onAdaptiveStreamTimer()
                     }
                     _asTimer.restart()
                 }

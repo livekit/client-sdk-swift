@@ -60,6 +60,10 @@ Add a new package and enter: `https://github.com/livekit/client-sdk-swift`
 
 ### CocoaPods
 
+> [!IMPORTANT]
+>
+> **CocoaPods support is deprecated**. The main [CocoaPods trunk](https://blog.cocoapods.org/CocoaPods-Specs-Repo/) repo as well as LiveKit [podspecs](https://github.com/livekit/podspecs) repo will become read-only and stop receiving updates starting in **2027**. It is strongly recommended to migrate to Swift Package Manager to ensure access to the latest features and security updates.
+
 For installation using CocoaPods, please refer to this [guide](./Docs/cocoapods.md).
 
 ## iOS Usage
@@ -167,18 +171,27 @@ It is recommended to use **weak var** when storing references to objects created
 
 ### AudioSession management
 
-LiveKit will automatically manage the underlying `AVAudioSession` while connected. The session will be set to `playback` category by default. When a local stream is published, it'll be switched to
-`playAndRecord`. In general, it'll pick sane defaults and do the right thing.
+LiveKit will automatically manage the underlying `AVAudioSession` while connected. By default, the session is set to the `.playback` category. When a local track is published, it switches to `.playAndRecord`. In general, it picks sane defaults and does the right thing.
 
-However, if you'd like to customize this behavior, you would override `AudioManager.customConfigureAudioSessionFunc` to manage the underlying session on your own. See [example here](https://github.com/livekit/client-sdk-swift/blob/1f5959f787805a4b364f228ccfb413c1c4944748/Sources/LiveKit/Track/AudioManager.swift#L153) for the default behavior.
+If you'd like to configure `AVAudioSession` yourself, disable the SDK's automatic audio session handling:
+```swift
+AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false
+```
 
-For more audio related information see the [Audio guide](./Docs/audio.md).
+- `AVAudioSession` must be configured and activated with category `.playAndRecord` and mode `.voiceChat` or `.videoChat` before enabling/publishing the microphone (so the audio engine can start).
+
+To get specific timings of the audio engine lifecycle, you can provide your own `AudioEngineObserver` chain with `AudioManager.shared.set(engineObservers:)`.
+
+See the default `AudioSessionEngineObserver` for an example of how an `AudioEngineObserver` can configure the audio session.
+
+- If you want to reduce mic publish latency, you can pre-warm the audio engine with `AudioManager.shared.setRecordingAlwaysPreparedMode(true)`.
+- For additional audio-related information, see the [Audio guide](./Docs/audio.md).
 
 ### Integration with CallKit
 
 When integrating with CallKit, proper timing and coordination between `AVAudioSession` and the SDK’s audio engine is crucial.
 
-1. Disable the SDK’s automatic `AVAudioSession` configuration. also prevent the audio engine from starting outside CallKit’s `didActivate` and `didDeactivate` window.
+1. Disable the SDK’s automatic `AVAudioSession` configuration, and prevent the audio engine from starting outside CallKit’s `provider(_:didActivate:)` and `provider(_:didDeactivate:)` window.
 
 ```swift
 // As early as possible, before connecting to a Room.

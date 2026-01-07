@@ -6,6 +6,10 @@ on:
         description: Dry run (only list files, don't upload)
         default: true
         type: boolean
+      ref:
+        description: Git ref to get docs from (branch, tag, or SHA)
+        default: main
+        type: string
   release:
     types: [published]
 jobs:
@@ -13,13 +17,28 @@ jobs:
     name: Publish Docs
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.ref || 'main' }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Get Commit SHA
+        id: get_commit
+        run: |
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "commit_sha=${COMMIT_SHA}" >> $GITHUB_OUTPUT
+          echo "Using commit SHA: ${COMMIT_SHA}"
+
       - name: Download Archive
         uses: dawidd6/action-download-artifact@v9
         with:
           workflow: ci.yaml
           workflow_search: false
-          branch: main
+          commit: ${{ steps.get_commit.outputs.commit_sha }}
           name: docs
+          if_no_artifact_found: fail
 
       - name: Unzip Archive
         run: unzip docs.zip
@@ -28,7 +47,7 @@ jobs:
         run: ls -la docs
 
       - name: S3 Upload
-        if: inputs.dry_run != true
+        if: github.event_name == 'release' || github.event.inputs.dry_run != 'true'
         run: aws s3 cp docs/ s3://livekit-docs/client-sdk-swift --recursive
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.DOCS_DEPLOY_AWS_ACCESS_KEY }}
@@ -36,7 +55,7 @@ jobs:
           AWS_DEFAULT_REGION: "us-east-1"
 
       - name: Invalidate cache
-        if: inputs.dry_run != true
+        if: github.event_name == 'release' || github.event.inputs.dry_run != 'true'
         run: aws cloudfront create-invalidation --distribution-id EJJ40KLJ3TRY9 --paths "/*"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.DOCS_DEPLOY_AWS_ACCESS_KEY }}
