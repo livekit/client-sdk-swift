@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// swiftlint:disable file_length
 
 import Foundation
 
@@ -87,7 +89,7 @@ actor SignalClient: Loggable {
         var connectionState: ConnectionState = .disconnected
         var disconnectError: LiveKitError?
         var socket: WebSocket?
-        var messageLoopTask: Task<Void, Never>?
+        var messageLoopTask: AnyTaskCancellable?
         var lastJoinResponse: Livekit_JoinResponse?
         var rtt: Int64 = 0
     }
@@ -107,6 +109,7 @@ actor SignalClient: Loggable {
     }
 
     @discardableResult
+    // swiftlint:disable:next function_body_length
     func connect(_ url: URL,
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
@@ -139,17 +142,12 @@ actor SignalClient: Loggable {
                                              token: token,
                                              connectOptions: connectOptions)
 
-            let task = Task.detached {
-                self.log("Did enter WebSocket message loop...")
-                do {
-                    for try await message in socket {
-                        await self._onWebSocketMessage(message: message)
-                    }
-                } catch {
-                    await self.cleanUp(withError: error)
-                }
+            let messageLoopTask = socket.subscribe(self) { observer, message in
+                await observer.onWebSocketMessage(message)
+            } onFailure: { observer, error in
+                await observer.cleanUp(withError: error)
             }
-            _state.mutate { $0.messageLoopTask = task }
+            _state.mutate { $0.messageLoopTask = messageLoopTask }
 
             let connectResponse = try await _connectResponseCompleter.wait()
             // Check cancellation after received join response
@@ -207,6 +205,8 @@ actor SignalClient: Loggable {
     }
 
     func cleanUp(withError disconnectError: Error? = nil) async {
+        if Task.isCancelled { return }
+
         log("withError: \(String(describing: disconnectError))")
 
         // Cancel ping/pong timers immediately to prevent stale timers from affecting future connections
@@ -214,7 +214,6 @@ actor SignalClient: Loggable {
         _pingTimeoutTimer.cancel()
 
         _state.mutate {
-            $0.messageLoopTask?.cancel()
             $0.messageLoopTask = nil
             $0.socket?.close()
             $0.socket = nil
@@ -247,7 +246,7 @@ private extension SignalClient {
         await _requestQueue.processIfResumed(request, elseEnqueue: request.canBeQueued())
     }
 
-    func _onWebSocketMessage(message: URLSessionWebSocketTask.Message) async {
+    func onWebSocketMessage(_ message: URLSessionWebSocketTask.Message) async {
         let response: Livekit_SignalResponse? = switch message {
         case let .data(data): try? Livekit_SignalResponse(serializedBytes: data)
         case let .string(string): try? Livekit_SignalResponse(jsonString: string)
@@ -269,6 +268,7 @@ private extension SignalClient {
         }
     }
 
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func _process(signalResponse: Livekit_SignalResponse) async {
         guard connectionState != .disconnected else {
             log("connectionState is .disconnected", .error)

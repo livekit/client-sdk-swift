@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ public typealias ScopedMetadata = CustomStringConvertible
 public typealias ScopedMetadataContainer = [String: ScopedMetadata]
 
 public protocol Logger: Sendable {
+    // swiftlint:disable:next function_parameter_count
     func log(
         _ message: @autoclosure () -> CustomStringConvertible,
         _ level: LogLevel,
@@ -55,6 +56,7 @@ public extension Logger {
 /// A no-op logger
 public struct DisabledLogger: Logger {
     @inlinable
+    // swiftlint:disable:next function_parameter_count
     public func log(
         _: @autoclosure () -> CustomStringConvertible,
         _: LogLevel,
@@ -77,6 +79,7 @@ public struct PrintLogger: Logger {
         self.colors = colors
     }
 
+    // swiftlint:disable:next function_parameter_count
     public func log(
         _ message: @autoclosure () -> CustomStringConvertible,
         _ level: LogLevel,
@@ -117,6 +120,7 @@ open class OSLogger: Logger, @unchecked Sendable {
     private var logs: [String: OSLog] = [:]
 
     private lazy var rtcLogger = LKRTCCallbackLogger()
+    private var ffiTask: AnyTaskCancellable?
 
     private let minLevel: LogLevel
 
@@ -136,6 +140,7 @@ open class OSLogger: Logger, @unchecked Sendable {
         rtcLogger.stop()
     }
 
+    // swiftlint:disable:next function_parameter_count
     public func log(
         _ message: @autoclosure () -> CustomStringConvertible,
         _ level: LogLevel,
@@ -185,18 +190,13 @@ open class OSLogger: Logger, @unchecked Sendable {
 
     private func startFFILogForwarding(minLevel: LogLevel) {
         Task(priority: .utility) { [weak self] in
-            guard self != nil else { return } // don't initialize global level when releasing
+            guard let self else { return } // don't initialize global level when releasing
             logForwardBootstrap(level: minLevel.logForwardFilter)
 
             let ffiLog = OSLog(subsystem: Self.subsystem, category: "FFI")
-            let ffiStream = AsyncStream(unfolding: logForwardReceive)
 
-            for await entry in ffiStream {
-                guard self != nil else { return }
-
-                let message = "\(entry.target) \(entry.message)"
-
-                os_log("%{public}@", log: ffiLog, type: entry.level.osLogType, message)
+            ffiTask = AsyncStream(unfolding: logForwardReceive).subscribe(self, priority: .utility) { _, entry in
+                os_log("%{public}@", log: ffiLog, type: entry.level.osLogType, "\(entry.target) \(entry.message)")
             }
         }
     }
@@ -309,7 +309,9 @@ extension LogForwardLevel {
         case .warn: .default
         case .info: .info
         case .debug, .trace: .debug
+        #if swift(>=6.0)
         @unknown default: .debug
+        #endif
         }
     }
 }

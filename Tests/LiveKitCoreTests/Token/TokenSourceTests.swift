@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -180,6 +180,7 @@ class TokenSourceTests: LKTestCase {
         XCTAssertEqual(expiredCallCount2, 2)
     }
 
+    // swiftlint:disable:next function_body_length
     func testCustomValidator() async throws {
         let mockSource = MockValidJWTSource(participantName: "charlie")
 

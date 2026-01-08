@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -280,10 +280,8 @@ func computeAttributesDiff(oldValues: [String: String], newValues: [String: Stri
     let allKeys = Set(oldValues.keys).union(newValues.keys)
     var diff = [String: String]()
 
-    for key in allKeys {
-        if oldValues[key] != newValues[key] {
-            diff[key] = newValues[key] ?? ""
-        }
+    for key in allKeys where oldValues[key] != newValues[key] {
+        diff[key] = newValues[key] ?? ""
     }
 
     return diff
