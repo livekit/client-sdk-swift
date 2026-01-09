@@ -93,7 +93,7 @@ public final class ConnectOptions: NSObject, Sendable {
         iceServers = []
         iceTransportPolicy = .all
         enableMicrophone = false
-        protocolVersion = .v12
+        protocolVersion = .v16
     }
 
     @objc
@@ -107,7 +107,7 @@ public final class ConnectOptions: NSObject, Sendable {
                 iceServers: [IceServer] = [],
                 iceTransportPolicy: IceTransportPolicy = .all,
                 enableMicrophone: Bool = false,
-                protocolVersion: ProtocolVersion = .v12)
+                protocolVersion: ProtocolVersion = .v16)
     {
         self.autoSubscribe = autoSubscribe
         self.reconnectAttempts = reconnectAttempts

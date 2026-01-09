@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// swiftlint:disable file_length
+
 import Foundation
 
 internal import LiveKitWebRTC
@@ -133,6 +135,26 @@ extension Room: SignalClientDelegate {
             $0.numParticipants = Int(room.numParticipants)
             $0.numPublishers = Int(room.numPublishers)
         }
+    }
+
+    func signalClient(_: SignalClient, didReceiveRoomMoved response: Livekit_RoomMovedResponse) async {
+        log("didReceiveRoomMoved to room: \(response.hasRoom ? response.room.name : "unknown")")
+
+        _updateState(for: response)
+        await _disconnectAllParticipants()
+
+        if response.hasRoom {
+            _notifyRoomMoved(name: response.room.name)
+        }
+
+        if response.hasParticipant {
+            localParticipant.set(info: response.participant, connectionState: _state.connectionState)
+        }
+
+        _republishLocalTracks()
+
+        let newParticipants = _addNewParticipants(from: response.otherParticipants)
+        _notifyNewParticipants(newParticipants)
     }
 
     func signalClient(_: SignalClient, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) async {
@@ -366,6 +388,89 @@ extension Room: SignalClientDelegate {
         // Notify LocalParticipant.
         localParticipant.delegates.notify {
             $0.participant?(self.localParticipant, remoteDidSubscribeTrack: track)
+        }
+    }
+}
+
+private extension Room {
+    func _updateState(for response: Livekit_RoomMovedResponse) {
+        // Update token
+        if !response.token.isEmpty {
+            _state.mutate { $0.token = response.token }
+        }
+
+        // Update room info if available
+        guard response.hasRoom else { return }
+
+        _state.mutate {
+            $0.sid = Room.Sid(from: response.room.sid)
+            $0.name = response.room.name
+            $0.metadata = response.room.metadata
+            $0.isRecording = response.room.activeRecording
+            $0.numParticipants = Int(response.room.numParticipants)
+            $0.numPublishers = Int(response.room.numPublishers)
+            $0.maxParticipants = Int(response.room.maxParticipants)
+
+            // Attempt to get millisecond precision.
+            if response.room.creationTimeMs != 0 {
+                $0.creationTime = Date(timeIntervalSince1970: TimeInterval(Double(response.room.creationTimeMs) / 1000))
+            } else if response.room.creationTime != 0 {
+                $0.creationTime = Date(timeIntervalSince1970: TimeInterval(response.room.creationTime))
+            }
+        }
+    }
+
+    func _disconnectAllParticipants() async {
+        // Disconnect all remote participants
+        let participantsToDisconnect = _state.read { Array($0.remoteParticipants.keys) }
+        for identity in participantsToDisconnect {
+            do {
+                try await _onParticipantDidDisconnect(identity: identity)
+            } catch {
+                log("Failed to disconnect participant \(identity) with error: \(error)", .error)
+            }
+        }
+    }
+
+    func _notifyRoomMoved(name: String) {
+        // Emit room moved event with new room name (on both Room and LocalParticipant delegates)
+        delegates.notify(label: { "room.didMoveToRoomNamed \(name)" }) {
+            $0.room?(self, didMoveToRoomNamed: name)
+        }
+        localParticipant.delegates.notify(label: { "participant.didMoveToRoomNamed \(name)" }) {
+            $0.participant?(self.localParticipant, didMoveToRoomNamed: name)
+        }
+    }
+
+    func _republishLocalTracks() {
+        // Republish all local tracks to the new room
+        log("Re-publishing local tracks after room move...")
+        Task.detached { [weak self] in
+            guard let self else { return }
+            do {
+                try await localParticipant.republishAllTracks()
+                log("Successfully re-published local tracks after room move")
+            } catch {
+                log("Failed to re-publish local tracks after room move, error: \(error)", .error)
+            }
+        }
+    }
+
+    func _addNewParticipants(from infos: [Livekit_ParticipantInfo]) -> [RemoteParticipant] {
+        // Re-add participants
+        var newParticipants: [RemoteParticipant] = []
+        for info in infos {
+            let participant = _state.mutate { $0.updateRemoteParticipant(info: info, room: self) }
+            newParticipants.append(participant)
+        }
+        return newParticipants
+    }
+
+    func _notifyNewParticipants(_ participants: [RemoteParticipant]) {
+        for participant in participants {
+            delegates.notify(label: { "room.remoteParticipantDidConnect: \(participant)" }) {
+                $0.room?(self, participantDidConnect: participant)
+            }
         }
     }
 }
