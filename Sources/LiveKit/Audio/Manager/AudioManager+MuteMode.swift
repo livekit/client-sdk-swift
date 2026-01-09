@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,12 +21,16 @@ internal import LiveKitWebRTC
 public enum MicrophoneMuteMode {
     /// Uses `AVAudioEngine`'s `isVoiceProcessingInputMuted` internally.
     /// This is fast, and muted speaker detection works. However, iOS will play a sound effect.
+    /// Does not reconfigure the audio session on mute/unmute.
     case voiceProcessing
     /// Restarts the internal `AVAudioEngine` without mic input when muted.
     /// This is slower, and muted speaker detection does not work. No sound effect is played.
+    /// Deactivates the audio session on mute and reconfigures it on unmute.
     case restart
     /// Simply mutes the output of the input mixer.
     /// The mic indicator remains on, and the internal `AVAudioEngine` continues running without reconfiguration.
+    /// Does not reconfigure the audio session on mute/unmute.
+    /// No sound effect is played.
     case inputMixer
     case unknown
 }

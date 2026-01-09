@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 import Foundation
 
 actor Debounce {
-    private var _task: Task<Void, Never>?
+    private var _task: AnyTaskCancellable?
     private let _delay: TimeInterval
 
     init(delay: TimeInterval) {
@@ -39,6 +39,6 @@ actor Debounce {
             if !Task.isCancelled {
                 try? await action()
             }
-        }
+        }.cancellable()
     }
 }

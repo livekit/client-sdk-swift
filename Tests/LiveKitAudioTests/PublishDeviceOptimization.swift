@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ class PublishDeviceOptimizationTests: LKTestCase {
     // No-VP publish flow
     func testNoVpMicPublish() async throws {
         // Turn off Apple's VP
-        try! AudioManager.shared.setVoiceProcessingEnabled(false)
+        try AudioManager.shared.setVoiceProcessingEnabled(false)
 
         var sw = Stopwatch(label: "Test: No-VP publish sequence")
 

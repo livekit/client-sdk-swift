@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// swiftlint:disable file_length
 
 import Accelerate
 import AVFoundation
@@ -279,14 +281,21 @@ public class AudioManager: Loggable {
 
     // MARK: - Recording
 
-    /// Keep recording initialized (mic input) and pre-warm voice processing etc.
-    /// Mic permission is required and dialog will appear if not already granted.
-    /// This will per persisted accross Rooms and connections.
+    /// Whether recording is kept initialized (mic input) for low-latency publish.
+    ///
+    /// - SeeAlso: ``setRecordingAlwaysPreparedMode(_:)``
     public var isRecordingAlwaysPreparedMode: Bool { RTC.audioDeviceModule.isRecordingAlwaysPreparedMode }
 
-    /// Keep recording initialized (mic input) and pre-warm voice processing etc.
-    /// Mic permission is required and dialog will appear if not already granted.
-    /// This will per persisted accross Rooms and connections.
+    /// Prepares the microphone capture pipeline for low-latency publishing.
+    ///
+    /// When enabled, the audio engine is started configured for mic input in a muted state,
+    /// which keeps recording initialized and pre-warms voice processing.
+    ///
+    /// - Parameter enabled: Pass `true` to enable always-prepared recording, or `false` to disable it.
+    /// - Note: If `audioSession.isAutomaticConfigurationEnabled` is `true`, the session category is configured to `.playAndRecord`.
+    /// - Note: Microphone permission is required; iOS may prompt if not already granted.
+    /// - Note: This persists across ``Room`` lifecycles and connections until disabled.
+    /// - Throws: An error if the underlying audio device module fails to apply the setting.
     public func setRecordingAlwaysPreparedMode(_ enabled: Bool) async throws {
         let result = RTC.audioDeviceModule.setRecordingAlwaysPreparedMode(enabled)
         try checkAdmResult(code: result)

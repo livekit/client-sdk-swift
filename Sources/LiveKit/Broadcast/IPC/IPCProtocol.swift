@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ final class IPCProtocol: NWProtocolFramerImplementation, Loggable {
 
     func handleInput(framer: NWProtocolFramer.Instance) -> Int {
         while true {
-            var tempHeader: Header? = nil
+            var tempHeader: Header?
             let parsed = framer.parseInput(
                 minimumIncompleteLength: Header.encodedSize,
                 maximumLength: Header.encodedSize

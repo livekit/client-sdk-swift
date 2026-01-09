@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,10 +84,9 @@ public enum AgentState: String, Codable, Sendable {
     case thinking
 }
 
-/// Schema for transcription-related attributes
-
 // MARK: - TranscriptionAttributes
 
+/// Schema for transcription-related attributes
 struct TranscriptionAttributes: Codable, Sendable {
     /// The segment id of the transcription
     let lkSegmentID: String?

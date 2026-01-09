@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// swiftlint:disable file_length
 
 import AVFoundation
 import Foundation
@@ -40,7 +42,7 @@ public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
         var scStream: SCStream?
         // Cached frame for resending to maintain minimum of 1 fps
         var lastFrame: LKRTCVideoFrame?
-        var resendTimer: Task<Void, Error>?
+        var resendTimer: AnyTaskCancellable?
     }
 
     private var _screenCapturerState = StateSync(State())
@@ -125,7 +127,6 @@ public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
 
         // Stop resending paused frames
         _screenCapturerState.mutate {
-            $0.resendTimer?.cancel()
             $0.resendTimer = nil
         }
 
@@ -214,6 +215,7 @@ extension MacOSScreenCapturer: SCStreamDelegate {
 
 @available(macOS 12.3, *)
 extension MacOSScreenCapturer: SCStreamOutput {
+    // swiftlint:disable:next cyclomatic_complexity
     public func stream(_: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer,
                        of outputType: SCStreamOutputType)
     {
@@ -241,7 +243,7 @@ extension MacOSScreenCapturer: SCStreamOutput {
 
             // Retrieve the content rectangle, scale, and scale factor.
             guard let contentRectDict = attachments[.contentRect],
-                  let contentRect = CGRect(dictionaryRepresentation: contentRectDict as! CFDictionary),
+                  let contentRect = CGRect(dictionaryRepresentation: contentRectDict as! CFDictionary), // swiftlint:disable:this force_cast
                   // let contentScale = attachments[.contentScale] as? CGFloat,
                   let scaleFactor = attachments[.scaleFactor] as? CGFloat else { return }
 
@@ -253,10 +255,9 @@ extension MacOSScreenCapturer: SCStreamOutput {
                     guard let self else { break }
                     try await _capturePreviousFrame()
                 }
-            }
+            }.cancellable()
 
             _screenCapturerState.mutate {
-                $0.resendTimer?.cancel()
                 $0.resendTimer = newTimer
             }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ class TTLDictionaryTests: LKTestCase {
         XCTAssertTrue(dictionary.keys.isEmpty)
         XCTAssertTrue(dictionary.values.isEmpty)
 
-        dictionary.forEach { _, _ in XCTFail() }
-        _ = dictionary.map { _, _ in XCTFail() }
+        dictionary.forEach { _, _ in XCTFail("Dictionary should be empty") }
+        _ = dictionary.map { _, _ in XCTFail("Dictionary should be empty") }
     }
 }
