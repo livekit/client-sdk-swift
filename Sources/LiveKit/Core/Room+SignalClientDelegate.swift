@@ -34,23 +34,32 @@ extension Room: SignalClientDelegate {
            // engine is currently connected state
            case .connected = _state.connectionState
         {
-            do {
-                try await startReconnect(reason: .websocket)
-            } catch {
-                log("Failed calling startReconnect, error: \(error)", .error)
+            Task {
+                do {
+                    try await startReconnect(reason: .websocket)
+                } catch {
+                    log("Failed calling startReconnect, error: \(error)", .error)
+                }
             }
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason) async {
-        log("canReconnect: \(canReconnect), reason: \(reason)")
+    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest.Action, reason: Livekit_DisconnectReason) async {
+        log("action: \(action), reason: \(reason)")
 
-        if canReconnect {
-            // force .full for next reconnect
+        let error = LiveKitError.from(reason: reason)
+        switch action {
+        case .reconnect:
+            // Force .full for next reconnect
             _state.mutate { $0.nextReconnectMode = .full }
-        } else {
-            // Server indicates it's not recoverable
-            await cleanUp(withError: LiveKitError.from(reason: reason))
+            fallthrough
+        case .resume:
+            // Abort current attempt
+            await signalClient.cleanUp(withError: error)
+        case .disconnect:
+            await cleanUp(withError: error)
+        default:
+            log("Unknown leave action: \(action), ignoring", .warning)
         }
     }
 
@@ -341,17 +350,19 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription) async {
+    func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription, offerId: UInt32) async {
+        log("Received answer for offerId: \(offerId)")
+
         do {
             let publisher = try requirePublisher()
-            try await publisher.set(remoteDescription: answer)
+            try await publisher.set(remoteDescription: answer, offerId: offerId)
         } catch {
-            log("Failed to set remote description, error: \(error)", .error)
+            log("Failed to set remote description with offerId: \(offerId), error: \(error)", .error)
         }
     }
 
-    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription) async {
-        log("Received offer, creating & sending answer...")
+    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription, offerId: UInt32) async {
+        log("Received offer with offerId: \(offerId), creating & sending answer...")
 
         guard let subscriber = _state.subscriber else {
             log("Failed to send answer, subscriber is nil", .error)
@@ -362,9 +373,9 @@ extension Room: SignalClientDelegate {
             try await subscriber.set(remoteDescription: offer)
             let answer = try await subscriber.createAnswer()
             try await subscriber.set(localDescription: answer)
-            try await signalClient.send(answer: answer)
+            try await signalClient.send(answer: answer, offerId: offerId)
         } catch {
-            log("Failed to send answer with error: \(error)", .error)
+            log("Failed to send answer for offerId: \(offerId), error: \(error)", .error)
         }
     }
 
