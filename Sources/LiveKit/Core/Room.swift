@@ -402,11 +402,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                     nextRegion = preparedRegion
                 } else if await regionManager.shouldRequestSettings() {
                     await regionManager.prepareSettingsFetch(token: token)
-                } else {
-                    // If region info already available, use it instead of provided url.
-                    let region = try await regionManager.resolveBest(token: token)
-                    nextUrl = region.url
-                    nextRegion = region
                 }
             }
         }
