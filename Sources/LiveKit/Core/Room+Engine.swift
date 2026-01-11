@@ -164,10 +164,10 @@ extension Room {
                                           primary: !isSubscriberPrimary,
                                           delegate: self)
 
-            await publisher.set { [weak self] offer in
+            await publisher.set { [weak self] offer, offerId in
                 guard let self else { return }
-                log("Publisher onOffer \(offer.sdp)")
-                try await signalClient.send(offer: offer)
+                log("Publisher onOffer with offerId: \(offerId), sdp: \(offer.sdp)")
+                try await signalClient.send(offer: offer, offerId: offerId)
             }
 
             // data over pub channel for backwards compatibility
@@ -322,7 +322,13 @@ extension Room {
 
             log("[Connect] Waiting for subscriber to connect...")
             // Wait for primary transport to connect (if not already)
-            try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
+            do {
+                try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
+                log("[Connect] Subscriber transport connected")
+            } catch {
+                log("[Connect] Subscriber transport failed to connect, error: \(error)", .error)
+                throw error
+            }
             try Task.checkCancellation()
 
             // send SyncState before offer
@@ -334,7 +340,13 @@ extension Room {
                 // Only if published, wait for publisher to connect...
                 log("[Connect] Waiting for publisher to connect...")
                 try await publisher.createAndSendOffer(iceRestart: true)
-                try await publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
+                do {
+                    try await publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
+                    log("[Connect] Publisher transport connected")
+                } catch {
+                    log("[Connect] Publisher transport failed to connect, error: \(error)", .error)
+                    throw error
+                }
             }
         }
 
@@ -488,8 +500,8 @@ extension Room {
             $0.subscribe = !autoSubscribe
         }
 
-        try await signalClient.sendSyncState(answer: previousAnswer?.toPBType(),
-                                             offer: previousOffer?.toPBType(),
+        try await signalClient.sendSyncState(answer: previousAnswer?.toPBType(offerId: 0),
+                                             offer: previousOffer?.toPBType(offerId: 0),
                                              subscription: subscription,
                                              publishTracks: localParticipant.publishedTracksInfo(),
                                              dataChannels: publisherDataChannel.infos(),

@@ -129,13 +129,15 @@ actor SignalClient: Loggable {
                                      participantSid: participantSid,
                                      adaptiveStream: adaptiveStream)
 
-        if reconnectMode != nil {
-            log("[Connect] with url: \(url)")
+        let isReconnect = reconnectMode != nil
+
+        if isReconnect {
+            log("Reconnecting with url: \(url)")
         } else {
             log("Connecting with url: \(url)")
         }
 
-        _state.mutate { $0.connectionState = (reconnectMode != nil ? .reconnecting : .connecting) }
+        _state.mutate { $0.connectionState = (isReconnect ? .reconnecting : .connecting) }
 
         do {
             let socket = try await WebSocket(url: url,
@@ -293,10 +295,12 @@ private extension SignalClient {
             await _restartPingTimer()
 
         case let .answer(sd):
-            _delegate.notifyDetached { await $0.signalClient(self, didReceiveAnswer: sd.toRTCType()) }
+            let (rtcDescription, offerId) = sd.toRTCType()
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveAnswer: rtcDescription, offerId: offerId) }
 
         case let .offer(sd):
-            _delegate.notifyDetached { await $0.signalClient(self, didReceiveOffer: sd.toRTCType()) }
+            let (rtcDescription, offerId) = sd.toRTCType()
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveOffer: rtcDescription, offerId: offerId) }
 
         case let .trickle(trickle):
             guard let rtcCandidate = try? RTC.createIceCandidate(fromJsonString: trickle.candidateInit) else {
@@ -310,6 +314,9 @@ private extension SignalClient {
 
         case let .roomUpdate(update):
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRoom: update.room) }
+
+        case let .roomMoved(response):
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveRoomMoved: response) }
 
         case let .trackPublished(trackPublished):
             log("[publish] resolving completer for cid: \(trackPublished.cid)")
@@ -329,7 +336,12 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRemoteMute: Track.Sid(from: mute.sid), muted: mute.muted) }
 
         case let .leave(leave):
-            _delegate.notifyDetached { await $0.signalClient(self, didReceiveLeave: leave.canReconnect, reason: leave.reason, regions: leave.hasRegions ? leave.regions : nil) }
+            _delegate.notifyDetached {
+                await $0.signalClient(self,
+                                      didReceiveLeave: leave.action,
+                                      reason: leave.reason,
+                                      regions: leave.hasRegions ? leave.regions : nil)
+            }
 
         case let .streamStateUpdate(states):
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateTrackStreamStates: states.streamStates) }
@@ -372,17 +384,17 @@ extension SignalClient {
 // MARK: - Send methods
 
 extension SignalClient {
-    func send(offer: LKRTCSessionDescription) async throws {
+    func send(offer: LKRTCSessionDescription, offerId: UInt32) async throws {
         let r = Livekit_SignalRequest.with {
-            $0.offer = offer.toPBType()
+            $0.offer = offer.toPBType(offerId: offerId)
         }
 
         try await _sendRequest(r)
     }
 
-    func send(answer: LKRTCSessionDescription) async throws {
+    func send(answer: LKRTCSessionDescription, offerId: UInt32) async throws {
         let r = Livekit_SignalRequest.with {
-            $0.answer = answer.toPBType()
+            $0.answer = answer.toPBType(offerId: offerId)
         }
 
         try await _sendRequest(r)
