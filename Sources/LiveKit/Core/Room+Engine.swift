@@ -280,7 +280,8 @@ extension Room {
             throw LiveKitError(.invalidState)
         }
 
-        guard let url = _state.providedUrl, let token = _state.token else {
+        let url = _state.read { $0.connectedUrl ?? $0.providedUrl }
+        guard let url, let token = _state.token else {
             log("[Connect] Url or token is nil", .error)
             throw LiveKitError(.invalidState)
         }
