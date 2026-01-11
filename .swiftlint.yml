@@ -1,4 +1,9 @@
 excluded:
+  - .build
+  - .build-test
+  - .cache
+  - .swiftpm
+  - build
   - Sources/LiveKit/Protos
 
 disabled_rules:

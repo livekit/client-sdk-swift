@@ -336,7 +336,12 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRemoteMute: Track.Sid(from: mute.sid), muted: mute.muted) }
 
         case let .leave(leave):
-            _delegate.notifyDetached { await $0.signalClient(self, didReceiveLeave: leave.action, reason: leave.reason) }
+            _delegate.notifyDetached {
+                await $0.signalClient(self,
+                                      didReceiveLeave: leave.action,
+                                      reason: leave.reason,
+                                      regions: leave.hasRegions ? leave.regions : nil)
+            }
 
         case let .streamStateUpdate(states):
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateTrackStreamStates: states.streamStates) }

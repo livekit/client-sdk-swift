@@ -280,7 +280,8 @@ extension Room {
             throw LiveKitError(.invalidState)
         }
 
-        guard let url = _state.url, let token = _state.token else {
+        let url = _state.read { $0.connectedUrl ?? $0.providedUrl }
+        guard let url, let token = _state.token else {
             log("[Connect] Url or token is nil", .error)
             throw LiveKitError(.invalidState)
         }
@@ -360,16 +361,30 @@ extension Room {
                 $0.connectionState = .reconnecting
             }
 
-            await cleanUp(isFullReconnect: true)
+            let (providedUrl, connectedUrl, token) = _state.read { ($0.providedUrl, $0.connectedUrl, $0.token) }
 
-            guard let url = _state.url,
-                  let token = _state.token
-            else {
+            guard let providedUrl, let connectedUrl, let token else {
                 log("[Connect] Url or token is nil")
                 throw LiveKitError(.invalidState)
             }
 
-            try await fullConnectSequence(url, token)
+            let finalUrl: URL
+            await cleanUp(isFullReconnect: true)
+            if providedUrl.isCloud {
+                guard let regionManager = await regionManager(for: providedUrl) else {
+                    throw LiveKitError(.onlyForCloud)
+                }
+
+                finalUrl = try await connectWithCloudRegionFailover(regionManager: regionManager,
+                                                                    initialUrl: connectedUrl,
+                                                                    initialRegion: nil,
+                                                                    token: token)
+            } else {
+                try await fullConnectSequence(connectedUrl, token)
+                finalUrl = connectedUrl
+            }
+
+            _state.mutate { $0.connectedUrl = finalUrl }
         }
 
         do {
@@ -434,6 +449,11 @@ extension Room {
                 $0.reconnectTask = nil
                 $0.isReconnectingWithMode = nil
                 $0.nextReconnectMode = nil
+            }
+
+            if let providedUrl = _state.providedUrl, providedUrl.isCloud, let regionManager = await regionManager(for: providedUrl) {
+                // Clear failed region attempts after a successful reconnect.
+                await regionManager.resetAttempts()
             }
         } catch {
             log("[Connect] Sequence failed with error: \(error)")

@@ -59,4 +59,17 @@ class HTTP: NSObject {
             throw LiveKitError(.network, message: "Validation endpoint error: \(details)")
         }
     }
+
+    static func prewarmConnection(url: URL) async {
+        // Convert WebSocket URL to HTTP for warming
+        let httpUrl = url.toHTTPUrl()
+        do {
+            var request = URLRequest(url: httpUrl)
+            request.httpMethod = "HEAD"
+            request.timeoutInterval = 10
+            _ = try await session.data(for: request)
+        } catch {
+            // Silently fail - connection warming is best effort
+        }
+    }
 }

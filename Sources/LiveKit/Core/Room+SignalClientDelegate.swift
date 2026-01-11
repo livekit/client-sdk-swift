@@ -44,8 +44,12 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest.Action, reason: Livekit_DisconnectReason) async {
+    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest.Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?) async {
         log("action: \(action), reason: \(reason)")
+
+        if let regions, let providedUrl = _state.providedUrl, let regionManager = await regionManager(for: providedUrl) {
+            await regionManager.updateFromServerReportedRegions(regions)
+        }
 
         let error = LiveKitError.from(reason: reason)
         switch action {
