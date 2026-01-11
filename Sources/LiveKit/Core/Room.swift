@@ -86,9 +86,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     @objc
     public var publishersCount: Int { _state.numPublishers }
 
-    // expose engine's vars
     @objc
+    /// User-provided URL.
     public var url: String? { _state.providedUrl?.absoluteString }
+
+    @objc
+    /// Actual server URL used for the current connection (may include a regional URL).
+    public var connectedUrl: String? { _state.connectedUrl?.absoluteString }
 
     @objc
     public var token: String? { _state.token }
