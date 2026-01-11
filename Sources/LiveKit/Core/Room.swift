@@ -355,6 +355,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             _state.mutate { $0.connectOptions = connectOptions }
         }
 
+        let preparedSnapshot = _state.read { (region: $0.preparedRegion, url: $0.providedUrl) }
+
         await cleanUp()
 
         try Task.checkCancellation()
@@ -376,12 +378,18 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             publisherDataChannel.e2eeManager = nil
         }
 
-        if _state.preparedRegion != nil, _state.providedUrl != providedUrl {
+        let isPreparedUrlMatching = if let existing = preparedSnapshot.url {
+            existing.matchesRegionManagerKey(of: providedUrl)
+        } else {
+            false
+        }
+
+        if preparedSnapshot.region != nil, !isPreparedUrlMatching {
             log("Discarding prepared region, URL changed to \(providedUrl)", .info)
         }
 
         let preparedRegion = _state.mutate { state -> RegionInfo? in
-            let prepared = (state.providedUrl == providedUrl) ? state.preparedRegion : nil
+            let prepared = isPreparedUrlMatching ? preparedSnapshot.region : nil
             state.preparedRegion = nil
             state.providedUrl = providedUrl
             state.token = token
