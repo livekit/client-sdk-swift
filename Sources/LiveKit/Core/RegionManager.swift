@@ -69,15 +69,6 @@ actor RegionManager: Loggable {
         _ = startSettingsFetchIfNeeded(token: token)
     }
 
-    func tryResolveBest(token: String) async -> RegionInfo? {
-        do {
-            return try await resolveBest(token: token)
-        } catch {
-            log("[Region] Failed to resolve best region: \(error)", .warning)
-            return nil
-        }
-    }
-
     func resolveBest(token: String) async throws -> RegionInfo {
         try await requestSettingsIfNeeded(token: token)
         guard let selected = state.remaining.first else {

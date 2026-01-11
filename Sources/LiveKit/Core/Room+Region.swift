@@ -54,16 +54,14 @@ extension Room {
     //
     // With LiveKit Cloud, it will also determine the best edge data center for
     // the current client to connect to if a token is provided.
-    public func prepareConnection(url providedUrlString: String, token: String? = nil) async {
+    public func prepareConnection(url providedUrlString: String, token: String? = nil) async throws {
         // Must be in disconnected state.
         guard _state.connectionState == .disconnected else {
-            log("Room is not in disconnected state", .info)
-            return
+            throw LiveKitError(.stateMismatch, message: "Cannot prepare connection when in state \(_state.connectionState)")
         }
 
         guard let providedUrl = URL(string: providedUrlString), providedUrl.isValidForConnect else {
-            log("URL parse failed", .error)
-            return
+            throw LiveKitError(.failedToParseUrl, message: "Invalid URL: \(providedUrlString)")
         }
 
         log("Preparing connection to \(providedUrlString)")
@@ -76,23 +74,25 @@ extension Room {
             }
 
             guard let regionManager = await regionManager(for: providedUrl) else {
-                await HTTP.prewarmConnection(url: providedUrl)
-                log("Prepared connection to \(providedUrl)")
+                Task {
+                    await HTTP.prewarmConnection(url: providedUrl)
+                    log("Prepared connection to \(providedUrl)")
+                }
                 return
             }
 
-            if let bestRegion = await regionManager.tryResolveBest(token: token) {
-                _state.mutate { $0.preparedRegion = bestRegion }
+            let bestRegion = try await regionManager.resolveBest(token: token)
+            _state.mutate { $0.preparedRegion = bestRegion }
+            Task {
                 await HTTP.prewarmConnection(url: bestRegion.url)
                 log("Prepared connection to \(bestRegion.url)")
-            } else {
-                await HTTP.prewarmConnection(url: providedUrl)
-                log("Prepared connection to \(providedUrl)")
             }
         } else {
             // Not cloud or no token, just warm the provided URL
-            await HTTP.prewarmConnection(url: providedUrl)
-            log("Prepared connection to \(providedUrl)")
+            Task {
+                await HTTP.prewarmConnection(url: providedUrl)
+                log("Prepared connection to \(providedUrl)")
+            }
         }
     }
 
