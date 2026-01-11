@@ -355,7 +355,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             _state.mutate { $0.connectOptions = connectOptions }
         }
 
-        let preparedSnapshot = _state.read { (region: $0.preparedRegion, url: $0.providedUrl) }
+        let preparedRegion = consumePreparedRegion(for: providedUrl)
 
         await cleanUp()
 
@@ -378,23 +378,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             publisherDataChannel.e2eeManager = nil
         }
 
-        let isPreparedUrlMatching = if let existing = preparedSnapshot.url {
-            existing.matchesRegionManagerKey(of: providedUrl)
-        } else {
-            false
-        }
-
-        if preparedSnapshot.region != nil, !isPreparedUrlMatching {
-            log("Discarding prepared region, URL changed to \(providedUrl)", .info)
-        }
-
-        let preparedRegion = _state.mutate { state -> RegionInfo? in
-            let prepared = isPreparedUrlMatching ? preparedSnapshot.region : nil
-            state.preparedRegion = nil
-            state.providedUrl = providedUrl
-            state.token = token
-            state.connectionState = .connecting
-            return prepared
+        _state.mutate {
+            $0.providedUrl = providedUrl
+            $0.token = token
+            $0.connectionState = .connecting
         }
 
         var nextUrl = providedUrl

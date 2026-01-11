@@ -98,6 +98,25 @@ extension Room {
 
     // MARK: - Internal
 
+    func consumePreparedRegion(for providedUrl: URL) -> RegionInfo? {
+        let snapshot = _state.read { (region: $0.preparedRegion, url: $0.providedUrl) }
+        let isPreparedUrlMatching = if let existing = snapshot.url {
+            existing.matchesRegionManagerKey(of: providedUrl)
+        } else {
+            false
+        }
+
+        if snapshot.region != nil, !isPreparedUrlMatching {
+            log("Discarding prepared region, URL changed to \(providedUrl)", .info)
+        }
+
+        return _state.mutate { state -> RegionInfo? in
+            let prepared = isPreparedUrlMatching ? snapshot.region : nil
+            state.preparedRegion = nil
+            return prepared
+        }
+    }
+
     /// Connects using LiveKit Cloud region settings and fails over across regions on retryable errors.
     func connectWithCloudRegionFailover(
         regionManager: RegionManager,
