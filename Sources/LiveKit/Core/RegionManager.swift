@@ -29,7 +29,7 @@ actor RegionManager: Loggable {
 
     nonisolated let providedUrl: URL
     private var state = State()
-    private var settingsFetchTask: Task<Void, Error>?
+    private var settingsFetchTask: Task<[RegionInfo], Error>?
     private var settingsFetchTaskId: UUID?
 
     init(providedUrl: URL) {
@@ -117,7 +117,7 @@ actor RegionManager: Loggable {
 
     // MARK: - Private
 
-    private func startSettingsFetchIfNeeded(token: String) -> Task<Void, Error> {
+    private func startSettingsFetchIfNeeded(token: String) -> Task<[RegionInfo], Error> {
         if let task = settingsFetchTask { return task }
 
         let taskId = UUID()
@@ -130,6 +130,7 @@ actor RegionManager: Loggable {
                 let allRegions = try Self.parseRegionSettings(data: data)
                 try Task.checkCancellation()
                 applyFetchedRegions(allRegions)
+                return allRegions
             } catch {
                 log("[Region] Failed to fetch region settings: \(error)", .error)
                 throw error
@@ -147,7 +148,7 @@ actor RegionManager: Loggable {
 
         guard shouldRequestSettings() else { return }
         let task = startSettingsFetchIfNeeded(token: token)
-        try await task.value
+        _ = try await task.value
     }
 
     private func applyFetchedRegions(_ allRegions: [RegionInfo]) {

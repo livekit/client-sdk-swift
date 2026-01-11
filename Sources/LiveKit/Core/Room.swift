@@ -86,12 +86,12 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     @objc
     public var publishersCount: Int { _state.numPublishers }
 
-    @objc
     /// User-provided URL.
+    @objc
     public var url: String? { _state.providedUrl?.absoluteString }
 
-    @objc
     /// Actual server URL used for the current connection (may include a regional URL).
+    @objc
     public var connectedUrl: String? { _state.connectedUrl?.absoluteString }
 
     @objc
@@ -327,7 +327,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     }
 
     @objc
-    // swiftlint:disable:next function_body_length
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     public func connect(url urlString: String,
                         token: String,
                         connectOptions: ConnectOptions? = nil,

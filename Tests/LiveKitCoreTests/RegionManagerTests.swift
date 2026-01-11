@@ -120,7 +120,7 @@ class RegionManagerTests: XCTestCase {
         MockURLProtocol.setRequestHandler { (_: URLRequest) in
             MockURLProtocol.Response(statusCode: 401,
                                      headers: [:],
-                                     body: "not allowed".data(using: .utf8)!)
+                                     body: Data("not allowed".utf8))
         }
         URLProtocol.registerClass(MockURLProtocol.self)
 
@@ -143,7 +143,7 @@ class RegionManagerTests: XCTestCase {
         MockURLProtocol.setRequestHandler { (_: URLRequest) in
             MockURLProtocol.Response(statusCode: 500,
                                      headers: [:],
-                                     body: "server error".data(using: .utf8)!)
+                                     body: Data("server error".utf8))
         }
         URLProtocol.registerClass(MockURLProtocol.self)
 

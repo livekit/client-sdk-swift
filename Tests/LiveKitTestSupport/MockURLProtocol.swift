@@ -58,6 +58,7 @@ public final class MockURLProtocol: URLProtocol {
         }
     }
 
+    // swiftlint:disable:next static_over_final_class
     override public class func canInit(with request: URLRequest) -> Bool {
         guard let url = request.url else { return false }
         guard url.scheme == "http" || url.scheme == "https" else { return false }
@@ -67,6 +68,7 @@ public final class MockURLProtocol: URLProtocol {
         return true
     }
 
+    // swiftlint:disable:next static_over_final_class
     override public class func canonicalRequest(for request: URLRequest) -> URLRequest {
         request
     }
