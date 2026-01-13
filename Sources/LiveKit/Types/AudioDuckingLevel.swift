@@ -17,10 +17,10 @@
 internal import LiveKitWebRTC
 
 public enum AudioDuckingLevel: Int {
-    case `default` = 0
-    case min = 10
-    case mid = 20
-    case max = 30
+    case `default`
+    case min
+    case mid
+    case max
 }
 
 extension AudioDuckingLevel {
