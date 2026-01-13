@@ -216,14 +216,33 @@ public class AudioManager: Loggable {
         set { _state.mutate { $0.onMutedSpeechActivity = newValue } }
     }
 
-    /// Enables advanced ducking which ducks other audio based on the presence of voice activity from local and remote chat participants.
-    /// Default: false.
+    /// Enables "advanced ducking" of *other audio* while using Apple's voice processing APIs.
+    ///
+    /// When enabled, the system dynamically adjusts ducking based on the presence of voice activity from
+    /// either side of the call: it applies more ducking when someone is speaking and reduces ducking
+    /// when neither side is speaking (SharePlay / FaceTime-like behavior).
+    ///
+    /// Defaults to `false` (SDK default), which keeps a fixed ducking behavior with minimal ducking.
+    /// This is intended to keep other audio as loud as possible by default.
+    ///
+    /// - Note: This only affects how non-voice audio is reduced. It does not change the level of
+    ///   the voice-chat stream itself.
+    /// - SeeAlso: ``duckingLevel``
     public var isAdvancedDuckingEnabled: Bool {
         get { RTC.audioDeviceModule.isAdvancedDuckingEnabled }
         set { RTC.audioDeviceModule.isAdvancedDuckingEnabled = newValue }
     }
 
-    /// The ducking(audio reducing) level of other audio.
+    /// Controls how much *other audio* is reduced ("ducked") while using Apple's voice processing APIs.
+    ///
+    /// The level and ``isAdvancedDuckingEnabled`` can be used independently:
+    /// - Use higher values (for example ``AudioDuckingLevel/max``) for better voice intelligibility.
+    /// - Use lower values (for example ``AudioDuckingLevel/min``) to keep other audio as loud as possible.
+    ///
+    /// Defaults to ``AudioDuckingLevel/min`` (SDK default), which keeps other audio as loud as possible.
+    /// Higher levels are opt-in and trade other-audio loudness for better voice intelligibility.
+    ///
+    /// ``AudioDuckingLevel/default`` matches Apple's historical fixed ducking amount (not the SDK default).
     @available(iOS 17, macOS 14.0, visionOS 1.0, *)
     public var duckingLevel: AudioDuckingLevel {
         get { RTC.audioDeviceModule.duckingLevel.toLKType() }
@@ -293,7 +312,7 @@ public class AudioManager: Loggable {
     ///
     /// - Parameter enabled: Pass `true` to enable always-prepared recording, or `false` to disable it.
     /// - Note: If `audioSession.isAutomaticConfigurationEnabled` is `true`, the session category is configured to `.playAndRecord`.
-    /// - Note: Microphone permission is required; iOS may prompt if not already granted.
+    /// - Note: Microphone permission is required. iOS may prompt if not already granted.
     /// - Note: This persists across ``Room`` lifecycles and connections until disabled.
     /// - Throws: An error if the underlying audio device module fails to apply the setting.
     public func setRecordingAlwaysPreparedMode(_ enabled: Bool) async throws {

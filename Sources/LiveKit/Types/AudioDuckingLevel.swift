@@ -16,10 +16,20 @@
 
 internal import LiveKitWebRTC
 
+/// The amount of volume reduction ("ducking") applied to *other audio* while using Apple's voice processing APIs.
+///
+/// *Other audio* is any playback that is not the voice-chat stream rendered through the voice processing path
+/// (for example, media playback in your app outside the SDK, or audio from other apps).
+///
+/// Use this with ``AudioManager/duckingLevel``.
 public enum AudioDuckingLevel: Int {
+    /// Matches Apple's historical fixed ducking amount (not the SDK default).
     case `default`
+    /// Minimizes ducking (keeps other audio as loud as possible).
     case min
+    /// Medium ducking.
     case mid
+    /// Maximizes ducking (reduces other audio the most, improving voice intelligibility).
     case max
 }
 
