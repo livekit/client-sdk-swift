@@ -14,9 +14,34 @@
  * limitations under the License.
  */
 
+internal import LiveKitWebRTC
+
 public enum AudioDuckingLevel: Int {
     case `default` = 0
     case min = 10
     case mid = 20
     case max = 30
+}
+
+extension AudioDuckingLevel {
+    func toRTCType() -> LKRTCAudioDuckingLevel {
+        switch self {
+        case .default: .default
+        case .min: .min
+        case .mid: .mid
+        case .max: .max
+        }
+    }
+}
+
+extension LKRTCAudioDuckingLevel {
+    func toLKType() -> AudioDuckingLevel {
+        switch self {
+        case .default: return .default
+        case .min: return .min
+        case .mid: return .mid
+        case .max: return .max
+        @unknown default: return .default
+        }
+    }
 }

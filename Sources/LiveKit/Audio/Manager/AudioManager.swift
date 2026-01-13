@@ -217,7 +217,7 @@ public class AudioManager: Loggable {
     }
 
     /// Enables advanced ducking which ducks other audio based on the presence of voice activity from local and remote chat participants.
-    /// Default: true.
+    /// Default: false.
     public var isAdvancedDuckingEnabled: Bool {
         get { RTC.audioDeviceModule.isAdvancedDuckingEnabled }
         set { RTC.audioDeviceModule.isAdvancedDuckingEnabled = newValue }
@@ -226,8 +226,8 @@ public class AudioManager: Loggable {
     /// The ducking(audio reducing) level of other audio.
     @available(iOS 17, macOS 14.0, visionOS 1.0, *)
     public var duckingLevel: AudioDuckingLevel {
-        get { AudioDuckingLevel(rawValue: RTC.audioDeviceModule.duckingLevel) ?? .default }
-        set { RTC.audioDeviceModule.duckingLevel = newValue.rawValue }
+        get { RTC.audioDeviceModule.duckingLevel.toLKType() }
+        set { RTC.audioDeviceModule.duckingLevel = newValue.toRTCType() }
     }
 
     /// The main flag that determines whether to enable Voice-Processing I/O of the internal AVAudioEngine. Toggling this requires restarting the AudioEngine.
