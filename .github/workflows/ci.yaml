@@ -18,7 +18,7 @@ concurrency:
 env:
   TEST_TARGETS: "LiveKitCoreTests LiveKitObjCTests"
   TEST_TIMEOUT_MINUTES: 15
-  TEST_RETRY_ATTEMPTS: 3
+  TEST_RETRY_ATTEMPTS: 2
 
 jobs:
   build-and-test:
@@ -176,7 +176,12 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install SwiftLint
+        run: brew install swiftlint
+      - name: SwiftLint
+        run: swiftlint lint --strict --reporter github-actions-logging
       - name: SwiftFormat Lint
+        if: always()
         run: swiftformat --lint . --reporter github-actions-log
         # Comes pre-installed on macOS runners
   build-docs:

@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ public final class ConnectOptions: NSObject, Sendable {
         iceServers = []
         iceTransportPolicy = .all
         enableMicrophone = false
-        protocolVersion = .v12
+        protocolVersion = .v16
     }
 
     @objc
@@ -107,7 +107,7 @@ public final class ConnectOptions: NSObject, Sendable {
                 iceServers: [IceServer] = [],
                 iceTransportPolicy: IceTransportPolicy = .all,
                 enableMicrophone: Bool = false,
-                protocolVersion: ProtocolVersion = .v12)
+                protocolVersion: ProtocolVersion = .v16)
     {
         self.autoSubscribe = autoSubscribe
         self.reconnectAttempts = reconnectAttempts

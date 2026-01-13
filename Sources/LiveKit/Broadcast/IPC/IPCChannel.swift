@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -114,7 +114,7 @@ final class IPCChannel: Sendable {
             guard let rawMessage = try await upstream.next() else {
                 return nil
             }
-            let (data, context, isComplete) = rawMessage
+            let (data, context, isComplete) = (rawMessage.data, rawMessage.context, rawMessage.isComplete)
             guard let data, isComplete else { return nil }
 
             guard let payloadSize = context?.ipcMessagePayloadSize,
@@ -223,7 +223,11 @@ private extension NWConnection {
         AsyncMessageSequence(connection: self)
     }
 
-    typealias IncomingMessage = (Data?, NWConnection.ContentContext?, Bool)
+    struct IncomingMessage {
+        let data: Data?
+        let context: NWConnection.ContentContext?
+        let isComplete: Bool
+    }
 
     struct AsyncMessageSequence: AsyncSequence, AsyncIteratorProtocol {
         let connection: NWConnection
@@ -243,7 +247,7 @@ private extension NWConnection {
         try await withCheckedThrowingContinuation { [weak self] continuation in
             self?.receiveMessage { data, context, isComplete, error in
                 guard let error else {
-                    continuation.resume(returning: (data, context, isComplete))
+                    continuation.resume(returning: IncomingMessage(data: data, context: context, isComplete: isComplete))
                     return
                 }
                 continuation.resume(throwing: error)

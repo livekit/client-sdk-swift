@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,20 @@ import Foundation
 public enum ProtocolVersion: Int, Sendable {
     case v8 = 8
     case v9 = 9
-    case v10 = 10 /// Sync stream id
-    case v11 = 11 /// Supports ``ConnectionQuality/lost``
-    case v12 = 12 /// Faster room join (delayed ``Room/sid``)
+    /// Sync stream id
+    case v10 = 10
+    /// Supports ``ConnectionQuality/lost``
+    case v11 = 11
+    /// Faster room join (delayed ``Room/sid``)
+    case v12 = 12
+    /// Regions in leave request, `canReconnect` obsoleted by `action`
+    case v13 = 13
+    /// Intermediate version preparing for non-error signal responses
+    case v14 = 14
+    /// Supports move participant and non-error signal responses
+    case v15 = 15
+    /// Latest version
+    case v16 = 16
 }
 
 // MARK: - Comparable

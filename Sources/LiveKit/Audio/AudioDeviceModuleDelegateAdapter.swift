@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,12 +70,14 @@ class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate
         return entryPoint?.engineWillRelease(engine) ?? 0
     }
 
+    // swiftlint:disable:next function_parameter_count
     func audioDeviceModule(_: LKRTCAudioDeviceModule, engine: AVAudioEngine, configureInputFromSource src: AVAudioNode?, toDestination dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int {
         guard let audioManager else { return 0 }
         let entryPoint = audioManager.buildEngineObserverChain()
         return entryPoint?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context) ?? 0
     }
 
+    // swiftlint:disable:next function_parameter_count
     func audioDeviceModule(_: LKRTCAudioDeviceModule, engine: AVAudioEngine, configureOutputFromSource src: AVAudioNode, toDestination dst: AVAudioNode?, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int {
         guard let audioManager else { return 0 }
         let entryPoint = audioManager.buildEngineObserverChain()

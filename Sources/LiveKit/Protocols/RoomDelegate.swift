@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,6 +86,10 @@ public protocol RoomDelegate: AnyObject, Sendable {
     /// ``Room/isRecording`` has updated.
     @objc optional
     func room(_ room: Room, didUpdateIsRecording isRecording: Bool)
+
+    /// The ``LocalParticipant`` was moved to a different room.
+    @objc optional
+    func room(_ room: Room, didMoveToRoomNamed roomName: String)
 
     // MARK: - Participant Management
 

@@ -41,7 +41,7 @@ Add the dependency and also to your target
 let package = Package(
   ...
   dependencies: [
-    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("2.10.2")),
+    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("2.11.0")),
   ],
   targets: [
     .target(
@@ -59,6 +59,10 @@ Go to Project Settings -> Swift Packages.
 Add a new package and enter: `https://github.com/livekit/client-sdk-swift`
 
 ### CocoaPods
+
+> [!IMPORTANT]
+>
+> **CocoaPods support is deprecated**. The main [CocoaPods trunk](https://blog.cocoapods.org/CocoaPods-Specs-Repo/) repo as well as LiveKit [podspecs](https://github.com/livekit/podspecs) repo will become read-only and stop receiving updates starting in **2027**. It is strongly recommended to migrate to Swift Package Manager to ensure access to the latest features and security updates.
 
 For installation using CocoaPods, please refer to this [guide](./Docs/cocoapods.md).
 

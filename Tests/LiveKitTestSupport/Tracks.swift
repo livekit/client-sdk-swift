@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ public extension LKTestCase {
     #endif
 
     // Creates a LocalVideoTrack with BufferCapturer, generates frames for approx 30 seconds
+    // swiftlint:disable:next function_body_length
     func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @Sendable @escaping (CMSampleBuffer) -> Void) async throws -> (Task<Void, any Error>) {
         // Sample video
         let url = URL(string: "https://storage.unxpected.co.jp/public/sample-videos/ocean-1080p.mp4")!
@@ -174,10 +175,8 @@ public class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendabl
                 onDidRenderFirstFrame?(id)
             }
 
-            for (key, value) in $0.expectationsForDimensions {
-                if frame.dimensions.area >= key.area {
-                    value.fulfill()
-                }
+            for (key, value) in $0.expectationsForDimensions where frame.dimensions.area >= key.area {
+                value.fulfill()
             }
         }
     }
@@ -201,10 +200,8 @@ public class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendabl
                     $0.detectedCodecs.insert(codecName)
 
                     // Check if any codec expectations match
-                    for (expectedCodec, expectation) in $0.expectationsForCodecs {
-                        if expectedCodec.name.lowercased() == codecName {
-                            expectation.fulfill()
-                        }
+                    for (expectedCodec, expectation) in $0.expectationsForCodecs where expectedCodec.name.lowercased() == codecName {
+                        expectation.fulfill()
                     }
                 }
             }

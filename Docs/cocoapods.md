@@ -1,5 +1,9 @@
 # CocoaPods Installation
 
+> [!IMPORTANT]
+>
+> **CocoaPods support is deprecated**. The main [CocoaPods trunk](https://blog.cocoapods.org/CocoaPods-Specs-Repo/) repo as well as LiveKit [podspecs](https://github.com/livekit/podspecs) repo will become read-only and stop receiving updates starting in **2027**. It is strongly recommended to migrate to Swift Package Manager to ensure access to the latest features and security updates.
+
 To install LiveKit using CocoaPods, add the LiveKit podspec source to your
 Podfile in addition to adding the pod:
 

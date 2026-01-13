@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ internal import LiveKitWebRTC
 actor Transport: NSObject, Loggable {
     // MARK: - Types
 
-    typealias OnOfferBlock = @Sendable (LKRTCSessionDescription) async throws -> Void
+    typealias OnOfferBlock = @Sendable (LKRTCSessionDescription, UInt32) async throws -> Void
 
     // MARK: - Public
 
@@ -56,6 +56,7 @@ actor Transport: NSObject, Loggable {
     private var _reNegotiate: Bool = false
     private var _onOffer: OnOfferBlock?
     private var _isRestartingIce: Bool = false
+    private var _latestOfferId: UInt32 = 0
 
     // forbid direct access to PeerConnection
     private let _pc: LKRTCPeerConnection
@@ -110,6 +111,20 @@ actor Transport: NSObject, Loggable {
         await _iceCandidatesQueue.process(candidate, if: remoteDescription != nil && !_isRestartingIce)
     }
 
+    func set(remoteDescription sd: LKRTCSessionDescription, offerId: UInt32) async throws {
+        if signalingState != .haveLocalOffer {
+            log("Received answer with unexpected signaling state: \(signalingState), expected .haveLocalOffer", .warning)
+        }
+
+        if offerId == 0 {
+            log("Skipping validation for legacy server (missing offerId), latestOfferId: \(_latestOfferId)", .warning)
+        } else if offerId != _latestOfferId {
+            throw LiveKitError(.invalidState, message: "OfferId mismatch, expected \(_latestOfferId) but got \(offerId)")
+        }
+
+        try await set(remoteDescription: sd)
+    }
+
     func set(remoteDescription sd: LKRTCSessionDescription) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             _pc.setRemoteDescription(sd) { error in
@@ -157,12 +172,14 @@ actor Transport: NSObject, Loggable {
 
         // Actually negotiate
         func _negotiateSequence() async throws {
+            _latestOfferId += 1
             let offer = try await createOffer(for: constraints)
             try await set(localDescription: offer)
-            try await _onOffer(offer)
+            try await _onOffer(offer, _latestOfferId)
         }
 
         if signalingState == .haveLocalOffer, iceRestart, let sd = remoteDescription {
+            _reNegotiate = false // Clear flag to prevent double offer
             try await set(remoteDescription: sd)
             return try await _negotiateSequence()
         }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -125,8 +125,7 @@ public extension LocalParticipant {
         onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
-            do { try await onCompletion(sendText(text, options: options)) }
-            catch { onError?(error) }
+            do { try await onCompletion(sendText(text, options: options)) } catch { onError?(error) }
         }
     }
 
@@ -139,8 +138,7 @@ public extension LocalParticipant {
         onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
-            do { try await onCompletion(sendFile(fileURL, options: options)) }
-            catch { onError?(error) }
+            do { try await onCompletion(sendFile(fileURL, options: options)) } catch { onError?(error) }
         }
     }
 
@@ -152,8 +150,7 @@ public extension LocalParticipant {
         onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
-            do { try await streamHandler(streamText(options: options)) }
-            catch { onError?(error) }
+            do { try await streamHandler(streamText(options: options)) } catch { onError?(error) }
         }
     }
 
@@ -165,8 +162,7 @@ public extension LocalParticipant {
         onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
-            do { try await streamHandler(streamBytes(options: options)) }
-            catch { onError?(error) }
+            do { try await streamHandler(streamBytes(options: options)) } catch { onError?(error) }
         }
     }
 }
