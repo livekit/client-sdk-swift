@@ -1,0 +1,29 @@
+excluded:
+  - .build
+  - .build-test
+  - .cache
+  - .swiftpm
+  - build
+  - Sources/LiveKit/Protos
+
+disabled_rules:
+  - todo
+  - nesting
+  - identifier_name
+  - multiple_closures_with_trailing_closure
+  # SwiftFormat conflicts
+  - trailing_comma
+  - line_length
+  - opening_brace
+
+type_name:
+  excluded:
+    - ID
+    - OS
+
+custom_rules:
+  no_manual_task_management:
+    name: "No Manual Task Management"
+    regex: "(let|var)\\s+\\w+\\s*:\\s*Task<Void,"
+    message: "Prefer AnyTaskCancellable over manually managing Task<Void, ...>. This allows for safer cleanup, similar to Combine's AnyCancellable."
+    severity: warning

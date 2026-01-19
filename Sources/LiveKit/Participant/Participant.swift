@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -114,6 +114,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
 
     let _publishSerialRunner = SerialRunnerActor<LocalTrackPublication?>()
 
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     init(room: Room, sid: Sid? = nil, identity: Identity? = nil) {
         _room = room
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// swiftlint:disable file_length
 
 @preconcurrency import AVFoundation
 import Foundation
@@ -149,6 +151,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         return try await restartCapture()
     }
 
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     override public func startCapture() async throws -> Bool {
         let didStart = try await super.startCapture()
 
@@ -199,7 +202,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
 
         // default to the largest supported dimensions (backup)
         var selectedFormat = sortedFormats.last
-        var selectedPredicateName: String? = nil
+        var selectedPredicateName: String?
 
         if let preferredFormat = options.preferredFormat,
            let foundFormat = sortedFormats.first(where: { $0.format == preferredFormat })

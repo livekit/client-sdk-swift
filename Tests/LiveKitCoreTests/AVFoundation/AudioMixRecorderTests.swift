@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ final class AudioMixRecorderTests: LKTestCase {
         AVLinearPCMIsBigEndianKey: false,
     ]
 
+    // swiftlint:disable:next function_body_length
     func testRecord() async throws {
         // Sample audio 1
         let audio1Url = URL(string: "https://github.com/audio-samples/audio-samples.github.io/raw/refs/heads/master/samples/mp3/music/sample-3.mp3")!

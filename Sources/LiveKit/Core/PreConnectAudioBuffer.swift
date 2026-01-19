@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         weak var room: Room?
         var recorder: LocalAudioTrackRecorder?
         var audioStream: LocalAudioTrackRecorder.Stream?
-        var timeoutTask: Task<Void, Error>?
+        var timeoutTask: AnyTaskCancellable?
         var sent: Bool = false
         var onError: OnError?
     }
@@ -94,7 +94,6 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         let stream = try await newRecorder.start()
         log("Started capturing audio", .info)
 
-        state.timeoutTask?.cancel()
         state.mutate { state in
             state.recorder = newRecorder
             state.audioStream = stream
@@ -102,7 +101,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
                 try await Task.sleep(nanoseconds: UInt64(timeout) * NSEC_PER_SEC)
                 try Task.checkCancellation()
                 self?.stopRecording(flush: true)
-            }
+            }.cancellable()
             state.sent = false
         }
     }
