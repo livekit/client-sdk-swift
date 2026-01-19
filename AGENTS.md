@@ -54,6 +54,22 @@ Key components:
 
 Dependencies: LiveKitWebRTC, LiveKitUniFFI, SwiftProtobuf, swift-collections.
 
+## WebRTC
+
+WebRTC handles the actual media transport (audio/video/data) between participants. The SDK abstracts WebRTC complexity behind `Room`, `Participant`, and `Track` APIs while LiveKit server coordinates signaling.
+
+Key files:
+
+- `Core/RTC.swift` - factory for creating WebRTC objects (peer connections, tracks, data channels, etc.)
+- `Core/Transport.swift` - wraps `LKRTCPeerConnection`; handles ICE candidates, SDP offer/answer
+- `Audio/Manager/` - `AudioManager` and `AudioDeviceModule` integration
+- `Extensions/RTC*.swift` - convenience extensions on WebRTC types
+
+Threading:
+
+- All WebRTC API calls must use `DispatchQueue.liveKitWebRTC.sync { ... }` for thread safety
+- WebRTC types are accessed via `internal import LiveKitWebRTC` to keep them private from public API
+
 ## Testing
 
 - `LiveKitCoreTests` - unit tests and E2E tests; run on macOS or simulators
