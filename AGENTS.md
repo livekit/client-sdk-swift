@@ -20,6 +20,13 @@ Build instructions:
 
 ## Testing
 
+- Business logic is tested inside `LiveKitCoreTests` target, whereas `LiveKitAudioTests` require real device
+- Core components with cleanly defined interfaces should be unit-testable
+- E2E tests are built on top of `withRoom` helper that can spawn multiple `Room`/`Participant` combinations in order to listen for changes
+- E2E tests should cover all known edge cases like reconnects, partial updates, inconsistent states, etc.
+- E2E tests can include stress tests
+- Use `XCTest` with `LiveKitTestSupport` if necessary
+
 ## Using Swift
 
 ### Language version
@@ -61,9 +68,12 @@ public static let shared = AudioManager()
 
 ### Error handling
 
+- Crashing the consumer code by `fatalError()` and similar assertions is **not allowed**
+- `assert()`/`precondition()` should be avoided
 - While designing a new API consider defensive programming techniques first (retry, backoff, graceful failure) if possible for recoverable errors
 - For non-recoverable errors, propagate them with `throws` using existing/new instance of `LiveKitError` with proper type/code
 - Obvious invalid states (e.g. empty optional, invalid transition) should be anticipated at compile time if possible by leveraging lock patterns, algebraic data types, typestates, etc.
+- Unsafe APIs such as using subscript by index `[0]` should be wrapped and leverage `Optional` etc.
 
 ### Coding style
 
