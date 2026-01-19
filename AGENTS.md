@@ -107,6 +107,7 @@ public static let shared = AudioManager()
 - `actor` can use `nonisolated` entry points to integrate with `public` code
 - A common pattern is an internal "event loop" to process incoming data in FIFO order
 - For synchronous/`nonisolated` APIs (getters), use `StateSync` with locking and `@unchecked Sendable` (see `Support/Sync`)
+- Do not add any new synchronization primitives (locks, queues)
 - Minimize lock contention by grouping reads/writes under one `state.mutate { ... }` call
 - `@unchecked Sendable` on a class requires reviewing its internals for synchronization
 - Avoid `@MainActor` for synchronization of static members in non-UI components
