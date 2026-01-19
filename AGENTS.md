@@ -148,3 +148,36 @@ public static let shared = AudioManager()
 - This restricts Swift types (no enums with associated values, structs, async primitives)
 - Internal/private APIs should **not** support Obj-C unless required; use Swift's type system
 - If Obj-C leads to awkward patterns, wrap Swift in additional layers rather than sacrificing Swift APIs
+
+<skills_system priority="1">
+
+## Available Skills
+
+<!-- SKILLS_TABLE_START -->
+<usage>
+When users ask you to perform tasks, check if any of the available skills below can help complete the task more effectively. Skills provide specialized capabilities and domain knowledge.
+
+How to use skills:
+- Invoke: `npx openskills read <skill-name>` (run in your shell)
+  - For multiple: `npx openskills read skill-one,skill-two`
+- The skill content will load with detailed instructions on how to complete the task
+- Base directory provided in output for resolving bundled resources (references/, scripts/, assets/)
+
+Usage notes:
+- Only use skills listed in <available_skills> below
+- Do not invoke a skill that is already loaded in your context
+- Each skill invocation is stateless
+</usage>
+
+<available_skills>
+
+<skill>
+<name>swift-concurrency</name>
+<description>'Expert guidance on Swift Concurrency best practices, patterns, and implementation. Use when developers mention: (1) Swift Concurrency, async/await, actors, or tasks, (2) "use Swift Concurrency" or "modern concurrency patterns", (3) migrating to Swift 6, (4) data races or thread safety issues, (5) refactoring closures to async/await, (6) @MainActor, Sendable, or actor isolation, (7) concurrent code architecture or performance optimization, (8) concurrency-related linter warnings (SwiftLint or similar; e.g. async_without_await, Sendable/actor isolation/MainActor lint).'</description>
+<location>global</location>
+</skill>
+
+</available_skills>
+<!-- SKILLS_TABLE_END -->
+
+</skills_system>
