@@ -137,6 +137,8 @@ extension Room {
                 rtcConfiguration.iceTransportPolicy = connectOptions.iceTransportPolicy.toRTCType()
             }
 
+            rtcConfiguration.enableDscp = connectOptions.enableDscp
+
             return rtcConfiguration
         }
 
