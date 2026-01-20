@@ -165,9 +165,7 @@ actor RTC {
                                             encoding: MediaEncoding? = nil,
                                             scaleDownBy: Double? = nil,
                                             active: Bool = true,
-                                            scalabilityMode: ScalabilityMode? = nil,
-                                            priority: Priority? = nil,
-                                            networkPriority: Priority? = nil) -> LKRTCRtpEncodingParameters
+                                            scalabilityMode: ScalabilityMode? = nil) -> LKRTCRtpEncodingParameters
     {
         let result = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpEncodingParameters() }
 
@@ -191,15 +189,12 @@ actor RTC {
             result.scalabilityMode = scalabilityMode.rawStringValue
         }
 
-        let resolvedBitratePriority = priority ?? encoding?.bitratePriority ?? encoding?.priority
-        let resolvedNetworkPriority = networkPriority ?? encoding?.networkPriority ?? encoding?.priority
-
-        if let resolvedBitratePriority {
-            result.bitratePriority = resolvedBitratePriority.toBitratePriority()
+        if let bitratePriority = encoding?.bitratePriority {
+            result.bitratePriority = bitratePriority.toBitratePriority()
         }
 
-        if let resolvedNetworkPriority {
-            result.networkPriority = resolvedNetworkPriority.toRTCPriority()
+        if let networkPriority = encoding?.networkPriority {
+            result.networkPriority = networkPriority.toRTCPriority()
         }
 
         return result

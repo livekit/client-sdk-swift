@@ -30,29 +30,17 @@ public final class AudioEncoding: NSObject, MediaEncoding, Sendable {
     /// Requires `ConnectOptions.enableDscp` to be true.
     public let networkPriority: Priority?
 
-    /// Convenience priority applied to both bitrate and network priority.
-    public let priority: Priority?
-
     @objc
     public init(maxBitrate: Int) {
         self.maxBitrate = maxBitrate
         bitratePriority = nil
         networkPriority = nil
-        priority = nil
-    }
-
-    public init(maxBitrate: Int, priority: Priority?) {
-        self.maxBitrate = maxBitrate
-        self.priority = priority
-        bitratePriority = priority
-        networkPriority = priority
     }
 
     public init(maxBitrate: Int, bitratePriority: Priority?, networkPriority: Priority?) {
         self.maxBitrate = maxBitrate
         self.bitratePriority = bitratePriority
         self.networkPriority = networkPriority
-        priority = nil
     }
 
     // MARK: - Equal
@@ -60,24 +48,16 @@ public final class AudioEncoding: NSObject, MediaEncoding, Sendable {
     override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
         return maxBitrate == other.maxBitrate &&
-            resolvedBitratePriority == other.resolvedBitratePriority &&
-            resolvedNetworkPriority == other.resolvedNetworkPriority
+            bitratePriority == other.bitratePriority &&
+            networkPriority == other.networkPriority
     }
 
     override public var hash: Int {
         var hasher = Hasher()
         hasher.combine(maxBitrate)
-        hasher.combine(resolvedBitratePriority)
-        hasher.combine(resolvedNetworkPriority)
+        hasher.combine(bitratePriority)
+        hasher.combine(networkPriority)
         return hasher.finalize()
-    }
-
-    private var resolvedBitratePriority: Priority? {
-        bitratePriority ?? priority
-    }
-
-    private var resolvedNetworkPriority: Priority? {
-        networkPriority ?? priority
     }
 }
 

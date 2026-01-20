@@ -94,8 +94,8 @@ extension VideoParameters {
             let layerEncoding = VideoEncoding(
                 maxBitrate: Swift.max(150_000, bitrate2),
                 maxFps: $0.fps,
-                bitratePriority: encoding.bitratePriority ?? encoding.priority,
-                networkPriority: encoding.networkPriority ?? encoding.priority
+                bitratePriority: encoding.bitratePriority,
+                networkPriority: encoding.networkPriority
             )
 
             return VideoParameters(dimensions: dimensions, encoding: layerEncoding)
