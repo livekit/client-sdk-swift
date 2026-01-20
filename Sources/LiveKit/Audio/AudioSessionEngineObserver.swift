@@ -64,26 +64,35 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         set { _state.mutate { $0.next = newValue } }
     }
 
-    public init() {
-        _state.onDidMutate = { new_, old_ in
-            if new_.isAutomaticConfigurationEnabled, new_.isPlayoutEnabled != old_.isPlayoutEnabled ||
-                new_.isRecordingEnabled != old_.isRecordingEnabled ||
-                new_.isSpeakerOutputPreferred != old_.isSpeakerOutputPreferred
-            {
-                // Legacy config func
-                if let config_func = AudioManager.shared._state.customConfigureFunc {
-                    // Simulate state and invoke custom config func.
-                    let old_state = AudioManager.State(localTracksCount: old_.isRecordingEnabled ? 1 : 0, remoteTracksCount: old_.isPlayoutEnabled ? 1 : 0)
-                    let new_state = AudioManager.State(localTracksCount: new_.isRecordingEnabled ? 1 : 0, remoteTracksCount: new_.isPlayoutEnabled ? 1 : 0)
-                    config_func(new_state, old_state)
-                } else {
-                    self.configure(oldState: old_, newState: new_)
-                }
+    @Sendable func set(isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
+        // Update state and return old and new state
+        let (oldState, newState) = _state.mutate {
+            let oldState = $0
+            $0.isPlayoutEnabled = isPlayoutEnabled
+            $0.isRecordingEnabled = isRecordingEnabled
+            return (oldState, $0)
+        }
+
+        // Check if audio session configuration is required
+        if newState.isAutomaticConfigurationEnabled, newState.isPlayoutEnabled != oldState.isPlayoutEnabled ||
+            newState.isRecordingEnabled != oldState.isRecordingEnabled ||
+            newState.isSpeakerOutputPreferred != oldState.isSpeakerOutputPreferred
+        {
+            // Invoke legacy config func if provided
+            if let config_func = AudioManager.shared._state.customConfigureFunc {
+                // Simulate state and invoke custom config func.
+                let old_state = AudioManager.State(localTracksCount: oldState.isRecordingEnabled ? 1 : 0, remoteTracksCount: oldState.isPlayoutEnabled ? 1 : 0)
+                let new_state = AudioManager.State(localTracksCount: newState.isRecordingEnabled ? 1 : 0, remoteTracksCount: newState.isPlayoutEnabled ? 1 : 0)
+                config_func(new_state, old_state)
+            } else {
+                return configureAudioSession(oldState: oldState, newState: newState)
             }
         }
+
+        return 0
     }
 
-    @Sendable func configure(oldState: State, newState: State) {
+    @Sendable func configureAudioSession(oldState: State, newState: State) -> Int {
         let session = LKRTCAudioSession.sharedInstance()
 
         session.lockForConfiguration()
@@ -98,6 +107,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 try session.setActive(false)
             } catch {
                 log("AudioSession failed to deactivate with error: \(error)", .error)
+                return kAudioEngineErrorFailedToConfigureAudioSession
             }
         } else if newState.isRecordingEnabled || newState.isPlayoutEnabled {
             // Configure and activate the session with the appropriate category
@@ -109,6 +119,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 try session.setConfiguration(config.toRTCType())
             } catch {
                 log("AudioSession failed to configure with error: \(error)", .error)
+                return kAudioEngineErrorFailedToConfigureAudioSession
             }
 
             if !oldState.isPlayoutEnabled, !oldState.isRecordingEnabled {
@@ -117,16 +128,17 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                     try session.setActive(true)
                 } catch {
                     log("AudioSession failed to activate AudioSession with error: \(error)", .error)
+                    return kAudioEngineErrorFailedToConfigureAudioSession
                 }
             }
         }
+
+        return 0
     }
 
     public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
-        _state.mutate {
-            $0.isPlayoutEnabled = isPlayoutEnabled
-            $0.isRecordingEnabled = isRecordingEnabled
-        }
+        let result = set(isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+        guard result == 0 else { return result }
 
         // Call next last
         return _state.next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
@@ -136,10 +148,8 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         // Call next first
         let nextResult = _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
 
-        _state.mutate {
-            $0.isPlayoutEnabled = isPlayoutEnabled
-            $0.isRecordingEnabled = isRecordingEnabled
-        }
+        let result = set(isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+        guard result == 0 else { return result }
 
         return nextResult ?? 0
     }
