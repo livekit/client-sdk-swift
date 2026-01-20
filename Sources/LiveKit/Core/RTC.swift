@@ -191,12 +191,15 @@ actor RTC {
             result.scalabilityMode = scalabilityMode.rawStringValue
         }
 
-        if let priority {
-            result.bitratePriority = priority.toBitratePriority()
+        let resolvedBitratePriority = priority ?? encoding?.bitratePriority ?? encoding?.priority
+        let resolvedNetworkPriority = networkPriority ?? encoding?.networkPriority ?? encoding?.priority
+
+        if let resolvedBitratePriority {
+            result.bitratePriority = resolvedBitratePriority.toBitratePriority()
         }
 
-        if let networkPriority {
-            result.networkPriority = networkPriority.toRTCPriority()
+        if let resolvedNetworkPriority {
+            result.networkPriority = resolvedNetworkPriority.toRTCPriority()
         }
 
         return result

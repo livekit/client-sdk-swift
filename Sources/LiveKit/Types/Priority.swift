@@ -18,7 +18,7 @@ internal import LiveKitWebRTC
 
 /// Priority levels for RTP encoding parameters.
 ///
-/// `priority` controls WebRTC internal bandwidth allocation between streams.
+/// `bitratePriority` controls WebRTC internal bandwidth allocation between streams.
 /// `networkPriority` controls DSCP marking for network-level QoS.
 @objc
 public enum Priority: Int, Sendable {

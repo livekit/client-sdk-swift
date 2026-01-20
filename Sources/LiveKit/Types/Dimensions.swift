@@ -144,7 +144,9 @@ extension Dimensions {
             let parameters = RTC.createRtpEncodingParameters(
                 rid: rid,
                 encoding: preset.encoding,
-                scaleDownBy: Double(max) / Double(preset.dimensions.max)
+                scaleDownBy: Double(max) / Double(preset.dimensions.max),
+                priority: preset.encoding.bitratePriority ?? preset.encoding.priority,
+                networkPriority: preset.encoding.networkPriority ?? preset.encoding.priority
             )
 
             result.append(parameters)

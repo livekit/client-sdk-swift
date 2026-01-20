@@ -20,4 +20,13 @@ import Foundation
 public protocol MediaEncoding {
     //
     var maxBitrate: Int { get }
+
+    /// Priority for bandwidth allocation.
+    var bitratePriority: Priority? { get }
+
+    /// Priority for DSCP marking.
+    var networkPriority: Priority? { get }
+
+    /// Convenience priority applied to both bitrate and network priority.
+    var priority: Priority? { get }
 }
