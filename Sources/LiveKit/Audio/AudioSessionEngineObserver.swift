@@ -64,28 +64,8 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         set { _state.mutate { $0.next = newValue } }
     }
 
-    public init() {
-        _state.onDidMutate = { new_, old_ in
-            if new_.isAutomaticConfigurationEnabled, new_.isPlayoutEnabled != old_.isPlayoutEnabled ||
-                new_.isRecordingEnabled != old_.isRecordingEnabled ||
-                new_.isSpeakerOutputPreferred != old_.isSpeakerOutputPreferred
-            {
-                // Legacy config func
-                if let config_func = AudioManager.shared._state.customConfigureFunc {
-                    // Simulate state and invoke custom config func.
-                    let old_state = AudioManager.State(localTracksCount: old_.isRecordingEnabled ? 1 : 0, remoteTracksCount: old_.isPlayoutEnabled ? 1 : 0)
-                    let new_state = AudioManager.State(localTracksCount: new_.isRecordingEnabled ? 1 : 0, remoteTracksCount: new_.isPlayoutEnabled ? 1 : 0)
-                    config_func(new_state, old_state)
-                } else {
-                    self.configure(oldState: old_, newState: new_)
-                }
-            }
-        }
-    }
-
-    @Sendable func configure(oldState: State, newState: State) {
+    @Sendable func tryConfigure(oldState: State, newState: State) throws {
         let session = LKRTCAudioSession.sharedInstance()
-
         session.lockForConfiguration()
         defer {
             session.unlockForConfiguration()
@@ -98,6 +78,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 try session.setActive(false)
             } catch {
                 log("AudioSession failed to deactivate with error: \(error)", .error)
+                throw error
             }
         } else if newState.isRecordingEnabled || newState.isPlayoutEnabled {
             // Configure and activate the session with the appropriate category
@@ -109,6 +90,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 try session.setConfiguration(config.toRTCType())
             } catch {
                 log("AudioSession failed to configure with error: \(error)", .error)
+                throw error
             }
 
             if !oldState.isPlayoutEnabled, !oldState.isRecordingEnabled {
@@ -117,32 +99,63 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                     try session.setActive(true)
                 } catch {
                     log("AudioSession failed to activate AudioSession with error: \(error)", .error)
+                    throw error
                 }
             }
         }
     }
 
     public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
-        _state.mutate {
+        // Copy current state
+        let oldState = _state.copy()
+        // Make a new state
+        let newState = oldState.copy {
             $0.isPlayoutEnabled = isPlayoutEnabled
             $0.isRecordingEnabled = isRecordingEnabled
         }
 
-        // Call next last
-        return _state.next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
+        do {
+            try tryConfigure(oldState: oldState, newState: newState)
+            // Update state if configure succeeded
+            _state.mutate { $0 = newState }
+            // Call next last
+            return _state.next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
+        } catch {
+            // Failed to configure
+            return -1
+        }
     }
 
     public func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
         // Call next first
-        let nextResult = _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+        let nextResult = _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
 
-        _state.mutate {
+        // Copy current state
+        let oldState = _state.copy()
+        // Make a new state
+        let newState = oldState.copy {
             $0.isPlayoutEnabled = isPlayoutEnabled
             $0.isRecordingEnabled = isRecordingEnabled
         }
-
-        return nextResult ?? 0
+        do {
+            try tryConfigure(oldState: oldState, newState: newState)
+            // Update state if configure succeeded
+            _state.mutate { $0 = newState }
+            // Return result
+            return nextResult
+        } catch {
+            // Failed to configure
+            return -1
+        }
     }
 }
 
 #endif
+
+extension AudioSessionEngineObserver.State {
+    func copy(_ block: (inout AudioSessionEngineObserver.State) -> Void) -> AudioSessionEngineObserver.State {
+        var stateCopy = self
+        block(&stateCopy)
+        return stateCopy
+    }
+}
