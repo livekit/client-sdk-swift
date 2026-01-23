@@ -52,27 +52,4 @@ extension Priority {
         case .high: 4.0
         }
     }
-
-    /// Creates a Priority from a bitratePriority double value.
-    static func from(bitratePriority: Double) -> Priority {
-        if bitratePriority <= 0.5 {
-            return .veryLow
-        } else if bitratePriority <= 1.0 {
-            return .low
-        } else if bitratePriority <= 2.0 {
-            return .medium
-        }
-        return .high
-    }
-
-    /// Creates a Priority from native RTCPriority.
-    static func from(rtcPriority: LKRTCPriority) -> Priority {
-        switch rtcPriority {
-        case .veryLow: .veryLow
-        case .low: .low
-        case .medium: .medium
-        case .high: .high
-        @unknown default: .low
-        }
-    }
 }
