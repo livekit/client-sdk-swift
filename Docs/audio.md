@@ -8,6 +8,20 @@ By default, the SDK automatically configures the `AVAudioSession`. However, this
 AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false
 ```
 
+## Disabling automatic `AVAudioSession` deactivation
+
+> **Note**: If you have already set `isAutomaticConfigurationEnabled = false`, you don't need to worry about this setting since the SDK won't touch the audio session at all.
+
+By default, the SDK deactivates the `AVAudioSession` when both playout and recording are disabled (e.g., after disconnecting from a room). This allows other apps' audio (like Music) to resume.
+
+However, if your app has its own audio features that could be disrupted by deactivating the audio session, you can disable automatic deactivation:
+
+```swift
+AudioManager.shared.audioSession.isAutomaticDeactivationEnabled = false
+```
+
+When set to `false`, the audio session remains active after the LiveKit call ends, preserving your app's audio state.
+
 ## Disabling Voice Processing
 
 Apple's voice processing is enabled by default, such as echo cancellation and auto-gain control.
