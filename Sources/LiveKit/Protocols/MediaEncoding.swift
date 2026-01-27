@@ -24,6 +24,6 @@ public protocol MediaEncoding {
     var bitratePriority: Priority? { get }
 
     /// Priority for DSCP marking.
-    /// Requires `ConnectOptions.enableDscp` to be true.
+    /// Requires `ConnectOptions.isDscpEnabled` to be true.
     var networkPriority: Priority? { get }
 }

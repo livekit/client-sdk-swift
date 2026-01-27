@@ -22,7 +22,7 @@ internal import LiveKitWebRTC
 /// When not set, WebRTC uses its default value equivalent to `.low` (1.0x).
 ///
 /// `networkPriority` controls DSCP marking for network-level QoS.
-/// Requires `ConnectOptions.enableDscp` to be true.
+/// Requires `ConnectOptions.isDscpEnabled` to be true.
 @objc
 public enum Priority: Int, Sendable {
     case veryLow

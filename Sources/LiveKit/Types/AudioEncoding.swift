@@ -27,7 +27,7 @@ public final class AudioEncoding: NSObject, MediaEncoding, Sendable {
     public let bitratePriority: Priority?
 
     /// Priority for DSCP marking.
-    /// Requires `ConnectOptions.enableDscp` to be true.
+    /// Requires `ConnectOptions.isDscpEnabled` to be true.
     public let networkPriority: Priority?
 
     @objc
