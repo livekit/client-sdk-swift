@@ -1,1 +1,1 @@
-patch type="changed" "Add isAutomaticDeactivationEnabled option and notify others on audio session deactivation"
+patch type="changed" "Add option to disable automatic audio session deactivation"
