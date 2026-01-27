@@ -42,6 +42,29 @@ AudioManager.shared.isVoiceProcessingBypassed = true
 
 Set it back to `false` to re-enable processing. This uses `AVAudioEngine`'s [isVoiceProcessingBypassed](https://developer.apple.com/documentation/avfaudio/avaudioinputnode/isvoiceprocessingbypassed) and works seamlessly at run-time.
 
+## Other audio ducking
+
+When using Apple's voice processing APIs, the system may *duck* (lower) *other audio* so the voice chat stays intelligible.
+
+- **What is "other audio"**: Any playback that is *not* the voice-chat stream rendered through the voice processing path (for example, media playback in your app outside the SDK, or audio from other apps).
+- **SDK default behavior**: The SDK defaults to minimal ducking with fixed behavior (`isAdvancedDuckingEnabled = false`) and a ducking level of `.min` (when available). This is intended to keep other audio as loud as possible. Stronger or dynamic ducking is opt-in.
+
+The SDK exposes two controls:
+
+- `AudioManager.shared.isAdvancedDuckingEnabled`: When enabled, ducking becomes dynamic based on voice activity from either side of the call (more ducking while someone is speaking, less ducking during silence).
+- `AudioManager.shared.duckingLevel`: Controls how much other audio is lowered (`.default`, `.min`, `.mid`, `.max`). `.default` matches Apple's historical fixed ducking amount.
+
+Example:
+
+```swift
+// Dynamic ducking based on voice activity (FaceTime / SharePlay-like behavior).
+AudioManager.shared.isAdvancedDuckingEnabled = true
+// Control the ducking amount (availability depends on the OS).
+AudioManager.shared.duckingLevel = .max // maximize voice intelligibility
+```
+
+> **NOTE**: These settings apply when the SDK is using Apple's voice processing (default). If you disable voice processing, other-audio ducking does not apply.
+
 ## Always-prepared recording mode
 
 If you want to minimize mic publish latency, you can pre-warm the audio engine and keep mic input prepared in a muted state:
