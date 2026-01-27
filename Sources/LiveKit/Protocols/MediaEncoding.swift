@@ -17,7 +17,7 @@
 import Foundation
 
 public protocol MediaEncoding {
-    //
+    /// Maximum bitrate in bits per second.
     var maxBitrate: Int { get }
 
     /// Priority for bandwidth allocation.
