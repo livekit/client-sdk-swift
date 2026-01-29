@@ -46,7 +46,7 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
         config.networkServiceType = .callSignaling
         #if os(iOS) || os(visionOS)
         /// https://developer.apple.com/documentation/foundation/urlsessionconfiguration/improving_network_reliability_using_multipath_tcp
-        config.multipathServiceType = .handover
+        config.multipathServiceType = .none
         #endif
         return URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }()
