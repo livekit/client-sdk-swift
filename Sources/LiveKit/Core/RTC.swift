@@ -189,6 +189,14 @@ actor RTC {
             result.scalabilityMode = scalabilityMode.rawStringValue
         }
 
+        if let bitratePriority = encoding?.bitratePriority {
+            result.bitratePriority = bitratePriority.toBitratePriority()
+        }
+
+        if let networkPriority = encoding?.networkPriority {
+            result.networkPriority = networkPriority.toRTCPriority()
+        }
+
         return result
     }
 }

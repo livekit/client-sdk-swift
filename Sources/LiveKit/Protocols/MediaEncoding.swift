@@ -16,8 +16,14 @@
 
 import Foundation
 
-@objc
 public protocol MediaEncoding {
-    //
+    /// Maximum bitrate in bits per second.
     var maxBitrate: Int { get }
+
+    /// Priority for bandwidth allocation.
+    var bitratePriority: Priority? { get }
+
+    /// Priority for DSCP marking.
+    /// Requires `ConnectOptions.isDscpEnabled` to be true.
+    var networkPriority: Priority? { get }
 }
