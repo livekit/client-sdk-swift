@@ -544,7 +544,7 @@ extension LocalParticipant {
             throw LiveKitError(.invalidState, message: "This track has already been published.")
         }
 
-        guard track is LocalVideoTrack || track is LocalAudioTrack else {
+        guard track is LocalVideoTrack || track is LocalAudioTrack || track is LocalAppAudioTrack else {
             throw LiveKitError(.invalidState, message: "Unknown LocalTrack type")
         }
 
@@ -623,6 +623,32 @@ extension LocalParticipant {
                     }
 
                     self.log("[publish] requesting add track to server with \(populator)...")
+                }
+            } else if track is LocalAppAudioTrack {
+                // App audio track (stereo, bypasses ADM)
+                let audioPublishOptions = (options as? AudioPublishOptions) ?? AudioPublishOptions(
+                    encoding: .presetMusicStereo,
+                    stereo: true
+                )
+                publishName = audioPublishOptions.name
+
+                let encoding = audioPublishOptions.encoding ?? AudioEncoding.presetMusicStereo
+
+                log("[publish] App audio maxBitrate: \(encoding.maxBitrate), stereo: \(audioPublishOptions.stereo)")
+
+                sendEncodings = [
+                    RTC.createRtpEncodingParameters(encoding: encoding),
+                ]
+
+                populatorFunc = { populator in
+                    populator.disableDtx = !audioPublishOptions.dtx
+                    populator.disableRed = !audioPublishOptions.red
+                    populator.audioFeatures = Array(audioPublishOptions.toFeatures())
+
+                    if let streamName = options?.streamName {
+                        // Set stream name if specified in options
+                        populator.stream = streamName
+                    }
                 }
             } else if track is LocalAudioTrack {
                 // additional params for Audio

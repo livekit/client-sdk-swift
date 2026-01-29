@@ -136,6 +136,11 @@ actor RTC {
                                                                             trackId: UUID().uuidString) }
     }
 
+    static func createAudioTrack(pushSource: LKRTCPushAudioSource) -> LKRTCAudioTrack {
+        DispatchQueue.liveKitWebRTC.sync { peerConnectionFactory.audioTrack(withPush: pushSource,
+                                                                            trackId: UUID().uuidString) }
+    }
+
     static func createDataChannelConfiguration(ordered: Bool = true,
                                                maxRetransmits: Int32 = -1) -> LKRTCDataChannelConfiguration
     {

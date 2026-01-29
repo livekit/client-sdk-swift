@@ -31,6 +31,10 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
     @objc
     public let red: Bool
 
+    /// Enable stereo audio. Use with `LocalAppAudioTrack` for stereo app audio during screen sharing.
+    @objc
+    public let stereo: Bool
+
     @objc
     public let streamName: String?
 
@@ -41,6 +45,7 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
                 encoding: AudioEncoding? = nil,
                 dtx: Bool = true,
                 red: Bool = true,
+                stereo: Bool = false,
                 streamName: String? = nil,
                 preConnect: Bool = false)
     {
@@ -48,6 +53,7 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
         self.encoding = encoding
         self.dtx = dtx
         self.red = red
+        self.stereo = stereo
         self.streamName = streamName
         self.preConnect = preConnect
     }
@@ -60,6 +66,7 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
             encoding == other.encoding &&
             dtx == other.dtx &&
             red == other.red &&
+            stereo == other.stereo &&
             streamName == other.streamName &&
             preConnect == other.preConnect
     }
@@ -70,6 +77,7 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
         hasher.combine(encoding)
         hasher.combine(dtx)
         hasher.combine(red)
+        hasher.combine(stereo)
         hasher.combine(streamName)
         hasher.combine(preConnect)
         return hasher.finalize()
@@ -80,6 +88,7 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
 extension AudioPublishOptions {
     func toFeatures() -> Set<Livekit_AudioTrackFeature> {
         Set([
+            stereo ? .tfStereo : nil,
             !dtx ? .tfNoDtx : nil,
             preConnect ? .tfPreconnectBuffer : nil,
         ].compactMap { $0 })
@@ -93,6 +102,7 @@ extension AudioPublishOptions {
             encoding: encoding,
             dtx: dtx,
             red: red,
+            stereo: stereo,
             streamName: streamName,
             preConnect: enabled
         )

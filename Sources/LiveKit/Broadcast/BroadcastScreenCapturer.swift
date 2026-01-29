@@ -26,7 +26,12 @@ internal import LiveKitWebRTC
 
 class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
     private let appAudio: Bool
+    private let stereoAppAudio: Bool
     private var receiver: BroadcastReceiver?
+
+    /// Stereo app audio track (published separately from video).
+    /// Only created when `stereoAppAudio` is `true`.
+    private(set) var appAudioTrack: LocalAppAudioTrack?
 
     override func startCapture() async throws -> Bool {
         let didStart = try await super.startCapture()
@@ -45,6 +50,15 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
             .toEncodeSafeDimensions()
 
         set(dimensions: targetDimensions)
+
+        // Create stereo app audio track if needed
+        if appAudio, stereoAppAudio {
+            appAudioTrack = LocalAppAudioTrack.createTrack(
+                channelCount: 2,
+                sampleRate: 48000
+            )
+        }
+
         return createReceiver()
     }
 
@@ -66,8 +80,16 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
 
                 for try await sample in receiver.incomingSamples {
                     switch sample {
-                    case let .image(buffer, rotation): capture(buffer, rotation: rotation)
-                    case let .audio(buffer): AudioManager.shared.mixer.capture(appAudio: buffer)
+                    case let .image(buffer, rotation):
+                        capture(buffer, rotation: rotation)
+                    case let .audio(buffer):
+                        if let appAudioTrack {
+                            // Push directly to WebRTC (stereo preserved)
+                            appAudioTrack.push(buffer)
+                        } else {
+                            // Legacy: Go through mixer (mono)
+                            AudioManager.shared.mixer.capture(appAudio: buffer)
+                        }
                     }
                 }
                 log("Broadcast receiver closed", .debug)
@@ -85,11 +107,13 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
         // Already stopped
         guard didStop else { return false }
         receiver?.close()
+        appAudioTrack = nil
         return true
     }
 
     init(delegate: LKRTCVideoCapturerDelegate, options: ScreenShareCaptureOptions) {
         appAudio = options.appAudio
+        stereoAppAudio = options.stereoAppAudio
         super.init(delegate: delegate, options: BufferCaptureOptions(from: options))
     }
 }
@@ -110,6 +134,29 @@ public extension LocalVideoTrack {
             videoSource: videoSource,
             reportStatistics: reportStatistics
         )
+    }
+
+    /// Returns the stereo app audio track if screen sharing with stereo app audio enabled.
+    ///
+    /// This track is created when using `createBroadcastScreenCapturerTrack` with
+    /// `ScreenShareCaptureOptions(appAudio: true)` (stereoAppAudio defaults to true).
+    ///
+    /// Publish this track separately from the video track for stereo app audio:
+    /// ```swift
+    /// let screenTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(
+    ///     options: ScreenShareCaptureOptions(appAudio: true)
+    /// )
+    /// try await room.localParticipant.publish(videoTrack: screenTrack)
+    ///
+    /// if let appAudioTrack = screenTrack.screenShareAppAudioTrack {
+    ///     try await room.localParticipant.publish(
+    ///         audioTrack: appAudioTrack,
+    ///         options: AudioPublishOptions(stereo: true)
+    ///     )
+    /// }
+    /// ```
+    var screenShareAppAudioTrack: LocalAppAudioTrack? {
+        (capturer as? BroadcastScreenCapturer)?.appAudioTrack
     }
 }
 

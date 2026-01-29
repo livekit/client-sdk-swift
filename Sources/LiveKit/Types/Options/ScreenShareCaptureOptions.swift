@@ -31,6 +31,16 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
     @objc
     public let appAudio: Bool
 
+    /// Preserve stereo for app audio during screen sharing (iOS only).
+    ///
+    /// When `true`, app audio is captured as a separate stereo track using `LocalAppAudioTrack`,
+    /// bypassing the AudioDeviceModule to preserve stereo channels. When `false`, app audio
+    /// is downmixed to mono through the audio mixer.
+    ///
+    /// Defaults to `true` when `appAudio` is enabled.
+    @objc
+    public let stereoAppAudio: Bool
+
     /// Use broadcast extension for screen capture (iOS only).
     ///
     /// If a broadcast extension has been properly configured, this defaults to `true`.
@@ -57,6 +67,7 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
                 fps: Int = 30,
                 showCursor: Bool = true,
                 appAudio: Bool = false,
+                stereoAppAudio: Bool? = nil,
                 useBroadcastExtension: Bool = defaultToBroadcastExtension,
                 includeCurrentApplication: Bool = false,
                 excludeWindowIDs: [UInt32] = [])
@@ -65,6 +76,8 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
         self.fps = fps
         self.showCursor = showCursor
         self.appAudio = appAudio
+        // Default to true when appAudio is enabled, false otherwise
+        self.stereoAppAudio = stereoAppAudio ?? appAudio
         self.useBroadcastExtension = useBroadcastExtension
         self.includeCurrentApplication = includeCurrentApplication
         self.excludeWindowIDs = excludeWindowIDs
@@ -78,6 +91,7 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
             fps == other.fps &&
             showCursor == other.showCursor &&
             appAudio == other.appAudio &&
+            stereoAppAudio == other.stereoAppAudio &&
             useBroadcastExtension == other.useBroadcastExtension &&
             includeCurrentApplication == other.includeCurrentApplication &&
             excludeWindowIDs == other.excludeWindowIDs
@@ -89,6 +103,7 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
         hasher.combine(fps)
         hasher.combine(showCursor)
         hasher.combine(appAudio)
+        hasher.combine(stereoAppAudio)
         hasher.combine(useBroadcastExtension)
         hasher.combine(includeCurrentApplication)
         hasher.combine(excludeWindowIDs)
