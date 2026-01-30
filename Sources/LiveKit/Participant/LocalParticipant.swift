@@ -44,6 +44,16 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         return result
     }
 
+    /// publish an app audio track to the Room (for stereo screen share audio)
+    @discardableResult
+    public func publish(appAudioTrack: LocalAppAudioTrack, options: AudioPublishOptions? = nil) async throws -> LocalTrackPublication {
+        let result = try await _publishSerialRunner.run {
+            try await self._publish(track: appAudioTrack, options: options)
+        }
+        guard let result else { throw LiveKitError(.invalidState) }
+        return result
+    }
+
     /// publish a new video track to the Room
     @objc
     @discardableResult
@@ -52,6 +62,15 @@ public class LocalParticipant: Participant, @unchecked Sendable {
             try await self._publish(track: videoTrack, options: options)
         }
         guard let result else { throw LiveKitError(.invalidState) }
+
+        #if os(iOS)
+        // Automatically publish stereo app audio track if present (screen share with app audio)
+        if let appAudioTrack = videoTrack.screenShareAppAudioTrack {
+            log("[publish] Auto-publishing stereo app audio track for screen share")
+            try await publish(appAudioTrack: appAudioTrack, options: AudioPublishOptions(stereo: true))
+        }
+        #endif
+
         return result
     }
 
@@ -419,7 +438,16 @@ public extension LocalParticipant {
                         let options = (captureOptions as? ScreenShareCaptureOptions) ?? defaultOptions
                         localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
                     }
-                    return try await self._publish(track: localTrack, options: publishOptions)
+                    let videoPublication = try await self._publish(track: localTrack, options: publishOptions)
+                    // Auto-publish stereo app audio track if present
+                    self.log("[publish] Checking for app audio track. capturer type: \(type(of: localTrack.capturer)), screenShareAppAudioTrack: \(String(describing: localTrack.screenShareAppAudioTrack))")
+                    if let appAudioTrack = localTrack.screenShareAppAudioTrack {
+                        self.log("[publish] Auto-publishing stereo app audio track for screen share")
+                        _ = try await self._publish(track: appAudioTrack, options: AudioPublishOptions(stereo: true))
+                    } else {
+                        self.log("[publish] No app audio track found on video track")
+                    }
+                    return videoPublication
                     #elseif os(macOS)
                     if #available(macOS 12.3, *) {
                         let mainDisplay = try await MacOSScreenCapturer.mainDisplaySource()

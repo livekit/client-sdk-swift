@@ -20,7 +20,11 @@ import Foundation
 internal import LiveKitWebRTC
 
 /// Audio track for app audio during screen sharing.
-/// Bypasses the AudioDeviceModule to preserve stereo.
+/// Bypasses the AudioDeviceModule completely to preserve stereo.
+///
+/// Unlike LocalAudioTrack which uses the ADM (mono, with voice processing),
+/// this track pushes audio directly to the encoder via PushAudioSource.
+/// This allows stereo app audio to be sent without affecting microphone audio.
 @objc
 public class LocalAppAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @unchecked Sendable {
     private let pushSource: LKRTCPushAudioSource
@@ -84,16 +88,65 @@ public class LocalAppAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, 
         )
     }
 
-    /// Push stereo PCM buffer directly to WebRTC (bypasses ADM).
+    struct State {
+        var converter: AudioConverter?
+        var ringBuffer: AVAudioPCMRingBuffer?
+    }
+
+    private let _appAudioState = StateSync(State())
+
+    /// Push stereo PCM buffer directly to WebRTC's audio encoding pipeline.
+    /// This bypasses the ADM completely - audio goes directly to the encoder.
     ///
     /// - Parameter buffer: An `AVAudioPCMBuffer` containing the audio data.
     ///   Float32 format is automatically converted to Int16.
     @objc
     public func push(_ buffer: AVAudioPCMBuffer) {
-        pushSource.push(buffer)
+        // Ensure we have a converter to Target Format (Int16 Interleaved)
+        // We convert to Int16 Interleaved in Swift to bypass any format issues in the native layer.
+        let targetFormat = AVAudioFormat(commonFormat: .pcmFormatInt16,
+                                         sampleRate: buffer.format.sampleRate,
+                                         channels: buffer.format.channelCount,
+                                         interleaved: true)!
+
+        let (converter, ringBuffer) = _appAudioState.mutate { state -> (AudioConverter?, AVAudioPCMRingBuffer?) in
+            if state.converter?.inputFormat != buffer.format || state.converter?.outputFormat != targetFormat {
+                guard let newConverter = AudioConverter(from: buffer.format, to: targetFormat) else {
+                    return (nil, nil)
+                }
+                state.converter = newConverter
+            }
+
+            if state.ringBuffer?.buffer.format != targetFormat {
+                state.ringBuffer = AVAudioPCMRingBuffer(format: targetFormat)
+            }
+
+            return (state.converter, state.ringBuffer)
+        }
+
+        guard let converter, let ringBuffer else { return }
+
+        // Convert and append to ring buffer
+        let convertedBuffer = converter.convert(from: buffer)
+        ringBuffer.append(audioBuffer: convertedBuffer)
+
+        // WebRTC ACM expects exactly 10ms of data
+        let frames10ms = AVAudioFrameCount(targetFormat.sampleRate / 100)
+
+        // Read and push 10ms chunks
+        while let frame = ringBuffer.read(frames: frames10ms) {
+            if let int16Data = frame.int16ChannelData {
+                pushSource.pushData(int16Data[0],
+                                    bitsPerSample: Int32(16),
+                                    sampleRate: Int32(targetFormat.sampleRate),
+                                    channels: Int(targetFormat.channelCount),
+                                    frames: Int(frame.frameLength))
+            }
+        }
     }
 
-    /// Push raw PCM data directly to WebRTC.
+    /// Push raw PCM data directly to WebRTC's audio encoding pipeline.
+    /// This bypasses the ADM completely - audio goes directly to the encoder.
     ///
     /// - Parameters:
     ///   - data: Pointer to interleaved PCM data (16-bit signed integers).
@@ -108,6 +161,7 @@ public class LocalAppAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, 
         channels: Int,
         frames: Int
     ) {
+        // Push directly to PushAudioSource -> encoder sink (bypasses ADM!)
         pushSource.pushData(data, bitsPerSample: bitsPerSample, sampleRate: sampleRate, channels: channels, frames: frames)
     }
 

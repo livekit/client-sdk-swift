@@ -62,7 +62,7 @@ public class AudioManager: Loggable {
         set { _state.mutate { $0.customConfigureFunc = newValue } }
     }
 
-    /// Determines whether the device's built-in speaker or receiver is preferred for audio output.
+    /// Indicates whether the device's built-in speaker or receiver is preferred for audio output.
     ///
     /// - Defaults to `true`, indicating that the speaker is preferred.
     /// - Set to `false` if the receiver is preferred instead of the speaker.
@@ -70,8 +70,18 @@ public class AudioManager: Loggable {
     ///
     /// This property is ignored if ``customConfigureAudioSessionFunc`` is set.
     public var isSpeakerOutputPreferred: Bool {
-        get { audioSession.isSpeakerOutputPreferred }
-        set { audioSession.isSpeakerOutputPreferred = newValue }
+        get {
+            #if os(iOS) || os(visionOS) || os(tvOS)
+            return audioSession.isSpeakerOutputPreferred
+            #else
+            return true
+            #endif
+        }
+        set {
+            #if os(iOS) || os(visionOS) || os(tvOS)
+            audioSession.isSpeakerOutputPreferred = newValue
+            #endif
+        }
     }
 
     /// Specifies a fixed configuration for the audio session, overriding dynamic adjustments.
@@ -287,6 +297,18 @@ public class AudioManager: Loggable {
         get { RTC.audioDeviceModule.isVoiceProcessingAGCEnabled }
         set { RTC.audioDeviceModule.isVoiceProcessingAGCEnabled = newValue }
     }
+
+//    /// Indicates whether stereo playout is enabled.
+//    public var isStereoPlayoutEnabled: Bool {
+//        get { RTC.audioDeviceModule.isStereoPlayoutEnabled }
+//        set { RTC.audioDeviceModule.isStereoPlayoutEnabled = newValue }
+//    }
+//
+//    /// Indicates whether stereo recording is enabled.
+//    public var isStereoRecordingEnabled: Bool {
+//        get { RTC.audioDeviceModule.isStereoRecordingEnabled }
+//        set { RTC.audioDeviceModule.isStereoRecordingEnabled = newValue }
+//    }
 
     /// Enables manual rendering (no-device) mode of AVAudioEngine.
     /// In this mode, you can provide audio buffers by calling `AudioManager.shared.mixer.capture(appAudio:)` continuously.

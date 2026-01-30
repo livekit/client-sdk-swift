@@ -51,14 +51,6 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
 
         set(dimensions: targetDimensions)
 
-        // Create stereo app audio track if needed
-        if appAudio, stereoAppAudio {
-            appAudioTrack = LocalAppAudioTrack.createTrack(
-                channelCount: 2,
-                sampleRate: 48000
-            )
-        }
-
         return createReceiver()
     }
 
@@ -78,11 +70,16 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
                     try await receiver.enableAudio()
                 }
 
+                var audioSampleCount = 0
                 for try await sample in receiver.incomingSamples {
                     switch sample {
                     case let .image(buffer, rotation):
                         capture(buffer, rotation: rotation)
                     case let .audio(buffer):
+                        audioSampleCount += 1
+                        if audioSampleCount <= 5 || audioSampleCount % 100 == 0 {
+                            log("[BroadcastScreenCapturer] Received audio sample #\(audioSampleCount), frames: \(buffer.frameLength), channels: \(buffer.format.channelCount), appAudioTrack: \(appAudioTrack != nil)")
+                        }
                         if let appAudioTrack {
                             // Push directly to WebRTC (stereo preserved)
                             appAudioTrack.push(buffer)
@@ -115,6 +112,17 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
         appAudio = options.appAudio
         stereoAppAudio = options.stereoAppAudio
         super.init(delegate: delegate, options: BufferCaptureOptions(from: options))
+
+        // Create stereo app audio track early so it's available for auto-publish
+        if options.appAudio, options.stereoAppAudio {
+            appAudioTrack = LocalAppAudioTrack.createTrack(
+                channelCount: 2,
+                sampleRate: 48000
+            )
+            log("[BroadcastScreenCapturer] Created stereo app audio track: \(String(describing: appAudioTrack))")
+        } else {
+            log("[BroadcastScreenCapturer] Not creating app audio track. appAudio=\(options.appAudio), stereoAppAudio=\(options.stereoAppAudio)")
+        }
     }
 }
 
