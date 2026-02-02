@@ -192,6 +192,14 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
             throw LiveKitError(.deviceNotFound, message: "No camera video capture devices available")
         }
 
+        // When position was .unspecified, lock in the actual device position so that
+        // subsequent restarts (e.g. after full reconnect) select the same camera.
+        if options.position == .unspecified, device.position != .unspecified {
+            _cameraCapturerState.mutate {
+                $0.options = $0.options.copyWith(position: .value(device.position))
+            }
+        }
+
         // list of all formats in order of dimensions size
         let formats = DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer.supportedFormats(for: device) }
         // create an array of sorted touples by dimensions size
