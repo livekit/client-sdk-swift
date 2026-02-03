@@ -16,10 +16,48 @@
 
 @preconcurrency import AVFAudio
 
+extension AVAudioEngine {
+    func attach(_ playerNodePool: AVAudioPlayerNodePool) {
+        // Attach playerNodes
+        for playerNode in playerNodePool.playerNodes {
+            attach(playerNode)
+        }
+        // Attach mixerNode
+        attach(playerNodePool.mixerNode)
+    }
+
+    func detach(_ playerNodePool: AVAudioPlayerNodePool) {
+        // Detach playerNodes
+        for playerNode in playerNodePool.playerNodes {
+            playerNode.stop()
+            detach(playerNode)
+        }
+        // Detach mixerNode
+        detach(playerNodePool.mixerNode)
+    }
+
+    func connect(_ playerNodePool: AVAudioPlayerNodePool, to node2: AVAudioNode, format: AVAudioFormat?) {
+        // Connect playerNodes
+        for playerNode in playerNodePool.playerNodes {
+            connect(playerNode, to: playerNodePool.mixerNode, format: format)
+        }
+        // Connect mixerNode
+        connect(playerNodePool.mixerNode, to: node2, format: format)
+    }
+}
+
 // Support scheduling buffer to play concurrently
 class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
     let poolSize: Int
-    private let mixerNode = AVAudioMixerNode()
+    let mixerNode = AVAudioMixerNode()
+
+    var playerNodes: [AVAudioPlayerNode] {
+        _state.read(\.playerNodes)
+    }
+
+    var engine: AVAudioEngine? {
+        mixerNode.engine
+    }
 
     private struct State {
         var playerNodes: [AVAudioPlayerNode]
@@ -33,35 +71,6 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
         self.poolSize = poolSize
         let playerNodes = (0 ..< poolSize).map { _ in AVAudioPlayerNode() }
         _state = StateSync(State(playerNodes: playerNodes))
-    }
-
-    func attach(to engine: AVAudioEngine) {
-        let playerNodes = _state.read(\.playerNodes)
-        // Attach playerNodes
-        for playerNode in playerNodes {
-            engine.attach(playerNode)
-        }
-        // Attach mixerNode
-        engine.attach(mixerNode)
-    }
-
-    func connect(to engine: AVAudioEngine, node: AVAudioNode, format: AVAudioFormat? = nil) {
-        let playerNodes = _state.read(\.playerNodes)
-        for playerNode in playerNodes {
-            engine.connect(playerNode, to: mixerNode, format: format)
-        }
-        engine.connect(mixerNode, to: node, format: format)
-    }
-
-    func detach(from engine: AVAudioEngine) {
-        let playerNodes = _state.read(\.playerNodes)
-        // Detach playerNodes
-        for playerNode in playerNodes {
-            playerNode.stop()
-            engine.detach(playerNode)
-        }
-        // Detach mixerNode
-        engine.detach(mixerNode)
     }
 
     func scheduleBuffer(_ buffer: AVAudioPCMBuffer) throws {

@@ -44,8 +44,8 @@ public final class MixerEngineObserver: Loggable {
 
     /// Adjust the volume of microphone audio. Range is 0.0 ~ 1.0.
     public var soundPlayerVolume: Float {
-        get { _state.read { $0.soundPlayerMixerNode.outputVolume } }
-        set { _state.mutate { $0.soundPlayerMixerNode.outputVolume = newValue } }
+        get { _state.read { $0.soundPlayerNodes.mixerNode.outputVolume } }
+        set { _state.mutate { $0.soundPlayerNodes.mixerNode.outputVolume = newValue } }
     }
 
     // MARK: - Internal
@@ -56,6 +56,10 @@ public final class MixerEngineObserver: Loggable {
 
     var micAudioNode: AVAudioPlayerNode {
         _state.read { $0.micNode }
+    }
+
+    var soundPlayerNodes: AVAudioPlayerNodePool {
+        _state.read { $0.soundPlayerNodes }
     }
 
     struct State {
@@ -70,7 +74,7 @@ public final class MixerEngineObserver: Loggable {
         let micMixerNode = AVAudioMixerNode()
 
         // Sound player audio (Output)
-        let soundPlayerMixerNode = AVAudioMixerNode()
+        let soundPlayerNodes = AVAudioPlayerNodePool()
 
         // Reference to mainMixerNode
         weak var mainMixerNode: AVAudioMixerNode?
@@ -92,15 +96,15 @@ public final class MixerEngineObserver: Loggable {
 
     public func engineDidCreate(_ engine: AVAudioEngine) -> Int {
         log("isManualRenderingMode: \(engine.isInManualRenderingMode)")
-        let (appNode, appMixerNode, micNode, micMixerNode, soundPlayerMixerNode) = _state.read {
-            ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode, $0.soundPlayerMixerNode)
+        let (appNode, appMixerNode, micNode, micMixerNode, soundPlayerNodes) = _state.read {
+            ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode, $0.soundPlayerNodes)
         }
 
         engine.attach(appNode)
         engine.attach(appMixerNode)
         engine.attach(micNode)
         engine.attach(micMixerNode)
-        engine.attach(soundPlayerMixerNode)
+        engine.attach(soundPlayerNodes)
 
         // Invoke next
         return next?.engineDidCreate(engine) ?? 0
@@ -111,15 +115,15 @@ public final class MixerEngineObserver: Loggable {
         // Invoke next
         let nextResult = next?.engineWillRelease(engine)
 
-        let (appNode, appMixerNode, micNode, micMixerNode, soundPlayerMixerNode) = _state.read {
-            ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode, $0.soundPlayerMixerNode)
+        let (appNode, appMixerNode, micNode, micMixerNode, soundPlayerNodes) = _state.read {
+            ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode, $0.soundPlayerNodes)
         }
 
         engine.detach(appNode)
         engine.detach(appMixerNode)
         engine.detach(micNode)
         engine.detach(micMixerNode)
-        engine.detach(soundPlayerMixerNode)
+        engine.detach(soundPlayerNodes)
 
         return nextResult ?? 0
     }
@@ -179,12 +183,12 @@ public final class MixerEngineObserver: Loggable {
     public func engineWillConnectOutput(_ engine: AVAudioEngine, src: AVAudioNode, dst: AVAudioNode?, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int {
         log("isManualRenderingMode: \(engine.isInManualRenderingMode)")
         // Get the main mixer
-        let (outputVolume, soundPlayerMixerNode) = _state.mutate {
+        let (outputVolume, soundPlayerNodes) = _state.mutate {
             $0.mainMixerNode = engine.mainMixerNode
-            return ($0.outputVolume, $0.soundPlayerMixerNode)
+            return ($0.outputVolume, $0.soundPlayerNodes)
         }
 
-        engine.connect(soundPlayerMixerNode, to: engine.mainMixerNode, format: format)
+        engine.connect(soundPlayerNodes, to: engine.mainMixerNode, format: format)
 
         engine.mainMixerNode.outputVolume = outputVolume
 
