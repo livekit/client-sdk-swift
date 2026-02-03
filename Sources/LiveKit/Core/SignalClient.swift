@@ -450,9 +450,7 @@ extension SignalClient {
         try await _sendRequest(request)
 
         // Wait for the trackInfo...
-        let trackInfo = try await completer.wait()
-
-        return trackInfo
+        return try await completer.wait()
     }
 
     func sendUpdateTrackSettings(trackSid: Track.Sid, settings: TrackSettings) async throws {

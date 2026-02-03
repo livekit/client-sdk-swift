@@ -90,7 +90,7 @@ public extension LKTestCase {
             fatalError()
         }
 
-        let readBufferTask = Task.detached {
+        return Task.detached {
             let frameDuration = UInt64(1_000_000_000 / targetFps)
             while !Task.isCancelled, assetReader.status == .reading, let sampleBuffer = trackOutput.copyNextSampleBuffer() {
                 onCapture(sampleBuffer)
@@ -98,8 +98,6 @@ public extension LKTestCase {
                 try await Task.sleep(nanoseconds: frameDuration)
             }
         }
-
-        return readBufferTask
     }
 }
 

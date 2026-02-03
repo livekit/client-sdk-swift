@@ -16,7 +16,6 @@
 
 import AVFoundation
 import Foundation
-
 @testable import LiveKit
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport

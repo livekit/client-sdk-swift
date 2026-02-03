@@ -21,9 +21,8 @@ internal import LiveKitWebRTC
 private extension Array where Element: LKRTCVideoCodecInfo {
     func rewriteCodecsIfNeeded() -> [LKRTCVideoCodecInfo] {
         // rewrite H264's profileLevelId to 42e032
-        let codecs = map { $0.name == kLKRTCVideoCodecH264Name ? RTC.h264BaselineLevel5CodecInfo : $0 }
+        map { $0.name == kLKRTCVideoCodecH264Name ? RTC.h264BaselineLevel5CodecInfo : $0 }
         // logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: RTC.self)
-        return codecs
     }
 }
 
