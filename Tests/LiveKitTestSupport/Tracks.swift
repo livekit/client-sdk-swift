@@ -26,7 +26,6 @@ public extension LKTestCase {
     #endif
 
     // Creates a LocalVideoTrack with BufferCapturer, generates frames for approx 30 seconds
-    // swiftlint:disable:next function_body_length
     func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @Sendable @escaping (CMSampleBuffer) -> Void) async throws -> (Task<Void, any Error>) {
         // Sample video
         let url = URL(string: "https://storage.unxpected.co.jp/public/sample-videos/ocean-1080p.mp4")!
