@@ -13,6 +13,9 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: read
+
 jobs:
   symbol-graph:
     name: Symbol Graph (${{ matrix.artifact_name }})
