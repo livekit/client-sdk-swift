@@ -84,12 +84,8 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         var isAutomaticDeactivationEnabled: Bool = true
         var isSpeakerOutputPreferred: Bool = true
 
-        //
+        // Audio session requirements that trigger configuration
         var sessionRequirements: [UUID: SessionRequirement] = [:]
-
-        // Computed
-        var isPlayoutEnabled: Bool { sessionRequirements.values.contains(where: \.isPlayoutEnabled) }
-        var isRecordingEnabled: Bool { sessionRequirements.values.contains(where: \.isRecordingEnabled) }
     }
 
     let _state = StateSync(State())
@@ -181,6 +177,12 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 
         return nextResult ?? 0
     }
+}
+
+// Computed helper
+extension AudioSessionEngineObserver.State {
+    var isPlayoutEnabled: Bool { sessionRequirements.values.contains(where: \.isPlayoutEnabled) }
+    var isRecordingEnabled: Bool { sessionRequirements.values.contains(where: \.isRecordingEnabled) }
 }
 
 #endif

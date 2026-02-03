@@ -18,12 +18,7 @@
 
 internal import LiveKitWebRTC
 
-public final class MixerEngineObserver: AudioEngineObserver, Loggable {
-    public var next: (any AudioEngineObserver)? {
-        get { _state.next }
-        set { _state.mutate { $0.next = newValue } }
-    }
-
+public final class MixerEngineObserver: Loggable {
     /// Adjust the output volume of all audio tracks. Range is 0.0 ~ 1.0.
     public var outputVolume: Float {
         get { _state.read { $0.outputVolume } }
@@ -60,11 +55,11 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
     struct State {
         var next: (any AudioEngineObserver)?
 
-        // AppAudio
+        // App audio (Input)
         let appNode = AVAudioPlayerNode()
         let appMixerNode = AVAudioMixerNode()
 
-        // Not connected for device rendering mode.
+        // Mic audio (Input), not connected for device rendering mode.
         let micNode = AVAudioPlayerNode()
         let micMixerNode = AVAudioMixerNode()
 
@@ -85,10 +80,6 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
     let _state = StateSync(State())
 
     public init() {}
-
-    public func setNext(_ handler: any AudioEngineObserver) {
-        next = handler
-    }
 
     public func engineDidCreate(_ engine: AVAudioEngine) -> Int {
         log("isManualRenderingMode: \(engine.isInManualRenderingMode)")
@@ -185,6 +176,19 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
         engine.mainMixerNode.outputVolume = outputVolume
 
         return next?.engineWillConnectOutput(engine, src: src, dst: dst, format: format, context: context) ?? 0
+    }
+}
+
+// MARK: - AudioEngineObserver
+
+extension MixerEngineObserver: AudioEngineObserver {
+    public var next: (any AudioEngineObserver)? {
+        get { _state.next }
+        set { _state.mutate { $0.next = newValue } }
+    }
+
+    public func setNext(_ handler: any AudioEngineObserver) {
+        next = handler
     }
 }
 
