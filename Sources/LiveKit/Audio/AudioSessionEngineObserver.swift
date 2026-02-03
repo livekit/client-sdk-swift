@@ -82,8 +82,6 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 
         var isAutomaticConfigurationEnabled: Bool = true
         var isAutomaticDeactivationEnabled: Bool = true
-        var isPlayoutEnabled: Bool = false
-        var isRecordingEnabled: Bool = false
         var isSpeakerOutputPreferred: Bool = true
 
         //
