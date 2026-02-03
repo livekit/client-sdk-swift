@@ -17,7 +17,7 @@
 import Foundation
 
 /// A thin unchecked sendable wrapper around NSMapTable.
-final class MapTable<KeyType, ObjectType>: @unchecked Sendable where KeyType: AnyObject, ObjectType: AnyObject {
+final class MapTable<KeyType: AnyObject, ObjectType: AnyObject>: @unchecked Sendable {
     init(_ mapTable: NSMapTable<KeyType, ObjectType>) {
         self.mapTable = mapTable
     }

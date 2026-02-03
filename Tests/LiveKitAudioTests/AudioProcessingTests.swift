@@ -17,9 +17,8 @@
 import Accelerate
 import AVFoundation
 import Foundation
-import LiveKitWebRTC
-
 @testable import LiveKit
+import LiveKitWebRTC
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif

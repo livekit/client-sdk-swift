@@ -15,7 +15,6 @@
  */
 
 internal import LiveKitWebRTC
-
 import Foundation
 
 // Wrapper for LKRTCAudioBuffer
