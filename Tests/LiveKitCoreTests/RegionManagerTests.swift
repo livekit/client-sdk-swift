@@ -43,7 +43,7 @@ class RegionManagerTests: XCTestCase {
             $0.distance = 7_823_582
         }].map { $0.toLKType() }.compactMap { $0 }
 
-        let providedUrl = URL(string: "https://example.livekit.cloud")!
+        let providedUrl = try XCTUnwrap(URL(string: "https://example.livekit.cloud"))
         let regionManager = RegionManager(providedUrl: providedUrl)
 
         // See if request should be initiated.
@@ -85,19 +85,19 @@ class RegionManagerTests: XCTestCase {
         XCTAssertTrue(shouldRequestAfterCache, "Should require to request region settings")
     }
 
-    func testIsCloud() {
-        XCTAssertTrue(URL(string: "wss://test.livekit.cloud")!.isCloud)
-        XCTAssertTrue(URL(string: "wss://test.livekit.run")!.isCloud)
-        XCTAssertFalse(URL(string: "wss://self-hosted.example.com")!.isCloud)
-        XCTAssertFalse(URL(string: "ws://localhost:7880")!.isCloud)
+    func testIsCloud() throws {
+        XCTAssertTrue(try XCTUnwrap(URL(string: "wss://test.livekit.cloud")?.isCloud))
+        XCTAssertTrue(try XCTUnwrap(URL(string: "wss://test.livekit.run")?.isCloud))
+        XCTAssertFalse(try XCTUnwrap(URL(string: "wss://self-hosted.example.com")?.isCloud))
+        XCTAssertFalse(try XCTUnwrap(URL(string: "ws://localhost:7880")?.isCloud))
     }
 
     func testRegionSettingsUrlConversion() {
-        XCTAssertEqual(URL(string: "wss://test.livekit.cloud")!.regionSettingsUrl().absoluteString,
+        XCTAssertEqual(URL(string: "wss://test.livekit.cloud")?.regionSettingsUrl().absoluteString,
                        "https://test.livekit.cloud/settings/regions")
-        XCTAssertEqual(URL(string: "ws://test.livekit.cloud")!.regionSettingsUrl().absoluteString,
+        XCTAssertEqual(URL(string: "ws://test.livekit.cloud")?.regionSettingsUrl().absoluteString,
                        "http://test.livekit.cloud/settings/regions")
-        XCTAssertEqual(URL(string: "https://test.livekit.cloud")!.regionSettingsUrl().absoluteString,
+        XCTAssertEqual(URL(string: "https://test.livekit.cloud")?.regionSettingsUrl().absoluteString,
                        "https://test.livekit.cloud/settings/regions")
     }
 
@@ -111,11 +111,11 @@ class RegionManagerTests: XCTestCase {
         XCTAssertFalse(NSError(domain: "other", code: -1).isRetryableForRegionFailover)
     }
 
-    func testFetchRegionSettingsClassifies4xxAsValidation() async {
-        let providedUrl = URL(string: "https://example.livekit.cloud")!
+    func testFetchRegionSettingsClassifies4xxAsValidation() async throws {
+        let providedUrl = try XCTUnwrap(URL(string: "https://example.livekit.cloud"))
         let regionManager = RegionManager(providedUrl: providedUrl)
 
-        MockURLProtocol.setAllowedHosts([providedUrl.host!])
+        try MockURLProtocol.setAllowedHosts([XCTUnwrap(providedUrl.host)])
         MockURLProtocol.setAllowedPaths(["/settings/regions"])
         MockURLProtocol.setRequestHandler { (_: URLRequest) in
             MockURLProtocol.Response(statusCode: 401,
@@ -134,11 +134,11 @@ class RegionManagerTests: XCTestCase {
         }
     }
 
-    func testFetchRegionSettingsClassifies5xxAsRegionManagerError() async {
-        let providedUrl = URL(string: "https://example.livekit.cloud")!
+    func testFetchRegionSettingsClassifies5xxAsRegionManagerError() async throws {
+        let providedUrl = try XCTUnwrap(URL(string: "https://example.livekit.cloud"))
         let regionManager = RegionManager(providedUrl: providedUrl)
 
-        MockURLProtocol.setAllowedHosts([providedUrl.host!])
+        try MockURLProtocol.setAllowedHosts([XCTUnwrap(providedUrl.host)])
         MockURLProtocol.setAllowedPaths(["/settings/regions"])
         MockURLProtocol.setRequestHandler { (_: URLRequest) in
             MockURLProtocol.Response(statusCode: 500,

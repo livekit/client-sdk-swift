@@ -173,7 +173,7 @@ final class AnyTaskCancellable: Cancellable, Sendable, Hashable {
         set.insert(self)
     }
 
-    func store<C>(in collection: inout C) where C: RangeReplaceableCollection, C.Element == AnyTaskCancellable {
+    func store<C: RangeReplaceableCollection>(in collection: inout C) where C.Element == AnyTaskCancellable {
         collection.append(self)
     }
 

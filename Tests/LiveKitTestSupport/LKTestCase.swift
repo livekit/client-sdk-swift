@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-@_exported import XCTest
-
 import LiveKit
 import LiveKitWebRTC
+@_exported import XCTest
 
 /// Subclass of XCTestCase that performs global initialization.
 open class LKTestCase: XCTestCase {
