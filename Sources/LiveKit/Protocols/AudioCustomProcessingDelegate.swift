@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,55 +53,55 @@ class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @u
 
     private struct State {
         var target: AudioCustomProcessingDelegate?
+        var isAttached: Bool = false
     }
 
     private var _state = StateSync(State())
 
-    private let rtcDelegateGetter: () -> LKRTCAudioCustomProcessingDelegate?
     private let rtcDelegateSetter: (LKRTCAudioCustomProcessingDelegate?) -> Void
 
     func set(target: AudioCustomProcessingDelegate?, oldTarget: AudioCustomProcessingDelegate? = nil) {
         // Clear WebRTC delegate first if there's an old target - this triggers audioProcessingRelease() on it
         if oldTarget != nil {
             rtcDelegateSetter(nil)
+            _state.mutate { $0.isAttached = false }
         }
         _state.mutate { $0.target = target }
-        updateRTCConnection()
+        updateRTCAttachment()
     }
 
     init(label: String,
-         rtcDelegateGetter: @escaping () -> LKRTCAudioCustomProcessingDelegate?,
          rtcDelegateSetter: @escaping (LKRTCAudioCustomProcessingDelegate?) -> Void)
     {
         self.label = label
-        self.rtcDelegateGetter = rtcDelegateGetter
         self.rtcDelegateSetter = rtcDelegateSetter
         super.init(label: "AudioCustomProcessingDelegateAdapter.\(label)")
         log("label: \(label)")
     }
 
-    // Override add/remove to manage RTC connection
+    // Override add/remove to manage RTC attachment
     override func add(delegate: AudioRenderer) {
         super.add(delegate: delegate)
-        updateRTCConnection()
+        updateRTCAttachment()
     }
 
     override func remove(delegate: AudioRenderer) {
         super.remove(delegate: delegate)
-        updateRTCConnection()
+        updateRTCAttachment()
     }
 
-    private func updateRTCConnection() {
-        let shouldBeConnected = target != nil || isDelegatesNotEmpty
-        let isConnected = rtcDelegateGetter() === self
-
-        if shouldBeConnected, !isConnected {
-            // Connect
-            rtcDelegateSetter(self)
-        } else if !shouldBeConnected, isConnected {
-            // Disconnect
-            rtcDelegateSetter(nil)
+    private func updateRTCAttachment() {
+        let result = _state.mutate { state -> (didChange: Bool, delegate: LKRTCAudioCustomProcessingDelegate?) in
+            let shouldAttach = state.target != nil || isDelegatesNotEmpty
+            guard shouldAttach != state.isAttached else { return (false, nil) }
+            state.isAttached = shouldAttach
+            return (true, shouldAttach ? self : nil)
         }
+
+        guard result.didChange else { return }
+
+        // Call into WebRTC outside the lock to avoid re-entrancy from callbacks.
+        rtcDelegateSetter(result.delegate)
     }
 
     // MARK: - AudioCustomProcessingDelegate

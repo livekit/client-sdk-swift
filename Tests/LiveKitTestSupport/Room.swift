@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 @testable import LiveKit
+import LiveKitUniFFI
 
 public struct RoomTestingOptions {
     public let delegate: RoomDelegate?
@@ -64,6 +65,7 @@ public extension LKTestCase {
         readEnvironmentString(for: "LIVEKIT_TESTING_URL", defaultValue: "ws://localhost:7880")
     }
 
+    // swiftlint:disable:next function_parameter_count
     func liveKitServerToken(for room: String,
                             identity: String,
                             canPublish: Bool,
@@ -78,16 +80,29 @@ public extension LKTestCase {
                                             apiSecret: apiSecret,
                                             identity: identity)
 
-        tokenGenerator.videoGrant = LiveKitJWTPayload.VideoGrant(room: room,
-                                                                 roomJoin: true,
-                                                                 canPublish: canPublish,
-                                                                 canSubscribe: canSubscribe,
-                                                                 canPublishData: canPublishData,
-                                                                 canPublishSources: canPublishSources.map(String.init))
+        tokenGenerator.videoGrants = VideoGrants(
+            roomCreate: false,
+            roomList: false,
+            roomRecord: false,
+            roomAdmin: false,
+            roomJoin: true,
+            room: room,
+            destinationRoom: "",
+            canPublish: canPublish,
+            canSubscribe: canSubscribe,
+            canPublishData: canPublishData,
+            canPublishSources: canPublishSources.map(String.init),
+            canUpdateOwnMetadata: false,
+            ingressAdmin: false,
+            hidden: false,
+            recorder: false
+        )
+
         return try tokenGenerator.sign()
     }
 
     // Set up variable number of Rooms
+    // swiftlint:disable:next function_body_length
     func withRooms(_ options: [RoomTestingOptions] = [],
                    _ block: @escaping ([Room]) async throws -> Void) async throws
     {

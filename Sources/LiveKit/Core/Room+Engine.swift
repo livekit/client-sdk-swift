@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// swiftlint:disable file_length
 
 import Foundation
 
@@ -113,6 +115,7 @@ extension Room {
 // MARK: - Internal
 
 extension Room {
+    // swiftlint:disable:next function_body_length
     func configureTransports(connectResponse: SignalClient.ConnectResponse) async throws {
         func makeConfiguration() -> LKRTCConfiguration {
             let connectOptions = _state.connectOptions
@@ -133,6 +136,8 @@ extension Room {
             } else {
                 rtcConfiguration.iceTransportPolicy = connectOptions.iceTransportPolicy.toRTCType()
             }
+
+            rtcConfiguration.enableDscp = connectOptions.isDscpEnabled
 
             return rtcConfiguration
         }
@@ -161,18 +166,18 @@ extension Room {
                                           primary: !isSubscriberPrimary,
                                           delegate: self)
 
-            await publisher.set { [weak self] offer in
+            await publisher.set { [weak self] offer, offerId in
                 guard let self else { return }
-                log("Publisher onOffer \(offer.sdp)")
-                try await signalClient.send(offer: offer)
+                log("Publisher onOffer with offerId: \(offerId), sdp: \(offer.sdp)")
+                try await signalClient.send(offer: offer, offerId: offerId)
             }
 
             // data over pub channel for backwards compatibility
 
-            let reliableDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.labels.reliable,
+            let reliableDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.reliable,
                                                                   configuration: RTC.createDataChannelConfiguration())
 
-            let lossyDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
+            let lossyDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.lossy,
                                                                configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
 
             publisherDataChannel.set(reliable: reliableDataChannel)
@@ -268,6 +273,7 @@ extension Room {
         log("\(_state.connectStopwatch)")
     }
 
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func startReconnect(reason: StartReconnectReason, nextReconnectMode: ReconnectMode? = nil) async throws {
         log("[Connect] Starting, reason: \(reason)")
 
@@ -276,7 +282,8 @@ extension Room {
             throw LiveKitError(.invalidState)
         }
 
-        guard let url = _state.url, let token = _state.token else {
+        let url = _state.read { $0.connectedUrl ?? $0.providedUrl }
+        guard let url, let token = _state.token else {
             log("[Connect] Url or token is nil", .error)
             throw LiveKitError(.invalidState)
         }
@@ -318,7 +325,13 @@ extension Room {
 
             log("[Connect] Waiting for subscriber to connect...")
             // Wait for primary transport to connect (if not already)
-            try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
+            do {
+                try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
+                log("[Connect] Subscriber transport connected")
+            } catch {
+                log("[Connect] Subscriber transport failed to connect, error: \(error)", .error)
+                throw error
+            }
             try Task.checkCancellation()
 
             // send SyncState before offer
@@ -330,7 +343,13 @@ extension Room {
                 // Only if published, wait for publisher to connect...
                 log("[Connect] Waiting for publisher to connect...")
                 try await publisher.createAndSendOffer(iceRestart: true)
-                try await publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
+                do {
+                    try await publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
+                    log("[Connect] Publisher transport connected")
+                } catch {
+                    log("[Connect] Publisher transport failed to connect, error: \(error)", .error)
+                    throw error
+                }
             }
         }
 
@@ -344,16 +363,30 @@ extension Room {
                 $0.connectionState = .reconnecting
             }
 
-            await cleanUp(isFullReconnect: true)
+            let (providedUrl, connectedUrl, token) = _state.read { ($0.providedUrl, $0.connectedUrl, $0.token) }
 
-            guard let url = _state.url,
-                  let token = _state.token
-            else {
+            guard let providedUrl, let connectedUrl, let token else {
                 log("[Connect] Url or token is nil")
                 throw LiveKitError(.invalidState)
             }
 
-            try await fullConnectSequence(url, token)
+            let finalUrl: URL
+            await cleanUp(isFullReconnect: true)
+            if providedUrl.isCloud {
+                guard let regionManager = await regionManager(for: providedUrl) else {
+                    throw LiveKitError(.onlyForCloud)
+                }
+
+                finalUrl = try await connectWithCloudRegionFailover(regionManager: regionManager,
+                                                                    initialUrl: connectedUrl,
+                                                                    initialRegion: nil,
+                                                                    token: token)
+            } else {
+                try await fullConnectSequence(connectedUrl, token)
+                finalUrl = connectedUrl
+            }
+
+            _state.mutate { $0.connectedUrl = finalUrl }
         }
 
         do {
@@ -406,7 +439,7 @@ extension Room {
             }
 
             _state.mutate {
-                $0.reconnectTask = reconnectTask
+                $0.reconnectTask = reconnectTask.cancellable()
             }
 
             try await reconnectTask.value
@@ -418,6 +451,11 @@ extension Room {
                 $0.reconnectTask = nil
                 $0.isReconnectingWithMode = nil
                 $0.nextReconnectMode = nil
+            }
+
+            if let providedUrl = _state.providedUrl, providedUrl.isCloud, let regionManager = await regionManager(for: providedUrl) {
+                // Clear failed region attempts after a successful reconnect.
+                await regionManager.resetAttempts()
             }
         } catch {
             log("[Connect] Sequence failed with error: \(error)")
@@ -448,9 +486,12 @@ extension Room {
         // 2. autosubscribe off, we send subscribed tracks.
 
         let autoSubscribe = _state.connectOptions.autoSubscribe
+        // Use isDesired (subscription intent) instead of isSubscribed (actual state)
+        // to avoid race condition during quick reconnect where tracks aren't attached yet.
         let trackSids = _state.remoteParticipants.values.flatMap { participant in
             participant._state.trackPublications.values
-                .filter { $0.isSubscribed != autoSubscribe }
+                .compactMap { $0 as? RemoteTrackPublication }
+                .filter { $0.isDesired != autoSubscribe }
                 .map(\.sid)
         }
 
@@ -462,8 +503,8 @@ extension Room {
             $0.subscribe = !autoSubscribe
         }
 
-        try await signalClient.sendSyncState(answer: previousAnswer?.toPBType(),
-                                             offer: previousOffer?.toPBType(),
+        try await signalClient.sendSyncState(answer: previousAnswer?.toPBType(offerId: 0),
+                                             offer: previousOffer?.toPBType(offerId: 0),
                                              subscription: subscription,
                                              publishTracks: localParticipant.publishedTracksInfo(),
                                              dataChannels: publisherDataChannel.infos(),

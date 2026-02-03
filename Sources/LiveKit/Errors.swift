@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ public enum LiveKitErrorType: Int, Sendable {
     case webRTC = 201
 
     case network // Network issue
+    case validation // Validation issue
 
     // Server
     case duplicateIdentity = 500
@@ -59,6 +60,10 @@ public enum LiveKitErrorType: Int, Sendable {
     // Encryption
     case encryptionFailed = 1001
     case decryptionFailed = 1002
+
+    // LiveKit Cloud
+    case onlyForCloud = 1101
+    case regionManager = 1102
 }
 
 extension LiveKitErrorType: CustomStringConvertible {
@@ -80,6 +85,8 @@ extension LiveKitErrorType: CustomStringConvertible {
             "WebRTC error"
         case .network:
             "Network error"
+        case .validation:
+            "Validation error"
         case .duplicateIdentity:
             "Duplicate Participant identity"
         case .serverShutdown:
@@ -112,6 +119,10 @@ extension LiveKitErrorType: CustomStringConvertible {
             "Encryption failed"
         case .decryptionFailed:
             "Decryption failed"
+        case .onlyForCloud:
+            "Only for LiveKit Cloud"
+        case .regionManager:
+            "Region manager error"
         default: "Unknown"
         }
     }
@@ -121,10 +132,13 @@ extension LiveKitErrorType: CustomStringConvertible {
 public class LiveKitError: NSError, @unchecked Sendable, Loggable {
     public let type: LiveKitErrorType
     public let message: String?
-    public let underlyingError: Error?
+    public let internalError: Error?
+
+    @available(*, deprecated, renamed: "internalError")
+    public var underlyingError: Error? { internalError }
 
     override public var underlyingErrors: [Error] {
-        [underlyingError].compactMap { $0 }
+        [internalError].compactMap { $0 }
     }
 
     public init(_ type: LiveKitErrorType,
@@ -132,18 +146,26 @@ public class LiveKitError: NSError, @unchecked Sendable, Loggable {
                 internalError: Error? = nil)
     {
         func _computeDescription() -> String {
+            var suffix = ""
             if let message {
-                return "\(String(describing: type))(\(message))"
+                suffix = "(\(message))"
+            } else if let internalError {
+                suffix = "(\(internalError.localizedDescription))"
             }
-            return String(describing: type)
+            return String(describing: type) + suffix
         }
 
         self.type = type
         self.message = message
-        underlyingError = internalError
+        self.internalError = internalError
+
+        var userInfo: [String: Any] = [NSLocalizedDescriptionKey: _computeDescription()]
+        if let internalError {
+            userInfo[NSUnderlyingErrorKey] = internalError as NSError
+        }
         super.init(domain: "io.livekit.swift-sdk",
                    code: type.rawValue,
-                   userInfo: [NSLocalizedDescriptionKey: _computeDescription()])
+                   userInfo: userInfo)
     }
 
     @available(*, unavailable)
@@ -170,6 +192,27 @@ extension LiveKitError {
 
     static func from(reason: Livekit_DisconnectReason) -> LiveKitError {
         LiveKitError(reason.toLKType())
+    }
+}
+
+extension Error {
+    /// Returns `true` for network/timeouts that should trigger region failover.
+    var isRetryableForRegionFailover: Bool {
+        if let liveKitError = self as? LiveKitError {
+            switch liveKitError.type {
+            case .network, .timedOut:
+                return true
+            default:
+                return false
+            }
+        }
+
+        if self is URLError {
+            return true
+        }
+
+        let nsError = self as NSError
+        return nsError.domain == NSURLErrorDomain
     }
 }
 

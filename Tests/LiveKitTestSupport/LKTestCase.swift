@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-@_exported import XCTest
-
 import LiveKit
 import LiveKitWebRTC
+@_exported import XCTest
 
 /// Subclass of XCTestCase that performs global initialization.
 open class LKTestCase: XCTestCase {

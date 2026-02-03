@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -88,7 +88,7 @@ class IncomingStreamManagerTests: LKTestCase, @unchecked Sendable {
         header.streamID = streamID
         header.topic = topicName
         header.contentHeader = .byteHeader(Livekit_DataStream.ByteHeader())
-        await manager.handle(header: header, from: participant.stringValue, encryptionType: .none)
+        manager.handle(.header(header, participant.stringValue, .none))
 
         // 2. Send chunk packets
         for (index, chunkData) in testChunks.enumerated() {
@@ -96,14 +96,14 @@ class IncomingStreamManagerTests: LKTestCase, @unchecked Sendable {
             chunk.streamID = streamID
             chunk.chunkIndex = UInt64(index)
             chunk.content = chunkData
-            await manager.handle(chunk: chunk, encryptionType: .none)
+            manager.handle(.chunk(chunk, .none))
         }
 
         // 3. Send trailer packet
         var trailer = Livekit_DataStream.Trailer()
         trailer.streamID = streamID
         trailer.reason = "" // indicates normal closure
-        await manager.handle(trailer: trailer, encryptionType: .none)
+        manager.handle(.trailer(trailer, .none))
 
         await fulfillment(
             of: [receiveExpectation],
@@ -138,7 +138,7 @@ class IncomingStreamManagerTests: LKTestCase, @unchecked Sendable {
         header.streamID = streamID
         header.topic = topicName
         header.contentHeader = .textHeader(Livekit_DataStream.TextHeader())
-        await manager.handle(header: header, from: participant.stringValue, encryptionType: .none)
+        manager.handle(.header(header, participant.stringValue, .none))
 
         // 2. Send chunk packets
         for (index, chunkData) in testChunks.enumerated() {
@@ -146,14 +146,14 @@ class IncomingStreamManagerTests: LKTestCase, @unchecked Sendable {
             chunk.streamID = streamID
             chunk.chunkIndex = UInt64(index)
             chunk.content = Data(chunkData.utf8)
-            await manager.handle(chunk: chunk, encryptionType: .none)
+            manager.handle(.chunk(chunk, .none))
         }
 
         // 3. Send trailer packet
         var trailer = Livekit_DataStream.Trailer()
         trailer.streamID = streamID
         trailer.reason = "" // indicates normal closure
-        await manager.handle(trailer: trailer, encryptionType: .none)
+        manager.handle(.trailer(trailer, .none))
 
         await fulfillment(
             of: [receiveExpectation],
@@ -184,20 +184,20 @@ class IncomingStreamManagerTests: LKTestCase, @unchecked Sendable {
         header.topic = topicName
         header.contentHeader = .textHeader(Livekit_DataStream.TextHeader())
         header.totalLength = UInt64(testPayload.count)
-        await manager.handle(header: header, from: participant.stringValue, encryptionType: .none)
+        manager.handle(.header(header, participant.stringValue, .none))
 
         // 2. Send chunk packet
         var chunk = Livekit_DataStream.Chunk()
         chunk.streamID = streamID
         chunk.chunkIndex = 0
         chunk.content = Data(testPayload)
-        await manager.handle(chunk: chunk, encryptionType: .none)
+        manager.handle(.chunk(chunk, .none))
 
         // 3. Send trailer packet
         var trailer = Livekit_DataStream.Trailer()
         trailer.streamID = streamID
         trailer.reason = "" // indicates normal closure
-        await manager.handle(trailer: trailer, encryptionType: .none)
+        manager.handle(.trailer(trailer, .none))
 
         await fulfillment(
             of: [throwsExpectation],
@@ -225,13 +225,13 @@ class IncomingStreamManagerTests: LKTestCase, @unchecked Sendable {
         header.streamID = streamID
         header.topic = topicName
         header.contentHeader = .byteHeader(Livekit_DataStream.ByteHeader())
-        await manager.handle(header: header, from: participant.stringValue, encryptionType: .none)
+        manager.handle(.header(header, participant.stringValue, .none))
 
         // 2. Send trailer packet
         var trailer = Livekit_DataStream.Trailer()
         trailer.streamID = streamID
         trailer.reason = closureReason // indicates abnormal closure
-        await manager.handle(trailer: trailer, encryptionType: .none)
+        manager.handle(.trailer(trailer, .none))
 
         await fulfillment(
             of: [throwsExpectation],
@@ -261,20 +261,20 @@ class IncomingStreamManagerTests: LKTestCase, @unchecked Sendable {
         header.topic = topicName
         header.contentHeader = .byteHeader(Livekit_DataStream.ByteHeader())
         header.totalLength = UInt64(testPayload.count + 10) // expect more bytes
-        await manager.handle(header: header, from: participant.stringValue, encryptionType: .none)
+        manager.handle(.header(header, participant.stringValue, .none))
 
         // 2. Send chunk packet
         var chunk = Livekit_DataStream.Chunk()
         chunk.streamID = streamID
         chunk.chunkIndex = 0
         chunk.content = Data(testPayload)
-        await manager.handle(chunk: chunk, encryptionType: .none)
+        manager.handle(.chunk(chunk, .none))
 
         // 3. Send trailer packet
         var trailer = Livekit_DataStream.Trailer()
         trailer.streamID = streamID
         trailer.reason = "" // indicates normal closure
-        await manager.handle(trailer: trailer, encryptionType: .none)
+        manager.handle(.trailer(trailer, .none))
 
         await fulfillment(
             of: [throwsExpectation],
@@ -309,14 +309,14 @@ class IncomingStreamManagerTests: LKTestCase, @unchecked Sendable {
             $0.name = "test-file.bin"
         })
 
-        await manager.handle(header: header, from: "test-participant", encryptionType: .gcm)
+        manager.handle(.header(header, "test-participant", .gcm))
 
         var chunk = Livekit_DataStream.Chunk()
         chunk.streamID = "test-stream-id"
         chunk.chunkIndex = 0
         chunk.content = Data("test data".utf8)
 
-        await manager.handle(chunk: chunk, encryptionType: .none)
+        manager.handle(.chunk(chunk, .none))
 
         await fulfillment(of: [streamExpectation], timeout: 5.0)
     }

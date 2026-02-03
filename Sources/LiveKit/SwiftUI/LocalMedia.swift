@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import Foundation
 /// microphone and camera, and selecting audio and video devices. It is designed to be used
 /// in SwiftUI views.
 @MainActor
-open class LocalMedia: ObservableObject {
+open class LocalMedia: ObservableObject, Loggable {
     // MARK: - Error
 
     public enum Error: LocalizedError {
@@ -73,6 +73,7 @@ open class LocalMedia: ObservableObject {
     // MARK: - Dependencies
 
     private var localParticipant: LocalParticipant
+    private var tasks = Set<AnyTaskCancellable>()
 
     // MARK: - Initialization
 
@@ -98,25 +99,25 @@ open class LocalMedia: ObservableObject {
     }
 
     private func observe(_ localParticipant: LocalParticipant) {
-        Task { [weak self] in
-            for try await _ in localParticipant.changes {
-                guard let self else { return }
+        localParticipant.changes.subscribeOnMainActor(self) { observer, _ in
+            observer.microphoneTrack = localParticipant.firstAudioTrack
+            observer.cameraTrack = localParticipant.firstCameraVideoTrack
+            observer.screenShareTrack = localParticipant.firstScreenShareVideoTrack
 
-                microphoneTrack = localParticipant.firstAudioTrack
-                cameraTrack = localParticipant.firstCameraVideoTrack
-                screenShareTrack = localParticipant.firstScreenShareVideoTrack
-
-                isMicrophoneEnabled = localParticipant.isMicrophoneEnabled()
-                isCameraEnabled = localParticipant.isCameraEnabled()
-                isScreenShareEnabled = localParticipant.isScreenShareEnabled()
-            }
-        }
+            observer.isMicrophoneEnabled = localParticipant.isMicrophoneEnabled()
+            observer.isCameraEnabled = localParticipant.isCameraEnabled()
+            observer.isScreenShareEnabled = localParticipant.isScreenShareEnabled()
+        }.store(in: &tasks)
     }
 
     private func observeDevices() {
         try? AudioManager.shared.set(microphoneMuteMode: .inputMixer) // don't play mute sound effect
         Task {
-            try await AudioManager.shared.setRecordingAlwaysPreparedMode(true)
+            do {
+                try await AudioManager.shared.setRecordingAlwaysPreparedMode(true)
+            } catch {
+                log("Failed to setRecordingAlwaysPreparedMode: \(error)", .error)
+            }
         }
 
         AudioManager.shared.onDeviceUpdate = { _ in
@@ -127,9 +128,13 @@ open class LocalMedia: ObservableObject {
         }
 
         Task {
-            canSwitchCamera = try await CameraCapturer.canSwitchPosition()
-            videoDevices = try await CameraCapturer.captureDevices()
-            selectedVideoDeviceID = videoDevices.first?.uniqueID
+            do {
+                canSwitchCamera = try await CameraCapturer.canSwitchPosition()
+                videoDevices = try await CameraCapturer.captureDevices()
+                selectedVideoDeviceID = videoDevices.first?.uniqueID
+            } catch {
+                log("Failed to configure camera devices: \(error)", .error)
+            }
         }
     }
 

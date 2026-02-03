@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ actor IncomingStreamManager: Loggable {
         let info: StreamInfo
         let openTime: TimeInterval
         let continuation: StreamReaderSource.Continuation
+        var task: AnyTaskCancellable?
         var readLength = 0
     }
 
@@ -33,6 +34,46 @@ actor IncomingStreamManager: Loggable {
 
     private var byteStreamHandlers: [String: ByteStreamHandler] = [:]
     private var textStreamHandlers: [String: TextStreamHandler] = [:]
+
+    /// Events are processed in a serial (FIFO) order
+    enum StreamEvent: Sendable {
+        case header(Livekit_DataStream.Header, String, EncryptionType)
+        case chunk(Livekit_DataStream.Chunk, EncryptionType)
+        case trailer(Livekit_DataStream.Trailer, EncryptionType)
+    }
+
+    private let eventContinuation: AsyncStream<StreamEvent>.Continuation
+    private var eventLoopTask: AnyTaskCancellable?
+
+    init() {
+        let (stream, continuation) = AsyncStream.makeStream(of: StreamEvent.self)
+        eventContinuation = continuation
+
+        Task {
+            await observe(events: stream)
+        }
+    }
+
+    private func observe(events stream: AsyncStream<StreamEvent>) {
+        eventLoopTask = stream.subscribe(self) { observer, event in
+            await observer.process(event)
+        }
+    }
+
+    nonisolated func handle(_ event: StreamEvent) {
+        eventContinuation.yield(event)
+    }
+
+    private func process(_ event: StreamEvent) {
+        switch event {
+        case let .header(header, identityString, encryptionType):
+            handle(header: header, from: identityString, encryptionType: encryptionType)
+        case let .chunk(chunk, encryptionType):
+            handle(chunk: chunk, encryptionType: encryptionType)
+        case let .trailer(trailer, encryptionType):
+            handle(trailer: trailer, encryptionType: encryptionType)
+        }
+    }
 
     // MARK: - Handler registration
 
@@ -61,7 +102,7 @@ actor IncomingStreamManager: Loggable {
     // MARK: - Packet processing
 
     /// Handles a data stream header.
-    func handle(header: Livekit_DataStream.Header, from identityString: String, encryptionType: EncryptionType) {
+    private func handle(header: Livekit_DataStream.Header, from identityString: String, encryptionType: EncryptionType) {
         let identity = Participant.Identity(from: identityString)
 
         guard let streamInfo = Self.streamInfo(from: header, encryptionType: encryptionType) else {
@@ -95,13 +136,13 @@ actor IncomingStreamManager: Loggable {
         let descriptor = Descriptor(
             info: info,
             openTime: Date.timeIntervalSinceReferenceDate,
-            continuation: continuation
+            continuation: continuation,
+            task: Task {
+                try await handler(source, identity)
+            }.cancellable()
         )
-        openStreams[info.id] = descriptor
 
-        Task.detached {
-            try await handler(source, identity)
-        }
+        openStreams[info.id] = descriptor
     }
 
     /// Close the stream with the given id.
@@ -110,7 +151,7 @@ actor IncomingStreamManager: Loggable {
     }
 
     /// Handles a data stream chunk.
-    func handle(chunk: Livekit_DataStream.Chunk, encryptionType: EncryptionType) {
+    private func handle(chunk: Livekit_DataStream.Chunk, encryptionType: EncryptionType) {
         guard !chunk.content.isEmpty, let descriptor = openStreams[chunk.streamID] else { return }
 
         if descriptor.info.encryptionType != encryptionType {
@@ -135,7 +176,7 @@ actor IncomingStreamManager: Loggable {
     }
 
     /// Handles a data stream trailer.
-    func handle(trailer: Livekit_DataStream.Trailer, encryptionType: EncryptionType) {
+    private func handle(trailer: Livekit_DataStream.Trailer, encryptionType: EncryptionType) {
         guard let descriptor = openStreams[trailer.streamID] else {
             return
         }
@@ -187,6 +228,7 @@ actor IncomingStreamManager: Loggable {
     // MARK: - Clean up
 
     deinit {
+        eventContinuation.finish()
         guard !openStreams.isEmpty else { return }
         for descriptor in openStreams.values {
             descriptor.continuation.finish(throwing: StreamError.terminated)

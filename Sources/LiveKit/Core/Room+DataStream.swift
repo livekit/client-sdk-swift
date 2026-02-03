@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,8 +69,7 @@ public extension Room {
         onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
-            do { try await registerByteStreamHandler(for: topic, onNewStream: onNewStream) }
-            catch { onError?(error) }
+            do { try await registerByteStreamHandler(for: topic, onNewStream: onNewStream) } catch { onError?(error) }
         }
     }
 
@@ -82,8 +81,7 @@ public extension Room {
         onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
-            do { try await registerTextStreamHandler(for: topic, onNewStream: onNewStream) }
-            catch { onError?(error) }
+            do { try await registerTextStreamHandler(for: topic, onNewStream: onNewStream) } catch { onError?(error) }
         }
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import JWTKit
 @testable import LiveKit
+import LiveKitUniFFI
 
 public class TokenGenerator {
     // 30 mins
@@ -29,11 +29,9 @@ public class TokenGenerator {
     public var ttl: TimeInterval
     public var name: String?
     public var metadata: String?
-    public var videoGrant: LiveKitJWTPayload.VideoGrant?
 
-    // MARK: - Private
-
-    private let signers = JWTSigners()
+    public var videoGrants: LiveKitUniFFI.VideoGrants?
+    public var roomConfiguration: LiveKitUniFFI.RoomConfiguration?
 
     public init(apiKey: String,
                 apiSecret: String,
@@ -47,19 +45,19 @@ public class TokenGenerator {
     }
 
     public func sign() throws -> String {
-        // Add HMAC with SHA-256 signer.
-        signers.use(.hs256(key: apiSecret))
+        let credentials = ApiCredentials(key: apiKey, secret: apiSecret)
+        let options = TokenOptions(
+            ttl: ttl,
+            videoGrants: videoGrants,
+            sipGrants: nil,
+            identity: identity,
+            name: name,
+            metadata: metadata,
+            attributes: nil,
+            sha256: nil,
+            roomConfiguration: roomConfiguration
+        )
 
-        let n = Date().timeIntervalSince1970
-
-        let p = LiveKitJWTPayload(exp: .init(value: Date(timeIntervalSince1970: floor(n + ttl))),
-                                  iss: .init(stringLiteral: apiKey),
-                                  nbf: .init(value: Date(timeIntervalSince1970: floor(n))),
-                                  sub: .init(stringLiteral: identity),
-                                  name: name,
-                                  metadata: metadata,
-                                  video: videoGrant)
-
-        return try signers.sign(p)
+        return try tokenGenerate(options: options, credentials: credentials)
     }
 }

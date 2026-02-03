@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
+import LiveKitUniFFI
 
 class TokenSourceTests: LKTestCase {
     actor MockValidJWTSource: TokenSourceConfigurable {
@@ -38,7 +39,17 @@ class TokenSourceTests: LKTestCase {
                 identity: options.participantIdentity ?? "test-identity"
             )
             tokenGenerator.name = options.participantName ?? participantName
-            tokenGenerator.videoGrant = LiveKitJWTPayload.VideoGrant(room: options.roomName ?? "test-room", roomJoin: true)
+            tokenGenerator.roomConfiguration = RoomConfiguration(
+                name: options.roomName ?? "test-room",
+                emptyTimeout: 0,
+                departureTimeout: 0,
+                maxParticipants: 0,
+                metadata: "",
+                minPlayoutDelay: 0,
+                maxPlayoutDelay: 0,
+                syncStreams: false,
+                agents: []
+            )
 
             let token = try tokenGenerator.sign()
 
@@ -74,10 +85,20 @@ class TokenSourceTests: LKTestCase {
                 apiKey: "test-api-key",
                 apiSecret: "test-api-secret",
                 identity: options.participantIdentity ?? "test-identity",
-                ttl: -60
+                ttl: 0
             )
             tokenGenerator.name = options.participantName ?? "test-participant"
-            tokenGenerator.videoGrant = LiveKitJWTPayload.VideoGrant(room: options.roomName ?? "test-room", roomJoin: true)
+            tokenGenerator.roomConfiguration = RoomConfiguration(
+                name: options.roomName ?? "test-room",
+                emptyTimeout: 0,
+                departureTimeout: 0,
+                maxParticipants: 0,
+                metadata: "",
+                minPlayoutDelay: 0,
+                maxPlayoutDelay: 0,
+                syncStreams: false,
+                agents: []
+            )
 
             let token = try tokenGenerator.sign()
 
@@ -159,6 +180,7 @@ class TokenSourceTests: LKTestCase {
         XCTAssertEqual(expiredCallCount2, 2)
     }
 
+    // swiftlint:disable:next function_body_length
     func testCustomValidator() async throws {
         let mockSource = MockValidJWTSource(participantName: "charlie")
 

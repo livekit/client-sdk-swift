@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 import AVFoundation
 import Foundation
-
 @testable import LiveKit
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport

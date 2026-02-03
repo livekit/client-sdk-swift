@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// swiftlint:disable file_length
 
 import Combine
 import Foundation
@@ -205,6 +207,29 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         sender._set(subscribedQualities: qualities)
     }
 
+    override func set(info: Livekit_ParticipantInfo, connectionState: ConnectionState) {
+        super.set(info: info, connectionState: connectionState)
+
+        // Reconcile track mute status
+        for trackInfo in info.tracks {
+            let trackSid = Track.Sid(from: trackInfo.sid)
+            guard let publication = trackPublications[trackSid] as? LocalTrackPublication else { continue }
+
+            let localMuted = publication.isMuted
+            if localMuted != trackInfo.muted {
+                log("updating server mute state after reconcile, track: \(trackSid), muted: \(localMuted)", .debug)
+                Task {
+                    do {
+                        let room = try requireRoom()
+                        try await room.signalClient.sendMuteTrack(trackSid: trackSid, muted: localMuted)
+                    } catch {
+                        log("Failed to update server mute state after reconcile, error: \(error)", .error)
+                    }
+                }
+            }
+        }
+    }
+
     override func set(permissions newValue: ParticipantPermissions) -> Bool {
         guard let room = _room else { return false }
         let didUpdate = super.set(permissions: newValue)
@@ -341,6 +366,7 @@ public extension LocalParticipant {
 
     @objc
     @discardableResult
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func set(source: Track.Source,
              enabled: Bool,
              captureOptions: CaptureOptions? = nil,
@@ -505,6 +531,7 @@ extension [Livekit_SubscribedQuality] {
 
 extension LocalParticipant {
     @discardableResult
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
@@ -529,7 +556,7 @@ extension LocalParticipant {
 
         do {
             var dimensions: Dimensions? // Only for Video
-            var publishName: String? = nil
+            var publishName: String?
 
             var sendEncodings: [LKRTCRtpEncodingParameters]?
             var populatorFunc: SignalClient.AddTrackRequestPopulator?
@@ -649,22 +676,13 @@ extension LocalParticipant {
                 if track is LocalVideoTrack {
                     let publishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
 
-                    let setDegradationPreference: NSNumber? = {
-                        if let rtcDegradationPreference = publishOptions.degradationPreference.toRTCType() {
-                            return NSNumber(value: rtcDegradationPreference.rawValue)
-                        } else if track.source == .screenShareVideo || publishOptions.simulcast {
-                            return NSNumber(value: LKRTCDegradationPreference.maintainResolution.rawValue)
-                        }
-                        return nil
-                    }()
+                    let degradationPreference = publishOptions.degradationPreference.toRTCType() ?? .maintainResolution
 
-                    if let setDegradationPreference {
-                        self.log("[publish] set degradationPreference to \(setDegradationPreference)")
-                        let params = transceiver.sender.parameters
-                        params.degradationPreference = setDegradationPreference
-                        // Changing params directly doesn't work so we need to update params and set it back to sender.parameters
-                        transceiver.sender.parameters = params
-                    }
+                    self.log("[publish] set degradationPreference to \(degradationPreference)")
+                    let params = transceiver.sender.parameters
+                    params.degradationPreference = NSNumber(value: degradationPreference.rawValue)
+                    // Changing params directly doesn't work so we need to update params and set it back to sender.parameters
+                    transceiver.sender.parameters = params
 
                     if let preferredCodec = publishOptions.preferredCodec {
                         try transceiver.set(preferredVideoCodec: preferredCodec)

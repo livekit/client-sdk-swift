@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,8 @@ internal import LiveKitWebRTC
 private extension Array where Element: LKRTCVideoCodecInfo {
     func rewriteCodecsIfNeeded() -> [LKRTCVideoCodecInfo] {
         // rewrite H264's profileLevelId to 42e032
-        let codecs = map { $0.name == kLKRTCVideoCodecH264Name ? RTC.h264BaselineLevel5CodecInfo : $0 }
+        map { $0.name == kLKRTCVideoCodecH264Name ? RTC.h264BaselineLevel5CodecInfo : $0 }
         // logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: RTC.self)
-        return codecs
     }
 }
 
@@ -187,6 +186,14 @@ actor RTC {
 
         if let scalabilityMode {
             result.scalabilityMode = scalabilityMode.rawStringValue
+        }
+
+        if let bitratePriority = encoding?.bitratePriority {
+            result.bitratePriority = bitratePriority.toBitratePriority()
+        }
+
+        if let networkPriority = encoding?.networkPriority {
+            result.networkPriority = networkPriority.toRTCPriority()
         }
 
         return result

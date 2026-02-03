@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -110,7 +110,8 @@ open class Session: ObservableObject {
 
     // MARK: - Internal state
 
-    private var waitForAgentTask: Task<Void, Swift.Error>?
+    private var tasks = Set<AnyTaskCancellable>()
+    private var waitForAgentTask: AnyTaskCancellable?
 
     // MARK: - Init
 
@@ -193,17 +194,10 @@ open class Session: ObservableObject {
                 receivers: receivers)
     }
 
-    deinit {
-        waitForAgentTask?.cancel()
-    }
-
     private func observe(room: Room) {
-        Task { [weak self] in
-            for try await _ in room.changes {
-                guard let self else { return }
-                updateAgent(in: room)
-            }
-        }
+        room.changes.subscribeOnMainActor(self) { observer, _ in
+            observer.updateAgent(in: room)
+        }.store(in: &tasks)
     }
 
     private func updateAgent(in room: Room) {
@@ -213,24 +207,33 @@ open class Session: ObservableObject {
             agent.disconnected()
         } else if let firstAgent = room.agentParticipants.values.first {
             agent.connected(participant: firstAgent)
+        } else if agent.isConnected {
+            agent.failed(error: .left)
         } else {
             agent.connecting(buffering: options.preConnectAudio)
         }
     }
 
     private func observe(receivers: [any MessageReceiver]) {
+        let (stream, continuation) = AsyncStream.makeStream(of: ReceivedMessage.self)
+
+        // Multiple producers → single stream
         for receiver in receivers {
             Task { [weak self] in
                 do {
                     for await message in try await receiver.messages() {
-                        guard let self else { return }
-                        messagesDict.updateValue(message, forKey: message.id)
+                        continuation.yield(message)
                     }
                 } catch {
                     self?.error = .receiver(error)
                 }
-            }
+            }.cancellable().store(in: &tasks)
         }
+
+        // Single consumer
+        stream.subscribeOnMainActor(self) { observer, message in
+            observer.messagesDict.updateValue(message, forKey: message.id)
+        }.store(in: &tasks)
     }
 
     // MARK: - Lifecycle
@@ -240,7 +243,7 @@ open class Session: ObservableObject {
         guard connectionState == .disconnected else { return }
 
         error = nil
-        waitForAgentTask?.cancel()
+        waitForAgentTask = nil
 
         let timeout = options.agentConnectTimeout
 
@@ -248,31 +251,35 @@ open class Session: ObservableObject {
             let response = try await self.tokenSourceConfiguration.fetch()
             try await self.room.connect(url: response.serverURL.absoluteString,
                                         token: response.participantToken)
+            return response.dispatchesAgent()
         }
 
         do {
+            let dispatchesAgent: Bool
             if options.preConnectAudio {
-                try await room.withPreConnectAudio(timeout: timeout) {
+                dispatchesAgent = try await room.withPreConnectAudio(timeout: timeout) {
                     await MainActor.run {
                         self.connectionState = .connecting
                         self.agent.connecting(buffering: true)
                     }
-                    try await connect()
+                    return try await connect()
                 }
             } else {
                 connectionState = .connecting
                 agent.connecting(buffering: false)
-                try await connect()
+                dispatchesAgent = try await connect()
                 try await room.localParticipant.setMicrophone(enabled: true)
             }
 
-            waitForAgentTask = Task { [weak self] in
-                try await Task.sleep(nanoseconds: UInt64(timeout * Double(NSEC_PER_SEC)))
-                try Task.checkCancellation()
-                guard let self else { return }
-                if isConnected, !agent.isConnected {
-                    agent.failed(error: .timeout)
-                }
+            if dispatchesAgent {
+                waitForAgentTask = Task { [weak self] in
+                    try await Task.sleep(nanoseconds: UInt64(timeout * Double(NSEC_PER_SEC)))
+                    try Task.checkCancellation()
+                    guard let self else { return }
+                    if isConnected, !agent.isConnected {
+                        agent.failed(error: .timeout)
+                    }
+                }.cancellable()
             }
         } catch {
             self.error = .connection(error)

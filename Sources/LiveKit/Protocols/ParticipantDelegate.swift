@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,6 +87,10 @@ public protocol ParticipantDelegate: AnyObject, Sendable {
     /// Fired when the first remote participant has subscribed to the localParticipant's track.
     @objc(localParticipant:remoteDidSubscribeTrack:) optional
     func participant(_ participant: LocalParticipant, remoteDidSubscribeTrack publication: LocalTrackPublication)
+
+    /// The ``LocalParticipant`` was moved to a different room.
+    @objc(localParticipant:didMoveToRoomNamed:) optional
+    func participant(_ participant: LocalParticipant, didMoveToRoomNamed roomName: String)
 
     // MARK: - RemoteTrackPublication
 

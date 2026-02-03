@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,6 +50,10 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     override public var isSubscribed: Bool {
         if !isSubscriptionAllowed { return false }
         return _state.isSubscribePreferred != false && super.isSubscribed
+    }
+
+    var isDesired: Bool {
+        _state.isSubscribePreferred != false
     }
 
     @objc
@@ -163,8 +167,8 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
 
                 // start adaptiveStream timer only if it's a video track
                 if isAdaptiveStreamEnabled {
-                    _asTimer.setTimerBlock {
-                        [weak self] in await self?.onAdaptiveStreamTimer()
+                    _asTimer.setTimerBlock { [weak self] in
+                        await self?.onAdaptiveStreamTimer()
                     }
                     _asTimer.restart()
                 }

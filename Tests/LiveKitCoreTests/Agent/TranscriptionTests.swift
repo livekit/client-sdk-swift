@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ class TranscriptionTests: LKTestCase, @unchecked Sendable {
     private var receiver: TranscriptionStreamReceiver!
     private var senderRoom: Room!
     private var messageCollector: MessageCollector!
-    private var collectionTask: Task<Void, Never>!
+    private var collectionTask: AnyTaskCancellable!
     private var messageExpectation: XCTestExpectation!
 
     // Same segment, same stream
@@ -84,12 +84,9 @@ class TranscriptionTests: LKTestCase, @unchecked Sendable {
         messageCollector = MessageCollector()
         senderRoom = rooms[1]
 
-        collectionTask = Task { @Sendable in
-            var iterator = messageStream.makeAsyncIterator()
-            while let message = await iterator.next() {
-                await self.messageCollector.add(message)
-                self.messageExpectation.fulfill()
-            }
+        collectionTask = messageStream.subscribe(self) { observer, message in
+            await observer.messageCollector.add(message)
+            observer.messageExpectation.fulfill()
         }
     }
 

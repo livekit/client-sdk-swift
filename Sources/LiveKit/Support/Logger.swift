@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 import OSLog
 internal import LiveKitWebRTC
+internal import LiveKitUniFFI
 
 // MARK: - Logger
 
@@ -23,6 +24,7 @@ public typealias ScopedMetadata = CustomStringConvertible
 public typealias ScopedMetadataContainer = [String: ScopedMetadata]
 
 public protocol Logger: Sendable {
+    // swiftlint:disable:next function_parameter_count
     func log(
         _ message: @autoclosure () -> CustomStringConvertible,
         _ level: LogLevel,
@@ -54,6 +56,7 @@ public extension Logger {
 /// A no-op logger
 public struct DisabledLogger: Logger {
     @inlinable
+    // swiftlint:disable:next function_parameter_count
     public func log(
         _: @autoclosure () -> CustomStringConvertible,
         _: LogLevel,
@@ -76,6 +79,7 @@ public struct PrintLogger: Logger {
         self.colors = colors
     }
 
+    // swiftlint:disable:next function_parameter_count
     public func log(
         _ message: @autoclosure () -> CustomStringConvertible,
         _ level: LogLevel,
@@ -108,6 +112,7 @@ public struct PrintLogger: Logger {
 /// A logger that logs to OSLog
 /// - Parameter minLevel: The minimum level to log
 /// - Parameter rtc: Whether to log WebRTC output
+/// - Parameter ffi: Whether to log Rust FFI output
 open class OSLogger: Logger, @unchecked Sendable {
     private static let subsystem = "io.livekit.sdk"
 
@@ -115,18 +120,19 @@ open class OSLogger: Logger, @unchecked Sendable {
     private var logs: [String: OSLog] = [:]
 
     private lazy var rtcLogger = LKRTCCallbackLogger()
+    private var ffiTask: AnyTaskCancellable?
 
     private let minLevel: LogLevel
 
-    public init(minLevel: LogLevel = .info, rtc: Bool = false) {
+    public init(minLevel: LogLevel = .info, rtc: Bool = false, ffi: Bool = true) {
         self.minLevel = minLevel
 
-        guard rtc else { return }
+        if rtc {
+            startRTCLogForwarding(minLevel: minLevel)
+        }
 
-        let rtcLog = OSLog(subsystem: Self.subsystem, category: "WebRTC")
-        rtcLogger.severity = minLevel.rtcSeverity
-        rtcLogger.start { message, severity in
-            os_log("%{public}@", log: rtcLog, type: severity.osLogType, message)
+        if ffi {
+            startFFILogForwarding(minLevel: minLevel)
         }
     }
 
@@ -134,6 +140,7 @@ open class OSLogger: Logger, @unchecked Sendable {
         rtcLogger.stop()
     }
 
+    // swiftlint:disable:next function_parameter_count
     public func log(
         _ message: @autoclosure () -> CustomStringConvertible,
         _ level: LogLevel,
@@ -169,6 +176,28 @@ open class OSLogger: Logger, @unchecked Sendable {
             }
 
             os_log("%{public}@", log: getOSLog(for: type), type: level.osLogType, "\(type).\(function) \(message)\(metadata)")
+        }
+    }
+
+    private func startRTCLogForwarding(minLevel: LogLevel) {
+        let rtcLog = OSLog(subsystem: Self.subsystem, category: "WebRTC")
+
+        rtcLogger.severity = minLevel.rtcSeverity
+        rtcLogger.start { message, severity in
+            os_log("%{public}@", log: rtcLog, type: severity.osLogType, message)
+        }
+    }
+
+    private func startFFILogForwarding(minLevel: LogLevel) {
+        Task(priority: .utility) { [weak self] in
+            guard let self else { return } // don't initialize global level when releasing
+            logForwardBootstrap(level: minLevel.logForwardFilter)
+
+            let ffiLog = OSLog(subsystem: Self.subsystem, category: "FFI")
+
+            ffiTask = AsyncStream(unfolding: logForwardReceive).subscribe(self, priority: .utility) { _, entry in
+                os_log("%{public}@", log: ffiLog, type: entry.level.osLogType, "\(entry.target) \(entry.message)")
+            }
         }
     }
 }
@@ -236,6 +265,15 @@ public enum LogLevel: Int, Sendable, Comparable, CustomStringConvertible {
         }
     }
 
+    var logForwardFilter: LogForwardFilter {
+        switch self {
+        case .debug: .debug
+        case .info: .info
+        case .warning: .warn
+        case .error: .error
+        }
+    }
+
     @inlinable
     public static func < (lhs: LogLevel, rhs: LogLevel) -> Bool {
         lhs.rawValue < rhs.rawValue
@@ -260,6 +298,20 @@ extension LKRTCLoggingSeverity {
         case .error: .error
         case .none: .debug
         @unknown default: .debug
+        }
+    }
+}
+
+extension LogForwardLevel {
+    var osLogType: OSLogType {
+        switch self {
+        case .error: .error
+        case .warn: .default
+        case .info: .info
+        case .debug, .trace: .debug
+        #if swift(>=6.0)
+        @unknown default: .debug
+        #endif
         }
     }
 }

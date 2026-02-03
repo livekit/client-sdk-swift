@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import Foundation
 internal import LiveKitWebRTC
 
 @available(visionOS 2.0, *)
-public class ARCameraCapturer: VideoCapturer {
+public class ARCameraCapturer: VideoCapturer, @unchecked Sendable {
     private let capturer = RTC.createVideoCapturer()
     private let arKitSession = ARKitSession()
     private let cameraFrameProvider = CameraFrameProvider()
@@ -29,7 +29,7 @@ public class ARCameraCapturer: VideoCapturer {
     /// The ``ARCaptureOptions`` used for this capturer.
     public let options: ARCameraCaptureOptions
 
-    private var captureTask: Task<Void, Never>?
+    private var captureTask: AnyTaskCancellable?
 
     init(delegate: LKRTCVideoCapturerDelegate, options: ARCameraCaptureOptions) {
         self.options = options
@@ -58,7 +58,7 @@ public class ARCameraCapturer: VideoCapturer {
                     capture(pixelBuffer: sample.pixelBuffer, capturer: capturer, options: options)
                 }
             }
-        }
+        }.cancellable()
 
         return true
     }
@@ -83,7 +83,6 @@ public class ARCameraCapturer: VideoCapturer {
         guard didStop else { return false }
 
         arKitSession.stop()
-        captureTask?.cancel()
         captureTask = nil
 
         return true

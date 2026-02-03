@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -148,20 +148,20 @@ public extension TokenSourceResponse {
             return false
         }
 
-        do {
-            try jwt.nbf.verifyNotBefore()
-            try jwt.exp.verifyNotExpired(currentDate: Date().addingTimeInterval(tolerance))
-        } catch {
-            return false
-        }
+        return jwt.nbf.verifyNotBefore() && jwt.exp.verifyNotExpired(currentDate: Date().addingTimeInterval(tolerance))
+    }
+}
 
-        return true
+private extension UInt64 {
+    var asDate: Date {
+        Date(timeIntervalSince1970: TimeInterval(self))
     }
 
-    /// Extracts the JWT payload from the participant token.
-    ///
-    /// - Returns: The JWT payload if successfully parsed, nil otherwise
-    internal func jwt() -> LiveKitJWTPayload? {
-        LiveKitJWTPayload.fromUnverified(token: participantToken)
+    func verifyNotBefore(currentDate: Date = Date()) -> Bool {
+        currentDate >= asDate
+    }
+
+    func verifyNotExpired(currentDate: Date = Date()) -> Bool {
+        currentDate < asDate
     }
 }

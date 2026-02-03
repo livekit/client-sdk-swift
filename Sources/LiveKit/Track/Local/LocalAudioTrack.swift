@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,9 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     }
 
     deinit {
-        cleanUpFrameWatcher()
+        if let watcher = _frameWatcherState.frameWatcher {
+            remove(audioRenderer: watcher)
+        }
     }
 
     public static func createTrack(name: String = Track.microphoneName,

@@ -19,7 +19,7 @@ jobs:
           - os: macos-15
             xcode: 16.4
           - os: macos-26
-            xcode: latest-stable
+            xcode: 26.1
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:

@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 import Foundation
 internal import LiveKitWebRTC
+internal import LiveKitUniFFI
 
 /// The open source platform for real-time communication.
 ///
@@ -32,7 +33,8 @@ public class LiveKitSDK: NSObject, Loggable {
     override private init() {}
 
     @objc(sdkVersion)
-    public static let version = "2.9.0"
+    public static let version = "2.11.0"
+    static let ffiVersion = buildVersion()
 
     fileprivate struct State {
         var logger: Logger = OSLogger()

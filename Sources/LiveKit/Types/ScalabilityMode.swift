@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,13 @@ public enum ScalabilityMode: Int {
     case L3T3 = 1
     case L3T3_KEY = 2
     case L3T3_KEY_SHIFT = 3
+    case L1T3 = 4
 }
 
 public extension ScalabilityMode {
     static func fromString(_ rawString: String?) -> ScalabilityMode? {
         switch rawString {
+        case "L1T3": .L1T3
         case "L3T3": .L3T3
         case "L3T3_KEY": .L3T3_KEY
         case "L3T3_KEY_SHIFT": .L3T3_KEY_SHIFT
@@ -35,13 +37,19 @@ public extension ScalabilityMode {
 
     var rawStringValue: String {
         switch self {
+        case .L1T3: "L1T3"
         case .L3T3: "L3T3"
         case .L3T3_KEY: "L3T3_KEY"
         case .L3T3_KEY_SHIFT: "L3T3_KEY_SHIFT"
         }
     }
 
-    var spatial: Int { 3 }
+    var spatial: Int {
+        switch self {
+        case .L1T3: 1
+        case .L3T3, .L3T3_KEY, .L3T3_KEY_SHIFT: 3
+        }
+    }
 
     var temporal: Int { 3 }
 }

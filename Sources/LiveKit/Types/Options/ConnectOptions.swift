@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,6 +73,11 @@ public final class ConnectOptions: NSObject, Sendable {
     @objc
     public let iceTransportPolicy: IceTransportPolicy
 
+    /// Allows DSCP codes to be set on outgoing packets when network priority is used.
+    /// Defaults to false.
+    @objc
+    public let isDscpEnabled: Bool
+
     /// Enable microphone concurrently while connecting.
     @objc
     public let enableMicrophone: Bool
@@ -92,8 +97,9 @@ public final class ConnectOptions: NSObject, Sendable {
         publisherTransportConnectTimeout = .defaultTransportState
         iceServers = []
         iceTransportPolicy = .all
+        isDscpEnabled = false
         enableMicrophone = false
-        protocolVersion = .v12
+        protocolVersion = .v16
     }
 
     @objc
@@ -106,8 +112,9 @@ public final class ConnectOptions: NSObject, Sendable {
                 publisherTransportConnectTimeout: TimeInterval = .defaultTransportState,
                 iceServers: [IceServer] = [],
                 iceTransportPolicy: IceTransportPolicy = .all,
+                isDscpEnabled: Bool = false,
                 enableMicrophone: Bool = false,
-                protocolVersion: ProtocolVersion = .v12)
+                protocolVersion: ProtocolVersion = .v16)
     {
         self.autoSubscribe = autoSubscribe
         self.reconnectAttempts = reconnectAttempts
@@ -118,6 +125,7 @@ public final class ConnectOptions: NSObject, Sendable {
         self.publisherTransportConnectTimeout = publisherTransportConnectTimeout
         self.iceServers = iceServers
         self.iceTransportPolicy = iceTransportPolicy
+        self.isDscpEnabled = isDscpEnabled
         self.enableMicrophone = enableMicrophone
         self.protocolVersion = protocolVersion
     }
@@ -135,6 +143,7 @@ public final class ConnectOptions: NSObject, Sendable {
             publisherTransportConnectTimeout == other.publisherTransportConnectTimeout &&
             iceServers == other.iceServers &&
             iceTransportPolicy == other.iceTransportPolicy &&
+            isDscpEnabled == other.isDscpEnabled &&
             enableMicrophone == other.enableMicrophone &&
             protocolVersion == other.protocolVersion
     }
@@ -150,6 +159,7 @@ public final class ConnectOptions: NSObject, Sendable {
         hasher.combine(publisherTransportConnectTimeout)
         hasher.combine(iceServers)
         hasher.combine(iceTransportPolicy)
+        hasher.combine(isDscpEnabled)
         hasher.combine(enableMicrophone)
         hasher.combine(protocolVersion)
         return hasher.finalize()

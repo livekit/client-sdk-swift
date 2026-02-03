@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// swiftlint:disable file_length
 
 import Foundation
 
@@ -128,7 +130,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         var rtpReceiver: LKRTCRtpReceiver?
 
         // All VideoRendererAdapters attached to this track, key/value for direct removal.
-        var videoRendererAdapters = NSMapTable<VideoRenderer, VideoRendererAdapter>.weakToStrongObjects()
+        var videoRendererAdapters = MapTable<VideoRenderer, VideoRendererAdapter>.weakToStrongObjects()
     }
 
     let _state: StateSync<State>

@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,11 +35,14 @@ public struct Agent: Loggable {
 
     public enum Error: LocalizedError {
         case timeout
+        case left
 
         public var errorDescription: String? {
             switch self {
             case .timeout:
-                "Agent did not connect"
+                "Agent did not connect to the room"
+            case .left:
+                "Agent left the room unexpectedly"
             }
         }
     }
@@ -53,56 +56,112 @@ public struct Agent: Loggable {
         case failed(error: Error)
     }
 
-    private var state: State = .disconnected
+    private var state: State = .disconnected {
+        didSet {
+            log("\(oldValue) → \(state)")
+        }
+    }
 
     // MARK: - Transitions
 
     mutating func disconnected() {
-        log("Agent disconnected from \(state)")
-        // From any state
         state = .disconnected
     }
 
     mutating func failed(error: Error) {
-        log("Agent failed with error \(error) from \(state)")
-        // From any state
         state = .failed(error: error)
     }
 
     mutating func connecting(buffering: Bool) {
-        log("Agent connecting from \(state)")
-        switch state {
-        case .disconnected, .connecting:
-            state = .connecting(buffering: buffering)
-        default:
-            log("Invalid transition from \(state) to connecting", .warning)
-        }
+        state = .connecting(buffering: buffering)
     }
 
     mutating func connected(participant: Participant) {
-        log("Agent connected to \(participant) from \(state)")
+        state = .connected(agentState: participant.agentState,
+                           audioTrack: participant.agentAudioTrack,
+                           avatarVideoTrack: participant.avatarVideoTrack)
+    }
+}
+
+// MARK: - Derived State
+
+public extension Agent {
+    /// A boolean value indicating whether the agent is connected to the client.
+    ///
+    /// Returns `true` when the agent is actively connected and in a conversational state
+    /// (listening, thinking, or speaking).
+    var isConnected: Bool {
         switch state {
-        case .connecting, .connected:
-            state = .connected(agentState: participant.agentState,
-                               audioTrack: participant.agentAudioTrack,
-                               avatarVideoTrack: participant.avatarVideoTrack)
+        case let .connected(agentState, _, _):
+            switch agentState {
+            case .listening, .thinking, .speaking:
+                true
+            default:
+                false
+            }
         default:
-            log("Invalid transition from \(state) to connected", .warning)
+            false
         }
     }
 
-    // MARK: - Public
-
-    /// A boolean value indicating whether the agent is connected.
-    public var isConnected: Bool {
+    /// A boolean value indicating whether the client could be listening for user speech.
+    ///
+    /// Returns `true` when the agent is in a state where it can receive user input,
+    /// either through pre-connect buffering or active conversation states.
+    ///
+    /// - Note: This may not mean that the agent is actually connected. The audio pre-connect
+    ///   buffer could be active and recording user input before the agent actually connects.
+    var canListen: Bool {
         switch state {
-        case .connected: true
-        default: false
+        case let .connecting(buffering):
+            buffering
+        case let .connected(agentState, _, _):
+            switch agentState {
+            case .listening, .thinking, .speaking:
+                true
+            default:
+                false
+            }
+        default:
+            false
+        }
+    }
+
+    /// A boolean value indicating whether the agent is currently connecting or setting itself up.
+    ///
+    /// Returns `true` during the connection phase (before pre-connect buffering begins) or
+    /// when the agent is initializing after connection.
+    var isPending: Bool {
+        switch state {
+        case let .connecting(buffering):
+            !buffering
+        case let .connected(agentState, _, _):
+            switch agentState {
+            case .initializing, .idle:
+                true
+            default:
+                false
+            }
+        default:
+            false
+        }
+    }
+
+    /// A boolean value indicating whether the client has disconnected from the agent.
+    ///
+    /// Returns `true` when the agent session has ended, either for an expected or unexpected reason
+    /// (including failures).
+    var isFinished: Bool {
+        switch state {
+        case .disconnected, .failed:
+            true
+        default:
+            false
         }
     }
 
     /// The current conversational state of the agent.
-    public var agentState: AgentState? {
+    var agentState: AgentState? {
         switch state {
         case let .connected(agentState, _, _): agentState
         default: nil
@@ -110,7 +169,7 @@ public struct Agent: Loggable {
     }
 
     /// The agent's audio track.
-    public var audioTrack: (any AudioTrack)? {
+    var audioTrack: (any AudioTrack)? {
         switch state {
         case let .connected(_, audioTrack, _): audioTrack
         default: nil
@@ -118,7 +177,7 @@ public struct Agent: Loggable {
     }
 
     /// The agent's avatar video track.
-    public var avatarVideoTrack: (any VideoTrack)? {
+    var avatarVideoTrack: (any VideoTrack)? {
         switch state {
         case let .connected(_, _, avatarVideoTrack): avatarVideoTrack
         default: nil
@@ -126,13 +185,15 @@ public struct Agent: Loggable {
     }
 
     /// The last error that occurred.
-    public var error: Error? {
+    var error: Error? {
         switch state {
         case let .failed(error): error
         default: nil
         }
     }
 }
+
+// MARK: - Extension
 
 private extension Participant {
     var agentAudioTrack: (any AudioTrack)? {

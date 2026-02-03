@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,8 +48,6 @@ extension LKRTCCallbackLogger: @unchecked Swift.Sendable {}
 
 // MARK: Collections
 
-extension NSHashTable: @unchecked Swift.Sendable {} // cannot specify Obj-C generics
-extension NSMapTable: @unchecked Swift.Sendable {} // cannot specify Obj-C generics
 #if swift(<6.2)
 extension Dictionary: Swift.Sendable where Key: Sendable, Value: Sendable {}
 #endif
@@ -58,4 +56,3 @@ extension Dictionary: Swift.Sendable where Key: Sendable, Value: Sendable {}
 
 extension AVCaptureDevice: @unchecked Swift.Sendable {}
 extension AVCaptureDevice.Format: @unchecked Swift.Sendable {}
-extension CVPixelBuffer: @unchecked Swift.Sendable {}

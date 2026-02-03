@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ public extension LKTestCase {
             fatalError()
         }
 
-        let readBufferTask = Task.detached {
+        return Task.detached {
             let frameDuration = UInt64(1_000_000_000 / targetFps)
             while !Task.isCancelled, assetReader.status == .reading, let sampleBuffer = trackOutput.copyNextSampleBuffer() {
                 onCapture(sampleBuffer)
@@ -97,8 +97,6 @@ public extension LKTestCase {
                 try await Task.sleep(nanoseconds: frameDuration)
             }
         }
-
-        return readBufferTask
     }
 }
 
@@ -174,10 +172,8 @@ public class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendabl
                 onDidRenderFirstFrame?(id)
             }
 
-            for (key, value) in $0.expectationsForDimensions {
-                if frame.dimensions.area >= key.area {
-                    value.fulfill()
-                }
+            for (key, value) in $0.expectationsForDimensions where frame.dimensions.area >= key.area {
+                value.fulfill()
             }
         }
     }
@@ -201,10 +197,8 @@ public class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendabl
                     $0.detectedCodecs.insert(codecName)
 
                     // Check if any codec expectations match
-                    for (expectedCodec, expectation) in $0.expectationsForCodecs {
-                        if expectedCodec.name.lowercased() == codecName {
-                            expectation.fulfill()
-                        }
+                    for (expectedCodec, expectation) in $0.expectationsForCodecs where expectedCodec.name.lowercased() == codecName {
+                        expectation.fulfill()
                     }
                 }
             }

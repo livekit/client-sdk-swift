@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// swiftlint:disable file_length
 
 import Foundation
 
@@ -87,7 +89,7 @@ actor SignalClient: Loggable {
         var connectionState: ConnectionState = .disconnected
         var disconnectError: LiveKitError?
         var socket: WebSocket?
-        var messageLoopTask: Task<Void, Never>?
+        var messageLoopTask: AnyTaskCancellable?
         var lastJoinResponse: Livekit_JoinResponse?
         var rtt: Int64 = 0
     }
@@ -107,6 +109,7 @@ actor SignalClient: Loggable {
     }
 
     @discardableResult
+    // swiftlint:disable:next function_body_length
     func connect(_ url: URL,
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
@@ -126,30 +129,27 @@ actor SignalClient: Loggable {
                                      participantSid: participantSid,
                                      adaptiveStream: adaptiveStream)
 
-        if reconnectMode != nil {
-            log("[Connect] with url: \(url)")
+        let isReconnect = reconnectMode != nil
+
+        if isReconnect {
+            log("Reconnecting with url: \(url)")
         } else {
             log("Connecting with url: \(url)")
         }
 
-        _state.mutate { $0.connectionState = (reconnectMode != nil ? .reconnecting : .connecting) }
+        _state.mutate { $0.connectionState = (isReconnect ? .reconnecting : .connecting) }
 
         do {
             let socket = try await WebSocket(url: url,
                                              token: token,
                                              connectOptions: connectOptions)
 
-            let task = Task.detached {
-                self.log("Did enter WebSocket message loop...")
-                do {
-                    for try await message in socket {
-                        await self._onWebSocketMessage(message: message)
-                    }
-                } catch {
-                    await self.cleanUp(withError: error)
-                }
+            let messageLoopTask = socket.subscribe(self) { observer, message in
+                await observer.onWebSocketMessage(message)
+            } onFailure: { observer, error in
+                await observer.cleanUp(withError: error)
             }
-            _state.mutate { $0.messageLoopTask = task }
+            _state.mutate { $0.messageLoopTask = messageLoopTask }
 
             let connectResponse = try await _connectResponseCompleter.wait()
             // Check cancellation after received join response
@@ -162,37 +162,53 @@ actor SignalClient: Loggable {
             }
 
             return connectResponse
-        } catch {
+        } catch let connectionError {
             // Skip validation if user cancelled
-            if error is CancellationError {
-                await cleanUp(withError: error)
-                throw error
+            if connectionError is CancellationError {
+                await cleanUp(withError: connectionError)
+                throw connectionError
             }
 
             // Skip validation if reconnect mode
             if reconnectMode != nil {
-                await cleanUp(withError: error)
-                throw error
+                await cleanUp(withError: connectionError)
+                throw LiveKitError(.network, internalError: connectionError)
             }
 
-            await cleanUp(withError: error)
+            await cleanUp(withError: connectionError)
 
-            // Validate...
+            // Attempt to validate with server
             let validateUrl = try Utils.buildUrl(url,
                                                  connectOptions: connectOptions,
                                                  participantSid: participantSid,
                                                  adaptiveStream: adaptiveStream,
                                                  validate: true)
-
             log("Validating with url: \(validateUrl)...")
-            let validationResponse = try await HTTP.requestValidation(from: validateUrl, token: token)
-            log("Validate response: \(validationResponse)")
-            // re-throw with validation response
-            throw LiveKitError(.network, message: "Validation response: \"\(validationResponse)\"")
+            do {
+                try await HTTP.requestValidation(from: validateUrl, token: token)
+                // Re-throw original error since validation passed
+                throw LiveKitError(.network, internalError: connectionError)
+            } catch let validationError as LiveKitError where validationError.type == .validation {
+                // Re-throw validation error
+                throw validationError
+            } catch {
+                let validationMessage = if let liveKitError = error as? LiveKitError {
+                    liveKitError.message ?? liveKitError.localizedDescription
+                } else {
+                    error.localizedDescription
+                }
+
+                // Preserve validation request failure details while keeping the original connection error.
+                throw LiveKitError(.network,
+                                   message: "Validation request failed: \(validationMessage)",
+                                   internalError: connectionError)
+            }
         }
     }
 
     func cleanUp(withError disconnectError: Error? = nil) async {
+        if Task.isCancelled { return }
+
         log("withError: \(String(describing: disconnectError))")
 
         // Cancel ping/pong timers immediately to prevent stale timers from affecting future connections
@@ -200,7 +216,6 @@ actor SignalClient: Loggable {
         _pingTimeoutTimer.cancel()
 
         _state.mutate {
-            $0.messageLoopTask?.cancel()
             $0.messageLoopTask = nil
             $0.socket?.close()
             $0.socket = nil
@@ -233,7 +248,7 @@ private extension SignalClient {
         await _requestQueue.processIfResumed(request, elseEnqueue: request.canBeQueued())
     }
 
-    func _onWebSocketMessage(message: URLSessionWebSocketTask.Message) async {
+    func onWebSocketMessage(_ message: URLSessionWebSocketTask.Message) async {
         let response: Livekit_SignalResponse? = switch message {
         case let .data(data): try? Livekit_SignalResponse(serializedBytes: data)
         case let .string(string): try? Livekit_SignalResponse(jsonString: string)
@@ -255,6 +270,7 @@ private extension SignalClient {
         }
     }
 
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func _process(signalResponse: Livekit_SignalResponse) async {
         guard connectionState != .disconnected else {
             log("connectionState is .disconnected", .error)
@@ -279,10 +295,12 @@ private extension SignalClient {
             await _restartPingTimer()
 
         case let .answer(sd):
-            _delegate.notifyDetached { await $0.signalClient(self, didReceiveAnswer: sd.toRTCType()) }
+            let (rtcDescription, offerId) = sd.toRTCType()
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveAnswer: rtcDescription, offerId: offerId) }
 
         case let .offer(sd):
-            _delegate.notifyDetached { await $0.signalClient(self, didReceiveOffer: sd.toRTCType()) }
+            let (rtcDescription, offerId) = sd.toRTCType()
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveOffer: rtcDescription, offerId: offerId) }
 
         case let .trickle(trickle):
             guard let rtcCandidate = try? RTC.createIceCandidate(fromJsonString: trickle.candidateInit) else {
@@ -296,6 +314,9 @@ private extension SignalClient {
 
         case let .roomUpdate(update):
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRoom: update.room) }
+
+        case let .roomMoved(response):
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveRoomMoved: response) }
 
         case let .trackPublished(trackPublished):
             log("[publish] resolving completer for cid: \(trackPublished.cid)")
@@ -315,7 +336,12 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRemoteMute: Track.Sid(from: mute.sid), muted: mute.muted) }
 
         case let .leave(leave):
-            _delegate.notifyDetached { await $0.signalClient(self, didReceiveLeave: leave.canReconnect, reason: leave.reason) }
+            _delegate.notifyDetached {
+                await $0.signalClient(self,
+                                      didReceiveLeave: leave.action,
+                                      reason: leave.reason,
+                                      regions: leave.hasRegions ? leave.regions : nil)
+            }
 
         case let .streamStateUpdate(states):
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateTrackStreamStates: states.streamStates) }
@@ -358,17 +384,17 @@ extension SignalClient {
 // MARK: - Send methods
 
 extension SignalClient {
-    func send(offer: LKRTCSessionDescription) async throws {
+    func send(offer: LKRTCSessionDescription, offerId: UInt32) async throws {
         let r = Livekit_SignalRequest.with {
-            $0.offer = offer.toPBType()
+            $0.offer = offer.toPBType(offerId: offerId)
         }
 
         try await _sendRequest(r)
     }
 
-    func send(answer: LKRTCSessionDescription) async throws {
+    func send(answer: LKRTCSessionDescription, offerId: UInt32) async throws {
         let r = Livekit_SignalRequest.with {
-            $0.answer = answer.toPBType()
+            $0.answer = answer.toPBType(offerId: offerId)
         }
 
         try await _sendRequest(r)
@@ -424,9 +450,7 @@ extension SignalClient {
         try await _sendRequest(request)
 
         // Wait for the trackInfo...
-        let trackInfo = try await completer.wait()
-
-        return trackInfo
+        return try await completer.wait()
     }
 
     func sendUpdateTrackSettings(trackSid: Track.Sid, settings: TrackSettings) async throws {

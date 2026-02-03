@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,8 +47,37 @@ class RoomTests: LKTestCase, @unchecked Sendable {
         try await withRooms([RoomTestingOptions()]) { rooms in
             let room = rooms[0]
 
+            self.noLeaks(of: room.signalClient)
             let socket = await room.signalClient._state.socket
-            self.noLeaks(of: socket!)
+            try self.noLeaks(of: XCTUnwrap(socket))
+
+            let (publisher, subscriber) = room._state.read { ($0.publisher, $0.subscriber) }
+            if let publisher { self.noLeaks(of: publisher) }
+            if let subscriber { self.noLeaks(of: subscriber) }
+
+            self.noLeaks(of: room.publisherDataChannel)
+            self.noLeaks(of: room.subscriberDataChannel)
+
+            self.noLeaks(of: room.incomingStreamManager)
+            self.noLeaks(of: room.outgoingStreamManager)
+
+            if let e2eeManager = room.e2eeManager { self.noLeaks(of: e2eeManager) }
+            self.noLeaks(of: room.preConnectBuffer)
+            self.noLeaks(of: room.rpcState)
+            self.noLeaks(of: room.metricsManager)
+
+            self.noLeaks(of: room.delegates)
+            self.noLeaks(of: room.activeParticipantCompleters)
+            self.noLeaks(of: room.primaryTransportConnectedCompleter)
+            self.noLeaks(of: room.publisherTransportConnectedCompleter)
+
+            self.noLeaks(of: room.localParticipant)
+            for remoteParticipant in room.remoteParticipants.values {
+                self.noLeaks(of: remoteParticipant)
+            }
+
+            self.noLeaks(of: room._state)
+            self.noLeaks(of: room)
         }
     }
 

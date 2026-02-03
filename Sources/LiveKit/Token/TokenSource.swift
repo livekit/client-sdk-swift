@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 import Foundation
+internal import LiveKitUniFFI
 
 // MARK: - Source
 
@@ -137,5 +138,25 @@ public struct TokenSourceResponse: Decodable, Sendable {
         self.participantToken = participantToken
         self.participantName = participantName
         self.roomName = roomName
+    }
+}
+
+public extension TokenSourceResponse {
+    /// Extracts the JWT payload from the participant token.
+    ///
+    /// - Returns: The JWT payload if successfully parsed, nil otherwise
+    internal func jwt() -> Claims? {
+        try? tokenClaimsFromUnverified(token: participantToken)
+    }
+
+    /// Checks if the JWT token contains agent dispatch configuration.
+    ///
+    /// - Returns: `true` if the token is configured to dispatch one or more agents, `false` otherwise
+    func dispatchesAgent() -> Bool {
+        guard let jwt = jwt(), let agents = jwt.roomConfiguration?.agents else {
+            return false
+        }
+
+        return !agents.isEmpty
     }
 }

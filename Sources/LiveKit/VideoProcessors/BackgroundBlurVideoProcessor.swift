@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -133,6 +133,10 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
     private func cacheMask(inputBuffer: CVPixelBuffer, inputDimensions: CGSize) {
         guard frameCount % segmentationFrameInterval == 0 else { return }
 
+        struct PixelBufferHolder: @unchecked Sendable {
+            let buffer: CVPixelBuffer
+        }
+        let inputBuffer = PixelBufferHolder(buffer: inputBuffer)
         segmentationQueue.async {
             #if LK_SIGNPOSTS
             os_signpost(.begin, log: self.signpostLog, name: #function)
@@ -140,7 +144,7 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
                 os_signpost(.end, log: self.signpostLog, name: #function)
             }
             #endif
-            try? self.segmentationRequestHandler.perform([self.segmentationRequest], on: inputBuffer)
+            try? self.segmentationRequestHandler.perform([self.segmentationRequest], on: inputBuffer.buffer)
 
             guard let maskPixelBuffer = self.segmentationRequest.results?.first?.pixelBuffer else { return }
             let maskImage = CIImage(cvPixelBuffer: maskPixelBuffer)

@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// swiftlint:disable file_length
 
 import Foundation
 
@@ -32,23 +34,36 @@ extension Room: SignalClientDelegate {
            // engine is currently connected state
            case .connected = _state.connectionState
         {
-            do {
-                try await startReconnect(reason: .websocket)
-            } catch {
-                log("Failed calling startReconnect, error: \(error)", .error)
+            Task {
+                do {
+                    try await startReconnect(reason: .websocket)
+                } catch {
+                    log("Failed calling startReconnect, error: \(error)", .error)
+                }
             }
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason) async {
-        log("canReconnect: \(canReconnect), reason: \(reason)")
+    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest.Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?) async {
+        log("action: \(action), reason: \(reason)")
 
-        if canReconnect {
-            // force .full for next reconnect
+        if let regions, let providedUrl = _state.providedUrl, let regionManager = await regionManager(for: providedUrl) {
+            await regionManager.updateFromServerReportedRegions(regions)
+        }
+
+        let error = LiveKitError.from(reason: reason)
+        switch action {
+        case .reconnect:
+            // Force .full for next reconnect
             _state.mutate { $0.nextReconnectMode = .full }
-        } else {
-            // Server indicates it's not recoverable
-            await cleanUp(withError: LiveKitError.from(reason: reason))
+            fallthrough
+        case .resume:
+            // Abort current attempt
+            await signalClient.cleanUp(withError: error)
+        case .disconnect:
+            await cleanUp(withError: error)
+        default:
+            log("Unknown leave action: \(action), ignoring", .warning)
         }
     }
 
@@ -133,6 +148,26 @@ extension Room: SignalClientDelegate {
             $0.numParticipants = Int(room.numParticipants)
             $0.numPublishers = Int(room.numPublishers)
         }
+    }
+
+    func signalClient(_: SignalClient, didReceiveRoomMoved response: Livekit_RoomMovedResponse) async {
+        log("didReceiveRoomMoved to room: \(response.hasRoom ? response.room.name : "unknown")")
+
+        _updateState(for: response)
+        await _disconnectAllParticipants()
+
+        if response.hasRoom {
+            _notifyRoomMoved(name: response.room.name)
+        }
+
+        if response.hasParticipant {
+            localParticipant.set(info: response.participant, connectionState: _state.connectionState)
+        }
+
+        _republishLocalTracks()
+
+        let newParticipants = _addNewParticipants(from: response.otherParticipants)
+        _notifyNewParticipants(newParticipants)
     }
 
     func signalClient(_: SignalClient, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) async {
@@ -319,17 +354,19 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription) async {
+    func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription, offerId: UInt32) async {
+        log("Received answer for offerId: \(offerId)")
+
         do {
             let publisher = try requirePublisher()
-            try await publisher.set(remoteDescription: answer)
+            try await publisher.set(remoteDescription: answer, offerId: offerId)
         } catch {
-            log("Failed to set remote description, error: \(error)", .error)
+            log("Failed to set remote description with offerId: \(offerId), error: \(error)", .error)
         }
     }
 
-    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription) async {
-        log("Received offer, creating & sending answer...")
+    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription, offerId: UInt32) async {
+        log("Received offer with offerId: \(offerId), creating & sending answer...")
 
         guard let subscriber = _state.subscriber else {
             log("Failed to send answer, subscriber is nil", .error)
@@ -340,9 +377,9 @@ extension Room: SignalClientDelegate {
             try await subscriber.set(remoteDescription: offer)
             let answer = try await subscriber.createAnswer()
             try await subscriber.set(localDescription: answer)
-            try await signalClient.send(answer: answer)
+            try await signalClient.send(answer: answer, offerId: offerId)
         } catch {
-            log("Failed to send answer with error: \(error)", .error)
+            log("Failed to send answer for offerId: \(offerId), error: \(error)", .error)
         }
     }
 
@@ -366,6 +403,89 @@ extension Room: SignalClientDelegate {
         // Notify LocalParticipant.
         localParticipant.delegates.notify {
             $0.participant?(self.localParticipant, remoteDidSubscribeTrack: track)
+        }
+    }
+}
+
+private extension Room {
+    func _updateState(for response: Livekit_RoomMovedResponse) {
+        // Update token
+        if !response.token.isEmpty {
+            _state.mutate { $0.token = response.token }
+        }
+
+        // Update room info if available
+        guard response.hasRoom else { return }
+
+        _state.mutate {
+            $0.sid = Room.Sid(from: response.room.sid)
+            $0.name = response.room.name
+            $0.metadata = response.room.metadata
+            $0.isRecording = response.room.activeRecording
+            $0.numParticipants = Int(response.room.numParticipants)
+            $0.numPublishers = Int(response.room.numPublishers)
+            $0.maxParticipants = Int(response.room.maxParticipants)
+
+            // Attempt to get millisecond precision.
+            if response.room.creationTimeMs != 0 {
+                $0.creationTime = Date(timeIntervalSince1970: TimeInterval(Double(response.room.creationTimeMs) / 1000))
+            } else if response.room.creationTime != 0 {
+                $0.creationTime = Date(timeIntervalSince1970: TimeInterval(response.room.creationTime))
+            }
+        }
+    }
+
+    func _disconnectAllParticipants() async {
+        // Disconnect all remote participants
+        let participantsToDisconnect = _state.read { Array($0.remoteParticipants.keys) }
+        for identity in participantsToDisconnect {
+            do {
+                try await _onParticipantDidDisconnect(identity: identity)
+            } catch {
+                log("Failed to disconnect participant \(identity) with error: \(error)", .error)
+            }
+        }
+    }
+
+    func _notifyRoomMoved(name: String) {
+        // Emit room moved event with new room name (on both Room and LocalParticipant delegates)
+        delegates.notify(label: { "room.didMoveToRoomNamed \(name)" }) {
+            $0.room?(self, didMoveToRoomNamed: name)
+        }
+        localParticipant.delegates.notify(label: { "participant.didMoveToRoomNamed \(name)" }) {
+            $0.participant?(self.localParticipant, didMoveToRoomNamed: name)
+        }
+    }
+
+    func _republishLocalTracks() {
+        // Republish all local tracks to the new room
+        log("Re-publishing local tracks after room move...")
+        Task.detached { [weak self] in
+            guard let self else { return }
+            do {
+                try await localParticipant.republishAllTracks()
+                log("Successfully re-published local tracks after room move")
+            } catch {
+                log("Failed to re-publish local tracks after room move, error: \(error)", .error)
+            }
+        }
+    }
+
+    func _addNewParticipants(from infos: [Livekit_ParticipantInfo]) -> [RemoteParticipant] {
+        // Re-add participants
+        var newParticipants: [RemoteParticipant] = []
+        for info in infos {
+            let participant = _state.mutate { $0.updateRemoteParticipant(info: info, room: self) }
+            newParticipants.append(participant)
+        }
+        return newParticipants
+    }
+
+    func _notifyNewParticipants(_ participants: [RemoteParticipant]) {
+        for participant in participants {
+            delegates.notify(label: { "room.remoteParticipantDidConnect: \(participant)" }) {
+                $0.room?(self, participantDidConnect: participant)
+            }
         }
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@
 
 import AVFoundation
 
-internal import LiveKitWebRTC
-
 /// An ``AudioEngineObserver`` that configures the `AVAudioSession` based on the state of the audio engine.
 public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @unchecked Sendable {
     /// Controls automatic configuration of the `AVAudioSession` based on audio engine state.
@@ -33,6 +31,22 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     public var isAutomaticConfigurationEnabled: Bool {
         get { _state.isAutomaticConfigurationEnabled }
         set { _state.mutate { $0.isAutomaticConfigurationEnabled = newValue } }
+    }
+
+    /// Controls whether the audio session is deactivated when the audio engine stops.
+    ///
+    /// - When `true`: The `AVAudioSession` is deactivated when both playout and recording are disabled
+    /// - When `false`: The `AVAudioSession` remains active when the audio engine stops
+    ///
+    /// > Note: This value is only used when `isAutomaticConfigurationEnabled` is `true`.
+    ///
+    /// > Tip: Set to `false` if your app has other audio features that could be disrupted
+    /// > by deactivating the audio session.
+    ///
+    /// Default value: `true`
+    public var isAutomaticDeactivationEnabled: Bool {
+        get { _state.isAutomaticDeactivationEnabled }
+        set { _state.mutate { $0.isAutomaticDeactivationEnabled = newValue } }
     }
 
     /// Controls the speaker output preference for audio routing.
@@ -67,6 +81,9 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         var next: (any AudioEngineObserver)?
 
         var isAutomaticConfigurationEnabled: Bool = true
+        var isAutomaticDeactivationEnabled: Bool = true
+        var isPlayoutEnabled: Bool = false
+        var isRecordingEnabled: Bool = false
         var isSpeakerOutputPreferred: Bool = true
 
         //
@@ -111,22 +128,20 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     }
 
     @Sendable func configure(oldState: State, newState: State) {
-        let session = LKRTCAudioSession.sharedInstance()
-
-        session.lockForConfiguration()
-        defer {
-            session.unlockForConfiguration()
-            log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
-        }
+        let session = AVAudioSession.sharedInstance()
 
         log("configure isRecordingEnabled: \(newState.isRecordingEnabled), isPlayoutEnabled: \(newState.isPlayoutEnabled)")
 
         if (!newState.isPlayoutEnabled && !newState.isRecordingEnabled) && (oldState.isPlayoutEnabled || oldState.isRecordingEnabled) {
-            do {
-                log("AudioSession deactivating...")
-                try session.setActive(false)
-            } catch {
-                log("AudioSession failed to deactivate with error: \(error)", .error)
+            if newState.isAutomaticDeactivationEnabled {
+                do {
+                    log("AudioSession deactivating...")
+                    try session.setActive(false, options: .notifyOthersOnDeactivation)
+                } catch {
+                    log("AudioSession failed to deactivate with error: \(error)", .error)
+                }
+            } else {
+                log("AudioSession deactivation skipped...")
             }
         } else if newState.isRecordingEnabled || newState.isPlayoutEnabled {
             // Configure and activate the session with the appropriate category
@@ -135,7 +150,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 
             do {
                 log("AudioSession configuring category to: \(config.category)")
-                try session.setConfiguration(config.toRTCType())
+                try session.setCategory(config.category, mode: config.mode, options: config.categoryOptions)
             } catch {
                 log("AudioSession failed to configure with error: \(error)", .error)
             }

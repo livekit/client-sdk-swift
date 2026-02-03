@@ -1,5 +1,58 @@
 # Changelog
 
+## [2.11.0] - 2026-01-12
+
+### Added
+
+- Prepare connection & region pinning
+- Experimental support and bindings for shared Rust crates using UniFFI
+- Handle Room moved event
+
+### Changed
+
+- Default protocol version to v16
+- Minor validation logic improvements
+
+### Fixed
+
+- Memory leaks in data channel cancellation code
+- Reconnect sequence stuck in failed state
+- Crash audio processing adapter during deinit
+
+## [2.10.2] - 2025-12-10
+
+### Fixed
+
+- Screen sharing not publishing frames with VP9/AV1 codecs
+- Crash in VideoView when video dimensions are both 0
+- Crash when moving apps to background during broadcast
+- Crash in LocalAudioTrack.deinit
+- Default degradation preference for non-simulcast tracks
+- Race condition during sync preventing track subscription
+
+## [2.10.1] - 2025-11-26
+
+### Changed
+
+- Allowed Agent recovery from failed state
+- Removed '@unchecked Sendable' extensions on common types
+
+### Fixed
+
+- Timeouts when publishing camera tracks
+- Processing data packets out-of-order leading to stream corruption
+
+## [2.10.0] - 2025-11-13
+
+### Added
+
+- Separate delegate methods for reconnect start/completion
+- Agent and Session APIs for creating agent-based apps
+
+### Fixed
+
+- Improved capture format logic for multicam devices
+
 ## [2.9.0] - 2025-10-20
 
 ### Added

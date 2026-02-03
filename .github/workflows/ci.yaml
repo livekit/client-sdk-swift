@@ -18,7 +18,7 @@ concurrency:
 env:
   TEST_TARGETS: "LiveKitCoreTests LiveKitObjCTests"
   TEST_TIMEOUT_MINUTES: 15
-  TEST_RETRY_ATTEMPTS: 3
+  TEST_RETRY_ATTEMPTS: 2
 
 jobs:
   build-and-test:
@@ -60,33 +60,33 @@ jobs:
 
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md
           - os: macos-26
-            xcode: latest
+            xcode: 26.1
             platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.1"
             symbol-graph: true
           - os: macos-26
-            xcode: latest
+            xcode: 26.1
             platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.1"
             extension-api-only: true
           - os: macos-26
-            xcode: latest
+            xcode: 26.1
             platform: "macOS"
             symbol-graph: true
           - os: macos-26
-            xcode: latest
+            xcode: 26.1
             platform: "macOS"
             asan: true
           - os: macos-26
-            xcode: latest
+            xcode: 26.1
             platform: "macOS"
             tsan: true
           - os: macos-26
-            xcode: latest
+            xcode: 26.1
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-26
-            xcode: latest
+            xcode: 26.1
             platform: "visionOS Simulator,name=Apple Vision Pro,OS=26.1"
           - os: macos-26
-            xcode: latest
+            xcode: 26.1
             platform: "tvOS Simulator,name=Apple TV,OS=26.1"
 
     runs-on: ${{ matrix.os }}
@@ -176,7 +176,12 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install SwiftLint
+        run: brew install swiftlint
+      - name: SwiftLint
+        run: swiftlint lint --strict --reporter github-actions-logging
       - name: SwiftFormat Lint
+        if: always()
         run: swiftformat --lint . --reporter github-actions-log
         # Comes pre-installed on macOS runners
   build-docs:

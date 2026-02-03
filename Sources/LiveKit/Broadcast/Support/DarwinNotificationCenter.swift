@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,9 +55,9 @@ extension DarwinNotificationCenter {
             self.center = center
         }
 
-        func receive<S>(
+        func receive<S: Subscriber>(
             subscriber: S
-        ) where S: Subscriber, Never == S.Failure, DarwinNotification == S.Input {
+        ) where Never == S.Failure, DarwinNotification == S.Input {
             subscriber.receive(subscription: Subscription(subscriber, center, name))
         }
     }

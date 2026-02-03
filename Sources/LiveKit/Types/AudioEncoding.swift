@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LiveKit
+ * Copyright 2026 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,21 +23,40 @@ public final class AudioEncoding: NSObject, MediaEncoding, Sendable {
     @objc
     public let maxBitrate: Int
 
+    /// Priority for bandwidth allocation.
+    public let bitratePriority: Priority?
+
+    /// Priority for DSCP marking.
+    /// Requires `ConnectOptions.isDscpEnabled` to be true.
+    public let networkPriority: Priority?
+
     @objc
     public init(maxBitrate: Int) {
         self.maxBitrate = maxBitrate
+        bitratePriority = nil
+        networkPriority = nil
+    }
+
+    public init(maxBitrate: Int, bitratePriority: Priority?, networkPriority: Priority?) {
+        self.maxBitrate = maxBitrate
+        self.bitratePriority = bitratePriority
+        self.networkPriority = networkPriority
     }
 
     // MARK: - Equal
 
     override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return maxBitrate == other.maxBitrate
+        return maxBitrate == other.maxBitrate &&
+            bitratePriority == other.bitratePriority &&
+            networkPriority == other.networkPriority
     }
 
     override public var hash: Int {
         var hasher = Hasher()
         hasher.combine(maxBitrate)
+        hasher.combine(bitratePriority)
+        hasher.combine(networkPriority)
         return hasher.finalize()
     }
 }
