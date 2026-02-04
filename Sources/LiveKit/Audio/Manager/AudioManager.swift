@@ -413,6 +413,16 @@ public class AudioManager: Loggable {
         _state = StateSync(State(engineObservers: engineObservers))
         _admDelegateAdapter.audioManager = self
         RTC.audioDeviceModule.observer = _admDelegateAdapter
+
+        #if targetEnvironment(macCatalyst)
+        // Disable Apple's Voice-Processing I/O on Catalyst to avoid aggregate device
+        // race condition crashes during teardown. WebRTC's software processing is used instead.
+        // See https://github.com/livekit/client-sdk-swift/issues/864
+        let result = RTC.audioDeviceModule.setVoiceProcessingEnabled(false)
+        if result != 0 {
+            log("Failed to disable voice processing on Catalyst: \(result)", .warning)
+        }
+        #endif
     }
 }
 
