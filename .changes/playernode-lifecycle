@@ -1,0 +1,1 @@
+patch type="fixed" "Reset/stop mixer player nodes on audio engine start/stop"
