@@ -28,13 +28,19 @@ internal import LiveKitWebRTC
 public class CameraCapturer: VideoCapturer, @unchecked Sendable {
     /// Current device used for capturing
     @objc
-    public var device: AVCaptureDevice? { _cameraCapturerState.device }
+    public var device: AVCaptureDevice? {
+        _cameraCapturerState.device
+    }
 
     /// Current position of the device
-    public var position: AVCaptureDevice.Position { _cameraCapturerState.device?.position ?? .unspecified }
+    public var position: AVCaptureDevice.Position {
+        _cameraCapturerState.device?.position ?? .unspecified
+    }
 
     @objc
-    public var options: CameraCaptureOptions { _cameraCapturerState.options }
+    public var options: CameraCaptureOptions {
+        _cameraCapturerState.options
+    }
 
     @objc
     public static func captureDevices() async throws -> [AVCaptureDevice] {
@@ -85,7 +91,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
 
     var _cameraCapturerState: StateSync<State>
 
-    // Used to hide LKRTCVideoCapturerDelegate symbol
+    /// Used to hide LKRTCVideoCapturerDelegate symbol
     private lazy var adapter: VideoCapturerDelegateAdapter = .init(cameraCapturer: self)
 
     public var captureSession: AVCaptureSession {
@@ -100,7 +106,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         #endif
     }
 
-    // RTCCameraVideoCapturer used internally for now
+    /// RTCCameraVideoCapturer used internally for now
     private lazy var capturer: LKRTCCameraVideoCapturer = .init(delegate: adapter)
 
     init(delegate: LKRTCVideoCapturerDelegate,
@@ -131,10 +137,16 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
     @discardableResult
     public func set(cameraPosition position: AVCaptureDevice.Position) async throws -> Bool {
         log("set(cameraPosition:) \(position)")
+        #if !os(visionOS)
+        log("[#898 Debug] set(cameraPosition:) BEFORE copyWith: position=\(options.position), deviceType=\(String(describing: options.deviceType)), device=\(String(describing: options.device))", .info)
+        #endif
         let newOptions = options.copyWith(
             device: .value(nil),
             position: .value(position)
         )
+        #if !os(visionOS)
+        log("[#898 Debug] set(cameraPosition:) AFTER copyWith: position=\(newOptions.position), deviceType=\(String(describing: newOptions.deviceType)), device=\(String(describing: newOptions.device))", .info)
+        #endif
         return try await set(options: newOptions)
     }
 
@@ -164,6 +176,12 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         // TODO: FaceTime Camera for macOS uses .unspecified, fall back to first device
         var device: AVCaptureDevice? = options.device
 
+        #if !os(visionOS)
+        log("[#898 Debug] startCapture: options.position=\(options.position), options.deviceType=\(String(describing: options.deviceType)), options.device=\(String(describing: options.device))", .info)
+        #else
+        log("[#898 Debug] startCapture: options.position=\(options.position), options.device=\(String(describing: options.device))", .info)
+        #endif
+
         if device == nil {
             var devices: [AVCaptureDevice]
             if isMultiCamSession {
@@ -178,13 +196,21 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
             }
 
             #if !os(visionOS)
+            log("[#898 Debug] startCapture: available devices=\(devices.map { "[\($0.localizedName), position=\($0.position), type=\($0.deviceType)]" })", .info)
+            #else
+            log("[#898 Debug] startCapture: available devices=\(devices.map { "[\($0.localizedName), position=\($0.position)]" })", .info)
+            #endif
+
+            #if !os(visionOS)
             // Filter by deviceType if specified in options.
             if let deviceType = options.deviceType {
                 devices = devices.filter { $0.deviceType == deviceType }
+                log("[#898 Debug] startCapture: after deviceType filter=\(devices.map { "[\($0.localizedName), position=\($0.position)]" })", .info)
             }
             #endif
 
             device = devices.first { $0.position == self.options.position } ?? devices.first
+            log("[#898 Debug] startCapture: selected device=\(device?.localizedName ?? "nil"), position=\(String(describing: device?.position))", .info)
         }
 
         guard let device else {
@@ -369,29 +395,29 @@ extension AVCaptureDevice.Position: Swift.CustomStringConvertible {
 }
 
 extension Comparable {
-    // clamp a value within the range
+    /// clamp a value within the range
     func clamped(to limits: ClosedRange<Self>) -> Self {
         min(max(self, limits.lowerBound), limits.upperBound)
     }
 }
 
 extension AVFrameRateRange {
-    // convert to a ClosedRange
+    /// convert to a ClosedRange
     func toRange() -> ClosedRange<Int> {
         Int(minFrameRate) ... Int(maxFrameRate)
     }
 }
 
 extension AVCaptureDevice.Format {
-    // computes a ClosedRange of supported FPSs for this format
+    /// computes a ClosedRange of supported FPSs for this format
     func fpsRange() -> ClosedRange<Int> {
         videoSupportedFrameRateRanges.map { $0.toRange() }.reduce(into: 0 ... 0) { result, current in
             result = merge(range: result, with: current)
         }
     }
 
-    // Used for filtering.
-    // Only include multi-cam supported devices if in multi-cam mode. Otherwise, always include the devices.
+    /// Used for filtering.
+    /// Only include multi-cam supported devices if in multi-cam mode. Otherwise, always include the devices.
     var filterForMultiCamSupport: Bool {
         #if os(iOS) || os(tvOS)
         return AVCaptureMultiCamSession.isMultiCamSupported ? isMultiCamSupported : true

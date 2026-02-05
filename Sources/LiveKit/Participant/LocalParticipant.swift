@@ -312,6 +312,14 @@ extension LocalParticipant {
     func republishAllTracks() async throws {
         let mediaTracks = _state.trackPublications.values.map { $0.track as? LocalTrack }.compactMap { $0 }
 
+        for mediaTrack in mediaTracks {
+            if let videoTrack = mediaTrack as? LocalVideoTrack,
+               let cameraCapturer = videoTrack.capturer as? CameraCapturer
+            {
+                log("[#898 Debug] republishAllTracks: track=\(mediaTrack.name), source=\(mediaTrack.source), isMuted=\(mediaTrack.isMuted), capturer.options=\(cameraCapturer.options)", .info)
+            }
+        }
+
         await unpublishAll()
 
         for mediaTrack in mediaTracks {
