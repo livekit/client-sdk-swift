@@ -26,6 +26,13 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
     public static let defaultEchoCancellation = true
     public static let defaultAutoGainControl = true
     public static let defaultNoiseSuppression = true
+    #elseif targetEnvironment(macCatalyst)
+    // On Catalyst, Apple's Voice-Processing I/O causes crashes during teardown due to
+    // aggregate device race conditions in macOS CoreAudio HAL. Use WebRTC's voice processing instead.
+    // See https://github.com/livekit/client-sdk-swift/issues/864
+    public static let defaultEchoCancellation = true
+    public static let defaultAutoGainControl = true
+    public static let defaultNoiseSuppression = true
     #else
     // On devices, use Apple's Voice-Processing I/O by default instead of WebRTC's voice processing.
     // See ``AudioManager/isVoiceProcessingEnabled`` for details.
