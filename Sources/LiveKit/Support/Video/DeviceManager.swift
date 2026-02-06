@@ -15,19 +15,33 @@
  */
 
 @preconcurrency import AVFoundation
+import Combine
 
-// Internal-only for now
-class DeviceManager: @unchecked Sendable, Loggable {
+public class DeviceManager: ObservableObject, @unchecked Sendable, Loggable {
     // MARK: - Public
 
-    static let shared = DeviceManager()
+    public static let shared = DeviceManager()
 
-    static func prepare() {
+    public static func prepare() {
         // Instantiate shared instance
         _ = shared
     }
 
-    // Async version, waits until inital device fetch is complete
+    // MARK: - Published Properties
+
+    @Published public internal(set) var videoCaptureDevices: [VideoCaptureDevice] = []
+    @Published public internal(set) var audioInputDevices: [AudioDevice] = []
+    @Published public internal(set) var audioOutputDevices: [AudioDevice] = []
+
+    @Published public internal(set) var selectedVideoCapture: VideoCaptureDevice?
+    @Published public internal(set) var selectedAudioInput: AudioDevice?
+    @Published public internal(set) var selectedAudioOutput: AudioDevice?
+
+    @Published public internal(set) var error: (any Error)?
+
+    // MARK: - Internal (video discovery)
+
+    // Async version, waits until initial device fetch is complete
     func devices() async throws -> [AVCaptureDevice] {
         try await _devicesCompleter.wait()
     }
@@ -134,6 +148,89 @@ class DeviceManager: @unchecked Sendable, Loggable {
             }
         }
         #endif
+
+        // Wire video device observation
+        _state.onDidMutate = { [weak self] newState, _ in
+            let videoDevices = newState.devices.map { VideoCaptureDevice(avCaptureDevice: $0) }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                videoCaptureDevices = videoDevices
+                reconcileVideoSelection()
+            }
+        }
+
+        // Wire audio device observation
+        observeAudioDevices()
+    }
+
+    // MARK: - Audio Observation
+
+    private func observeAudioDevices() {
+        let existingCallback = AudioManager.shared.onDeviceUpdate
+
+        AudioManager.shared.onDeviceUpdate = { [weak self] audioManager in
+            let inputDevices = audioManager.inputDevices
+            let outputDevices = audioManager.outputDevices
+            let inputDevice = audioManager.inputDevice
+            let outputDevice = audioManager.outputDevice
+
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                audioInputDevices = inputDevices
+                audioOutputDevices = outputDevices
+                // Update selected if not yet set
+                if selectedAudioInput == nil {
+                    selectedAudioInput = inputDevice
+                }
+                if selectedAudioOutput == nil {
+                    selectedAudioOutput = outputDevice
+                }
+                reconcileAudioSelection()
+            }
+
+            existingCallback?(audioManager)
+        }
+
+        // Initial population
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            audioInputDevices = AudioManager.shared.inputDevices
+            audioOutputDevices = AudioManager.shared.outputDevices
+            selectedAudioInput = AudioManager.shared.inputDevice
+            selectedAudioOutput = AudioManager.shared.outputDevice
+        }
+    }
+
+    // MARK: - Reconciliation
+
+    @MainActor
+    func reconcileVideoSelection() {
+        if let selected = selectedVideoCapture,
+           !videoCaptureDevices.contains(where: { $0.deviceId == selected.deviceId })
+        {
+            selectedVideoCapture = videoCaptureDevices.first
+        }
+    }
+
+    @MainActor
+    func reconcileAudioSelection() {
+        if let selected = selectedAudioInput,
+           !audioInputDevices.contains(where: { $0.deviceId == selected.deviceId })
+        {
+            selectedAudioInput = audioInputDevices.first(where: \.isDefault)
+        }
+        if let selected = selectedAudioOutput,
+           !audioOutputDevices.contains(where: { $0.deviceId == selected.deviceId })
+        {
+            selectedAudioOutput = audioOutputDevices.first(where: \.isDefault)
+        }
+    }
+
+    // MARK: - Error
+
+    @MainActor
+    public func dismissError() {
+        error = nil
     }
 }
 
