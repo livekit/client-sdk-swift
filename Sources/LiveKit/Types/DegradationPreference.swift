@@ -20,21 +20,25 @@ internal import LiveKitWebRTC
 public enum DegradationPreference: Int, Sendable {
     /// The SDK will decide which preference is suitable or will use WebRTC's default implementation.
     case auto
+    @available(*, deprecated, renamed: "maintainFramerateAndResolution")
     case disabled
     /// Prefer to maintain FPS rather than resolution.
     case maintainFramerate
     /// Prefer to maintain resolution rather than FPS.
     case maintainResolution
     case balanced
+    /// Prefer to maintain both FPS and resolution.
+    case maintainFramerateAndResolution
 }
 
 extension DegradationPreference {
     func toRTCType() -> LKRTCDegradationPreference? {
         switch self {
         case .auto: nil
-        case .disabled: .disabled
+        case .disabled: .maintainFramerateAndResolution
         case .maintainFramerate: .maintainFramerate
         case .maintainResolution: .maintainResolution
+        case .maintainFramerateAndResolution: .maintainFramerateAndResolution
         case .balanced: .balanced
         }
     }
