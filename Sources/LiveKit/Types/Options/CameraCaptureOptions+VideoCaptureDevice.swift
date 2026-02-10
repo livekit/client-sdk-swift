@@ -14,27 +14,12 @@
  * limitations under the License.
  */
 
-import Foundation
-
-internal import LiveKitWebRTC
-
-@objc
-public class AudioDevice: NSObject, MediaDevice {
-    public var deviceId: String { _ioDevice.deviceId }
-    public var name: String { _ioDevice.name }
-    public var isDefault: Bool { _ioDevice.isDefault }
-
-    let _ioDevice: LKRTCIODevice
-
-    init(ioDevice: LKRTCIODevice) {
-        _ioDevice = ioDevice
+public extension CameraCaptureOptions {
+    convenience init(
+        device: VideoCaptureDevice,
+        dimensions: Dimensions = .h720_169,
+        fps: Int = 30
+    ) {
+        self.init(device: device._avCaptureDevice, dimensions: dimensions, fps: fps)
     }
 }
-
-extension AudioDevice: Identifiable {
-    public var id: String { deviceId }
-}
-
-extension AudioDevice: DeviceProtocol {}
-
-extension AudioDevice: @unchecked Sendable {}
