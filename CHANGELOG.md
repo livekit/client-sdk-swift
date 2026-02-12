@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.12.0] - 2026-02-11
+
+### Added
+
+- Expose separate bitrate/network priorities for media tracks
+
+### Changed
+
+- Add option to disable automatic audio session deactivation
+- Default other-audio-ducking configuration
+
+### Fixed
+
+- Linker warnings from FFI package
+- Crashes on macOS Catalyst
+- Reset/stop mixer player nodes on audio engine start/stop
+- Camera selection changing after full reconnect
+
 ## [2.11.0] - 2026-01-12
 
 ### Added
