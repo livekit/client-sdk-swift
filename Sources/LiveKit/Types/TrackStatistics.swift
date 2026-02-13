@@ -18,7 +18,7 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-@objc
+@objcMembers
 public class TrackStatistics: NSObject, @unchecked Sendable, Loggable {
     public let codec: [CodecStatistics]
     public let transportStats: TransportStatistics?
