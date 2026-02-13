@@ -16,7 +16,7 @@
 
 import Foundation
 
-@objc
+@objcMembers
 public class RegionInfo: NSObject, @unchecked Sendable {
     let regionId: String
     let url: URL

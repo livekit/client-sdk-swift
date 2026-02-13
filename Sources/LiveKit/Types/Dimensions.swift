@@ -18,15 +18,12 @@ import CoreMedia
 
 internal import LiveKitWebRTC
 
-@objc
+@objcMembers
 public final class Dimensions: NSObject, Loggable, Sendable {
-    @objc
     public let width: Int32
 
-    @objc
     public let height: Int32
 
-    @objc
     public init(width: Int32, height: Int32) {
         self.width = width
         self.height = height

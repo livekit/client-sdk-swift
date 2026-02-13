@@ -25,24 +25,18 @@ public let defaultRatchetWindowSize: Int32 = 0
 public let defaultFailureTolerance: Int32 = -1
 public let defaultKeyRingSize: Int32 = 16
 
-@objc
+@objcMembers
 public final class KeyProviderOptions: NSObject, Sendable {
-    @objc
     public let sharedKey: Bool
 
-    @objc
     public let ratchetSalt: Data
 
-    @objc
     public let ratchetWindowSize: Int32
 
-    @objc
     public let uncryptedMagicBytes: Data
 
-    @objc
     public let failureTolerance: Int32
 
-    @objc
     public let keyRingSize: Int32
 
     public init(sharedKey: Bool = true,
@@ -84,9 +78,8 @@ public final class KeyProviderOptions: NSObject, Sendable {
     }
 }
 
-@objc
+@objcMembers
 public final class BaseKeyProvider: NSObject, Loggable, Sendable {
-    @objc
     public let options: KeyProviderOptions
 
     // MARK: - Internal
@@ -182,12 +175,10 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
         rtcKeyProvider.setSifTrailer(trailer)
     }
 
-    @objc
     public func getCurrentKeyIndex() -> Int32 {
         _state.currentKeyIndex
     }
 
-    @objc
     public func setCurrentKeyIndex(_ index: Int32) {
         _state.mutate { $0.currentKeyIndex = index % options.keyRingSize }
     }

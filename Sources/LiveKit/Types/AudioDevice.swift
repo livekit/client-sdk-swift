@@ -18,7 +18,7 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-@objc
+@objcMembers
 public class AudioDevice: NSObject, MediaDevice {
     public var deviceId: String { _ioDevice.deviceId }
     public var name: String { _ioDevice.name }

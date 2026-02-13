@@ -109,7 +109,7 @@ public enum IceTcpCandidateType: String, Sendable {
 }
 
 // Base class
-@objc
+@objcMembers
 public class Statistics: NSObject, Identifiable {
     public let id: String
     public let type: StatisticsType
@@ -126,7 +126,7 @@ public class Statistics: NSObject, Identifiable {
 }
 
 // type: codec
-@objc
+@objcMembers
 public class CodecStatistics: Statistics {
     public let payloadType: UInt?
     public let transportId: String?
@@ -152,7 +152,7 @@ public class CodecStatistics: Statistics {
     }
 }
 
-@objc
+@objcMembers
 public class MediaSourceStatistics: Statistics {
     public let trackIdentifier: String?
     public let kind: String?
@@ -170,7 +170,7 @@ public class MediaSourceStatistics: Statistics {
     }
 }
 
-@objc
+@objcMembers
 public class RtpStreamStatistics: Statistics {
     public let ssrc: UInt?
     public let kind: String?
@@ -194,7 +194,7 @@ public class RtpStreamStatistics: Statistics {
 }
 
 // type: media-playout
-@objc
+@objcMembers
 public class AudioPlayoutStatistics: Statistics {
     public let kind: String?
     public let synthesizedSamplesDuration: Double?
@@ -221,7 +221,7 @@ public class AudioPlayoutStatistics: Statistics {
 }
 
 // type: peer-connection
-@objc
+@objcMembers
 public class PeerConnectionStatistics: Statistics {
     public let dataChannelsOpened: UInt?
     public let dataChannelsClosed: UInt?
@@ -240,7 +240,7 @@ public class PeerConnectionStatistics: Statistics {
 }
 
 // type: data-channel
-@objc
+@objcMembers
 public class DataChannelStatistics: Statistics {
     public let label: String?
     public let `protocol`: String?
@@ -271,7 +271,7 @@ public class DataChannelStatistics: Statistics {
 }
 
 // type: transport
-@objc
+@objcMembers
 public class TransportStatistics: Statistics {
     public let packetsSent: UInt64?
     public let packetsReceived: UInt64?
@@ -318,7 +318,7 @@ public class TransportStatistics: Statistics {
 }
 
 // type: local-candidate, remote-candidate
-@objc
+@objcMembers
 public class IceCandidateStatistics: Statistics {
     public let transportId: String?
     public let address: String?
@@ -359,7 +359,7 @@ public class IceCandidateStatistics: Statistics {
     }
 }
 
-@objc
+@objcMembers
 public class LocalIceCandidateStatistics: IceCandidateStatistics {
     init?(id: String,
           timestamp: Double,
@@ -372,7 +372,7 @@ public class LocalIceCandidateStatistics: IceCandidateStatistics {
     }
 }
 
-@objc
+@objcMembers
 public class RemoteIceCandidateStatistics: IceCandidateStatistics {
     init?(id: String,
           timestamp: Double,
@@ -386,7 +386,7 @@ public class RemoteIceCandidateStatistics: IceCandidateStatistics {
 }
 
 // type: candidate-pair
-@objc
+@objcMembers
 public class IceCandidatePairStatistics: Statistics {
     public let transportId: String?
     public let localCandidateId: String?
@@ -445,7 +445,7 @@ public class IceCandidatePairStatistics: Statistics {
 }
 
 // type: certificate
-@objc
+@objcMembers
 public class CertificateStatistics: Statistics {
     public let fingerprint: String?
     public let fingerprintAlgorithm: String?
@@ -467,7 +467,7 @@ public class CertificateStatistics: Statistics {
     }
 }
 
-@objc
+@objcMembers
 public class ReceivedRtpStreamStatistics: RtpStreamStatistics {
     public let packetsReceived: UInt64?
     public let packetsLost: Int64?
@@ -489,7 +489,7 @@ public class ReceivedRtpStreamStatistics: RtpStreamStatistics {
     }
 }
 
-@objc
+@objcMembers
 public class SentRtpStreamStatistics: RtpStreamStatistics {
     public let packetsSent: UInt64?
     public let bytesSent: UInt64?
@@ -510,7 +510,7 @@ public class SentRtpStreamStatistics: RtpStreamStatistics {
 }
 
 // type: inbound-rtp
-@objc
+@objcMembers
 public class InboundRtpStreamStatistics: ReceivedRtpStreamStatistics {
     public let trackIdentifier: String?
     // let kind: String
@@ -635,7 +635,7 @@ public class InboundRtpStreamStatistics: ReceivedRtpStreamStatistics {
 }
 
 // type: remote-inbound-rtp
-@objc
+@objcMembers
 public class RemoteInboundRtpStreamStatistics: ReceivedRtpStreamStatistics {
     public let localId: String?
     public let roundTripTime: Double?
@@ -661,7 +661,7 @@ public class RemoteInboundRtpStreamStatistics: ReceivedRtpStreamStatistics {
 }
 
 // type: outbound-rtp
-@objc
+@objcMembers
 public class OutboundRtpStreamStatistics: SentRtpStreamStatistics {
     public class QualityLimitationDurations {
         public let none: Double?
@@ -759,7 +759,7 @@ public class OutboundRtpStreamStatistics: SentRtpStreamStatistics {
 }
 
 // type: remote-outbound-rtp
-@objc
+@objcMembers
 public class RemoteOutboundRtpStreamStatistics: SentRtpStreamStatistics {
     public let localId: String?
     public let remoteTimestamp: Double?
@@ -786,7 +786,7 @@ public class RemoteOutboundRtpStreamStatistics: SentRtpStreamStatistics {
     }
 }
 
-@objc
+@objcMembers
 public class AudioSourceStatistics: MediaSourceStatistics {
     public let audioLevel: Double?
     public let totalAudioEnergy: Double?
@@ -818,7 +818,7 @@ public class AudioSourceStatistics: MediaSourceStatistics {
     }
 }
 
-@objc
+@objcMembers
 public class VideoSourceStatistics: MediaSourceStatistics {
     public let width: UInt?
     public let height: UInt?

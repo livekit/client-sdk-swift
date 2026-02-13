@@ -17,10 +17,9 @@
 import Foundation
 
 /// Asynchronously write to an open text stream.
-@objc
+@objcMembers
 public final class TextStreamWriter: NSObject, Sendable {
     /// Information about the outgoing text stream.
-    @objc
     public let info: TextStreamInfo
 
     private let destination: StreamWriterDestination

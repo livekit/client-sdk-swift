@@ -18,9 +18,8 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-@objc
+@objcMembers
 public final class AudioEncoding: NSObject, MediaEncoding, Sendable {
-    @objc
     public let maxBitrate: Int
 
     /// Priority for bandwidth allocation.
@@ -30,7 +29,6 @@ public final class AudioEncoding: NSObject, MediaEncoding, Sendable {
     /// Requires `ConnectOptions.isDscpEnabled` to be true.
     public let networkPriority: Priority?
 
-    @objc
     public init(maxBitrate: Int) {
         self.maxBitrate = maxBitrate
         bitratePriority = nil

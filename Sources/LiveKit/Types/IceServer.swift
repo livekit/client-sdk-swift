@@ -19,7 +19,7 @@ import Foundation
 internal import LiveKitWebRTC
 
 /// Options used when establishing a connection.
-@objc
+@objcMembers
 public final class IceServer: NSObject, Sendable {
     public let urls: [String]
     public let username: String?

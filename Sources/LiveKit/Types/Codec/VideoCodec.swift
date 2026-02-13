@@ -16,7 +16,7 @@
 
 import Foundation
 
-@objc
+@objcMembers
 public final class VideoCodec: NSObject, Codec {
     public static func from(name: String) -> VideoCodec? {
         guard let codec = all.first(where: { $0.name == name.lowercased() }) else { return nil }

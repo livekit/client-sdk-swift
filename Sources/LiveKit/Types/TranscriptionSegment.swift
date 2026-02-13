@@ -16,7 +16,7 @@
 
 import Foundation
 
-@objc
+@objcMembers
 public final class TranscriptionSegment: NSObject, Sendable {
     public let id: String
     public let text: String
