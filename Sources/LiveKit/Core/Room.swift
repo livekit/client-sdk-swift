@@ -640,6 +640,7 @@ extension Room: AppStateDelegate {
 public extension Room {
     /// Set this to true to bypass initialization of voice processing.
     @available(*, deprecated, renamed: "AudioManager.shared.isVoiceProcessingBypassed")
+    @objc
     static var bypassVoiceProcessing: Bool {
         get { AudioManager.shared.isVoiceProcessingBypassed }
         set { AudioManager.shared.isVoiceProcessingBypassed = newValue }

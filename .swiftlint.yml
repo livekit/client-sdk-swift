@@ -31,4 +31,4 @@ custom_rules:
     name: "Prefer @objcMembers for classes"
     regex: "@objc(?![(\\[])\\s+(?:(?:public|open|final|internal|package)\\s+)*class\\b"
     message: "Use @objcMembers instead of @objc for classes to implicitly expose members to Objective-C."
-    severity: error
+    severity: warning

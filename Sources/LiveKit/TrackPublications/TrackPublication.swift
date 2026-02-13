@@ -36,13 +36,11 @@ public class TrackPublication: NSObject, @unchecked Sendable, ObservableObject, 
     public var streamState: StreamState { _state.streamState }
 
     /// video-only
-
     public var dimensions: Dimensions? { _state.dimensions }
 
     public var isSimulcasted: Bool { _state.isSimulcasted }
 
     /// MIME type of the ``Track``.
-
     public var mimeType: String { _state.mimeType }
 
     public var isSubscribed: Bool { _state.track != nil }
