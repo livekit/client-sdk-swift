@@ -19,7 +19,7 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-@objc
+@objcMembers
 public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // Private delegate adapter to hide RTCFrameCryptorDelegate symbol
     private class DelegateAdapter: NSObject, LKRTCFrameCryptorDelegate {

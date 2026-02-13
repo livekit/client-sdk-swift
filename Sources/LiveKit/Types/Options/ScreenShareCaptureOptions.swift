@@ -16,33 +16,26 @@
 
 import Foundation
 
-@objc
+@objcMembers
 public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sendable {
-    @objc
     public let dimensions: Dimensions
 
-    @objc
     public let fps: Int
 
     /// Only used for macOS
-    @objc
     public let showCursor: Bool
 
-    @objc
     public let appAudio: Bool
 
     /// Use broadcast extension for screen capture (iOS only).
     ///
     /// If a broadcast extension has been properly configured, this defaults to `true`.
     ///
-    @objc
     public let useBroadcastExtension: Bool
 
-    @objc
     public let includeCurrentApplication: Bool
 
     /// Exclude windows by their window ID (macOS only).
-    @objc
     public let excludeWindowIDs: [UInt32]
 
     public static let defaultToBroadcastExtension: Bool = {

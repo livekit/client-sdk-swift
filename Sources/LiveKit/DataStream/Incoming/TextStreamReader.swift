@@ -17,10 +17,9 @@
 import Foundation
 
 /// An asynchronous sequence of chunks read from a text data stream.
-@objc
+@objcMembers
 public final class TextStreamReader: NSObject, AsyncSequence, Sendable {
     /// Information about the incoming text stream.
-    @objc
     public let info: TextStreamInfo
 
     let source: StreamReaderSource
@@ -36,7 +35,6 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable {
     /// - Returns: The string consisting of all concatenated chunks.
     /// - Throws: ``StreamError`` if an error occurs while reading the stream.
     ///
-    @objc
     public func readAll() async throws -> String {
         try await collect()
     }

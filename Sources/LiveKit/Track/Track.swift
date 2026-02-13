@@ -20,20 +20,16 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-@objc
+@objcMembers
 public class Track: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Static constants
 
-    @objc
     public static let cameraName = "camera"
 
-    @objc
     public static let microphoneName = "microphone"
 
-    @objc
     public static let screenShareVideoName = "screen_share"
 
-    @objc
     public static let screenShareAudioName = "screen_share_audio"
 
     // MARK: - Public types
@@ -68,35 +64,26 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Public properties
 
-    @objc
     public var kind: Kind { _state.kind }
 
-    @objc
     public var source: Source { _state.source }
 
-    @objc
     public var name: String { _state.name }
 
-    @objc
     public var sid: Sid? { _state.sid }
 
-    @objc
     public var isMuted: Bool { _state.isMuted }
 
-    @objc
     public var statistics: TrackStatistics? { _state.statistics }
 
-    @objc
     public var simulcastStatistics: [VideoCodec: TrackStatistics] { _state.simulcastStatistics }
 
     /// Dimensions of the video (only if video track)
-    @objc
     public var dimensions: Dimensions? { _state.dimensions }
 
     /// The last video frame received for this track
     public var videoFrame: VideoFrame? { _state.videoFrame }
 
-    @objc
     public var trackState: TrackState { _state.trackState }
 
     // MARK: - Internal
@@ -211,7 +198,6 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    @objc
     public func set(reportStatistics: Bool) async {
         _state.mutate { $0.reportStatistics = reportStatistics }
         await _resumeOrSuspendStatisticsTimer()
@@ -227,7 +213,6 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
     // Intended for child class to override
     func stopCapture() async throws {}
 
-    @objc
     public final func start() async throws {
         try await _startStopSerialRunner.run { [weak self] in
             guard let self else { return }
@@ -241,7 +226,6 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    @objc
     public final func stop() async throws {
         try await _startStopSerialRunner.run { [weak self] in
             guard let self else { return }

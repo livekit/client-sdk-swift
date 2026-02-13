@@ -19,28 +19,23 @@ import Foundation
 
 /// A class that captures audio from a local track and streams it as a data stream
 /// in a selected format that can be sent to other participants via ``ByteStreamWriter``.
-@objc
+@objcMembers
 public final class LocalAudioTrackRecorder: NSObject, Sendable, AudioRenderer {
     public typealias Stream = AsyncStream<Data>
 
     /// The local audio track to capture audio from.
-    @objc
     public let track: LocalAudioTrack
 
     /// The format of the audio data to stream.
-    @objc
     public let format: AVAudioCommonFormat
 
     /// The sample rate of the audio data to stream.
-    @objc
     public let sampleRate: Int
 
     /// The number of channels of the audio data to stream.
-    @objc
     public let channels: Int = 1
 
     /// The maximum size of the audio data to buffer.
-    @objc
     public let maxSize: Int
 
     var isRecording: Bool {
@@ -59,7 +54,6 @@ public final class LocalAudioTrackRecorder: NSObject, Sendable, AudioRenderer {
     ///   - sampleRate: The sample rate of the audio data to stream.
     ///   - maxSize: The maximum size of the audio data to buffer.
     /// - Note: The default maximum size is 0, which means that the audio data will be buffered indefinitely.
-    @objc
     public init(track: LocalAudioTrack, format: AVAudioCommonFormat, sampleRate: Int, maxSize: Int = 0) {
         self.track = track
         self.format = format
@@ -94,7 +88,6 @@ public final class LocalAudioTrackRecorder: NSObject, Sendable, AudioRenderer {
     }
 
     /// Stops capturing audio from the local track.
-    @objc
     public func stop() {
         state.continuation?.finish()
     }

@@ -17,34 +17,27 @@
 @preconcurrency import AVFoundation
 import Foundation
 
-@objc
+@objcMembers
 public final class CameraCaptureOptions: NSObject, VideoCaptureOptions, Sendable {
     #if !os(visionOS)
     /// Preferred deviceType to use. If ``device`` is specified, it will be used instead. This is currently ignored for visionOS.
-    @objc
     public let deviceType: AVCaptureDevice.DeviceType?
     #endif
 
     /// Exact device to use.
-    @objc
     public let device: AVCaptureDevice?
 
     /// Preferred position such as `.front` or `.back`.
-    @objc
     public let position: AVCaptureDevice.Position
 
-    @objc
     public let preferredFormat: AVCaptureDevice.Format?
 
     /// preferred dimensions for capturing, the SDK may override with a recommended value.
-    @objc
     public let dimensions: Dimensions
 
     /// preferred fps to use for capturing, the SDK may override with a recommended value.
-    @objc
     public let fps: Int
 
-    @objc
     override public init() {
         #if !os(visionOS)
         deviceType = nil
@@ -57,7 +50,6 @@ public final class CameraCaptureOptions: NSObject, VideoCaptureOptions, Sendable
     }
 
     #if !os(visionOS)
-    @objc
     public init(deviceType: AVCaptureDevice.DeviceType? = nil,
                 device: AVCaptureDevice? = nil,
                 position: AVCaptureDevice.Position = .unspecified,
@@ -73,7 +65,6 @@ public final class CameraCaptureOptions: NSObject, VideoCaptureOptions, Sendable
         self.fps = fps
     }
     #else
-    @objc
     public init(device: AVCaptureDevice? = nil,
                 position: AVCaptureDevice.Position = .unspecified,
                 preferredFormat: AVCaptureDevice.Format? = nil,

@@ -16,26 +16,20 @@
 
 import Foundation
 
-@objc
+@objcMembers
 public final class RoomOptions: NSObject, Sendable, Loggable {
     // default options for capturing
-    @objc
     public let defaultCameraCaptureOptions: CameraCaptureOptions
 
-    @objc
     public let defaultScreenShareCaptureOptions: ScreenShareCaptureOptions
 
-    @objc
     public let defaultAudioCaptureOptions: AudioCaptureOptions
 
     // default options for publishing
-    @objc
     public let defaultVideoPublishOptions: VideoPublishOptions
 
-    @objc
     public let defaultAudioPublishOptions: AudioPublishOptions
 
-    @objc
     public let defaultDataPublishOptions: DataPublishOptions
 
     /// AdaptiveStream lets LiveKit automatically manage quality of subscribed
@@ -46,31 +40,24 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
     /// When none of the video elements are visible, it'll temporarily pause
     /// the data flow until they are visible again.
     ///
-    @objc
     public let adaptiveStream: Bool
 
     /// Dynamically pauses video layers that are not being consumed by any subscribers,
     /// significantly reducing publishing CPU and bandwidth usage.
     ///
-    @objc
     public let dynacast: Bool
 
-    @objc
     public let stopLocalTrackOnUnpublish: Bool
 
     /// Automatically suspend(mute) local camera video tracks when the app enters background and
     /// resume(unmute) when the app enters foreground again.
-    @objc
     public let suspendLocalVideoTracksInBackground: Bool
 
     /// E2EE Options
-    @objc
     public let e2eeOptions: E2EEOptions?
     /// Encryption
-    @objc
     public let encryptionOptions: EncryptionOptions?
 
-    @objc
     public let reportRemoteTrackStatistics: Bool
 
     override public init() {
@@ -89,7 +76,6 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
         reportRemoteTrackStatistics = false
     }
 
-    @objc
     public init(defaultCameraCaptureOptions: CameraCaptureOptions = CameraCaptureOptions(),
                 defaultScreenShareCaptureOptions: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                 defaultAudioCaptureOptions: AudioCaptureOptions = AudioCaptureOptions(),

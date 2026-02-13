@@ -29,7 +29,7 @@ import os.signpost
 ///
 /// - Important: This class is not thread safe and will be called on a dedicated serial `processingQueue`.
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, visionOS 1.0, *)
-@objc
+@objcMembers
 public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, VideoProcessor, Loggable {
     #if LK_SIGNPOSTS
     private let signpostLog = OSLog(subsystem: Bundle.main.bundleIdentifier ?? "", category: "BackgroundBlur")
