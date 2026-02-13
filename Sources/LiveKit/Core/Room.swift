@@ -23,7 +23,7 @@ import Foundation
 import Network
 #endif
 
-@objc
+@objcMembers
 // swiftlint:disable:next type_body_length
 public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
@@ -37,71 +37,52 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - Public
 
     /// Server assigned id of the Room.
-    @objc
     public var sid: Sid? { _state.sid }
 
     /// Server assigned id of the Room. *async* version of ``Room/sid``.
-    @objc
     public func sid() async throws -> Sid {
         try await _sidCompleter.wait()
     }
 
-    @objc
     public var name: String? { _state.name }
 
     /// Room's metadata.
-    @objc
     public var metadata: String? { _state.metadata }
 
-    @objc
     public var serverVersion: String? { _state.serverInfo?.version.nilIfEmpty }
 
     /// Region code the client is currently connected to.
-    @objc
     public var serverRegion: String? { _state.serverInfo?.region.nilIfEmpty }
 
     /// Region code the client is currently connected to.
-    @objc
     public var serverNodeId: String? { _state.serverInfo?.nodeID.nilIfEmpty }
 
-    @objc
     public var remoteParticipants: [Participant.Identity: RemoteParticipant] { _state.remoteParticipants }
 
-    @objc
     public var activeSpeakers: [Participant] { _state.activeSpeakers }
 
-    @objc
     public var creationTime: Date? { _state.creationTime }
 
     /// If the current room has a participant with `recorder:true` in its JWT grant.
-    @objc
     public var isRecording: Bool { _state.isRecording }
 
-    @objc
     public var maxParticipants: Int { _state.maxParticipants }
 
-    @objc
     public var participantCount: Int { _state.numParticipants }
 
-    @objc
     public var publishersCount: Int { _state.numPublishers }
 
     /// User-provided URL.
-    @objc
     public var url: String? { _state.providedUrl?.absoluteString }
 
     /// Actual server URL used for the current connection (may include a regional URL).
-    @objc
     public var connectedUrl: String? { _state.connectedUrl?.absoluteString }
 
-    @objc
     public var token: String? { _state.token }
 
     /// Current ``ConnectionState`` of the ``Room``.
-    @objc
     public var connectionState: ConnectionState { _state.connectionState }
 
-    @objc
     public var disconnectError: LiveKitError? { _state.disconnectError }
 
     public var connectStopwatch: Stopwatch { _state.connectStopwatch }
@@ -110,7 +91,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     public var e2eeManager: E2EEManager?
 
-    @objc
     public lazy var localParticipant: LocalParticipant = .init(room: self)
 
     let primaryTransportConnectedCompleter = AsyncCompleter<Void>(label: "Primary transport connect", defaultTimeout: .defaultTransportState)
@@ -219,14 +199,12 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     // MARK: Objective-C Support
 
-    @objc
     override public convenience init() {
         self.init(delegate: nil,
                   connectOptions: ConnectOptions(),
                   roomOptions: RoomOptions())
     }
 
-    @objc
     // swiftlint:disable:next cyclomatic_complexity function_body_length
     public init(delegate: RoomDelegate? = nil,
                 connectOptions: ConnectOptions? = nil,
@@ -326,7 +304,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
     }
 
-    @objc
     // swiftlint:disable:next cyclomatic_complexity function_body_length
     public func connect(url urlString: String,
                         token: String,
@@ -467,7 +444,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         log("Connected to \(String(describing: self))", .info)
     }
 
-    @objc
     public func disconnect() async {
         let shouldDisconnect = _state.mutate {
             switch $0.connectionState {
@@ -664,7 +640,6 @@ extension Room: AppStateDelegate {
 public extension Room {
     /// Set this to true to bypass initialization of voice processing.
     @available(*, deprecated, renamed: "AudioManager.shared.isVoiceProcessingBypassed")
-    @objc
     static var bypassVoiceProcessing: Bool {
         get { AudioManager.shared.isVoiceProcessingBypassed }
         set { AudioManager.shared.isVoiceProcessingBypassed = newValue }
