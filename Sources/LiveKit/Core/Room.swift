@@ -168,6 +168,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var publisher: Transport?
         var subscriber: Transport?
         var isSubscriberPrimary: Bool = false
+        var isSinglePeerConnection: Bool = false
 
         // Agents
         var transcriptionReceivedTimes: [String: Date] = [:]
@@ -514,7 +515,8 @@ extension Room {
                 nextReconnectMode: $0.nextReconnectMode,
                 isReconnectingWithMode: $0.isReconnectingWithMode,
                 connectionState: $0.connectionState,
-                reconnectTask: $0.reconnectTask
+                reconnectTask: $0.reconnectTask,
+                isSinglePeerConnection: $0.isSinglePeerConnection
             ) : State(
                 connectOptions: $0.connectOptions,
                 roomOptions: $0.roomOptions,
