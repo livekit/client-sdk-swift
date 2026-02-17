@@ -115,7 +115,7 @@ public extension LKTestCase {
 
             // Room options
             let encryptionOptions = $0.element.encryptionOptions ?? EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
-            let roomOptions = RoomOptions(encryptionOptions: encryptionOptions, reportRemoteTrackStatistics: true)
+            let roomOptions = RoomOptions(encryptionOptions: encryptionOptions, reportRemoteTrackStatistics: true, singlePeerConnection: true)
 
             let room = Room(delegate: $0.element.delegate, connectOptions: connectOptions, roomOptions: roomOptions)
             let identity = "identity-\($0.offset)"
