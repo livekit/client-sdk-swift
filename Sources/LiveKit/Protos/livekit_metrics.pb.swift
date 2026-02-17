@@ -323,20 +323,25 @@ struct Livekit_MetricsRecordingHeader: Sendable {
 
   var roomID: String = String()
 
-  var enableUserDataTraining: Bool {
-    get {return _enableUserDataTraining ?? false}
-    set {_enableUserDataTraining = newValue}
+  /// milliseconds
+  var duration: UInt64 = 0
+
+  var startTime: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {return _startTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_startTime = newValue}
   }
-  /// Returns true if `enableUserDataTraining` has been explicitly set.
-  var hasEnableUserDataTraining: Bool {return self._enableUserDataTraining != nil}
-  /// Clears the value of `enableUserDataTraining`. Subsequent reads from it will return its default value.
-  mutating func clearEnableUserDataTraining() {self._enableUserDataTraining = nil}
+  /// Returns true if `startTime` has been explicitly set.
+  var hasStartTime: Bool {return self._startTime != nil}
+  /// Clears the value of `startTime`. Subsequent reads from it will return its default value.
+  mutating func clearStartTime() {self._startTime = nil}
+
+  var roomTags: Dictionary<String,String> = [:]
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
-  fileprivate var _enableUserDataTraining: Bool? = nil
+  fileprivate var _startTime: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
 }
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
@@ -571,7 +576,7 @@ extension Livekit_EventMetric: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
 
 extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".MetricsRecordingHeader"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}room_id\0\u{3}enable_user_data_training\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}room_id\0\u{2}\u{2}duration\0\u{3}start_time\0\u{3}room_tags\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -580,7 +585,9 @@ extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, SwiftProtobuf._
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self.roomID) }()
-      case 2: try { try decoder.decodeSingularBoolField(value: &self._enableUserDataTraining) }()
+      case 3: try { try decoder.decodeSingularUInt64Field(value: &self.duration) }()
+      case 4: try { try decoder.decodeSingularMessageField(value: &self._startTime) }()
+      case 5: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &self.roomTags) }()
       default: break
       }
     }
@@ -594,15 +601,23 @@ extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, SwiftProtobuf._
     if !self.roomID.isEmpty {
       try visitor.visitSingularStringField(value: self.roomID, fieldNumber: 1)
     }
-    try { if let v = self._enableUserDataTraining {
-      try visitor.visitSingularBoolField(value: v, fieldNumber: 2)
+    if self.duration != 0 {
+      try visitor.visitSingularUInt64Field(value: self.duration, fieldNumber: 3)
+    }
+    try { if let v = self._startTime {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
     } }()
+    if !self.roomTags.isEmpty {
+      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: self.roomTags, fieldNumber: 5)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_MetricsRecordingHeader, rhs: Livekit_MetricsRecordingHeader) -> Bool {
     if lhs.roomID != rhs.roomID {return false}
-    if lhs._enableUserDataTraining != rhs._enableUserDataTraining {return false}
+    if lhs.duration != rhs.duration {return false}
+    if lhs._startTime != rhs._startTime {return false}
+    if lhs.roomTags != rhs.roomTags {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
