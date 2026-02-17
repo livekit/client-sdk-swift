@@ -342,7 +342,13 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_: SignalClient, didReceiveIceCandidate iceCandidate: IceCandidate, target: Livekit_SignalTarget) async {
-        guard let transport = target == .subscriber ? _state.subscriber : _state.publisher else {
+        let transport: Transport? = if _state.isSinglePeerConnection {
+            _state.publisher
+        } else {
+            target == .subscriber ? _state.subscriber : _state.publisher
+        }
+
+        guard let transport else {
             log("Failed to add ice candidate, transport is nil for target: \(target)", .error)
             return
         }
@@ -366,6 +372,11 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription, offerId: UInt32) async {
+        if _state.isSinglePeerConnection {
+            log("Received unexpected offer in single PC mode, ignoring", .warning)
+            return
+        }
+
         log("Received offer with offerId: \(offerId), creating & sending answer...")
 
         guard let subscriber = _state.subscriber else {
@@ -403,6 +414,26 @@ extension Room: SignalClientDelegate {
         // Notify LocalParticipant.
         localParticipant.delegates.notify {
             $0.participant?(self.localParticipant, remoteDidSubscribeTrack: track)
+        }
+    }
+
+    func signalClient(_: SignalClient, didReceiveMediaSectionsRequirement requirement: Livekit_MediaSectionsRequirement) async {
+        guard _state.isSinglePeerConnection else { return }
+        guard let publisher = _state.publisher else { return }
+
+        let transceiverInit = LKRTCRtpTransceiverInit()
+        transceiverInit.direction = .recvOnly
+
+        do {
+            for _ in 0 ..< requirement.numAudios {
+                _ = try await publisher.addTransceiver(ofType: .audio, transceiverInit: transceiverInit)
+            }
+            for _ in 0 ..< requirement.numVideos {
+                _ = try await publisher.addTransceiver(ofType: .video, transceiverInit: transceiverInit)
+            }
+            try await publisherShouldNegotiate()
+        } catch {
+            log("Failed to add transceivers for media sections requirement: \(error)", .error)
         }
     }
 }

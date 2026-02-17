@@ -75,7 +75,7 @@ extension Room {
 
     func send(dataPacket packet: Livekit_DataPacket) async throws {
         func ensurePublisherConnected() async throws {
-            guard _state.isSubscriberPrimary else { return }
+            guard _state.isSubscriberPrimary, !_state.isSinglePeerConnection else { return }
 
             let publisher = try requirePublisher()
 
@@ -152,19 +152,25 @@ extension Room {
                 return
             }
 
-            // protocol v3
-            let isSubscriberPrimary = joinResponse.subscriberPrimary
-            log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
+            let isSinglePC = _state.roomOptions.singlePeerConnection
+            let isSubscriberPrimary = isSinglePC ? false : joinResponse.subscriberPrimary
+            log("subscriberPrimary: \(isSubscriberPrimary), singlePeerConnection: \(isSinglePC)")
 
-            let subscriber = try Transport(config: rtcConfiguration,
-                                           target: .subscriber,
-                                           primary: isSubscriberPrimary,
-                                           delegate: self)
-
+            // Publisher always created; is primary in single PC mode
             let publisher = try Transport(config: rtcConfiguration,
                                           target: .publisher,
-                                          primary: !isSubscriberPrimary,
+                                          primary: isSinglePC || !isSubscriberPrimary,
                                           delegate: self)
+
+            // Subscriber only created in dual PC mode
+            let subscriber: Transport? = if isSinglePC {
+                nil
+            } else {
+                try Transport(config: rtcConfiguration,
+                              target: .subscriber,
+                              primary: isSubscriberPrimary,
+                              delegate: self)
+            }
 
             await publisher.set { [weak self] offer, offerId in
                 guard let self else { return }
@@ -190,11 +196,12 @@ extension Room {
                 $0.subscriber = subscriber
                 $0.publisher = publisher
                 $0.isSubscriberPrimary = isSubscriberPrimary
+                $0.isSinglePeerConnection = isSinglePC
             }
 
             log("[Connect] Fast publish enabled: \(joinResponse.fastPublish ? "true" : "false")")
-            if !isSubscriberPrimary || joinResponse.fastPublish {
-                // lazy negotiation for protocol v3+
+            if isSinglePC || !isSubscriberPrimary || joinResponse.fastPublish {
+                // In single PC mode or when publisher is primary, negotiate immediately
                 try await publisherShouldNegotiate()
             }
 
@@ -253,7 +260,8 @@ extension Room {
                                                              token,
                                                              connectOptions: _state.connectOptions,
                                                              reconnectMode: _state.isReconnectingWithMode,
-                                                             adaptiveStream: _state.roomOptions.adaptiveStream)
+                                                             adaptiveStream: _state.roomOptions.adaptiveStream,
+                                                             singlePeerConnection: _state.roomOptions.singlePeerConnection)
         // Check cancellation after WebSocket connected
         try Task.checkCancellation()
 
@@ -288,7 +296,10 @@ extension Room {
             throw LiveKitError(.invalidState)
         }
 
-        guard _state.subscriber != nil, _state.publisher != nil else {
+        guard _state.isSinglePeerConnection
+            ? _state.publisher != nil
+            : (_state.subscriber != nil && _state.publisher != nil)
+        else {
             log("[Connect] Publisher or subscriber is nil", .error)
             throw LiveKitError(.invalidState)
         }
@@ -313,7 +324,8 @@ extension Room {
                                                                  connectOptions: _state.connectOptions,
                                                                  reconnectMode: _state.isReconnectingWithMode,
                                                                  participantSid: localParticipant.sid,
-                                                                 adaptiveStream: _state.roomOptions.adaptiveStream)
+                                                                 adaptiveStream: _state.roomOptions.adaptiveStream,
+                                                                 singlePeerConnection: _state.roomOptions.singlePeerConnection)
             try Task.checkCancellation()
 
             // Update configuration
@@ -472,13 +484,21 @@ extension Room {
 
 extension Room {
     func sendSyncState() async throws {
-        guard let subscriber = _state.subscriber else {
-            log("Subscriber is nil", .error)
-            return
-        }
+        let previousAnswer: LKRTCSessionDescription?
+        let previousOffer: LKRTCSessionDescription?
 
-        let previousAnswer = await subscriber.localDescription
-        let previousOffer = await subscriber.remoteDescription
+        if _state.isSinglePeerConnection {
+            let publisher = try requirePublisher()
+            previousAnswer = await publisher.remoteDescription
+            previousOffer = await publisher.localDescription
+        } else {
+            guard let subscriber = _state.subscriber else {
+                log("Subscriber is nil", .error)
+                return
+            }
+            previousAnswer = await subscriber.localDescription
+            previousOffer = await subscriber.remoteDescription
+        }
 
         // 1. autosubscribe on, so subscribed tracks = all tracks - unsub tracks,
         //    in this case, we send unsub tracks, so server add all tracks to this

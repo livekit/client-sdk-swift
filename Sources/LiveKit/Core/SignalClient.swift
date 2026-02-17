@@ -115,7 +115,8 @@ actor SignalClient: Loggable {
                  connectOptions: ConnectOptions? = nil,
                  reconnectMode: ReconnectMode? = nil,
                  participantSid: Participant.Sid? = nil,
-                 adaptiveStream: Bool) async throws -> ConnectResponse
+                 adaptiveStream: Bool,
+                 singlePeerConnection: Bool) async throws -> ConnectResponse
     {
         await cleanUp()
 
@@ -123,11 +124,19 @@ actor SignalClient: Loggable {
             log("[Connect] mode: \(String(describing: reconnectMode))")
         }
 
-        let url = try Utils.buildUrl(url,
-                                     connectOptions: connectOptions,
-                                     reconnectMode: reconnectMode,
-                                     participantSid: participantSid,
-                                     adaptiveStream: adaptiveStream)
+        let url: URL = if singlePeerConnection {
+            try Utils.buildJoinRequestUrl(url,
+                                          connectOptions: connectOptions,
+                                          reconnectMode: reconnectMode,
+                                          participantSid: participantSid,
+                                          adaptiveStream: adaptiveStream)
+        } else {
+            try Utils.buildUrl(url,
+                               connectOptions: connectOptions,
+                               reconnectMode: reconnectMode,
+                               participantSid: participantSid,
+                               adaptiveStream: adaptiveStream)
+        }
 
         let isReconnect = reconnectMode != nil
 
@@ -365,6 +374,9 @@ private extension SignalClient {
 
         case let .trackSubscribed(trackSubscribed):
             _delegate.notifyDetached { await $0.signalClient(self, didSubscribeTrack: Track.Sid(from: trackSubscribed.trackSid)) }
+
+        case let .mediaSectionsRequirement(requirement):
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveMediaSectionsRequirement: requirement) }
 
         default:
             log("Unhandled signal message: \(message)", .warning)

@@ -81,7 +81,11 @@ extension Room: TransportDelegate {
             return
         }
 
-        if transport.target == .subscriber {
+        let shouldProcess = _state.isSinglePeerConnection
+            ? transport.target == .publisher
+            : transport.target == .subscriber
+
+        if shouldProcess {
             // execute block when connected
             execute(when: { state, _ in state.connectionState == .connected },
                     // always remove this block when disconnected
@@ -96,7 +100,11 @@ extension Room: TransportDelegate {
     }
 
     func transport(_ transport: Transport, didRemoveTrack track: LKRTCMediaStreamTrack) {
-        if transport.target == .subscriber {
+        let shouldProcess = _state.isSinglePeerConnection
+            ? transport.target == .publisher
+            : transport.target == .subscriber
+
+        if shouldProcess {
             Task {
                 await engine(self, didRemoveTrack: track)
             }
@@ -106,7 +114,11 @@ extension Room: TransportDelegate {
     func transport(_ transport: Transport, didOpenDataChannel dataChannel: LKRTCDataChannel) {
         log("Server opened data channel \(dataChannel.label)(\(dataChannel.readyState))")
 
-        if _state.isSubscriberPrimary, transport.target == .subscriber {
+        let shouldHandle = _state.isSinglePeerConnection
+            ? transport.target == .publisher
+            : (_state.isSubscriberPrimary && transport.target == .subscriber)
+
+        if shouldHandle {
             switch dataChannel.label {
             case LKRTCDataChannel.Labels.reliable: subscriberDataChannel.set(reliable: dataChannel)
             case LKRTCDataChannel.Labels.lossy: subscriberDataChannel.set(lossy: dataChannel)

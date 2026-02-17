@@ -210,6 +210,87 @@ class Utils: Loggable {
         return result
     }
 
+    static func buildJoinRequestUrl(
+        _ url: URL,
+        connectOptions: ConnectOptions? = nil,
+        reconnectMode: ReconnectMode? = nil,
+        participantSid: Participant.Sid? = nil,
+        adaptiveStream: Bool,
+        forceSecure: Bool = false
+    ) throws -> URL {
+        let connectOptions = connectOptions ?? ConnectOptions()
+
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+
+        guard var builder = components else {
+            throw LiveKitError(.failedToParseUrl)
+        }
+
+        let useSecure = url.isSecure || forceSecure
+        let wsScheme = useSecure ? "wss" : "ws"
+
+        var pathSegments = url.pathComponents
+        pathSegments.removeAll(where: { $0.isEmpty || $0 == "/" })
+
+        if !url.hasDirectoryPath,
+           !pathSegments.isEmpty,
+           ["rtc", "validate"].contains(pathSegments.last!)
+        {
+            pathSegments.removeLast()
+        }
+        pathSegments.append("rtc")
+
+        builder.scheme = wsScheme
+        builder.path = "/" + pathSegments.joined(separator: "/")
+
+        // Build JoinRequest protobuf
+        var joinRequest = Livekit_JoinRequest()
+        joinRequest.clientInfo = Livekit_ClientInfo.with {
+            $0.sdk = .swift
+            $0.version = LiveKitSDK.version
+            $0.protocol = Int32(connectOptions.protocolVersion.rawValue)
+            $0.os = String(describing: os())
+            $0.osVersion = osVersionString()
+            if let model = modelIdentifier() {
+                $0.deviceModel = model
+            }
+            if let network = networkTypeString() {
+                $0.network = network
+            }
+        }
+        joinRequest.connectionSettings = Livekit_ConnectionSettings.with {
+            $0.autoSubscribe = connectOptions.autoSubscribe
+            $0.adaptiveStream = adaptiveStream
+        }
+
+        if reconnectMode == .quick {
+            joinRequest.reconnect = true
+            joinRequest.reconnectReason = .rrSignalDisconnected
+            if let sid = participantSid {
+                joinRequest.participantSid = sid.stringValue
+            }
+        }
+
+        // Serialize JoinRequest, wrap in WrappedJoinRequest
+        let joinRequestData = try joinRequest.serializedData()
+        let wrappedJoinRequest = Livekit_WrappedJoinRequest.with {
+            $0.compression = .none
+            $0.joinRequest = joinRequestData
+        }
+        let wrappedData = try wrappedJoinRequest.serializedData()
+        let base64Encoded = wrappedData.base64EncodedString()
+
+        builder.queryItems = [
+            URLQueryItem(name: "join_request", value: base64Encoded),
+        ]
+
+        guard let result = builder.url else {
+            throw LiveKitError(.failedToParseUrl)
+        }
+
+        return result
+    }
+
     static func computeVideoEncodings(
         dimensions: Dimensions,
         publishOptions: VideoPublishOptions?,
