@@ -81,44 +81,34 @@ extension Room: TransportDelegate {
             return
         }
 
-        let shouldProcess = _state.isSinglePeerConnection
-            ? transport.target == .publisher
-            : transport.target == .subscriber
+        guard transport.target == _state.receiveTransport?.target else { return }
 
-        if shouldProcess {
-            // execute block when connected
-            execute(when: { state, _ in state.connectionState == .connected },
-                    // always remove this block when disconnected
-                    removeWhen: { state, _ in state.connectionState == .disconnected })
-            { [weak self] in
-                guard let self else { return }
-                Task {
-                    await self.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!)
-                }
+        // execute block when connected
+        execute(when: { state, _ in state.connectionState == .connected },
+                // always remove this block when disconnected
+                removeWhen: { state, _ in state.connectionState == .disconnected })
+        { [weak self] in
+            guard let self else { return }
+            Task {
+                await self.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!)
             }
         }
     }
 
     func transport(_ transport: Transport, didRemoveTrack track: LKRTCMediaStreamTrack) {
-        let shouldProcess = _state.isSinglePeerConnection
-            ? transport.target == .publisher
-            : transport.target == .subscriber
+        guard transport.target == _state.receiveTransport?.target else { return }
 
-        if shouldProcess {
-            Task {
-                await engine(self, didRemoveTrack: track)
-            }
+        Task {
+            await engine(self, didRemoveTrack: track)
         }
     }
 
     func transport(_ transport: Transport, didOpenDataChannel dataChannel: LKRTCDataChannel) {
         log("Server opened data channel \(dataChannel.label)(\(dataChannel.readyState))")
 
-        let shouldHandle = _state.isSinglePeerConnection
-            ? transport.target == .publisher
-            : (_state.isSubscriberPrimary && transport.target == .subscriber)
+        guard transport.target == _state.receiveTransport?.target else { return }
 
-        if shouldHandle {
+        if _state.isSinglePeerConnection || _state.isSubscriberPrimary {
             switch dataChannel.label {
             case LKRTCDataChannel.Labels.reliable: subscriberDataChannel.set(reliable: dataChannel)
             case LKRTCDataChannel.Labels.lossy: subscriberDataChannel.set(lossy: dataChannel)

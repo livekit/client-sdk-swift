@@ -344,8 +344,10 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didReceiveIceCandidate iceCandidate: IceCandidate, target: Livekit_SignalTarget) async {
         let transport: Transport? = if _state.isSinglePeerConnection {
             _state.publisher
+        } else if target == .subscriber {
+            _state.subscriber
         } else {
-            target == .subscriber ? _state.subscriber : _state.publisher
+            _state.publisher
         }
 
         guard let transport else {

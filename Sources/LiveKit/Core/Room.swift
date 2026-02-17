@@ -170,6 +170,12 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var isSubscriberPrimary: Bool = false
         var isSinglePeerConnection: Bool = false
 
+        /// The transport used for receiving remote tracks and server-opened data channels.
+        /// In single PC mode this is the publisher; in dual PC mode this is the subscriber.
+        var receiveTransport: Transport? {
+            isSinglePeerConnection ? publisher : subscriber
+        }
+
         // Agents
         var transcriptionReceivedTimes: [String: Date] = [:]
 
