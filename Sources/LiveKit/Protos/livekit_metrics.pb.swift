@@ -180,11 +180,11 @@ struct Livekit_MetricsBatch: Sendable {
   var timestampMs: Int64 = 0
 
   var normalizedTimestamp: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {return _normalizedTimestamp ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    get {_normalizedTimestamp ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
     set {_normalizedTimestamp = newValue}
   }
   /// Returns true if `normalizedTimestamp` has been explicitly set.
-  var hasNormalizedTimestamp: Bool {return self._normalizedTimestamp != nil}
+  var hasNormalizedTimestamp: Bool {self._normalizedTimestamp != nil}
   /// Clears the value of `normalizedTimestamp`. Subsequent reads from it will return its default value.
   mutating func clearNormalizedTimestamp() {self._normalizedTimestamp = nil}
 
@@ -241,11 +241,11 @@ struct Livekit_MetricSample: Sendable {
   var timestampMs: Int64 = 0
 
   var normalizedTimestamp: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {return _normalizedTimestamp ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    get {_normalizedTimestamp ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
     set {_normalizedTimestamp = newValue}
   }
   /// Returns true if `normalizedTimestamp` has been explicitly set.
-  var hasNormalizedTimestamp: Bool {return self._normalizedTimestamp != nil}
+  var hasNormalizedTimestamp: Bool {self._normalizedTimestamp != nil}
   /// Clears the value of `normalizedTimestamp`. Subsequent reads from it will return its default value.
   mutating func clearNormalizedTimestamp() {self._normalizedTimestamp = nil}
 
@@ -276,29 +276,29 @@ struct Livekit_EventMetric: Sendable {
 
   /// end time of event based on a monotonic clock (in milliseconds), if needed
   var endTimestampMs: Int64 {
-    get {return _endTimestampMs ?? 0}
+    get {_endTimestampMs ?? 0}
     set {_endTimestampMs = newValue}
   }
   /// Returns true if `endTimestampMs` has been explicitly set.
-  var hasEndTimestampMs: Bool {return self._endTimestampMs != nil}
+  var hasEndTimestampMs: Bool {self._endTimestampMs != nil}
   /// Clears the value of `endTimestampMs`. Subsequent reads from it will return its default value.
   mutating func clearEndTimestampMs() {self._endTimestampMs = nil}
 
   var normalizedStartTimestamp: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {return _normalizedStartTimestamp ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    get {_normalizedStartTimestamp ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
     set {_normalizedStartTimestamp = newValue}
   }
   /// Returns true if `normalizedStartTimestamp` has been explicitly set.
-  var hasNormalizedStartTimestamp: Bool {return self._normalizedStartTimestamp != nil}
+  var hasNormalizedStartTimestamp: Bool {self._normalizedStartTimestamp != nil}
   /// Clears the value of `normalizedStartTimestamp`. Subsequent reads from it will return its default value.
   mutating func clearNormalizedStartTimestamp() {self._normalizedStartTimestamp = nil}
 
   var normalizedEndTimestamp: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {return _normalizedEndTimestamp ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    get {_normalizedEndTimestamp ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
     set {_normalizedEndTimestamp = newValue}
   }
   /// Returns true if `normalizedEndTimestamp` has been explicitly set.
-  var hasNormalizedEndTimestamp: Bool {return self._normalizedEndTimestamp != nil}
+  var hasNormalizedEndTimestamp: Bool {self._normalizedEndTimestamp != nil}
   /// Clears the value of `normalizedEndTimestamp`. Subsequent reads from it will return its default value.
   mutating func clearNormalizedEndTimestamp() {self._normalizedEndTimestamp = nil}
 
@@ -327,11 +327,11 @@ struct Livekit_MetricsRecordingHeader: Sendable {
   var duration: UInt64 = 0
 
   var startTime: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {return _startTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    get {_startTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
     set {_startTime = newValue}
   }
   /// Returns true if `startTime` has been explicitly set.
-  var hasStartTime: Bool {return self._startTime != nil}
+  var hasStartTime: Bool {self._startTime != nil}
   /// Clears the value of `startTime`. Subsequent reads from it will return its default value.
   mutating func clearStartTime() {self._startTime = nil}
 

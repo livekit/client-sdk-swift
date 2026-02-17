@@ -728,33 +728,33 @@ struct Livekit_AddTrackRequest: @unchecked Sendable {
 
   /// client ID of track, to match it when RTC track is received
   var cid: String {
-    get {return _storage._cid}
+    get {_storage._cid}
     set {_uniqueStorage()._cid = newValue}
   }
 
   var name: String {
-    get {return _storage._name}
+    get {_storage._name}
     set {_uniqueStorage()._name = newValue}
   }
 
   var type: Livekit_TrackType {
-    get {return _storage._type}
+    get {_storage._type}
     set {_uniqueStorage()._type = newValue}
   }
 
   var width: UInt32 {
-    get {return _storage._width}
+    get {_storage._width}
     set {_uniqueStorage()._width = newValue}
   }
 
   var height: UInt32 {
-    get {return _storage._height}
+    get {_storage._height}
     set {_uniqueStorage()._height = newValue}
   }
 
   /// true to add track and initialize to muted
   var muted: Bool {
-    get {return _storage._muted}
+    get {_storage._muted}
     set {_uniqueStorage()._muted = newValue}
   }
 
@@ -762,28 +762,28 @@ struct Livekit_AddTrackRequest: @unchecked Sendable {
   ///
   /// NOTE: This field was marked as deprecated in the .proto file.
   var disableDtx: Bool {
-    get {return _storage._disableDtx}
+    get {_storage._disableDtx}
     set {_uniqueStorage()._disableDtx = newValue}
   }
 
   var source: Livekit_TrackSource {
-    get {return _storage._source}
+    get {_storage._source}
     set {_uniqueStorage()._source = newValue}
   }
 
   var layers: [Livekit_VideoLayer] {
-    get {return _storage._layers}
+    get {_storage._layers}
     set {_uniqueStorage()._layers = newValue}
   }
 
   var simulcastCodecs: [Livekit_SimulcastCodec] {
-    get {return _storage._simulcastCodecs}
+    get {_storage._simulcastCodecs}
     set {_uniqueStorage()._simulcastCodecs = newValue}
   }
 
   /// server ID of track, publish new codec to exist track
   var sid: String {
-    get {return _storage._sid}
+    get {_storage._sid}
     set {_uniqueStorage()._sid = newValue}
   }
 
@@ -791,35 +791,35 @@ struct Livekit_AddTrackRequest: @unchecked Sendable {
   ///
   /// NOTE: This field was marked as deprecated in the .proto file.
   var stereo: Bool {
-    get {return _storage._stereo}
+    get {_storage._stereo}
     set {_uniqueStorage()._stereo = newValue}
   }
 
   /// true if RED (Redundant Encoding) is disabled for audio
   var disableRed: Bool {
-    get {return _storage._disableRed}
+    get {_storage._disableRed}
     set {_uniqueStorage()._disableRed = newValue}
   }
 
   var encryption: Livekit_Encryption.TypeEnum {
-    get {return _storage._encryption}
+    get {_storage._encryption}
     set {_uniqueStorage()._encryption = newValue}
   }
 
   /// which stream the track belongs to, used to group tracks together.
   /// if not specified, server will infer it from track source to bundle camera/microphone, screenshare/audio together
   var stream: String {
-    get {return _storage._stream}
+    get {_storage._stream}
     set {_uniqueStorage()._stream = newValue}
   }
 
   var backupCodecPolicy: Livekit_BackupCodecPolicy {
-    get {return _storage._backupCodecPolicy}
+    get {_storage._backupCodecPolicy}
     set {_uniqueStorage()._backupCodecPolicy = newValue}
   }
 
   var audioFeatures: [Livekit_AudioTrackFeature] {
-    get {return _storage._audioFeatures}
+    get {_storage._audioFeatures}
     set {_uniqueStorage()._audioFeatures = newValue}
   }
 
@@ -858,11 +858,11 @@ struct Livekit_PublishDataTrackResponse: Sendable {
 
   /// Information about the published track.
   var info: Livekit_DataTrackInfo {
-    get {return _info ?? Livekit_DataTrackInfo()}
+    get {_info ?? Livekit_DataTrackInfo()}
     set {_info = newValue}
   }
   /// Returns true if `info` has been explicitly set.
-  var hasInfo: Bool {return self._info != nil}
+  var hasInfo: Bool {self._info != nil}
   /// Clears the value of `info`. Subsequent reads from it will return its default value.
   mutating func clearInfo() {self._info = nil}
 
@@ -893,11 +893,11 @@ struct Livekit_UnpublishDataTrackResponse: Sendable {
 
   /// Information about the unpublished track.
   var info: Livekit_DataTrackInfo {
-    get {return _info ?? Livekit_DataTrackInfo()}
+    get {_info ?? Livekit_DataTrackInfo()}
     set {_info = newValue}
   }
   /// Returns true if `info` has been explicitly set.
-  var hasInfo: Bool {return self._info != nil}
+  var hasInfo: Bool {self._info != nil}
   /// Clears the value of `info`. Subsequent reads from it will return its default value.
   mutating func clearInfo() {self._info = nil}
 
@@ -973,100 +973,100 @@ struct Livekit_JoinResponse: @unchecked Sendable {
   // methods supported on all messages.
 
   var room: Livekit_Room {
-    get {return _storage._room ?? Livekit_Room()}
+    get {_storage._room ?? Livekit_Room()}
     set {_uniqueStorage()._room = newValue}
   }
   /// Returns true if `room` has been explicitly set.
-  var hasRoom: Bool {return _storage._room != nil}
+  var hasRoom: Bool {_storage._room != nil}
   /// Clears the value of `room`. Subsequent reads from it will return its default value.
   mutating func clearRoom() {_uniqueStorage()._room = nil}
 
   var participant: Livekit_ParticipantInfo {
-    get {return _storage._participant ?? Livekit_ParticipantInfo()}
+    get {_storage._participant ?? Livekit_ParticipantInfo()}
     set {_uniqueStorage()._participant = newValue}
   }
   /// Returns true if `participant` has been explicitly set.
-  var hasParticipant: Bool {return _storage._participant != nil}
+  var hasParticipant: Bool {_storage._participant != nil}
   /// Clears the value of `participant`. Subsequent reads from it will return its default value.
   mutating func clearParticipant() {_uniqueStorage()._participant = nil}
 
   var otherParticipants: [Livekit_ParticipantInfo] {
-    get {return _storage._otherParticipants}
+    get {_storage._otherParticipants}
     set {_uniqueStorage()._otherParticipants = newValue}
   }
 
   /// deprecated. use server_info.version instead.
   var serverVersion: String {
-    get {return _storage._serverVersion}
+    get {_storage._serverVersion}
     set {_uniqueStorage()._serverVersion = newValue}
   }
 
   var iceServers: [Livekit_ICEServer] {
-    get {return _storage._iceServers}
+    get {_storage._iceServers}
     set {_uniqueStorage()._iceServers = newValue}
   }
 
   /// use subscriber as the primary PeerConnection
   var subscriberPrimary: Bool {
-    get {return _storage._subscriberPrimary}
+    get {_storage._subscriberPrimary}
     set {_uniqueStorage()._subscriberPrimary = newValue}
   }
 
   /// when the current server isn't available, return alternate url to retry connection
   /// when this is set, the other fields will be largely empty
   var alternativeURL: String {
-    get {return _storage._alternativeURL}
+    get {_storage._alternativeURL}
     set {_uniqueStorage()._alternativeURL = newValue}
   }
 
   var clientConfiguration: Livekit_ClientConfiguration {
-    get {return _storage._clientConfiguration ?? Livekit_ClientConfiguration()}
+    get {_storage._clientConfiguration ?? Livekit_ClientConfiguration()}
     set {_uniqueStorage()._clientConfiguration = newValue}
   }
   /// Returns true if `clientConfiguration` has been explicitly set.
-  var hasClientConfiguration: Bool {return _storage._clientConfiguration != nil}
+  var hasClientConfiguration: Bool {_storage._clientConfiguration != nil}
   /// Clears the value of `clientConfiguration`. Subsequent reads from it will return its default value.
   mutating func clearClientConfiguration() {_uniqueStorage()._clientConfiguration = nil}
 
   /// deprecated. use server_info.region instead.
   var serverRegion: String {
-    get {return _storage._serverRegion}
+    get {_storage._serverRegion}
     set {_uniqueStorage()._serverRegion = newValue}
   }
 
   var pingTimeout: Int32 {
-    get {return _storage._pingTimeout}
+    get {_storage._pingTimeout}
     set {_uniqueStorage()._pingTimeout = newValue}
   }
 
   var pingInterval: Int32 {
-    get {return _storage._pingInterval}
+    get {_storage._pingInterval}
     set {_uniqueStorage()._pingInterval = newValue}
   }
 
   var serverInfo: Livekit_ServerInfo {
-    get {return _storage._serverInfo ?? Livekit_ServerInfo()}
+    get {_storage._serverInfo ?? Livekit_ServerInfo()}
     set {_uniqueStorage()._serverInfo = newValue}
   }
   /// Returns true if `serverInfo` has been explicitly set.
-  var hasServerInfo: Bool {return _storage._serverInfo != nil}
+  var hasServerInfo: Bool {_storage._serverInfo != nil}
   /// Clears the value of `serverInfo`. Subsequent reads from it will return its default value.
   mutating func clearServerInfo() {_uniqueStorage()._serverInfo = nil}
 
   /// Server-Injected-Frame byte trailer, used to identify unencrypted frames when e2ee is enabled
   var sifTrailer: Data {
-    get {return _storage._sifTrailer}
+    get {_storage._sifTrailer}
     set {_uniqueStorage()._sifTrailer = newValue}
   }
 
   var enabledPublishCodecs: [Livekit_Codec] {
-    get {return _storage._enabledPublishCodecs}
+    get {_storage._enabledPublishCodecs}
     set {_uniqueStorage()._enabledPublishCodecs = newValue}
   }
 
   /// when set, client should attempt to establish publish peer connection when joining room to speed up publishing
   var fastPublish: Bool {
-    get {return _storage._fastPublish}
+    get {_storage._fastPublish}
     set {_uniqueStorage()._fastPublish = newValue}
   }
 
@@ -1085,20 +1085,20 @@ struct Livekit_ReconnectResponse: Sendable {
   var iceServers: [Livekit_ICEServer] = []
 
   var clientConfiguration: Livekit_ClientConfiguration {
-    get {return _clientConfiguration ?? Livekit_ClientConfiguration()}
+    get {_clientConfiguration ?? Livekit_ClientConfiguration()}
     set {_clientConfiguration = newValue}
   }
   /// Returns true if `clientConfiguration` has been explicitly set.
-  var hasClientConfiguration: Bool {return self._clientConfiguration != nil}
+  var hasClientConfiguration: Bool {self._clientConfiguration != nil}
   /// Clears the value of `clientConfiguration`. Subsequent reads from it will return its default value.
   mutating func clearClientConfiguration() {self._clientConfiguration = nil}
 
   var serverInfo: Livekit_ServerInfo {
-    get {return _serverInfo ?? Livekit_ServerInfo()}
+    get {_serverInfo ?? Livekit_ServerInfo()}
     set {_serverInfo = newValue}
   }
   /// Returns true if `serverInfo` has been explicitly set.
-  var hasServerInfo: Bool {return self._serverInfo != nil}
+  var hasServerInfo: Bool {self._serverInfo != nil}
   /// Clears the value of `serverInfo`. Subsequent reads from it will return its default value.
   mutating func clearServerInfo() {self._serverInfo = nil}
 
@@ -1121,11 +1121,11 @@ struct Livekit_TrackPublishedResponse: Sendable {
   var cid: String = String()
 
   var track: Livekit_TrackInfo {
-    get {return _track ?? Livekit_TrackInfo()}
+    get {_track ?? Livekit_TrackInfo()}
     set {_track = newValue}
   }
   /// Returns true if `track` has been explicitly set.
-  var hasTrack: Bool {return self._track != nil}
+  var hasTrack: Bool {self._track != nil}
   /// Clears the value of `track`. Subsequent reads from it will return its default value.
   mutating func clearTrack() {self._track = nil}
 
@@ -1216,11 +1216,11 @@ struct Livekit_UpdateDataSubscription: Sendable {
     /// Options to apply when initially subscribing or updating an existing subscription.
     /// When unsubscribing, this field is ignored.
     var options: Livekit_DataTrackSubscriptionOptions {
-      get {return _options ?? Livekit_DataTrackSubscriptionOptions()}
+      get {_options ?? Livekit_DataTrackSubscriptionOptions()}
       set {_options = newValue}
     }
     /// Returns true if `options` has been explicitly set.
-    var hasOptions: Bool {return self._options != nil}
+    var hasOptions: Bool {self._options != nil}
     /// Clears the value of `options`. Subsequent reads from it will return its default value.
     mutating func clearOptions() {self._options = nil}
 
@@ -1314,11 +1314,11 @@ struct Livekit_LeaveRequest: Sendable {
   var action: Livekit_LeaveRequest.Action = .disconnect
 
   var regions: Livekit_RegionSettings {
-    get {return _regions ?? Livekit_RegionSettings()}
+    get {_regions ?? Livekit_RegionSettings()}
     set {_regions = newValue}
   }
   /// Returns true if `regions` has been explicitly set.
-  var hasRegions: Bool {return self._regions != nil}
+  var hasRegions: Bool {self._regions != nil}
   /// Clears the value of `regions`. Subsequent reads from it will return its default value.
   mutating func clearRegions() {self._regions = nil}
 
@@ -1445,11 +1445,11 @@ struct Livekit_RoomUpdate: Sendable {
   // methods supported on all messages.
 
   var room: Livekit_Room {
-    get {return _room ?? Livekit_Room()}
+    get {_room ?? Livekit_Room()}
     set {_room = newValue}
   }
   /// Returns true if `room` has been explicitly set.
-  var hasRoom: Bool {return self._room != nil}
+  var hasRoom: Bool {self._room != nil}
   /// Clears the value of `room`. Subsequent reads from it will return its default value.
   mutating func clearRoom() {self._room = nil}
 
@@ -1631,31 +1631,31 @@ struct Livekit_RoomMovedResponse: @unchecked Sendable {
 
   /// information about the new room
   var room: Livekit_Room {
-    get {return _storage._room ?? Livekit_Room()}
+    get {_storage._room ?? Livekit_Room()}
     set {_uniqueStorage()._room = newValue}
   }
   /// Returns true if `room` has been explicitly set.
-  var hasRoom: Bool {return _storage._room != nil}
+  var hasRoom: Bool {_storage._room != nil}
   /// Clears the value of `room`. Subsequent reads from it will return its default value.
   mutating func clearRoom() {_uniqueStorage()._room = nil}
 
   /// new reconnect token that can be used to reconnect to the new room
   var token: String {
-    get {return _storage._token}
+    get {_storage._token}
     set {_uniqueStorage()._token = newValue}
   }
 
   var participant: Livekit_ParticipantInfo {
-    get {return _storage._participant ?? Livekit_ParticipantInfo()}
+    get {_storage._participant ?? Livekit_ParticipantInfo()}
     set {_uniqueStorage()._participant = newValue}
   }
   /// Returns true if `participant` has been explicitly set.
-  var hasParticipant: Bool {return _storage._participant != nil}
+  var hasParticipant: Bool {_storage._participant != nil}
   /// Clears the value of `participant`. Subsequent reads from it will return its default value.
   mutating func clearParticipant() {_uniqueStorage()._participant = nil}
 
   var otherParticipants: [Livekit_ParticipantInfo] {
-    get {return _storage._otherParticipants}
+    get {_storage._otherParticipants}
     set {_uniqueStorage()._otherParticipants = newValue}
   }
 
@@ -1675,20 +1675,20 @@ struct Livekit_SyncState: Sendable {
   /// subscribe answer if using dual peer connection
   /// publish answer if using single peer connection
   var answer: Livekit_SessionDescription {
-    get {return _answer ?? Livekit_SessionDescription()}
+    get {_answer ?? Livekit_SessionDescription()}
     set {_answer = newValue}
   }
   /// Returns true if `answer` has been explicitly set.
-  var hasAnswer: Bool {return self._answer != nil}
+  var hasAnswer: Bool {self._answer != nil}
   /// Clears the value of `answer`. Subsequent reads from it will return its default value.
   mutating func clearAnswer() {self._answer = nil}
 
   var subscription: Livekit_UpdateSubscription {
-    get {return _subscription ?? Livekit_UpdateSubscription()}
+    get {_subscription ?? Livekit_UpdateSubscription()}
     set {_subscription = newValue}
   }
   /// Returns true if `subscription` has been explicitly set.
-  var hasSubscription: Bool {return self._subscription != nil}
+  var hasSubscription: Bool {self._subscription != nil}
   /// Clears the value of `subscription`. Subsequent reads from it will return its default value.
   mutating func clearSubscription() {self._subscription = nil}
 
@@ -1700,11 +1700,11 @@ struct Livekit_SyncState: Sendable {
   /// received server side offer if using dual peer connection
   /// sent client side offer if using single peer connection
   var offer: Livekit_SessionDescription {
-    get {return _offer ?? Livekit_SessionDescription()}
+    get {_offer ?? Livekit_SessionDescription()}
     set {_offer = newValue}
   }
   /// Returns true if `offer` has been explicitly set.
-  var hasOffer: Bool {return self._offer != nil}
+  var hasOffer: Bool {self._offer != nil}
   /// Clears the value of `offer`. Subsequent reads from it will return its default value.
   mutating func clearOffer() {self._offer = nil}
 
@@ -2128,22 +2128,22 @@ struct Livekit_ConnectionSettings: Sendable {
   var adaptiveStream: Bool = false
 
   var subscriberAllowPause: Bool {
-    get {return _subscriberAllowPause ?? false}
+    get {_subscriberAllowPause ?? false}
     set {_subscriberAllowPause = newValue}
   }
   /// Returns true if `subscriberAllowPause` has been explicitly set.
-  var hasSubscriberAllowPause: Bool {return self._subscriberAllowPause != nil}
+  var hasSubscriberAllowPause: Bool {self._subscriberAllowPause != nil}
   /// Clears the value of `subscriberAllowPause`. Subsequent reads from it will return its default value.
   mutating func clearSubscriberAllowPause() {self._subscriberAllowPause = nil}
 
   var disableIceLite: Bool = false
 
   var autoSubscribeDataTrack: Bool {
-    get {return _autoSubscribeDataTrack ?? false}
+    get {_autoSubscribeDataTrack ?? false}
     set {_autoSubscribeDataTrack = newValue}
   }
   /// Returns true if `autoSubscribeDataTrack` has been explicitly set.
-  var hasAutoSubscribeDataTrack: Bool {return self._autoSubscribeDataTrack != nil}
+  var hasAutoSubscribeDataTrack: Bool {self._autoSubscribeDataTrack != nil}
   /// Clears the value of `autoSubscribeDataTrack`. Subsequent reads from it will return its default value.
   mutating func clearAutoSubscribeDataTrack() {self._autoSubscribeDataTrack = nil}
 
@@ -2161,26 +2161,26 @@ struct Livekit_JoinRequest: @unchecked Sendable {
   // methods supported on all messages.
 
   var clientInfo: Livekit_ClientInfo {
-    get {return _storage._clientInfo ?? Livekit_ClientInfo()}
+    get {_storage._clientInfo ?? Livekit_ClientInfo()}
     set {_uniqueStorage()._clientInfo = newValue}
   }
   /// Returns true if `clientInfo` has been explicitly set.
-  var hasClientInfo: Bool {return _storage._clientInfo != nil}
+  var hasClientInfo: Bool {_storage._clientInfo != nil}
   /// Clears the value of `clientInfo`. Subsequent reads from it will return its default value.
   mutating func clearClientInfo() {_uniqueStorage()._clientInfo = nil}
 
   var connectionSettings: Livekit_ConnectionSettings {
-    get {return _storage._connectionSettings ?? Livekit_ConnectionSettings()}
+    get {_storage._connectionSettings ?? Livekit_ConnectionSettings()}
     set {_uniqueStorage()._connectionSettings = newValue}
   }
   /// Returns true if `connectionSettings` has been explicitly set.
-  var hasConnectionSettings: Bool {return _storage._connectionSettings != nil}
+  var hasConnectionSettings: Bool {_storage._connectionSettings != nil}
   /// Clears the value of `connectionSettings`. Subsequent reads from it will return its default value.
   mutating func clearConnectionSettings() {_uniqueStorage()._connectionSettings = nil}
 
   /// if not empty, will overwrite `metadata` in token
   var metadata: String {
-    get {return _storage._metadata}
+    get {_storage._metadata}
     set {_uniqueStorage()._metadata = newValue}
   }
 
@@ -2188,45 +2188,45 @@ struct Livekit_JoinRequest: @unchecked Sendable {
   /// will overwrite if the same key is in the token
   /// will not delete keys from token if there is a key collision and this sets that key to empty value
   var participantAttributes: Dictionary<String,String> {
-    get {return _storage._participantAttributes}
+    get {_storage._participantAttributes}
     set {_uniqueStorage()._participantAttributes = newValue}
   }
 
   var addTrackRequests: [Livekit_AddTrackRequest] {
-    get {return _storage._addTrackRequests}
+    get {_storage._addTrackRequests}
     set {_uniqueStorage()._addTrackRequests = newValue}
   }
 
   var publisherOffer: Livekit_SessionDescription {
-    get {return _storage._publisherOffer ?? Livekit_SessionDescription()}
+    get {_storage._publisherOffer ?? Livekit_SessionDescription()}
     set {_uniqueStorage()._publisherOffer = newValue}
   }
   /// Returns true if `publisherOffer` has been explicitly set.
-  var hasPublisherOffer: Bool {return _storage._publisherOffer != nil}
+  var hasPublisherOffer: Bool {_storage._publisherOffer != nil}
   /// Clears the value of `publisherOffer`. Subsequent reads from it will return its default value.
   mutating func clearPublisherOffer() {_uniqueStorage()._publisherOffer = nil}
 
   var reconnect: Bool {
-    get {return _storage._reconnect}
+    get {_storage._reconnect}
     set {_uniqueStorage()._reconnect = newValue}
   }
 
   var reconnectReason: Livekit_ReconnectReason {
-    get {return _storage._reconnectReason}
+    get {_storage._reconnectReason}
     set {_uniqueStorage()._reconnectReason = newValue}
   }
 
   var participantSid: String {
-    get {return _storage._participantSid}
+    get {_storage._participantSid}
     set {_uniqueStorage()._participantSid = newValue}
   }
 
   var syncState: Livekit_SyncState {
-    get {return _storage._syncState ?? Livekit_SyncState()}
+    get {_storage._syncState ?? Livekit_SyncState()}
     set {_uniqueStorage()._syncState = newValue}
   }
   /// Returns true if `syncState` has been explicitly set.
-  var hasSyncState: Bool {return _storage._syncState != nil}
+  var hasSyncState: Bool {_storage._syncState != nil}
   /// Clears the value of `syncState`. Subsequent reads from it will return its default value.
   mutating func clearSyncState() {_uniqueStorage()._syncState = nil}
 
