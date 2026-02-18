@@ -29,6 +29,7 @@ public class AudioPlayerRenderer: AudioRenderer, Loggable, @unchecked Sendable {
     }
 
     public func start() async throws {
+        guard !engine.isRunning else { return }
         log("Starting audio engine...")
 
         let format = engine.outputNode.outputFormat(forBus: 0)
@@ -41,6 +42,7 @@ public class AudioPlayerRenderer: AudioRenderer, Loggable, @unchecked Sendable {
     }
 
     public func stop() {
+        guard engine.isRunning else { return }
         log("Stopping audio engine...")
 
         playerNode.stop()
