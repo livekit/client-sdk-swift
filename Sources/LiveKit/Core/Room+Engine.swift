@@ -44,14 +44,7 @@ extension Room {
         publisherDataChannel.reset()
         subscriberDataChannel.reset()
 
-        if let mode = _state.transport {
-            await mode.publisher.close()
-            switch mode {
-            case .publisherOnly: break
-            case let .subscriberPrimary(_, subscriber), let .publisherPrimary(_, subscriber):
-                await subscriber.close()
-            }
-        }
+        await _state.transport?.close()
 
         // Reset publish state
         _state.mutate {
@@ -211,14 +204,7 @@ extension Room {
 
         } else if case let .reconnect(reconnectResponse) = connectResponse {
             log("[Connect] Configuring transports with RECONNECT response...")
-            if let mode = _state.transport {
-                try await mode.publisher.set(configuration: rtcConfiguration)
-                switch mode {
-                case .publisherOnly: break
-                case let .subscriberPrimary(_, subscriber), let .publisherPrimary(_, subscriber):
-                    try await subscriber.set(configuration: rtcConfiguration)
-                }
-            }
+            try await _state.transport?.set(configuration: rtcConfiguration)
             publisherDataChannel.retryReliable(lastSequence: reconnectResponse.lastMessageSeq)
         }
     }
@@ -355,11 +341,7 @@ extension Room {
             // send SyncState before offer
             try await sendSyncState()
 
-            switch _state.transport {
-            case let .subscriberPrimary(_, subscriber), let .publisherPrimary(_, subscriber):
-                await subscriber.setIsRestartingIce()
-            default: break
-            }
+            await _state.transport?.setSubscriberRestartingIce()
 
             if let publisher = _state.transport?.publisher, _state.hasPublished {
                 // Only if published, wait for publisher to connect...
@@ -494,22 +476,12 @@ extension Room {
 
 extension Room {
     func sendSyncState() async throws {
-        guard let mode = _state.transport else {
+        guard let transport = _state.transport else {
             log("Transport is nil", .error)
             return
         }
 
-        let previousAnswer: LKRTCSessionDescription?
-        let previousOffer: LKRTCSessionDescription?
-
-        switch mode {
-        case let .publisherOnly(publisher):
-            previousAnswer = await publisher.remoteDescription
-            previousOffer = await publisher.localDescription
-        case let .subscriberPrimary(_, subscriber), let .publisherPrimary(_, subscriber):
-            previousAnswer = await subscriber.localDescription
-            previousOffer = await subscriber.remoteDescription
-        }
+        let (previousAnswer, previousOffer) = await transport.syncStateDescriptions()
 
         // 1. autosubscribe on, so subscribed tracks = all tracks - unsub tracks,
         //    in this case, we send unsub tracks, so server add all tracks to this

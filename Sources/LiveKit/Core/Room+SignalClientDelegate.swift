@@ -347,17 +347,10 @@ extension Room: SignalClientDelegate {
             return
         }
 
-        let transport: Transport = switch mode {
-        case let .publisherOnly(publisher):
-            publisher
-        case let .subscriberPrimary(publisher, subscriber), let .publisherPrimary(publisher, subscriber):
-            target == .subscriber ? subscriber : publisher
-        }
-
         do {
-            try await transport.add(iceCandidate: iceCandidate)
+            try await mode.transport(for: target).add(iceCandidate: iceCandidate)
         } catch {
-            log("Failed to add ice candidate for transport: \(transport), error: \(error)", .error)
+            log("Failed to add ice candidate for target: \(target), error: \(error)", .error)
         }
     }
 

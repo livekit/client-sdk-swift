@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+internal import LiveKitWebRTC
+
 enum TransportMode: Equatable, Sendable {
     /// Single peer connection: publisher handles both publishing and receiving.
     case publisherOnly(publisher: Transport)
@@ -51,5 +53,51 @@ extension TransportMode {
     var isSubscriberPrimary: Bool {
         if case .subscriberPrimary = self { return true }
         return false
+    }
+
+    /// Resolve a signal target to the appropriate transport.
+    func transport(for target: Livekit_SignalTarget) -> Transport {
+        switch self {
+        case let .publisherOnly(publisher):
+            publisher
+        case let .subscriberPrimary(publisher, subscriber), let .publisherPrimary(publisher, subscriber):
+            target == .subscriber ? subscriber : publisher
+        }
+    }
+
+    /// Close all transports.
+    func close() async {
+        await publisher.close()
+        if !isSinglePeerConnection {
+            await subscriber.close()
+        }
+    }
+
+    /// Set RTC configuration on all transports.
+    func set(configuration: LKRTCConfiguration) async throws {
+        try await publisher.set(configuration: configuration)
+        if !isSinglePeerConnection {
+            try await subscriber.set(configuration: configuration)
+        }
+    }
+
+    /// Mark the subscriber transport as restarting ICE (dual PC only, no-op in single PC).
+    func setSubscriberRestartingIce() async {
+        switch self {
+        case .publisherOnly: break
+        case let .subscriberPrimary(_, subscriber), let .publisherPrimary(_, subscriber):
+            await subscriber.setIsRestartingIce()
+        }
+    }
+
+    /// Returns the (previousAnswer, previousOffer) pair for sync state,
+    /// which differs depending on the transport mode.
+    func syncStateDescriptions() async -> (answer: LKRTCSessionDescription?, offer: LKRTCSessionDescription?) {
+        switch self {
+        case let .publisherOnly(publisher):
+            await (publisher.remoteDescription, publisher.localDescription)
+        case let .subscriberPrimary(_, subscriber), let .publisherPrimary(_, subscriber):
+            await (subscriber.localDescription, subscriber.remoteDescription)
+        }
     }
 }
