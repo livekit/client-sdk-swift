@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.1] - 2026-02-17
+
+### Fixed
+
+- Voice Processing failing on iOS devices
+- Missing objc annotations for some objc class members
+
 ## [2.12.0] - 2026-02-11
 
 ### Added
