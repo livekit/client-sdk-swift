@@ -1,5 +1,5 @@
-// swift-tools-version:6.0
-// (Xcode16.0+)
+// swift-tools-version:6.2
+// (Xcode26.0+)
 
 import PackageDescription
 
@@ -10,6 +10,7 @@ let package = Package(
         .macOS(.v10_15),
         .macCatalyst(.v14),
         .tvOS(.v17),
+        .visionOS(.v26),
     ],
     products: [
         .library(
