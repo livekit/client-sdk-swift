@@ -44,16 +44,18 @@ extension Room {
         publisherDataChannel.reset()
         subscriberDataChannel.reset()
 
-        let (subscriber, publisher) = _state.read { ($0.subscriber, $0.publisher) }
-
-        // Close transports
-        await publisher?.close()
-        await subscriber?.close()
+        if let mode = _state.transport {
+            await mode.publisher.close()
+            switch mode {
+            case .publisherOnly: break
+            case let .subscriberPrimary(_, subscriber), let .publisherPrimary(_, subscriber):
+                await subscriber.close()
+            }
+        }
 
         // Reset publish state
         _state.mutate {
-            $0.subscriber = nil
-            $0.publisher = nil
+            $0.transport = nil
             $0.hasPublished = false
         }
     }
@@ -75,7 +77,10 @@ extension Room {
 
     func send(dataPacket packet: Livekit_DataPacket) async throws {
         func ensurePublisherConnected() async throws {
-            guard _state.isSubscriberPrimary, !_state.isSinglePeerConnection else { return }
+            // Only needed when subscriber is primary in dual PC mode
+            guard case .subscriberPrimary = _state.transport else {
+                return
+            }
 
             let publisher = try requirePublisher()
 
@@ -91,7 +96,7 @@ extension Room {
         try await ensurePublisherConnected()
 
         // At this point publisher should be .connected and dc should be .open
-        if await !(_state.publisher?.isConnected ?? false) {
+        if await !(_state.transport?.publisher.isConnected ?? false) {
             log("publisher is not .connected", .error)
         }
 
@@ -147,7 +152,7 @@ extension Room {
         if case let .join(joinResponse) = connectResponse {
             log("Configuring transports with JOIN response...")
 
-            guard _state.subscriber == nil, _state.publisher == nil else {
+            guard _state.transport == nil else {
                 log("Transports are already configured")
                 return
             }
@@ -161,16 +166,6 @@ extension Room {
                                           target: .publisher,
                                           primary: isSinglePC || !isSubscriberPrimary,
                                           delegate: self)
-
-            // Subscriber only created in dual PC mode
-            let subscriber: Transport? = if isSinglePC {
-                nil
-            } else {
-                try Transport(config: rtcConfiguration,
-                              target: .subscriber,
-                              primary: isSubscriberPrimary,
-                              delegate: self)
-            }
 
             await publisher.set { [weak self] offer, offerId in
                 guard let self else { return }
@@ -192,11 +187,20 @@ extension Room {
             log("dataChannel.\(String(describing: reliableDataChannel?.label)) : \(String(describing: reliableDataChannel?.channelId))")
             log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
 
-            _state.mutate {
-                $0.subscriber = subscriber
-                $0.publisher = publisher
-                $0.isSubscriberPrimary = isSubscriberPrimary
-                $0.isSinglePeerConnection = isSinglePC
+            if isSinglePC {
+                _state.mutate {
+                    $0.transport = .publisherOnly(publisher: publisher)
+                }
+            } else {
+                let subscriber = try Transport(config: rtcConfiguration,
+                                               target: .subscriber,
+                                               primary: isSubscriberPrimary,
+                                               delegate: self)
+                _state.mutate {
+                    $0.transport = isSubscriberPrimary
+                        ? .subscriberPrimary(publisher: publisher, subscriber: subscriber)
+                        : .publisherPrimary(publisher: publisher, subscriber: subscriber)
+                }
             }
 
             log("[Connect] Fast publish enabled: \(joinResponse.fastPublish ? "true" : "false")")
@@ -207,9 +211,14 @@ extension Room {
 
         } else if case let .reconnect(reconnectResponse) = connectResponse {
             log("[Connect] Configuring transports with RECONNECT response...")
-            let (subscriber, publisher) = _state.read { ($0.subscriber, $0.publisher) }
-            try await subscriber?.set(configuration: rtcConfiguration)
-            try await publisher?.set(configuration: rtcConfiguration)
+            if let mode = _state.transport {
+                try await mode.publisher.set(configuration: rtcConfiguration)
+                switch mode {
+                case .publisherOnly: break
+                case let .subscriberPrimary(_, subscriber), let .publisherPrimary(_, subscriber):
+                    try await subscriber.set(configuration: rtcConfiguration)
+                }
+            }
             publisherDataChannel.retryReliable(lastSequence: reconnectResponse.lastMessageSeq)
         }
     }
@@ -296,11 +305,8 @@ extension Room {
             throw LiveKitError(.invalidState)
         }
 
-        guard _state.isSinglePeerConnection
-            ? _state.publisher != nil
-            : (_state.subscriber != nil && _state.publisher != nil)
-        else {
-            log("[Connect] Publisher or subscriber is nil", .error)
+        guard _state.transport != nil else {
+            log("[Connect] Transport is nil", .error)
             throw LiveKitError(.invalidState)
         }
 
@@ -349,9 +355,13 @@ extension Room {
             // send SyncState before offer
             try await sendSyncState()
 
-            await _state.subscriber?.setIsRestartingIce()
+            switch _state.transport {
+            case let .subscriberPrimary(_, subscriber), let .publisherPrimary(_, subscriber):
+                await subscriber.setIsRestartingIce()
+            default: break
+            }
 
-            if let publisher = _state.publisher, _state.hasPublished {
+            if let publisher = _state.transport?.publisher, _state.hasPublished {
                 // Only if published, wait for publisher to connect...
                 log("[Connect] Waiting for publisher to connect...")
                 try await publisher.createAndSendOffer(iceRestart: true)
@@ -484,18 +494,19 @@ extension Room {
 
 extension Room {
     func sendSyncState() async throws {
+        guard let mode = _state.transport else {
+            log("Transport is nil", .error)
+            return
+        }
+
         let previousAnswer: LKRTCSessionDescription?
         let previousOffer: LKRTCSessionDescription?
 
-        if _state.isSinglePeerConnection {
-            let publisher = try requirePublisher()
+        switch mode {
+        case let .publisherOnly(publisher):
             previousAnswer = await publisher.remoteDescription
             previousOffer = await publisher.localDescription
-        } else {
-            guard let subscriber = _state.subscriber else {
-                log("Subscriber is nil", .error)
-                return
-            }
+        case let .subscriberPrimary(_, subscriber), let .publisherPrimary(_, subscriber):
             previousAnswer = await subscriber.localDescription
             previousOffer = await subscriber.remoteDescription
         }
@@ -536,7 +547,7 @@ extension Room {
 
 extension Room {
     func requirePublisher() throws -> Transport {
-        guard let publisher = _state.publisher else {
+        guard let publisher = _state.transport?.publisher else {
             log("Publisher is nil", .error)
             throw LiveKitError(.invalidState, message: "Publisher is nil")
         }

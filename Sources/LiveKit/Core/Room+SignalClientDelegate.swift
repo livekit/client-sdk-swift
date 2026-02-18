@@ -342,17 +342,16 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_: SignalClient, didReceiveIceCandidate iceCandidate: IceCandidate, target: Livekit_SignalTarget) async {
-        let transport: Transport? = if _state.isSinglePeerConnection {
-            _state.publisher
-        } else if target == .subscriber {
-            _state.subscriber
-        } else {
-            _state.publisher
-        }
-
-        guard let transport else {
+        guard let mode = _state.transport else {
             log("Failed to add ice candidate, transport is nil for target: \(target)", .error)
             return
+        }
+
+        let transport: Transport = switch mode {
+        case let .publisherOnly(publisher):
+            publisher
+        case let .subscriberPrimary(publisher, subscriber), let .publisherPrimary(publisher, subscriber):
+            target == .subscriber ? subscriber : publisher
         }
 
         do {
@@ -374,17 +373,16 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription, offerId: UInt32) async {
-        if _state.isSinglePeerConnection {
-            log("Received unexpected offer in single PC mode, ignoring", .warning)
+        let subscriber: Transport
+        switch _state.transport {
+        case let .subscriberPrimary(_, sub), let .publisherPrimary(_, sub):
+            subscriber = sub
+        default:
+            log("Received offer but not in dual PC mode, ignoring", .warning)
             return
         }
 
         log("Received offer with offerId: \(offerId), creating & sending answer...")
-
-        guard let subscriber = _state.subscriber else {
-            log("Failed to send answer, subscriber is nil", .error)
-            return
-        }
 
         do {
             try await subscriber.set(remoteDescription: offer)
@@ -420,8 +418,7 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_: SignalClient, didReceiveMediaSectionsRequirement requirement: Livekit_MediaSectionsRequirement) async {
-        guard _state.isSinglePeerConnection else { return }
-        guard let publisher = _state.publisher else { return }
+        guard case let .publisherOnly(publisher) = _state.transport else { return }
 
         let transceiverInit = LKRTCRtpTransceiverInit()
         transceiverInit.direction = .recvOnly

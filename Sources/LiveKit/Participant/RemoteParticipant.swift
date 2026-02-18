@@ -114,7 +114,7 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
         await publication.set(track: track)
         publication.set(subscriptionAllowed: true)
 
-        if let transport = room._state.receiveTransport {
+        if let transport = room._state.transport?.subscriber {
             await track.set(transport: transport, rtpReceiver: rtpReceiver)
         } else {
             log("Transport is nil", .error)

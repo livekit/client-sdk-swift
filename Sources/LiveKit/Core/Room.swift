@@ -165,16 +165,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
 
-        var publisher: Transport?
-        var subscriber: Transport?
-        var isSubscriberPrimary: Bool = false
-        var isSinglePeerConnection: Bool = false
-
-        /// The transport used for receiving remote tracks and server-opened data channels.
-        /// In single PC mode this is the publisher; in dual PC mode this is the subscriber.
-        var receiveTransport: Transport? {
-            isSinglePeerConnection ? publisher : subscriber
-        }
+        var transport: TransportMode?
 
         // Agents
         var transcriptionReceivedTimes: [String: Date] = [:]
@@ -521,8 +512,7 @@ extension Room {
                 nextReconnectMode: $0.nextReconnectMode,
                 isReconnectingWithMode: $0.isReconnectingWithMode,
                 connectionState: $0.connectionState,
-                reconnectTask: $0.reconnectTask,
-                isSinglePeerConnection: $0.isSinglePeerConnection
+                reconnectTask: $0.reconnectTask
             ) : State(
                 connectOptions: $0.connectOptions,
                 roomOptions: $0.roomOptions,
