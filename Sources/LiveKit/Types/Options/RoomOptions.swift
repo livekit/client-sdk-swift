@@ -60,7 +60,7 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
 
     public let reportRemoteTrackStatistics: Bool
 
-    /// Experimental: Use a single peer connection for both publishing and subscribing.
+    /// Use a single peer connection for both publishing and subscribing.
     /// Requires LiveKit Cloud or LiveKit OSS >= 1.9.2.
     public let singlePeerConnection: Bool
 
