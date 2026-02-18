@@ -51,9 +51,10 @@ class RoomTests: LKTestCase, @unchecked Sendable {
             let socket = await room.signalClient._state.socket
             try self.noLeaks(of: XCTUnwrap(socket))
 
-            let (publisher, subscriber) = room._state.read { ($0.publisher, $0.subscriber) }
-            if let publisher { self.noLeaks(of: publisher) }
-            if let subscriber { self.noLeaks(of: subscriber) }
+            if let transport = room._state.transport {
+                self.noLeaks(of: transport.publisher)
+                self.noLeaks(of: transport.subscriber)
+            }
 
             self.noLeaks(of: room.publisherDataChannel)
             self.noLeaks(of: room.subscriberDataChannel)
