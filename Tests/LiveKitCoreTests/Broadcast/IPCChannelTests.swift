@@ -45,32 +45,36 @@ struct IPCChannelTests: Sendable {
 
     @Test func connectionAcceptorFirst() async throws {
         try await confirmation("Connection established") { established in
-            Task {
-                let channel = try await IPCChannel(acceptingOn: socketPath)
-                #expect(!channel.isClosed)
-
-                established()
-            }
-            Task {
-                let channel = try await IPCChannel(connectingTo: socketPath)
-                #expect(!channel.isClosed)
-
-                // Keep alive to give time acceptor to accept
-                try await Task.shortSleep()
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    let channel = try await IPCChannel(acceptingOn: socketPath)
+                    #expect(!channel.isClosed)
+                    established()
+                }
+                group.addTask {
+                    let channel = try await IPCChannel(connectingTo: socketPath)
+                    #expect(!channel.isClosed)
+                    // Keep alive to give time acceptor to accept
+                    try await Task.shortSleep()
+                }
+                try await group.waitForAll()
             }
         }
     }
 
     @Test func connectionConnectorFirst() async throws {
         try await confirmation("Connection established") { established in
-            Task {
-                let channel = try await IPCChannel(connectingTo: socketPath)
-                #expect(!channel.isClosed)
-                established()
-            }
-            Task {
-                let channel = try await IPCChannel(acceptingOn: socketPath)
-                #expect(!channel.isClosed)
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    let channel = try await IPCChannel(connectingTo: socketPath)
+                    #expect(!channel.isClosed)
+                    established()
+                }
+                group.addTask {
+                    let channel = try await IPCChannel(acceptingOn: socketPath)
+                    #expect(!channel.isClosed)
+                }
+                try await group.waitForAll()
             }
         }
     }
@@ -90,6 +94,7 @@ struct IPCChannelTests: Sendable {
                 }
             }
             channelTask.cancel()
+            _ = await channelTask.result
         }
     }
 
@@ -117,48 +122,48 @@ struct IPCChannelTests: Sendable {
         let testPayload = Data([1, 2, 3])
 
         try await confirmation(expectedCount: 2) { received in
-            Task {
-                let channel = try await IPCChannel(acceptingOn: socketPath)
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    let channel = try await IPCChannel(acceptingOn: socketPath)
 
-                for try await (header, payload) in channel.incomingMessages(TestHeader.self) {
-                    // Received initial message
-                    #expect(header == testHeader)
-                    #expect(payload == testPayload)
-                    received()
-
-                    // Send reply
+                    for try await (header, payload) in channel.incomingMessages(TestHeader.self) {
+                        #expect(header == testHeader)
+                        #expect(payload == testPayload)
+                        received()
+                        try await channel.send(header: testHeader, payload: testPayload)
+                    }
+                }
+                group.addTask {
+                    let channel = try await IPCChannel(connectingTo: socketPath)
                     try await channel.send(header: testHeader, payload: testPayload)
-                }
-            }
-            Task {
-                let channel = try await IPCChannel(connectingTo: socketPath)
 
-                // Send initial message
-                try await channel.send(header: testHeader, payload: testPayload)
-
-                for try await (header, payload) in channel.incomingMessages(TestHeader.self) {
-                    // Received reply
-                    #expect(header == testHeader)
-                    #expect(payload == testPayload)
-                    received()
+                    for try await (header, payload) in channel.incomingMessages(TestHeader.self) {
+                        #expect(header == testHeader)
+                        #expect(payload == testPayload)
+                        received()
+                    }
                 }
+                try await group.waitForAll()
             }
         }
     }
 
     @Test func messageSequenceAfterClosure() async throws {
         try await confirmation("Message sequence ends after closure") { sequenceEnds in
-            Task {
-                let channel = try await IPCChannel(acceptingOn: socketPath)
-                for try await _ in channel.incomingMessages(TestHeader.self) {
-                    // Received message
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    let channel = try await IPCChannel(acceptingOn: socketPath)
+                    for try await _ in channel.incomingMessages(TestHeader.self) {
+                        // Received message
+                    }
+                    sequenceEnds()
                 }
-                sequenceEnds()
-            }
-            Task {
-                let channel = try await IPCChannel(connectingTo: socketPath)
-                try await channel.send(header: TestHeader(someField: 1))
-                channel.close()
+                group.addTask {
+                    let channel = try await IPCChannel(connectingTo: socketPath)
+                    try await channel.send(header: TestHeader(someField: 1))
+                    channel.close()
+                }
+                try await group.waitForAll()
             }
         }
     }
