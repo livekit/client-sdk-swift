@@ -180,21 +180,19 @@ extension Room {
             log("dataChannel.\(String(describing: reliableDataChannel?.label)) : \(String(describing: reliableDataChannel?.channelId))")
             log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
 
-            if isSinglePC {
-                _state.mutate {
-                    $0.transport = .publisherOnly(publisher: publisher)
-                }
+            let subscriber = isSinglePC ? nil : try Transport(config: rtcConfiguration,
+                                                              target: .subscriber,
+                                                              primary: isSubscriberPrimary,
+                                                              delegate: self)
+
+            let transport: TransportMode = if let subscriber, isSubscriberPrimary {
+                .subscriberPrimary(publisher: publisher, subscriber: subscriber)
+            } else if let subscriber {
+                .publisherPrimary(publisher: publisher, subscriber: subscriber)
             } else {
-                let subscriber = try Transport(config: rtcConfiguration,
-                                               target: .subscriber,
-                                               primary: isSubscriberPrimary,
-                                               delegate: self)
-                _state.mutate {
-                    $0.transport = isSubscriberPrimary
-                        ? .subscriberPrimary(publisher: publisher, subscriber: subscriber)
-                        : .publisherPrimary(publisher: publisher, subscriber: subscriber)
-                }
+                .publisherOnly(publisher: publisher)
             }
+            _state.mutate { $0.transport = transport }
 
             log("[Connect] Fast publish enabled: \(joinResponse.fastPublish ? "true" : "false")")
             if isSinglePC || !isSubscriberPrimary || joinResponse.fastPublish {

@@ -29,9 +29,7 @@ extension TransportMode {
     /// The transport used for publishing local tracks. Always the publisher.
     var publisher: Transport {
         switch self {
-        case let .publisherOnly(publisher): publisher
-        case let .subscriberPrimary(publisher, _): publisher
-        case let .publisherPrimary(publisher, _): publisher
+        case let .publisherOnly(p), let .subscriberPrimary(p, _), let .publisherPrimary(p, _): p
         }
     }
 
@@ -39,20 +37,26 @@ extension TransportMode {
     /// In single PC mode this is the publisher; in dual PC mode this is the subscriber.
     var subscriber: Transport {
         switch self {
-        case let .publisherOnly(publisher): publisher
-        case let .subscriberPrimary(_, subscriber): subscriber
-        case let .publisherPrimary(_, subscriber): subscriber
+        case let .publisherOnly(p): p
+        case let .subscriberPrimary(_, s), let .publisherPrimary(_, s): s
         }
     }
 
-    var isSinglePeerConnection: Bool {
-        if case .publisherOnly = self { return true }
-        return false
+    /// The dedicated subscriber transport in dual PC mode. Nil in single PC mode.
+    var dedicatedSubscriber: Transport? {
+        switch self {
+        case .publisherOnly: nil
+        case let .subscriberPrimary(_, s), let .publisherPrimary(_, s): s
+        }
     }
 
-    var isSubscriberPrimary: Bool {
-        if case .subscriberPrimary = self { return true }
-        return false
+    /// All distinct transports (one in single PC, two in dual PC).
+    var allTransports: [Transport] {
+        switch self {
+        case let .publisherOnly(publisher): [publisher]
+        case let .subscriberPrimary(publisher, subscriber),
+             let .publisherPrimary(publisher, subscriber): [publisher, subscriber]
+        }
     }
 
     /// Resolve a signal target to the appropriate transport.
@@ -67,25 +71,21 @@ extension TransportMode {
 
     /// Close all transports.
     func close() async {
-        await publisher.close()
-        if !isSinglePeerConnection {
-            await subscriber.close()
+        for transport in allTransports {
+            await transport.close()
         }
     }
 
     /// Set RTC configuration on all transports.
     func set(configuration: LKRTCConfiguration) async throws {
-        try await publisher.set(configuration: configuration)
-        if !isSinglePeerConnection {
-            try await subscriber.set(configuration: configuration)
+        for transport in allTransports {
+            try await transport.set(configuration: configuration)
         }
     }
 
-    /// Mark the subscriber transport as restarting ICE (dual PC only, no-op in single PC).
+    /// Mark the dedicated subscriber transport as restarting ICE. No-op in single PC mode.
     func setSubscriberRestartingIce() async {
-        switch self {
-        case .publisherOnly: break
-        case let .subscriberPrimary(_, subscriber), let .publisherPrimary(_, subscriber):
+        if let subscriber = dedicatedSubscriber {
             await subscriber.setIsRestartingIce()
         }
     }

@@ -366,12 +366,8 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription, offerId: UInt32) async {
-        let subscriber: Transport
-        switch _state.transport {
-        case let .subscriberPrimary(_, sub), let .publisherPrimary(_, sub):
-            subscriber = sub
-        default:
-            log("Received offer but not in dual PC mode, ignoring", .warning)
+        guard let subscriber = _state.transport?.dedicatedSubscriber else {
+            log("Received offer but not in dual PC mode, ignoring")
             return
         }
 
