@@ -185,12 +185,7 @@ extension LiveKitError {
             return LiveKitError(.cancelled)
         }
 
-        // Categorize URL/network errors properly
-        if error is URLError {
-            return LiveKitError(.network, internalError: error)
-        }
-        let nsError = error as NSError
-        if nsError.domain == NSURLErrorDomain {
+        if error.isNetworkError {
             return LiveKitError(.network, internalError: error)
         }
 
@@ -204,6 +199,22 @@ extension LiveKitError {
 }
 
 extension Error {
+    /// Returns `true` for URLError, CFNetwork, and POSIX socket errors.
+    var isNetworkError: Bool {
+        if self is URLError { return true }
+        let nsError = self as NSError
+        switch nsError.domain {
+        case NSURLErrorDomain,
+             // CFNetwork errors (SSL/TLS failures, proxy issues, etc.)
+             "kCFErrorDomainCFNetwork",
+             // Low-level socket errors (ECONNREFUSED, ECONNRESET, ETIMEDOUT, etc.)
+             NSPOSIXErrorDomain:
+            return true
+        default:
+            return false
+        }
+    }
+
     /// Returns `true` for network/timeouts that should trigger region failover.
     var isRetryableForRegionFailover: Bool {
         if let liveKitError = self as? LiveKitError {
@@ -215,12 +226,7 @@ extension Error {
             }
         }
 
-        if self is URLError {
-            return true
-        }
-
-        let nsError = self as NSError
-        return nsError.domain == NSURLErrorDomain
+        return isNetworkError
     }
 
     /// Returns `true` when the error is URLError code -1005 (networkConnectionLost),
