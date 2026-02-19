@@ -41,12 +41,6 @@ actor MessageCollector {
 }
 
 @Suite(.serialized, .tags(.e2e)) final class TranscriptionTests: @unchecked Sendable {
-    private var rooms: [Room] = []
-    private var receiver: TranscriptionStreamReceiver!
-    private var senderRoom: Room!
-    private var messageCollector: MessageCollector!
-    private var collectionTask: AnyTaskCancellable!
-
     // Same segment, same stream
     @Test func updates() async throws {
         let segmentID = "test-segment"
@@ -74,17 +68,6 @@ actor MessageCollector {
             streamID: nil,
             expectedContent: expectedContent
         )
-    }
-
-    private func setupTestEnvironment(rooms: [Room]) async throws {
-        receiver = TranscriptionStreamReceiver(room: rooms[0])
-        let messageStream = try await receiver.messages()
-        messageCollector = MessageCollector()
-        senderRoom = rooms[1]
-
-        collectionTask = messageStream.subscribe(self) { observer, message in
-            await observer.messageCollector.add(message)
-        }
     }
 
     private func sendTranscriptionChunks(
@@ -155,30 +138,29 @@ actor MessageCollector {
             RoomTestingOptions(canSubscribe: true),
             RoomTestingOptions(canPublishData: true),
         ]) { rooms in
-            self.rooms = rooms
-            try await self.setupTestEnvironment(rooms: rooms)
+            let receiver = TranscriptionStreamReceiver(room: rooms[0])
+            let messageStream = try await receiver.messages()
+            let messageCollector = MessageCollector()
+            let senderRoom = rooms[1]
 
             try await confirmation("Receives all message updates", expectedCount: expectedContent.count) { confirm in
-                // Replace the collection task with one that also calls confirm
-                self.collectionTask.cancel()
-                let messageStream = try await self.receiver.messages()
-                self.collectionTask = messageStream.subscribe(self) { observer, message in
-                    await observer.messageCollector.add(message)
+                let collectionTask = messageStream.subscribe(self) { _, message in
+                    await messageCollector.add(message)
                     confirm()
                 }
+
+                defer { collectionTask.cancel() }
 
                 try await self.sendTranscriptionChunks(
                     chunks: chunks,
                     segmentID: segmentID,
                     streamID: streamID,
-                    to: self.senderRoom
+                    to: senderRoom
                 )
             }
 
-            self.collectionTask.cancel()
-
-            let updates = await self.messageCollector.getUpdates()
-            let messages = await self.messageCollector.getMessages()
+            let updates = await messageCollector.getUpdates()
+            let messages = await messageCollector.getMessages()
 
             self.validateTranscriptionResults(
                 updates: updates,
