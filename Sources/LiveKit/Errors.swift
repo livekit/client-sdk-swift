@@ -185,9 +185,17 @@ extension LiveKitError {
             return LiveKitError(.cancelled)
         }
 
-        // TODO: Identify more network error types
+        // Categorize URL/network errors properly
+        if error is URLError {
+            return LiveKitError(.network, internalError: error)
+        }
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain {
+            return LiveKitError(.network, internalError: error)
+        }
+
         log("Uncategorized error for: \(String(describing: error))")
-        return LiveKitError(.unknown)
+        return LiveKitError(.unknown, internalError: error)
     }
 
     static func from(reason: Livekit_DisconnectReason) -> LiveKitError {
@@ -213,6 +221,17 @@ extension Error {
 
         let nsError = self as NSError
         return nsError.domain == NSURLErrorDomain
+    }
+
+    /// Returns `true` when the error is URLError code -1005 (networkConnectionLost),
+    /// which can be caused by a CFNetwork internal race condition on WebSocket upgrade.
+    var isNetworkConnectionLost: Bool {
+        if let urlError = self as? URLError { return urlError.code == .networkConnectionLost }
+        if let lkError = self as? LiveKitError, let inner = lkError.internalError {
+            return inner.isNetworkConnectionLost
+        }
+        let nsError = self as NSError
+        return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorNetworkConnectionLost
     }
 }
 

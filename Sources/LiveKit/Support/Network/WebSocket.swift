@@ -67,7 +67,7 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
         waitForNextValue()
     }
 
-    init(url: URL, token: String, connectOptions: ConnectOptions?) async throws {
+    private init(url: URL, token: String, connectOptions: ConnectOptions?) async throws {
         // Prepare the request
         var request = URLRequest(url: url,
                                  cachePolicy: .useProtocolCachePolicy,
@@ -93,6 +93,29 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
 
     deinit {
         close()
+    }
+
+    /// Creates a WebSocket connection, retrying on `-1005 networkConnectionLost`
+    /// which can be caused by a CFNetwork internal race condition on WebSocket upgrade.
+    static func connect(url: URL, token: String, connectOptions: ConnectOptions?, maxRetries: Int = 2) async throws -> WebSocket {
+        var lastError: Error?
+        for attempt in 0 ... maxRetries {
+            do {
+                return try await WebSocket(url: url, token: token, connectOptions: connectOptions)
+            } catch {
+                lastError = error
+                let isRetryable = attempt < maxRetries && error.isNetworkConnectionLost
+                guard isRetryable else { throw error }
+                let delay = TimeInterval.computeReconnectDelay(
+                    forAttempt: attempt,
+                    baseDelay: .defaultWebSocketRetryBaseDelay,
+                    maxDelay: .defaultWebSocketRetryMaxDelay,
+                    totalAttempts: maxRetries
+                )
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            }
+        }
+        throw lastError ?? LiveKitError(.network)
     }
 
     func close() {
