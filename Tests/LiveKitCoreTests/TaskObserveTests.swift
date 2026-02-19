@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
@@ -36,8 +38,9 @@ actor TestObserver {
 
 // MARK: - Tests
 
-class TaskObserveTests: LKTestCase {
-    func testStreamProcessesAllElements() async throws {
+@Suite(.tags(.concurrency))
+struct TaskObserveTests {
+    @Test func streamProcessesAllElements() async throws {
         let observer = TestObserver()
         let stream = AsyncStream<Int> { continuation in
             for i in 1 ... 5 {
@@ -53,16 +56,16 @@ class TaskObserveTests: LKTestCase {
         try await Task.sleep(nanoseconds: 100_000_000)
 
         let items = await observer.processedItems
-        XCTAssertEqual(items, [1, 2, 3, 4, 5])
+        #expect(items == [1, 2, 3, 4, 5])
     }
 
-    func testStreamBreaksWhenObserverDeallocates() async throws {
+    @Test func streamBreaksWhenObserverDeallocates() async throws {
         var observer: TestObserver? = TestObserver(id: "dealloc-test")
         weak var weakObserver = observer
 
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
 
-        _ = stream.subscribe(observer!) { observer, element in
+        _ = try stream.subscribe(#require(observer)) { observer, element in
             await observer.recordItem(element)
         }
 
@@ -71,13 +74,13 @@ class TaskObserveTests: LKTestCase {
         try await Task.sleep(nanoseconds: 50_000_000)
 
         let itemsBeforeDealloc = await observer?.processedItems
-        XCTAssertEqual(itemsBeforeDealloc, [1, 2])
+        #expect(itemsBeforeDealloc == [1, 2])
 
         observer = nil
 
         try await Task.sleep(nanoseconds: 50_000_000)
 
-        XCTAssertNil(weakObserver, "Observer should have been deallocated")
+        #expect(weakObserver == nil, "Observer should have been deallocated")
         weakObserver = nil
 
         continuation.yield(3)
@@ -85,7 +88,7 @@ class TaskObserveTests: LKTestCase {
         try await Task.sleep(nanoseconds: 50_000_000)
     }
 
-    func testStreamCancellation() async throws {
+    @Test func streamCancellation() async throws {
         let observer = TestObserver()
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
 
@@ -97,7 +100,7 @@ class TaskObserveTests: LKTestCase {
         try await Task.sleep(nanoseconds: 50_000_000)
 
         let itemsBeforeCancel = await observer.processedItems
-        XCTAssertEqual(itemsBeforeCancel, [1])
+        #expect(itemsBeforeCancel == [1])
 
         task.cancel()
 
@@ -105,10 +108,10 @@ class TaskObserveTests: LKTestCase {
         try await Task.sleep(nanoseconds: 50_000_000)
 
         let itemsAfterCancel = await observer.processedItems
-        XCTAssertTrue(itemsAfterCancel.count <= 2)
+        #expect(itemsAfterCancel.count <= 2)
     }
 
-    func testStreamFinishEndsTask() async throws {
+    @Test func streamFinishEndsTask() async throws {
         let observer = TestObserver()
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
 
@@ -123,6 +126,6 @@ class TaskObserveTests: LKTestCase {
         try await Task.sleep(nanoseconds: 100_000_000)
 
         let items = await observer.processedItems
-        XCTAssertEqual(items, [1, 2])
+        #expect(items == [1, 2])
     }
 }

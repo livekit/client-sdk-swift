@@ -16,6 +16,7 @@
 
 import AVFAudio
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
@@ -25,32 +26,31 @@ import LiveKitTestSupport
 import CoreAudio
 #endif
 
-final class AVAudioPCMRingBufferTests: LKTestCase {
-    var format: AVAudioFormat!
+@Suite(.tags(.audio)) struct AVAudioPCMRingBufferTests {
+    let format: AVAudioFormat
 
-    override func setUp() {
-        super.setUp()
+    init() {
         // Create a standard audio format for testing (44.1kHz, stereo)
-        format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)
+        format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)!
     }
 
-    func testInitialization() {
+    @Test func initialization() {
         let frameCapacity: AVAudioFrameCount = 1024
         let ringBuffer = AVAudioPCMRingBuffer(format: format, frameCapacity: frameCapacity)
 
-        XCTAssertEqual(ringBuffer.capacity, frameCapacity)
-        XCTAssertEqual(ringBuffer.buffer.format, format)
-        XCTAssertEqual(ringBuffer.buffer.frameCapacity, frameCapacity)
-        XCTAssertEqual(ringBuffer.buffer.frameLength, 0)
+        #expect(ringBuffer.capacity == frameCapacity)
+        #expect(ringBuffer.buffer.format == format)
+        #expect(ringBuffer.buffer.frameCapacity == frameCapacity)
+        #expect(ringBuffer.buffer.frameLength == 0)
     }
 
-    func testAppendAndRead() {
+    @Test func appendAndRead() {
         let ringBuffer = AVAudioPCMRingBuffer(format: format, frameCapacity: 1024)
 
         // Create a test buffer with 512 frames
         let testFrames: AVAudioFrameCount = 512
         guard let testBuffer = createTestBuffer(frames: testFrames) else {
-            XCTFail("Failed to create test buffer")
+            Issue.record("Failed to create test buffer")
             return
         }
 
@@ -59,37 +59,37 @@ final class AVAudioPCMRingBufferTests: LKTestCase {
 
         // Read the same number of frames
         guard let readBuffer = ringBuffer.read(frames: testFrames) else {
-            XCTFail("Failed to read frames")
+            Issue.record("Failed to read frames")
             return
         }
 
-        XCTAssertEqual(readBuffer.frameLength, testFrames)
-        XCTAssertTrue(compareBuffers(buffer1: testBuffer, buffer2: readBuffer))
+        #expect(readBuffer.frameLength == testFrames)
+        #expect(compareBuffers(buffer1: testBuffer, buffer2: readBuffer))
     }
 
-    func testOverflow() {
+    @Test func overflow() {
         let capacity: AVAudioFrameCount = 1024
         let ringBuffer = AVAudioPCMRingBuffer(format: format, frameCapacity: capacity)
 
         // Create a test buffer larger than capacity
         guard let largeBuffer = createTestBuffer(frames: capacity + 512) else {
-            XCTFail("Failed to create large test buffer")
+            Issue.record("Failed to create large test buffer")
             return
         }
 
         // Append the large buffer
         ringBuffer.append(audioBuffer: largeBuffer)
 
-        XCTAssertNil(ringBuffer.read(frames: capacity + 512), "Should not be able to read more frames than capacity")
+        #expect(ringBuffer.read(frames: capacity + 512) == nil, "Should not be able to read more frames than capacity")
     }
 
-    func testWrapAround() {
+    @Test func wrapAround() {
         let capacity: AVAudioFrameCount = 1024
         let ringBuffer = AVAudioPCMRingBuffer(format: format, frameCapacity: capacity)
 
         // Fill buffer with half capacity
         guard let halfBuffer = createTestBuffer(frames: capacity / 2) else {
-            XCTFail("Failed to create half buffer")
+            Issue.record("Failed to create half buffer")
             return
         }
 
@@ -98,7 +98,7 @@ final class AVAudioPCMRingBufferTests: LKTestCase {
 
         // Read a quarter of the buffer
         guard ringBuffer.read(frames: capacity / 4) != nil else {
-            XCTFail("Failed to read quarter buffer")
+            Issue.record("Failed to read quarter buffer")
             return
         }
 
@@ -107,19 +107,19 @@ final class AVAudioPCMRingBufferTests: LKTestCase {
 
         // Read remaining frames
         guard let readBuffer = ringBuffer.read(frames: (capacity / 2) + (capacity / 4)) else {
-            XCTFail("Failed to read wrapped buffer")
+            Issue.record("Failed to read wrapped buffer")
             return
         }
 
-        XCTAssertEqual(readBuffer.frameLength, (capacity / 2) + (capacity / 4))
+        #expect(readBuffer.frameLength == (capacity / 2) + (capacity / 4))
     }
 
-    func testEmptyBuffer() {
+    @Test func emptyBuffer() {
         let ringBuffer = AVAudioPCMRingBuffer(format: format, frameCapacity: 1024)
 
         // Try to read from empty buffer
         let readBuffer = ringBuffer.read(frames: 512)
-        XCTAssertNil(readBuffer, "Reading from empty buffer should return nil")
+        #expect(readBuffer == nil, "Reading from empty buffer should return nil")
     }
 
     // MARK: - Helper Methods

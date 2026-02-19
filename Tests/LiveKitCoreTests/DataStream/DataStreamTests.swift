@@ -14,119 +14,111 @@
  * limitations under the License.
  */
 
+import Foundation
 import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class DataStreamTests: LKTestCase {
-    private enum Method {
+@Suite(.tags(.dataStream, .e2e))
+struct DataStreamTests {
+    enum Method: CaseIterable, CustomTestStringConvertible, Sendable {
         case send, stream
-    }
 
-    func testStreamText() async throws {
-        try await _textDataStream(method: .stream)
-    }
-
-    func testSendText() async throws {
-        try await _textDataStream(method: .send)
-    }
-
-    func testStreamBytes() async throws {
-        try await _byteDataStream(method: .stream)
-    }
-
-    func testSendFile() async throws {
-        try await _byteDataStream(method: .send)
-    }
-
-    private func _textDataStream(method: Method) async throws {
-        let receiveExpectation = expectation(description: "Receives stream chunk")
-        let topic = "some-topic"
-        let testChunk = "Hello world!"
-
-        try await withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
-            let room0 = rooms[0]
-            let room1 = rooms[1]
-
-            try await room0.registerTextStreamHandler(for: topic) { reader, participant in
-                XCTAssertEqual(participant, room1.localParticipant.identity)
-                do {
-                    let chunk = try await reader.readAll()
-                    XCTAssertEqual(chunk, testChunk)
-                    receiveExpectation.fulfill()
-                } catch {
-                    XCTFail("Read failed: \(error.localizedDescription)")
-                }
+        var testDescription: String {
+            switch self {
+            case .send: "send"
+            case .stream: "stream"
             }
-
-            do {
-                switch method {
-                case .send:
-                    try await room1.localParticipant.sendText(testChunk, for: topic)
-                case .stream:
-                    let writer = try await room1.localParticipant.streamText(for: topic)
-                    try await writer.write(testChunk)
-                    try await writer.close()
-                }
-            } catch {
-                XCTFail("Write failed: \(error.localizedDescription)")
-            }
-
-            await self.fulfillment(
-                of: [receiveExpectation],
-                timeout: 5
-            )
         }
     }
 
-    private func _byteDataStream(method: Method) async throws {
-        let receiveExpectation = expectation(description: "Receives stream chunk")
+    @Test(arguments: Method.allCases)
+    func textDataStream(via method: Method) async throws {
+        let topic = "some-topic"
+        let testChunk = "Hello world!"
+
+        try await confirmation("Receives stream chunk") { confirm in
+            try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
+                let room0 = rooms[0]
+                let room1 = rooms[1]
+
+                try await room0.registerTextStreamHandler(for: topic) { reader, participant in
+                    #expect(participant == room1.localParticipant.identity)
+                    do {
+                        let chunk = try await reader.readAll()
+                        #expect(chunk == testChunk)
+                        confirm()
+                    } catch {
+                        Issue.record("Read failed: \(error.localizedDescription)")
+                    }
+                }
+
+                do {
+                    switch method {
+                    case .send:
+                        try await room1.localParticipant.sendText(testChunk, for: topic)
+                    case .stream:
+                        let writer = try await room1.localParticipant.streamText(for: topic)
+                        try await writer.write(testChunk)
+                        try await writer.close()
+                    }
+                } catch {
+                    Issue.record("Write failed: \(error.localizedDescription)")
+                }
+
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+            }
+        }
+    }
+
+    @Test(arguments: Method.allCases)
+    func byteDataStream(via method: Method) async throws {
         let topic = "some-topic"
         let testChunk = Data(repeating: 0xFF, count: 256)
 
-        try await withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
-            let room0 = rooms[0]
-            let room1 = rooms[1]
+        try await confirmation("Receives stream chunk") { confirm in
+            try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
+                let room0 = rooms[0]
+                let room1 = rooms[1]
 
-            try await room0.registerByteStreamHandler(for: topic) { reader, participant in
-                XCTAssertEqual(participant, room1.localParticipant.identity)
+                try await room0.registerByteStreamHandler(for: topic) { reader, participant in
+                    #expect(participant == room1.localParticipant.identity)
+                    do {
+                        let chunk = try await reader.readAll()
+                        #expect(chunk == testChunk)
+                        confirm()
+                    } catch {
+                        Issue.record("Read failed: \(error.localizedDescription)")
+                    }
+                }
+
                 do {
-                    let chunk = try await reader.readAll()
-                    XCTAssertEqual(chunk, testChunk)
-                    receiveExpectation.fulfill()
+                    switch method {
+                    case .send:
+                        // Only sending files is supported, write chunk to file first
+                        let fileURL = FileManager.default.temporaryDirectory
+                            .appendingPathComponent("file-name.pdf")
+                        try testChunk.write(to: fileURL)
+
+                        let info = try await room1.localParticipant.sendFile(fileURL, for: topic)
+
+                        #expect(info.name == fileURL.lastPathComponent)
+                        #expect(info.mimeType == "application/pdf")
+                        #expect(info.totalLength == testChunk.count)
+
+                    case .stream:
+                        let writer = try await room1.localParticipant.streamBytes(for: topic)
+                        try await writer.write(testChunk)
+                        try await writer.close()
+                    }
                 } catch {
-                    XCTFail("Read failed: \(error.localizedDescription)")
+                    Issue.record("Write failed: \(error.localizedDescription)")
                 }
+
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
-
-            do {
-                switch method {
-                case .send:
-                    // Only sending files is supported, write chunk to file first
-                    let fileURL = FileManager.default.temporaryDirectory
-                        .appendingPathComponent("file-name.pdf")
-                    try testChunk.write(to: fileURL)
-
-                    let info = try await room1.localParticipant.sendFile(fileURL, for: topic)
-
-                    XCTAssertEqual(info.name, fileURL.lastPathComponent)
-                    XCTAssertEqual(info.mimeType, "application/pdf")
-                    XCTAssertEqual(info.totalLength, testChunk.count)
-
-                case .stream:
-                    let writer = try await room1.localParticipant.streamBytes(for: topic)
-                    try await writer.write(testChunk)
-                    try await writer.close()
-                }
-            } catch {
-                XCTFail("Write failed: \(error.localizedDescription)")
-            }
-
-            await self.fulfillment(
-                of: [receiveExpectation],
-                timeout: 5
-            )
         }
     }
 }

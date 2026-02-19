@@ -14,19 +14,22 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class SerialRunnerActorTests: LKTestCase, @unchecked Sendable {
+@Suite(.tags(.concurrency))
+class SerialRunnerActorTests: @unchecked Sendable {
     let serialRunner = SerialRunnerActor<Void>()
     var counterValue: Int = 0
     var resultValues: [String] = []
 
     // Test whether tasks, when invoked concurrently, continue to run in a serial manner.
     // Access to the counter value should be synchronized, aiming for a final count of 0.
-    func testSerialRuuner() async throws {
+    @Test func serialRuuner() async throws {
         // Run Tasks concurrently
         try await withThrowingTaskGroup(of: Void.self) { group in
             for i in 1 ... 1000 {
@@ -48,12 +51,12 @@ class SerialRunnerActorTests: LKTestCase, @unchecked Sendable {
 
         print("serialExecutor1Counter: \(counterValue)")
         // Should end up being 0
-        XCTAssert(counterValue == 0)
+        #expect(counterValue == 0)
     }
 
     // Test whether tasks invoked concurrently, and randomly cancelled, continue to run in a serial manner.
     // Access to the counter value should be synchronized, resulting in a count of 0.
-    func testSerialRunnerCancel() async throws {
+    @Test func serialRunnerCancel() async {
         // Run Tasks concurrently
         await withTaskGroup(of: Void.self) { group in
             for i in 1 ... 1000 {
@@ -96,10 +99,10 @@ class SerialRunnerActorTests: LKTestCase, @unchecked Sendable {
 
         print("serialExecutor1Counter: \(counterValue)")
         // Should end up being 0
-        XCTAssert(counterValue == 0)
+        #expect(counterValue == 0)
     }
 
-    func testSerialRunnerOrderWithCancel() async throws {
+    @Test func serialRunnerOrderWithCancel() async throws {
         // Run Tasks concurrently
         try await withThrowingTaskGroup(of: Void.self) { group in
             // Schedule task 1
@@ -157,6 +160,6 @@ class SerialRunnerActorTests: LKTestCase, @unchecked Sendable {
 
         print("completed tasks order: \(resultValues)")
         // Should be in order
-        XCTAssertEqual(resultValues, ["task1", "task2", "task3"])
+        #expect(resultValues == ["task1", "task2", "task3"])
     }
 }

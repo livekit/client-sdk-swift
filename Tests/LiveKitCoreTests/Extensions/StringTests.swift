@@ -14,36 +14,38 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-final class StringTests: LKTestCase {
-    func testByteLength() {
-        // ASCII characters (1 byte each)
-        XCTAssertEqual("hello".byteLength, 5)
-        XCTAssertEqual("".byteLength, 0)
-
-        // Unicode characters (variable bytes)
-        XCTAssertEqual("👋".byteLength, 4) // Emoji (4 bytes)
-        XCTAssertEqual("ñ".byteLength, 2) // Spanish n with tilde (2 bytes)
-        XCTAssertEqual("你好".byteLength, 6) // Chinese characters (3 bytes each)
+struct StringTests {
+    @Test(arguments: [
+        ("hello", 5),
+        ("", 0),
+        ("\u{1F44B}", 4), // 👋 emoji (4 bytes)
+        ("\u{00F1}", 2), // ñ (2 bytes)
+        ("\u{4F60}\u{597D}", 6), // 你好 (3 bytes each)
+    ])
+    func byteLength(input: String, expected: Int) {
+        #expect(input.byteLength == expected)
     }
 
-    func testTruncate() {
-        // Test ASCII strings
-        XCTAssertEqual("hello".truncate(maxBytes: 5), "hello")
-        XCTAssertEqual("hello".truncate(maxBytes: 3), "hel")
-        XCTAssertEqual("".truncate(maxBytes: 5), "")
+    @Test func truncate() {
+        // ASCII strings
+        #expect("hello".truncate(maxBytes: 5) == "hello")
+        #expect("hello".truncate(maxBytes: 3) == "hel")
+        #expect("".truncate(maxBytes: 5) == "")
 
-        // Test Unicode strings
-        XCTAssertEqual("👋hello".truncate(maxBytes: 4), "👋") // Emoji is 4 bytes
-        XCTAssertEqual("hi👋".truncate(maxBytes: 5), "hi") // Won't cut in middle of emoji
-        XCTAssertEqual("你好world".truncate(maxBytes: 6), "你好") // Chinese characters are 3 bytes each
+        // Unicode strings
+        #expect("👋hello".truncate(maxBytes: 4) == "👋") // Emoji is 4 bytes
+        #expect("hi👋".truncate(maxBytes: 5) == "hi") // Won't cut in middle of emoji
+        #expect("你好world".truncate(maxBytes: 6) == "你好") // Chinese characters are 3 bytes each
 
-        // Test edge cases
-        XCTAssertEqual("hello".truncate(maxBytes: 0), "")
-        XCTAssertEqual("hello".truncate(maxBytes: 100), "hello")
+        // Edge cases
+        #expect("hello".truncate(maxBytes: 0) == "")
+        #expect("hello".truncate(maxBytes: 100) == "hello")
     }
 }

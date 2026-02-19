@@ -14,48 +14,34 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class CodecTests: LKTestCase {
-    func testParseCodec() throws {
-        // Video codecs
-        let vp8 = VideoCodec.from(mimeType: "video/vp8")
-        XCTAssert(vp8 == .vp8)
-
-        let vp9 = VideoCodec.from(mimeType: "video/vp9")
-        XCTAssert(vp9 == .vp9)
-
-        let h264 = VideoCodec.from(mimeType: "video/h264")
-        XCTAssert(h264 == .h264)
-
-        let h265 = VideoCodec.from(mimeType: "video/h265")
-        XCTAssert(h265 == .h265)
-
-        let av1 = VideoCodec.from(mimeType: "video/av1")
-        XCTAssert(av1 == .av1)
+@Suite(.tags(.media))
+struct CodecTests {
+    // VideoCodec is a class (not Sendable), so use mimeType strings for parameterization.
+    @Test(arguments: [
+        ("video/vp8", "vp8"),
+        ("video/vp9", "vp9"),
+        ("video/h264", "h264"),
+        ("video/h265", "h265"),
+        ("video/av1", "av1"),
+    ])
+    func parseCodec(mimeType: String, expectedName: String) {
+        let codec = VideoCodec.from(mimeType: mimeType)
+        #expect(codec?.name == expectedName)
     }
 
-    func testSupportedCodecs() {
-        let encoderCodecs = RTC.decoderFactory.supportedCodecs()
-        print("encoderCodecs: \(encoderCodecs.map { "\($0.name) - \($0.parameters)" }.joined(separator: ", "))")
+    @Test(arguments: ["VP8", "VP9", "AV1", "H264", "H265"])
+    func supportedCodec(name: String) {
+        let encoderCodecs = RTC.encoderFactory.supportedCodecs()
         let decoderCodecs = RTC.decoderFactory.supportedCodecs()
-        print("decoderCodecs: \(decoderCodecs.map { "\($0.name) - \($0.parameters)" }.joined(separator: ", "))")
 
-        // Check encoder codecs
-        XCTAssert(encoderCodecs.contains(where: { $0.name == "VP8" }))
-        XCTAssert(encoderCodecs.contains(where: { $0.name == "VP9" }))
-        XCTAssert(encoderCodecs.contains(where: { $0.name == "AV1" }))
-        XCTAssert(encoderCodecs.contains(where: { $0.name == "H264" }))
-        XCTAssert(encoderCodecs.contains(where: { $0.name == "H265" }))
-
-        // Check decoder codecs
-        XCTAssert(decoderCodecs.contains(where: { $0.name == "VP8" }))
-        XCTAssert(decoderCodecs.contains(where: { $0.name == "VP9" }))
-        XCTAssert(decoderCodecs.contains(where: { $0.name == "AV1" }))
-        XCTAssert(decoderCodecs.contains(where: { $0.name == "H264" }))
-        XCTAssert(encoderCodecs.contains(where: { $0.name == "H265" }))
+        #expect(encoderCodecs.contains(where: { $0.name == name }), "\(name) not found in encoder codecs")
+        #expect(decoderCodecs.contains(where: { $0.name == name }), "\(name) not found in decoder codecs")
     }
 }

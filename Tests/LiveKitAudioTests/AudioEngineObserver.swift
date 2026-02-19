@@ -16,6 +16,7 @@
 
 @preconcurrency import AVFoundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
@@ -33,11 +34,10 @@ final class TestEngineObserver: AudioEngineObserver, @unchecked Sendable {
     }
 }
 
-class AudioEngineObserverTests: LKTestCase {
+@Suite(.serialized, .tags(.audio)) struct AudioEngineObserverTests {
     // Error codes returned in an `AudioEngineObserver` should propagate through the WebRTC's AudioDeviceModule and
     // the SDK should throw in such cases for both device and manual rendering modes.
-    func testObserverFail() async throws {
-        //
+    @Test func observerFail() throws {
         let testObserver = TestEngineObserver()
 
         // Set test engine observer
@@ -47,7 +47,7 @@ class AudioEngineObserverTests: LKTestCase {
         try AudioManager.shared.setVoiceProcessingEnabled(false)
 
         // First check
-        XCTAssertFalse(AudioManager.shared.isEngineRunning)
+        #expect(!AudioManager.shared.isEngineRunning)
 
         #if os(iOS) || os(visionOS) || os(tvOS)
         try AVAudioSession.sharedInstance().setCategory(AVAudioSession.Category.playAndRecord)
@@ -57,24 +57,24 @@ class AudioEngineObserverTests: LKTestCase {
 
         // Attempt to start
         try AudioManager.shared.startLocalRecording()
-        XCTAssertTrue(AudioManager.shared.isEngineRunning)
+        #expect(AudioManager.shared.isEngineRunning)
 
         testObserver.shouldSucceed = false
 
         // Stop
-        XCTAssertThrowsError(try AudioManager.shared.stopLocalRecording())
-        XCTAssertFalse(AudioManager.shared.isEngineRunning)
+        #expect(throws: (any Error).self) { try AudioManager.shared.stopLocalRecording() }
+        #expect(!AudioManager.shared.isEngineRunning)
 
         testObserver.shouldSucceed = true
 
         try AudioManager.shared.stopLocalRecording()
-        XCTAssertFalse(AudioManager.shared.isEngineRunning)
+        #expect(!AudioManager.shared.isEngineRunning)
 
         testObserver.shouldSucceed = false
 
         // Attempt to start, should fail
-        XCTAssertThrowsError(try AudioManager.shared.startLocalRecording())
-        XCTAssertFalse(AudioManager.shared.isEngineRunning)
+        #expect(throws: (any Error).self) { try AudioManager.shared.startLocalRecording() }
+        #expect(!AudioManager.shared.isEngineRunning)
 
         // Switch to manual mode
         try AudioManager.shared.setManualRenderingMode(true)
@@ -83,6 +83,6 @@ class AudioEngineObserverTests: LKTestCase {
 
         // Attempt to start
         try AudioManager.shared.startLocalRecording()
-        XCTAssertFalse(AudioManager.shared.isEngineRunning)
+        #expect(!AudioManager.shared.isEngineRunning)
     }
 }

@@ -15,19 +15,20 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class DeviceManagerTests: LKTestCase {
-    func testListDevices() async throws {
+@Suite(.tags(.audio)) struct DeviceManagerTests {
+    @Test func listDevices() async throws {
         let devices = try await DeviceManager.shared.devices()
         print("Devices: \(devices.map { "(facingPosition: \(String(describing: $0.facingPosition)))" }.joined(separator: ", "))")
-        XCTAssert(devices.count > 0, "No capture devices found.")
+        #expect(devices.count > 0, "No capture devices found.")
 
         // visionOS will return 0 formats.
         guard let firstDevice = devices.first else { return }
         let formats = firstDevice.formats
-        XCTAssert(formats.count > 0, "No formats found for device.")
+        #expect(formats.count > 0, "No formats found for device.")
     }
 }

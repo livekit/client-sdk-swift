@@ -16,22 +16,23 @@
 
 #if os(iOS)
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 import Network
 
-final class IPCChannelTests: LKTestCase, @unchecked Sendable {
-    private var socketPath: SocketPath!
+@Suite(.tags(.broadcast))
+struct IPCChannelTests: Sendable {
+    private let socketPath: SocketPath
 
     enum TestSetupError: Error {
         case failedToGeneratePath
     }
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-
+    init() throws {
         // Use relative paths to ensure socket path is not too long
         let temporaryDirectory = FileManager.default.temporaryDirectory
         FileManager.default.changeCurrentDirectoryPath(temporaryDirectory.path)
@@ -42,67 +43,69 @@ final class IPCChannelTests: LKTestCase, @unchecked Sendable {
         self.socketPath = socketPath
     }
 
-    func testConnectionAcceptorFirst() async throws {
-        let established = XCTestExpectation(description: "Connection established")
-
-        Task {
-            let channel = try await IPCChannel(acceptingOn: socketPath)
-            XCTAssertFalse(channel.isClosed)
-
-            established.fulfill()
+    @Test func connectionAcceptorFirst() async throws {
+        try await confirmation("Connection established") { established in
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    let channel = try await IPCChannel(acceptingOn: socketPath)
+                    #expect(!channel.isClosed)
+                    established()
+                }
+                group.addTask {
+                    let channel = try await IPCChannel(connectingTo: socketPath)
+                    #expect(!channel.isClosed)
+                    // Keep alive to give time acceptor to accept
+                    try await Task.shortSleep()
+                }
+                try await group.waitForAll()
+            }
         }
-        Task {
-            let channel = try await IPCChannel(connectingTo: socketPath)
-            XCTAssertFalse(channel.isClosed)
-
-            // Keep alive to give time acceptor to accept
-            try await Task.shortSleep()
-        }
-        await fulfillment(of: [established], timeout: 5.0)
     }
 
-    func testConnectionConnectorFirst() async throws {
-        let established = XCTestExpectation(description: "Connection established")
-
-        Task {
-            let channel = try await IPCChannel(connectingTo: socketPath)
-            XCTAssertFalse(channel.isClosed)
-            established.fulfill()
+    @Test func connectionConnectorFirst() async throws {
+        try await confirmation("Connection established") { established in
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    let channel = try await IPCChannel(connectingTo: socketPath)
+                    #expect(!channel.isClosed)
+                    established()
+                }
+                group.addTask {
+                    let channel = try await IPCChannel(acceptingOn: socketPath)
+                    #expect(!channel.isClosed)
+                }
+                try await group.waitForAll()
+            }
         }
-        Task {
-            let channel = try await IPCChannel(acceptingOn: socketPath)
-            XCTAssertFalse(channel.isClosed)
-        }
-        await fulfillment(of: [established], timeout: 5.0)
     }
 
     private func assertInitCancellationThrows(
         _ initializer: @Sendable @escaping @autoclosure () async throws -> IPCChannel,
-        file: StaticString = #filePath,
-        line: UInt = #line
+        sourceLocation: SourceLocation = #_sourceLocation
     ) async throws {
-        let cancelThrowsError = XCTestExpectation(description: "Throws error on cancellation")
-        let channelTask = Task {
-            do {
-                _ = try await initializer()
-                XCTFail("Should not pass initialization with no connection", file: file, line: line)
-            } catch {
-                XCTAssertEqual(error as? IPCChannel.Error, .cancelled, file: file, line: line)
-                cancelThrowsError.fulfill()
+        try await confirmation("Throws error on cancellation") { cancelThrowsError in
+            let channelTask = Task {
+                do {
+                    _ = try await initializer()
+                    Issue.record("Should not pass initialization with no connection", sourceLocation: sourceLocation)
+                } catch {
+                    #expect(error as? IPCChannel.Error == .cancelled, sourceLocation: sourceLocation)
+                    cancelThrowsError()
+                }
             }
+            channelTask.cancel()
+            _ = await channelTask.result
         }
-        channelTask.cancel()
-        await fulfillment(of: [cancelThrowsError], timeout: 5.0)
     }
 
     // swiftformat:disable redundantSelf hoistAwait
-    func testConnectorCancelDuringInit() async throws {
+    @Test func connectorCancelDuringInit() async throws {
         try await assertInitCancellationThrows(
             await IPCChannel(connectingTo: self.socketPath)
         )
     }
 
-    func testAcceptorCancelDuringInit() async throws {
+    @Test func acceptorCancelDuringInit() async throws {
         try await assertInitCancellationThrows(
             await IPCChannel(acceptingOn: self.socketPath)
         )
@@ -114,61 +117,55 @@ final class IPCChannelTests: LKTestCase, @unchecked Sendable {
         let someField: Int
     }
 
-    func testMessageExchange() async throws {
-        let initialReceived = XCTestExpectation(description: "Acceptor receives initial message from connector")
-        let replyReceived = XCTestExpectation(description: "Connector receives reply from acceptor")
-
+    @Test func messageExchange() async throws {
         let testHeader = TestHeader(someField: 1)
         let testPayload = Data([1, 2, 3])
 
-        Task {
-            let channel = try await IPCChannel(acceptingOn: socketPath)
+        try await confirmation(expectedCount: 2) { received in
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    let channel = try await IPCChannel(acceptingOn: socketPath)
 
-            for try await (header, payload) in channel.incomingMessages(TestHeader.self) {
-                // Received initial message
-                XCTAssertEqual(header, testHeader)
-                XCTAssertEqual(payload, testPayload)
-                initialReceived.fulfill()
+                    for try await (header, payload) in channel.incomingMessages(TestHeader.self) {
+                        #expect(header == testHeader)
+                        #expect(payload == testPayload)
+                        received()
+                        try await channel.send(header: testHeader, payload: testPayload)
+                    }
+                }
+                group.addTask {
+                    let channel = try await IPCChannel(connectingTo: socketPath)
+                    try await channel.send(header: testHeader, payload: testPayload)
 
-                // Send reply
-                try await channel.send(header: testHeader, payload: testPayload)
+                    for try await (header, payload) in channel.incomingMessages(TestHeader.self) {
+                        #expect(header == testHeader)
+                        #expect(payload == testPayload)
+                        received()
+                    }
+                }
+                try await group.waitForAll()
             }
         }
-        Task {
-            let channel = try await IPCChannel(connectingTo: socketPath)
-
-            // Send initial message
-            try await channel.send(header: testHeader, payload: testPayload)
-
-            for try await (header, payload) in channel.incomingMessages(TestHeader.self) {
-                // Received reply
-                XCTAssertEqual(header, testHeader)
-                XCTAssertEqual(payload, testPayload)
-                replyReceived.fulfill()
-            }
-        }
-        await fulfillment(
-            of: [initialReceived, replyReceived],
-            timeout: 5.0,
-            enforceOrder: true
-        )
     }
 
-    func testMessageSequenceAfterClosure() async throws {
-        let sequenceEnds = XCTestExpectation(description: "Message sequence ends after closure")
-        Task {
-            let channel = try await IPCChannel(acceptingOn: socketPath)
-            for try await _ in channel.incomingMessages(TestHeader.self) {
-                // Received message
+    @Test func messageSequenceAfterClosure() async throws {
+        try await confirmation("Message sequence ends after closure") { sequenceEnds in
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    let channel = try await IPCChannel(acceptingOn: socketPath)
+                    for try await _ in channel.incomingMessages(TestHeader.self) {
+                        // Received message
+                    }
+                    sequenceEnds()
+                }
+                group.addTask {
+                    let channel = try await IPCChannel(connectingTo: socketPath)
+                    try await channel.send(header: TestHeader(someField: 1))
+                    channel.close()
+                }
+                try await group.waitForAll()
             }
-            sequenceEnds.fulfill()
         }
-        Task {
-            let channel = try await IPCChannel(connectingTo: socketPath)
-            try await channel.send(header: TestHeader(someField: 1))
-            channel.close()
-        }
-        await fulfillment(of: [sequenceEnds], timeout: 5.0)
     }
 }
 

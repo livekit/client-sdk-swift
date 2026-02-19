@@ -14,70 +14,73 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class StreamDataTests: LKTestCase {
+@Suite(.tags(.dataStream))
+struct StreamDataTests {
     // MARK: - Data chunking
 
-    func testDataChunking() {
+    @Test func dataChunking() {
         let testData = Data([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 
         let chunks = testData.chunks(of: 3)
-        XCTAssertEqual(chunks.count, 4)
-        XCTAssertEqual(chunks[0], Data([1, 2, 3]))
-        XCTAssertEqual(chunks[1], Data([4, 5, 6]))
-        XCTAssertEqual(chunks[2], Data([7, 8, 9]))
-        XCTAssertEqual(chunks[3], Data([10]))
+        #expect(chunks.count == 4)
+        #expect(chunks[0] == Data([1, 2, 3]))
+        #expect(chunks[1] == Data([4, 5, 6]))
+        #expect(chunks[2] == Data([7, 8, 9]))
+        #expect(chunks[3] == Data([10]))
 
         let fullChunk = testData.chunks(of: 10)
-        XCTAssertEqual(fullChunk.count, 1)
-        XCTAssertEqual(fullChunk[0], testData)
+        #expect(fullChunk.count == 1)
+        #expect(fullChunk[0] == testData)
 
         let largeChunk = testData.chunks(of: 20)
-        XCTAssertEqual(largeChunk.count, 1)
-        XCTAssertEqual(largeChunk[0], testData)
+        #expect(largeChunk.count == 1)
+        #expect(largeChunk[0] == testData)
     }
 
-    func testEmptyDataChunking() {
-        XCTAssertTrue(Data().chunks(of: 5).isEmpty)
+    @Test func emptyDataChunking() {
+        #expect(Data().chunks(of: 5).isEmpty)
     }
 
-    func testSingleByteDataChunking() {
+    @Test func singleByteDataChunking() {
         let singleByteData = Data([42])
         let chunks = singleByteData.chunks(of: 1)
-        XCTAssertEqual(chunks, [singleByteData])
+        #expect(chunks == [singleByteData])
     }
 
-    func testDataInvalidChunkSize() {
+    @Test func dataInvalidChunkSize() {
         let testData = Data([1, 2, 3, 4, 5])
-        XCTAssertTrue(testData.chunks(of: 0).isEmpty)
-        XCTAssertTrue(testData.chunks(of: -1).isEmpty)
+        #expect(testData.chunks(of: 0).isEmpty)
+        #expect(testData.chunks(of: -1).isEmpty)
     }
 
     // MARK: - String chunking
 
-    func testStringChunking() {
+    @Test func stringChunking() {
         let testString = "Hello, World!"
         let chunks = testString.chunks(of: 4)
             .map { [UInt8]($0) }
-        XCTAssertEqual(chunks, [[72, 101, 108, 108], [111, 44, 32, 87], [111, 114, 108, 100], [33]])
+        #expect(chunks == [[72, 101, 108, 108], [111, 44, 32, 87], [111, 114, 108, 100], [33]])
     }
 
-    func testEmptyStringChunking() {
-        XCTAssertTrue("".chunks(of: 5).isEmpty)
+    @Test func emptyStringChunking() {
+        #expect("".chunks(of: 5).isEmpty)
     }
 
-    func testSingleCharacterStringChunking() {
-        XCTAssertEqual("X".chunks(of: 5).map { [UInt8]($0) }, [[88]])
+    @Test func singleCharacterStringChunking() {
+        #expect("X".chunks(of: 5).map { [UInt8]($0) } == [[88]])
     }
 
-    func testMixedStringChunking() {
-        let mixedString = "Hello 👋"
+    @Test func mixedStringChunking() {
+        let mixedString = "Hello \u{1F44B}"
         let chunks = mixedString.chunks(of: 4)
             .map { [UInt8]($0) }
-        XCTAssertEqual(chunks, [[0x48, 0x65, 0x6C, 0x6C], [0x6F, 0x20], [0xF0, 0x9F, 0x91, 0x8B]])
+        #expect(chunks == [[0x48, 0x65, 0x6C, 0x6C], [0x6F, 0x20], [0xF0, 0x9F, 0x91, 0x8B]])
     }
 }
