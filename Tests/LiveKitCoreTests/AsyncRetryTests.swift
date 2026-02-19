@@ -15,16 +15,13 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class AsyncRetryTests: LKTestCase {
-    override func setUpWithError() throws {}
-
-    override func tearDown() async throws {}
-
-//    func testRetry1() async throws {
+struct AsyncRetryTests {
+//    @Test func retry1() async throws {
 //        let test = Task.retrying(totalAttempts: 3) { currentAttempt, totalAttempts in
 //            print("[TEST] Retrying with remaining attemps: \(currentAttempt)/\(totalAttempts)...")
 //            throw LiveKitError(.invalidState, message: "Test error")

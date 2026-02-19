@@ -15,18 +15,15 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class QueueActorTests: LKTestCase {
-    private lazy var queue = QueueActor<String> { print($0) }
+struct QueueActorTests {
+    private let queue = QueueActor<String> { print($0) }
 
-    override func setUpWithError() throws {}
-
-    override func tearDown() async throws {}
-
-    func testQueueActor01() async throws {
+    @Test func queueActor01() async {
         await queue.processIfResumed("Value 0")
         await queue.suspend()
         await queue.processIfResumed("Value 1")

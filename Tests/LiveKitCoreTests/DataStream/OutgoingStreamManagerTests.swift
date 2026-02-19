@@ -15,16 +15,13 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class OutgoingStreamManagerTests: LKTestCase {
-    func testStreamBytes() async throws {
-        let headerExpectation = expectation(description: "Produces header packet")
-        let chunkExpectation = expectation(description: "Produces chunk packets")
-        let trailerExpectation = expectation(description: "Produces trailer packet")
-
+struct OutgoingStreamManagerTests {
+    @Test func streamBytes() async throws {
         let testChunks = [
             Data(repeating: 0xAB, count: 128),
             Data(repeating: 0xCD, count: 128),
@@ -36,61 +33,59 @@ class OutgoingStreamManagerTests: LKTestCase {
 
         let counter = ConcurrentCounter()
 
-        let manager = OutgoingStreamManager { packet in
-            // Simulate data channel send
-            try await Task.sleep(nanoseconds: 10_000_000)
+        try await confirmation("Produces header packet") { headerConfirm in
+            try await confirmation("Produces chunk packets") { chunkConfirm in
+                try await confirmation("Produces trailer packet") { trailerConfirm in
+                    let manager = OutgoingStreamManager { packet in
+                        // Simulate data channel send
+                        try await Task.sleep(nanoseconds: 10_000_000)
 
-            switch packet.value {
-            case let .streamHeader(header):
-                XCTAssertEqual(header.streamID, streamID)
-                XCTAssertEqual(header.topic, topic)
-                XCTAssertEqual(header.mimeType, "application/octet-stream")
+                        switch packet.value {
+                        case let .streamHeader(header):
+                            #expect(header.streamID == streamID)
+                            #expect(header.topic == topic)
+                            #expect(header.mimeType == "application/octet-stream")
 
-                headerExpectation.fulfill()
+                            headerConfirm()
 
-            case let .streamChunk(chunk):
-                let currentChunk = await counter.increment()
-                XCTAssertEqual(chunk.streamID, streamID)
-                XCTAssertEqual(chunk.chunkIndex, UInt64(currentChunk))
-                XCTAssertEqual(chunk.content, testChunks[currentChunk])
+                        case let .streamChunk(chunk):
+                            let currentChunk = await counter.increment()
+                            #expect(chunk.streamID == streamID)
+                            #expect(chunk.chunkIndex == UInt64(currentChunk))
+                            #expect(chunk.content == testChunks[currentChunk])
 
-                if await counter.getCount() == testChunks.count {
-                    chunkExpectation.fulfill()
+                            if await counter.getCount() == testChunks.count {
+                                chunkConfirm()
+                            }
+
+                        case let .streamTrailer(trailer):
+                            #expect(trailer.streamID == streamID)
+                            #expect(trailer.reason == "")
+
+                            trailerConfirm()
+
+                        default: Issue.record("Produced unexpected packet type")
+                        }
+                    } encryptionProvider: {
+                        .none
+                    }
+
+                    let writer = try await manager.streamBytes(
+                        options: StreamByteOptions(topic: topic, id: streamID)
+                    )
+
+                    for chunk in testChunks {
+                        try await writer.write(chunk)
+                    }
+                    try await writer.close()
+
+                    try? await Task.sleep(nanoseconds: 5_000_000_000)
                 }
-
-            case let .streamTrailer(trailer):
-                XCTAssertEqual(trailer.streamID, streamID)
-                XCTAssertEqual(trailer.reason, "")
-
-                trailerExpectation.fulfill()
-
-            default: XCTFail("Produced unexpected packet type")
             }
-        } encryptionProvider: {
-            .none
         }
-
-        let writer = try await manager.streamBytes(
-            options: StreamByteOptions(topic: topic, id: streamID)
-        )
-
-        for chunk in testChunks {
-            try await writer.write(chunk)
-        }
-        try await writer.close()
-
-        await fulfillment(
-            of: [headerExpectation, chunkExpectation, trailerExpectation],
-            timeout: 5,
-            enforceOrder: true
-        )
     }
 
-    func testStreamText() async throws {
-        let headerExpectation = expectation(description: "Produces header packet")
-        let chunkExpectation = expectation(description: "Produces chunk packets")
-        let trailerExpectation = expectation(description: "Produces trailer packet")
-
+    @Test func streamText() async throws {
         let testChunks = [
             String(repeating: "A", count: 128),
             String(repeating: "B", count: 128),
@@ -102,85 +97,84 @@ class OutgoingStreamManagerTests: LKTestCase {
 
         let counter = ConcurrentCounter()
 
-        let manager = OutgoingStreamManager { packet in
-            // Simulate data channel send
-            try await Task.sleep(nanoseconds: 10_000_000)
+        try await confirmation("Produces header packet") { headerConfirm in
+            try await confirmation("Produces chunk packets") { chunkConfirm in
+                try await confirmation("Produces trailer packet") { trailerConfirm in
+                    let manager = OutgoingStreamManager { packet in
+                        // Simulate data channel send
+                        try await Task.sleep(nanoseconds: 10_000_000)
 
-            switch packet.value {
-            case let .streamHeader(header):
-                XCTAssertEqual(header.streamID, streamID)
-                XCTAssertEqual(header.topic, topic)
-                XCTAssertEqual(header.mimeType, "text/plain")
+                        switch packet.value {
+                        case let .streamHeader(header):
+                            #expect(header.streamID == streamID)
+                            #expect(header.topic == topic)
+                            #expect(header.mimeType == "text/plain")
 
-                headerExpectation.fulfill()
+                            headerConfirm()
 
-            case let .streamChunk(chunk):
-                let currentChunk = await counter.increment()
-                XCTAssertEqual(chunk.streamID, streamID)
-                XCTAssertEqual(chunk.chunkIndex, UInt64(currentChunk))
-                XCTAssertEqual(chunk.content, Data(testChunks[currentChunk].utf8))
+                        case let .streamChunk(chunk):
+                            let currentChunk = await counter.increment()
+                            #expect(chunk.streamID == streamID)
+                            #expect(chunk.chunkIndex == UInt64(currentChunk))
+                            #expect(chunk.content == Data(testChunks[currentChunk].utf8))
 
-                if await counter.getCount() == testChunks.count {
-                    chunkExpectation.fulfill()
+                            if await counter.getCount() == testChunks.count {
+                                chunkConfirm()
+                            }
+
+                        case let .streamTrailer(trailer):
+                            #expect(trailer.streamID == streamID)
+                            #expect(trailer.reason == "")
+
+                            trailerConfirm()
+
+                        default: Issue.record("Produced unexpected packet type")
+                        }
+                    } encryptionProvider: {
+                        .none
+                    }
+
+                    let writer = try await manager.streamText(
+                        options: StreamTextOptions(topic: topic, id: streamID)
+                    )
+
+                    for chunk in testChunks {
+                        try await writer.write(chunk)
+                    }
+                    try await writer.close()
+
+                    try? await Task.sleep(nanoseconds: 5_000_000_000)
                 }
-
-            case let .streamTrailer(trailer):
-                XCTAssertEqual(trailer.streamID, streamID)
-                XCTAssertEqual(trailer.reason, "")
-
-                trailerExpectation.fulfill()
-
-            default: XCTFail("Produced unexpected packet type")
             }
-        } encryptionProvider: {
-            .none
         }
-
-        let writer = try await manager.streamText(
-            options: StreamTextOptions(topic: topic, id: streamID)
-        )
-
-        for chunk in testChunks {
-            try await writer.write(chunk)
-        }
-        try await writer.close()
-
-        await fulfillment(
-            of: [headerExpectation, chunkExpectation, trailerExpectation],
-            timeout: 5,
-            enforceOrder: true
-        )
     }
 
-    func testErrorPropagation() async throws {
-        let errorExpectation = expectation(description: "Error propagates to caller")
-
+    @Test func errorPropagation() async throws {
         let testError = LiveKitError(.cancelled, message: "Test error")
 
-        let manager = OutgoingStreamManager { packet in
-            switch packet.value {
-            case .streamChunk:
-                // Wait until first chunk to produce error
-                throw testError
-            default: break
+        try await confirmation("Error propagates to caller") { confirm in
+            let manager = OutgoingStreamManager { packet in
+                switch packet.value {
+                case .streamChunk:
+                    // Wait until first chunk to produce error
+                    throw testError
+                default: break
+                }
+            } encryptionProvider: {
+                .none
             }
-        } encryptionProvider: {
-            .none
-        }
 
-        let writer = try await manager.streamText(
-            options: StreamTextOptions(topic: "some-topic")
-        )
-        do {
-            try await writer.write("Hello, world!")
-        } catch {
-            XCTAssertEqual(error as? LiveKitError, testError)
-            errorExpectation.fulfill()
-        }
+            let writer = try await manager.streamText(
+                options: StreamTextOptions(topic: "some-topic")
+            )
+            do {
+                try await writer.write("Hello, world!")
+            } catch {
+                #expect(error as? LiveKitError == testError)
+                confirm()
+            }
 
-        await fulfillment(
-            of: [errorExpectation],
-            timeout: 5
-        )
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+        }
     }
 }

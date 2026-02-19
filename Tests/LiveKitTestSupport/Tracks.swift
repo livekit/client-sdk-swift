@@ -100,6 +100,71 @@ public extension LKTestCase {
     }
 }
 
+/// Standalone version of createSampleVideoTrack (framework-agnostic).
+// swiftlint:disable:next function_body_length
+public func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @Sendable @escaping (CMSampleBuffer) -> Void) async throws -> Task<Void, any Error> {
+    let url = URL(string: "https://storage.unxpected.co.jp/public/sample-videos/ocean-1080p.mp4")!
+    let tempLocalUrl: URL
+
+    if let cachedURL = LKTestCase.cachedSampleVideoURL, FileManager.default.fileExists(atPath: cachedURL.path) {
+        print("Using cached sample video at \(cachedURL)...")
+        tempLocalUrl = cachedURL
+    } else {
+        print("Downloading sample video from \(url)...")
+        let (downloadedLocalUrl, _) = try await URLSession.shared.downloadBackport(from: url)
+
+        tempLocalUrl = FileManager.default.temporaryDirectory.appendingPathComponent("sample-video-cached").appendingPathExtension("mp4")
+
+        if FileManager.default.fileExists(atPath: tempLocalUrl.path) {
+            try FileManager.default.removeItem(at: tempLocalUrl)
+        }
+
+        try FileManager.default.moveItem(at: downloadedLocalUrl, to: tempLocalUrl)
+
+        LKTestCase.cachedSampleVideoURL = tempLocalUrl
+        print("Cached sample video at \(tempLocalUrl)")
+    }
+
+    print("Opening \(tempLocalUrl) with asset reader...")
+    let asset = AVAsset(url: tempLocalUrl)
+    let assetReader = try AVAssetReader(asset: asset)
+
+    let tracks = try await {
+        #if os(visionOS)
+        return try await asset.loadTracks(withMediaType: .video)
+        #else
+        if #available(iOS 15.0, macOS 12.0, *) {
+            return try await asset.loadTracks(withMediaType: .video)
+        } else {
+            return asset.tracks(withMediaType: .video)
+        }
+        #endif
+    }()
+
+    guard let track = tracks.first else {
+        throw LiveKitError(.invalidState, message: "No video track found in sample video file")
+    }
+
+    let outputSettings: [String: Any] = [
+        kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA),
+    ]
+
+    let trackOutput = AVAssetReaderTrackOutput(track: track, outputSettings: outputSettings)
+    assetReader.add(trackOutput)
+
+    guard assetReader.startReading() else {
+        throw LiveKitError(.invalidState, message: "Could not start reading the asset.")
+    }
+
+    return Task.detached {
+        let frameDuration = UInt64(1_000_000_000 / targetFps)
+        while !Task.isCancelled, assetReader.status == .reading, let sampleBuffer = trackOutput.copyNextSampleBuffer() {
+            onCapture(sampleBuffer)
+            try await Task.sleep(nanoseconds: frameDuration)
+        }
+    }
+}
+
 public typealias OnDidRenderFirstFrame = (_ id: String) -> Void
 
 public class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendable {
@@ -110,6 +175,7 @@ public class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendabl
 
     private struct State {
         var didRenderFirstFrame: Bool = false
+        var maxRenderedArea: Int32 = 0
         var expectationsForDimensions: [Dimensions: XCTestExpectation] = [:]
         var expectationsForCodecs: [VideoCodec: XCTestExpectation] = [:]
         var detectedCodecs: Set<String> = []
@@ -172,10 +238,32 @@ public class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendabl
                 onDidRenderFirstFrame?(id)
             }
 
+            $0.maxRenderedArea = max($0.maxRenderedArea, frame.dimensions.area)
+
             for (key, value) in $0.expectationsForDimensions where frame.dimensions.area >= key.area {
                 value.fulfill()
             }
         }
+    }
+
+    /// Async polling wait for dimensions (framework-agnostic, no XCTest/Testing dependency).
+    public func waitForDimensions(_ dimensions: Dimensions, timeout: TimeInterval = 30) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if _state.read({ $0.maxRenderedArea >= dimensions.area }) { return }
+            try await Task.sleep(nanoseconds: 200_000_000)
+        }
+        throw LiveKitError(.timedOut, message: "Timed out waiting for dimensions \(dimensions)")
+    }
+
+    /// Async polling wait for codec (framework-agnostic, no XCTest/Testing dependency).
+    public func waitForCodec(_ codec: VideoCodec, timeout: TimeInterval = 60) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if _state.read({ $0.detectedCodecs.contains(codec.name.lowercased()) }) { return }
+            try await Task.sleep(nanoseconds: 200_000_000)
+        }
+        throw LiveKitError(.timedOut, message: "Timed out waiting for codec \(codec.name)")
     }
 
     // MARK: - TrackDelegate

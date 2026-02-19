@@ -15,16 +15,13 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class CompleterTests: LKTestCase {
-    override func setUpWithError() throws {}
-
-    override func tearDown() async throws {}
-
-    func testCompleterReuse() async throws {
+struct CompleterTests {
+    @Test func completerReuse() async throws {
         let completer = AsyncCompleter<Void>(label: "Test01", defaultTimeout: 1)
         do {
             try await completer.wait()
@@ -39,7 +36,7 @@ class CompleterTests: LKTestCase {
         }
     }
 
-    func testCompleterCancel() async throws {
+    @Test func completerCancel() async throws {
         let completer = AsyncCompleter<Void>(label: "cancel-test", defaultTimeout: 30)
         do {
             // Run Tasks in parallel
@@ -68,7 +65,7 @@ class CompleterTests: LKTestCase {
         }
     }
 
-    func testCompleterConcurrentWait() async throws {
+    @Test func completerConcurrentWait() async throws {
         let completer = AsyncCompleter<Void>(label: "cancel-test", defaultTimeout: 30)
         do {
             // Run Tasks in parallel

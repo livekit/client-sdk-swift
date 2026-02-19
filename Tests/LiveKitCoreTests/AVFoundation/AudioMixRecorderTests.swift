@@ -16,11 +16,12 @@
 
 import AVFAudio
 import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-final class AudioMixRecorderTests: LKTestCase {
+struct AudioMixRecorderTests {
     let audioSettings16k: [String: Any] = [
         AVFormatIDKey: kAudioFormatMPEG4AAC,
         AVSampleRateKey: 16000,
@@ -42,16 +43,16 @@ final class AudioMixRecorderTests: LKTestCase {
     ]
 
     // swiftlint:disable:next function_body_length
-    func testRecord() async throws {
+    @Test func record() async throws {
         // Sample audio 1
-        let audio1Url = URL(string: "https://github.com/audio-samples/audio-samples.github.io/raw/refs/heads/master/samples/mp3/music/sample-3.mp3")!
+        let audio1Url = try #require(URL(string: "https://github.com/audio-samples/audio-samples.github.io/raw/refs/heads/master/samples/mp3/music/sample-3.mp3"))
         print("Downloading sample audio from \(audio1Url)...")
         let (downloadedLocalUrl1, _) = try await URLSession.shared.downloadBackport(from: audio1Url)
         let audioFile1 = try AVAudioFile(forReading: downloadedLocalUrl1)
         print("Audio file1 format: \(audioFile1.processingFormat)")
 
         // Sample audio 2
-        let audio1Url2 = URL(string: "https://github.com/audio-samples/audio-samples.github.io/raw/refs/heads/master/samples/mp3/ted_speakers/BillGates/sample-5.mp3")!
+        let audio1Url2 = try #require(URL(string: "https://github.com/audio-samples/audio-samples.github.io/raw/refs/heads/master/samples/mp3/ted_speakers/BillGates/sample-5.mp3"))
         print("Downloading sample audio from \(audio1Url2)...")
         let (downloadedLocalUrl2, _) = try await URLSession.shared.downloadBackport(from: audio1Url2)
         let audioFile2 = try AVAudioFile(forReading: downloadedLocalUrl2)
@@ -63,8 +64,8 @@ final class AudioMixRecorderTests: LKTestCase {
         var recorder = try AudioMixRecorder(filePath: recordFilePath, audioSettings: audioSettings16k)
 
         // Sample buffer 1
-        let sampleBuffer1 = AVAudioPCMBuffer(pcmFormat: recorder.processingFormat,
-                                             frameCapacity: AVAudioFrameCount(100))!
+        let sampleBuffer1 = try #require(AVAudioPCMBuffer(pcmFormat: recorder.processingFormat,
+                                                          frameCapacity: AVAudioFrameCount(100)))
         sampleBuffer1.frameLength = 100
 
         // Record session 1
@@ -91,7 +92,7 @@ final class AudioMixRecorderTests: LKTestCase {
             let player = try AVAudioPlayer(contentsOf: recordFilePath)
             player.prepareToPlay()
             print("Playing audio file, duration: \(player.duration) seconds...")
-            XCTAssertTrue(player.play(), "Failed to start audio playback")
+            #expect(player.play(), "Failed to start audio playback")
             while player.isPlaying {
                 try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
             }
@@ -122,22 +123,22 @@ final class AudioMixRecorderTests: LKTestCase {
             let player = try AVAudioPlayer(contentsOf: recordFilePath)
             player.prepareToPlay()
             print("Playing audio file, duration: \(player.duration) seconds...")
-            XCTAssertTrue(player.play(), "Failed to start audio playback")
+            #expect(player.play(), "Failed to start audio playback")
             while player.isPlaying {
                 try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
             }
         }
     }
 
-    func testScheduleToRemovedSource() async throws {
+    @Test func scheduleToRemovedSource() async throws {
         let recordFilePath = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString + ".aac")
         print("Recording to \(recordFilePath)...")
 
         let recorder = try AudioMixRecorder(filePath: recordFilePath, audioSettings: audioSettings16k)
 
         // Sample buffer 1
-        let sampleBuffer1 = AVAudioPCMBuffer(pcmFormat: recorder.processingFormat,
-                                             frameCapacity: AVAudioFrameCount(100))!
+        let sampleBuffer1 = try #require(AVAudioPCMBuffer(pcmFormat: recorder.processingFormat,
+                                                          frameCapacity: AVAudioFrameCount(100)))
         sampleBuffer1.frameLength = 100
 
         let src1 = recorder.addSource()

@@ -15,15 +15,16 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class TimeIntervalTests: LKTestCase {
+struct TimeIntervalTests {
     /// Tests that the reconnection delay computation follows the expected easeOutCirc pattern:
     /// - All attempts (0 through n-2): easeOutCirc curve from baseDelay to maxDelay for dramatic early growth
     /// - Last attempt (n-1): exactly maxDelay
-    func testComputeReconnectDelay() { // swiftlint:disable:this function_body_length
+    @Test func computeReconnectDelay() { // swiftlint:disable:this function_body_length
         // Default values: baseDelay=0.3, maxDelay=7.0, totalAttempts=10
         let totalAttempts = 10
         let baseDelay = TimeInterval.defaultReconnectDelay // 0.3
@@ -36,16 +37,16 @@ class TimeIntervalTests: LKTestCase {
         let firstEaseOutCircProgress = sqrt(1.0 - firstT * firstT)
         let expectedFirstDelay = baseDelay + firstEaseOutCircProgress * (maxDelay - baseDelay)
 
-        XCTAssertEqual(
-            TimeInterval.computeReconnectDelay(
-                forAttempt: firstAttempt,
-                baseDelay: baseDelay,
-                maxDelay: maxDelay,
-                totalAttempts: totalAttempts,
-                addJitter: false
-            ),
-            expectedFirstDelay,
-            accuracy: 0.001,
+        #expect(
+            abs(
+                TimeInterval.computeReconnectDelay(
+                    forAttempt: firstAttempt,
+                    baseDelay: baseDelay,
+                    maxDelay: maxDelay,
+                    totalAttempts: totalAttempts,
+                    addJitter: false
+                ) - expectedFirstDelay
+            ) <= 0.001,
             "First attempt should follow easeOutCirc curve"
         )
 
@@ -56,16 +57,16 @@ class TimeIntervalTests: LKTestCase {
         let secondEaseOutCircProgress = sqrt(1.0 - secondT * secondT)
         let expectedSecondDelay = baseDelay + secondEaseOutCircProgress * (maxDelay - baseDelay)
 
-        XCTAssertEqual(
-            TimeInterval.computeReconnectDelay(
-                forAttempt: secondAttempt,
-                baseDelay: baseDelay,
-                maxDelay: maxDelay,
-                totalAttempts: totalAttempts,
-                addJitter: false
-            ),
-            expectedSecondDelay,
-            accuracy: 0.001,
+        #expect(
+            abs(
+                TimeInterval.computeReconnectDelay(
+                    forAttempt: secondAttempt,
+                    baseDelay: baseDelay,
+                    maxDelay: maxDelay,
+                    totalAttempts: totalAttempts,
+                    addJitter: false
+                ) - expectedSecondDelay
+            ) <= 0.001,
             "Second attempt should follow easeOutCirc curve"
         )
 
@@ -78,29 +79,28 @@ class TimeIntervalTests: LKTestCase {
         let easeOutCircProgress = sqrt(1.0 - t * t)
         let expectedMiddleDelay = baseDelay + easeOutCircProgress * (maxDelay - baseDelay)
 
-        XCTAssertEqual(
-            TimeInterval.computeReconnectDelay(
-                forAttempt: midAttempt,
-                baseDelay: baseDelay,
-                maxDelay: maxDelay,
-                totalAttempts: totalAttempts,
-                addJitter: false
-            ),
-            expectedMiddleDelay,
-            accuracy: 0.001,
+        #expect(
+            abs(
+                TimeInterval.computeReconnectDelay(
+                    forAttempt: midAttempt,
+                    baseDelay: baseDelay,
+                    maxDelay: maxDelay,
+                    totalAttempts: totalAttempts,
+                    addJitter: false
+                ) - expectedMiddleDelay
+            ) <= 0.001,
             "Middle attempt should follow easeOutCirc scale"
         )
 
         // Last attempt should be exactly maxDelay
-        XCTAssertEqual(
+        #expect(
             TimeInterval.computeReconnectDelay(
                 forAttempt: totalAttempts - 1,
                 baseDelay: baseDelay,
                 maxDelay: maxDelay,
                 totalAttempts: totalAttempts,
                 addJitter: false
-            ),
-            maxDelay,
+            ) == maxDelay,
             "Last attempt should be exactly max delay"
         )
 
@@ -116,16 +116,16 @@ class TimeIntervalTests: LKTestCase {
         let customFirstEaseOutCircProgress = sqrt(1.0 - customFirstT * customFirstT)
         let expectedCustomFirstDelay = customBaseDelay + customFirstEaseOutCircProgress * (customMaxDelay - customBaseDelay)
 
-        XCTAssertEqual(
-            TimeInterval.computeReconnectDelay(
-                forAttempt: customFirstAttempt,
-                baseDelay: customBaseDelay,
-                maxDelay: customMaxDelay,
-                totalAttempts: customTotalAttempts,
-                addJitter: false
-            ),
-            expectedCustomFirstDelay,
-            accuracy: 0.001,
+        #expect(
+            abs(
+                TimeInterval.computeReconnectDelay(
+                    forAttempt: customFirstAttempt,
+                    baseDelay: customBaseDelay,
+                    maxDelay: customMaxDelay,
+                    totalAttempts: customTotalAttempts,
+                    addJitter: false
+                ) - expectedCustomFirstDelay
+            ) <= 0.001,
             "First attempt should follow easeOutCirc curve with custom values"
         )
 
@@ -136,16 +136,16 @@ class TimeIntervalTests: LKTestCase {
         let customSecondEaseOutCircProgress = sqrt(1.0 - customSecondT * customSecondT)
         let expectedCustomSecondDelay = customBaseDelay + customSecondEaseOutCircProgress * (customMaxDelay - customBaseDelay)
 
-        XCTAssertEqual(
-            TimeInterval.computeReconnectDelay(
-                forAttempt: customSecondAttempt,
-                baseDelay: customBaseDelay,
-                maxDelay: customMaxDelay,
-                totalAttempts: customTotalAttempts,
-                addJitter: false
-            ),
-            expectedCustomSecondDelay,
-            accuracy: 0.001,
+        #expect(
+            abs(
+                TimeInterval.computeReconnectDelay(
+                    forAttempt: customSecondAttempt,
+                    baseDelay: customBaseDelay,
+                    maxDelay: customMaxDelay,
+                    totalAttempts: customTotalAttempts,
+                    addJitter: false
+                ) - expectedCustomSecondDelay
+            ) <= 0.001,
             "Second attempt should follow easeOutCirc curve with custom values"
         )
 
@@ -156,35 +156,34 @@ class TimeIntervalTests: LKTestCase {
         let customEaseOutCircProgress = sqrt(1.0 - customT * customT)
         let expectedCustomMiddleDelay = customBaseDelay + customEaseOutCircProgress * (customMaxDelay - customBaseDelay)
 
-        XCTAssertEqual(
-            TimeInterval.computeReconnectDelay(
-                forAttempt: customMidAttempt,
-                baseDelay: customBaseDelay,
-                maxDelay: customMaxDelay,
-                totalAttempts: customTotalAttempts,
-                addJitter: false
-            ),
-            expectedCustomMiddleDelay,
-            accuracy: 0.001,
+        #expect(
+            abs(
+                TimeInterval.computeReconnectDelay(
+                    forAttempt: customMidAttempt,
+                    baseDelay: customBaseDelay,
+                    maxDelay: customMaxDelay,
+                    totalAttempts: customTotalAttempts,
+                    addJitter: false
+                ) - expectedCustomMiddleDelay
+            ) <= 0.001,
             "Custom middle attempt should follow easeOutCirc scale"
         )
 
         // Last attempt should be max delay
-        XCTAssertEqual(
+        #expect(
             TimeInterval.computeReconnectDelay(
                 forAttempt: customTotalAttempts - 1,
                 baseDelay: customBaseDelay,
                 maxDelay: customMaxDelay,
                 totalAttempts: customTotalAttempts,
                 addJitter: false
-            ),
-            customMaxDelay,
+            ) == customMaxDelay,
             "Last attempt should be max delay"
         )
     }
 
     /// Tests that jitter is properly applied to attempts
-    func testReconnectDelayJitter() { // swiftlint:disable:this function_body_length
+    @Test func reconnectDelayJitter() { // swiftlint:disable:this function_body_length
         // Set up test values
         let baseDelay = TimeInterval.defaultReconnectDelay
         let maxDelay = TimeInterval.defaultReconnectMaxDelay
@@ -208,13 +207,12 @@ class TimeIntervalTests: LKTestCase {
                 addJitter: true
             )
 
-            XCTAssertGreaterThan(withJitter, withoutJitter, "Attempt \(attempt) should have jitter applied")
+            #expect(withJitter > withoutJitter, "Attempt \(attempt) should have jitter applied")
 
             // Our jitter is now 30% of the calculated delay
             let maxExpectedJitter = withoutJitter * 0.3
-            XCTAssertLessThanOrEqual(
-                withJitter,
-                withoutJitter + maxExpectedJitter,
+            #expect(
+                withJitter <= withoutJitter + maxExpectedJitter,
                 "Jitter should not exceed 30% of the delay"
             )
         }
@@ -237,16 +235,16 @@ class TimeIntervalTests: LKTestCase {
         // All should be between max delay and max delay + 30% jitter
         let maxJitter = maxDelay * 0.3
         for attempt in attempts {
-            XCTAssertGreaterThanOrEqual(attempt, maxDelay, "Should be at least the max delay")
-            XCTAssertLessThanOrEqual(attempt, maxDelay + maxJitter, "Should not exceed max delay plus 30% jitter")
+            #expect(attempt >= maxDelay, "Should be at least the max delay")
+            #expect(attempt <= maxDelay + maxJitter, "Should not exceed max delay plus 30% jitter")
         }
 
         // For randomness check, we can't guarantee uniqueness in a small sample,
         // but we can check the bounds are respected
         let minValue = attempts.min() ?? 0
         let maxValue = attempts.max() ?? 0
-        XCTAssertGreaterThanOrEqual(minValue, maxDelay, "Min value should be at least max delay")
-        XCTAssertLessThanOrEqual(maxValue, maxDelay + maxJitter, "Max value should not exceed max delay plus 30% jitter")
+        #expect(minValue >= maxDelay, "Min value should be at least max delay")
+        #expect(maxValue <= maxDelay + maxJitter, "Max value should not exceed max delay plus 30% jitter")
 
         // Compare with non-jittered version
         let nonJitteredValue = TimeInterval.computeReconnectDelay(
@@ -257,11 +255,11 @@ class TimeIntervalTests: LKTestCase {
             addJitter: false
         )
 
-        XCTAssertEqual(nonJitteredValue, maxDelay, "Non-jittered value should be exactly max delay")
+        #expect(nonJitteredValue == maxDelay, "Non-jittered value should be exactly max delay")
     }
 
     /// Tests that baseDelay and maxDelay relationship works correctly with easeOutCirc scaling
-    func testMaxReconnectDelay() {
+    @Test func maxReconnectDelay() {
         // Test with custom baseDelay > maxDelay
         let largeBaseDelay: TimeInterval = 10.0
         let smallMaxDelay: TimeInterval = 5.0
@@ -281,7 +279,7 @@ class TimeIntervalTests: LKTestCase {
             addJitter: false
         )
 
-        XCTAssertEqual(delay0, expectedFirstDelay, accuracy: 0.001, "First attempt should follow easeOutCirc curve")
+        #expect(abs(delay0 - expectedFirstDelay) <= 0.001, "First attempt should follow easeOutCirc curve")
 
         // For attempt 1, should follow easeOutCirc curve
         let secondNormalizedIndex = Double(1) / Double(totalAttempts - 1)
@@ -297,7 +295,7 @@ class TimeIntervalTests: LKTestCase {
             addJitter: false
         )
 
-        XCTAssertEqual(delay1, expectedSecondDelay, accuracy: 0.001, "Second attempt should follow easeOutCirc curve")
+        #expect(abs(delay1 - expectedSecondDelay) <= 0.001, "Second attempt should follow easeOutCirc curve")
 
         // For the last attempt, should be maxDelay
         let delay4 = TimeInterval.computeReconnectDelay(
@@ -308,7 +306,7 @@ class TimeIntervalTests: LKTestCase {
             addJitter: false
         )
 
-        XCTAssertEqual(delay4, smallMaxDelay, "Last attempt should be maxDelay")
+        #expect(delay4 == smallMaxDelay, "Last attempt should be maxDelay")
 
         // For a middle attempt (2), the easeOutCirc formula applies even when scaling down
         let midAttempt = 2
@@ -325,6 +323,6 @@ class TimeIntervalTests: LKTestCase {
             addJitter: false
         )
 
-        XCTAssertEqual(delay2, expectedMiddleDelay, accuracy: 0.001, "Middle attempt should scale properly with easeOutCirc curve")
+        #expect(abs(delay2 - expectedMiddleDelay) <= 0.001, "Middle attempt should scale properly with easeOutCirc curve")
     }
 }

@@ -15,12 +15,13 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class ByteStreamInfoTests: LKTestCase {
-    func testProtocolTypeConversion() {
+struct ByteStreamInfoTests {
+    @Test func protocolTypeConversion() {
         let info = ByteStreamInfo(
             id: "id",
             topic: "topic",
@@ -32,23 +33,23 @@ class ByteStreamInfoTests: LKTestCase {
             name: "filename.bin"
         )
         let header = Livekit_DataStream.Header(info)
-        XCTAssertEqual(header.streamID, info.id)
-        XCTAssertEqual(header.mimeType, info.mimeType)
-        XCTAssertEqual(header.topic, info.topic)
-        XCTAssertEqual(header.timestamp, Int64(info.timestamp.timeIntervalSince1970 * TimeInterval(1000)))
-        XCTAssertEqual(header.totalLength, UInt64(info.totalLength ?? -1))
-        XCTAssertEqual(header.attributes, info.attributes)
-        XCTAssertEqual(header.encryptionType.rawValue, info.encryptionType.rawValue)
-        XCTAssertEqual(header.byteHeader.name, info.name)
+        #expect(header.streamID == info.id)
+        #expect(header.mimeType == info.mimeType)
+        #expect(header.topic == info.topic)
+        #expect(header.timestamp == Int64(info.timestamp.timeIntervalSince1970 * TimeInterval(1000)))
+        #expect(header.totalLength == UInt64(info.totalLength ?? -1))
+        #expect(header.attributes == info.attributes)
+        #expect(header.encryptionType.rawValue == info.encryptionType.rawValue)
+        #expect(header.byteHeader.name == info.name)
 
         let newInfo = ByteStreamInfo(header, header.byteHeader, .gcm)
-        XCTAssertEqual(newInfo.id, info.id)
-        XCTAssertEqual(newInfo.mimeType, info.mimeType)
-        XCTAssertEqual(newInfo.topic, info.topic)
-        XCTAssertEqual(newInfo.timestamp, info.timestamp)
-        XCTAssertEqual(newInfo.totalLength, info.totalLength)
-        XCTAssertEqual(newInfo.attributes, info.attributes)
-        XCTAssertEqual(newInfo.encryptionType, info.encryptionType)
-        XCTAssertEqual(newInfo.name, info.name)
+        #expect(newInfo.id == info.id)
+        #expect(newInfo.mimeType == info.mimeType)
+        #expect(newInfo.topic == info.topic)
+        #expect(newInfo.timestamp == info.timestamp)
+        #expect(newInfo.totalLength == info.totalLength)
+        #expect(newInfo.attributes == info.attributes)
+        #expect(newInfo.encryptionType == info.encryptionType)
+        #expect(newInfo.name == info.name)
     }
 }

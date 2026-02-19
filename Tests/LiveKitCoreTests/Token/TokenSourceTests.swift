@@ -15,12 +15,13 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 import LiveKitUniFFI
 
-class TokenSourceTests: LKTestCase {
+struct TokenSourceTests {
     actor MockValidJWTSource: TokenSourceConfigurable {
         let serverURL = URL(string: "wss://test.livekit.io")!
         let participantName: String
@@ -109,7 +110,7 @@ class TokenSourceTests: LKTestCase {
         }
     }
 
-    func testValidJWTCaching() async throws {
+    @Test func validJWTCaching() async throws {
         let mockSource = MockValidJWTSource(participantName: "alice")
         let cachingSource = CachingTokenSource(mockSource)
 
@@ -121,15 +122,15 @@ class TokenSourceTests: LKTestCase {
 
         let response1 = try await cachingSource.fetch(request)
         let callCount1 = await mockSource.callCount
-        XCTAssertEqual(callCount1, 1)
-        XCTAssertEqual(response1.serverURL.absoluteString, "wss://test.livekit.io")
-        XCTAssertTrue(response1.hasValidToken(), "Generated token should be valid")
+        #expect(callCount1 == 1)
+        #expect(response1.serverURL.absoluteString == "wss://test.livekit.io")
+        #expect(response1.hasValidToken(), "Generated token should be valid")
 
         let response2 = try await cachingSource.fetch(request)
         let callCount2 = await mockSource.callCount
-        XCTAssertEqual(callCount2, 1)
-        XCTAssertEqual(response2.participantToken, response1.participantToken)
-        XCTAssertEqual(response2.serverURL, response1.serverURL)
+        #expect(callCount2 == 1)
+        #expect(response2.participantToken == response1.participantToken)
+        #expect(response2.serverURL == response1.serverURL)
 
         let differentRequest = TokenRequestOptions(
             roomName: "different-room",
@@ -138,16 +139,16 @@ class TokenSourceTests: LKTestCase {
         )
         let response3 = try await cachingSource.fetch(differentRequest)
         let callCount3 = await mockSource.callCount
-        XCTAssertEqual(callCount3, 2)
-        XCTAssertNotEqual(response3.participantToken, response1.participantToken)
+        #expect(callCount3 == 2)
+        #expect(response3.participantToken != response1.participantToken)
 
         await cachingSource.invalidate()
         _ = try await cachingSource.fetch(request)
         let callCount4 = await mockSource.callCount
-        XCTAssertEqual(callCount4, 3)
+        #expect(callCount4 == 3)
     }
 
-    func testInvalidJWTHandling() async throws {
+    @Test func invalidJWTHandling() async throws {
         let mockInvalidSource = MockInvalidJWTSource()
         let cachingSource = CachingTokenSource(mockInvalidSource)
 
@@ -159,29 +160,29 @@ class TokenSourceTests: LKTestCase {
 
         let response1 = try await cachingSource.fetch(request)
         let callCount1 = await mockInvalidSource.callCount
-        XCTAssertEqual(callCount1, 1)
-        XCTAssertFalse(response1.hasValidToken(), "Invalid token should not be considered valid")
+        #expect(callCount1 == 1)
+        #expect(!response1.hasValidToken(), "Invalid token should not be considered valid")
 
         let response2 = try await cachingSource.fetch(request)
         let callCount2 = await mockInvalidSource.callCount
-        XCTAssertEqual(callCount2, 2)
-        XCTAssertEqual(response2.participantToken, response1.participantToken)
+        #expect(callCount2 == 2)
+        #expect(response2.participantToken == response1.participantToken)
 
         let mockExpiredSource = MockExpiredJWTSource()
         let cachingSourceExpired = CachingTokenSource(mockExpiredSource)
 
         let response3 = try await cachingSourceExpired.fetch(request)
         let expiredCallCount1 = await mockExpiredSource.callCount
-        XCTAssertEqual(expiredCallCount1, 1)
-        XCTAssertFalse(response3.hasValidToken(), "Expired token should not be considered valid")
+        #expect(expiredCallCount1 == 1)
+        #expect(!response3.hasValidToken(), "Expired token should not be considered valid")
 
         _ = try await cachingSourceExpired.fetch(request)
         let expiredCallCount2 = await mockExpiredSource.callCount
-        XCTAssertEqual(expiredCallCount2, 2)
+        #expect(expiredCallCount2 == 2)
     }
 
     // swiftlint:disable:next function_body_length
-    func testCustomValidator() async throws {
+    @Test func customValidator() async throws {
         let mockSource = MockValidJWTSource(participantName: "charlie")
 
         let customValidator: CachingTokenSource.Validator = { request, response in
@@ -198,13 +199,13 @@ class TokenSourceTests: LKTestCase {
 
         let response1 = try await cachingSource.fetch(charlieRequest)
         let callCount1 = await mockSource.callCount
-        XCTAssertEqual(callCount1, 1)
-        XCTAssertTrue(response1.hasValidToken())
+        #expect(callCount1 == 1)
+        #expect(response1.hasValidToken())
 
         let response2 = try await cachingSource.fetch(charlieRequest)
         let callCount2 = await mockSource.callCount
-        XCTAssertEqual(callCount2, 1)
-        XCTAssertEqual(response2.participantToken, response1.participantToken)
+        #expect(callCount2 == 1)
+        #expect(response2.participantToken == response1.participantToken)
 
         let aliceRequest = TokenRequestOptions(
             roomName: "test-room",
@@ -214,11 +215,11 @@ class TokenSourceTests: LKTestCase {
 
         _ = try await cachingSource.fetch(aliceRequest)
         let callCount3 = await mockSource.callCount
-        XCTAssertEqual(callCount3, 2)
+        #expect(callCount3 == 2)
 
         _ = try await cachingSource.fetch(aliceRequest)
         let callCount4 = await mockSource.callCount
-        XCTAssertEqual(callCount4, 3)
+        #expect(callCount4 == 3)
 
         let tokenMockSource = MockValidJWTSource(participantName: "dave")
         let tokenContentValidator: CachingTokenSource.Validator = { request, response in
@@ -235,11 +236,11 @@ class TokenSourceTests: LKTestCase {
 
         _ = try await tokenCachingSource.fetch(roomRequest)
         let tokenCallCount1 = await tokenMockSource.callCount
-        XCTAssertEqual(tokenCallCount1, 1)
+        #expect(tokenCallCount1 == 1)
 
         _ = try await tokenCachingSource.fetch(roomRequest)
         let tokenCallCount2 = await tokenMockSource.callCount
-        XCTAssertEqual(tokenCallCount2, 1)
+        #expect(tokenCallCount2 == 1)
 
         let differentRoomRequest = TokenRequestOptions(
             roomName: "different-room",
@@ -249,14 +250,14 @@ class TokenSourceTests: LKTestCase {
 
         _ = try await tokenCachingSource.fetch(differentRoomRequest)
         let tokenCallCount3 = await tokenMockSource.callCount
-        XCTAssertEqual(tokenCallCount3, 2)
+        #expect(tokenCallCount3 == 2)
 
         _ = try await tokenCachingSource.fetch(differentRoomRequest)
         let tokenCallCount4 = await tokenMockSource.callCount
-        XCTAssertEqual(tokenCallCount4, 3)
+        #expect(tokenCallCount4 == 3)
     }
 
-    func testConcurrentAccess() async throws {
+    @Test func concurrentAccess() async throws {
         let mockSource = MockValidJWTSource(participantName: "concurrent-test")
         let cachingSource = CachingTokenSource(mockSource)
 
@@ -268,7 +269,7 @@ class TokenSourceTests: LKTestCase {
 
         let initialResponse = try await cachingSource.fetch(request)
         let initialCallCount = await mockSource.callCount
-        XCTAssertEqual(initialCallCount, 1)
+        #expect(initialCallCount == 1)
 
         async let fetch1 = cachingSource.fetch(request)
         async let fetch2 = cachingSource.fetch(request)
@@ -276,15 +277,15 @@ class TokenSourceTests: LKTestCase {
 
         let responses = try await [fetch1, fetch2, fetch3]
 
-        XCTAssertEqual(responses[0].participantToken, initialResponse.participantToken)
-        XCTAssertEqual(responses[1].participantToken, initialResponse.participantToken)
-        XCTAssertEqual(responses[2].participantToken, initialResponse.participantToken)
+        #expect(responses[0].participantToken == initialResponse.participantToken)
+        #expect(responses[1].participantToken == initialResponse.participantToken)
+        #expect(responses[2].participantToken == initialResponse.participantToken)
 
-        XCTAssertEqual(responses[0].serverURL, initialResponse.serverURL)
-        XCTAssertEqual(responses[1].serverURL, initialResponse.serverURL)
-        XCTAssertEqual(responses[2].serverURL, initialResponse.serverURL)
+        #expect(responses[0].serverURL == initialResponse.serverURL)
+        #expect(responses[1].serverURL == initialResponse.serverURL)
+        #expect(responses[2].serverURL == initialResponse.serverURL)
 
         let finalCallCount = await mockSource.callCount
-        XCTAssertEqual(finalCallCount, 1)
+        #expect(finalCallCount == 1)
     }
 }

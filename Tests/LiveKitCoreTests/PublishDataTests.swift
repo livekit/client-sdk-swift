@@ -15,18 +15,19 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class PublishDataTests: LKTestCase {
+struct PublishDataTests {
     // Test with canSubscribe: true
-    func testPublishDataReceiverCanSubscribe() async throws {
+    @Test func publishDataReceiverCanSubscribe() async throws {
         try await _publishDataTest(receiverRoomOptions: RoomTestingOptions(canSubscribe: true))
     }
 
     // Test with canSubscribe: false
-    func testPublishDataReceiverCanNotSubscribe() async throws {
+    @Test func publishDataReceiverCanNotSubscribe() async throws {
         try await _publishDataTest(receiverRoomOptions: RoomTestingOptions(canSubscribe: false))
     }
 
@@ -35,7 +36,7 @@ class PublishDataTests: LKTestCase {
             let content: String
         }
 
-        try await withRooms([RoomTestingOptions(canPublishData: true), receiverRoomOptions]) { rooms in
+        try await TestEnvironment.withRooms([RoomTestingOptions(canPublishData: true), receiverRoomOptions]) { rooms in
             // Alias to Rooms
             let room1 = rooms[0]
             let room2 = rooms[1]

@@ -15,22 +15,22 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class FileInfoTests: LKTestCase {
-    func testReadInfo() throws {
-        try testReadInfo(mimeType: "text/plain")
-        try testReadInfo(mimeType: "application/json")
-        try testReadInfo(mimeType: "image/jpeg")
-        try testReadInfo(mimeType: "application/pdf")
+struct FileInfoTests {
+    @Test func readInfo() throws {
+        try _readInfo(mimeType: "text/plain")
+        try _readInfo(mimeType: "application/json")
+        try _readInfo(mimeType: "image/jpeg")
+        try _readInfo(mimeType: "application/pdf")
     }
 
-    private func testReadInfo(
+    private func _readInfo(
         mimeType: String,
-        file: StaticString = #filePath,
-        line: UInt = #line
+        sourceLocation: SourceLocation = #_sourceLocation
     ) throws {
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
@@ -44,23 +44,23 @@ class FileInfoTests: LKTestCase {
             size: contents.count,
             mimeType: mimeType
         )
-        XCTAssertEqual(FileInfo(for: fileURL), expectedInfo, file: file, line: line)
+        #expect(FileInfo(for: fileURL) == expectedInfo, sourceLocation: sourceLocation)
     }
 
-    func testReadInfoUnreadable() {
-        XCTAssertNil(FileInfo(for: URL(fileURLWithPath: "/some/unreadable/path")))
+    @Test func readInfoUnreadable() {
+        #expect(FileInfo(for: URL(fileURLWithPath: "/some/unreadable/path")) == nil)
     }
 
-    func testPreferredExtensionCommon() {
-        XCTAssertEqual(FileInfo.preferredExtension(for: "text/plain"), "txt")
-        XCTAssertEqual(FileInfo.preferredExtension(for: "application/octet-stream"), "bin")
-        XCTAssertEqual(FileInfo.preferredExtension(for: "application/json"), "json")
-        XCTAssertEqual(FileInfo.preferredExtension(for: "image/jpeg"), "jpeg")
-        XCTAssertEqual(FileInfo.preferredExtension(for: "application/pdf"), "pdf")
+    @Test func preferredExtensionCommon() {
+        #expect(FileInfo.preferredExtension(for: "text/plain") == "txt")
+        #expect(FileInfo.preferredExtension(for: "application/octet-stream") == "bin")
+        #expect(FileInfo.preferredExtension(for: "application/json") == "json")
+        #expect(FileInfo.preferredExtension(for: "image/jpeg") == "jpeg")
+        #expect(FileInfo.preferredExtension(for: "application/pdf") == "pdf")
     }
 
-    func testPreferredExtensionInvalid() {
-        XCTAssertNil(FileInfo.preferredExtension(for: "text/invalid"))
-        XCTAssertNil(FileInfo.preferredExtension(for: ""))
+    @Test func preferredExtensionInvalid() {
+        #expect(FileInfo.preferredExtension(for: "text/invalid") == nil)
+        #expect(FileInfo.preferredExtension(for: "") == nil)
     }
 }

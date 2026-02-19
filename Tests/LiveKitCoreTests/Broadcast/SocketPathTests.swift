@@ -17,20 +17,21 @@
 #if os(iOS)
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-final class SocketPathTests: LKTestCase {
-    func testValid() throws {
+struct SocketPathTests {
+    @Test func valid() throws {
         let path = "/tmp/a.sock"
-        let socketPath = try XCTUnwrap(SocketPath(path))
-        XCTAssertEqual(socketPath.path, path)
+        let socketPath = try #require(SocketPath(path))
+        #expect(socketPath.path == path)
     }
 
-    func testInvalid() {
+    @Test func invalid() {
         let longPath = String(repeating: "a", count: 104)
-        XCTAssertNil(SocketPath(longPath))
+        #expect(SocketPath(longPath) == nil)
     }
 }
 

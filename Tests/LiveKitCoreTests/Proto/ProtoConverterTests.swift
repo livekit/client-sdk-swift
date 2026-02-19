@@ -15,12 +15,13 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class ProtoConverterTests: LKTestCase {
-    func testParticipantPermissions() {
+struct ProtoConverterTests {
+    @Test func participantPermissions() {
         let errors = Comparator.compareStructures(
             proto: Livekit_ParticipantPermission(),
             sdk: ParticipantPermissions(),
@@ -28,7 +29,7 @@ class ProtoConverterTests: LKTestCase {
             allowedTypeMismatches: ["canPublishSources"] // Array vs Set
         )
 
-        XCTAssert(errors.isEmpty, errors.description)
+        #expect(errors.isEmpty, Comment(rawValue: errors.description))
     }
 }
 
