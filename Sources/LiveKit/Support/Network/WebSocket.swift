@@ -105,13 +105,19 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
             } catch {
                 lastError = error
                 let isRetryable = attempt < maxRetries && error.isNetworkConnectionLost
-                guard isRetryable else { throw error }
+                guard isRetryable else {
+                    if attempt > 0 {
+                        log("WebSocket connect failed after \(attempt + 1) attempts: \(error)", .warning)
+                    }
+                    throw error
+                }
                 let delay = TimeInterval.computeReconnectDelay(
                     forAttempt: attempt,
                     baseDelay: .defaultWebSocketRetryBaseDelay,
                     maxDelay: .defaultWebSocketRetryMaxDelay,
                     totalAttempts: maxRetries
                 )
+                log("WebSocket connect attempt \(attempt + 1) failed with -1005, retrying in \(String(format: "%.0fms", delay * 1000))...", .warning)
                 try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             }
         }
