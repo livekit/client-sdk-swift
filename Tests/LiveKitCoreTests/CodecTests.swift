@@ -22,42 +22,25 @@ import LiveKitTestSupport
 #endif
 
 struct CodecTests {
-    @Test func parseCodec() {
-        // Video codecs
-        let vp8 = VideoCodec.from(mimeType: "video/vp8")
-        #expect(vp8 == .vp8)
-
-        let vp9 = VideoCodec.from(mimeType: "video/vp9")
-        #expect(vp9 == .vp9)
-
-        let h264 = VideoCodec.from(mimeType: "video/h264")
-        #expect(h264 == .h264)
-
-        let h265 = VideoCodec.from(mimeType: "video/h265")
-        #expect(h265 == .h265)
-
-        let av1 = VideoCodec.from(mimeType: "video/av1")
-        #expect(av1 == .av1)
+    // VideoCodec is a class (not Sendable), so use mimeType strings for parameterization.
+    @Test(arguments: [
+        ("video/vp8", "vp8"),
+        ("video/vp9", "vp9"),
+        ("video/h264", "h264"),
+        ("video/h265", "h265"),
+        ("video/av1", "av1"),
+    ])
+    func parseCodec(mimeType: String, expectedName: String) {
+        let codec = VideoCodec.from(mimeType: mimeType)
+        #expect(codec?.name == expectedName)
     }
 
-    @Test func supportedCodecs() {
-        let encoderCodecs = RTC.decoderFactory.supportedCodecs()
-        print("encoderCodecs: \(encoderCodecs.map { "\($0.name) - \($0.parameters)" }.joined(separator: ", "))")
+    @Test(arguments: ["VP8", "VP9", "AV1", "H264", "H265"])
+    func supportedCodec(name: String) {
+        let encoderCodecs = RTC.encoderFactory.supportedCodecs()
         let decoderCodecs = RTC.decoderFactory.supportedCodecs()
-        print("decoderCodecs: \(decoderCodecs.map { "\($0.name) - \($0.parameters)" }.joined(separator: ", "))")
 
-        // Check encoder codecs
-        #expect(encoderCodecs.contains(where: { $0.name == "VP8" }))
-        #expect(encoderCodecs.contains(where: { $0.name == "VP9" }))
-        #expect(encoderCodecs.contains(where: { $0.name == "AV1" }))
-        #expect(encoderCodecs.contains(where: { $0.name == "H264" }))
-        #expect(encoderCodecs.contains(where: { $0.name == "H265" }))
-
-        // Check decoder codecs
-        #expect(decoderCodecs.contains(where: { $0.name == "VP8" }))
-        #expect(decoderCodecs.contains(where: { $0.name == "VP9" }))
-        #expect(decoderCodecs.contains(where: { $0.name == "AV1" }))
-        #expect(decoderCodecs.contains(where: { $0.name == "H264" }))
-        #expect(encoderCodecs.contains(where: { $0.name == "H265" }))
+        #expect(encoderCodecs.contains(where: { $0.name == name }), "\(name) not found in encoder codecs")
+        #expect(decoderCodecs.contains(where: { $0.name == name }), "\(name) not found in decoder codecs")
     }
 }

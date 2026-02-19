@@ -22,27 +22,19 @@ import LiveKitTestSupport
 #endif
 
 struct DataStreamTests {
-    private enum Method {
+    enum Method: CaseIterable, CustomTestStringConvertible, Sendable {
         case send, stream
+
+        var testDescription: String {
+            switch self {
+            case .send: "send"
+            case .stream: "stream"
+            }
+        }
     }
 
-    @Test func streamText() async throws {
-        try await _textDataStream(method: .stream)
-    }
-
-    @Test func sendText() async throws {
-        try await _textDataStream(method: .send)
-    }
-
-    @Test func streamBytes() async throws {
-        try await _byteDataStream(method: .stream)
-    }
-
-    @Test func sendFile() async throws {
-        try await _byteDataStream(method: .send)
-    }
-
-    private func _textDataStream(method: Method) async throws {
+    @Test(arguments: Method.allCases)
+    func textDataStream(via method: Method) async throws {
         let topic = "some-topic"
         let testChunk = "Hello world!"
 
@@ -80,7 +72,8 @@ struct DataStreamTests {
         }
     }
 
-    private func _byteDataStream(method: Method) async throws {
+    @Test(arguments: Method.allCases)
+    func byteDataStream(via method: Method) async throws {
         let topic = "some-topic"
         let testChunk = Data(repeating: 0xFF, count: 256)
 

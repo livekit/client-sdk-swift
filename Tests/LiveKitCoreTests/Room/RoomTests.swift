@@ -46,90 +46,16 @@ import LiveKitTestSupport
     }
 
     @Test func resourcesCleanUp() async throws {
-        // Capture weak references to all room sub-objects
-        weak var weakSignalClient: SignalClient?
-        weak var weakSocket: WebSocket?
-        weak var weakPublisher: Transport?
-        weak var weakSubscriber: Transport?
-        weak var weakPublisherDataChannel: DataChannelPair?
-        weak var weakSubscriberDataChannel: DataChannelPair?
-        weak var weakIncomingStreamManager: IncomingStreamManager?
-        weak var weakOutgoingStreamManager: OutgoingStreamManager?
-        weak var weakE2eeManager: E2EEManager?
-        weak var weakPreConnectBuffer: PreConnectAudioBuffer?
-        weak var weakRpcState: RpcStateManager?
-        weak var weakMetricsManager: MetricsManager?
-        weak var weakDelegates: MulticastDelegate<RoomDelegate>?
-        weak var weakActiveParticipantCompleters: CompleterMapActor<Void>?
-        weak var weakPrimaryTransportConnectedCompleter: AsyncCompleter<Void>?
-        weak var weakPublisherTransportConnectedCompleter: AsyncCompleter<Void>?
-        weak var weakLocalParticipant: LocalParticipant?
-        // Store weak refs for remote participants as an array of closures that check nil
-        var remoteParticipantChecks: [() -> Bool] = []
-        weak var weakState: StateSync<Room.State>?
-        weak var weakRoom: Room?
+        var refs = WeakRoomRefs()
 
         try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
-            let room = rooms[0]
-
-            weakSignalClient = room.signalClient
-            weakSocket = await room.signalClient._state.socket
-
-            let (publisher, subscriber) = room._state.read { ($0.publisher, $0.subscriber) }
-            weakPublisher = publisher
-            weakSubscriber = subscriber
-
-            weakPublisherDataChannel = room.publisherDataChannel
-            weakSubscriberDataChannel = room.subscriberDataChannel
-
-            weakIncomingStreamManager = room.incomingStreamManager
-            weakOutgoingStreamManager = room.outgoingStreamManager
-
-            if let e2eeManager = room.e2eeManager { weakE2eeManager = e2eeManager }
-            weakPreConnectBuffer = room.preConnectBuffer
-            weakRpcState = room.rpcState
-            weakMetricsManager = room.metricsManager
-
-            weakDelegates = room.delegates
-            weakActiveParticipantCompleters = room.activeParticipantCompleters
-            weakPrimaryTransportConnectedCompleter = room.primaryTransportConnectedCompleter
-            weakPublisherTransportConnectedCompleter = room.publisherTransportConnectedCompleter
-
-            weakLocalParticipant = room.localParticipant
-            for remoteParticipant in room.remoteParticipants.values {
-                weak var weakRP: RemoteParticipant? = remoteParticipant
-                remoteParticipantChecks.append { weakRP == nil }
-            }
-
-            weakState = room._state
-            weakRoom = room
+            await refs.capture(from: rooms[0])
         }
 
         // Allow time for deallocation after withRooms returns (rooms disconnected)
         try await Task.sleep(nanoseconds: 1_000_000_000)
 
-        #expect(weakSignalClient == nil, "Leaked object: SignalClient")
-        #expect(weakSocket == nil, "Leaked object: WebSocket")
-        #expect(weakPublisher == nil, "Leaked object: Publisher Transport")
-        #expect(weakSubscriber == nil, "Leaked object: Subscriber Transport")
-        #expect(weakPublisherDataChannel == nil, "Leaked object: Publisher DataChannel")
-        #expect(weakSubscriberDataChannel == nil, "Leaked object: Subscriber DataChannel")
-        #expect(weakIncomingStreamManager == nil, "Leaked object: IncomingStreamManager")
-        #expect(weakOutgoingStreamManager == nil, "Leaked object: OutgoingStreamManager")
-        #expect(weakE2eeManager == nil, "Leaked object: E2EEManager")
-        #expect(weakPreConnectBuffer == nil, "Leaked object: PreConnectBuffer")
-        #expect(weakRpcState == nil, "Leaked object: RpcState")
-        #expect(weakMetricsManager == nil, "Leaked object: MetricsManager")
-        #expect(weakDelegates == nil, "Leaked object: Delegates")
-        #expect(weakActiveParticipantCompleters == nil, "Leaked object: ActiveParticipantCompleters")
-        #expect(weakPrimaryTransportConnectedCompleter == nil, "Leaked object: PrimaryTransportConnectedCompleter")
-        #expect(weakPublisherTransportConnectedCompleter == nil, "Leaked object: PublisherTransportConnectedCompleter")
-        #expect(weakLocalParticipant == nil, "Leaked object: LocalParticipant")
-        for check in remoteParticipantChecks {
-            #expect(check(), "Leaked object: RemoteParticipant")
-        }
-        #expect(weakState == nil, "Leaked object: Room.State")
-        #expect(weakRoom == nil, "Leaked object: Room")
+        refs.expectAllNil()
     }
 
     @Test func sendDataPacket() async throws {
@@ -148,6 +74,85 @@ import LiveKitTestSupport
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
         }
+    }
+}
+
+private struct WeakRoomRefs: @unchecked Sendable {
+    weak var signalClient: SignalClient?
+    weak var socket: WebSocket?
+    weak var publisher: Transport?
+    weak var subscriber: Transport?
+    weak var publisherDataChannel: DataChannelPair?
+    weak var subscriberDataChannel: DataChannelPair?
+    weak var incomingStreamManager: IncomingStreamManager?
+    weak var outgoingStreamManager: OutgoingStreamManager?
+    weak var e2eeManager: E2EEManager?
+    weak var preConnectBuffer: PreConnectAudioBuffer?
+    weak var rpcState: RpcStateManager?
+    weak var metricsManager: MetricsManager?
+    weak var delegates: MulticastDelegate<RoomDelegate>?
+    weak var activeParticipantCompleters: CompleterMapActor<Void>?
+    weak var primaryTransportConnectedCompleter: AsyncCompleter<Void>?
+    weak var publisherTransportConnectedCompleter: AsyncCompleter<Void>?
+    weak var localParticipant: LocalParticipant?
+    var remoteParticipantChecks: [() -> Bool] = []
+    weak var state: StateSync<Room.State>?
+    weak var room: Room?
+
+    mutating func capture(from room: Room) async {
+        signalClient = room.signalClient
+        socket = await room.signalClient._state.socket
+
+        let transports = room._state.read { ($0.publisher, $0.subscriber) }
+        publisher = transports.0
+        subscriber = transports.1
+
+        publisherDataChannel = room.publisherDataChannel
+        subscriberDataChannel = room.subscriberDataChannel
+        incomingStreamManager = room.incomingStreamManager
+        outgoingStreamManager = room.outgoingStreamManager
+        if let mgr = room.e2eeManager { e2eeManager = mgr }
+        preConnectBuffer = room.preConnectBuffer
+        rpcState = room.rpcState
+        metricsManager = room.metricsManager
+        delegates = room.delegates
+        activeParticipantCompleters = room.activeParticipantCompleters
+        primaryTransportConnectedCompleter = room.primaryTransportConnectedCompleter
+        publisherTransportConnectedCompleter = room.publisherTransportConnectedCompleter
+        localParticipant = room.localParticipant
+
+        for remoteParticipant in room.remoteParticipants.values {
+            weak var weakRP: RemoteParticipant? = remoteParticipant
+            remoteParticipantChecks.append { weakRP == nil }
+        }
+
+        state = room._state
+        self.room = room
+    }
+
+    func expectAllNil() {
+        #expect(signalClient == nil, "Leaked object: SignalClient")
+        #expect(socket == nil, "Leaked object: WebSocket")
+        #expect(publisher == nil, "Leaked object: Publisher Transport")
+        #expect(subscriber == nil, "Leaked object: Subscriber Transport")
+        #expect(publisherDataChannel == nil, "Leaked object: Publisher DataChannel")
+        #expect(subscriberDataChannel == nil, "Leaked object: Subscriber DataChannel")
+        #expect(incomingStreamManager == nil, "Leaked object: IncomingStreamManager")
+        #expect(outgoingStreamManager == nil, "Leaked object: OutgoingStreamManager")
+        #expect(e2eeManager == nil, "Leaked object: E2EEManager")
+        #expect(preConnectBuffer == nil, "Leaked object: PreConnectBuffer")
+        #expect(rpcState == nil, "Leaked object: RpcState")
+        #expect(metricsManager == nil, "Leaked object: MetricsManager")
+        #expect(delegates == nil, "Leaked object: Delegates")
+        #expect(activeParticipantCompleters == nil, "Leaked object: ActiveParticipantCompleters")
+        #expect(primaryTransportConnectedCompleter == nil, "Leaked object: PrimaryTransportConnectedCompleter")
+        #expect(publisherTransportConnectedCompleter == nil, "Leaked object: PublisherTransportConnectedCompleter")
+        #expect(localParticipant == nil, "Leaked object: LocalParticipant")
+        for check in remoteParticipantChecks {
+            #expect(check(), "Leaked object: RemoteParticipant")
+        }
+        #expect(state == nil, "Leaked object: Room.State")
+        #expect(room == nil, "Leaked object: Room")
     }
 }
 

@@ -85,20 +85,24 @@ import Testing
         #expect(shouldRequestAfterCache, "Should require to request region settings")
     }
 
-    @Test func isCloud() throws {
-        #expect(try #require(URL(string: "wss://test.livekit.cloud")?.isCloud))
-        #expect(try #require(URL(string: "wss://test.livekit.run")?.isCloud))
-        #expect(try !#require(URL(string: "wss://self-hosted.example.com")?.isCloud))
-        #expect(try !#require(URL(string: "ws://localhost:7880")?.isCloud))
+    @Test(arguments: [
+        ("wss://test.livekit.cloud", true),
+        ("wss://test.livekit.run", true),
+        ("wss://self-hosted.example.com", false),
+        ("ws://localhost:7880", false),
+    ])
+    func isCloud(urlString: String, expected: Bool) throws {
+        let isCloud = try #require(URL(string: urlString)?.isCloud)
+        #expect(isCloud == expected)
     }
 
-    @Test func regionSettingsUrlConversion() {
-        #expect(URL(string: "wss://test.livekit.cloud")?.regionSettingsUrl().absoluteString ==
-            "https://test.livekit.cloud/settings/regions")
-        #expect(URL(string: "ws://test.livekit.cloud")?.regionSettingsUrl().absoluteString ==
-            "http://test.livekit.cloud/settings/regions")
-        #expect(URL(string: "https://test.livekit.cloud")?.regionSettingsUrl().absoluteString ==
-            "https://test.livekit.cloud/settings/regions")
+    @Test(arguments: [
+        ("wss://test.livekit.cloud", "https://test.livekit.cloud/settings/regions"),
+        ("ws://test.livekit.cloud", "http://test.livekit.cloud/settings/regions"),
+        ("https://test.livekit.cloud", "https://test.livekit.cloud/settings/regions"),
+    ])
+    func regionSettingsUrlConversion(input: String, expected: String) {
+        #expect(URL(string: input)?.regionSettingsUrl().absoluteString == expected)
     }
 
     @Test func regionManagerShouldRetryConnection() {
@@ -111,49 +115,29 @@ import Testing
         #expect(!NSError(domain: "other", code: -1).isRetryableForRegionFailover)
     }
 
-    @Test func fetchRegionSettingsClassifies4xxAsValidation() async throws {
+    @Test(arguments: [
+        (401, LiveKitErrorType.validation),
+        (500, LiveKitErrorType.regionManager),
+    ])
+    func fetchRegionSettingsClassifiesHttpErrors(statusCode: Int, expectedErrorType: LiveKitErrorType) async throws {
         let providedUrl = try #require(URL(string: "https://example.livekit.cloud"))
         let regionManager = RegionManager(providedUrl: providedUrl)
 
         try MockURLProtocol.setAllowedHosts([#require(providedUrl.host)])
         MockURLProtocol.setAllowedPaths(["/settings/regions"])
         MockURLProtocol.setRequestHandler { (_: URLRequest) in
-            MockURLProtocol.Response(statusCode: 401,
+            MockURLProtocol.Response(statusCode: statusCode,
                                      headers: [:],
-                                     body: Data("not allowed".utf8))
+                                     body: Data("error".utf8))
         }
         URLProtocol.registerClass(MockURLProtocol.self)
         defer { cleanUpMockURLProtocol() }
 
         do {
             _ = try await regionManager.resolveBest(token: "token")
-            Issue.record("Expected error")
+            Issue.record("Expected error for status \(statusCode)")
         } catch let error as LiveKitError {
-            #expect(error.type == .validation)
-        } catch {
-            Issue.record("Expected LiveKitError, got \(error)")
-        }
-    }
-
-    @Test func fetchRegionSettingsClassifies5xxAsRegionManagerError() async throws {
-        let providedUrl = try #require(URL(string: "https://example.livekit.cloud"))
-        let regionManager = RegionManager(providedUrl: providedUrl)
-
-        try MockURLProtocol.setAllowedHosts([#require(providedUrl.host)])
-        MockURLProtocol.setAllowedPaths(["/settings/regions"])
-        MockURLProtocol.setRequestHandler { (_: URLRequest) in
-            MockURLProtocol.Response(statusCode: 500,
-                                     headers: [:],
-                                     body: Data("server error".utf8))
-        }
-        URLProtocol.registerClass(MockURLProtocol.self)
-        defer { cleanUpMockURLProtocol() }
-
-        do {
-            _ = try await regionManager.resolveBest(token: "token")
-            Issue.record("Expected error")
-        } catch let error as LiveKitError {
-            #expect(error.type == .regionManager)
+            #expect(error.type == expectedErrorType)
         } catch {
             Issue.record("Expected LiveKitError, got \(error)")
         }

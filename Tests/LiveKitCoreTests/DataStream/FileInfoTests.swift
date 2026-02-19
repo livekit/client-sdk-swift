@@ -22,17 +22,8 @@ import LiveKitTestSupport
 #endif
 
 struct FileInfoTests {
-    @Test func readInfo() throws {
-        try _readInfo(mimeType: "text/plain")
-        try _readInfo(mimeType: "application/json")
-        try _readInfo(mimeType: "image/jpeg")
-        try _readInfo(mimeType: "application/pdf")
-    }
-
-    private func _readInfo(
-        mimeType: String,
-        sourceLocation: SourceLocation = #_sourceLocation
-    ) throws {
+    @Test(arguments: ["text/plain", "application/json", "image/jpeg", "application/pdf"])
+    func readInfo(mimeType: String) throws {
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension(FileInfo.preferredExtension(for: mimeType) ?? "")
@@ -45,23 +36,26 @@ struct FileInfoTests {
             size: contents.count,
             mimeType: mimeType
         )
-        #expect(FileInfo(for: fileURL) == expectedInfo, sourceLocation: sourceLocation)
+        #expect(FileInfo(for: fileURL) == expectedInfo)
     }
 
     @Test func readInfoUnreadable() {
         #expect(FileInfo(for: URL(fileURLWithPath: "/some/unreadable/path")) == nil)
     }
 
-    @Test func preferredExtensionCommon() {
-        #expect(FileInfo.preferredExtension(for: "text/plain") == "txt")
-        #expect(FileInfo.preferredExtension(for: "application/octet-stream") == "bin")
-        #expect(FileInfo.preferredExtension(for: "application/json") == "json")
-        #expect(FileInfo.preferredExtension(for: "image/jpeg") == "jpeg")
-        #expect(FileInfo.preferredExtension(for: "application/pdf") == "pdf")
+    @Test(arguments: [
+        ("text/plain", "txt"),
+        ("application/octet-stream", "bin"),
+        ("application/json", "json"),
+        ("image/jpeg", "jpeg"),
+        ("application/pdf", "pdf"),
+    ])
+    func preferredExtension(mimeType: String, expected: String) {
+        #expect(FileInfo.preferredExtension(for: mimeType) == expected)
     }
 
-    @Test func preferredExtensionInvalid() {
-        #expect(FileInfo.preferredExtension(for: "text/invalid") == nil)
-        #expect(FileInfo.preferredExtension(for: "") == nil)
+    @Test(arguments: ["text/invalid", ""])
+    func preferredExtensionInvalid(mimeType: String) {
+        #expect(FileInfo.preferredExtension(for: mimeType) == nil)
     }
 }
