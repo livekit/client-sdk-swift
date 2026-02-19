@@ -16,14 +16,15 @@
 
 import AVFAudio
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class AudioConverterTests: LKTestCase {
-    func testConvertFormat() async throws {
+struct AudioConverterTests {
+    @Test func convertFormat() async throws {
         // Sample audio
-        let audioDownloadUrl = URL(string: "https://github.com/rafaelreis-hotmart/Audio-Sample-files/raw/refs/heads/master/sample.wav")!
+        let audioDownloadUrl = try #require(URL(string: "https://github.com/rafaelreis-hotmart/Audio-Sample-files/raw/refs/heads/master/sample.wav"))
 
         print("Downloading sample audio from \(audioDownloadUrl)...")
         let (downloadedLocalUrl, _) = try await URLSession.shared.downloadBackport(from: audioDownloadUrl)
@@ -41,12 +42,12 @@ class AudioConverterTests: LKTestCase {
         print("Common Format: \(inputFormat.commonFormat)")
         print("Interleaved: \(inputFormat.isInterleaved)")
 
-        let outputFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48000, channels: 1, interleaved: false)!
+        let outputFormat = try #require(AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48000, channels: 1, interleaved: false))
 
         let readFrameCapacity: UInt32 = 960
-        let inputBuffer = AVAudioPCMBuffer(pcmFormat: inputFormat, frameCapacity: readFrameCapacity)!
+        let inputBuffer = try #require(AVAudioPCMBuffer(pcmFormat: inputFormat, frameCapacity: readFrameCapacity))
 
-        let converter = AudioConverter(from: inputFormat, to: outputFormat)!
+        let converter = try #require(AudioConverter(from: inputFormat, to: outputFormat))
 
         let tempOutputUrl = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("wav")
         var outputFile: AVAudioFile? = try AVAudioFile(forWriting: tempOutputUrl, settings: outputFormat.settings)

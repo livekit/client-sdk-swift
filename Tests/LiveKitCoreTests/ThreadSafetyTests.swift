@@ -15,11 +15,13 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class ThreadSafetyTests: LKTestCase, @unchecked Sendable {
+@Suite
+class ThreadSafetyTests: @unchecked Sendable {
     struct TestState: Equatable {
         var dictionary = [String: String]()
         var counter = 0
@@ -32,22 +34,20 @@ class ThreadSafetyTests: LKTestCase, @unchecked Sendable {
     var unsafeState = TestState()
 
     let group = DispatchGroup()
-    var concurrentQueues = [DispatchQueue]()
+    var concurrentQueues: [DispatchQueue]
 
-    override func setUpWithError() throws {
+    init() {
         concurrentQueues = Array(1 ... queueCount).map { DispatchQueue(label: "testQueue_\($0)", attributes: [.concurrent]) }
     }
 
-    override func tearDown() async throws {
-        //
+    deinit {
         concurrentQueues = []
-
         safeState.mutate { $0 = TestState() }
         unsafeState = TestState()
     }
 
     // this should never crash
-    func testSafe() async throws {
+    @Test func safe() async {
         for queue in concurrentQueues {
             for i in 1 ... blockCount {
                 // perform write
@@ -80,7 +80,7 @@ class ThreadSafetyTests: LKTestCase, @unchecked Sendable {
         print("state \(safeState)")
 
         let totalBlocks = queueCount * blockCount
-        XCTAssert(safeState.counter == totalBlocks, "counter must be \(totalBlocks)")
+        #expect(safeState.counter == totalBlocks, "counter must be \(totalBlocks)")
     }
 
     // this will crash
@@ -116,6 +116,6 @@ class ThreadSafetyTests: LKTestCase, @unchecked Sendable {
 //        print("state \(unsafeState)")
 //
 //        let totalBlocks = queueCount * blockCount
-//        XCTAssert(unsafeState.counter == totalBlocks, "counter must be \(totalBlocks)")
+//        #expect(unsafeState.counter == totalBlocks, "counter must be \(totalBlocks)")
 //    }
 }

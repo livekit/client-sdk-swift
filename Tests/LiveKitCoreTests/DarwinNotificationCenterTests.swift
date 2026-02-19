@@ -16,34 +16,36 @@
 
 import Combine
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class DarwinNotificationCenterTests: LKTestCase {
-    func testPublisher() throws {
-        let receiveFirst = XCTestExpectation(description: "Receive from 1st subscriber")
-        let receiveSecond = XCTestExpectation(description: "Receive from 2nd subscriber")
-
+struct DarwinNotificationCenterTests {
+    @Test func publisher() async {
         let name = DarwinNotification.broadcastStarted
 
-        var cancellable = Set<AnyCancellable>()
-        DarwinNotificationCenter.shared
-            .publisher(for: name)
-            .sink {
-                XCTAssertEqual($0, name)
-                receiveFirst.fulfill()
-            }
-            .store(in: &cancellable)
-        DarwinNotificationCenter.shared
-            .publisher(for: name)
-            .sink {
-                XCTAssertEqual($0, name)
-                receiveSecond.fulfill()
-            }
-            .store(in: &cancellable)
+        await confirmation("Receive from both subscribers", expectedCount: 2) { confirm in
+            var cancellable = Set<AnyCancellable>()
+            DarwinNotificationCenter.shared
+                .publisher(for: name)
+                .sink {
+                    #expect($0 == name)
+                    confirm()
+                }
+                .store(in: &cancellable)
+            DarwinNotificationCenter.shared
+                .publisher(for: name)
+                .sink {
+                    #expect($0 == name)
+                    confirm()
+                }
+                .store(in: &cancellable)
 
-        DarwinNotificationCenter.shared.postNotification(name)
-        wait(for: [receiveFirst, receiveSecond], timeout: 10.0)
+            DarwinNotificationCenter.shared.postNotification(name)
+
+            // Allow time for delivery
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
     }
 }

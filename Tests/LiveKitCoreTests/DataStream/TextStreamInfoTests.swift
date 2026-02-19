@@ -15,12 +15,13 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class TextStreamInfoTests: LKTestCase {
-    func testProtocolTypeConversion() {
+struct TextStreamInfoTests {
+    @Test func protocolTypeConversion() {
         let info = TextStreamInfo(
             id: "id",
             topic: "topic",
@@ -35,29 +36,29 @@ class TextStreamInfoTests: LKTestCase {
             generated: true
         )
         let header = Livekit_DataStream.Header(info)
-        XCTAssertEqual(header.streamID, info.id)
-        XCTAssertEqual(header.topic, info.topic)
-        XCTAssertEqual(header.timestamp, Int64(info.timestamp.timeIntervalSince1970 * TimeInterval(1000)))
-        XCTAssertEqual(header.totalLength, UInt64(info.totalLength ?? -1))
-        XCTAssertEqual(header.attributes, info.attributes)
-        XCTAssertEqual(header.encryptionType.rawValue, info.encryptionType.rawValue)
-        XCTAssertEqual(header.textHeader.operationType.rawValue, info.operationType.rawValue)
-        XCTAssertEqual(header.textHeader.version, Int32(info.version))
-        XCTAssertEqual(header.textHeader.replyToStreamID, info.replyToStreamID)
-        XCTAssertEqual(header.textHeader.attachedStreamIds, info.attachedStreamIDs)
-        XCTAssertEqual(header.textHeader.generated, info.generated)
+        #expect(header.streamID == info.id)
+        #expect(header.topic == info.topic)
+        #expect(header.timestamp == Int64(info.timestamp.timeIntervalSince1970 * TimeInterval(1000)))
+        #expect(header.totalLength == UInt64(info.totalLength ?? -1))
+        #expect(header.attributes == info.attributes)
+        #expect(header.encryptionType.rawValue == info.encryptionType.rawValue)
+        #expect(header.textHeader.operationType.rawValue == info.operationType.rawValue)
+        #expect(header.textHeader.version == Int32(info.version))
+        #expect(header.textHeader.replyToStreamID == info.replyToStreamID)
+        #expect(header.textHeader.attachedStreamIds == info.attachedStreamIDs)
+        #expect(header.textHeader.generated == info.generated)
 
         let newInfo = TextStreamInfo(header, header.textHeader, .gcm)
-        XCTAssertEqual(newInfo.id, info.id)
-        XCTAssertEqual(newInfo.topic, info.topic)
-        XCTAssertEqual(newInfo.timestamp, info.timestamp)
-        XCTAssertEqual(newInfo.totalLength, info.totalLength)
-        XCTAssertEqual(newInfo.attributes, info.attributes)
-        XCTAssertEqual(newInfo.encryptionType, info.encryptionType)
-        XCTAssertEqual(newInfo.operationType, info.operationType)
-        XCTAssertEqual(newInfo.version, info.version)
-        XCTAssertEqual(newInfo.replyToStreamID, info.replyToStreamID)
-        XCTAssertEqual(newInfo.attachedStreamIDs, info.attachedStreamIDs)
-        XCTAssertEqual(newInfo.generated, info.generated)
+        #expect(newInfo.id == info.id)
+        #expect(newInfo.topic == info.topic)
+        #expect(newInfo.timestamp == info.timestamp)
+        #expect(newInfo.totalLength == info.totalLength)
+        #expect(newInfo.attributes == info.attributes)
+        #expect(newInfo.encryptionType == info.encryptionType)
+        #expect(newInfo.operationType == info.operationType)
+        #expect(newInfo.version == info.version)
+        #expect(newInfo.replyToStreamID == info.replyToStreamID)
+        #expect(newInfo.attachedStreamIDs == info.attachedStreamIDs)
+        #expect(newInfo.generated == info.generated)
     }
 }

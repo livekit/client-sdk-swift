@@ -15,44 +15,45 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class FunctionTests: LKTestCase {
-    func testRangeMerge() async throws {
+struct FunctionTests {
+    @Test func rangeMerge() {
         let range1 = 10 ... 20
         let range2 = 5 ... 15
 
         let merged = merge(range: range1, with: range2)
         print("merged: \(merged)")
-        XCTAssert(merged == 5 ... 20)
+        #expect(merged == 5 ... 20)
     }
 
-    func testAttributesUpdated() {
+    @Test func attributesUpdated() {
         let oldValues: [String: String] = ["a": "value", "b": "initial", "c": "value"]
         let newValues: [String: String] = ["a": "value", "b": "updated", "c": "value"]
 
         let diff = computeAttributesDiff(oldValues: oldValues, newValues: newValues)
-        XCTAssertEqual(diff.count, 1)
-        XCTAssertEqual(diff["b"], "updated")
+        #expect(diff.count == 1)
+        #expect(diff["b"] == "updated")
     }
 
-    func testAttributesNew() {
+    @Test func attributesNew() {
         let newValues: [String: String] = ["a": "value", "b": "value", "c": "value"]
         let oldValues: [String: String] = ["a": "value", "b": "value"]
 
         let diff = computeAttributesDiff(oldValues: oldValues, newValues: newValues)
-        XCTAssertEqual(diff.count, 1)
-        XCTAssertEqual(diff["c"], "value")
+        #expect(diff.count == 1)
+        #expect(diff["c"] == "value")
     }
 
-    func testAttributesRemoved() {
+    @Test func attributesRemoved() {
         let newValues: [String: String] = ["a": "value", "b": "value"]
         let oldValues: [String: String] = ["a": "value", "b": "value", "c": "value"]
 
         let diff = computeAttributesDiff(oldValues: oldValues, newValues: newValues)
-        XCTAssertEqual(diff.count, 1)
-        XCTAssertEqual(diff["c"], "")
+        #expect(diff.count == 1)
+        #expect(diff["c"] == "")
     }
 }

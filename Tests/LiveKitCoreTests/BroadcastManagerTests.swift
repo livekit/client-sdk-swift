@@ -18,68 +18,61 @@
 
 import Combine
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class BroadcastManagerTests: LKTestCase, @unchecked Sendable {
-    private var manager: BroadcastManager!
+@Suite
+class BroadcastManagerTests: @unchecked Sendable {
+    private var manager: BroadcastManager
 
-    override func setUp() {
-        super.setUp()
+    init() {
         manager = BroadcastManager()
     }
 
-    func testInitialState() {
-        XCTAssertFalse(manager.isBroadcasting)
-        XCTAssertTrue(manager.shouldPublishTrack)
-        XCTAssertNil(manager.delegate)
+    @Test func initialState() {
+        #expect(!manager.isBroadcasting)
+        #expect(manager.shouldPublishTrack)
+        #expect(manager.delegate == nil)
     }
 
-    func testSetDelegate() {
+    @Test func setDelegate() {
         let delegate = MockDelegate()
         manager.delegate = delegate
-        XCTAssertTrue(manager.delegate === delegate)
+        #expect(manager.delegate === delegate)
     }
 
-    func testSetShouldPublishTrack() {
+    @Test func setShouldPublishTrack() {
         manager.shouldPublishTrack = false
-        XCTAssertFalse(manager.shouldPublishTrack)
+        #expect(!manager.shouldPublishTrack)
     }
 
-    func testBroadcastStarted() async throws {
-        let delegateMethodCalled = expectation(description: "Delegate state change method called")
-        let publisherPublished = expectation(description: "Publisher published new state")
-        let propertyReflectsState = expectation(description: "Property reflects state change")
+    @Test func broadcastStarted() async {
+        await confirmation("All events", expectedCount: 3) { confirm in
+            let delegate = MockDelegate()
+            manager.delegate = delegate
 
-        let delegate = MockDelegate()
-        manager.delegate = delegate
+            delegate.didChangeStateCalled = {
+                #expect($0)
+                confirm()
+            }
 
-        delegate.didChangeStateCalled = {
-            XCTAssertTrue($0)
-            delegateMethodCalled.fulfill()
+            var cancellable = Set<AnyCancellable>()
+            manager.isBroadcastingPublisher.sink {
+                guard $0 else { return } // first call is initial value of false
+                confirm()
+            }
+            .store(in: &cancellable)
+
+            // Simulate broadcast start
+            DarwinNotificationCenter.shared.postNotification(.broadcastStarted)
+
+            // Wait for delivery
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            #expect(manager.isBroadcasting)
+            confirm()
         }
-
-        var cancellable = Set<AnyCancellable>()
-        manager.isBroadcastingPublisher.sink {
-            guard $0 else { return } // first call is initial value of false
-            publisherPublished.fulfill()
-        }
-        .store(in: &cancellable)
-
-        // Simulate broadcast start
-        DarwinNotificationCenter.shared.postNotification(.broadcastStarted)
-
-        Task {
-            try await Task.sleep(nanoseconds: 500_000_000) // wait for delivery
-            XCTAssertTrue(manager.isBroadcasting)
-            propertyReflectsState.fulfill()
-        }
-
-        await fulfillment(
-            of: [propertyReflectsState, delegateMethodCalled, publisherPublished],
-            timeout: 1.0
-        )
     }
 
     private class MockDelegate: BroadcastManagerDelegate, @unchecked Sendable {

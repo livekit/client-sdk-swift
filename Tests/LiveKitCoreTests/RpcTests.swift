@@ -15,17 +15,16 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class RpcTests: LKTestCase {
+struct RpcTests {
     // Test performing RPC calls and verifying outgoing packets
-    func testPerformRpc() async throws {
-        try await withRooms([RoomTestingOptions()]) { rooms in
+    @Test func performRpc() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
             let room = rooms[0]
-
-            let expectRequest = self.expectation(description: "Should send RPC request packet")
 
             let mockDataChannel = MockDataChannelPair { packet in
                 guard case let .rpcRequest(request) = packet.value else {
@@ -51,7 +50,6 @@ class RpcTests: LKTestCase {
                         error: nil
                     )
                 }
-                expectRequest.fulfill()
             }
 
             room.publisherDataChannel = mockDataChannel
@@ -62,150 +60,149 @@ class RpcTests: LKTestCase {
                 payload: "test-payload"
             )
 
-            XCTAssertEqual(response, "response-payload")
-            await self.fulfillment(of: [expectRequest], timeout: 5.0)
+            #expect(response == "response-payload")
         }
     }
 
     // Test registering and handling incoming RPC requests
-    func testHandleIncomingRpcRequest() async throws {
-        try await withRooms([RoomTestingOptions()]) { rooms in
+    @Test func handleIncomingRpcRequest() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
             let room = rooms[0]
 
-            let expectResponse = self.expectation(description: "Should send RPC response packet")
+            try await confirmation("Should send RPC response packet") { confirm in
+                let mockDataChannel = MockDataChannelPair { packet in
+                    guard case let .rpcResponse(response) = packet.value else {
+                        return
+                    }
 
-            let mockDataChannel = MockDataChannelPair { packet in
-                guard case let .rpcResponse(response) = packet.value else {
-                    return
+                    guard case let .payload(payload) = response.value else {
+                        return
+                    }
+
+                    guard response.requestID == "test-request-1",
+                          payload == "Hello, test-caller!"
+                    else {
+                        return
+                    }
+
+                    confirm()
                 }
 
-                guard case let .payload(payload) = response.value else {
-                    return
+                room.publisherDataChannel = mockDataChannel
+
+                try await room.registerRpcMethod("greet") { data in
+                    "Hello, \(data.callerIdentity)!"
                 }
 
-                guard response.requestID == "test-request-1",
-                      payload == "Hello, test-caller!"
-                else {
-                    return
+                let isRegistered = await room.isRpcMethodRegistered("greet")
+                #expect(isRegistered)
+
+                do {
+                    try await room.registerRpcMethod("greet") { _ in "" }
+                    Issue.record("Duplicate RPC method registration should fail.")
+                } catch {
+                    #expect(error is LiveKitError)
                 }
 
-                expectResponse.fulfill()
+                await room.localParticipant.handleIncomingRpcRequest(
+                    callerIdentity: Participant.Identity(from: "test-caller"),
+                    requestId: "test-request-1",
+                    method: "greet",
+                    payload: "Hi there!",
+                    responseTimeout: 8,
+                    version: 1
+                )
+
+                try? await Task.sleep(for: .seconds(5))
             }
-
-            room.publisherDataChannel = mockDataChannel
-
-            try await room.registerRpcMethod("greet") { data in
-                "Hello, \(data.callerIdentity)!"
-            }
-
-            let isRegistered = await room.isRpcMethodRegistered("greet")
-            XCTAssertTrue(isRegistered)
-
-            do {
-                try await room.registerRpcMethod("greet") { _ in "" }
-                XCTFail("Duplicate RPC method registration should fail.")
-            } catch {
-                XCTAssertNotNil(error as? LiveKitError)
-            }
-
-            await room.localParticipant.handleIncomingRpcRequest(
-                callerIdentity: Participant.Identity(from: "test-caller"),
-                requestId: "test-request-1",
-                method: "greet",
-                payload: "Hi there!",
-                responseTimeout: 8,
-                version: 1
-            )
-
-            await self.fulfillment(of: [expectResponse], timeout: 5.0)
         }
     }
 
     // Test error handling for RPC calls
-    func testRpcErrorHandling() async throws {
-        try await withRooms([RoomTestingOptions()]) { rooms in
+    @Test func rpcErrorHandling() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
             let room = rooms[0]
 
-            let expectError = self.expectation(description: "Should send error response packet")
+            try await confirmation("Should send error response packet") { confirm in
+                let mockDataChannel = MockDataChannelPair { packet in
+                    guard case let .rpcResponse(response) = packet.value,
+                          case let .error(error) = response.value
+                    else {
+                        return
+                    }
 
-            let mockDataChannel = MockDataChannelPair { packet in
-                guard case let .rpcResponse(response) = packet.value,
-                      case let .error(error) = response.value
-                else {
-                    return
+                    guard error.code == 2000,
+                          error.message == "Custom error",
+                          error.data == "Additional data"
+                    else {
+                        return
+                    }
+
+                    confirm()
                 }
 
-                guard error.code == 2000,
-                      error.message == "Custom error",
-                      error.data == "Additional data"
-                else {
-                    return
+                room.publisherDataChannel = mockDataChannel
+
+                try await room.registerRpcMethod("failingMethod") { _ in
+                    throw RpcError(code: 2000, message: "Custom error", data: "Additional data")
                 }
 
-                expectError.fulfill()
+                await room.localParticipant.handleIncomingRpcRequest(
+                    callerIdentity: Participant.Identity(from: "test-caller"),
+                    requestId: "test-request-1",
+                    method: "failingMethod",
+                    payload: "test",
+                    responseTimeout: 8,
+                    version: 1
+                )
+
+                try? await Task.sleep(for: .seconds(5))
             }
-
-            room.publisherDataChannel = mockDataChannel
-
-            try await room.registerRpcMethod("failingMethod") { _ in
-                throw RpcError(code: 2000, message: "Custom error", data: "Additional data")
-            }
-
-            await room.localParticipant.handleIncomingRpcRequest(
-                callerIdentity: Participant.Identity(from: "test-caller"),
-                requestId: "test-request-1",
-                method: "failingMethod",
-                payload: "test",
-                responseTimeout: 8,
-                version: 1
-            )
-
-            await self.fulfillment(of: [expectError], timeout: 5.0)
         }
     }
 
     // Test unregistering RPC methods
-    func testUnregisterRpcMethod() async throws {
-        try await withRooms([RoomTestingOptions()]) { rooms in
+    @Test func unregisterRpcMethod() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
             let room = rooms[0]
 
-            let expectUnsupportedMethod = self.expectation(description: "Should send unsupported method error packet")
+            try await confirmation("Should send unsupported method error packet") { confirm in
+                let mockDataChannel = MockDataChannelPair { packet in
+                    guard case let .rpcResponse(response) = packet.value,
+                          case let .error(error) = response.value
+                    else {
+                        return
+                    }
 
-            let mockDataChannel = MockDataChannelPair { packet in
-                guard case let .rpcResponse(response) = packet.value,
-                      case let .error(error) = response.value
-                else {
-                    return
+                    guard error.code == RpcError.BuiltInError.unsupportedMethod.code else {
+                        return
+                    }
+
+                    confirm()
                 }
 
-                guard error.code == RpcError.BuiltInError.unsupportedMethod.code else {
-                    return
+                room.publisherDataChannel = mockDataChannel
+
+                try await room.registerRpcMethod("test") { _ in
+                    "test response"
                 }
 
-                expectUnsupportedMethod.fulfill()
+                await room.unregisterRpcMethod("test")
+
+                let isRegistered = await room.isRpcMethodRegistered("test")
+                #expect(!isRegistered)
+
+                await room.localParticipant.handleIncomingRpcRequest(
+                    callerIdentity: Participant.Identity(from: "test-caller"),
+                    requestId: "test-request-1",
+                    method: "test",
+                    payload: "test",
+                    responseTimeout: 10,
+                    version: 1
+                )
+
+                try? await Task.sleep(for: .seconds(5))
             }
-
-            room.publisherDataChannel = mockDataChannel
-
-            try await room.registerRpcMethod("test") { _ in
-                "test response"
-            }
-
-            await room.unregisterRpcMethod("test")
-
-            let isRegistered = await room.isRpcMethodRegistered("test")
-            XCTAssertFalse(isRegistered)
-
-            await room.localParticipant.handleIncomingRpcRequest(
-                callerIdentity: Participant.Identity(from: "test-caller"),
-                requestId: "test-request-1",
-                method: "test",
-                payload: "test",
-                responseTimeout: 10,
-                version: 1
-            )
-
-            await self.fulfillment(of: [expectUnsupportedMethod], timeout: 5.0)
         }
     }
 }

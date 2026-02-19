@@ -15,35 +15,36 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-final class StringTests: LKTestCase {
-    func testByteLength() {
+struct StringTests {
+    @Test func byteLength() {
         // ASCII characters (1 byte each)
-        XCTAssertEqual("hello".byteLength, 5)
-        XCTAssertEqual("".byteLength, 0)
+        #expect("hello".byteLength == 5)
+        #expect("".byteLength == 0)
 
         // Unicode characters (variable bytes)
-        XCTAssertEqual("👋".byteLength, 4) // Emoji (4 bytes)
-        XCTAssertEqual("ñ".byteLength, 2) // Spanish n with tilde (2 bytes)
-        XCTAssertEqual("你好".byteLength, 6) // Chinese characters (3 bytes each)
+        #expect("👋".byteLength == 4) // Emoji (4 bytes)
+        #expect("ñ".byteLength == 2) // Spanish n with tilde (2 bytes)
+        #expect("你好".byteLength == 6) // Chinese characters (3 bytes each)
     }
 
-    func testTruncate() {
+    @Test func truncate() {
         // Test ASCII strings
-        XCTAssertEqual("hello".truncate(maxBytes: 5), "hello")
-        XCTAssertEqual("hello".truncate(maxBytes: 3), "hel")
-        XCTAssertEqual("".truncate(maxBytes: 5), "")
+        #expect("hello".truncate(maxBytes: 5) == "hello")
+        #expect("hello".truncate(maxBytes: 3) == "hel")
+        #expect("".truncate(maxBytes: 5) == "")
 
         // Test Unicode strings
-        XCTAssertEqual("👋hello".truncate(maxBytes: 4), "👋") // Emoji is 4 bytes
-        XCTAssertEqual("hi👋".truncate(maxBytes: 5), "hi") // Won't cut in middle of emoji
-        XCTAssertEqual("你好world".truncate(maxBytes: 6), "你好") // Chinese characters are 3 bytes each
+        #expect("👋hello".truncate(maxBytes: 4) == "👋") // Emoji is 4 bytes
+        #expect("hi👋".truncate(maxBytes: 5) == "hi") // Won't cut in middle of emoji
+        #expect("你好world".truncate(maxBytes: 6) == "你好") // Chinese characters are 3 bytes each
 
         // Test edge cases
-        XCTAssertEqual("hello".truncate(maxBytes: 0), "")
-        XCTAssertEqual("hello".truncate(maxBytes: 100), "hello")
+        #expect("hello".truncate(maxBytes: 0) == "")
+        #expect("hello".truncate(maxBytes: 100) == "hello")
     }
 }

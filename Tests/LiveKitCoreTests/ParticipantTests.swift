@@ -15,32 +15,33 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class ParticipantTests: LKTestCase {
-    func testLocalParticipantIdentity() async throws {
-        try await withRooms([RoomTestingOptions()]) { rooms in
+struct ParticipantTests {
+    @Test func localParticipantIdentity() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
             // Alias to Room
             let room1 = rooms[0]
 
-            XCTAssert(room1.localParticipant.identity != nil, "LocalParticipant's identity is nil")
+            #expect(room1.localParticipant.identity != nil, "LocalParticipant's identity is nil")
 
             print("room1.localParticipant.identity: \(String(describing: room1.localParticipant.identity))")
         }
     }
 
-    func testRemoteParticipants() async throws {
-        try await withRooms([RoomTestingOptions(), RoomTestingOptions(), RoomTestingOptions()]) { rooms in
+    @Test func remoteParticipants() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(), RoomTestingOptions(), RoomTestingOptions()]) { rooms in
             // Alias to Room
             let room1 = rooms[0]
             let room2 = rooms[1]
             let room3 = rooms[2]
 
-            XCTAssert(room1.remoteParticipants.count == 2, "Remote participant count must be 2")
-            XCTAssert(room2.remoteParticipants.count == 2, "Remote participant count must be 2")
-            XCTAssert(room3.remoteParticipants.count == 2, "Remote participant count must be 2")
+            #expect(room1.remoteParticipants.count == 2, "Remote participant count must be 2")
+            #expect(room2.remoteParticipants.count == 2, "Remote participant count must be 2")
+            #expect(room3.remoteParticipants.count == 2, "Remote participant count must be 2")
 
             print("room1.remoteParticipants: \(String(describing: room1.remoteParticipants))")
             print("room2.remoteParticipants: \(String(describing: room2.remoteParticipants))")

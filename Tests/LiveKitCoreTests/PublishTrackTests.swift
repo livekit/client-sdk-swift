@@ -15,41 +15,42 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class PublishTrackTests: LKTestCase {
-    func testPublishWithoutPermissions() async throws {
-        try await withRooms([RoomTestingOptions(canPublish: false)]) { rooms in
+struct PublishTrackTests {
+    @Test func publishWithoutPermissions() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: false)]) { rooms in
             let room = rooms[0]
             let audioTrack = LocalAudioTrack.createTrack()
 
             do {
                 try await room.localParticipant.publish(audioTrack: audioTrack)
-                XCTFail("Publishing without permissions should throw an error")
+                Issue.record("Publishing without permissions should throw an error")
             } catch let error as LiveKitError {
-                XCTAssertEqual(error.type, .insufficientPermissions)
-                XCTAssertEqual(error.message, "Participant does not have permission to publish")
+                #expect(error.type == .insufficientPermissions)
+                #expect(error.message == "Participant does not have permission to publish")
             } catch {
-                XCTFail("Expected LiveKitError but got \(error)")
+                Issue.record("Expected LiveKitError but got \(error)")
             }
         }
     }
 
-    func testPublishWithDisallowedSource() async throws {
-        try await withRooms([RoomTestingOptions(canPublish: true, canPublishSources: [.camera])]) { rooms in
+    @Test func publishWithDisallowedSource() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true, canPublishSources: [.camera])]) { rooms in
             let room = rooms[0]
             let audioTrack = LocalAudioTrack.createTrack()
 
             do {
                 try await room.localParticipant.publish(audioTrack: audioTrack)
-                XCTFail("Publishing with disallowed source should throw an error")
+                Issue.record("Publishing with disallowed source should throw an error")
             } catch let error as LiveKitError {
-                XCTAssertEqual(error.type, .insufficientPermissions)
-                XCTAssertEqual(error.message, "Participant does not have permission to publish tracks from this source")
+                #expect(error.type == .insufficientPermissions)
+                #expect(error.message == "Participant does not have permission to publish tracks from this source")
             } catch {
-                XCTFail("Expected LiveKitError but got \(error)")
+                Issue.record("Expected LiveKitError but got \(error)")
             }
         }
     }

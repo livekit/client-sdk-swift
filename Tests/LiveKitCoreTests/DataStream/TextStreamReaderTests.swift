@@ -15,11 +15,12 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class TextStreamReaderTests: LKTestCase, @unchecked Sendable {
+final class TextStreamReaderTests: @unchecked Sendable {
     private var continuation: StreamReaderSource.Continuation!
     private var reader: TextStreamReader!
 
@@ -56,72 +57,63 @@ class TextStreamReaderTests: LKTestCase, @unchecked Sendable {
         continuation.finish(throwing: closingError)
     }
 
-    override func setUp() {
-        super.setUp()
+    init() {
         let source = StreamReaderSource {
             self.continuation = $0
         }
         reader = TextStreamReader(info: testInfo, source: source)
     }
 
-    func testChunkRead() async throws {
-        let receiveExpectation = expectation(description: "Receive all chunks")
-        let closureExpectation = expectation(description: "Normal closure")
-
-        Task {
-            var chunkIndex = 0
-            for try await chunk in reader {
-                XCTAssertEqual(chunk, testChunks[chunkIndex])
-                if chunkIndex == testChunks.count - 1 {
-                    receiveExpectation.fulfill()
+    @Test func chunkRead() async throws {
+        try await confirmation("Receive all chunks") { receiveConfirm in
+            try await confirmation("Normal closure") { closureConfirm in
+                Task {
+                    var chunkIndex = 0
+                    for try await chunk in reader {
+                        #expect(chunk == testChunks[chunkIndex])
+                        if chunkIndex == testChunks.count - 1 {
+                            receiveConfirm()
+                        }
+                        chunkIndex += 1
+                    }
+                    closureConfirm()
                 }
-                chunkIndex += 1
-            }
-            closureExpectation.fulfill()
-        }
 
-        sendPayload()
+                sendPayload()
 
-        await fulfillment(
-            of: [receiveExpectation, closureExpectation],
-            timeout: 5,
-            enforceOrder: true
-        )
-    }
-
-    func testChunkReadError() async throws {
-        let throwsExpectation = expectation(description: "Read throws error")
-        let testError = StreamError.abnormalEnd(reason: "test")
-
-        Task {
-            do {
-                for try await _ in reader {}
-            } catch {
-                XCTAssertEqual(error as? StreamError, testError)
-                throwsExpectation.fulfill()
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
         }
-        sendPayload(closingError: testError)
-
-        await fulfillment(
-            of: [throwsExpectation],
-            timeout: 5
-        )
     }
 
-    func testReadAll() async throws {
-        let readExpectation = expectation(description: "Read full payload")
+    @Test func chunkReadError() async throws {
+        try await confirmation("Read throws error") { confirm in
+            let testError = StreamError.abnormalEnd(reason: "test")
 
-        Task {
-            let fullPayload = try await reader.readAll()
-            XCTAssertEqual(fullPayload, testPayload)
-            readExpectation.fulfill()
+            Task {
+                do {
+                    for try await _ in reader {}
+                } catch {
+                    #expect(error as? StreamError == testError)
+                    confirm()
+                }
+            }
+            sendPayload(closingError: testError)
+
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
         }
-        sendPayload()
+    }
 
-        await fulfillment(
-            of: [readExpectation],
-            timeout: 5
-        )
+    @Test func readAll() async throws {
+        try await confirmation("Read full payload") { confirm in
+            Task {
+                let fullPayload = try await reader.readAll()
+                #expect(fullPayload == testPayload)
+                confirm()
+            }
+            sendPayload()
+
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+        }
     }
 }
