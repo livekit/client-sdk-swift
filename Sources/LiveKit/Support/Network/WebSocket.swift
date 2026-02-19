@@ -32,7 +32,7 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
 
     private let request: URLRequest
 
-    private let delegateQueue: OperationQueue = {
+    private lazy var delegateQueue: OperationQueue = {
         let queue = OperationQueue()
         queue.name = "LiveKitSDK.webSocket.delegate"
         queue.maxConcurrentOperationCount = 1
