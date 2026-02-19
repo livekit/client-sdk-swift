@@ -16,34 +16,35 @@
 
 @preconcurrency import AVFoundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class AudioEngineAvailabilityTests: LKTestCase {
+@Suite(.serialized) struct AudioEngineAvailabilityTests {
     // Check if audio engine will stop when availability is set to .none,
     // then resume (restart) when availability is set back to .default.
-    func testRecording() async throws {
+    @Test func recording() throws {
         // Test without enabling VP
         try AudioManager.shared.setVoiceProcessingEnabled(false)
 
         // First check
-        XCTAssertFalse(AudioManager.shared.isEngineRunning)
+        #expect(!AudioManager.shared.isEngineRunning)
 
         // Start
         try AudioManager.shared.startLocalRecording()
-        XCTAssertTrue(AudioManager.shared.isEngineRunning)
+        #expect(AudioManager.shared.isEngineRunning)
 
         // Disable both input & output
         try AudioManager.shared.setEngineAvailability(.none)
-        XCTAssertFalse(AudioManager.shared.isEngineRunning)
+        #expect(!AudioManager.shared.isEngineRunning)
 
         // Re-enable both input & output (default)
         try AudioManager.shared.setEngineAvailability(.default)
-        XCTAssertTrue(AudioManager.shared.isEngineRunning)
+        #expect(AudioManager.shared.isEngineRunning)
 
         // Stop
         try AudioManager.shared.stopLocalRecording()
-        XCTAssertFalse(AudioManager.shared.isEngineRunning)
+        #expect(!AudioManager.shared.isEngineRunning)
     }
 }

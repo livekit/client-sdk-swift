@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Foundation
 import LiveKit
 import Testing
 #if canImport(LiveKitTestSupport)

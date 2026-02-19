@@ -16,12 +16,13 @@
 
 import AVFAudio
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class LocalAudioTrackRecorderTests: LKTestCase {
-    func testRecording() async throws {
+@Suite(.serialized) struct LocalAudioTrackRecorderTests {
+    @Test func recording() async throws {
         let localTrack = LocalAudioTrack.createTrack(options: .noProcessing)
 
         let recorder = LocalAudioTrackRecorder(
@@ -32,37 +33,26 @@ class LocalAudioTrackRecorderTests: LKTestCase {
 
         let stream = try await recorder.start()
 
-        let expectation = expectation(description: "Received audio data")
-        expectation.assertForOverFulfill = false
-
-        let recordingTask = Task {
-            var dataCount = 0
-            var totalBytes = 0
-
-            for await data in stream {
-                dataCount += 1
-                totalBytes += data.count
-
-                if dataCount >= 10 {
-                    expectation.fulfill()
-                    break
+        try await confirmation("Received audio data") { confirm in
+            Task {
+                var dataCount = 0
+                for await data in stream {
+                    dataCount += 1
+                    #expect(data.count > 0, "Should have received non-empty audio data")
+                    if dataCount >= 10 {
+                        confirm()
+                        break
+                    }
                 }
             }
 
-            return (dataCount, totalBytes)
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
         }
 
-        await fulfillment(of: [expectation], timeout: 5)
-
         recorder.stop()
-
-        let (dataCount, totalBytes) = await recordingTask.value
-
-        XCTAssertGreaterThan(dataCount, 0, "Should have received audio data")
-        XCTAssertGreaterThan(totalBytes, 0, "Should have received non-empty audio data")
     }
 
-    func testRecordingWithMaxBufferSize() async throws {
+    @Test func recordingWithMaxBufferSize() async throws {
         let localTrack = LocalAudioTrack.createTrack(options: .noProcessing)
 
         let maxBufferSize = 5
@@ -75,34 +65,25 @@ class LocalAudioTrackRecorderTests: LKTestCase {
 
         let stream = try await recorder.start()
 
-        let expectation = expectation(description: "Received audio data")
-        expectation.assertForOverFulfill = false
-
-        let recordingTask = Task {
-            var dataCount = 0
-
-            for await _ in stream {
-                dataCount += 1
-
-                if dataCount >= maxBufferSize * 2 {
-                    expectation.fulfill()
-                    break
+        try await confirmation("Received audio data") { confirm in
+            Task {
+                var dataCount = 0
+                for await _ in stream {
+                    dataCount += 1
+                    if dataCount >= maxBufferSize * 2 {
+                        confirm()
+                        break
+                    }
                 }
             }
 
-            return dataCount
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
         }
 
-        await fulfillment(of: [expectation], timeout: 10)
-
         recorder.stop()
-
-        let dataCount = await recordingTask.value
-
-        XCTAssertGreaterThan(dataCount, 0, "Should have received audio data")
     }
 
-    func testMultipleRecorders() async throws {
+    @Test func multipleRecorders() async throws {
         let localTrack = LocalAudioTrack.createTrack(options: .noProcessing)
 
         let recorder1 = LocalAudioTrackRecorder(
@@ -120,52 +101,39 @@ class LocalAudioTrackRecorderTests: LKTestCase {
         let stream1 = try await recorder1.start()
         let stream2 = try await recorder2.start()
 
-        let expectation1 = expectation(description: "Received audio data from recorder1")
-        let expectation2 = expectation(description: "Received audio data from recorder2")
-        expectation1.assertForOverFulfill = false
-        expectation2.assertForOverFulfill = false
-
-        let task1 = Task {
-            var dataCount = 0
-
-            for await _ in stream1 {
-                dataCount += 1
-                if dataCount >= 10 {
-                    expectation1.fulfill()
-                    break
+        try await confirmation("Received audio data from recorder1") { confirm1 in
+            try await confirmation("Received audio data from recorder2") { confirm2 in
+                Task {
+                    var dataCount = 0
+                    for await _ in stream1 {
+                        dataCount += 1
+                        if dataCount >= 10 {
+                            confirm1()
+                            break
+                        }
+                    }
                 }
-            }
 
-            return dataCount
-        }
-
-        let task2 = Task {
-            var dataCount = 0
-
-            for await _ in stream2 {
-                dataCount += 1
-                if dataCount >= 10 {
-                    expectation2.fulfill()
-                    break
+                Task {
+                    var dataCount = 0
+                    for await _ in stream2 {
+                        dataCount += 1
+                        if dataCount >= 10 {
+                            confirm2()
+                            break
+                        }
+                    }
                 }
+
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
-
-            return dataCount
         }
-
-        await fulfillment(of: [expectation1, expectation2], timeout: 5)
 
         recorder1.stop()
         recorder2.stop()
-
-        let dataCount1 = await task1.value
-        let dataCount2 = await task2.value
-
-        XCTAssertGreaterThan(dataCount1, 0, "Should have received audio data from recorder1")
-        XCTAssertGreaterThan(dataCount2, 0, "Should have received audio data from recorder2")
     }
 
-    func testObjCCompatibility() async throws {
+    @Test func objCCompatibility() async throws {
         let localTrack = LocalAudioTrack.createTrack(options: .noProcessing)
 
         let recorder = LocalAudioTrackRecorder(
@@ -174,20 +142,20 @@ class LocalAudioTrackRecorderTests: LKTestCase {
             sampleRate: 48000
         )
 
-        let dataExpectation = expectation(description: "Received audio data")
-        let completionExpectation = expectation(description: "Completion called")
-        dataExpectation.assertForOverFulfill = false
+        try await confirmation("Received audio data") { dataConfirm in
+            try await confirmation("Completion called") { completionConfirm in
+                recorder.start(onData: { _ in
+                    dataConfirm()
+                }, onCompletion: { _ in
+                    completionConfirm()
+                })
 
-        recorder.start(onData: { _ in
-            dataExpectation.fulfill()
-        }, onCompletion: { _ in
-            completionExpectation.fulfill()
-        })
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
 
-        await fulfillment(of: [dataExpectation], timeout: 5)
+                recorder.stop()
 
-        recorder.stop()
-
-        await fulfillment(of: [completionExpectation], timeout: 5)
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+            }
+        }
     }
 }

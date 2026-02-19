@@ -17,96 +17,18 @@
 @preconcurrency import AVFoundation
 @testable import LiveKit
 
-public extension LKTestCase {
-    // Static variable to store the downloaded sample video URL
-    #if swift(>=6.0)
-    nonisolated(unsafe) static var cachedSampleVideoURL: URL?
-    #else
-    static var cachedSampleVideoURL: URL?
-    #endif
+#if swift(>=6.0)
+nonisolated(unsafe) var cachedSampleVideoURL: URL?
+#else
+var cachedSampleVideoURL: URL?
+#endif
 
-    // Creates a LocalVideoTrack with BufferCapturer, generates frames for approx 30 seconds
-    func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @Sendable @escaping (CMSampleBuffer) -> Void) async throws -> (Task<Void, any Error>) {
-        // Sample video
-        let url = URL(string: "https://storage.unxpected.co.jp/public/sample-videos/ocean-1080p.mp4")!
-        let tempLocalUrl: URL
-
-        // Check if we already have the file downloaded
-        if let cachedURL = LKTestCase.cachedSampleVideoURL, FileManager.default.fileExists(atPath: cachedURL.path) {
-            print("Using cached sample video at \(cachedURL)...")
-            tempLocalUrl = cachedURL
-        } else {
-            // Download if not available
-            print("Downloading sample video from \(url)...")
-            let (downloadedLocalUrl, _) = try await URLSession.shared.downloadBackport(from: url)
-
-            // Move the file to a new temporary location with a more descriptive name
-            tempLocalUrl = FileManager.default.temporaryDirectory.appendingPathComponent("sample-video-cached").appendingPathExtension("mp4")
-
-            // Remove existing file if present
-            if FileManager.default.fileExists(atPath: tempLocalUrl.path) {
-                try FileManager.default.removeItem(at: tempLocalUrl)
-            }
-
-            try FileManager.default.moveItem(at: downloadedLocalUrl, to: tempLocalUrl)
-
-            // Cache the URL for future use
-            LKTestCase.cachedSampleVideoURL = tempLocalUrl
-            print("Cached sample video at \(tempLocalUrl)")
-        }
-
-        print("Opening \(tempLocalUrl) with asset reader...")
-        let asset = AVAsset(url: tempLocalUrl)
-        let assetReader = try AVAssetReader(asset: asset)
-
-        let tracks = try await {
-            #if os(visionOS)
-            return try await asset.loadTracks(withMediaType: .video)
-            #else
-            if #available(iOS 15.0, macOS 12.0, *) {
-                return try await asset.loadTracks(withMediaType: .video)
-            } else {
-                return asset.tracks(withMediaType: .video)
-            }
-            #endif
-        }()
-
-        guard let track = tracks.first else {
-            XCTFail("No video track found in sample video file")
-            fatalError()
-        }
-
-        let outputSettings: [String: Any] = [
-            kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA),
-        ]
-
-        let trackOutput = AVAssetReaderTrackOutput(track: track, outputSettings: outputSettings)
-        assetReader.add(trackOutput)
-
-        // Start reading...
-        guard assetReader.startReading() else {
-            XCTFail("Could not start reading the asset.")
-            fatalError()
-        }
-
-        return Task.detached {
-            let frameDuration = UInt64(1_000_000_000 / targetFps)
-            while !Task.isCancelled, assetReader.status == .reading, let sampleBuffer = trackOutput.copyNextSampleBuffer() {
-                onCapture(sampleBuffer)
-                // Sleep for the frame duration to regulate to ~30 fps
-                try await Task.sleep(nanoseconds: frameDuration)
-            }
-        }
-    }
-}
-
-/// Standalone version of createSampleVideoTrack (framework-agnostic).
-// swiftlint:disable:next function_body_length
+// Creates a LocalVideoTrack with BufferCapturer, generates frames for approx 30 seconds.
 public func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @Sendable @escaping (CMSampleBuffer) -> Void) async throws -> Task<Void, any Error> {
     let url = URL(string: "https://storage.unxpected.co.jp/public/sample-videos/ocean-1080p.mp4")!
     let tempLocalUrl: URL
 
-    if let cachedURL = LKTestCase.cachedSampleVideoURL, FileManager.default.fileExists(atPath: cachedURL.path) {
+    if let cachedURL = cachedSampleVideoURL, FileManager.default.fileExists(atPath: cachedURL.path) {
         print("Using cached sample video at \(cachedURL)...")
         tempLocalUrl = cachedURL
     } else {
@@ -121,7 +43,7 @@ public func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @Sendable @
 
         try FileManager.default.moveItem(at: downloadedLocalUrl, to: tempLocalUrl)
 
-        LKTestCase.cachedSampleVideoURL = tempLocalUrl
+        cachedSampleVideoURL = tempLocalUrl
         print("Cached sample video at \(tempLocalUrl)")
     }
 
@@ -176,8 +98,6 @@ public class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendabl
     private struct State {
         var didRenderFirstFrame: Bool = false
         var maxRenderedArea: Int32 = 0
-        var expectationsForDimensions: [Dimensions: XCTestExpectation] = [:]
-        var expectationsForCodecs: [VideoCodec: XCTestExpectation] = [:]
         var detectedCodecs: Set<String> = []
     }
 
@@ -194,26 +114,6 @@ public class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendabl
         _state.mutate {
             $0.didRenderFirstFrame = false
             $0.detectedCodecs.removeAll()
-        }
-    }
-
-    public func expect(dimensions: Dimensions) -> XCTestExpectation {
-        let expectation = XCTestExpectation(description: "Did render dimension \(dimensions)")
-        expectation.assertForOverFulfill = false
-
-        return _state.mutate {
-            $0.expectationsForDimensions[dimensions] = expectation
-            return expectation
-        }
-    }
-
-    public func expect(codec: VideoCodec) -> XCTestExpectation {
-        let expectation = XCTestExpectation(description: "Did receive codec \(codec.name)")
-        expectation.assertForOverFulfill = false
-
-        return _state.mutate {
-            $0.expectationsForCodecs[codec] = expectation
-            return expectation
         }
     }
 
@@ -239,14 +139,10 @@ public class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendabl
             }
 
             $0.maxRenderedArea = max($0.maxRenderedArea, frame.dimensions.area)
-
-            for (key, value) in $0.expectationsForDimensions where frame.dimensions.area >= key.area {
-                value.fulfill()
-            }
         }
     }
 
-    /// Async polling wait for dimensions (framework-agnostic, no XCTest/Testing dependency).
+    /// Async polling wait for dimensions.
     public func waitForDimensions(_ dimensions: Dimensions, timeout: TimeInterval = 30) async throws {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
@@ -256,7 +152,7 @@ public class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendabl
         throw LiveKitError(.timedOut, message: "Timed out waiting for dimensions \(dimensions)")
     }
 
-    /// Async polling wait for codec (framework-agnostic, no XCTest/Testing dependency).
+    /// Async polling wait for codec.
     public func waitForCodec(_ codec: VideoCodec, timeout: TimeInterval = 60) async throws {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
@@ -281,13 +177,7 @@ public class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendabl
             // Extract codec id from mimeType (e.g., "video/vp8" -> "vp8")
             if let codecName = mimeType.split(separator: "/").last?.lowercased() {
                 _state.mutate {
-                    // Add to detected codecs
                     $0.detectedCodecs.insert(codecName)
-
-                    // Check if any codec expectations match
-                    for (expectedCodec, expectation) in $0.expectationsForCodecs where expectedCodec.name.lowercased() == codecName {
-                        expectation.fulfill()
-                    }
                 }
             }
         }

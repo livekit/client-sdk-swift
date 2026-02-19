@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
 import Testing
 #if canImport(LiveKitTestSupport)
@@ -105,7 +106,7 @@ import LiveKitTestSupport
         }
 
         // Allow time for deallocation after withRooms returns (rooms disconnected)
-        try await Task.sleep(for: .seconds(1))
+        try await Task.sleep(nanoseconds: 1_000_000_000)
 
         #expect(weakSignalClient == nil, "Leaked object: SignalClient")
         #expect(weakSocket == nil, "Leaked object: WebSocket")
@@ -144,7 +145,7 @@ import LiveKitTestSupport
 
                 try await room.send(dataPacket: Livekit_DataPacket())
 
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
         }
     }

@@ -19,11 +19,12 @@ import AVFoundation
 import Foundation
 @testable import LiveKit
 import LiveKitWebRTC
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class AudioProcessingTests: LKTestCase, AudioCustomProcessingDelegate, @unchecked Sendable {
+@Suite(.serialized) final class AudioProcessingTests: AudioCustomProcessingDelegate, @unchecked Sendable {
     var _initSampleRate: Double = 0.0
     var _initChannels: Int = 0
 
@@ -36,22 +37,22 @@ class AudioProcessingTests: LKTestCase, AudioCustomProcessingDelegate, @unchecke
 
     func audioProcessingProcess(audioBuffer: LiveKit.LKAudioBuffer) {
         guard let pcm = audioBuffer.toAVAudioPCMBuffer() else {
-            XCTFail("Failed to convert audio buffer to AVAudioPCMBuffer")
+            Issue.record("Failed to convert audio buffer to AVAudioPCMBuffer")
             return
         }
 
         print("pcm: \(pcm), " + "sampleRate: \(pcm.format.sampleRate), " + "channels: \(pcm.format.channelCount), " + "frameLength: \(pcm.frameLength), " + "frameCapacity: \(pcm.frameCapacity)")
 
-        XCTAssert(pcm.format.sampleRate == _initSampleRate)
-        XCTAssert(pcm.format.channelCount == _initChannels)
+        #expect(pcm.format.sampleRate == _initSampleRate)
+        #expect(pcm.format.channelCount == _initChannels)
     }
 
     func audioProcessingRelease() {
         //
     }
 
-    func testConvertAudioBufferToPCM() async throws {
-        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+    @Test func convertAudioBufferToPCM() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
             // Alias to Room1
             let room1 = rooms[0]
             // Set processing delegate
@@ -64,11 +65,11 @@ class AudioProcessingTests: LKTestCase, AudioCustomProcessingDelegate, @unchecke
         }
     }
 
-    func testOptionsAppliedToAudioProcessingModule() async throws {
+    @Test func optionsAppliedToAudioProcessingModule() async throws {
         // Disable Apple VPIO.
         AudioManager.shared.isVoiceProcessingBypassed = true
 
-        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
             // Alias to Room1
             let room1 = rooms[0]
 
@@ -88,7 +89,7 @@ class AudioProcessingTests: LKTestCase, AudioCustomProcessingDelegate, @unchecke
 
             let pub1 = try await room1.localParticipant.setMicrophone(enabled: true, captureOptions: allOnOptions)
             guard let pub1 else {
-                XCTFail("Publication is nil")
+                Issue.record("Publication is nil")
                 return
             }
 
@@ -98,16 +99,16 @@ class AudioProcessingTests: LKTestCase, AudioCustomProcessingDelegate, @unchecke
             // Directly read config from the apm
             let allOnConfigResult = RTC.audioProcessingModule.config
             print("Config result for all on: \(allOnConfigResult.toDebugString()))")
-            XCTAssert(allOnConfigResult.isEchoCancellationEnabled)
-            XCTAssert(allOnConfigResult.isNoiseSuppressionEnabled)
-            XCTAssert(allOnConfigResult.isAutoGainControl1Enabled)
-            XCTAssert(allOnConfigResult.isHighpassFilterEnabled)
+            #expect(allOnConfigResult.isEchoCancellationEnabled)
+            #expect(allOnConfigResult.isNoiseSuppressionEnabled)
+            #expect(allOnConfigResult.isAutoGainControl1Enabled)
+            #expect(allOnConfigResult.isHighpassFilterEnabled)
 
             try await room1.localParticipant.unpublish(publication: pub1)
 
             let pub2 = try await room1.localParticipant.setMicrophone(enabled: true, captureOptions: allOffOptions)
             guard let pub2 else {
-                XCTFail("Publication is nil")
+                Issue.record("Publication is nil")
                 return
             }
 
@@ -116,10 +117,10 @@ class AudioProcessingTests: LKTestCase, AudioCustomProcessingDelegate, @unchecke
             // Directly read config from the apm
             let allOffConfigResult = RTC.audioProcessingModule.config
             print("Config result for all off: \(allOffConfigResult.toDebugString())")
-            XCTAssert(!allOffConfigResult.isEchoCancellationEnabled)
-            XCTAssert(!allOffConfigResult.isNoiseSuppressionEnabled)
-            XCTAssert(!allOffConfigResult.isAutoGainControl1Enabled)
-            XCTAssert(!allOffConfigResult.isHighpassFilterEnabled)
+            #expect(!allOffConfigResult.isEchoCancellationEnabled)
+            #expect(!allOffConfigResult.isNoiseSuppressionEnabled)
+            #expect(!allOffConfigResult.isAutoGainControl1Enabled)
+            #expect(!allOffConfigResult.isHighpassFilterEnabled)
 
             try await room1.localParticipant.unpublish(publication: pub2)
         }

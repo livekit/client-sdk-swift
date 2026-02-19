@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
 import LiveKitUniFFI
 
@@ -66,8 +67,8 @@ public enum TestEnvironment {
         return try tokenGenerator.sign()
     }
 
-    /// Set up variable number of Rooms, connect them, wait for participants to discover each other,
-    /// execute the block, then disconnect. Framework-agnostic (no XCTest/Testing dependency).
+    // Set up variable number of Rooms, connect them, wait for participants to discover each other,
+    // execute the block, then disconnect. Framework-agnostic (no XCTest/Testing dependency).
     // swiftlint:disable:next function_body_length
     public static func withRooms(_ options: [RoomTestingOptions] = [],
                                  _ block: @escaping ([Room]) async throws -> Void) async throws

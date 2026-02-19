@@ -15,21 +15,22 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class PublishDeviceOptimizationTests: LKTestCase {
+@Suite(.serialized) struct PublishDeviceOptimizationTests {
     // For testing remote server:
     let url: String? = nil
     let token: String? = nil
 
     // Default publish flow
-    func testDefaultMicPublish() async throws {
+    @Test func defaultMicPublish() async throws {
         var sw = Stopwatch(label: "Test: Normal publish sequence")
 
         let room1Opts = RoomTestingOptions(url: url, token: token, canPublish: true)
-        try await withRooms([room1Opts]) { rooms in
+        try await TestEnvironment.withRooms([room1Opts]) { rooms in
             sw.split(label: "Connected to room")
             // Alias to Rooms
             let room1 = rooms[0]
@@ -43,14 +44,14 @@ class PublishDeviceOptimizationTests: LKTestCase {
     }
 
     // No-VP publish flow
-    func testNoVpMicPublish() async throws {
+    @Test func noVpMicPublish() async throws {
         // Turn off Apple's VP
         try AudioManager.shared.setVoiceProcessingEnabled(false)
 
         var sw = Stopwatch(label: "Test: No-VP publish sequence")
 
         let room1Opts = RoomTestingOptions(url: url, token: token, canPublish: true)
-        try await withRooms([room1Opts]) { rooms in
+        try await TestEnvironment.withRooms([room1Opts]) { rooms in
             sw.split(label: "Connected to room")
             // Alias to Rooms
             let room1 = rooms[0]
@@ -64,17 +65,17 @@ class PublishDeviceOptimizationTests: LKTestCase {
     }
 
     // Concurrent device acquisition publish flow
-    func testConcurrentMicPublish() async throws {
+    @Test func concurrentMicPublish() async throws {
         var sw = Stopwatch(label: "Test: Normal publish sequence")
 
         let room1Opts = RoomTestingOptions(url: url, token: token, enableMicrophone: true, canPublish: true)
-        try await withRooms([room1Opts]) { rooms in
+        try await TestEnvironment.withRooms([room1Opts]) { rooms in
             sw.split(label: "Connected to room")
             // Alias to Rooms
             let room1 = rooms[0]
             // Mic should be already enabled at this point
             let isMicEnabled = room1.localParticipant.isMicrophoneEnabled()
-            XCTAssert(isMicEnabled, "Mic should be enabled at this point")
+            #expect(isMicEnabled, "Mic should be enabled at this point")
             sw.split(label: "Did publish mic")
         }
         sw.split(label: "Sequence complete")

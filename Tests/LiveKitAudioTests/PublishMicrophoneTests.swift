@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-import Combine
 import CoreMedia
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class PublishMicrophoneTests: LKTestCase {
-    func testConcurrentMicPublish() async throws {
-        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+@Suite(.serialized) struct PublishMicrophoneTests {
+    @Test func concurrentMicPublish() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
             // Alias to Room
             let room1 = rooms[0]
 
@@ -43,7 +43,7 @@ class PublishMicrophoneTests: LKTestCase {
                         if let result {
                             _state.mutate {
                                 if let firstMicPublication = $0.firstMicPublication {
-                                    XCTAssert(result == firstMicPublication, "Duplicate mic track has been published")
+                                    #expect(result == firstMicPublication, "Duplicate mic track has been published")
                                 } else {
                                     $0.firstMicPublication = result
                                     print("Did publish first mic track: \(String(describing: result))")
@@ -59,73 +59,44 @@ class PublishMicrophoneTests: LKTestCase {
     }
 
     // Test if possible to receive audio buffer by adding audio renderer to RemoteAudioTrack.
-    func testPublishMicrophone() async throws {
-        try await withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
+    @Test func publishMicrophone() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
             // Alias to Rooms
             let room1 = rooms[0]
             let room2 = rooms[1]
 
             // LocalParticipant's identity should not be nil after a sucessful connection
-            guard let publisherIdentity = room1.localParticipant.identity else {
-                XCTFail("Publisher's identity is nil")
-                return
-            }
+            let publisherIdentity = try #require(room1.localParticipant.identity, "Publisher's identity is nil")
 
             // Get publisher's participant
-            guard let remoteParticipant = room2.remoteParticipants[publisherIdentity] else {
-                XCTFail("Failed to lookup Publisher (RemoteParticipant)")
-                return
-            }
-
-            // Set up expectation...
-            let didSubscribeToRemoteAudioTrack = self.expectation(description: "Did subscribe to remote audio track")
-            didSubscribeToRemoteAudioTrack.assertForOverFulfill = false
-
-            var remoteAudioTrack: RemoteAudioTrack?
-
-            // Start watching RemoteParticipant for audio track...
-            let watchParticipant = remoteParticipant.objectWillChange.sink { _ in
-                if let track = remoteParticipant.firstAudioPublication?.track as? RemoteAudioTrack, remoteAudioTrack == nil {
-                    remoteAudioTrack = track
-                    didSubscribeToRemoteAudioTrack.fulfill()
-                }
-            }
+            let remoteParticipant = try #require(room2.remoteParticipants[publisherIdentity], "Failed to lookup Publisher (RemoteParticipant)")
 
             // Publish mic
             try await room1.localParticipant.setMicrophone(enabled: true)
 
-            // Wait for track...
-            print("Waiting for first audio track...")
-            await self.fulfillment(of: [didSubscribeToRemoteAudioTrack], timeout: 30)
-
-            guard let remoteAudioTrack else {
-                XCTFail("RemoteAudioTrack is nil")
-                return
+            // Wait for remote audio track using async polling
+            let deadline = Date().addingTimeInterval(30)
+            var remoteAudioTrack: RemoteAudioTrack?
+            while Date() < deadline {
+                if let track = remoteParticipant.firstAudioPublication?.track as? RemoteAudioTrack {
+                    remoteAudioTrack = track
+                    break
+                }
+                try await Task.sleep(nanoseconds: 200_000_000)
             }
 
-            // Received RemoteAudioTrack...
-            print("remoteAudioTrack: \(String(describing: remoteAudioTrack))")
+            let track = try #require(remoteAudioTrack, "RemoteAudioTrack not found within timeout")
+            print("remoteAudioTrack: \(String(describing: track))")
 
-            // Set up expectation...
-            let didReceiveAudioFrame = self.expectation(description: "Did receive audio frame")
-            didReceiveAudioFrame.assertForOverFulfill = false
-
-            // Start watching for audio frame...
-            let audioFrameWatcher = AudioTrackWatcher(id: "notifier01") { _ in
-                didReceiveAudioFrame.fulfill()
+            // Wait for audio frame using confirmation
+            try await confirmation("Did receive audio frame") { confirm in
+                let audioFrameWatcher = AudioTrackWatcher(id: "notifier01") { _ in
+                    confirm()
+                }
+                track.add(audioRenderer: audioFrameWatcher)
+                try? await Task.sleep(nanoseconds: 30_000_000_000)
+                track.remove(audioRenderer: audioFrameWatcher)
             }
-
-            // Attach audio frame watcher...
-            remoteAudioTrack.add(audioRenderer: audioFrameWatcher)
-
-            // Wait for audio frame...
-            print("Waiting for first audio frame...")
-            await self.fulfillment(of: [didReceiveAudioFrame], timeout: 30)
-
-            // Remove audio frame watcher...
-            remoteAudioTrack.remove(audioRenderer: audioFrameWatcher)
-            // Clean up
-            watchParticipant.cancel()
         }
     }
 }
