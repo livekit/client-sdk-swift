@@ -16,6 +16,7 @@
 
 #if os(iOS)
 
+import Foundation
 @testable import LiveKit
 import Testing
 #if canImport(LiveKitTestSupport)

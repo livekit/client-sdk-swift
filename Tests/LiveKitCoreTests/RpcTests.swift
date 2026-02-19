@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
 import Testing
 #if canImport(LiveKitTestSupport)
@@ -113,7 +114,7 @@ struct RpcTests {
                     version: 1
                 )
 
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
         }
     }
@@ -156,7 +157,7 @@ struct RpcTests {
                     version: 1
                 )
 
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
         }
     }
@@ -201,7 +202,7 @@ struct RpcTests {
                     version: 1
                 )
 
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
         }
     }

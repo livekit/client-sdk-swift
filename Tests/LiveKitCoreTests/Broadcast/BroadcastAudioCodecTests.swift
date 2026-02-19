@@ -30,8 +30,8 @@ struct BroadcastAudioCodecTests {
     @Test func encodeDecode() throws {
         let testBuffer = try #require(createTestAudioBuffer())
 
-        let (metadata, audioData) = try #require(codec.encode(testBuffer))
-        let decodedBuffer = try #require(codec.decode(audioData, with: metadata))
+        let (metadata, audioData) = try codec.encode(testBuffer)
+        let decodedBuffer = try codec.decode(audioData, with: metadata)
 
         #expect(decodedBuffer.frameLength == AVAudioFrameCount(testBuffer.numSamples))
 

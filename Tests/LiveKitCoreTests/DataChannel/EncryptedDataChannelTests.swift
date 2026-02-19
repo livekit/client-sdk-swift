@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
 import Testing
 #if canImport(LiveKitTestSupport)
@@ -49,7 +50,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
 
             let receivedMessage = String(data: self.receivedData, encoding: .utf8)
@@ -100,7 +101,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
 
             let receivedMessage = String(data: self.receivedData, encoding: .utf8)
@@ -144,7 +145,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
 
             #expect(self.lastDecryptionError != nil, "Decryption error should have occurred")
@@ -199,7 +200,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
 
             #expect(self.lastDecryptionError != nil, "Decryption error should have occurred with mismatched per-participant keys")
@@ -260,7 +261,7 @@ import LiveKitWebRTC
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
                 // Receiver should automatically ratchet and decrypt successfully
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
 
             let receivedMessage = String(data: self.receivedData, encoding: .utf8)
@@ -315,7 +316,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
 
             let receivedMessage = String(data: self.receivedData, encoding: .utf8)

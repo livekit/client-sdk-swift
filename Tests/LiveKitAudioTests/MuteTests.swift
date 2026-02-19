@@ -15,6 +15,7 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
@@ -155,19 +156,14 @@ let muteEngineSteps: [TestEngineStep] = [
     TestEngineStep(transition: .init(outputEnabled: .value(false)), assert: .init(engineRunning: false)),
 ]
 
-class MuteTests: LKTestCase {
-    override func setUp() {
-        super.setUp()
-        continueAfterFailure = false
-    }
-
-    func testTransitions() async throws {
+@Suite(.serialized) struct MuteTests {
+    @Test func transitions() async throws {
         let adm = AudioManager.shared
 
         for step in muteEngineSteps {
             applyEngineTransition(step.transition)
             // Check if engine running state is correct.
-            XCTAssert(adm.isEngineRunning == step.assert.engineRunning)
+            #expect(adm.isEngineRunning == step.assert.engineRunning)
 
             let ns = UInt64(1 * 1_000_000_000)
             try await Task.sleep(nanoseconds: ns)

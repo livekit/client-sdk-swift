@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
 import LiveKitUniFFI
 
@@ -217,6 +218,7 @@ public extension LKTestCase {
         try await Task.sleep(nanoseconds: 1_000_000_000)
     }
 }
+
 
 public extension Array where Element: Comparable {
     func hasSameElements(as other: [Element]) -> Bool {

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
 import Testing
 #if canImport(LiveKitTestSupport)
@@ -62,7 +63,7 @@ import LiveKitTestSupport
                 }
             }
 
-            try? await Task.sleep(for: .seconds(10))
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
         }
 
         let receivedString = try #require(String(data: receivedData, encoding: .utf8))

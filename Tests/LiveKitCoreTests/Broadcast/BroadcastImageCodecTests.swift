@@ -16,6 +16,8 @@
 
 #if os(iOS)
 
+import CoreVideo
+import Foundation
 @testable import LiveKit
 import Testing
 #if canImport(LiveKitTestSupport)
@@ -29,12 +31,12 @@ struct BroadcastImageCodecTests {
         let (width, height) = (64, 32)
         let testBuffer = try #require(createTestPixelBuffer(width: width, height: height))
 
-        let (metadata, imageData) = try #require(codec.encode(testBuffer))
+        let (metadata, imageData) = try codec.encode(testBuffer)
         #expect(metadata.width == width)
         #expect(metadata.height == height)
         #expect(imageData.count > 0)
 
-        let decodedBuffer = try #require(codec.decode(imageData, with: metadata))
+        let decodedBuffer = try codec.decode(imageData, with: metadata)
         #expect(CVPixelBufferGetWidth(decodedBuffer) == width)
         #expect(CVPixelBufferGetHeight(decodedBuffer) == height)
     }
