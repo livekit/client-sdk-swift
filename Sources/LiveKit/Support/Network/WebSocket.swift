@@ -32,6 +32,13 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
 
     private let request: URLRequest
 
+    private let delegateQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "LiveKitSDK.webSocket.delegate"
+        queue.maxConcurrentOperationCount = 1
+        return queue
+    }()
+
     private lazy var urlSession: URLSession = {
         #if targetEnvironment(simulator)
         if #available(iOS 26.0, *) {
@@ -48,7 +55,7 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
         /// https://developer.apple.com/documentation/foundation/urlsessionconfiguration/improving_network_reliability_using_multipath_tcp
         config.multipathServiceType = .handover
         #endif
-        return URLSession(configuration: config, delegate: self, delegateQueue: nil)
+        return URLSession(configuration: config, delegate: self, delegateQueue: delegateQueue)
     }()
 
     private lazy var task: URLSessionWebSocketTask = urlSession.webSocketTask(with: request)
