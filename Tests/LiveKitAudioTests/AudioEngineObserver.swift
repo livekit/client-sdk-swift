@@ -34,7 +34,7 @@ final class TestEngineObserver: AudioEngineObserver, @unchecked Sendable {
     }
 }
 
-@Suite(.serialized) struct AudioEngineObserverTests {
+@Suite(.serialized, .tags(.audio)) struct AudioEngineObserverTests {
     // Error codes returned in an `AudioEngineObserver` should propagate through the WebRTC's AudioDeviceModule and
     // the SDK should throw in such cases for both device and manual rendering modes.
     @Test func observerFail() throws {

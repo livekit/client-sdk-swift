@@ -22,6 +22,7 @@ import LiveKitTestSupport
 #endif
 import LiveKitUniFFI
 
+@Suite(.tags(.networking))
 struct TokenSourceTests {
     actor MockValidJWTSource: TokenSourceConfigurable {
         let serverURL = URL(string: "wss://test.livekit.io")!

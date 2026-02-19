@@ -22,6 +22,7 @@ import LiveKitTestSupport
 #endif
 @preconcurrency import LiveKitWebRTC
 
+@Suite(.tags(.e2ee, .concurrency))
 struct E2EEThreadTests {
     // Attempt to crash LKRTCFrameCryptor initialization
     @Test func createFrameCryptor() async throws {

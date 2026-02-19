@@ -21,6 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+@Suite(.tags(.e2e))
 struct RpcTests {
     // Test performing RPC calls and verifying outgoing packets
     @Test func performRpc() async throws {

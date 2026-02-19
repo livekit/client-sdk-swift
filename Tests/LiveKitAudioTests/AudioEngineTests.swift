@@ -25,7 +25,7 @@ import LiveKitTestSupport
 import LiveKitWebRTC
 import LKObjCHelpers
 
-@Suite(.serialized) struct AudioEngineTests {
+@Suite(.serialized, .tags(.audio, .e2e)) struct AudioEngineTests {
     #if !targetEnvironment(simulator)
     // Test if mic is authorized. Only works on device.
     @Test func micAuthorized() async {

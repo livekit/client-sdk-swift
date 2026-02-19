@@ -156,7 +156,7 @@ let muteEngineSteps: [TestEngineStep] = [
     TestEngineStep(transition: .init(outputEnabled: .value(false)), assert: .init(engineRunning: false)),
 ]
 
-@Suite(.serialized) struct MuteTests {
+@Suite(.serialized, .tags(.audio)) struct MuteTests {
     @Test func transitions() async throws {
         let adm = AudioManager.shared
 

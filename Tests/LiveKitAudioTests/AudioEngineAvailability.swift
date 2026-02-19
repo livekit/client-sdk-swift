@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized) struct AudioEngineAvailabilityTests {
+@Suite(.serialized, .tags(.audio)) struct AudioEngineAvailabilityTests {
     // Check if audio engine will stop when availability is set to .none,
     // then resume (restart) when availability is set back to .default.
     @Test func recording() throws {

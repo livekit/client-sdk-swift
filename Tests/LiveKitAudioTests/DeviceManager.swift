@@ -20,7 +20,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-struct DeviceManagerTests {
+@Suite(.tags(.audio)) struct DeviceManagerTests {
     @Test func listDevices() async throws {
         let devices = try await DeviceManager.shared.devices()
         print("Devices: \(devices.map { "(facingPosition: \(String(describing: $0.facingPosition)))" }.joined(separator: ", "))")

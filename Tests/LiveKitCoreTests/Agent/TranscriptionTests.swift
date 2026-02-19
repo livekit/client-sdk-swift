@@ -40,7 +40,7 @@ actor MessageCollector {
     }
 }
 
-@Suite(.serialized) final class TranscriptionTests: @unchecked Sendable {
+@Suite(.serialized, .tags(.e2e)) final class TranscriptionTests: @unchecked Sendable {
     private var rooms: [Room] = []
     private var receiver: TranscriptionStreamReceiver!
     private var senderRoom: Room!

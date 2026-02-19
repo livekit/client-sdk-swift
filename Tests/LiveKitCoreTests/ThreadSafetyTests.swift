@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite
+@Suite(.tags(.concurrency))
 class ThreadSafetyTests: @unchecked Sendable {
     struct TestState: Equatable {
         var dictionary = [String: String]()

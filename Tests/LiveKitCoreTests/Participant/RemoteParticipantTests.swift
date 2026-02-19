@@ -22,6 +22,7 @@ import LiveKitTestSupport
 #endif
 
 // swiftformat:disable hoistAwait
+@Suite(.tags(.e2e))
 struct RemoteParticipantTests {
     let timeout: TimeInterval = 0.1
 

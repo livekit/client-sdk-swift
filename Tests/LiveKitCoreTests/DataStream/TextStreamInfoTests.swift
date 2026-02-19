@@ -21,6 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+@Suite(.tags(.dataStream))
 struct TextStreamInfoTests {
     @Test func protocolTypeConversion() {
         let info = TextStreamInfo(

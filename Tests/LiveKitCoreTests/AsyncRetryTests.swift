@@ -21,6 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+@Suite(.tags(.concurrency))
 struct AsyncRetryTests {
 //    @Test func retry1() async throws {
 //        let test = Task.retrying(totalAttempts: 3) { currentAttempt, totalAttempts in

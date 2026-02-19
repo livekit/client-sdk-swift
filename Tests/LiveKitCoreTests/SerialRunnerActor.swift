@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite
+@Suite(.tags(.concurrency))
 class SerialRunnerActorTests: @unchecked Sendable {
     let serialRunner = SerialRunnerActor<Void>()
     var counterValue: Int = 0

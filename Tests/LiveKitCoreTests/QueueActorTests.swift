@@ -21,6 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+@Suite(.tags(.concurrency))
 struct QueueActorTests {
     private let queue = QueueActor<String> { print($0) }
 

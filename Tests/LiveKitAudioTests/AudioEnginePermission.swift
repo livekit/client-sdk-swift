@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized) struct AudioEnginePermissionTests {
+@Suite(.serialized, .tags(.audio)) struct AudioEnginePermissionTests {
     #if os(iOS) || os(visionOS) || os(tvOS)
     // Check if audio engine will fail to start instead of crashing when `AVAudioSession.category` isn't
     // configured correctly. Only for non-macOS platforms.

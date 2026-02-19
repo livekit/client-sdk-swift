@@ -22,7 +22,7 @@ import LiveKitTestSupport
 #endif
 import LiveKitWebRTC
 
-@Suite(.serialized) final class EncryptedDataChannelTests: @unchecked Sendable {
+@Suite(.serialized, .tags(.dataChannel, .e2e, .e2ee)) final class EncryptedDataChannelTests: @unchecked Sendable {
     var receivedData: Data = .init()
     var lastDecryptionError: Error?
     var onDataReceived: (() -> Void)?

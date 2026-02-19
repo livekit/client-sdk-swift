@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized) struct LocalAudioTrackRecorderTests {
+@Suite(.serialized, .tags(.audio)) struct LocalAudioTrackRecorderTests {
     @Test func recording() async throws {
         let localTrack = LocalAudioTrack.createTrack(options: .noProcessing)
 

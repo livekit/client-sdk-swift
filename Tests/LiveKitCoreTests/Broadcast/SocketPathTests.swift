@@ -23,6 +23,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+@Suite(.tags(.broadcast))
 struct SocketPathTests {
     @Test func valid() throws {
         let path = "/tmp/a.sock"

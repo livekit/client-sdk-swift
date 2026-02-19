@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized) final class RealiableDataChannelTests: @unchecked Sendable {
+@Suite(.serialized, .tags(.dataChannel, .e2e)) final class RealiableDataChannelTests: @unchecked Sendable {
     var receivedData: Data = .init()
     var onDataReceived: (() -> Void)?
 

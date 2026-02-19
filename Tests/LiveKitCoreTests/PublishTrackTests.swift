@@ -21,6 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+@Suite(.tags(.media, .e2e))
 struct PublishTrackTests {
     @Test func publishWithoutPermissions() async throws {
         try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: false)]) { rooms in
