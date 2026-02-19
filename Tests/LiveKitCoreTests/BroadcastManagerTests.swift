@@ -23,7 +23,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite
+@Suite(.tags(.broadcast))
 class BroadcastManagerTests: @unchecked Sendable {
     private var manager: BroadcastManager
 

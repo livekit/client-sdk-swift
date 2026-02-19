@@ -24,6 +24,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+@Suite(.tags(.broadcast))
 struct BroadcastAudioCodecTests {
     private let codec = BroadcastAudioCodec()
 

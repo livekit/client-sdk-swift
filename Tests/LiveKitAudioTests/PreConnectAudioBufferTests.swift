@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized) struct PreConnectAudioBufferTests {
+@Suite(.serialized, .tags(.audio, .e2e)) struct PreConnectAudioBufferTests {
     @Test func participantActiveStateSendsAudioData() async throws {
         try await confirmation("Receives audio data") { confirm in
             try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublish: true, canPublishData: true)]) { rooms in

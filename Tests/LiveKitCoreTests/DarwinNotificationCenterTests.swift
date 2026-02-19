@@ -21,6 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+@Suite(.tags(.broadcast))
 struct DarwinNotificationCenterTests {
     @Test func publisher() async {
         let name = DarwinNotification.broadcastStarted

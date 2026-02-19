@@ -21,6 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+@Suite(.tags(.e2e))
 struct ParticipantTests {
     @Test func localParticipantIdentity() async throws {
         try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in

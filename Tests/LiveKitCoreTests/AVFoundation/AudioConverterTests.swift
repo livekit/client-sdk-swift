@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-struct AudioConverterTests {
+@Suite(.tags(.audio)) struct AudioConverterTests {
     @Test func convertFormat() async throws {
         // Sample audio
         let audioDownloadUrl = try #require(URL(string: "https://github.com/rafaelreis-hotmart/Audio-Sample-files/raw/refs/heads/master/sample.wav"))

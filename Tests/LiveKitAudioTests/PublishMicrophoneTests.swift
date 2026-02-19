@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized) struct PublishMicrophoneTests {
+@Suite(.serialized, .tags(.audio, .e2e)) struct PublishMicrophoneTests {
     @Test func concurrentMicPublish() async throws {
         try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
             // Alias to Room

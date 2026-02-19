@@ -21,7 +21,7 @@ import LiveKitTestSupport
 #endif
 import Testing
 
-@Suite(.serialized) struct RegionManagerTests {
+@Suite(.serialized, .tags(.networking)) struct RegionManagerTests {
     private func cleanUpMockURLProtocol() {
         URLProtocol.unregisterClass(MockURLProtocol.self)
         MockURLProtocol.reset()

@@ -26,7 +26,7 @@ import LiveKitTestSupport
 import CoreAudio
 #endif
 
-struct AVAudioPCMRingBufferTests {
+@Suite(.tags(.audio)) struct AVAudioPCMRingBufferTests {
     let format: AVAudioFormat
 
     init() {

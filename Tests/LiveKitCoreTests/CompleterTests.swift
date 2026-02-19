@@ -21,6 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+@Suite(.tags(.concurrency))
 struct CompleterTests {
     @Test func completerReuse() async throws {
         let completer = AsyncCompleter<Void>(label: "Test01", defaultTimeout: 1)

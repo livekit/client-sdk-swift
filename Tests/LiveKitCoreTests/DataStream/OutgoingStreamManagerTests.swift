@@ -21,6 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+@Suite(.tags(.dataStream))
 struct OutgoingStreamManagerTests {
     @Test func streamBytes() async throws {
         let testChunks = [

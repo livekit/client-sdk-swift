@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-struct AVAudioPCMBufferTests {
+@Suite(.tags(.audio)) struct AVAudioPCMBufferTests {
     @Test func resample() {
         // Test case 1: Resample to a higher sample rate
         resampleHelper(fromSampleRate: 44100, toSampleRate: 48000, expectedSuccess: true)

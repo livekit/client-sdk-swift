@@ -24,7 +24,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized) final class AudioProcessingTests: AudioCustomProcessingDelegate, @unchecked Sendable {
+@Suite(.serialized, .tags(.audio, .e2e)) final class AudioProcessingTests: AudioCustomProcessingDelegate, @unchecked Sendable {
     var _initSampleRate: Double = 0.0
     var _initChannels: Int = 0
 

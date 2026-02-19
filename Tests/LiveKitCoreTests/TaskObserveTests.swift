@@ -38,6 +38,7 @@ actor TestObserver {
 
 // MARK: - Tests
 
+@Suite(.tags(.concurrency))
 struct TaskObserveTests {
     @Test func streamProcessesAllElements() async throws {
         let observer = TestObserver()

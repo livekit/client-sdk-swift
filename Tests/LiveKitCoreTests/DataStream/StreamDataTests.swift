@@ -21,6 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+@Suite(.tags(.dataStream))
 struct StreamDataTests {
     // MARK: - Data chunking
 

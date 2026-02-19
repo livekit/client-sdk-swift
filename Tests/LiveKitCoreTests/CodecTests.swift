@@ -21,6 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+@Suite(.tags(.media))
 struct CodecTests {
     // VideoCodec is a class (not Sendable), so use mimeType strings for parameterization.
     @Test(arguments: [

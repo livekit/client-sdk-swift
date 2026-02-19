@@ -24,6 +24,7 @@ import LiveKitTestSupport
 #endif
 import Network
 
+@Suite(.tags(.broadcast))
 struct IPCChannelTests: Sendable {
     private let socketPath: SocketPath
 

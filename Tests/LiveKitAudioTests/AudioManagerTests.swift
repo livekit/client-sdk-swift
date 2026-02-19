@@ -22,7 +22,7 @@ import LiveKitTestSupport
 #endif
 import LiveKitWebRTC
 
-@Suite(.serialized) struct AudioManagerTests {
+@Suite(.serialized, .tags(.audio)) struct AudioManagerTests {
     // Test legacy audio device module's startLocalRecording().
     @Test func startLocalRecordingLegacyADM() async throws {
         // Use legacy ADM

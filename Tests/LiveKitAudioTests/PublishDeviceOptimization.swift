@@ -20,7 +20,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized) struct PublishDeviceOptimizationTests {
+@Suite(.serialized, .tags(.audio, .e2e)) struct PublishDeviceOptimizationTests {
     // For testing remote server:
     let url: String? = nil
     let token: String? = nil

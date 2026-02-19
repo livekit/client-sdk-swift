@@ -21,6 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+@Suite(.tags(.e2e))
 struct PublishDataTests {
     // Test with canSubscribe: true
     @Test func publishDataReceiverCanSubscribe() async throws {

@@ -21,6 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+@Suite(.tags(.dataStream))
 final class TextStreamReaderTests: @unchecked Sendable {
     private var continuation: StreamReaderSource.Continuation!
     private var reader: TextStreamReader!

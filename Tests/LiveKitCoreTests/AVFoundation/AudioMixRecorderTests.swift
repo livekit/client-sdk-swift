@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-struct AudioMixRecorderTests {
+@Suite(.tags(.audio)) struct AudioMixRecorderTests {
     let audioSettings16k: [String: Any] = [
         AVFormatIDKey: kAudioFormatMPEG4AAC,
         AVSampleRateKey: 16000,

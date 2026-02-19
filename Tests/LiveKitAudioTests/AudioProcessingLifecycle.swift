@@ -55,7 +55,7 @@ private class ProcessingDelegateTester: AudioCustomProcessingDelegate, @unchecke
     }
 }
 
-@Suite(.serialized) struct AudioProcessingLifecycle {
+@Suite(.serialized, .tags(.audio, .e2e)) struct AudioProcessingLifecycle {
     @Test func audioProcessing() async throws {
         let processorA = ProcessingDelegateTester(label: "A")
         let processorB = ProcessingDelegateTester(label: "B")

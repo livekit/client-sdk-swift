@@ -21,6 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+@Suite(.tags(.dataStream))
 struct FileInfoTests {
     @Test(arguments: ["text/plain", "application/json", "image/jpeg", "application/pdf"])
     func readInfo(mimeType: String) throws {
