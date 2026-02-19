@@ -185,9 +185,12 @@ extension LiveKitError {
             return LiveKitError(.cancelled)
         }
 
-        // TODO: Identify more network error types
+        if error.isNetworkError {
+            return LiveKitError(.network, internalError: error)
+        }
+
         log("Uncategorized error for: \(String(describing: error))")
-        return LiveKitError(.unknown)
+        return LiveKitError(.unknown, internalError: error)
     }
 
     static func from(reason: Livekit_DisconnectReason) -> LiveKitError {
@@ -196,6 +199,22 @@ extension LiveKitError {
 }
 
 extension Error {
+    /// Returns `true` for URLError, CFNetwork, and POSIX socket errors.
+    var isNetworkError: Bool {
+        if self is URLError { return true }
+        let nsError = self as NSError
+        switch nsError.domain {
+        case NSURLErrorDomain,
+             // CFNetwork errors (SSL/TLS failures, proxy issues, etc.)
+             "kCFErrorDomainCFNetwork",
+             // Low-level socket errors (ECONNREFUSED, ECONNRESET, ETIMEDOUT, etc.)
+             NSPOSIXErrorDomain:
+            return true
+        default:
+            return false
+        }
+    }
+
     /// Returns `true` for network/timeouts that should trigger region failover.
     var isRetryableForRegionFailover: Bool {
         if let liveKitError = self as? LiveKitError {
@@ -207,12 +226,18 @@ extension Error {
             }
         }
 
-        if self is URLError {
-            return true
-        }
+        return isNetworkError
+    }
 
+    /// Returns `true` when the error is URLError code -1005 (networkConnectionLost),
+    /// which can be caused by a CFNetwork internal race condition on WebSocket upgrade.
+    var isNetworkConnectionLost: Bool {
+        if let urlError = self as? URLError { return urlError.code == .networkConnectionLost }
+        if let lkError = self as? LiveKitError, let inner = lkError.internalError {
+            return inner.isNetworkConnectionLost
+        }
         let nsError = self as NSError
-        return nsError.domain == NSURLErrorDomain
+        return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorNetworkConnectionLost
     }
 }
 

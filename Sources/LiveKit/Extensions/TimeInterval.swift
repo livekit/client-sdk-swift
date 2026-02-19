@@ -38,6 +38,10 @@ public extension TimeInterval {
 
     static let defaultParticipantActiveTimeout: Self = 10
 
+    // Retry delays when WebSocket connect fails with -1005
+    static let defaultWebSocketRetryBaseDelay: Self = 0.1
+    static let defaultWebSocketRetryMaxDelay: Self = 0.3
+
     /// Computes a retry delay based on an "easeOutCirc" curve between baseDelay and maxDelay.
     ///
     /// The easeOutCirc curve provides a dramatic early acceleration followed by a gentler approach to the maximum,

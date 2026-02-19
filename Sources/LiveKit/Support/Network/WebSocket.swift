@@ -32,6 +32,13 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
 
     private let request: URLRequest
 
+    private lazy var delegateQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "LiveKitSDK.webSocket.delegate"
+        queue.maxConcurrentOperationCount = 1
+        return queue
+    }()
+
     private lazy var urlSession: URLSession = {
         #if targetEnvironment(simulator)
         if #available(iOS 26.0, *) {
@@ -48,7 +55,7 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
         /// https://developer.apple.com/documentation/foundation/urlsessionconfiguration/improving_network_reliability_using_multipath_tcp
         config.multipathServiceType = .handover
         #endif
-        return URLSession(configuration: config, delegate: self, delegateQueue: nil)
+        return URLSession(configuration: config, delegate: self, delegateQueue: delegateQueue)
     }()
 
     private lazy var task: URLSessionWebSocketTask = urlSession.webSocketTask(with: request)
@@ -60,7 +67,7 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
         waitForNextValue()
     }
 
-    init(url: URL, token: String, connectOptions: ConnectOptions?) async throws {
+    private init(url: URL, token: String, connectOptions: ConnectOptions?) async throws {
         // Prepare the request
         var request = URLRequest(url: url,
                                  cachePolicy: .useProtocolCachePolicy,
@@ -86,6 +93,35 @@ final class WebSocket: NSObject, @unchecked Sendable, Loggable, AsyncSequence, U
 
     deinit {
         close()
+    }
+
+    /// Creates a WebSocket connection, retrying on `-1005 networkConnectionLost`
+    /// which can be caused by a CFNetwork internal race condition on WebSocket upgrade.
+    static func connect(url: URL, token: String, connectOptions: ConnectOptions?, maxRetries: Int = 2) async throws -> WebSocket {
+        var lastError: Error?
+        for attempt in 0 ... maxRetries {
+            do {
+                return try await WebSocket(url: url, token: token, connectOptions: connectOptions)
+            } catch {
+                lastError = error
+                let isRetryable = attempt < maxRetries && error.isNetworkConnectionLost
+                guard isRetryable else {
+                    if attempt > 0 {
+                        log("WebSocket connect failed after \(attempt + 1) attempts: \(error)", .warning)
+                    }
+                    throw error
+                }
+                let delay = TimeInterval.computeReconnectDelay(
+                    forAttempt: attempt,
+                    baseDelay: .defaultWebSocketRetryBaseDelay,
+                    maxDelay: .defaultWebSocketRetryMaxDelay,
+                    totalAttempts: maxRetries
+                )
+                log("WebSocket connect attempt \(attempt + 1) failed with -1005, retrying in \(String(format: "%.0fms", delay * 1000))...", .warning)
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            }
+        }
+        throw lastError ?? LiveKitError(.network)
     }
 
     func close() {
