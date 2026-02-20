@@ -299,6 +299,201 @@ class ParticipantStateTests: LKTestCase {
         }
     }
 
+    // MARK: - getTrackPublication(source:)
+
+    func testGetTrackPublicationBySource() {
+        let room = makeRoom()
+        let audioTrack = TestData.trackInfo(sid: "TR_a1", name: "mic", type: .audio, source: .microphone)
+        let videoTrack = TestData.trackInfo(sid: "TR_v1", name: "camera", type: .video, source: .camera)
+        let info = TestData.participantInfo(sid: "PA_1", identity: "user-1", tracks: [audioTrack, videoTrack])
+        let participant = RemoteParticipant(info: info, room: room, connectionState: .connected)
+
+        let audioPub = participant.getTrackPublication(source: .microphone)
+        XCTAssertNotNil(audioPub)
+        XCTAssertEqual(audioPub?.kind, .audio)
+
+        let videoPub = participant.getTrackPublication(source: .camera)
+        XCTAssertNotNil(videoPub)
+        XCTAssertEqual(videoPub?.kind, .video)
+    }
+
+    func testGetTrackPublicationBySourceReturnsNilForUnknown() {
+        let participant = makeRemoteParticipant()
+        let result = participant.getTrackPublication(source: .unknown)
+        XCTAssertNil(result)
+    }
+
+    func testGetTrackPublicationBySourceReturnsNilWhenNoMatch() {
+        let room = makeRoom()
+        let audioTrack = TestData.trackInfo(sid: "TR_a1", name: "mic", type: .audio, source: .microphone)
+        let info = TestData.participantInfo(sid: "PA_1", identity: "user-1", tracks: [audioTrack])
+        let participant = RemoteParticipant(info: info, room: room, connectionState: .connected)
+
+        let result = participant.getTrackPublication(source: .camera)
+        XCTAssertNil(result)
+    }
+
+    func testGetTrackPublicationByName() {
+        let room = makeRoom()
+        let audioTrack = TestData.trackInfo(sid: "TR_a1", name: "my-mic", type: .audio, source: .microphone)
+        let info = TestData.participantInfo(sid: "PA_1", identity: "user-1", tracks: [audioTrack])
+        let participant = RemoteParticipant(info: info, room: room, connectionState: .connected)
+
+        let result = participant.getTrackPublication(name: "my-mic")
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.sid, Track.Sid(from: "TR_a1"))
+    }
+
+    func testGetTrackPublicationByNameReturnsNil() {
+        let participant = makeRemoteParticipant()
+        let result = participant.getTrackPublication(name: "nonexistent")
+        XCTAssertNil(result)
+    }
+
+    // MARK: - Convenience Booleans
+
+    func testIsCameraEnabledFalseWithNoTracks() {
+        let participant = makeRemoteParticipant()
+        XCTAssertFalse(participant.isCameraEnabled())
+    }
+
+    func testIsMicrophoneEnabledFalseWithNoTracks() {
+        let participant = makeRemoteParticipant()
+        XCTAssertFalse(participant.isMicrophoneEnabled())
+    }
+
+    func testIsScreenShareEnabledFalseWithNoTracks() {
+        let participant = makeRemoteParticipant()
+        XCTAssertFalse(participant.isScreenShareEnabled())
+    }
+
+    // MARK: - Participant+Convenience Properties
+
+    func testFirstCameraPublicationFindsCamera() {
+        let room = makeRoom()
+        let cameraTrack = TestData.trackInfo(sid: "TR_v1", name: "camera", type: .video, source: .camera)
+        let info = TestData.participantInfo(sid: "PA_1", identity: "user-1", tracks: [cameraTrack])
+        let participant = RemoteParticipant(info: info, room: room, connectionState: .connected)
+
+        XCTAssertNotNil(participant.firstCameraPublication)
+        XCTAssertEqual(participant.firstCameraPublication?.sid, Track.Sid(from: "TR_v1"))
+    }
+
+    func testFirstCameraPublicationNilWithNoCamera() {
+        let room = makeRoom()
+        let audioTrack = TestData.trackInfo(sid: "TR_a1", name: "mic", type: .audio, source: .microphone)
+        let info = TestData.participantInfo(sid: "PA_1", identity: "user-1", tracks: [audioTrack])
+        let participant = RemoteParticipant(info: info, room: room, connectionState: .connected)
+
+        XCTAssertNil(participant.firstCameraPublication)
+    }
+
+    func testFirstScreenSharePublication() {
+        let room = makeRoom()
+        let screenTrack = TestData.trackInfo(sid: "TR_ss1", name: "screen", type: .video, source: .screenShare)
+        let info = TestData.participantInfo(sid: "PA_1", identity: "user-1", tracks: [screenTrack])
+        let participant = RemoteParticipant(info: info, room: room, connectionState: .connected)
+
+        XCTAssertNotNil(participant.firstScreenSharePublication)
+        XCTAssertEqual(participant.firstScreenSharePublication?.sid, Track.Sid(from: "TR_ss1"))
+    }
+
+    func testFirstAudioPublication() {
+        let room = makeRoom()
+        let audioTrack = TestData.trackInfo(sid: "TR_a1", name: "mic", type: .audio, source: .microphone)
+        let info = TestData.participantInfo(sid: "PA_1", identity: "user-1", tracks: [audioTrack])
+        let participant = RemoteParticipant(info: info, room: room, connectionState: .connected)
+
+        XCTAssertNotNil(participant.firstAudioPublication)
+        XCTAssertEqual(participant.firstAudioPublication?.sid, Track.Sid(from: "TR_a1"))
+    }
+
+    func testFirstTrackEncryptionTypeDefault() {
+        let participant = makeRemoteParticipant()
+        XCTAssertEqual(participant.firstTrackEncryptionType, .none)
+    }
+
+    // MARK: - Participant+Agent
+
+    func testIsAgentTrueForAgentKind() {
+        let room = makeRoom()
+        let info = TestData.participantInfo(sid: "PA_agent", identity: "agent-1", kind: .agent)
+        let participant = RemoteParticipant(info: info, room: room, connectionState: .connected)
+
+        XCTAssertTrue(participant.isAgent)
+    }
+
+    func testIsAgentFalseForStandardKind() {
+        let room = makeRoom()
+        let info = TestData.participantInfo(sid: "PA_std", identity: "user-1", kind: .standard)
+        let participant = RemoteParticipant(info: info, room: room, connectionState: .connected)
+
+        XCTAssertFalse(participant.isAgent)
+    }
+
+    func testAgentStateDefaultsToIdle() {
+        let participant = makeRemoteParticipant()
+        XCTAssertEqual(participant.agentState, .idle)
+    }
+
+    func testAgentStateStringReturnsRawValue() {
+        let participant = makeRemoteParticipant()
+        XCTAssertEqual(participant.agentStateString, AgentState.idle.rawValue)
+    }
+
+    // MARK: - set(permissions:)
+
+    func testSetPermissionsReturnsTrueOnChange() {
+        let participant = makeRemoteParticipant()
+        let newPerms = ParticipantPermissions(canSubscribe: true, canPublish: false, canPublishData: false)
+
+        let changed = participant.set(permissions: newPerms)
+
+        XCTAssertTrue(changed)
+        XCTAssertFalse(participant.permissions.canPublish)
+    }
+
+    func testSetPermissionsReturnsFalseWhenUnchanged() {
+        let participant = makeRemoteParticipant()
+        // Default permissions from TestData have canPublish=true, canSubscribe=true, canPublishData=true
+        let samePerms = participant.permissions
+
+        let changed = participant.set(permissions: samePerms)
+
+        XCTAssertFalse(changed)
+    }
+
+    // MARK: - set(enabledPublishCodecs:)
+
+    func testSetEnabledPublishCodecsParsesMimeTypes() {
+        let participant = makeRemoteParticipant()
+
+        let codecs = [
+            Livekit_Codec.with { $0.mime = "video/vp8" },
+            Livekit_Codec.with { $0.mime = "video/h264" },
+        ]
+
+        participant.set(enabledPublishCodecs: codecs)
+
+        let enabled = participant._internalState.read { $0.enabledPublishVideoCodecs }
+        XCTAssertEqual(enabled.count, 2)
+    }
+
+    // MARK: - cleanUp
+
+    func testCleanUpResetsState() async {
+        let participant = makeRemoteParticipant()
+        XCTAssertNotNil(participant.sid)
+        XCTAssertNotNil(participant.identity)
+
+        await participant.cleanUp(notify: false)
+
+        XCTAssertNil(participant.sid)
+        XCTAssertNil(participant.identity)
+        XCTAssertNil(participant.name)
+        XCTAssertEqual(participant.connectionQuality, .unknown)
+    }
+
     // MARK: - Local Participant set(info:)
 
     func testLocalParticipantSetInfo() {

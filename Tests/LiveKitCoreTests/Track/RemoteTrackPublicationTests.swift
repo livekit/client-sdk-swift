@@ -307,4 +307,163 @@ class RemoteTrackPublicationTests: LKTestCase {
 
         XCTAssertEqual(pub.streamState, .paused)
     }
+
+    // MARK: - isSubscribePreferred
+
+    func testIsDesiredWhenSubscribePreferredNil() {
+        let room = makeRoom()
+        let (_, pub) = makeRemoteParticipantWithTrack(room: room)
+
+        // Default: isSubscribePreferred is nil, which means isDesired == true
+        XCTAssertTrue(pub.isDesired)
+    }
+
+    func testIsDesiredWhenSubscribePreferredTrue() {
+        let room = makeRoom()
+        let (_, pub) = makeRemoteParticipantWithTrack(room: room)
+
+        pub._state.mutate { $0.isSubscribePreferred = true }
+
+        XCTAssertTrue(pub.isDesired)
+    }
+
+    func testIsDesiredWhenSubscribePreferredFalse() {
+        let room = makeRoom()
+        let (_, pub) = makeRemoteParticipantWithTrack(room: room)
+
+        pub._state.mutate { $0.isSubscribePreferred = false }
+
+        XCTAssertFalse(pub.isDesired)
+    }
+
+    // MARK: - isSubscribed with isSubscribePreferred
+
+    func testIsSubscribedFalseWhenPreferredFalseAndNoTrack() {
+        let room = makeRoom()
+        let (_, pub) = makeRemoteParticipantWithTrack(room: room)
+
+        pub._state.mutate { $0.isSubscribePreferred = false }
+
+        XCTAssertFalse(pub.isSubscribed)
+    }
+
+    func testIsSubscribedFalseWhenNotAllowed() {
+        let room = makeRoom()
+        let (_, pub) = makeRemoteParticipantWithTrack(room: room)
+
+        pub.set(subscriptionAllowed: false)
+
+        // Even if subscribePreferred is true, not allowed means not subscribed
+        XCTAssertFalse(pub.isSubscribed)
+    }
+
+    // MARK: - Stream State Mutation
+
+    func testStreamStateMutation() {
+        let room = makeRoom()
+        let (_, pub) = makeRemoteParticipantWithTrack(room: room)
+
+        XCTAssertEqual(pub.streamState, .paused)
+
+        pub._state.mutate { $0.streamState = .active }
+        XCTAssertEqual(pub.streamState, .active)
+
+        pub._state.mutate { $0.streamState = .paused }
+        XCTAssertEqual(pub.streamState, .paused)
+    }
+
+    // MARK: - isSendingTrackSettings
+
+    func testIsSendingTrackSettingsDefault() {
+        let room = makeRoom()
+        let (_, pub) = makeRemoteParticipantWithTrack(room: room)
+
+        XCTAssertFalse(pub._state.read { $0.isSendingTrackSettings })
+    }
+
+    func testIsSendingTrackSettingsMutation() {
+        let room = makeRoom()
+        let (_, pub) = makeRemoteParticipantWithTrack(room: room)
+
+        pub._state.mutate { $0.isSendingTrackSettings = true }
+        XCTAssertTrue(pub._state.read { $0.isSendingTrackSettings })
+    }
+
+    // MARK: - TrackSettings Copy
+
+    func testTrackSettingsCopyWith() {
+        let settings = TrackSettings(enabled: true)
+
+        let updated = settings.copyWith(isEnabled: .value(false))
+        XCTAssertFalse(updated.isEnabled)
+
+        let withFPS = settings.copyWith(preferredFPS: .value(30))
+        XCTAssertEqual(withFPS.preferredFPS, 30)
+        XCTAssertTrue(withFPS.isEnabled)
+    }
+
+    // MARK: - Multiple Publications on Same Participant
+
+    func testMultiplePublicationsOnParticipant() {
+        let room = makeRoom()
+        let audioTrack = TestData.trackInfo(sid: "TR_a1", name: "mic", type: .audio, source: .microphone)
+        let videoTrack = TestData.trackInfo(sid: "TR_v1", name: "camera", type: .video, source: .camera)
+        let screenTrack = TestData.trackInfo(sid: "TR_ss1", name: "screen", type: .video, source: .screenShare)
+
+        let info = TestData.participantInfo(sid: "PA_r1", identity: "remote-1", tracks: [audioTrack, videoTrack, screenTrack])
+        let participant = RemoteParticipant(info: info, room: room, connectionState: .connected)
+
+        XCTAssertEqual(participant.trackPublications.count, 3)
+        XCTAssertEqual(participant.audioTracks.count, 1)
+        XCTAssertEqual(participant.videoTracks.count, 2)
+
+        // Each has correct properties
+        let audioPub = participant.trackPublications[Track.Sid(from: "TR_a1")]
+        XCTAssertEqual(audioPub?.kind, .audio)
+        XCTAssertEqual(audioPub?.source, .microphone)
+
+        let videoPub = participant.trackPublications[Track.Sid(from: "TR_v1")]
+        XCTAssertEqual(videoPub?.kind, .video)
+        XCTAssertEqual(videoPub?.source, .camera)
+
+        let screenPub = participant.trackPublications[Track.Sid(from: "TR_ss1")]
+        XCTAssertEqual(screenPub?.kind, .video)
+        XCTAssertEqual(screenPub?.source, .screenShareVideo)
+    }
+
+    // MARK: - updateFromInfo with Video Dimensions
+
+    func testUpdateFromInfoClearsDimensionsForAudio() {
+        let room = makeRoom()
+        let (_, pub) = makeRemoteParticipantWithTrack(
+            room: room, trackSid: "TR_a1", trackName: "mic",
+            trackType: .audio, trackSource: .microphone
+        )
+
+        let updatedInfo = Livekit_TrackInfo.with {
+            $0.sid = "TR_a1"
+            $0.name = "mic"
+            $0.type = .audio
+            $0.source = .microphone
+            $0.width = 0
+            $0.height = 0
+        }
+        pub.updateFromInfo(info: updatedInfo)
+
+        XCTAssertNil(pub.dimensions)
+    }
+
+    // MARK: - LatestInfo Storage
+
+    func testLatestInfoStoredAfterUpdate() {
+        let room = makeRoom()
+        let (_, pub) = makeRemoteParticipantWithTrack(room: room, trackSid: "TR_a1", trackName: "mic")
+
+        let updatedInfo = TestData.trackInfo(sid: "TR_a1", name: "mic-updated", type: .audio)
+        pub.updateFromInfo(info: updatedInfo)
+
+        let latestInfo = pub._state.read { $0.latestInfo }
+        XCTAssertNotNil(latestInfo)
+        XCTAssertEqual(latestInfo?.name, "mic-updated")
+    }
 }
