@@ -50,6 +50,8 @@ actor SignalClient: Loggable {
 
     var disconnectError: LiveKitError? { _state.disconnectError }
 
+    var useV0SignalPath: Bool { _state.useV0SignalPath }
+
     // MARK: - Private
 
     let _delegate = AsyncSerialDelegate<SignalClientDelegate>()
@@ -92,6 +94,9 @@ actor SignalClient: Loggable {
         var messageLoopTask: AnyTaskCancellable?
         var lastJoinResponse: Livekit_JoinResponse?
         var rtt: Int64 = 0
+        // Tracks whether the v0 signal path (/rtc) is in use, set during connect.
+        // Reused by reconnect to avoid re-attempting the unsupported v1 path.
+        var useV0SignalPath: Bool = false
     }
 
     let _state = StateSync(State())
@@ -137,6 +142,8 @@ actor SignalClient: Loggable {
                                participantSid: participantSid,
                                adaptiveStream: adaptiveStream)
         }
+
+        _state.mutate { $0.useV0SignalPath = !singlePeerConnection }
 
         let isReconnect = reconnectMode != nil
 

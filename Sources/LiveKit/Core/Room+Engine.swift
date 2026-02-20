@@ -324,18 +324,19 @@ extension Room {
         @Sendable func quickReconnectSequence() async throws {
             log("[Connect] Starting .quick reconnect sequence...")
 
+            let singlePC = await !signalClient.useV0SignalPath
             let connectResponse = try await signalClient.connect(url,
                                                                  token,
                                                                  connectOptions: _state.connectOptions,
                                                                  reconnectMode: _state.isReconnectingWithMode,
                                                                  participantSid: localParticipant.sid,
                                                                  adaptiveStream: _state.roomOptions.adaptiveStream,
-                                                                 singlePeerConnection: _state.roomOptions.singlePeerConnection)
+                                                                 singlePeerConnection: singlePC)
             try Task.checkCancellation()
 
             // Update configuration
             try await configureTransports(connectResponse: connectResponse,
-                                          singlePeerConnection: _state.roomOptions.singlePeerConnection)
+                                          singlePeerConnection: singlePC)
             try Task.checkCancellation()
 
             // Resume after configuring transports...
