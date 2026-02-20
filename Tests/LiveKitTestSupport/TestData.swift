@@ -230,4 +230,159 @@ public enum TestData {
         state.disconnectError = disconnectError
         return state
     }
+
+    // MARK: - Subscription Permission Update
+
+    public static func subscriptionPermissionUpdate(
+        participantSid: String = "PA_r1",
+        trackSid: String = "TR_v1",
+        allowed: Bool = true
+    ) -> Livekit_SubscriptionPermissionUpdate {
+        Livekit_SubscriptionPermissionUpdate.with {
+            $0.participantSid = participantSid
+            $0.trackSid = trackSid
+            $0.allowed = allowed
+        }
+    }
+
+    // MARK: - Stream State Info
+
+    public static func streamStateInfo(
+        participantSid: String = "PA_r1",
+        trackSid: String = "TR_v1",
+        state: Livekit_StreamState = .active
+    ) -> Livekit_StreamStateInfo {
+        Livekit_StreamStateInfo.with {
+            $0.participantSid = participantSid
+            $0.trackSid = trackSid
+            $0.state = state
+        }
+    }
+
+    // MARK: - Room Moved Response
+
+    public static func roomMovedResponse(
+        room: Livekit_Room? = nil,
+        token: String = "new-token",
+        participant: Livekit_ParticipantInfo? = nil,
+        otherParticipants: [Livekit_ParticipantInfo] = []
+    ) -> Livekit_RoomMovedResponse {
+        Livekit_RoomMovedResponse.with {
+            if let room { $0.room = room }
+            $0.token = token
+            if let participant { $0.participant = participant }
+            $0.otherParticipants = otherParticipants
+        }
+    }
+
+    // MARK: - Signal Response Builders
+
+    /// Build a Livekit_SignalResponse wrapping a join response.
+    public static func signalResponse(join: Livekit_JoinResponse) -> Livekit_SignalResponse {
+        Livekit_SignalResponse.with { $0.join = join }
+    }
+
+    /// Build a Livekit_SignalResponse wrapping a room update.
+    public static func signalResponse(roomUpdate: Livekit_Room) -> Livekit_SignalResponse {
+        Livekit_SignalResponse.with {
+            $0.roomUpdate = Livekit_RoomUpdate.with { $0.room = roomUpdate }
+        }
+    }
+
+    /// Build a Livekit_SignalResponse wrapping participant updates.
+    public static func signalResponse(participantUpdate participants: [Livekit_ParticipantInfo]) -> Livekit_SignalResponse {
+        Livekit_SignalResponse.with {
+            $0.update = Livekit_ParticipantUpdate.with { $0.participants = participants }
+        }
+    }
+
+    /// Build a Livekit_SignalResponse wrapping speaker updates.
+    public static func signalResponse(speakersChanged speakers: [Livekit_SpeakerInfo]) -> Livekit_SignalResponse {
+        Livekit_SignalResponse.with {
+            $0.speakersChanged = Livekit_SpeakersChanged.with { $0.speakers = speakers }
+        }
+    }
+
+    /// Build a Livekit_SignalResponse wrapping connection quality updates.
+    public static func signalResponse(connectionQuality updates: [Livekit_ConnectionQualityInfo]) -> Livekit_SignalResponse {
+        Livekit_SignalResponse.with {
+            $0.connectionQuality = Livekit_ConnectionQualityUpdate.with { $0.updates = updates }
+        }
+    }
+
+    /// Build a Livekit_SignalResponse wrapping a leave request.
+    public static func signalResponse(
+        leave action: Livekit_LeaveRequest.Action,
+        reason: Livekit_DisconnectReason = .clientInitiated
+    ) -> Livekit_SignalResponse {
+        Livekit_SignalResponse.with {
+            $0.leave = Livekit_LeaveRequest.with {
+                $0.action = action
+                $0.reason = reason
+            }
+        }
+    }
+
+    /// Build a Livekit_SignalResponse wrapping a token refresh.
+    public static func signalResponse(refreshToken token: String) -> Livekit_SignalResponse {
+        Livekit_SignalResponse.with { $0.refreshToken = token }
+    }
+
+    /// Build a Livekit_SignalResponse wrapping a mute update.
+    public static func signalResponse(mute trackSid: String, muted: Bool) -> Livekit_SignalResponse {
+        Livekit_SignalResponse.with {
+            $0.mute = Livekit_MuteTrackRequest.with {
+                $0.sid = trackSid
+                $0.muted = muted
+            }
+        }
+    }
+
+    /// Build a Livekit_SignalResponse wrapping stream state updates.
+    public static func signalResponse(streamStates: [Livekit_StreamStateInfo]) -> Livekit_SignalResponse {
+        Livekit_SignalResponse.with {
+            $0.streamStateUpdate = Livekit_StreamStateUpdate.with { $0.streamStates = streamStates }
+        }
+    }
+
+    /// Build a Livekit_SignalResponse wrapping a subscription permission update.
+    public static func signalResponse(subscriptionPermission: Livekit_SubscriptionPermissionUpdate) -> Livekit_SignalResponse {
+        Livekit_SignalResponse.with { $0.subscriptionPermissionUpdate = subscriptionPermission }
+    }
+
+    /// Build a Livekit_SignalResponse wrapping a track published response.
+    public static func signalResponse(trackPublished cid: String, track: Livekit_TrackInfo) -> Livekit_SignalResponse {
+        Livekit_SignalResponse.with {
+            $0.trackPublished = Livekit_TrackPublishedResponse.with {
+                $0.cid = cid
+                $0.track = track
+            }
+        }
+    }
+
+    /// Build a Livekit_SignalResponse wrapping a track unpublished response.
+    public static func signalResponse(trackUnpublished trackSid: String) -> Livekit_SignalResponse {
+        Livekit_SignalResponse.with {
+            $0.trackUnpublished = Livekit_TrackUnpublishedResponse.with {
+                $0.trackSid = trackSid
+            }
+        }
+    }
+
+    /// Build a Livekit_SignalResponse wrapping a room moved response.
+    public static func signalResponse(roomMoved: Livekit_RoomMovedResponse) -> Livekit_SignalResponse {
+        Livekit_SignalResponse.with { $0.roomMoved = roomMoved }
+    }
+
+    /// Build a Livekit_SignalResponse wrapping a pong.
+    public static func signalResponse(pong timestamp: Int64) -> Livekit_SignalResponse {
+        Livekit_SignalResponse.with { $0.pong = timestamp }
+    }
+
+    /// Build a Livekit_SignalResponse wrapping a track subscribed event.
+    public static func signalResponse(trackSubscribed trackSid: String) -> Livekit_SignalResponse {
+        Livekit_SignalResponse.with {
+            $0.trackSubscribed = Livekit_TrackSubscribed.with { $0.trackSid = trackSid }
+        }
+    }
 }

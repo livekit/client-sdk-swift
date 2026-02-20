@@ -347,4 +347,243 @@ class RoomSignalDelegateTests: LKTestCase {
         let trackSid = Track.Sid(from: "TR_audio1")
         XCTAssertNotNil(remote?.trackPublications[trackSid])
     }
+
+    // MARK: - didUpdateSubscriptionPermission
+
+    func testSubscriptionPermissionUpdateSetsAllowed() async {
+        let room = makeConnectedRoom()
+        let trackInfo = TestData.trackInfo(sid: "TR_v1", name: "camera", type: .video, source: .camera)
+        let pInfo = TestData.participantInfo(sid: "PA_r1", identity: "remote-1", tracks: [trackInfo])
+        let remote = RemoteParticipant(info: pInfo, room: room, connectionState: .connected)
+        room._state.mutate { $0.remoteParticipants[Participant.Identity(from: "remote-1")] = remote }
+
+        let update = TestData.subscriptionPermissionUpdate(participantSid: "PA_r1", trackSid: "TR_v1", allowed: false)
+        await room.signalClient(room.signalClient, didUpdateSubscriptionPermission: update)
+
+        let pub = remote.trackPublications[Track.Sid(from: "TR_v1")] as? RemoteTrackPublication
+        XCTAssertFalse(pub?.isSubscriptionAllowed ?? true)
+        XCTAssertEqual(pub?.subscriptionState, .notAllowed)
+    }
+
+    func testSubscriptionPermissionUpdateReEnablesSubscription() async {
+        let room = makeConnectedRoom()
+        let trackInfo = TestData.trackInfo(sid: "TR_v1", name: "camera", type: .video, source: .camera)
+        let pInfo = TestData.participantInfo(sid: "PA_r1", identity: "remote-1", tracks: [trackInfo])
+        let remote = RemoteParticipant(info: pInfo, room: room, connectionState: .connected)
+        room._state.mutate { $0.remoteParticipants[Participant.Identity(from: "remote-1")] = remote }
+
+        // Disable first
+        let disable = TestData.subscriptionPermissionUpdate(participantSid: "PA_r1", trackSid: "TR_v1", allowed: false)
+        await room.signalClient(room.signalClient, didUpdateSubscriptionPermission: disable)
+        let disabledPub = remote.trackPublications[Track.Sid(from: "TR_v1")] as? RemoteTrackPublication
+        XCTAssertFalse(disabledPub?.isSubscriptionAllowed ?? true)
+
+        // Re-enable
+        let enable = TestData.subscriptionPermissionUpdate(participantSid: "PA_r1", trackSid: "TR_v1", allowed: true)
+        await room.signalClient(room.signalClient, didUpdateSubscriptionPermission: enable)
+
+        let pub = remote.trackPublications[Track.Sid(from: "TR_v1")] as? RemoteTrackPublication
+        XCTAssertTrue(pub?.isSubscriptionAllowed ?? false)
+    }
+
+    func testSubscriptionPermissionUpdateUnknownParticipantNoOp() async {
+        let room = makeConnectedRoom()
+        let participantsBefore = room.remoteParticipants.count
+        let update = TestData.subscriptionPermissionUpdate(participantSid: "PA_unknown", trackSid: "TR_v1", allowed: false)
+        await room.signalClient(room.signalClient, didUpdateSubscriptionPermission: update)
+
+        // Room state unchanged
+        XCTAssertEqual(room.remoteParticipants.count, participantsBefore)
+    }
+
+    func testSubscriptionPermissionUpdateUnknownTrackNoOp() async {
+        let room = makeConnectedRoom()
+        let pInfo = TestData.participantInfo(sid: "PA_r1", identity: "remote-1")
+        let remote = RemoteParticipant(info: pInfo, room: room, connectionState: .connected)
+        room._state.mutate { $0.remoteParticipants[Participant.Identity(from: "remote-1")] = remote }
+
+        // Track doesn't exist on participant — should be a no-op
+        let update = TestData.subscriptionPermissionUpdate(participantSid: "PA_r1", trackSid: "TR_nonexistent", allowed: false)
+        await room.signalClient(room.signalClient, didUpdateSubscriptionPermission: update)
+
+        // Participant still exists, no publications changed
+        XCTAssertEqual(remote.trackPublications.count, 0)
+    }
+
+    // MARK: - didUpdateTrackStreamStates
+
+    func testStreamStateUpdateSetsActive() async {
+        let room = makeConnectedRoom()
+        let trackInfo = TestData.trackInfo(sid: "TR_v1", name: "camera", type: .video, source: .camera)
+        let pInfo = TestData.participantInfo(sid: "PA_r1", identity: "remote-1", tracks: [trackInfo])
+        let remote = RemoteParticipant(info: pInfo, room: room, connectionState: .connected)
+        room._state.mutate { $0.remoteParticipants[Participant.Identity(from: "remote-1")] = remote }
+
+        let stateInfo = TestData.streamStateInfo(participantSid: "PA_r1", trackSid: "TR_v1", state: .active)
+        await room.signalClient(room.signalClient, didUpdateTrackStreamStates: [stateInfo])
+
+        let pub = remote.trackPublications[Track.Sid(from: "TR_v1")] as? RemoteTrackPublication
+        XCTAssertEqual(pub?.streamState, .active)
+    }
+
+    func testStreamStateUpdateSetsPaused() async {
+        let room = makeConnectedRoom()
+        let trackInfo = TestData.trackInfo(sid: "TR_v1", name: "camera", type: .video, source: .camera)
+        let pInfo = TestData.participantInfo(sid: "PA_r1", identity: "remote-1", tracks: [trackInfo])
+        let remote = RemoteParticipant(info: pInfo, room: room, connectionState: .connected)
+        room._state.mutate { $0.remoteParticipants[Participant.Identity(from: "remote-1")] = remote }
+
+        // Set to active first
+        let active = TestData.streamStateInfo(participantSid: "PA_r1", trackSid: "TR_v1", state: .active)
+        await room.signalClient(room.signalClient, didUpdateTrackStreamStates: [active])
+        let pub = remote.trackPublications[Track.Sid(from: "TR_v1")] as? RemoteTrackPublication
+        XCTAssertEqual(pub?.streamState, .active)
+
+        // Set to paused
+        let paused = TestData.streamStateInfo(participantSid: "PA_r1", trackSid: "TR_v1", state: .paused)
+        await room.signalClient(room.signalClient, didUpdateTrackStreamStates: [paused])
+        XCTAssertEqual(pub?.streamState, .paused)
+    }
+
+    func testStreamStateUpdateMultipleTracks() async {
+        let room = makeConnectedRoom()
+        let trackV = TestData.trackInfo(sid: "TR_v1", name: "camera", type: .video, source: .camera)
+        let trackA = TestData.trackInfo(sid: "TR_a1", name: "mic", type: .audio, source: .microphone)
+        let pInfo = TestData.participantInfo(sid: "PA_r1", identity: "remote-1", tracks: [trackV, trackA])
+        let remote = RemoteParticipant(info: pInfo, room: room, connectionState: .connected)
+        room._state.mutate { $0.remoteParticipants[Participant.Identity(from: "remote-1")] = remote }
+
+        let s1 = TestData.streamStateInfo(participantSid: "PA_r1", trackSid: "TR_v1", state: .active)
+        let s2 = TestData.streamStateInfo(participantSid: "PA_r1", trackSid: "TR_a1", state: .active)
+        await room.signalClient(room.signalClient, didUpdateTrackStreamStates: [s1, s2])
+
+        let pubV = remote.trackPublications[Track.Sid(from: "TR_v1")] as? RemoteTrackPublication
+        let pubA = remote.trackPublications[Track.Sid(from: "TR_a1")] as? RemoteTrackPublication
+        XCTAssertEqual(pubV?.streamState, .active)
+        XCTAssertEqual(pubA?.streamState, .active)
+    }
+
+    func testStreamStateUpdateUnknownParticipantNoOp() async {
+        let room = makeConnectedRoom()
+        let participantsBefore = room.remoteParticipants.count
+        let stateInfo = TestData.streamStateInfo(participantSid: "PA_unknown", trackSid: "TR_v1", state: .active)
+        await room.signalClient(room.signalClient, didUpdateTrackStreamStates: [stateInfo])
+
+        // State unchanged
+        XCTAssertEqual(room.remoteParticipants.count, participantsBefore)
+    }
+
+    // MARK: - didReceiveRoomMoved
+
+    func testRoomMovedUpdatesRoomInfo() async {
+        let room = makeConnectedRoom()
+        let newRoom = TestData.roomInfo(sid: "RM_new", name: "new-room", metadata: "moved")
+        let response = TestData.roomMovedResponse(room: newRoom, token: "moved-token")
+
+        await room.signalClient(room.signalClient, didReceiveRoomMoved: response)
+
+        XCTAssertEqual(room.sid?.stringValue, "RM_new")
+        XCTAssertEqual(room.name, "new-room")
+        XCTAssertEqual(room.metadata, "moved")
+        XCTAssertEqual(room.token, "moved-token")
+    }
+
+    func testRoomMovedUpdatesLocalParticipant() async {
+        let room = makeConnectedRoom()
+        let newRoom = TestData.roomInfo(sid: "RM_new", name: "new-room")
+        let newLocal = TestData.participantInfo(sid: "PA_local_new", identity: "local-user", name: "Moved Local")
+        let response = TestData.roomMovedResponse(room: newRoom, participant: newLocal)
+
+        await room.signalClient(room.signalClient, didReceiveRoomMoved: response)
+
+        XCTAssertEqual(room.localParticipant.sid?.stringValue, "PA_local_new")
+        XCTAssertEqual(room.localParticipant.name, "Moved Local")
+    }
+
+    func testRoomMovedDisconnectsOldParticipants() async {
+        let room = makeConnectedRoom()
+        // Add remote participant to old room
+        let oldRemote = TestData.participantInfo(sid: "PA_old", identity: "old-remote")
+        await room.signalClient(room.signalClient, didUpdateParticipants: [oldRemote])
+        XCTAssertEqual(room.remoteParticipants.count, 1)
+
+        let newRoom = TestData.roomInfo(sid: "RM_new", name: "new-room")
+        let response = TestData.roomMovedResponse(room: newRoom)
+        await room.signalClient(room.signalClient, didReceiveRoomMoved: response)
+        // Allow async cleanup
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        // Old participants should be disconnected
+        XCTAssertEqual(room.remoteParticipants.count, 0)
+    }
+
+    func testRoomMovedAddsNewParticipants() async {
+        let room = makeConnectedRoom()
+        let newRoom = TestData.roomInfo(sid: "RM_new", name: "new-room")
+        let newRemote = TestData.participantInfo(sid: "PA_new", identity: "new-remote", name: "New Remote")
+        let response = TestData.roomMovedResponse(room: newRoom, otherParticipants: [newRemote])
+
+        await room.signalClient(room.signalClient, didReceiveRoomMoved: response)
+
+        let identity = Participant.Identity(from: "new-remote")
+        XCTAssertNotNil(room.remoteParticipants[identity])
+        XCTAssertEqual(room.remoteParticipants[identity]?.name, "New Remote")
+    }
+
+    func testRoomMovedWithTokenOnlyUpdatesToken() async {
+        let room = makeConnectedRoom()
+        room._state.mutate { $0.token = "old-token" }
+
+        // Room moved with only token, no room info
+        let response = TestData.roomMovedResponse(token: "token-only")
+        await room.signalClient(room.signalClient, didReceiveRoomMoved: response)
+
+        XCTAssertEqual(room.token, "token-only")
+    }
+
+    // MARK: - didUpdateRemoteMute
+
+    func testRemoteMuteNoPublicationIsNoOp() async {
+        let room = makeConnectedRoom()
+        let pubCount = room.localParticipant.trackPublications.count
+        // No local publications — should be no-op
+        await room.signalClient(room.signalClient, didUpdateRemoteMute: Track.Sid(from: "TR_nonexistent"), muted: true)
+
+        XCTAssertEqual(room.localParticipant.trackPublications.count, pubCount)
+    }
+
+    // MARK: - didSubscribeTrack
+
+    func testSubscribeTrackNoPublicationIsNoOp() async {
+        let room = makeConnectedRoom()
+        let pubCount = room.localParticipant.trackPublications.count
+        // No matching local publication — should be no-op
+        await room.signalClient(room.signalClient, didSubscribeTrack: Track.Sid(from: "TR_nonexistent"))
+
+        XCTAssertEqual(room.localParticipant.trackPublications.count, pubCount)
+    }
+
+    // MARK: - didUpdateSubscribedCodecs
+
+    func testSubscribedCodecsNoDynacastIsNoOp() async {
+        // Room with dynacast disabled (default)
+        let room = makeConnectedRoom()
+        let metadata = room.metadata
+        await room.signalClient(room.signalClient, didUpdateSubscribedCodecs: [], qualities: [], forTrackSid: "TR_v1")
+
+        // Should return early without error, state unchanged
+        XCTAssertEqual(room.metadata, metadata)
+    }
+
+    // MARK: - didReceiveLeave with resume action
+
+    func testLeaveResumeCleansUpSignalClient() async {
+        let room = makeConnectedRoom()
+        await room.signalClient(room.signalClient, didReceiveLeave: .resume, reason: .unknownReason, regions: nil)
+        // Allow async cleanup
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        // Signal client should be cleaned up (disconnected)
+        let signalState = await room.signalClient.connectionState
+        XCTAssertEqual(signalState, .disconnected)
+    }
 }

@@ -269,7 +269,11 @@ private extension SignalClient {
             await self._responseQueue.processIfResumed(response, or: alwaysProcess)
         }
     }
+}
 
+// MARK: - Response Processing
+
+extension SignalClient {
     // swiftlint:disable:next cyclomatic_complexity function_body_length
     func _process(signalResponse: Livekit_SignalResponse) async {
         guard connectionState != .disconnected else {
@@ -378,6 +382,11 @@ extension SignalClient {
     func resumeQueues() async {
         await _responseQueue.resume()
         await _requestQueue.resume()
+    }
+
+    /// Sets connection state. Used internally and for testing.
+    func setConnectionState(_ connectionState: ConnectionState) {
+        _state.mutate { $0.connectionState = connectionState }
     }
 }
 
