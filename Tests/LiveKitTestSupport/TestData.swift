@@ -169,4 +169,65 @@ public enum TestData {
             $0.muted = muted
         }
     }
+
+    // MARK: - User Packet
+
+    public static func userPacket(
+        participantIdentity: String = "remote-user",
+        payload: Data = Data("hello".utf8),
+        topic: String = "chat"
+    ) -> Livekit_UserPacket {
+        Livekit_UserPacket.with {
+            $0.participantIdentity = participantIdentity
+            $0.payload = payload
+            $0.topic = topic
+        }
+    }
+
+    // MARK: - Transcription
+
+    public static func transcriptionSegment(
+        id: String = "seg-1",
+        text: String = "Hello world",
+        language: String = "en",
+        startTime: UInt64 = 0,
+        endTime: UInt64 = 1000,
+        isFinal: Bool = false
+    ) -> Livekit_TranscriptionSegment {
+        Livekit_TranscriptionSegment.with {
+            $0.id = id
+            $0.text = text
+            $0.language = language
+            $0.startTime = startTime
+            $0.endTime = endTime
+            $0.final = isFinal
+        }
+    }
+
+    public static func transcription(
+        participantIdentity: String = "remote-user",
+        trackID: String = "TR_audio1",
+        segments: [Livekit_TranscriptionSegment] = []
+    ) -> Livekit_Transcription {
+        Livekit_Transcription.with {
+            $0.transcribedParticipantIdentity = participantIdentity
+            $0.trackID = trackID
+            $0.segments = segments
+        }
+    }
+
+    // MARK: - Room State Helpers
+
+    /// Creates a Room.State for state machine testing.
+    public static func roomState(
+        connectionState: ConnectionState = .disconnected,
+        isReconnectingWithMode: ReconnectMode? = nil,
+        disconnectError: LiveKitError? = nil
+    ) -> Room.State {
+        var state = Room.State(connectOptions: ConnectOptions(), roomOptions: RoomOptions())
+        state.connectionState = connectionState
+        state.isReconnectingWithMode = isReconnectingWithMode
+        state.disconnectError = disconnectError
+        return state
+    }
 }
