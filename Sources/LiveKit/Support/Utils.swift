@@ -134,9 +134,7 @@ class Utils: Loggable {
         connectOptions: ConnectOptions? = nil,
         reconnectMode: ReconnectMode? = nil,
         participantSid: Participant.Sid? = nil,
-        adaptiveStream: Bool,
-        validate: Bool = false,
-        forceSecure: Bool = false
+        adaptiveStream: Bool
     ) throws -> URL {
         // use default options if nil
         let connectOptions = connectOptions ?? ConnectOptions()
@@ -147,9 +145,7 @@ class Utils: Loggable {
             throw LiveKitError(.failedToParseUrl)
         }
 
-        let useSecure = url.isSecure || forceSecure
-        let httpScheme = useSecure ? "https" : "http"
-        let wsScheme = useSecure ? "wss" : "ws"
+        let wsScheme = url.isSecure ? "wss" : "ws"
 
         var pathSegments = url.pathComponents
         // strip empty & slashes
@@ -165,12 +161,8 @@ class Utils: Loggable {
         }
         // add the correct segment
         pathSegments.append("rtc")
-        // add validate after rtc if validate mode
-        if validate {
-            pathSegments.append("validate")
-        }
 
-        builder.scheme = validate ? httpScheme : wsScheme
+        builder.scheme = wsScheme
         builder.path = "/" + pathSegments.joined(separator: "/")
 
         var queryItems = [
@@ -215,8 +207,7 @@ class Utils: Loggable {
         connectOptions: ConnectOptions? = nil,
         reconnectMode: ReconnectMode? = nil,
         participantSid: Participant.Sid? = nil,
-        adaptiveStream: Bool,
-        forceSecure: Bool = false
+        adaptiveStream: Bool
     ) throws -> URL {
         let connectOptions = connectOptions ?? ConnectOptions()
 
@@ -224,7 +215,7 @@ class Utils: Loggable {
             throw LiveKitError(.failedToParseUrl)
         }
 
-        let wsScheme = (url.isSecure || forceSecure) ? "wss" : "ws"
+        let wsScheme = url.isSecure ? "wss" : "ws"
 
         var pathSegments = url.pathComponents
         pathSegments.removeAll(where: { $0.isEmpty || $0 == "/" })
