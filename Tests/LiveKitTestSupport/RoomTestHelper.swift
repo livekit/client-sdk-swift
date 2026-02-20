@@ -107,10 +107,10 @@ public final class RoomTestHelper: @unchecked Sendable {
 
     /// Simulate a leave message from the server.
     public func simulateLeave(
-        action: Livekit_LeaveRequest.Action = .disconnect,
-        reason: Livekit_DisconnectReason = .clientInitiated
+        action: Livekit_LeaveRequest.Action? = nil,
+        reason: Livekit_DisconnectReason? = nil
     ) async {
-        await room.signalClient(room.signalClient, didReceiveLeave: action, reason: reason, regions: nil)
+        await room.signalClient(room.signalClient, didReceiveLeave: action ?? .disconnect, reason: reason ?? .clientInitiated, regions: nil)
     }
 
     /// Simulate remote mute update for a local track.

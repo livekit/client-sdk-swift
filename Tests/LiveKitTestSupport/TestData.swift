@@ -16,7 +16,8 @@
 
 @testable import LiveKit
 
-/// Pre-built protobuf fixtures for unit testing SignalClient and Room delegate handling.
+// Pre-built protobuf fixtures for unit testing SignalClient and Room delegate handling.
+// swiftlint:disable:next type_body_length
 public enum TestData {
     // MARK: - Participant Info
 
@@ -24,10 +25,10 @@ public enum TestData {
         sid: String = "PA_test123",
         identity: String = "test-user",
         name: String = "Test User",
-        state: Livekit_ParticipantInfo.State = .active,
+        state: Livekit_ParticipantInfo.State? = nil,
         metadata: String = "",
         attributes: [String: String] = [:],
-        kind: Livekit_ParticipantInfo.Kind = .standard,
+        kind: Livekit_ParticipantInfo.Kind? = nil,
         joinedAt: Int64 = 1_700_000_000,
         tracks: [Livekit_TrackInfo] = [],
         canPublish: Bool = true,
@@ -38,10 +39,10 @@ public enum TestData {
             $0.sid = sid
             $0.identity = identity
             $0.name = name
-            $0.state = state
+            $0.state = state ?? .active
             $0.metadata = metadata
             $0.attributes = attributes
-            $0.kind = kind
+            $0.kind = kind ?? .standard
             $0.joinedAt = joinedAt
             $0.tracks = tracks
             $0.permission = Livekit_ParticipantPermission.with {
@@ -144,11 +145,11 @@ public enum TestData {
 
     public static func connectionQualityInfo(
         participantSid: String,
-        quality: Livekit_ConnectionQuality = .good
+        quality: Livekit_ConnectionQuality? = nil
     ) -> Livekit_ConnectionQualityInfo {
         Livekit_ConnectionQualityInfo.with {
             $0.participantSid = participantSid
-            $0.quality = quality
+            $0.quality = quality ?? .good
         }
     }
 
@@ -157,15 +158,15 @@ public enum TestData {
     public static func trackInfo(
         sid: String = "TR_test789",
         name: String = "microphone",
-        type: Livekit_TrackType = .audio,
-        source: Livekit_TrackSource = .microphone,
+        type: Livekit_TrackType? = nil,
+        source: Livekit_TrackSource? = nil,
         muted: Bool = false
     ) -> Livekit_TrackInfo {
         Livekit_TrackInfo.with {
             $0.sid = sid
             $0.name = name
-            $0.type = type
-            $0.source = source
+            $0.type = type ?? .audio
+            $0.source = source ?? .microphone
             $0.muted = muted
         }
     }
@@ -250,12 +251,12 @@ public enum TestData {
     public static func streamStateInfo(
         participantSid: String = "PA_r1",
         trackSid: String = "TR_v1",
-        state: Livekit_StreamState = .active
+        state: Livekit_StreamState? = nil
     ) -> Livekit_StreamStateInfo {
         Livekit_StreamStateInfo.with {
             $0.participantSid = participantSid
             $0.trackSid = trackSid
-            $0.state = state
+            $0.state = state ?? .active
         }
     }
 
@@ -313,12 +314,12 @@ public enum TestData {
     /// Build a Livekit_SignalResponse wrapping a leave request.
     public static func signalResponse(
         leave action: Livekit_LeaveRequest.Action,
-        reason: Livekit_DisconnectReason = .clientInitiated
+        reason: Livekit_DisconnectReason? = nil
     ) -> Livekit_SignalResponse {
         Livekit_SignalResponse.with {
             $0.leave = Livekit_LeaveRequest.with {
                 $0.action = action
-                $0.reason = reason
+                $0.reason = reason ?? .clientInitiated
             }
         }
     }

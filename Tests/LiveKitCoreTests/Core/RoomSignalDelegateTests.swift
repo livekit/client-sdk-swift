@@ -14,14 +14,32 @@
  * limitations under the License.
  */
 
+// swiftlint:disable file_length
+/*
+ * Copyright 2026 LiveKit
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 @testable import LiveKit
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-/// Tests for Room's SignalClientDelegate method implementations.
-/// These test the business logic in Room+SignalClientDelegate.swift by calling
-/// the delegate methods directly with test data, bypassing the WebSocket layer.
+// Tests for Room's SignalClientDelegate method implementations.
+// These test the business logic in Room+SignalClientDelegate.swift by calling
+// the delegate methods directly with test data, bypassing the WebSocket layer.
+// swiftlint:disable:next type_body_length
 class RoomSignalDelegateTests: LKTestCase {
     // MARK: - Helper
 
