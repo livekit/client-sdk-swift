@@ -157,4 +157,138 @@ class AgentStateTests: LKTestCase {
         XCTAssertFalse(agent.canListen)
         XCTAssertNotNil(agent.error)
     }
+
+    // MARK: - Connected State (via participant)
+
+    private func makeHelper() -> RoomTestHelper {
+        RoomTestHelper()
+    }
+
+    func testConnectedWithListeningAgent() {
+        let helper = makeHelper()
+        let info = TestData.participantInfo(
+            sid: "PA_agent", identity: "agent-1",
+            attributes: ["lk.agent.state": "listening"],
+            kind: .agent
+        )
+        let participant = RemoteParticipant(info: info, room: helper.room, connectionState: .connected)
+
+        var agent = Agent()
+        agent.connected(participant: participant)
+
+        XCTAssertTrue(agent.isConnected)
+        XCTAssertTrue(agent.canListen)
+        XCTAssertFalse(agent.isPending)
+        XCTAssertFalse(agent.isFinished)
+        XCTAssertEqual(agent.agentState, .listening)
+        // No tracks attached, so audio/video tracks should be nil
+        XCTAssertNil(agent.audioTrack)
+        XCTAssertNil(agent.avatarVideoTrack)
+        XCTAssertNil(agent.error)
+    }
+
+    func testConnectedWithSpeakingAgent() {
+        let helper = makeHelper()
+        let info = TestData.participantInfo(
+            sid: "PA_agent", identity: "agent-1",
+            attributes: ["lk.agent.state": "speaking"],
+            kind: .agent
+        )
+        let participant = RemoteParticipant(info: info, room: helper.room, connectionState: .connected)
+
+        var agent = Agent()
+        agent.connected(participant: participant)
+
+        XCTAssertTrue(agent.isConnected)
+        XCTAssertEqual(agent.agentState, .speaking)
+    }
+
+    func testConnectedWithThinkingAgent() {
+        let helper = makeHelper()
+        let info = TestData.participantInfo(
+            sid: "PA_agent", identity: "agent-1",
+            attributes: ["lk.agent.state": "thinking"],
+            kind: .agent
+        )
+        let participant = RemoteParticipant(info: info, room: helper.room, connectionState: .connected)
+
+        var agent = Agent()
+        agent.connected(participant: participant)
+
+        XCTAssertTrue(agent.isConnected)
+        XCTAssertTrue(agent.canListen)
+        XCTAssertEqual(agent.agentState, .thinking)
+    }
+
+    func testConnectedWithIdleAgentIsPending() {
+        let helper = makeHelper()
+        let info = TestData.participantInfo(
+            sid: "PA_agent", identity: "agent-1",
+            attributes: ["lk.agent.state": "idle"],
+            kind: .agent
+        )
+        let participant = RemoteParticipant(info: info, room: helper.room, connectionState: .connected)
+
+        var agent = Agent()
+        agent.connected(participant: participant)
+
+        XCTAssertFalse(agent.isConnected) // idle is not "connected" in the active sense
+        XCTAssertTrue(agent.isPending)
+        XCTAssertEqual(agent.agentState, .idle)
+    }
+
+    func testConnectedWithInitializingAgentIsPending() {
+        let helper = makeHelper()
+        let info = TestData.participantInfo(
+            sid: "PA_agent", identity: "agent-1",
+            attributes: ["lk.agent.state": "initializing"],
+            kind: .agent
+        )
+        let participant = RemoteParticipant(info: info, room: helper.room, connectionState: .connected)
+
+        var agent = Agent()
+        agent.connected(participant: participant)
+
+        XCTAssertFalse(agent.isConnected)
+        XCTAssertTrue(agent.isPending)
+        XCTAssertFalse(agent.canListen)
+        XCTAssertEqual(agent.agentState, .initializing)
+    }
+
+    func testDisconnectedAfterConnected() {
+        let helper = makeHelper()
+        let info = TestData.participantInfo(
+            sid: "PA_agent", identity: "agent-1",
+            attributes: ["lk.agent.state": "listening"],
+            kind: .agent
+        )
+        let participant = RemoteParticipant(info: info, room: helper.room, connectionState: .connected)
+
+        var agent = Agent()
+        agent.connected(participant: participant)
+        XCTAssertTrue(agent.isConnected)
+
+        agent.disconnected()
+        XCTAssertTrue(agent.isFinished)
+        XCTAssertNil(agent.agentState)
+    }
+
+    func testFailedAfterConnected() {
+        let helper = makeHelper()
+        let info = TestData.participantInfo(
+            sid: "PA_agent", identity: "agent-1",
+            attributes: ["lk.agent.state": "speaking"],
+            kind: .agent
+        )
+        let participant = RemoteParticipant(info: info, room: helper.room, connectionState: .connected)
+
+        var agent = Agent()
+        agent.connected(participant: participant)
+        XCTAssertTrue(agent.isConnected)
+
+        agent.failed(error: .left)
+        XCTAssertTrue(agent.isFinished)
+        XCTAssertFalse(agent.isConnected)
+        XCTAssertNotNil(agent.error)
+    }
 }
