@@ -165,9 +165,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
 
-        var publisher: Transport?
-        var subscriber: Transport?
-        var isSubscriberPrimary: Bool = false
+        var transport: TransportMode?
 
         // Agents
         var transcriptionReceivedTimes: [String: Date] = [:]

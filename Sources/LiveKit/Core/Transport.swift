@@ -335,6 +335,16 @@ extension Transport {
         return transceiver
     }
 
+    func addTransceiver(ofType mediaType: LKRTCRtpMediaType,
+                        transceiverInit: LKRTCRtpTransceiverInit) throws -> LKRTCRtpTransceiver
+    {
+        guard let transceiver = _pc.addTransceiver(of: mediaType, init: transceiverInit) else {
+            throw LiveKitError(.webRTC, message: "Failed to add transceiver")
+        }
+
+        return transceiver
+    }
+
     func remove(track sender: LKRTCRtpSender) throws {
         guard _pc.removeTrack(sender) else {
             throw LiveKitError(.webRTC, message: "Failed to remove track")

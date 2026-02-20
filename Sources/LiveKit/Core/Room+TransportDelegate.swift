@@ -81,37 +81,37 @@ extension Room: TransportDelegate {
             return
         }
 
-        if transport.target == .subscriber {
-            // execute block when connected
-            execute(when: { state, _ in state.connectionState == .connected },
-                    // always remove this block when disconnected
-                    removeWhen: { state, _ in state.connectionState == .disconnected })
-            { [weak self] in
-                guard let self else { return }
-                Task {
-                    await self.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!)
-                }
+        guard transport.target == _state.transport?.subscriber.target else { return }
+
+        // execute block when connected
+        execute(when: { state, _ in state.connectionState == .connected },
+                // always remove this block when disconnected
+                removeWhen: { state, _ in state.connectionState == .disconnected })
+        { [weak self] in
+            guard let self else { return }
+            Task {
+                await self.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!)
             }
         }
     }
 
     func transport(_ transport: Transport, didRemoveTrack track: LKRTCMediaStreamTrack) {
-        if transport.target == .subscriber {
-            Task {
-                await engine(self, didRemoveTrack: track)
-            }
+        guard transport.target == _state.transport?.subscriber.target else { return }
+
+        Task {
+            await engine(self, didRemoveTrack: track)
         }
     }
 
     func transport(_ transport: Transport, didOpenDataChannel dataChannel: LKRTCDataChannel) {
         log("Server opened data channel \(dataChannel.label)(\(dataChannel.readyState))")
 
-        if _state.isSubscriberPrimary, transport.target == .subscriber {
-            switch dataChannel.label {
-            case LKRTCDataChannel.Labels.reliable: subscriberDataChannel.set(reliable: dataChannel)
-            case LKRTCDataChannel.Labels.lossy: subscriberDataChannel.set(lossy: dataChannel)
-            default: log("Unknown data channel label \(dataChannel.label)", .warning)
-            }
+        guard transport.target == _state.transport?.subscriber.target else { return }
+
+        switch dataChannel.label {
+        case LKRTCDataChannel.Labels.reliable: subscriberDataChannel.set(reliable: dataChannel)
+        case LKRTCDataChannel.Labels.lossy: subscriberDataChannel.set(lossy: dataChannel)
+        default: log("Unknown data channel label \(dataChannel.label)", .warning)
         }
     }
 

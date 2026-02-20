@@ -134,9 +134,7 @@ class Utils: Loggable {
         connectOptions: ConnectOptions? = nil,
         reconnectMode: ReconnectMode? = nil,
         participantSid: Participant.Sid? = nil,
-        adaptiveStream: Bool,
-        validate: Bool = false,
-        forceSecure: Bool = false
+        adaptiveStream: Bool
     ) throws -> URL {
         // use default options if nil
         let connectOptions = connectOptions ?? ConnectOptions()
@@ -147,9 +145,7 @@ class Utils: Loggable {
             throw LiveKitError(.failedToParseUrl)
         }
 
-        let useSecure = url.isSecure || forceSecure
-        let httpScheme = useSecure ? "https" : "http"
-        let wsScheme = useSecure ? "wss" : "ws"
+        let wsScheme = url.isSecure ? "wss" : "ws"
 
         var pathSegments = url.pathComponents
         // strip empty & slashes
@@ -165,12 +161,8 @@ class Utils: Loggable {
         }
         // add the correct segment
         pathSegments.append("rtc")
-        // add validate after rtc if validate mode
-        if validate {
-            pathSegments.append("validate")
-        }
 
-        builder.scheme = validate ? httpScheme : wsScheme
+        builder.scheme = wsScheme
         builder.path = "/" + pathSegments.joined(separator: "/")
 
         var queryItems = [
@@ -208,6 +200,103 @@ class Utils: Loggable {
         }
 
         return result
+    }
+
+    static func buildJoinRequestUrl(
+        _ url: URL,
+        connectOptions: ConnectOptions? = nil,
+        reconnectMode: ReconnectMode? = nil,
+        participantSid: Participant.Sid? = nil,
+        adaptiveStream: Bool
+    ) throws -> URL {
+        let connectOptions = connectOptions ?? ConnectOptions()
+
+        guard var builder = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            throw LiveKitError(.failedToParseUrl)
+        }
+
+        let wsScheme = url.isSecure ? "wss" : "ws"
+
+        var pathSegments = url.pathComponents
+        pathSegments.removeAll(where: { $0.isEmpty || $0 == "/" })
+        if !url.hasDirectoryPath, !pathSegments.isEmpty,
+           ["rtc", "validate"].contains(pathSegments.last!)
+        {
+            pathSegments.removeLast()
+        }
+        pathSegments.append("rtc")
+        pathSegments.append("v1")
+
+        builder.scheme = wsScheme
+        builder.path = "/" + pathSegments.joined(separator: "/")
+
+        let encoded = try buildWrappedJoinRequest(connectOptions: connectOptions,
+                                                  reconnectMode: reconnectMode,
+                                                  participantSid: participantSid,
+                                                  adaptiveStream: adaptiveStream)
+
+        builder.queryItems = [URLQueryItem(name: "join_request", value: encoded)]
+
+        guard let result = builder.url else {
+            throw LiveKitError(.failedToParseUrl)
+        }
+
+        return result
+    }
+
+    /// Converts a WebSocket URL to its HTTP validation counterpart.
+    /// - `wss://host/rtc?...` → `https://host/rtc/validate?...`
+    /// - `wss://host/rtc/v1?...` → `https://host/rtc/v1/validate?...`
+    static func toValidateUrl(_ wsUrl: URL) throws -> URL {
+        guard var components = URLComponents(url: wsUrl, resolvingAgainstBaseURL: false) else {
+            throw LiveKitError(.failedToParseUrl)
+        }
+        components.scheme = components.scheme == "wss" ? "https" : "http"
+        components.path = components.path.hasSuffix("/")
+            ? components.path + "validate"
+            : components.path + "/validate"
+        guard let result = components.url else {
+            throw LiveKitError(.failedToParseUrl)
+        }
+        return result
+    }
+
+    private static func buildWrappedJoinRequest(
+        connectOptions: ConnectOptions,
+        reconnectMode: ReconnectMode?,
+        participantSid: Participant.Sid?,
+        adaptiveStream: Bool
+    ) throws -> String {
+        var joinRequest = Livekit_JoinRequest()
+        joinRequest.clientInfo = Livekit_ClientInfo.with {
+            $0.sdk = .swift
+            $0.version = LiveKitSDK.version
+            $0.protocol = Int32(connectOptions.protocolVersion.rawValue)
+            $0.os = String(describing: os())
+            $0.osVersion = osVersionString()
+            if let model = modelIdentifier() { $0.deviceModel = model }
+            if let network = networkTypeString() { $0.network = network }
+        }
+        joinRequest.connectionSettings = Livekit_ConnectionSettings.with {
+            $0.autoSubscribe = connectOptions.autoSubscribe
+            $0.adaptiveStream = adaptiveStream
+        }
+
+        if reconnectMode == .quick {
+            joinRequest.reconnect = true
+            joinRequest.reconnectReason = .rrSignalDisconnected
+            if let sid = participantSid {
+                joinRequest.participantSid = sid.stringValue
+            }
+        }
+
+        let joinRequestData = try joinRequest.serializedData()
+        let wrappedData = try Livekit_WrappedJoinRequest.with {
+            $0.compression = .none
+            $0.joinRequest = joinRequestData
+        }.serializedData()
+
+        return wrappedData.base64EncodedString()
     }
 
     static func computeVideoEncodings(

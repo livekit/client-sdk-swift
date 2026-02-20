@@ -50,6 +50,8 @@ actor SignalClient: Loggable {
 
     var disconnectError: LiveKitError? { _state.disconnectError }
 
+    var useV0SignalPath: Bool { _state.useV0SignalPath }
+
     // MARK: - Private
 
     let _delegate = AsyncSerialDelegate<SignalClientDelegate>()
@@ -92,6 +94,9 @@ actor SignalClient: Loggable {
         var messageLoopTask: AnyTaskCancellable?
         var lastJoinResponse: Livekit_JoinResponse?
         var rtt: Int64 = 0
+        // Tracks whether the v0 signal path (/rtc) is in use, set during connect.
+        // Reused by reconnect to avoid re-attempting the unsupported v1 path.
+        var useV0SignalPath: Bool = false
     }
 
     let _state = StateSync(State())
@@ -115,7 +120,8 @@ actor SignalClient: Loggable {
                  connectOptions: ConnectOptions? = nil,
                  reconnectMode: ReconnectMode? = nil,
                  participantSid: Participant.Sid? = nil,
-                 adaptiveStream: Bool) async throws -> ConnectResponse
+                 adaptiveStream: Bool,
+                 singlePeerConnection: Bool) async throws -> ConnectResponse
     {
         await cleanUp()
 
@@ -123,11 +129,21 @@ actor SignalClient: Loggable {
             log("[Connect] mode: \(String(describing: reconnectMode))")
         }
 
-        let url = try Utils.buildUrl(url,
-                                     connectOptions: connectOptions,
-                                     reconnectMode: reconnectMode,
-                                     participantSid: participantSid,
-                                     adaptiveStream: adaptiveStream)
+        let url: URL = if singlePeerConnection {
+            try Utils.buildJoinRequestUrl(url,
+                                          connectOptions: connectOptions,
+                                          reconnectMode: reconnectMode,
+                                          participantSid: participantSid,
+                                          adaptiveStream: adaptiveStream)
+        } else {
+            try Utils.buildUrl(url,
+                               connectOptions: connectOptions,
+                               reconnectMode: reconnectMode,
+                               participantSid: participantSid,
+                               adaptiveStream: adaptiveStream)
+        }
+
+        _state.mutate { $0.useV0SignalPath = !singlePeerConnection }
 
         let isReconnect = reconnectMode != nil
 
@@ -177,17 +193,15 @@ actor SignalClient: Loggable {
 
             await cleanUp(withError: connectionError)
 
-            // Attempt to validate with server
-            let validateUrl = try Utils.buildUrl(url,
-                                                 connectOptions: connectOptions,
-                                                 participantSid: participantSid,
-                                                 adaptiveStream: adaptiveStream,
-                                                 validate: true)
+            // Attempt to validate with server, deriving validate URL from the actual WS URL
+            let validateUrl = try Utils.toValidateUrl(url)
             log("Validating with url: \(validateUrl)...")
             do {
                 try await HTTP.requestValidation(from: validateUrl, token: token)
                 // Re-throw original error since validation passed
                 throw LiveKitError(.network, internalError: connectionError)
+            } catch let error as LiveKitError where error.type == .serviceNotFound {
+                throw error
             } catch let validationError as LiveKitError where validationError.type == .validation {
                 // Re-throw validation error
                 throw validationError
@@ -365,6 +379,9 @@ private extension SignalClient {
 
         case let .trackSubscribed(trackSubscribed):
             _delegate.notifyDetached { await $0.signalClient(self, didSubscribeTrack: Track.Sid(from: trackSubscribed.trackSid)) }
+
+        case let .mediaSectionsRequirement(requirement):
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveMediaSectionsRequirement: requirement) }
 
         default:
             log("Unhandled signal message: \(message)", .warning)

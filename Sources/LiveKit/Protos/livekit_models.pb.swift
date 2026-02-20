@@ -287,6 +287,40 @@ enum Livekit_TrackSource: SwiftProtobuf.Enum, Swift.CaseIterable {
 
 }
 
+enum Livekit_DataTrackExtensionID: SwiftProtobuf.Enum, Swift.CaseIterable {
+  typealias RawValue = Int
+  case dteiInvalid // = 0
+  case dteiParticipantSid // = 1
+  case UNRECOGNIZED(Int)
+
+  init() {
+    self = .dteiInvalid
+  }
+
+  init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .dteiInvalid
+    case 1: self = .dteiParticipantSid
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  var rawValue: Int {
+    switch self {
+    case .dteiInvalid: return 0
+    case .dteiParticipantSid: return 1
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static let allCases: [Livekit_DataTrackExtensionID] = [
+    .dteiInvalid,
+    .dteiParticipantSid,
+  ]
+
+}
+
 enum Livekit_VideoQuality: SwiftProtobuf.Enum, Swift.CaseIterable {
   typealias RawValue = Int
   case low // = 0
@@ -751,11 +785,11 @@ struct Livekit_Room: Sendable {
   var activeRecording: Bool = false
 
   var version: Livekit_TimedVersion {
-    get {return _version ?? Livekit_TimedVersion()}
+    get {_version ?? Livekit_TimedVersion()}
     set {_version = newValue}
   }
   /// Returns true if `version` has been explicitly set.
-  var hasVersion: Bool {return self._version != nil}
+  var hasVersion: Bool {self._version != nil}
   /// Clears the value of `version`. Subsequent reads from it will return its default value.
   mutating func clearVersion() {self._version = nil}
 
@@ -845,91 +879,96 @@ struct Livekit_ParticipantInfo: @unchecked Sendable {
   // methods supported on all messages.
 
   var sid: String {
-    get {return _storage._sid}
+    get {_storage._sid}
     set {_uniqueStorage()._sid = newValue}
   }
 
   var identity: String {
-    get {return _storage._identity}
+    get {_storage._identity}
     set {_uniqueStorage()._identity = newValue}
   }
 
   var state: Livekit_ParticipantInfo.State {
-    get {return _storage._state}
+    get {_storage._state}
     set {_uniqueStorage()._state = newValue}
   }
 
   var tracks: [Livekit_TrackInfo] {
-    get {return _storage._tracks}
+    get {_storage._tracks}
     set {_uniqueStorage()._tracks = newValue}
   }
 
   var metadata: String {
-    get {return _storage._metadata}
+    get {_storage._metadata}
     set {_uniqueStorage()._metadata = newValue}
   }
 
   /// timestamp when participant joined room, in seconds
   var joinedAt: Int64 {
-    get {return _storage._joinedAt}
+    get {_storage._joinedAt}
     set {_uniqueStorage()._joinedAt = newValue}
   }
 
   /// timestamp when participant joined room, in milliseconds
   var joinedAtMs: Int64 {
-    get {return _storage._joinedAtMs}
+    get {_storage._joinedAtMs}
     set {_uniqueStorage()._joinedAtMs = newValue}
   }
 
   var name: String {
-    get {return _storage._name}
+    get {_storage._name}
     set {_uniqueStorage()._name = newValue}
   }
 
   var version: UInt32 {
-    get {return _storage._version}
+    get {_storage._version}
     set {_uniqueStorage()._version = newValue}
   }
 
   var permission: Livekit_ParticipantPermission {
-    get {return _storage._permission ?? Livekit_ParticipantPermission()}
+    get {_storage._permission ?? Livekit_ParticipantPermission()}
     set {_uniqueStorage()._permission = newValue}
   }
   /// Returns true if `permission` has been explicitly set.
-  var hasPermission: Bool {return _storage._permission != nil}
+  var hasPermission: Bool {_storage._permission != nil}
   /// Clears the value of `permission`. Subsequent reads from it will return its default value.
   mutating func clearPermission() {_uniqueStorage()._permission = nil}
 
   var region: String {
-    get {return _storage._region}
+    get {_storage._region}
     set {_uniqueStorage()._region = newValue}
   }
 
   /// indicates the participant has an active publisher connection
   /// and can publish to the server
   var isPublisher: Bool {
-    get {return _storage._isPublisher}
+    get {_storage._isPublisher}
     set {_uniqueStorage()._isPublisher = newValue}
   }
 
   var kind: Livekit_ParticipantInfo.Kind {
-    get {return _storage._kind}
+    get {_storage._kind}
     set {_uniqueStorage()._kind = newValue}
   }
 
   var attributes: Dictionary<String,String> {
-    get {return _storage._attributes}
+    get {_storage._attributes}
     set {_uniqueStorage()._attributes = newValue}
   }
 
   var disconnectReason: Livekit_DisconnectReason {
-    get {return _storage._disconnectReason}
+    get {_storage._disconnectReason}
     set {_uniqueStorage()._disconnectReason = newValue}
   }
 
   var kindDetails: [Livekit_ParticipantInfo.KindDetail] {
-    get {return _storage._kindDetails}
+    get {_storage._kindDetails}
     set {_uniqueStorage()._kindDetails = newValue}
+  }
+
+  var dataTracks: [Livekit_DataTrackInfo] {
+    get {_storage._dataTracks}
+    set {_uniqueStorage()._dataTracks = newValue}
   }
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -1001,6 +1040,12 @@ struct Livekit_ParticipantInfo: @unchecked Sendable {
 
     /// LiveKit agents
     case agent // = 4
+
+    /// Connectors participants
+    case connector // = 7
+
+    /// Bridge participants
+    case bridge // = 8
     case UNRECOGNIZED(Int)
 
     init() {
@@ -1014,6 +1059,8 @@ struct Livekit_ParticipantInfo: @unchecked Sendable {
       case 2: self = .egress
       case 3: self = .sip
       case 4: self = .agent
+      case 7: self = .connector
+      case 8: self = .bridge
       default: self = .UNRECOGNIZED(rawValue)
       }
     }
@@ -1025,6 +1072,8 @@ struct Livekit_ParticipantInfo: @unchecked Sendable {
       case .egress: return 2
       case .sip: return 3
       case .agent: return 4
+      case .connector: return 7
+      case .bridge: return 8
       case .UNRECOGNIZED(let i): return i
       }
     }
@@ -1036,6 +1085,8 @@ struct Livekit_ParticipantInfo: @unchecked Sendable {
       .egress,
       .sip,
       .agent,
+      .connector,
+      .bridge,
     ]
 
   }
@@ -1044,6 +1095,11 @@ struct Livekit_ParticipantInfo: @unchecked Sendable {
     typealias RawValue = Int
     case cloudAgent // = 0
     case forwarded // = 1
+    case connectorWhatsapp // = 2
+    case connectorTwilio // = 3
+
+    /// NEXT_ID: 5
+    case bridgeRtsp // = 4
     case UNRECOGNIZED(Int)
 
     init() {
@@ -1054,6 +1110,9 @@ struct Livekit_ParticipantInfo: @unchecked Sendable {
       switch rawValue {
       case 0: self = .cloudAgent
       case 1: self = .forwarded
+      case 2: self = .connectorWhatsapp
+      case 3: self = .connectorTwilio
+      case 4: self = .bridgeRtsp
       default: self = .UNRECOGNIZED(rawValue)
       }
     }
@@ -1062,6 +1121,9 @@ struct Livekit_ParticipantInfo: @unchecked Sendable {
       switch self {
       case .cloudAgent: return 0
       case .forwarded: return 1
+      case .connectorWhatsapp: return 2
+      case .connectorTwilio: return 3
+      case .bridgeRtsp: return 4
       case .UNRECOGNIZED(let i): return i
       }
     }
@@ -1070,6 +1132,9 @@ struct Livekit_ParticipantInfo: @unchecked Sendable {
     static let allCases: [Livekit_ParticipantInfo.KindDetail] = [
       .cloudAgent,
       .forwarded,
+      .connectorWhatsapp,
+      .connectorTwilio,
+      .bridgeRtsp,
     ]
 
   }
@@ -1159,39 +1224,35 @@ struct Livekit_TrackInfo: @unchecked Sendable {
   // methods supported on all messages.
 
   var sid: String {
-    get {return _storage._sid}
+    get {_storage._sid}
     set {_uniqueStorage()._sid = newValue}
   }
 
   var type: Livekit_TrackType {
-    get {return _storage._type}
+    get {_storage._type}
     set {_uniqueStorage()._type = newValue}
   }
 
   var name: String {
-    get {return _storage._name}
+    get {_storage._name}
     set {_uniqueStorage()._name = newValue}
   }
 
   var muted: Bool {
-    get {return _storage._muted}
+    get {_storage._muted}
     set {_uniqueStorage()._muted = newValue}
   }
 
   /// original width of video (unset for audio)
   /// clients may receive a lower resolution version with simulcast
-  ///
-  /// NOTE: This field was marked as deprecated in the .proto file.
   var width: UInt32 {
-    get {return _storage._width}
+    get {_storage._width}
     set {_uniqueStorage()._width = newValue}
   }
 
   /// original height of video (unset for audio)
-  ///
-  /// NOTE: This field was marked as deprecated in the .proto file.
   var height: UInt32 {
-    get {return _storage._height}
+    get {_storage._height}
     set {_uniqueStorage()._height = newValue}
   }
 
@@ -1199,7 +1260,7 @@ struct Livekit_TrackInfo: @unchecked Sendable {
   ///
   /// NOTE: This field was marked as deprecated in the .proto file.
   var simulcast: Bool {
-    get {return _storage._simulcast}
+    get {_storage._simulcast}
     set {_uniqueStorage()._simulcast = newValue}
   }
 
@@ -1207,13 +1268,13 @@ struct Livekit_TrackInfo: @unchecked Sendable {
   ///
   /// NOTE: This field was marked as deprecated in the .proto file.
   var disableDtx: Bool {
-    get {return _storage._disableDtx}
+    get {_storage._disableDtx}
     set {_uniqueStorage()._disableDtx = newValue}
   }
 
   /// source of media
   var source: Livekit_TrackSource {
-    get {return _storage._source}
+    get {_storage._source}
     set {_uniqueStorage()._source = newValue}
   }
 
@@ -1221,23 +1282,23 @@ struct Livekit_TrackInfo: @unchecked Sendable {
   ///
   /// NOTE: This field was marked as deprecated in the .proto file.
   var layers: [Livekit_VideoLayer] {
-    get {return _storage._layers}
+    get {_storage._layers}
     set {_uniqueStorage()._layers = newValue}
   }
 
   /// mime type of codec
   var mimeType: String {
-    get {return _storage._mimeType}
+    get {_storage._mimeType}
     set {_uniqueStorage()._mimeType = newValue}
   }
 
   var mid: String {
-    get {return _storage._mid}
+    get {_storage._mid}
     set {_uniqueStorage()._mid = newValue}
   }
 
   var codecs: [Livekit_SimulcastCodecInfo] {
-    get {return _storage._codecs}
+    get {_storage._codecs}
     set {_uniqueStorage()._codecs = newValue}
   }
 
@@ -1245,42 +1306,42 @@ struct Livekit_TrackInfo: @unchecked Sendable {
   ///
   /// NOTE: This field was marked as deprecated in the .proto file.
   var stereo: Bool {
-    get {return _storage._stereo}
+    get {_storage._stereo}
     set {_uniqueStorage()._stereo = newValue}
   }
 
   /// true if RED (Redundant Encoding) is disabled for audio
   var disableRed: Bool {
-    get {return _storage._disableRed}
+    get {_storage._disableRed}
     set {_uniqueStorage()._disableRed = newValue}
   }
 
   var encryption: Livekit_Encryption.TypeEnum {
-    get {return _storage._encryption}
+    get {_storage._encryption}
     set {_uniqueStorage()._encryption = newValue}
   }
 
   var stream: String {
-    get {return _storage._stream}
+    get {_storage._stream}
     set {_uniqueStorage()._stream = newValue}
   }
 
   var version: Livekit_TimedVersion {
-    get {return _storage._version ?? Livekit_TimedVersion()}
+    get {_storage._version ?? Livekit_TimedVersion()}
     set {_uniqueStorage()._version = newValue}
   }
   /// Returns true if `version` has been explicitly set.
-  var hasVersion: Bool {return _storage._version != nil}
+  var hasVersion: Bool {_storage._version != nil}
   /// Clears the value of `version`. Subsequent reads from it will return its default value.
   mutating func clearVersion() {_uniqueStorage()._version = nil}
 
   var audioFeatures: [Livekit_AudioTrackFeature] {
-    get {return _storage._audioFeatures}
+    get {_storage._audioFeatures}
     set {_uniqueStorage()._audioFeatures = newValue}
   }
 
   var backupCodecPolicy: Livekit_BackupCodecPolicy {
-    get {return _storage._backupCodecPolicy}
+    get {_storage._backupCodecPolicy}
     set {_uniqueStorage()._backupCodecPolicy = newValue}
   }
 
@@ -1289,6 +1350,65 @@ struct Livekit_TrackInfo: @unchecked Sendable {
   init() {}
 
   fileprivate var _storage = _StorageClass.defaultInstance
+}
+
+struct Livekit_DataTrackInfo: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Client-assigned, 16-bit identifier that will be attached to packets sent by the publisher.
+  var pubHandle: UInt32 = 0
+
+  /// Server-assigned track identifier.
+  var sid: String = String()
+
+  /// Human-readable identifier (e.g., `geoLocation`, `servoPosition.x`, etc.), unique per publisher.
+  var name: String = String()
+
+  /// Method used for end-to-end encryption (E2EE) on packet payloads.
+  var encryption: Livekit_Encryption.TypeEnum = .none
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Livekit_DataTrackExtensionParticipantSid: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var id: Livekit_DataTrackExtensionID = .dteiInvalid
+
+  var participantSid: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Livekit_DataTrackSubscriptionOptions: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Rate in frames per second (FPS) the subscriber wants to receive frames at.
+  /// If omitted, the subscriber defaults to the publisher's fps
+  var targetFps: UInt32 {
+    get {_targetFps ?? 0}
+    set {_targetFps = newValue}
+  }
+  /// Returns true if `targetFps` has been explicitly set.
+  var hasTargetFps: Bool {self._targetFps != nil}
+  /// Clears the value of `targetFps`. Subsequent reads from it will return its default value.
+  mutating func clearTargetFps() {self._targetFps = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _targetFps: UInt32? = nil
 }
 
 /// provide information about available spatial layers
@@ -1312,6 +1432,8 @@ struct Livekit_VideoLayer: Sendable {
   var spatialLayer: Int32 = 0
 
   var rid: String = String()
+
+  var repairSsrc: UInt32 = 0
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -1368,19 +1490,19 @@ struct Livekit_DataPacket: @unchecked Sendable {
 
   /// NOTE: This field was marked as deprecated in the .proto file.
   var kind: Livekit_DataPacket.Kind {
-    get {return _storage._kind}
+    get {_storage._kind}
     set {_uniqueStorage()._kind = newValue}
   }
 
   /// participant identity of user that sent the message
   var participantIdentity: String {
-    get {return _storage._participantIdentity}
+    get {_storage._participantIdentity}
     set {_uniqueStorage()._participantIdentity = newValue}
   }
 
   /// identities of participants who will receive the message (sent to all by default)
   var destinationIdentities: [String] {
-    get {return _storage._destinationIdentities}
+    get {_storage._destinationIdentities}
     set {_uniqueStorage()._destinationIdentities = newValue}
   }
 
@@ -1496,13 +1618,13 @@ struct Livekit_DataPacket: @unchecked Sendable {
 
   /// sequence number of reliable packet
   var sequence: UInt32 {
-    get {return _storage._sequence}
+    get {_storage._sequence}
     set {_uniqueStorage()._sequence = newValue}
   }
 
   /// sid of the user that sent the message
   var participantSid: String {
-    get {return _storage._participantSid}
+    get {_storage._participantSid}
     set {_uniqueStorage()._participantSid = newValue}
   }
 
@@ -1576,7 +1698,7 @@ struct Livekit_EncryptedPacket: Sendable {
 
   var keyIndex: UInt32 = 0
 
-  /// This is an encrypted EncryptedPacketPayload message representation 
+  /// This is an encrypted EncryptedPacketPayload message representation
   var encryptedValue: Data = Data()
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -1731,40 +1853,40 @@ struct Livekit_UserPacket: Sendable {
 
   /// topic under which the message was published
   var topic: String {
-    get {return _topic ?? String()}
+    get {_topic ?? String()}
     set {_topic = newValue}
   }
   /// Returns true if `topic` has been explicitly set.
-  var hasTopic: Bool {return self._topic != nil}
+  var hasTopic: Bool {self._topic != nil}
   /// Clears the value of `topic`. Subsequent reads from it will return its default value.
   mutating func clearTopic() {self._topic = nil}
 
   /// Unique ID to identify the message
   var id: String {
-    get {return _id ?? String()}
+    get {_id ?? String()}
     set {_id = newValue}
   }
   /// Returns true if `id` has been explicitly set.
-  var hasID: Bool {return self._id != nil}
+  var hasID: Bool {self._id != nil}
   /// Clears the value of `id`. Subsequent reads from it will return its default value.
   mutating func clearID() {self._id = nil}
 
   /// start and end time allow relating the message to specific media time
   var startTime: UInt64 {
-    get {return _startTime ?? 0}
+    get {_startTime ?? 0}
     set {_startTime = newValue}
   }
   /// Returns true if `startTime` has been explicitly set.
-  var hasStartTime: Bool {return self._startTime != nil}
+  var hasStartTime: Bool {self._startTime != nil}
   /// Clears the value of `startTime`. Subsequent reads from it will return its default value.
   mutating func clearStartTime() {self._startTime = nil}
 
   var endTime: UInt64 {
-    get {return _endTime ?? 0}
+    get {_endTime ?? 0}
     set {_endTime = newValue}
   }
   /// Returns true if `endTime` has been explicitly set.
-  var hasEndTime: Bool {return self._endTime != nil}
+  var hasEndTime: Bool {self._endTime != nil}
   /// Clears the value of `endTime`. Subsequent reads from it will return its default value.
   mutating func clearEndTime() {self._endTime = nil}
 
@@ -1846,11 +1968,11 @@ struct Livekit_ChatMessage: Sendable {
 
   /// populated only if the intent is to edit/update an existing message
   var editTimestamp: Int64 {
-    get {return _editTimestamp ?? 0}
+    get {_editTimestamp ?? 0}
     set {_editTimestamp = newValue}
   }
   /// Returns true if `editTimestamp` has been explicitly set.
-  var hasEditTimestamp: Bool {return self._editTimestamp != nil}
+  var hasEditTimestamp: Bool {self._editTimestamp != nil}
   /// Clears the value of `editTimestamp`. Subsequent reads from it will return its default value.
   mutating func clearEditTimestamp() {self._editTimestamp = nil}
 
@@ -2157,31 +2279,31 @@ struct Livekit_ClientConfiguration: Sendable {
   // methods supported on all messages.
 
   var video: Livekit_VideoConfiguration {
-    get {return _video ?? Livekit_VideoConfiguration()}
+    get {_video ?? Livekit_VideoConfiguration()}
     set {_video = newValue}
   }
   /// Returns true if `video` has been explicitly set.
-  var hasVideo: Bool {return self._video != nil}
+  var hasVideo: Bool {self._video != nil}
   /// Clears the value of `video`. Subsequent reads from it will return its default value.
   mutating func clearVideo() {self._video = nil}
 
   var screen: Livekit_VideoConfiguration {
-    get {return _screen ?? Livekit_VideoConfiguration()}
+    get {_screen ?? Livekit_VideoConfiguration()}
     set {_screen = newValue}
   }
   /// Returns true if `screen` has been explicitly set.
-  var hasScreen: Bool {return self._screen != nil}
+  var hasScreen: Bool {self._screen != nil}
   /// Clears the value of `screen`. Subsequent reads from it will return its default value.
   mutating func clearScreen() {self._screen = nil}
 
   var resumeConnection: Livekit_ClientConfigSetting = .unset
 
   var disabledCodecs: Livekit_DisabledCodecs {
-    get {return _disabledCodecs ?? Livekit_DisabledCodecs()}
+    get {_disabledCodecs ?? Livekit_DisabledCodecs()}
     set {_disabledCodecs = newValue}
   }
   /// Returns true if `disabledCodecs` has been explicitly set.
-  var hasDisabledCodecs: Bool {return self._disabledCodecs != nil}
+  var hasDisabledCodecs: Bool {self._disabledCodecs != nil}
   /// Clears the value of `disabledCodecs`. Subsequent reads from it will return its default value.
   mutating func clearDisabledCodecs() {self._disabledCodecs = nil}
 
@@ -2230,20 +2352,20 @@ struct Livekit_RTPDrift: Sendable {
   // methods supported on all messages.
 
   var startTime: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {return _startTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    get {_startTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
     set {_startTime = newValue}
   }
   /// Returns true if `startTime` has been explicitly set.
-  var hasStartTime: Bool {return self._startTime != nil}
+  var hasStartTime: Bool {self._startTime != nil}
   /// Clears the value of `startTime`. Subsequent reads from it will return its default value.
   mutating func clearStartTime() {self._startTime = nil}
 
   var endTime: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {return _endTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    get {_endTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
     set {_endTime = newValue}
   }
   /// Returns true if `endTime` has been explicitly set.
-  var hasEndTime: Bool {return self._endTime != nil}
+  var hasEndTime: Bool {self._endTime != nil}
   /// Clears the value of `endTime`. Subsequent reads from it will return its default value.
   mutating func clearEndTime() {self._endTime = nil}
 
@@ -2275,268 +2397,268 @@ struct Livekit_RTPStats: @unchecked Sendable {
   // methods supported on all messages.
 
   var startTime: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {return _storage._startTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    get {_storage._startTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
     set {_uniqueStorage()._startTime = newValue}
   }
   /// Returns true if `startTime` has been explicitly set.
-  var hasStartTime: Bool {return _storage._startTime != nil}
+  var hasStartTime: Bool {_storage._startTime != nil}
   /// Clears the value of `startTime`. Subsequent reads from it will return its default value.
   mutating func clearStartTime() {_uniqueStorage()._startTime = nil}
 
   var endTime: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {return _storage._endTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    get {_storage._endTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
     set {_uniqueStorage()._endTime = newValue}
   }
   /// Returns true if `endTime` has been explicitly set.
-  var hasEndTime: Bool {return _storage._endTime != nil}
+  var hasEndTime: Bool {_storage._endTime != nil}
   /// Clears the value of `endTime`. Subsequent reads from it will return its default value.
   mutating func clearEndTime() {_uniqueStorage()._endTime = nil}
 
   var duration: Double {
-    get {return _storage._duration}
+    get {_storage._duration}
     set {_uniqueStorage()._duration = newValue}
   }
 
   var packets: UInt32 {
-    get {return _storage._packets}
+    get {_storage._packets}
     set {_uniqueStorage()._packets = newValue}
   }
 
   var packetRate: Double {
-    get {return _storage._packetRate}
+    get {_storage._packetRate}
     set {_uniqueStorage()._packetRate = newValue}
   }
 
   var bytes: UInt64 {
-    get {return _storage._bytes}
+    get {_storage._bytes}
     set {_uniqueStorage()._bytes = newValue}
   }
 
   var headerBytes: UInt64 {
-    get {return _storage._headerBytes}
+    get {_storage._headerBytes}
     set {_uniqueStorage()._headerBytes = newValue}
   }
 
   var bitrate: Double {
-    get {return _storage._bitrate}
+    get {_storage._bitrate}
     set {_uniqueStorage()._bitrate = newValue}
   }
 
   var packetsLost: UInt32 {
-    get {return _storage._packetsLost}
+    get {_storage._packetsLost}
     set {_uniqueStorage()._packetsLost = newValue}
   }
 
   var packetLossRate: Double {
-    get {return _storage._packetLossRate}
+    get {_storage._packetLossRate}
     set {_uniqueStorage()._packetLossRate = newValue}
   }
 
   var packetLossPercentage: Float {
-    get {return _storage._packetLossPercentage}
+    get {_storage._packetLossPercentage}
     set {_uniqueStorage()._packetLossPercentage = newValue}
   }
 
   var packetsDuplicate: UInt32 {
-    get {return _storage._packetsDuplicate}
+    get {_storage._packetsDuplicate}
     set {_uniqueStorage()._packetsDuplicate = newValue}
   }
 
   var packetDuplicateRate: Double {
-    get {return _storage._packetDuplicateRate}
+    get {_storage._packetDuplicateRate}
     set {_uniqueStorage()._packetDuplicateRate = newValue}
   }
 
   var bytesDuplicate: UInt64 {
-    get {return _storage._bytesDuplicate}
+    get {_storage._bytesDuplicate}
     set {_uniqueStorage()._bytesDuplicate = newValue}
   }
 
   var headerBytesDuplicate: UInt64 {
-    get {return _storage._headerBytesDuplicate}
+    get {_storage._headerBytesDuplicate}
     set {_uniqueStorage()._headerBytesDuplicate = newValue}
   }
 
   var bitrateDuplicate: Double {
-    get {return _storage._bitrateDuplicate}
+    get {_storage._bitrateDuplicate}
     set {_uniqueStorage()._bitrateDuplicate = newValue}
   }
 
   var packetsPadding: UInt32 {
-    get {return _storage._packetsPadding}
+    get {_storage._packetsPadding}
     set {_uniqueStorage()._packetsPadding = newValue}
   }
 
   var packetPaddingRate: Double {
-    get {return _storage._packetPaddingRate}
+    get {_storage._packetPaddingRate}
     set {_uniqueStorage()._packetPaddingRate = newValue}
   }
 
   var bytesPadding: UInt64 {
-    get {return _storage._bytesPadding}
+    get {_storage._bytesPadding}
     set {_uniqueStorage()._bytesPadding = newValue}
   }
 
   var headerBytesPadding: UInt64 {
-    get {return _storage._headerBytesPadding}
+    get {_storage._headerBytesPadding}
     set {_uniqueStorage()._headerBytesPadding = newValue}
   }
 
   var bitratePadding: Double {
-    get {return _storage._bitratePadding}
+    get {_storage._bitratePadding}
     set {_uniqueStorage()._bitratePadding = newValue}
   }
 
   var packetsOutOfOrder: UInt32 {
-    get {return _storage._packetsOutOfOrder}
+    get {_storage._packetsOutOfOrder}
     set {_uniqueStorage()._packetsOutOfOrder = newValue}
   }
 
   var frames: UInt32 {
-    get {return _storage._frames}
+    get {_storage._frames}
     set {_uniqueStorage()._frames = newValue}
   }
 
   var frameRate: Double {
-    get {return _storage._frameRate}
+    get {_storage._frameRate}
     set {_uniqueStorage()._frameRate = newValue}
   }
 
   var jitterCurrent: Double {
-    get {return _storage._jitterCurrent}
+    get {_storage._jitterCurrent}
     set {_uniqueStorage()._jitterCurrent = newValue}
   }
 
   var jitterMax: Double {
-    get {return _storage._jitterMax}
+    get {_storage._jitterMax}
     set {_uniqueStorage()._jitterMax = newValue}
   }
 
   var gapHistogram: Dictionary<Int32,UInt32> {
-    get {return _storage._gapHistogram}
+    get {_storage._gapHistogram}
     set {_uniqueStorage()._gapHistogram = newValue}
   }
 
   var nacks: UInt32 {
-    get {return _storage._nacks}
+    get {_storage._nacks}
     set {_uniqueStorage()._nacks = newValue}
   }
 
   var nackAcks: UInt32 {
-    get {return _storage._nackAcks}
+    get {_storage._nackAcks}
     set {_uniqueStorage()._nackAcks = newValue}
   }
 
   var nackMisses: UInt32 {
-    get {return _storage._nackMisses}
+    get {_storage._nackMisses}
     set {_uniqueStorage()._nackMisses = newValue}
   }
 
   var nackRepeated: UInt32 {
-    get {return _storage._nackRepeated}
+    get {_storage._nackRepeated}
     set {_uniqueStorage()._nackRepeated = newValue}
   }
 
   var plis: UInt32 {
-    get {return _storage._plis}
+    get {_storage._plis}
     set {_uniqueStorage()._plis = newValue}
   }
 
   var lastPli: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {return _storage._lastPli ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    get {_storage._lastPli ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
     set {_uniqueStorage()._lastPli = newValue}
   }
   /// Returns true if `lastPli` has been explicitly set.
-  var hasLastPli: Bool {return _storage._lastPli != nil}
+  var hasLastPli: Bool {_storage._lastPli != nil}
   /// Clears the value of `lastPli`. Subsequent reads from it will return its default value.
   mutating func clearLastPli() {_uniqueStorage()._lastPli = nil}
 
   var firs: UInt32 {
-    get {return _storage._firs}
+    get {_storage._firs}
     set {_uniqueStorage()._firs = newValue}
   }
 
   var lastFir: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {return _storage._lastFir ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    get {_storage._lastFir ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
     set {_uniqueStorage()._lastFir = newValue}
   }
   /// Returns true if `lastFir` has been explicitly set.
-  var hasLastFir: Bool {return _storage._lastFir != nil}
+  var hasLastFir: Bool {_storage._lastFir != nil}
   /// Clears the value of `lastFir`. Subsequent reads from it will return its default value.
   mutating func clearLastFir() {_uniqueStorage()._lastFir = nil}
 
   var rttCurrent: UInt32 {
-    get {return _storage._rttCurrent}
+    get {_storage._rttCurrent}
     set {_uniqueStorage()._rttCurrent = newValue}
   }
 
   var rttMax: UInt32 {
-    get {return _storage._rttMax}
+    get {_storage._rttMax}
     set {_uniqueStorage()._rttMax = newValue}
   }
 
   var keyFrames: UInt32 {
-    get {return _storage._keyFrames}
+    get {_storage._keyFrames}
     set {_uniqueStorage()._keyFrames = newValue}
   }
 
   var lastKeyFrame: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {return _storage._lastKeyFrame ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    get {_storage._lastKeyFrame ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
     set {_uniqueStorage()._lastKeyFrame = newValue}
   }
   /// Returns true if `lastKeyFrame` has been explicitly set.
-  var hasLastKeyFrame: Bool {return _storage._lastKeyFrame != nil}
+  var hasLastKeyFrame: Bool {_storage._lastKeyFrame != nil}
   /// Clears the value of `lastKeyFrame`. Subsequent reads from it will return its default value.
   mutating func clearLastKeyFrame() {_uniqueStorage()._lastKeyFrame = nil}
 
   var layerLockPlis: UInt32 {
-    get {return _storage._layerLockPlis}
+    get {_storage._layerLockPlis}
     set {_uniqueStorage()._layerLockPlis = newValue}
   }
 
   var lastLayerLockPli: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {return _storage._lastLayerLockPli ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    get {_storage._lastLayerLockPli ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
     set {_uniqueStorage()._lastLayerLockPli = newValue}
   }
   /// Returns true if `lastLayerLockPli` has been explicitly set.
-  var hasLastLayerLockPli: Bool {return _storage._lastLayerLockPli != nil}
+  var hasLastLayerLockPli: Bool {_storage._lastLayerLockPli != nil}
   /// Clears the value of `lastLayerLockPli`. Subsequent reads from it will return its default value.
   mutating func clearLastLayerLockPli() {_uniqueStorage()._lastLayerLockPli = nil}
 
   var packetDrift: Livekit_RTPDrift {
-    get {return _storage._packetDrift ?? Livekit_RTPDrift()}
+    get {_storage._packetDrift ?? Livekit_RTPDrift()}
     set {_uniqueStorage()._packetDrift = newValue}
   }
   /// Returns true if `packetDrift` has been explicitly set.
-  var hasPacketDrift: Bool {return _storage._packetDrift != nil}
+  var hasPacketDrift: Bool {_storage._packetDrift != nil}
   /// Clears the value of `packetDrift`. Subsequent reads from it will return its default value.
   mutating func clearPacketDrift() {_uniqueStorage()._packetDrift = nil}
 
   var ntpReportDrift: Livekit_RTPDrift {
-    get {return _storage._ntpReportDrift ?? Livekit_RTPDrift()}
+    get {_storage._ntpReportDrift ?? Livekit_RTPDrift()}
     set {_uniqueStorage()._ntpReportDrift = newValue}
   }
   /// Returns true if `ntpReportDrift` has been explicitly set.
-  var hasNtpReportDrift: Bool {return _storage._ntpReportDrift != nil}
+  var hasNtpReportDrift: Bool {_storage._ntpReportDrift != nil}
   /// Clears the value of `ntpReportDrift`. Subsequent reads from it will return its default value.
   mutating func clearNtpReportDrift() {_uniqueStorage()._ntpReportDrift = nil}
 
   var rebasedReportDrift: Livekit_RTPDrift {
-    get {return _storage._rebasedReportDrift ?? Livekit_RTPDrift()}
+    get {_storage._rebasedReportDrift ?? Livekit_RTPDrift()}
     set {_uniqueStorage()._rebasedReportDrift = newValue}
   }
   /// Returns true if `rebasedReportDrift` has been explicitly set.
-  var hasRebasedReportDrift: Bool {return _storage._rebasedReportDrift != nil}
+  var hasRebasedReportDrift: Bool {_storage._rebasedReportDrift != nil}
   /// Clears the value of `rebasedReportDrift`. Subsequent reads from it will return its default value.
   mutating func clearRebasedReportDrift() {_uniqueStorage()._rebasedReportDrift = nil}
 
   /// NEXT_ID: 48
   var receivedReportDrift: Livekit_RTPDrift {
-    get {return _storage._receivedReportDrift ?? Livekit_RTPDrift()}
+    get {_storage._receivedReportDrift ?? Livekit_RTPDrift()}
     set {_uniqueStorage()._receivedReportDrift = newValue}
   }
   /// Returns true if `receivedReportDrift` has been explicitly set.
-  var hasReceivedReportDrift: Bool {return _storage._receivedReportDrift != nil}
+  var hasReceivedReportDrift: Bool {_storage._receivedReportDrift != nil}
   /// Clears the value of `receivedReportDrift`. Subsequent reads from it will return its default value.
   mutating func clearReceivedReportDrift() {_uniqueStorage()._receivedReportDrift = nil}
 
@@ -2578,36 +2700,36 @@ struct Livekit_RTPForwarderState: @unchecked Sendable {
   // methods supported on all messages.
 
   var started: Bool {
-    get {return _storage._started}
+    get {_storage._started}
     set {_uniqueStorage()._started = newValue}
   }
 
   var referenceLayerSpatial: Int32 {
-    get {return _storage._referenceLayerSpatial}
+    get {_storage._referenceLayerSpatial}
     set {_uniqueStorage()._referenceLayerSpatial = newValue}
   }
 
   var preStartTime: Int64 {
-    get {return _storage._preStartTime}
+    get {_storage._preStartTime}
     set {_uniqueStorage()._preStartTime = newValue}
   }
 
   var extFirstTimestamp: UInt64 {
-    get {return _storage._extFirstTimestamp}
+    get {_storage._extFirstTimestamp}
     set {_uniqueStorage()._extFirstTimestamp = newValue}
   }
 
   var dummyStartTimestampOffset: UInt64 {
-    get {return _storage._dummyStartTimestampOffset}
+    get {_storage._dummyStartTimestampOffset}
     set {_uniqueStorage()._dummyStartTimestampOffset = newValue}
   }
 
   var rtpMunger: Livekit_RTPMungerState {
-    get {return _storage._rtpMunger ?? Livekit_RTPMungerState()}
+    get {_storage._rtpMunger ?? Livekit_RTPMungerState()}
     set {_uniqueStorage()._rtpMunger = newValue}
   }
   /// Returns true if `rtpMunger` has been explicitly set.
-  var hasRtpMunger: Bool {return _storage._rtpMunger != nil}
+  var hasRtpMunger: Bool {_storage._rtpMunger != nil}
   /// Clears the value of `rtpMunger`. Subsequent reads from it will return its default value.
   mutating func clearRtpMunger() {_uniqueStorage()._rtpMunger = nil}
 
@@ -2625,7 +2747,7 @@ struct Livekit_RTPForwarderState: @unchecked Sendable {
   }
 
   var senderReportState: [Livekit_RTCPSenderReportState] {
-    get {return _storage._senderReportState}
+    get {_storage._senderReportState}
     set {_uniqueStorage()._senderReportState = newValue}
   }
 
@@ -2807,11 +2929,11 @@ struct Livekit_DataStream: Sendable {
 
     /// only populated for finite streams, if it's a stream of unknown size this stays empty
     var totalLength: UInt64 {
-      get {return _totalLength ?? 0}
+      get {_totalLength ?? 0}
       set {_totalLength = newValue}
     }
     /// Returns true if `totalLength` has been explicitly set.
-    var hasTotalLength: Bool {return self._totalLength != nil}
+    var hasTotalLength: Bool {self._totalLength != nil}
     /// Clears the value of `totalLength`. Subsequent reads from it will return its default value.
     mutating func clearTotalLength() {self._totalLength = nil}
 
@@ -2876,11 +2998,11 @@ struct Livekit_DataStream: Sendable {
     ///
     /// NOTE: This field was marked as deprecated in the .proto file.
     var iv: Data {
-      get {return _iv ?? Data()}
+      get {_iv ?? Data()}
       set {_iv = newValue}
     }
     /// Returns true if `iv` has been explicitly set.
-    var hasIv: Bool {return self._iv != nil}
+    var hasIv: Bool {self._iv != nil}
     /// Clears the value of `iv`. Subsequent reads from it will return its default value.
     mutating func clearIv() {self._iv = nil}
 
@@ -2913,6 +3035,20 @@ struct Livekit_DataStream: Sendable {
   init() {}
 }
 
+struct Livekit_FilterParams: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var includeEvents: [String] = []
+
+  var excludeEvents: [String] = []
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
 struct Livekit_WebhookConfig: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -2922,9 +3058,20 @@ struct Livekit_WebhookConfig: Sendable {
 
   var signingKey: String = String()
 
+  var filterParams: Livekit_FilterParams {
+    get {_filterParams ?? Livekit_FilterParams()}
+    set {_filterParams = newValue}
+  }
+  /// Returns true if `filterParams` has been explicitly set.
+  var hasFilterParams: Bool {self._filterParams != nil}
+  /// Clears the value of `filterParams`. Subsequent reads from it will return its default value.
+  mutating func clearFilterParams() {self._filterParams = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
+
+  fileprivate var _filterParams: Livekit_FilterParams? = nil
 }
 
 struct Livekit_SubscribedAudioCodec: Sendable {
@@ -2967,6 +3114,10 @@ extension Livekit_TrackType: SwiftProtobuf._ProtoNameProviding {
 
 extension Livekit_TrackSource: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0UNKNOWN\0\u{1}CAMERA\0\u{1}MICROPHONE\0\u{1}SCREEN_SHARE\0\u{1}SCREEN_SHARE_AUDIO\0")
+}
+
+extension Livekit_DataTrackExtensionID: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0DTEI_INVALID\0\u{1}DTEI_PARTICIPANT_SID\0")
 }
 
 extension Livekit_VideoQuality: SwiftProtobuf._ProtoNameProviding {
@@ -3353,7 +3504,7 @@ extension Livekit_ParticipantPermission: SwiftProtobuf.Message, SwiftProtobuf._M
 
 extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ParticipantInfo"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}sid\0\u{1}identity\0\u{1}state\0\u{1}tracks\0\u{1}metadata\0\u{3}joined_at\0\u{2}\u{3}name\0\u{1}version\0\u{1}permission\0\u{1}region\0\u{3}is_publisher\0\u{1}kind\0\u{1}attributes\0\u{3}disconnect_reason\0\u{3}joined_at_ms\0\u{3}kind_details\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}sid\0\u{1}identity\0\u{1}state\0\u{1}tracks\0\u{1}metadata\0\u{3}joined_at\0\u{2}\u{3}name\0\u{1}version\0\u{1}permission\0\u{1}region\0\u{3}is_publisher\0\u{1}kind\0\u{1}attributes\0\u{3}disconnect_reason\0\u{3}joined_at_ms\0\u{3}kind_details\0\u{3}data_tracks\0")
 
   fileprivate class _StorageClass {
     var _sid: String = String()
@@ -3372,6 +3523,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     var _attributes: Dictionary<String,String> = [:]
     var _disconnectReason: Livekit_DisconnectReason = .unknownReason
     var _kindDetails: [Livekit_ParticipantInfo.KindDetail] = []
+    var _dataTracks: [Livekit_DataTrackInfo] = []
 
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
@@ -3398,6 +3550,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       _attributes = source._attributes
       _disconnectReason = source._disconnectReason
       _kindDetails = source._kindDetails
+      _dataTracks = source._dataTracks
     }
   }
 
@@ -3432,6 +3585,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
         case 16: try { try decoder.decodeSingularEnumField(value: &_storage._disconnectReason) }()
         case 17: try { try decoder.decodeSingularInt64Field(value: &_storage._joinedAtMs) }()
         case 18: try { try decoder.decodeRepeatedEnumField(value: &_storage._kindDetails) }()
+        case 19: try { try decoder.decodeRepeatedMessageField(value: &_storage._dataTracks) }()
         default: break
         }
       }
@@ -3492,6 +3646,9 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       if !_storage._kindDetails.isEmpty {
         try visitor.visitPackedEnumField(value: _storage._kindDetails, fieldNumber: 18)
       }
+      if !_storage._dataTracks.isEmpty {
+        try visitor.visitRepeatedMessageField(value: _storage._dataTracks, fieldNumber: 19)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -3517,6 +3674,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
         if _storage._attributes != rhs_storage._attributes {return false}
         if _storage._disconnectReason != rhs_storage._disconnectReason {return false}
         if _storage._kindDetails != rhs_storage._kindDetails {return false}
+        if _storage._dataTracks != rhs_storage._dataTracks {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -3531,11 +3689,11 @@ extension Livekit_ParticipantInfo.State: SwiftProtobuf._ProtoNameProviding {
 }
 
 extension Livekit_ParticipantInfo.Kind: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0STANDARD\0\u{1}INGRESS\0\u{1}EGRESS\0\u{1}SIP\0\u{1}AGENT\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0STANDARD\0\u{1}INGRESS\0\u{1}EGRESS\0\u{1}SIP\0\u{1}AGENT\0\u{2}\u{3}CONNECTOR\0\u{1}BRIDGE\0")
 }
 
 extension Livekit_ParticipantInfo.KindDetail: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0CLOUD_AGENT\0\u{1}FORWARDED\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0CLOUD_AGENT\0\u{1}FORWARDED\0\u{1}CONNECTOR_WHATSAPP\0\u{1}CONNECTOR_TWILIO\0\u{1}BRIDGE_RTSP\0")
 }
 
 extension Livekit_Encryption: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
@@ -3819,9 +3977,123 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
   }
 }
 
+extension Livekit_DataTrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".DataTrackInfo"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}pub_handle\0\u{1}sid\0\u{1}name\0\u{1}encryption\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularUInt32Field(value: &self.pubHandle) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.sid) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.name) }()
+      case 4: try { try decoder.decodeSingularEnumField(value: &self.encryption) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.pubHandle != 0 {
+      try visitor.visitSingularUInt32Field(value: self.pubHandle, fieldNumber: 1)
+    }
+    if !self.sid.isEmpty {
+      try visitor.visitSingularStringField(value: self.sid, fieldNumber: 2)
+    }
+    if !self.name.isEmpty {
+      try visitor.visitSingularStringField(value: self.name, fieldNumber: 3)
+    }
+    if self.encryption != .none {
+      try visitor.visitSingularEnumField(value: self.encryption, fieldNumber: 4)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_DataTrackInfo, rhs: Livekit_DataTrackInfo) -> Bool {
+    if lhs.pubHandle != rhs.pubHandle {return false}
+    if lhs.sid != rhs.sid {return false}
+    if lhs.name != rhs.name {return false}
+    if lhs.encryption != rhs.encryption {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_DataTrackExtensionParticipantSid: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".DataTrackExtensionParticipantSid"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{3}participant_sid\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularEnumField(value: &self.id) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.participantSid) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.id != .dteiInvalid {
+      try visitor.visitSingularEnumField(value: self.id, fieldNumber: 1)
+    }
+    if !self.participantSid.isEmpty {
+      try visitor.visitSingularStringField(value: self.participantSid, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_DataTrackExtensionParticipantSid, rhs: Livekit_DataTrackExtensionParticipantSid) -> Bool {
+    if lhs.id != rhs.id {return false}
+    if lhs.participantSid != rhs.participantSid {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_DataTrackSubscriptionOptions: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".DataTrackSubscriptionOptions"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}target_fps\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularUInt32Field(value: &self._targetFps) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._targetFps {
+      try visitor.visitSingularUInt32Field(value: v, fieldNumber: 1)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_DataTrackSubscriptionOptions, rhs: Livekit_DataTrackSubscriptionOptions) -> Bool {
+    if lhs._targetFps != rhs._targetFps {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
 extension Livekit_VideoLayer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".VideoLayer"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}quality\0\u{1}width\0\u{1}height\0\u{1}bitrate\0\u{1}ssrc\0\u{3}spatial_layer\0\u{1}rid\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}quality\0\u{1}width\0\u{1}height\0\u{1}bitrate\0\u{1}ssrc\0\u{3}spatial_layer\0\u{1}rid\0\u{3}repair_ssrc\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3836,6 +4108,7 @@ extension Livekit_VideoLayer: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
       case 5: try { try decoder.decodeSingularUInt32Field(value: &self.ssrc) }()
       case 6: try { try decoder.decodeSingularInt32Field(value: &self.spatialLayer) }()
       case 7: try { try decoder.decodeSingularStringField(value: &self.rid) }()
+      case 8: try { try decoder.decodeSingularUInt32Field(value: &self.repairSsrc) }()
       default: break
       }
     }
@@ -3863,6 +4136,9 @@ extension Livekit_VideoLayer: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     if !self.rid.isEmpty {
       try visitor.visitSingularStringField(value: self.rid, fieldNumber: 7)
     }
+    if self.repairSsrc != 0 {
+      try visitor.visitSingularUInt32Field(value: self.repairSsrc, fieldNumber: 8)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -3874,6 +4150,7 @@ extension Livekit_VideoLayer: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     if lhs.ssrc != rhs.ssrc {return false}
     if lhs.spatialLayer != rhs.spatialLayer {return false}
     if lhs.rid != rhs.rid {return false}
+    if lhs.repairSsrc != rhs.repairSsrc {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -6347,9 +6624,44 @@ extension Livekit_DataStream.Trailer: SwiftProtobuf.Message, SwiftProtobuf._Mess
   }
 }
 
+extension Livekit_FilterParams: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".FilterParams"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}include_events\0\u{3}exclude_events\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeRepeatedStringField(value: &self.includeEvents) }()
+      case 2: try { try decoder.decodeRepeatedStringField(value: &self.excludeEvents) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.includeEvents.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.includeEvents, fieldNumber: 1)
+    }
+    if !self.excludeEvents.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.excludeEvents, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_FilterParams, rhs: Livekit_FilterParams) -> Bool {
+    if lhs.includeEvents != rhs.includeEvents {return false}
+    if lhs.excludeEvents != rhs.excludeEvents {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
 extension Livekit_WebhookConfig: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".WebhookConfig"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}url\0\u{3}signing_key\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}url\0\u{3}signing_key\0\u{3}filter_params\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -6359,24 +6671,33 @@ extension Livekit_WebhookConfig: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self.url) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self.signingKey) }()
+      case 3: try { try decoder.decodeSingularMessageField(value: &self._filterParams) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if !self.url.isEmpty {
       try visitor.visitSingularStringField(value: self.url, fieldNumber: 1)
     }
     if !self.signingKey.isEmpty {
       try visitor.visitSingularStringField(value: self.signingKey, fieldNumber: 2)
     }
+    try { if let v = self._filterParams {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_WebhookConfig, rhs: Livekit_WebhookConfig) -> Bool {
     if lhs.url != rhs.url {return false}
     if lhs.signingKey != rhs.signingKey {return false}
+    if lhs._filterParams != rhs._filterParams {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

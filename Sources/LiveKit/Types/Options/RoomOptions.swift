@@ -60,6 +60,11 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
 
     public let reportRemoteTrackStatistics: Bool
 
+    /// Use a single peer connection for both publishing and subscribing.
+    ///
+    /// - Note: Requires LiveKit Cloud or LiveKit OSS >= 1.9.2.
+    public let singlePeerConnection: Bool
+
     override public init() {
         defaultCameraCaptureOptions = CameraCaptureOptions()
         defaultScreenShareCaptureOptions = ScreenShareCaptureOptions()
@@ -74,6 +79,7 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
         e2eeOptions = nil
         encryptionOptions = nil
         reportRemoteTrackStatistics = false
+        singlePeerConnection = false
     }
 
     public init(defaultCameraCaptureOptions: CameraCaptureOptions = CameraCaptureOptions(),
@@ -88,7 +94,8 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
                 suspendLocalVideoTracksInBackground: Bool = true,
                 e2eeOptions: E2EEOptions? = nil,
                 encryptionOptions: EncryptionOptions? = nil,
-                reportRemoteTrackStatistics: Bool = false)
+                reportRemoteTrackStatistics: Bool = false,
+                singlePeerConnection: Bool = false)
     {
         self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
         self.defaultScreenShareCaptureOptions = defaultScreenShareCaptureOptions
@@ -103,6 +110,7 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
         self.e2eeOptions = e2eeOptions
         self.encryptionOptions = encryptionOptions
         self.reportRemoteTrackStatistics = reportRemoteTrackStatistics
+        self.singlePeerConnection = singlePeerConnection
 
         super.init()
 
@@ -127,7 +135,8 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
             suspendLocalVideoTracksInBackground == other.suspendLocalVideoTracksInBackground &&
             e2eeOptions == other.e2eeOptions &&
             encryptionOptions == other.encryptionOptions &&
-            reportRemoteTrackStatistics == other.reportRemoteTrackStatistics
+            reportRemoteTrackStatistics == other.reportRemoteTrackStatistics &&
+            singlePeerConnection == other.singlePeerConnection
     }
 
     override public var hash: Int {
@@ -145,6 +154,7 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
         hasher.combine(e2eeOptions)
         hasher.combine(encryptionOptions)
         hasher.combine(reportRemoteTrackStatistics)
+        hasher.combine(singlePeerConnection)
         return hasher.finalize()
     }
 }
