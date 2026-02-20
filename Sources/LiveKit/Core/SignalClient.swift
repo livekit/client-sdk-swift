@@ -24,6 +24,7 @@ actor SignalClient: Loggable {
     // MARK: - Types
 
     typealias AddTrackRequestPopulator = @Sendable (inout Livekit_AddTrackRequest) throws -> Void
+    typealias WebSocketFactory = @Sendable (URL, String, ConnectOptions?) async throws -> WebSocket
 
     enum ConnectResponse: Sendable {
         case join(Livekit_JoinResponse)
@@ -84,11 +85,12 @@ actor SignalClient: Loggable {
     private let _addTrackCompleters = CompleterMapActor<Livekit_TrackInfo>(label: "Completers for add track", defaultTimeout: .defaultPublish)
     private let _pingIntervalTimer = AsyncTimer(interval: 1)
     private let _pingTimeoutTimer = AsyncTimer(interval: 1)
+    var _webSocketFactory: WebSocketFactory?
 
     struct State {
         var connectionState: ConnectionState = .disconnected
         var disconnectError: LiveKitError?
-        var socket: WebSocket?
+        var socket: (any WebSocketType)?
         var messageLoopTask: AnyTaskCancellable?
         var lastJoinResponse: Livekit_JoinResponse?
         var rtt: Int64 = 0
@@ -140,9 +142,13 @@ actor SignalClient: Loggable {
         _state.mutate { $0.connectionState = (isReconnect ? .reconnecting : .connecting) }
 
         do {
-            let socket = try await WebSocket(url: url,
-                                             token: token,
-                                             connectOptions: connectOptions)
+            let socket = if let factory = _webSocketFactory {
+                try await factory(url, token, connectOptions)
+            } else {
+                try await WebSocket(url: url,
+                                    token: token,
+                                    connectOptions: connectOptions)
+            }
 
             let messageLoopTask = socket.subscribe(self) { observer, message in
                 await observer.onWebSocketMessage(message)
@@ -269,7 +275,11 @@ private extension SignalClient {
             await self._responseQueue.processIfResumed(response, or: alwaysProcess)
         }
     }
+}
 
+// MARK: - Response Processing
+
+extension SignalClient {
     // swiftlint:disable:next cyclomatic_complexity function_body_length
     func _process(signalResponse: Livekit_SignalResponse) async {
         guard connectionState != .disconnected else {
@@ -378,6 +388,11 @@ extension SignalClient {
     func resumeQueues() async {
         await _responseQueue.resume()
         await _requestQueue.resume()
+    }
+
+    /// Sets connection state. Used internally and for testing.
+    func setConnectionState(_ connectionState: ConnectionState) {
+        _state.mutate { $0.connectionState = connectionState }
     }
 }
 
@@ -692,7 +707,7 @@ extension Livekit_SignalRequest {
 }
 
 private extension SignalClient {
-    func requireWebSocket() async throws -> WebSocket {
+    func requireWebSocket() async throws -> any WebSocketType {
         guard let result = _state.socket else {
             log("WebSocket is nil", .error)
             throw LiveKitError(.invalidState, message: "WebSocket is nil")
@@ -700,4 +715,34 @@ private extension SignalClient {
 
         return result
     }
+}
+
+// MARK: - Test Support
+
+extension SignalClient {
+    /// Injects a mock WebSocket for testing send methods.
+    func setWebSocket(_ socket: any WebSocketType) {
+        _state.mutate { $0.socket = socket }
+    }
+
+    /// Injects a WebSocket factory for testing connect().
+    func setWebSocketFactory(_ factory: @escaping WebSocketFactory) {
+        _webSocketFactory = factory
+    }
+
+    /// Test helper: simulates receiving a WebSocket message through the decoding pipeline.
+    func _testHandleWebSocketMessage(_ message: URLSessionWebSocketTask.Message) async {
+        await onWebSocketMessage(message)
+    }
+
+    /// Test helper: triggers the ping send logic.
+    func _testSendPing() async throws {
+        try await _sendPing()
+    }
+
+    /// Test helper: access to the ping interval timer for verification.
+    var _testPingIntervalTimer: AsyncTimer { _pingIntervalTimer }
+
+    /// Test helper: access to the ping timeout timer for verification.
+    var _testPingTimeoutTimer: AsyncTimer { _pingTimeoutTimer }
 }
