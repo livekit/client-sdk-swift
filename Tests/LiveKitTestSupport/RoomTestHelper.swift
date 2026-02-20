@@ -31,6 +31,8 @@
 /// ```
 public final class RoomTestHelper: @unchecked Sendable {
     public let room: Room
+    /// Mock WebSocket injected into the SignalClient for capturing sent messages.
+    public let mockWebSocket: MockWebSocket
 
     public init(
         roomOptions: RoomOptions = RoomOptions(),
@@ -38,10 +40,20 @@ public final class RoomTestHelper: @unchecked Sendable {
         localSid: String = "PA_local",
         localIdentity: String = "local-user"
     ) {
+        let mock = MockWebSocket()
+        mockWebSocket = mock
         room = Room(connectOptions: connectOptions, roomOptions: roomOptions)
         room._state.mutate { $0.connectionState = .connected }
         let localInfo = TestData.participantInfo(sid: localSid, identity: localIdentity)
         room.localParticipant.set(info: localInfo, connectionState: .connected)
+    }
+
+    /// Injects the mock WebSocket and sets the SignalClient to connected state.
+    /// Call this before testing send operations.
+    public func connectSignalClient() async {
+        await room.signalClient.setWebSocket(mockWebSocket)
+        await room.signalClient.setConnectionState(.connected)
+        await room.signalClient.resumeQueues()
     }
 
     // MARK: - Participant Management
