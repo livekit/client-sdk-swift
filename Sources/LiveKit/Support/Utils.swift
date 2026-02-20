@@ -234,6 +234,7 @@ class Utils: Loggable {
             pathSegments.removeLast()
         }
         pathSegments.append("rtc")
+        pathSegments.append("v1")
 
         builder.scheme = wsScheme
         builder.path = "/" + pathSegments.joined(separator: "/")
@@ -249,6 +250,23 @@ class Utils: Loggable {
             throw LiveKitError(.failedToParseUrl)
         }
 
+        return result
+    }
+
+    /// Converts a WebSocket URL to its HTTP validation counterpart.
+    /// - `wss://host/rtc?...` → `https://host/rtc/validate?...`
+    /// - `wss://host/rtc/v1?...` → `https://host/rtc/v1/validate?...`
+    static func toValidateUrl(_ wsUrl: URL) throws -> URL {
+        guard var components = URLComponents(url: wsUrl, resolvingAgainstBaseURL: false) else {
+            throw LiveKitError(.failedToParseUrl)
+        }
+        components.scheme = components.scheme == "wss" ? "https" : "http"
+        components.path = components.path.hasSuffix("/")
+            ? components.path + "validate"
+            : components.path + "/validate"
+        guard let result = components.url else {
+            throw LiveKitError(.failedToParseUrl)
+        }
         return result
     }
 

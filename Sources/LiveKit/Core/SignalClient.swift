@@ -186,17 +186,15 @@ actor SignalClient: Loggable {
 
             await cleanUp(withError: connectionError)
 
-            // Attempt to validate with server
-            let validateUrl = try Utils.buildUrl(url,
-                                                 connectOptions: connectOptions,
-                                                 participantSid: participantSid,
-                                                 adaptiveStream: adaptiveStream,
-                                                 validate: true)
+            // Attempt to validate with server, deriving validate URL from the actual WS URL
+            let validateUrl = try Utils.toValidateUrl(url)
             log("Validating with url: \(validateUrl)...")
             do {
                 try await HTTP.requestValidation(from: validateUrl, token: token)
                 // Re-throw original error since validation passed
                 throw LiveKitError(.network, internalError: connectionError)
+            } catch let error as LiveKitError where error.type == .serviceNotFound {
+                throw error
             } catch let validationError as LiveKitError where validationError.type == .validation {
                 // Re-throw validation error
                 throw validationError

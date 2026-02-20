@@ -114,7 +114,7 @@ extension Room {
 
 extension Room {
     // swiftlint:disable:next function_body_length
-    func configureTransports(connectResponse: SignalClient.ConnectResponse) async throws {
+    func configureTransports(connectResponse: SignalClient.ConnectResponse, singlePeerConnection: Bool) async throws {
         func makeConfiguration() -> LKRTCConfiguration {
             let connectOptions = _state.connectOptions
 
@@ -150,7 +150,7 @@ extension Room {
                 return
             }
 
-            let isSinglePC = _state.roomOptions.singlePeerConnection
+            let isSinglePC = singlePeerConnection
             let isSubscriberPrimary = isSinglePC ? false : joinResponse.subscriberPrimary
             log("subscriberPrimary: \(isSubscriberPrimary), singlePeerConnection: \(isSinglePC)")
 
@@ -249,17 +249,32 @@ public enum StartReconnectReason: Sendable {
 extension Room {
     // full connect sequence, doesn't update connection state
     func fullConnectSequence(_ url: URL, _ token: String) async throws {
-        let connectResponse = try await signalClient.connect(url,
+        var singlePC = _state.roomOptions.singlePeerConnection
+
+        let connectResponse: SignalClient.ConnectResponse
+        do {
+            connectResponse = try await signalClient.connect(url,
                                                              token,
                                                              connectOptions: _state.connectOptions,
                                                              reconnectMode: _state.isReconnectingWithMode,
                                                              adaptiveStream: _state.roomOptions.adaptiveStream,
-                                                             singlePeerConnection: _state.roomOptions.singlePeerConnection)
+                                                             singlePeerConnection: singlePC)
+        } catch let error as LiveKitError where error.type == .serviceNotFound && singlePC {
+            log("v1 RTC path not supported, retrying with legacy path", .warning)
+            singlePC = false
+            connectResponse = try await signalClient.connect(url,
+                                                             token,
+                                                             connectOptions: _state.connectOptions,
+                                                             reconnectMode: _state.isReconnectingWithMode,
+                                                             adaptiveStream: _state.roomOptions.adaptiveStream,
+                                                             singlePeerConnection: false)
+        }
+
         // Check cancellation after WebSocket connected
         try Task.checkCancellation()
 
         _state.mutate { $0.connectStopwatch.split(label: "signal") }
-        try await configureTransports(connectResponse: connectResponse)
+        try await configureTransports(connectResponse: connectResponse, singlePeerConnection: singlePC)
         // Check cancellation after configuring transports
         try Task.checkCancellation()
 
@@ -319,7 +334,8 @@ extension Room {
             try Task.checkCancellation()
 
             // Update configuration
-            try await configureTransports(connectResponse: connectResponse)
+            try await configureTransports(connectResponse: connectResponse,
+                                          singlePeerConnection: _state.roomOptions.singlePeerConnection)
             try Task.checkCancellation()
 
             // Resume after configuring transports...
