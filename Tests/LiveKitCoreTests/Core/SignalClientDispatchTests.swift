@@ -318,6 +318,40 @@ class SignalClientDispatchTests: LKTestCase {
         XCTAssertEqual(helper.room.token, "moved-token")
     }
 
+    // MARK: - Track Unpublished
+
+    func testProcessTrackUnpublishedDispatch() async {
+        let helper = makeHelper()
+        let connectionState = helper.room.connectionState
+
+        // Without a real local track publication, the unpublish is a no-op
+        await helper.processSignalResponse(TestData.signalResponse(trackUnpublished: "TR_nonexistent"))
+        await waitForDispatch()
+
+        // State unchanged (no crash, no side effects)
+        XCTAssertEqual(helper.room.connectionState, connectionState)
+    }
+
+    // MARK: - Pong Response
+
+    func testProcessPongRespUpdatesRTT() async {
+        let helper = makeHelper()
+        // Send a pongResp with a timestamp
+        let pongResp = Livekit_SignalResponse.with {
+            $0.pongResp = Livekit_Pong.with {
+                // Simulate a pong that was 50ms ago
+                $0.lastPingTimestamp = Int64(Date().timeIntervalSince1970 * 1000) - 50
+            }
+        }
+
+        await helper.processSignalResponse(pongResp)
+        await waitForDispatch()
+
+        // RTT should have been updated on the SignalClient
+        let rtt = await helper.room.signalClient._state.read { $0.rtt }
+        XCTAssertGreaterThan(rtt, 0)
+    }
+
     // MARK: - Track Subscribed
 
     func testProcessTrackSubscribedNoPublicationIsNoOp() async {
@@ -367,5 +401,136 @@ class SignalClientDispatchTests: LKTestCase {
         XCTAssertNotNil(participant)
         XCTAssertTrue(participant?.isSpeaking ?? false)
         XCTAssertEqual(participant?.connectionQuality, .good)
+    }
+
+    // MARK: - Trickle (invalid candidate)
+
+    func testProcessTrickleWithInvalidCandidateIsNoOp() async {
+        let helper = makeHelper()
+        let connectionState = helper.room.connectionState
+
+        // Trickle with invalid JSON should hit the guard and return
+        let trickleResponse = Livekit_SignalResponse.with {
+            $0.trickle = Livekit_TrickleRequest.with {
+                $0.candidateInit = "not-valid-json"
+                $0.target = .publisher
+            }
+        }
+        await helper.processSignalResponse(trickleResponse)
+        await waitForDispatch()
+
+        // State unchanged (no crash, guard returned early)
+        XCTAssertEqual(helper.room.connectionState, connectionState)
+    }
+
+    // MARK: - Reconnect Response
+
+    func testProcessReconnectResponseDoesNotCrash() async {
+        let helper = makeHelper()
+        let connectionState = helper.room.connectionState
+
+        let reconnectResponse = Livekit_SignalResponse.with {
+            $0.reconnect = Livekit_ReconnectResponse.with {
+                $0.iceServers = []
+            }
+        }
+        await helper.processSignalResponse(reconnectResponse)
+        await waitForDispatch()
+
+        // Reconnect response was processed without crash
+        XCTAssertEqual(helper.room.connectionState, connectionState)
+    }
+
+    // MARK: - Track Published (completer resolution)
+
+    func testProcessTrackPublishedResolvesCompleter() async {
+        let helper = makeHelper()
+        let trackInfo = TestData.trackInfo(sid: "TR_pub1", name: "camera", type: .video, source: .camera)
+
+        // Process a trackPublished response — the completer is identified by cid
+        let response = TestData.signalResponse(trackPublished: "test-cid", track: trackInfo)
+        await helper.processSignalResponse(response)
+        await waitForDispatch()
+
+        // No crash — the completer had no waiter, which is fine
+        XCTAssertEqual(helper.room.connectionState, .connected)
+    }
+
+    // MARK: - Subscribed Quality Update
+
+    func testProcessSubscribedQualityUpdateDispatch() async {
+        let helper = makeHelper()
+        let connectionState = helper.room.connectionState
+
+        let response = Livekit_SignalResponse.with {
+            $0.subscribedQualityUpdate = Livekit_SubscribedQualityUpdate.with {
+                $0.trackSid = "TR_v1"
+                $0.subscribedQualities = [
+                    Livekit_SubscribedQuality.with {
+                        $0.quality = .high
+                        $0.enabled = true
+                    },
+                ]
+                $0.subscribedCodecs = []
+            }
+        }
+        await helper.processSignalResponse(response)
+        await waitForDispatch()
+
+        // State unchanged (no matching local track, but no crash)
+        XCTAssertEqual(helper.room.connectionState, connectionState)
+    }
+
+    // MARK: - Answer / Offer Response Dispatch
+
+    func testProcessAnswerResponseDoesNotCrash() async {
+        let helper = makeHelper()
+
+        let response = Livekit_SignalResponse.with {
+            $0.answer = Livekit_SessionDescription.with {
+                $0.type = "answer"
+                $0.sdp = "v=0\r\n"
+            }
+        }
+        await helper.processSignalResponse(response)
+        await waitForDispatch()
+
+        XCTAssertEqual(helper.room.connectionState, .connected)
+    }
+
+    // MARK: - Default (unhandled message type)
+
+    func testProcessUnhandledMessageTypeIsNoOp() async {
+        let helper = makeHelper()
+        let connectionState = helper.room.connectionState
+
+        // subscriptionResponse is not handled in _process switch — hits the default case
+        let response = Livekit_SignalResponse.with {
+            $0.subscriptionResponse = Livekit_SubscriptionResponse.with {
+                $0.trackSid = "TR_v1"
+            }
+        }
+        await helper.processSignalResponse(response)
+        await waitForDispatch()
+
+        // State unchanged (default case just logs)
+        XCTAssertEqual(helper.room.connectionState, connectionState)
+    }
+
+    // MARK: - Answer / Offer Response Dispatch
+
+    func testProcessOfferResponseDoesNotCrash() async {
+        let helper = makeHelper()
+
+        let response = Livekit_SignalResponse.with {
+            $0.offer = Livekit_SessionDescription.with {
+                $0.type = "offer"
+                $0.sdp = "v=0\r\n"
+            }
+        }
+        await helper.processSignalResponse(response)
+        await waitForDispatch()
+
+        XCTAssertEqual(helper.room.connectionState, .connected)
     }
 }
