@@ -26,12 +26,12 @@ actor WebSocket: Loggable, AsyncSequence {
 
     private static func makeSessionConfiguration() -> URLSessionConfiguration {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = TimeInterval(60)
-        config.timeoutIntervalForResource = TimeInterval(604_800)
+        config.timeoutIntervalForRequest = 60
+        config.timeoutIntervalForResource = 604_800
         config.shouldUseExtendedBackgroundIdleMode = true
         config.networkServiceType = .callSignaling
         #if os(iOS) || os(visionOS)
-        /// https://developer.apple.com/documentation/foundation/urlsessionconfiguration/improving_network_reliability_using_multipath_tcp
+        // https://developer.apple.com/documentation/foundation/urlsessionconfiguration/improving_network_reliability_using_multipath_tcp
         config.multipathServiceType = .handover
         #endif
         return config
@@ -79,7 +79,7 @@ actor WebSocket: Loggable, AsyncSequence {
     struct AsyncIterator: AsyncIteratorProtocol {
         fileprivate let task: URLSessionWebSocketTask
 
-        mutating func next() async throws -> URLSessionWebSocketTask.Message? {
+        func next() async throws -> URLSessionWebSocketTask.Message? {
             let task = task
             guard task.closeCode == .invalid else { return nil }
             return try await withTaskCancellationHandler {
@@ -104,7 +104,7 @@ actor WebSocket: Loggable, AsyncSequence {
         try await task.send(.data(data))
     }
 
-    // MARK: - URLSessionWebSocketDelegate
+    // MARK: - Delegate
 
     private final class Delegate: NSObject, Loggable, URLSessionWebSocketDelegate {
         private let _continuation = StateSync<CheckedContinuation<Void, Error>?>(nil)
