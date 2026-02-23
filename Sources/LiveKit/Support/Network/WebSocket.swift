@@ -107,42 +107,37 @@ actor WebSocket: Loggable, AsyncSequence {
     // MARK: - URLSessionWebSocketDelegate
 
     private final class Delegate: NSObject, Loggable, URLSessionWebSocketDelegate {
-        private let _state = StateSync(State())
-
-        private struct State {
-            var connectContinuation: CheckedContinuation<Void, Error>?
-        }
+        private let _continuation = StateSync<CheckedContinuation<Void, Error>?>(nil)
 
         func setConnectContinuation(_ continuation: CheckedContinuation<Void, Error>) {
-            _state.mutate { $0.connectContinuation = continuation }
+            _continuation.mutate { $0 = continuation }
         }
 
         func cancelConnection() {
-            _state.mutate { state in
-                state.connectContinuation?.resume(throwing: LiveKitError(.cancelled))
-                state.connectContinuation = nil
+            _continuation.mutate {
+                $0?.resume(throwing: LiveKitError(.cancelled))
+                $0 = nil
             }
         }
 
         func urlSession(_: URLSession, webSocketTask _: URLSessionWebSocketTask, didOpenWithProtocol _: String?) {
-            _state.mutate { state in
-                state.connectContinuation?.resume()
-                state.connectContinuation = nil
+            _continuation.mutate {
+                $0?.resume()
+                $0 = nil
             }
         }
 
         func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {
             log("didCompleteWithError: \(String(describing: error))", error != nil ? .error : .debug)
 
-            _state.mutate { state in
+            _continuation.mutate {
                 if let error {
                     let lkError = LiveKitError.from(error: error) ?? LiveKitError(.unknown)
-                    state.connectContinuation?.resume(throwing: lkError)
+                    $0?.resume(throwing: lkError)
                 } else {
-                    state.connectContinuation?.resume()
+                    $0?.resume()
                 }
-
-                state.connectContinuation = nil
+                $0 = nil
             }
         }
     }
