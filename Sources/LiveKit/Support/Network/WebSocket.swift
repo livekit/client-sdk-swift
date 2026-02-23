@@ -80,7 +80,6 @@ actor WebSocket: Loggable, AsyncSequence {
         fileprivate let task: URLSessionWebSocketTask
 
         func next() async throws -> URLSessionWebSocketTask.Message? {
-            let task = task
             guard task.closeCode == .invalid else { return nil }
             return try await withTaskCancellationHandler {
                 do {
