@@ -86,6 +86,10 @@ actor WebSocket: Loggable, AsyncSequence {
                 do {
                     return try await task.receive()
                 } catch {
+                    // On clean shutdown, task.receive() throws URLError(.cancelled)
+                    // rather than CancellationError. Return nil (end-of-sequence)
+                    // instead of propagating, so `subscribe` doesn't call onFailure.
+                    if task.closeCode != .invalid || Task.isCancelled { return nil }
                     throw LiveKitError.from(error: error) ?? error
                 }
             } onCancel: {
