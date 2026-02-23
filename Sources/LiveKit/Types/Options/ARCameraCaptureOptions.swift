@@ -19,12 +19,10 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-@objc
+@objcMembers
 public final class ARCameraCaptureOptions: NSObject, VideoCaptureOptions, Sendable {
-    @objc
     public let dimensions: Dimensions
 
-    @objc
     public let fps: Int
 
     public init(dimensions: Dimensions = .h1080_169, fps: Int = 30) {

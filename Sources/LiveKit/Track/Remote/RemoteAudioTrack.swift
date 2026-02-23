@@ -19,7 +19,7 @@ import CoreMedia
 
 internal import LiveKitWebRTC
 
-@objc
+@objcMembers
 public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @unchecked Sendable {
     /// Volume with range 0.0 - 1.0
     public var volume: Double {

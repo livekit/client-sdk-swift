@@ -17,10 +17,9 @@
 import Foundation
 
 /// Asynchronously write to an open byte stream.
-@objc
+@objcMembers
 public final class ByteStreamWriter: NSObject, Sendable {
     /// Information about the outgoing byte stream.
-    @objc
     public let info: ByteStreamInfo
 
     private let destination: StreamWriterDestination

@@ -17,10 +17,9 @@
 import Foundation
 
 /// An asynchronous sequence of chunks read from a byte data stream.
-@objc
+@objcMembers
 public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     /// Information about the incoming byte stream.
-    @objc
     public let info: ByteStreamInfo
 
     let source: StreamReaderSource
@@ -36,7 +35,6 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     /// - Returns: The data consisting of all concatenated chunks.
     /// - Throws: ``StreamError`` if an error occurs while reading the stream.
     ///
-    @objc
     public func readAll() async throws -> Data {
         try await source.collect()
     }
@@ -70,7 +68,6 @@ extension ByteStreamReader {
     /// - Returns: The URL of the written file on disk.
     /// - Throws: ``StreamError`` if an error occurs while reading the stream.
     ///
-    @objc
     public func writeToFile(
         in directory: URL = FileManager.default.temporaryDirectory,
         name nameOverride: String? = nil

@@ -184,7 +184,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
             }
             #endif
 
-            device = devices.first { $0.position == self.options.position } ?? devices.first
+            device = devices.first { $0.position == self.options.position } ?? devices.sortedByFacingPositionPriority().first
         }
 
         guard let device else {

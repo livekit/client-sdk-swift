@@ -16,12 +16,11 @@
 
 import Foundation
 
-@objc
+@objcMembers
 public final class ParticipantTrackPermission: NSObject, Sendable {
     /**
      * The participant id this permission applies to.
      */
-    @objc
     public let participantSid: String
 
     /**
@@ -29,16 +28,13 @@ public final class ParticipantTrackPermission: NSObject, Sendable {
      *
      * Takes precedence over ``allowedTrackSids``.
      */
-    @objc
     let allTracksAllowed: Bool
 
     /**
      * The list of track ids that the target participant can subscribe to.
      */
-    @objc
     let allowedTrackSids: [String]
 
-    @objc
     public init(participantSid: String,
                 allTracksAllowed: Bool,
                 allowedTrackSids: [String] = [String]())

@@ -16,12 +16,10 @@
 
 import Foundation
 
-@objc
+@objcMembers
 public final class VideoEncoding: NSObject, MediaEncoding, Sendable {
-    @objc
     public let maxBitrate: Int
 
-    @objc
     public let maxFps: Int
 
     /// Priority for bandwidth allocation.
@@ -31,7 +29,6 @@ public final class VideoEncoding: NSObject, MediaEncoding, Sendable {
     /// Requires `ConnectOptions.isDscpEnabled` to be true.
     public let networkPriority: Priority?
 
-    @objc
     public init(maxBitrate: Int, maxFps: Int) {
         self.maxBitrate = maxBitrate
         self.maxFps = maxFps

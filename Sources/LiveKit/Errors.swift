@@ -128,7 +128,7 @@ extension LiveKitErrorType: CustomStringConvertible {
     }
 }
 
-@objc
+@objcMembers
 public class LiveKitError: NSError, @unchecked Sendable, Loggable {
     public let type: LiveKitErrorType
     public let message: String?

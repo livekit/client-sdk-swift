@@ -18,9 +18,8 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-@objc
+@objcMembers
 public class LocalVideoTrack: Track, LocalTrackProtocol, @unchecked Sendable {
-    @objc
     public internal(set) var capturer: VideoCapturer
 
     var videoSource: LKRTCVideoSource

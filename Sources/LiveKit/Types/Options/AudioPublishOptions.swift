@@ -16,25 +16,19 @@
 
 import Foundation
 
-@objc
+@objcMembers
 public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable {
-    @objc
     public let name: String?
 
     /// preferred encoding parameters
-    @objc
     public let encoding: AudioEncoding?
 
-    @objc
     public let dtx: Bool
 
-    @objc
     public let red: Bool
 
-    @objc
     public let streamName: String?
 
-    @objc
     public let preConnect: Bool
 
     public init(name: String? = nil,

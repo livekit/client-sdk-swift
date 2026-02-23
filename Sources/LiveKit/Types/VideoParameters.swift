@@ -46,15 +46,12 @@ extension Collection<VideoParameters> {
     }
 }
 
-@objc
+@objcMembers
 public final class VideoParameters: NSObject, Sendable {
-    @objc
     public let dimensions: Dimensions
 
-    @objc
     public let encoding: VideoEncoding
 
-    @objc
     public init(dimensions: Dimensions, encoding: VideoEncoding) {
         self.dimensions = dimensions
         self.encoding = encoding

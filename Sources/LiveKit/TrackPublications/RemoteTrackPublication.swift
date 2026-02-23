@@ -23,14 +23,12 @@ public enum SubscriptionState: Int, Codable {
     case unsubscribed
 }
 
-@objc
+@objcMembers
 public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     // MARK: - Public
 
-    @objc
     public var isSubscriptionAllowed: Bool { _state.isSubscriptionAllowed }
 
-    @objc
     public var isEnabled: Bool { _state.trackSettings.isEnabled }
 
     override public var isMuted: Bool { track?.isMuted ?? _state.isMetadataMuted }
@@ -56,14 +54,12 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
         _state.isSubscribePreferred != false
     }
 
-    @objc
     public var subscriptionState: SubscriptionState {
         if !isSubscriptionAllowed { return .notAllowed }
         return isSubscribed ? .subscribed : .unsubscribed
     }
 
     /// Subscribe or unsubscribe from this track.
-    @objc
     public func set(subscribed newValue: Bool) async throws {
         guard _state.isSubscribePreferred != newValue else { return }
 
@@ -82,7 +78,6 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     /// Enable or disable server from sending down data for this track.
     ///
     /// This is useful when the participant is off screen, you may disable streaming down their video to reduce bandwidth requirements.
-    @objc
     public func set(enabled newValue: Bool) async throws {
         // No-op if already the desired value
         let trackSettings = _state.trackSettings
@@ -96,7 +91,6 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     }
 
     /// Set preferred video FPS for this track.
-    @objc
     public func set(preferredFPS newValue: UInt) async throws {
         // No-op if already the desired value
         let trackSettings = _state.trackSettings
@@ -113,7 +107,6 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     ///
     /// Based on this value, server will decide which layer to send.
     /// Use ``RemoteTrackPublication/set(videoQuality:)`` to explicitly set layer instead.
-    @objc
     public func set(preferredDimensions newValue: Dimensions) async throws {
         // No-op if already the desired value
         let trackSettings = _state.trackSettings
@@ -131,7 +124,6 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     /// This indicates the highest quality the client can accept. if network
     /// bandwidth does not allow, server will automatically reduce quality to
     /// optimize for uninterrupted video.
-    @objc
     public func set(videoQuality newValue: VideoQuality) async throws {
         // No-op if already the desired value
         let trackSettings = _state.trackSettings
