@@ -106,7 +106,7 @@ actor WebSocket: Loggable, AsyncSequence {
 
     // MARK: - URLSessionWebSocketDelegate
 
-    private final class Delegate: NSObject, URLSessionWebSocketDelegate {
+    private final class Delegate: NSObject, Loggable, URLSessionWebSocketDelegate {
         private let _state = StateSync(State())
 
         private struct State {
@@ -132,6 +132,8 @@ actor WebSocket: Loggable, AsyncSequence {
         }
 
         func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {
+            log("didCompleteWithError: \(String(describing: error))", error != nil ? .error : .debug)
+
             _state.mutate { state in
                 if let error {
                     let lkError = LiveKitError.from(error: error) ?? LiveKitError(.unknown)
