@@ -83,7 +83,13 @@ actor WebSocket: Loggable, AsyncSequence {
             guard task.closeCode == .invalid else { return nil }
             return try await withTaskCancellationHandler {
                 do {
-                    return try await task.receive()
+                    // Use the callback API instead of the async overlay to avoid
+                    // a TSan-visible data race inside Foundation's continuation bridge.
+                    return try await withCheckedThrowingContinuation { continuation in
+                        task.receive { result in
+                            continuation.resume(with: result)
+                        }
+                    }
                 } catch {
                     // On clean shutdown, task.receive() throws URLError(.cancelled)
                     // rather than CancellationError. Return nil (end-of-sequence)
