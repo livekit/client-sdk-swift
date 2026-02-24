@@ -119,12 +119,13 @@ jobs:
 
       - name: Build for Testing
         run: |
-          NSUnbufferedIO=YES xcodebuild build-for-testing \
+          set -o pipefail && xcodebuild build-for-testing \
             -scheme LiveKit \
             -destination 'platform=${{ matrix.platform }}' \
             -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
             -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
-            APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }}
+            APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
+            | xcbeautify --renderer github-actions
 
       - name: Run Tests
         uses: nick-fields/retry@v3
@@ -139,14 +140,15 @@ jobs:
 
             for test in "${tests[@]}"; do
               echo "::group::$test"
-              if ! NSUnbufferedIO=YES xcodebuild test-without-building \
+              if ! xcodebuild test-without-building \
                 -scheme LiveKit \
                 -destination 'platform=${{ matrix.platform }}' \
                 -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
                 -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
                 APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
                 -only-testing:$test \
-                -parallel-testing-enabled NO
+                -parallel-testing-enabled NO \
+                | xcbeautify --renderer github-actions
               then
                 echo "::error::Test failed: $test"
                 exit 1
@@ -157,16 +159,16 @@ jobs:
       - name: Build for Release
         if: ${{ matrix.symbol-graph }}
         run: |
-          NSUnbufferedIO=YES xcodebuild build \
+          set -o pipefail && xcodebuild build\
             -scheme LiveKit \
             -configuration Release \
-            -destination 'platform=${{ matrix.platform }}' \
+            -destination 'platform=${{ matrix.platform }}'  \
             APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
             BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-            OTHER_SWIFT_FLAGS="-Xfrontend -emit-symbol-graph \
-                               -Xfrontend -emit-symbol-graph-dir \
+            OTHER_SWIFT_FLAGS="-Xfrontend -emit-symbol-graph\
+                               -Xfrontend -emit-symbol-graph-dir\
                                -Xfrontend \"${PWD}/symbol-graph\"" \
-            DOCC_EXTRACT_EXTENSION_SYMBOLS=YES
+            DOCC_EXTRACT_EXTENSION_SYMBOLS=YES | xcbeautify --renderer github-actions
 
       - name: Upload Symbol Graph
         if: ${{ matrix.symbol-graph }}
