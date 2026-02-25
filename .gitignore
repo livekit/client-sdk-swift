@@ -1,6 +1,7 @@
 .DS_Store
 .build
 .claude
+build
 /Packages
 /*.xcodeproj
 .swiftpm/
