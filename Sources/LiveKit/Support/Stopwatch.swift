@@ -16,49 +16,141 @@
 
 import Foundation
 
-public struct Stopwatch: Sendable {
-    public struct Entry: Equatable, Sendable {
-        let label: String
-        let time: TimeInterval
+// MARK: - Span
+
+/// A single timed operation with named events recorded at
+/// protocol-level boundaries.
+public final class Span: @unchecked Sendable, CustomStringConvertible {
+    public struct Entry: Sendable {
+        public let label: String
+        public let time: TimeInterval
     }
 
-    public let label: String
-    public private(set) var start: TimeInterval
-    public private(set) var splits = [Entry]()
+    public let name: String
+    public let start: TimeInterval
 
-    init(label: String) {
-        self.label = label
+    private struct State {
+        var entries: [Entry] = []
+    }
+
+    private let _state = StateSync(State())
+
+    public init(name: String) {
+        self.name = name
         start = ProcessInfo.processInfo.systemUptime
     }
 
-    mutating func split(label: String = "") {
-        splits.append(Entry(label: label, time: ProcessInfo.processInfo.systemUptime))
+    /// Record a named event. Timestamp defaults to now if not provided.
+    public func record(_ event: String, at time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+        _state.mutate { $0.entries.append(Entry(label: event, time: time)) }
     }
 
+    /// A snapshot of all recorded entries.
+    public var entries: [Entry] {
+        _state.entries
+    }
+
+    /// Total elapsed time from start to the last recorded entry.
     public func total() -> TimeInterval {
-        guard let last = splits.last else { return 0 }
-        return last.time - start
-    }
-}
-
-extension Stopwatch: Equatable {
-    public static func == (lhs: Stopwatch, rhs: Stopwatch) -> Bool {
-        lhs.start == rhs.start &&
-            lhs.splits == rhs.splits
-    }
-}
-
-extension Stopwatch: CustomStringConvertible {
-    public var description: String {
-        var e = [String]()
-        var s = start
-        for x in splits {
-            let diff = x.time - s
-            s = x.time
-            e.append("\(x.label) +\(diff.rounded(to: 2))s")
+        _state.read { state in
+            guard let last = state.entries.last else { return 0 }
+            return last.time - start
         }
+    }
 
-        e.append("total \((s - start).rounded(to: 2))s")
-        return "Stopwatch(\(label), \(e.joined(separator: ", ")))"
+    /// Returns the time of a named event relative to `start`, in microseconds.
+    public func microseconds(for label: String) -> Int64? {
+        _state.read { state in
+            guard let entry = state.entries.first(where: { $0.label == label }) else { return nil }
+            return Int64((entry.time - start) * 1_000_000)
+        }
+    }
+
+    /// All events as label → microseconds relative to `start`.
+    public var splitMicroseconds: [String: Int64] {
+        _state.read { state in
+            var result = [String: Int64]()
+            for entry in state.entries {
+                result[entry.label] = Int64((entry.time - start) * 1_000_000)
+            }
+            return result
+        }
+    }
+
+    // MARK: - CustomStringConvertible
+
+    public var description: String {
+        let snapshot = _state.entries
+        var parts = [String]()
+        var prev = start
+        for entry in snapshot {
+            let diff = entry.time - prev
+            prev = entry.time
+            parts.append("\(entry.label) +\(diff.rounded(to: 2))s")
+        }
+        parts.append("total \((prev - start).rounded(to: 2))s")
+        return "Span(\(name), \(parts.joined(separator: ", ")))"
+    }
+}
+
+// MARK: - Tracer
+
+/// A shared timing instrument that manages named ``Span``s for SDK operations.
+///
+/// The SDK calls ``record(_:span:)`` at protocol-level boundaries during
+/// connect, publish, and other operations. The default implementation
+/// (``Stopwatch``) logs completed spans. Inject a custom implementation
+/// via ``LiveKitSDK/setTracer(_:)`` to capture timing data programmatically.
+///
+/// This follows the same injection pattern as ``Logger``.
+public protocol Tracer: Sendable {
+    /// Begin a new span, replacing any existing span with the same name.
+    @discardableResult
+    func beginSpan(_ name: String) -> Span
+
+    /// Record a named event in the given span.
+    func record(_ event: String, span name: String)
+
+    /// End the named span and handle the completed timing data.
+    func endSpan(_ name: String)
+
+    /// Retrieve the active span with the given name, if any.
+    func span(_ name: String) -> Span?
+}
+
+// MARK: - Stopwatch
+
+/// Default ``Tracer`` that logs completed spans via the SDK's logger.
+public final class Stopwatch: Tracer, @unchecked Sendable {
+    private struct State {
+        var spans: [String: Span] = [:]
+    }
+
+    private let _state = StateSync(State())
+
+    public init() {}
+
+    @discardableResult
+    public func beginSpan(_ name: String) -> Span {
+        let span = Span(name: name)
+        _state.mutate { $0.spans[name] = span }
+        return span
+    }
+
+    public func record(_ event: String, span name: String) {
+        let time = ProcessInfo.processInfo.systemUptime
+        let span = _state.read { $0.spans[name] }
+        span?.record(event, at: time)
+    }
+
+    public func endSpan(_ name: String) {
+        let span = _state.mutate { $0.spans.removeValue(forKey: name) }
+        if let span {
+            sharedLogger.log("\(span)", .debug, type: Stopwatch.self)
+        }
+    }
+
+    public func span(_ name: String) -> Span? {
+        _state.read { $0.spans[name] }
     }
 }
