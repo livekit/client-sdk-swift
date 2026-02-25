@@ -37,6 +37,8 @@ final class EchoParticipant: Sendable {
     }
 
     private let _timestamps = LockIsolated<[ProcessingTimestamp]>([])
+    // Strong reference to keep the delegate alive (MulticastDelegate uses weak references)
+    private nonisolated(unsafe) var _echoDelegate: AnyObject?
 
     var processingTimestamps: [ProcessingTimestamp] {
         _timestamps.value
@@ -65,10 +67,9 @@ final class EchoParticipant: Sendable {
 
     /// Set up data echo handler that echoes received data back to the sender.
     func setupDataEcho() {
-        room.delegates.add(delegate: DataEchoDelegate(
-            room: room,
-            timestamps: _timestamps
-        ))
+        let delegate = DataEchoDelegate(room: room, timestamps: _timestamps)
+        _echoDelegate = delegate
+        room.delegates.add(delegate: delegate)
     }
 
     func disconnect() async {
@@ -81,13 +82,14 @@ final class EchoParticipant: Sendable {
 }
 
 /// Delegate that echoes data channel messages.
-private final class DataEchoDelegate: RoomDelegate, @unchecked Sendable {
+private final class DataEchoDelegate: NSObject, RoomDelegate, @unchecked Sendable {
     private let room: Room
     private let timestamps: LockIsolated<[EchoParticipant.ProcessingTimestamp]>
 
     init(room: Room, timestamps: LockIsolated<[EchoParticipant.ProcessingTimestamp]>) {
         self.room = room
         self.timestamps = timestamps
+        super.init()
     }
 
     func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String, encryptionType _: EncryptionType) {

@@ -34,13 +34,7 @@ let connectionBenchmarks: @Sendable () -> Void = {
 
     // BM-CONN-001: Dual PeerConnection, subscriber-primary (default)
     Benchmark(
-        "BM-CONN-001-DualPC-SubscriberPrimary",
-        configuration: .init(
-            warmupIterations: 5,
-            scalingFactor: .one,
-            maxDuration: .seconds(300),
-            maxIterations: 30
-        )
+        "BM-CONN-001-DualPC-SubscriberPrimary"
     ) { benchmark in
         for _ in benchmark.scaledIterations {
             let room = Room()
@@ -69,13 +63,7 @@ let connectionBenchmarks: @Sendable () -> Void = {
 
     // BM-CONN-003: Single PeerConnection
     Benchmark(
-        "BM-CONN-003-SinglePC",
-        configuration: .init(
-            warmupIterations: 5,
-            scalingFactor: .one,
-            maxDuration: .seconds(300),
-            maxIterations: 30
-        )
+        "BM-CONN-003-SinglePC"
     ) { benchmark in
         for _ in benchmark.scaledIterations {
             let room = Room()
