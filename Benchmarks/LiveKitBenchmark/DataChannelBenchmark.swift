@@ -34,13 +34,7 @@ let dataChannelBenchmarks: @Sendable () -> Void = {
 
     // BM-DC-001: Reliable channel, small payload
     Benchmark(
-        "BM-DC-001-Reliable-100B",
-        configuration: .init(
-            warmupIterations: 5,
-            scalingFactor: .one,
-            maxDuration: .seconds(300),
-            maxIterations: 50
-        )
+        "BM-DC-001-Reliable-100B"
     ) { benchmark in
         let roomName = "benchmark-dc-001-\(UUID().uuidString.prefix(8))"
 
@@ -72,8 +66,6 @@ let dataChannelBenchmarks: @Sendable () -> Void = {
         let payload = Data(repeating: 0xAB, count: 100)
 
         for _ in benchmark.scaledIterations {
-            await echoReceiver.reset()
-
             benchmark.startMeasurement()
             try await senderRoom.localParticipant.publish(
                 data: payload,
@@ -90,13 +82,7 @@ let dataChannelBenchmarks: @Sendable () -> Void = {
 
     // BM-DC-002: Lossy channel, small payload
     Benchmark(
-        "BM-DC-002-Lossy-100B",
-        configuration: .init(
-            warmupIterations: 5,
-            scalingFactor: .one,
-            maxDuration: .seconds(300),
-            maxIterations: 50
-        )
+        "BM-DC-002-Lossy-100B"
     ) { benchmark in
         let roomName = "benchmark-dc-002-\(UUID().uuidString.prefix(8))"
 
@@ -124,8 +110,6 @@ let dataChannelBenchmarks: @Sendable () -> Void = {
         let payload = Data(repeating: 0xAB, count: 100)
 
         for _ in benchmark.scaledIterations {
-            await echoReceiver.reset()
-
             benchmark.startMeasurement()
             try await senderRoom.localParticipant.publish(
                 data: payload,
@@ -141,13 +125,7 @@ let dataChannelBenchmarks: @Sendable () -> Void = {
 
     // BM-DC-003: Reliable channel, large payload
     Benchmark(
-        "BM-DC-003-Reliable-14KB",
-        configuration: .init(
-            warmupIterations: 5,
-            scalingFactor: .one,
-            maxDuration: .seconds(300),
-            maxIterations: 50
-        )
+        "BM-DC-003-Reliable-14KB"
     ) { benchmark in
         let roomName = "benchmark-dc-003-\(UUID().uuidString.prefix(8))"
 
@@ -175,8 +153,6 @@ let dataChannelBenchmarks: @Sendable () -> Void = {
         let payload = Data(repeating: 0xAB, count: 14000)
 
         for _ in benchmark.scaledIterations {
-            await echoReceiver.reset()
-
             benchmark.startMeasurement()
             try await senderRoom.localParticipant.publish(
                 data: payload,
@@ -191,43 +167,34 @@ let dataChannelBenchmarks: @Sendable () -> Void = {
     }
 }
 
-/// Actor-based tracker for data received on a room, used to measure echo round-trip time.
-actor DataReceiveTracker: RoomDelegate {
-    private var continuation: CheckedContinuation<Void, any Error>?
+/// Tracks data received on a room, used to measure echo round-trip time.
+/// Uses AsyncStream to avoid race conditions between data arrival and waiting.
+final class DataReceiveTracker: NSObject, RoomDelegate, @unchecked Sendable {
+    private let stream: AsyncStream<Void>
+    private let continuation: AsyncStream<Void>.Continuation
 
-    func reset() {
-        continuation = nil
+    override init() {
+        (stream, continuation) = AsyncStream<Void>.makeStream()
+        super.init()
     }
 
     func waitForData(timeout: TimeInterval) async throws {
         try await withThrowingTaskGroup(of: Void.self) { group in
             group.addTask {
-                try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, any Error>) in
-                    Task { await self.setContinuation(cont) }
-                }
+                var iterator = self.stream.makeAsyncIterator()
+                _ = await iterator.next()
             }
             group.addTask {
                 try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
                 throw BenchmarkError.timeout
             }
-            // Wait for whichever finishes first
             try await group.next()
             group.cancelAll()
         }
     }
 
-    private func setContinuation(_ cont: CheckedContinuation<Void, any Error>) {
-        continuation = cont
-    }
-
-    nonisolated func room(_: Room, participant _: RemoteParticipant?, didReceiveData _: Data, forTopic _: String, encryptionType _: EncryptionType) {
-        Task { await resumeContinuation() }
-    }
-
-    private func resumeContinuation() {
-        let c = continuation
-        continuation = nil
-        c?.resume()
+    func room(_: Room, participant _: RemoteParticipant?, didReceiveData _: Data, forTopic _: String, encryptionType _: EncryptionType) {
+        continuation.yield()
     }
 }
 

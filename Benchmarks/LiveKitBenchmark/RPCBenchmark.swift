@@ -37,13 +37,7 @@ let rpcBenchmarks: @Sendable () -> Void = {
 
     // BM-RPC-001: Small payload, no delay
     Benchmark(
-        "BM-RPC-001-100B",
-        configuration: .init(
-            warmupIterations: 5,
-            scalingFactor: .one,
-            maxDuration: .seconds(300),
-            maxIterations: 50
-        )
+        "BM-RPC-001-100B"
     ) { benchmark in
         let roomName = "benchmark-rpc-001-\(UUID().uuidString.prefix(8))"
 
@@ -89,13 +83,7 @@ let rpcBenchmarks: @Sendable () -> Void = {
 
     // BM-RPC-002: Large payload, no delay
     Benchmark(
-        "BM-RPC-002-14KB",
-        configuration: .init(
-            warmupIterations: 5,
-            scalingFactor: .one,
-            maxDuration: .seconds(300),
-            maxIterations: 50
-        )
+        "BM-RPC-002-14KB"
     ) { benchmark in
         let roomName = "benchmark-rpc-002-\(UUID().uuidString.prefix(8))"
 
@@ -137,13 +125,7 @@ let rpcBenchmarks: @Sendable () -> Void = {
 
     // BM-RPC-003: Small payload, 50ms simulated processing delay
     Benchmark(
-        "BM-RPC-003-100B-50ms",
-        configuration: .init(
-            warmupIterations: 5,
-            scalingFactor: .one,
-            maxDuration: .seconds(300),
-            maxIterations: 50
-        )
+        "BM-RPC-003-100B-50ms"
     ) { benchmark in
         let roomName = "benchmark-rpc-003-\(UUID().uuidString.prefix(8))"
 
