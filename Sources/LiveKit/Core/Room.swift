@@ -85,7 +85,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     public var disconnectError: LiveKitError? { _state.disconnectError }
 
-    public var connectStopwatch: Stopwatch { _state.connectStopwatch }
+    /// Timing data for the most recent connection attempt.
+    public var connectSpan: Span? { sharedTracer.span("connect") }
 
     // MARK: - Internal
 
@@ -178,7 +179,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var connectionState: ConnectionState = .disconnected
         var reconnectTask: AnyTaskCancellable?
         var disconnectError: LiveKitError?
-        var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
 
         var transport: TransportMode?
@@ -225,8 +225,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 roomOptions: RoomOptions? = nil)
     {
         // Ensure manager shared objects are instantiated
+        #if !LK_BENCHMARK
         DeviceManager.prepare()
         AudioManager.prepare()
+        #endif
 
         _state = StateSync(State(connectOptions: connectOptions ?? ConnectOptions(),
                                  roomOptions: roomOptions ?? RoomOptions()))
@@ -369,6 +371,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             publisherDataChannel.e2eeManager = nil
         }
 
+        sharedTracer.beginSpan("connect")
+
         _state.mutate {
             $0.providedUrl = providedUrl
             $0.token = token
@@ -433,10 +437,14 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             // Final check if cancelled, don't fire connected events
             try Task.checkCancellation()
 
+            connectSpan?.record("room_connected")
+
             _state.mutate {
                 $0.connectedUrl = finalUrl
                 $0.connectionState = .connected
             }
+
+            sharedTracer.endSpan("connect")
             // Publish mic if mic task was created
             if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled {
                 let track = try await createMicrophoneTrackTask.value
