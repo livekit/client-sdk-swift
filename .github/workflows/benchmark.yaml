@@ -16,6 +16,9 @@ jobs:
     timeout-minutes: 60
     env:
       LK_BENCHMARK: 1
+      LIVEKIT_URL: ${{ secrets.BENCHMARK_URL }}
+      LIVEKIT_API_KEY: ${{ secrets.BENCHMARK_API_KEY }}
+      LIVEKIT_API_SECRET: ${{ secrets.BENCHMARK_API_SECRET }}
     steps:
       - uses: actions/checkout@v4
 
@@ -38,7 +41,6 @@ jobs:
       - name: Benchmark Report
         working-directory: Benchmarks
         run: |
-          echo '## Benchmark Results' >> "$GITHUB_STEP_SUMMARY"
           swiftly run +xcode swift package --disable-sandbox \
             benchmark baseline read current \
             --format markdown \
