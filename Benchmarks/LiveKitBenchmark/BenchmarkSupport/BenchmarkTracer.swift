@@ -23,7 +23,7 @@ import LiveKit
 /// keeps them so benchmarks can extract timing data after operations complete.
 ///
 /// Inject via `LiveKitSDK.setTracer()` before running benchmarks.
-final class BenchmarkStopwatch: Tracer, @unchecked Sendable {
+final class BenchmarkTracer: Tracer, @unchecked Sendable {
     private struct State {
         var activeSpans: [String: Span] = [:]
         var completedSpans: [String: Span] = [:]

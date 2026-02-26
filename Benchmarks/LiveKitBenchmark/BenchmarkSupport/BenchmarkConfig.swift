@@ -22,11 +22,10 @@ struct BenchmarkConfig {
     let apiKey: String
     let apiSecret: String
     let mode: InfrastructureMode
-    let region: String?
 
-    enum InfrastructureMode: String {
+    enum InfrastructureMode {
         case local
-        case cloud
+        case cloud(region: String?)
     }
 
     /// Read benchmark configuration from environment variables.
@@ -37,8 +36,7 @@ struct BenchmarkConfig {
     ///   - `LIVEKIT_API_SECRET`: API secret for token generation
     ///
     /// Optional:
-    ///   - `LIVEKIT_BENCHMARK_MODE`: "local" or "cloud" (auto-detected from URL if not set)
-    ///   - `LIVEKIT_BENCHMARK_REGION`: Server region (recorded in environment descriptor)
+    ///   - `LIVEKIT_BENCHMARK_REGION`: Server region (recorded in environment descriptor, only used for cloud)
     static func fromEnvironment() -> BenchmarkConfig {
         guard let url = ProcessInfo.processInfo.environment["LIVEKIT_URL"] else {
             fatalError("LIVEKIT_URL environment variable is required")
@@ -50,21 +48,18 @@ struct BenchmarkConfig {
             fatalError("LIVEKIT_API_SECRET environment variable is required")
         }
 
-        let region = ProcessInfo.processInfo.environment["LIVEKIT_BENCHMARK_REGION"]
-
-        let mode: InfrastructureMode = if let modeStr = ProcessInfo.processInfo.environment["LIVEKIT_BENCHMARK_MODE"] {
-            InfrastructureMode(rawValue: modeStr) ?? .local
+        // Auto-detect mode from URL
+        let mode: InfrastructureMode = if url.hasPrefix("ws://") || url.contains("localhost") {
+            .local
         } else {
-            // Auto-detect from URL
-            (url.hasPrefix("ws://") || url.contains("localhost")) ? .local : .cloud
+            .cloud(region: ProcessInfo.processInfo.environment["LIVEKIT_BENCHMARK_REGION"])
         }
 
         return BenchmarkConfig(
             url: url,
             apiKey: apiKey,
             apiSecret: apiSecret,
-            mode: mode,
-            region: region
+            mode: mode
         )
     }
 }
