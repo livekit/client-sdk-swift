@@ -18,7 +18,7 @@ import Benchmark
 import Foundation
 import LiveKit
 
-/// BM-RPC: RPC Latency Benchmarks
+/// BM-RPC: RPC Latency Benchmarks (100 iterations)
 ///
 /// Measures the round-trip latency of LiveKit's RPC mechanism from
 /// `performRpc()` invocation through acknowledgment and response.
@@ -26,15 +26,31 @@ import LiveKit
 /// Uses two SDK instances: a sender that calls `performRpc()` and a receiver
 /// that echoes the payload via a registered "echo" handler.
 ///
+/// Payload tiers based on real LiveKit use cases:
+/// - 200B: Chat messages, cursor tracking, presence, typing indicators
+/// - 4KB: Annotation strokes, game state deltas, rich metadata, AI token chunks
+/// - 15,359B: Max boundary (MAX_RPC_PAYLOAD_BYTES - 1), file transfer chunks, large state sync
+///
+/// Delay scales with payload size to isolate framework overhead from handler time:
+/// - 50ms: Small/fast lookup
+/// - 100ms: Medium/DB query
+/// - 200ms: Large/external API
+///
 /// Variants:
-/// - BM-RPC-001: 100 bytes, no delay
-/// - BM-RPC-002: 14,000 bytes, no delay
-/// - BM-RPC-003: 100 bytes, 50ms simulated processing delay
+/// - BM-RPC-001: 200 bytes, no delay
+/// - BM-RPC-002: 4,096 bytes, no delay
+/// - BM-RPC-003: 15,359 bytes (max payload), no delay
+/// - BM-RPC-004: 200 bytes, 50ms delay
+/// - BM-RPC-005: 4,096 bytes, 100ms delay
+/// - BM-RPC-006: 15,359 bytes (max payload), 200ms delay
 
 let rpcBenchmarks: @Sendable () -> Void = {
-    registerRpcBenchmark(name: "BM-RPC-001-100B", payloadSize: 100, delay: 0)
-    registerRpcBenchmark(name: "BM-RPC-002-14KB", payloadSize: 14000, delay: 0)
-    registerRpcBenchmark(name: "BM-RPC-003-100B-50ms", payloadSize: 100, delay: 50_000_000)
+    registerRpcBenchmark(name: "BM-RPC-001-200B", payloadSize: 200, delay: 0)
+    registerRpcBenchmark(name: "BM-RPC-002-4KB", payloadSize: 4096, delay: 0)
+    registerRpcBenchmark(name: "BM-RPC-003-MaxPayload", payloadSize: 15359, delay: 0)
+    registerRpcBenchmark(name: "BM-RPC-004-200B-50ms", payloadSize: 200, delay: 50_000_000)
+    registerRpcBenchmark(name: "BM-RPC-005-4KB-100ms", payloadSize: 4096, delay: 100_000_000)
+    registerRpcBenchmark(name: "BM-RPC-006-MaxPayload-200ms", payloadSize: 15359, delay: 200_000_000)
 }
 
 private func registerRpcBenchmark(

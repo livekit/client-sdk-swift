@@ -18,7 +18,7 @@ import Benchmark
 import Foundation
 import LiveKit
 
-// BM-CONN: Connection Time Benchmarks
+// BM-CONN: Connection Time Benchmarks (25 iterations)
 //
 // Measures the time from `room.connect()` invocation to the room reaching
 // `connected` state, decomposed into signaling, transport setup, and
@@ -32,7 +32,14 @@ import LiveKit
 let connectionBenchmarks: @Sendable () -> Void = {
     // BM-CONN-001: Dual PeerConnection, subscriber-primary (default)
     Benchmark(
-        "BM-CONN-001-DualPC-SubscriberPrimary"
+        "BM-CONN-001-DualPC-SubscriberPrimary",
+        configuration: .init(
+            metrics: [.wallClock],
+            warmupIterations: 5,
+            scalingFactor: .one,
+            maxDuration: .seconds(300),
+            maxIterations: 25
+        )
     ) { benchmark in
         let config = BenchmarkConfig.fromEnvironment()
         let tokenGen = TokenGenerator(apiKey: config.apiKey, apiSecret: config.apiSecret)

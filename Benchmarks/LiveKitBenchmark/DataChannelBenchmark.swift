@@ -18,20 +18,31 @@ import Benchmark
 import Foundation
 import LiveKit
 
-/// BM-DC: Data Channel Latency Benchmarks
+/// BM-DC: Data Channel Latency Benchmarks (100 iterations)
 ///
 /// Measures round-trip time for data sent through LiveKit's data channel
 /// infrastructure between two SDK instances in the same room.
 ///
+/// Payload tiers based on real LiveKit use cases:
+/// - 200B: Chat messages, cursor tracking, presence, typing indicators
+/// - 4KB: Annotation strokes, game state deltas, rich metadata, AI token chunks
+/// - 15,359B: Max boundary (MAX_RPC_PAYLOAD_BYTES - 1), file transfer chunks, large state sync
+///
 /// Variants:
-/// - BM-DC-001: Reliable channel, 100 bytes
-/// - BM-DC-002: Lossy channel, 100 bytes
-/// - BM-DC-003: Reliable channel, 14,000 bytes
+/// - BM-DC-001: Reliable channel, 200 bytes
+/// - BM-DC-002: Reliable channel, 4,096 bytes
+/// - BM-DC-003: Reliable channel, 15,359 bytes (max payload)
+/// - BM-DC-004: Lossy channel, 200 bytes
+/// - BM-DC-005: Lossy channel, 4,096 bytes
+/// - BM-DC-006: Lossy channel, 15,359 bytes (max payload)
 
 let dataChannelBenchmarks: @Sendable () -> Void = {
-    registerDataChannelBenchmark(name: "BM-DC-001-Reliable-100B", payloadSize: 100, reliable: true)
-    registerDataChannelBenchmark(name: "BM-DC-002-Lossy-100B", payloadSize: 100, reliable: false)
-    registerDataChannelBenchmark(name: "BM-DC-003-Reliable-14KB", payloadSize: 14000, reliable: true)
+    registerDataChannelBenchmark(name: "BM-DC-001-Reliable-200B", payloadSize: 200, reliable: true)
+    registerDataChannelBenchmark(name: "BM-DC-002-Reliable-4KB", payloadSize: 4096, reliable: true)
+    registerDataChannelBenchmark(name: "BM-DC-003-Reliable-MaxPayload", payloadSize: 15359, reliable: true)
+    registerDataChannelBenchmark(name: "BM-DC-004-Lossy-200B", payloadSize: 200, reliable: false)
+    registerDataChannelBenchmark(name: "BM-DC-005-Lossy-4KB", payloadSize: 4096, reliable: false)
+    registerDataChannelBenchmark(name: "BM-DC-006-Lossy-MaxPayload", payloadSize: 15359, reliable: false)
 }
 
 private func registerDataChannelBenchmark(
