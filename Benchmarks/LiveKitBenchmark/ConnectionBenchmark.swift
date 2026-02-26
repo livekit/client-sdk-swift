@@ -34,7 +34,11 @@ let connectionBenchmarks: @Sendable () -> Void = {
     Benchmark(
         "BM-CONN-001-DualPC-SubscriberPrimary",
         configuration: .init(
-            metrics: [.wallClock],
+            metrics: [
+                .wallClock,
+                .custom("D_SIGNAL", polarity: .prefersSmaller, useScalingFactor: false),
+                .custom("D_TRANSPORT", polarity: .prefersSmaller, useScalingFactor: false),
+            ],
             warmupIterations: 5,
             scalingFactor: .one,
             maxDuration: .seconds(300),
