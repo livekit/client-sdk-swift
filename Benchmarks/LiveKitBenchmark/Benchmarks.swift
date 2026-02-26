@@ -37,7 +37,7 @@ let benchmarks: @Sendable () -> Void = {
         warmupIterations: 5,
         scalingFactor: .one,
         maxDuration: .seconds(300),
-        maxIterations: 30
+        maxIterations: 100
     )
 
     // Register all benchmark suites
