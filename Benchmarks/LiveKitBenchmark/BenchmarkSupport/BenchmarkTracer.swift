@@ -23,6 +23,18 @@ import LiveKit
 /// keeps them so benchmarks can extract timing data after operations complete.
 ///
 /// Inject via `LiveKitSDK.setTracer()` before running benchmarks.
+
+extension Span {
+    /// All events as label → microseconds relative to `start`.
+    var splitMicroseconds: [String: Int64] {
+        var result = [String: Int64]()
+        for entry in entries {
+            result[entry.label] = Int64((entry.time - start) * 1_000_000)
+        }
+        return result
+    }
+}
+
 final class BenchmarkTracer: Tracer, @unchecked Sendable {
     private struct State {
         var activeSpans: [String: Span] = [:]

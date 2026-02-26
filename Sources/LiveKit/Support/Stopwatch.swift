@@ -66,25 +66,6 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
         }
     }
 
-    /// Returns the time of a named event relative to `start`, in microseconds.
-    public func microseconds(for label: String) -> Int64? {
-        _state.read { state in
-            guard let entry = state.entries.first(where: { $0.label == label }) else { return nil }
-            return Int64((entry.time - start) * 1_000_000)
-        }
-    }
-
-    /// All events as label → microseconds relative to `start`.
-    public var splitMicroseconds: [String: Int64] {
-        _state.read { state in
-            var result = [String: Int64]()
-            for entry in state.entries {
-                result[entry.label] = Int64((entry.time - start) * 1_000_000)
-            }
-            return result
-        }
-    }
-
     // MARK: - Equatable
 
     public static func == (lhs: Span, rhs: Span) -> Bool {
