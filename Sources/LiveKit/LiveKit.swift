@@ -37,7 +37,7 @@ public class LiveKitSDK: NSObject, Loggable {
     static let ffiVersion = buildVersion()
 
     fileprivate struct State {
-        var logger: Logger = OSLogger()
+        var logger: any Logger = OSLogger()
         var tracer: any Tracer = Stopwatch()
     }
 
@@ -92,4 +92,4 @@ public class LiveKitSDK: NSObject, Loggable {
 let sharedLogger = LiveKitSDK.state.logger
 
 // Lazily initialized to the first tracer
-let sharedTracer: any Tracer = LiveKitSDK.state.tracer
+let sharedTracer = LiveKitSDK.state.tracer
