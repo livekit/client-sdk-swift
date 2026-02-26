@@ -18,14 +18,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install LiveKit Server
-        run: brew install livekit
+      - name: Install dependencies
+        run: brew install livekit jemalloc swiftly
 
       - name: Run LiveKit Server
         run: livekit-server --dev &
-
-      - name: Install jemalloc
-        run: brew install jemalloc
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -33,4 +30,4 @@ jobs:
 
       - name: Run Benchmarks
         working-directory: Benchmarks
-        run: swift package --disable-sandbox benchmark thresholds check
+        run: swiftly run +xcode swift package --disable-sandbox benchmark thresholds check
