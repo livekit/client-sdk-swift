@@ -18,14 +18,14 @@ import Benchmark
 import Foundation
 import LiveKit
 
-/// BM-CONN: Connection Time Benchmarks
-///
-/// Measures the time from `room.connect()` invocation to the room reaching
-/// `connected` state, decomposed into signaling, transport setup, and
-/// data channel phases via the shared ``Tracing`` spans.
-///
-/// Variants:
-/// - BM-CONN-001: Dual PeerConnection, subscriber-primary (default)
+// BM-CONN: Connection Time Benchmarks
+//
+// Measures the time from `room.connect()` invocation to the room reaching
+// `connected` state, decomposed into signaling, transport setup, and
+// data channel phases via the shared `Tracing` spans.
+//
+// Variants:
+// - BM-CONN-001: Dual PeerConnection, subscriber-primary (default)
 
 // TODO: Add BM-CONN-003 (Single PeerConnection) when RoomOptions supports singlePeerConnection.
 
