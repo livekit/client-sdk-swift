@@ -105,10 +105,9 @@ public typealias Stopwatch = Span
 
 /// A factory that creates ``Span``s for SDK operations.
 ///
-/// The default implementation (``NoopTracer``) returns bare spans with no
-/// ``Span/onEnd`` handler for zero overhead. Inject a custom implementation
-/// via ``LiveKitSDK/setTracer(_:)`` to capture timing data programmatically,
-/// or use ``LoggingTracer`` to log completed spans.
+/// The default ``LoggingTracer`` logs completed spans at debug level.
+/// Inject a custom implementation via ``LiveKitSDK/setTracer(_:)`` to
+/// capture timing data programmatically (e.g., for benchmarks).
 ///
 /// This follows the same injection pattern as ``Logger``.
 public protocol Tracing: Sendable {
@@ -118,19 +117,9 @@ public protocol Tracing: Sendable {
     func beginSpan(_ name: String) -> Span
 }
 
-// MARK: - NoopTracer
-
-/// Default ``Tracing`` implementation that discards all timing data for zero overhead.
-public final class NoopTracer: Tracing, Sendable {
-    public init() {}
-
-    @discardableResult
-    public func beginSpan(_ name: String) -> Span { Span(label: name) }
-}
-
 // MARK: - LoggingTracer
 
-/// ``Tracing`` implementation that logs completed spans via the SDK's logger.
+/// Default ``Tracing`` implementation that logs completed spans via the SDK's logger.
 public final class LoggingTracer: Tracing, Sendable {
     public init() {}
 

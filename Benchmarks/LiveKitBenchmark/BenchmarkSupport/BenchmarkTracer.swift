@@ -19,7 +19,7 @@ import LiveKit
 
 /// A ``Tracing`` implementation that retains completed spans for benchmark analysis.
 ///
-/// The default ``NoopTracer`` discards spans. ``LoggingTracer`` logs and removes spans when they end. This implementation
+/// The default ``LoggingTracer`` logs spans when they end. This implementation
 /// keeps them so benchmarks can extract timing data after operations complete.
 ///
 /// Inject via `LiveKitSDK.setTracer()` before running benchmarks.
@@ -36,28 +36,24 @@ extension Span {
 }
 
 final class BenchmarkTracer: Tracing, @unchecked Sendable {
-    private struct State {
-        var completedSpans: [String: Span] = [:]
-    }
-
-    private let _state = StateSync(State())
+    private let _completedSpans = StateSync<[String: Span]>([:])
 
     @discardableResult
     func beginSpan(_ name: String) -> Span {
         let span = Span(label: name)
         span.onEnd = { [weak self] span in
-            self?._state.mutate { $0.completedSpans[name] = span }
+            self?._completedSpans.mutate { $0[name] = span }
         }
         return span
     }
 
     /// Retrieve the most recently completed span with the given name.
     func completedSpan(_ name: String) -> Span? {
-        _state.read { $0.completedSpans[name] }
+        _completedSpans.read { $0[name] }
     }
 
     /// Clear all completed spans.
     func reset() {
-        _state.mutate { $0.completedSpans.removeAll() }
+        _completedSpans.mutate { $0.removeAll() }
     }
 }
