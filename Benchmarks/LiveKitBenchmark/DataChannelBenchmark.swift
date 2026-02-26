@@ -29,142 +29,72 @@ import LiveKit
 /// - BM-DC-003: Reliable channel, 14,000 bytes
 
 let dataChannelBenchmarks: @Sendable () -> Void = {
-    let config = BenchmarkConfig.fromEnvironment()
-    let tokenGen = TokenGenerator(apiKey: config.apiKey, apiSecret: config.apiSecret)
+    registerDataChannelBenchmark(name: "BM-DC-001-Reliable-100B", payloadSize: 100, reliable: true)
+    registerDataChannelBenchmark(name: "BM-DC-002-Lossy-100B", payloadSize: 100, reliable: false)
+    registerDataChannelBenchmark(name: "BM-DC-003-Reliable-14KB", payloadSize: 14000, reliable: true)
+}
 
-    // BM-DC-001: Reliable channel, small payload
+private func registerDataChannelBenchmark(
+    name: String,
+    payloadSize: Int,
+    reliable: Bool
+) {
+    nonisolated(unsafe) var senderRoom: Room?
+    nonisolated(unsafe) var echo: EchoParticipant?
+    nonisolated(unsafe) var echoReceiver: DataReceiveTracker?
+
     Benchmark(
-        "BM-DC-001-Reliable-100B"
-    ) { benchmark in
-        let roomName = "benchmark-dc-001-\(UUID().uuidString.prefix(8))"
-
-        // Setup echo participant
-        let echo = EchoParticipant()
-        let echoToken = tokenGen.generate(roomName: roomName, identity: "bench-echo")
-        try await echo.connect(url: config.url, token: echoToken)
-        echo.setupDataEcho()
-
-        // Setup sender
-        let senderRoom = Room()
-        let senderToken = tokenGen.generate(roomName: roomName, identity: "bench-sender")
-        try await senderRoom.connect(url: config.url, token: senderToken)
-
-        // Wait for both participants to be ready
-        try await Task.sleep(nanoseconds: 1_000_000_000)
-
-        defer {
-            Task {
-                await senderRoom.disconnect()
-                await echo.disconnect()
+        name,
+        closure: { benchmark in
+            guard let senderRoom, let echoReceiver else {
+                fatalError("Setup not completed for \(name)")
             }
-        }
 
-        // Setup data receive handler on sender to capture echo
-        let echoReceiver = DataReceiveTracker()
-        senderRoom.delegates.add(delegate: echoReceiver)
+            let payload = Data(repeating: 0xAB, count: payloadSize)
 
-        let payload = Data(repeating: 0xAB, count: 100)
+            for _ in benchmark.scaledIterations {
+                benchmark.startMeasurement()
+                try await senderRoom.localParticipant.publish(
+                    data: payload,
+                    options: .init(topic: "benchmark", reliable: reliable)
+                )
+                try await echoReceiver.waitForData(timeout: 5.0)
+                benchmark.stopMeasurement()
 
-        for _ in benchmark.scaledIterations {
-            benchmark.startMeasurement()
-            try await senderRoom.localParticipant.publish(
-                data: payload,
-                options: .init(topic: "benchmark", reliable: true)
-            )
-
-            // Wait for echo
-            try await echoReceiver.waitForData(timeout: 5.0)
-            benchmark.stopMeasurement()
-
-            try await Task.sleep(nanoseconds: 500_000_000)
-        }
-    }
-
-    // BM-DC-002: Lossy channel, small payload
-    Benchmark(
-        "BM-DC-002-Lossy-100B"
-    ) { benchmark in
-        let roomName = "benchmark-dc-002-\(UUID().uuidString.prefix(8))"
-
-        let echo = EchoParticipant()
-        let echoToken = tokenGen.generate(roomName: roomName, identity: "bench-echo")
-        try await echo.connect(url: config.url, token: echoToken)
-        echo.setupDataEcho()
-
-        let senderRoom = Room()
-        let senderToken = tokenGen.generate(roomName: roomName, identity: "bench-sender")
-        try await senderRoom.connect(url: config.url, token: senderToken)
-
-        try await Task.sleep(nanoseconds: 1_000_000_000)
-
-        defer {
-            Task {
-                await senderRoom.disconnect()
-                await echo.disconnect()
+                try await Task.sleep(nanoseconds: 500_000_000)
             }
+        },
+        setup: {
+            let config = BenchmarkConfig.fromEnvironment()
+            let tokenGen = TokenGenerator(apiKey: config.apiKey, apiSecret: config.apiSecret)
+            let roomName = "benchmark-\(name.lowercased())-\(UUID().uuidString.prefix(8))"
+
+            let echoParticipant = EchoParticipant()
+            let echoToken = tokenGen.generate(roomName: roomName, identity: "bench-echo")
+            try await echoParticipant.connect(url: config.url, token: echoToken)
+            echoParticipant.setupDataEcho()
+
+            let sender = Room()
+            let senderToken = tokenGen.generate(roomName: roomName, identity: "bench-sender")
+            try await sender.connect(url: config.url, token: senderToken)
+
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+
+            let tracker = DataReceiveTracker()
+            sender.delegates.add(delegate: tracker)
+
+            senderRoom = sender
+            echo = echoParticipant
+            echoReceiver = tracker
+        },
+        teardown: {
+            if let room = senderRoom { await room.disconnect() }
+            if let e = echo { await e.disconnect() }
+            senderRoom = nil
+            echo = nil
+            echoReceiver = nil
         }
-
-        let echoReceiver = DataReceiveTracker()
-        senderRoom.delegates.add(delegate: echoReceiver)
-
-        let payload = Data(repeating: 0xAB, count: 100)
-
-        for _ in benchmark.scaledIterations {
-            benchmark.startMeasurement()
-            try await senderRoom.localParticipant.publish(
-                data: payload,
-                options: .init(topic: "benchmark", reliable: false)
-            )
-
-            try await echoReceiver.waitForData(timeout: 5.0)
-            benchmark.stopMeasurement()
-
-            try await Task.sleep(nanoseconds: 500_000_000)
-        }
-    }
-
-    // BM-DC-003: Reliable channel, large payload
-    Benchmark(
-        "BM-DC-003-Reliable-14KB"
-    ) { benchmark in
-        let roomName = "benchmark-dc-003-\(UUID().uuidString.prefix(8))"
-
-        let echo = EchoParticipant()
-        let echoToken = tokenGen.generate(roomName: roomName, identity: "bench-echo")
-        try await echo.connect(url: config.url, token: echoToken)
-        echo.setupDataEcho()
-
-        let senderRoom = Room()
-        let senderToken = tokenGen.generate(roomName: roomName, identity: "bench-sender")
-        try await senderRoom.connect(url: config.url, token: senderToken)
-
-        try await Task.sleep(nanoseconds: 1_000_000_000)
-
-        defer {
-            Task {
-                await senderRoom.disconnect()
-                await echo.disconnect()
-            }
-        }
-
-        let echoReceiver = DataReceiveTracker()
-        senderRoom.delegates.add(delegate: echoReceiver)
-
-        let payload = Data(repeating: 0xAB, count: 14000)
-
-        for _ in benchmark.scaledIterations {
-            benchmark.startMeasurement()
-            try await senderRoom.localParticipant.publish(
-                data: payload,
-                options: .init(topic: "benchmark", reliable: true)
-            )
-
-            try await echoReceiver.waitForData(timeout: 5.0)
-            benchmark.stopMeasurement()
-
-            try await Task.sleep(nanoseconds: 500_000_000)
-        }
-    }
+    )
 }
 
 /// Tracks data received on a room, used to measure echo round-trip time.

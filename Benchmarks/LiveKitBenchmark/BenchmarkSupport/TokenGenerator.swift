@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-import CommonCrypto
 import Foundation
+import LiveKitUniFFI
 
-/// Generates LiveKit access tokens (JWTs) for benchmark participants.
+/// Generates LiveKit access tokens for benchmark participants.
 ///
-/// Uses HMAC-SHA256 signing with no external dependencies — the token format
-/// is a standard JWT with LiveKit-specific claims.
+/// Uses LiveKitUniFFI's `tokenGenerate` function, which provides the same
+/// HMAC-SHA256 JWT signing as the server SDKs.
 struct TokenGenerator {
     let apiKey: String
     let apiSecret: String
@@ -40,70 +40,40 @@ struct TokenGenerator {
         canSubscribe: Bool = true,
         ttl: TimeInterval = 300
     ) -> String {
-        let now = Date()
-        let exp = now.addingTimeInterval(ttl)
+        let grants = VideoGrants(
+            roomCreate: false,
+            roomList: false,
+            roomRecord: false,
+            roomAdmin: false,
+            roomJoin: true,
+            room: roomName,
+            destinationRoom: "",
+            canPublish: canPublish,
+            canSubscribe: canSubscribe,
+            canPublishData: true,
+            canPublishSources: [],
+            canUpdateOwnMetadata: false,
+            ingressAdmin: false,
+            hidden: false,
+            recorder: false
+        )
 
-        // JWT Header
-        let header: [String: Any] = [
-            "alg": "HS256",
-            "typ": "JWT",
-        ]
+        let options = TokenOptions(
+            ttl: ttl,
+            videoGrants: grants,
+            identity: identity,
+            name: identity
+        )
 
-        // JWT Payload with LiveKit claims
-        let payload: [String: Any] = [
-            "iss": apiKey,
-            "sub": identity,
-            "iat": Int(now.timeIntervalSince1970),
-            "exp": Int(exp.timeIntervalSince1970),
-            "nbf": Int(now.timeIntervalSince1970),
-            "jti": identity,
-            "video": [
-                "roomJoin": true,
-                "room": roomName,
-                "canPublish": canPublish,
-                "canSubscribe": canSubscribe,
-                "canPublishData": true,
-            ] as [String: Any],
-        ]
+        let credentials = ApiCredentials(
+            key: apiKey,
+            secret: apiSecret
+        )
 
-        let headerData = try! JSONSerialization.data(withJSONObject: header)
-        let payloadData = try! JSONSerialization.data(withJSONObject: payload)
-
-        let headerBase64 = base64URLEncode(headerData)
-        let payloadBase64 = base64URLEncode(payloadData)
-
-        let signingInput = "\(headerBase64).\(payloadBase64)"
-        let signature = hmacSHA256(signingInput, secret: apiSecret)
-        let signatureBase64 = base64URLEncode(signature)
-
-        return "\(headerBase64).\(payloadBase64).\(signatureBase64)"
-    }
-
-    // MARK: - Private
-
-    private func base64URLEncode(_ data: Data) -> String {
-        data.base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
-    }
-
-    private func hmacSHA256(_ string: String, secret: String) -> Data {
-        let key = secret.data(using: .utf8)!
-        let data = string.data(using: .utf8)!
-
-        var hmac = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
-        key.withUnsafeBytes { keyPtr in
-            data.withUnsafeBytes { dataPtr in
-                CCHmac(
-                    CCHmacAlgorithm(kCCHmacAlgSHA256),
-                    keyPtr.baseAddress, key.count,
-                    dataPtr.baseAddress, data.count,
-                    &hmac
-                )
-            }
+        do {
+            return try tokenGenerate(options: options, credentials: credentials)
+        } catch {
+            fatalError("Failed to generate token: \(error)")
         }
-
-        return Data(hmac)
     }
 }

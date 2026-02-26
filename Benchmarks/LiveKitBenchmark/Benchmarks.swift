@@ -17,8 +17,8 @@
 import Benchmark
 import LiveKit
 
-/// Shared stopwatch that retains completed spans for benchmark analysis.
-let benchmarkStopwatch = BenchmarkStopwatch()
+/// Shared tracer that retains completed spans for benchmark analysis.
+let benchmarkTracer = BenchmarkTracer()
 
 /// Entry point for all LiveKit benchmarks.
 ///
@@ -28,8 +28,8 @@ let benchmarkStopwatch = BenchmarkStopwatch()
 ///
 /// Run with: `swift package benchmark`
 let benchmarks: @Sendable () -> Void = {
-    // Inject our stopwatch so we can capture timing data
-    LiveKitSDK.setTracer(benchmarkStopwatch)
+    // Inject our tracer so we can capture timing data
+    LiveKitSDK.setTracer(benchmarkTracer)
 
     // Metric configuration: focus on wall clock time
     Benchmark.defaultConfiguration = .init(
@@ -42,7 +42,6 @@ let benchmarks: @Sendable () -> Void = {
 
     // Register all benchmark suites
     connectionBenchmarks()
-    // trackPublishBenchmarks() // Requires audio hardware, not available in CLI
     dataChannelBenchmarks()
     rpcBenchmarks()
 }

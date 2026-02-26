@@ -36,12 +36,12 @@ final class EchoParticipant: Sendable {
         var overheadUs: Int64 { echoSentUs - receiveUs }
     }
 
-    private let _timestamps = LockIsolated<[ProcessingTimestamp]>([])
+    private let _timestamps = StateSync<[ProcessingTimestamp]>([])
     // Strong reference to keep the delegate alive (MulticastDelegate uses weak references)
     private nonisolated(unsafe) var _echoDelegate: AnyObject?
 
     var processingTimestamps: [ProcessingTimestamp] {
-        _timestamps.value
+        _timestamps.copy()
     }
 
     init() {
@@ -77,16 +77,16 @@ final class EchoParticipant: Sendable {
     }
 
     func clearTimestamps() {
-        _timestamps.withValue { $0.removeAll() }
+        _timestamps.mutate { $0.removeAll() }
     }
 }
 
 /// Delegate that echoes data channel messages.
 private final class DataEchoDelegate: NSObject, RoomDelegate, @unchecked Sendable {
     private let room: Room
-    private let timestamps: LockIsolated<[EchoParticipant.ProcessingTimestamp]>
+    private let timestamps: StateSync<[EchoParticipant.ProcessingTimestamp]>
 
-    init(room: Room, timestamps: LockIsolated<[EchoParticipant.ProcessingTimestamp]>) {
+    init(room: Room, timestamps: StateSync<[EchoParticipant.ProcessingTimestamp]>) {
         self.room = room
         self.timestamps = timestamps
         super.init()
@@ -100,34 +100,12 @@ private final class DataEchoDelegate: NSObject, RoomDelegate, @unchecked Sendabl
                 options: .init(topic: topic)
             )
             let sentTime = Int64(ProcessInfo.processInfo.systemUptime * 1_000_000)
-            timestamps.withValue {
+            timestamps.mutate {
                 $0.append(EchoParticipant.ProcessingTimestamp(
                     receiveUs: recvTime,
                     echoSentUs: sentTime
                 ))
             }
         }
-    }
-}
-
-/// Simple lock-based isolation for values shared across sendability boundaries.
-final class LockIsolated<Value: Sendable>: @unchecked Sendable {
-    private var _value: Value
-    private let lock = NSLock()
-
-    init(_ value: Value) {
-        _value = value
-    }
-
-    var value: Value {
-        lock.lock()
-        defer { lock.unlock() }
-        return _value
-    }
-
-    func withValue<T>(_ operation: (inout Value) -> T) -> T {
-        lock.lock()
-        defer { lock.unlock() }
-        return operation(&_value)
     }
 }

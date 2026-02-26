@@ -32,136 +32,66 @@ import LiveKit
 /// - BM-RPC-003: 100 bytes, 50ms simulated processing delay
 
 let rpcBenchmarks: @Sendable () -> Void = {
-    let config = BenchmarkConfig.fromEnvironment()
-    let tokenGen = TokenGenerator(apiKey: config.apiKey, apiSecret: config.apiSecret)
+    registerRpcBenchmark(name: "BM-RPC-001-100B", payloadSize: 100, delay: 0)
+    registerRpcBenchmark(name: "BM-RPC-002-14KB", payloadSize: 14000, delay: 0)
+    registerRpcBenchmark(name: "BM-RPC-003-100B-50ms", payloadSize: 100, delay: 50_000_000)
+}
 
-    // BM-RPC-001: Small payload, no delay
+private func registerRpcBenchmark(
+    name: String,
+    payloadSize: Int,
+    delay: UInt64
+) {
+    nonisolated(unsafe) var senderRoom: Room?
+    nonisolated(unsafe) var echo: EchoParticipant?
+
     Benchmark(
-        "BM-RPC-001-100B"
-    ) { benchmark in
-        let roomName = "benchmark-rpc-001-\(UUID().uuidString.prefix(8))"
-
-        // Setup echo participant with RPC handler
-        let echo = EchoParticipant()
-        let echoToken = tokenGen.generate(roomName: roomName, identity: "bench-echo")
-        try await echo.connect(url: config.url, token: echoToken)
-        try await echo.registerEchoRpc(delay: 0)
-
-        // Setup sender
-        let senderRoom = Room()
-        let senderToken = tokenGen.generate(roomName: roomName, identity: "bench-sender")
-        try await senderRoom.connect(url: config.url, token: senderToken)
-
-        // Wait for both participants to be ready
-        try await Task.sleep(nanoseconds: 1_000_000_000)
-
-        defer {
-            Task {
-                await senderRoom.disconnect()
-                await echo.disconnect()
+        name,
+        closure: { benchmark in
+            guard let senderRoom else {
+                fatalError("Setup not completed for \(name)")
             }
-        }
 
-        // Generate payload: 100 bytes as a string
-        let payload = String(repeating: "x", count: 100)
+            let payload = String(repeating: "x", count: payloadSize)
 
-        for _ in benchmark.scaledIterations {
-            benchmark.startMeasurement()
-            let response = try await senderRoom.localParticipant.performRpc(
-                destinationIdentity: Participant.Identity(from: "bench-echo"),
-                method: "echo",
-                payload: payload
-            )
-            benchmark.stopMeasurement()
+            for _ in benchmark.scaledIterations {
+                benchmark.startMeasurement()
+                let response = try await senderRoom.localParticipant.performRpc(
+                    destinationIdentity: Participant.Identity(from: "bench-echo"),
+                    method: "echo",
+                    payload: payload
+                )
+                benchmark.stopMeasurement()
 
-            // Verify echo correctness
-            precondition(response == payload, "RPC echo payload mismatch")
+                precondition(response == payload, "RPC echo payload mismatch")
 
-            try await Task.sleep(nanoseconds: 500_000_000)
-        }
-    }
-
-    // BM-RPC-002: Large payload, no delay
-    Benchmark(
-        "BM-RPC-002-14KB"
-    ) { benchmark in
-        let roomName = "benchmark-rpc-002-\(UUID().uuidString.prefix(8))"
-
-        let echo = EchoParticipant()
-        let echoToken = tokenGen.generate(roomName: roomName, identity: "bench-echo")
-        try await echo.connect(url: config.url, token: echoToken)
-        try await echo.registerEchoRpc(delay: 0)
-
-        let senderRoom = Room()
-        let senderToken = tokenGen.generate(roomName: roomName, identity: "bench-sender")
-        try await senderRoom.connect(url: config.url, token: senderToken)
-
-        try await Task.sleep(nanoseconds: 1_000_000_000)
-
-        defer {
-            Task {
-                await senderRoom.disconnect()
-                await echo.disconnect()
+                try await Task.sleep(nanoseconds: 500_000_000)
             }
+        },
+        setup: {
+            let config = BenchmarkConfig.fromEnvironment()
+            let tokenGen = TokenGenerator(apiKey: config.apiKey, apiSecret: config.apiSecret)
+            let roomName = "benchmark-\(name.lowercased())-\(UUID().uuidString.prefix(8))"
+
+            let echoParticipant = EchoParticipant()
+            let echoToken = tokenGen.generate(roomName: roomName, identity: "bench-echo")
+            try await echoParticipant.connect(url: config.url, token: echoToken)
+            try await echoParticipant.registerEchoRpc(delay: delay)
+
+            let sender = Room()
+            let senderToken = tokenGen.generate(roomName: roomName, identity: "bench-sender")
+            try await sender.connect(url: config.url, token: senderToken)
+
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+
+            senderRoom = sender
+            echo = echoParticipant
+        },
+        teardown: {
+            if let room = senderRoom { await room.disconnect() }
+            if let e = echo { await e.disconnect() }
+            senderRoom = nil
+            echo = nil
         }
-
-        // 14,000 bytes — near MAX_RPC_PAYLOAD_BYTES (15,360)
-        let payload = String(repeating: "x", count: 14000)
-
-        for _ in benchmark.scaledIterations {
-            benchmark.startMeasurement()
-            let response = try await senderRoom.localParticipant.performRpc(
-                destinationIdentity: Participant.Identity(from: "bench-echo"),
-                method: "echo",
-                payload: payload
-            )
-            benchmark.stopMeasurement()
-
-            precondition(response == payload, "RPC echo payload mismatch")
-
-            try await Task.sleep(nanoseconds: 500_000_000)
-        }
-    }
-
-    // BM-RPC-003: Small payload, 50ms simulated processing delay
-    Benchmark(
-        "BM-RPC-003-100B-50ms"
-    ) { benchmark in
-        let roomName = "benchmark-rpc-003-\(UUID().uuidString.prefix(8))"
-
-        let echo = EchoParticipant()
-        let echoToken = tokenGen.generate(roomName: roomName, identity: "bench-echo")
-        try await echo.connect(url: config.url, token: echoToken)
-        // 50ms delay = 50_000_000 nanoseconds
-        try await echo.registerEchoRpc(delay: 50_000_000)
-
-        let senderRoom = Room()
-        let senderToken = tokenGen.generate(roomName: roomName, identity: "bench-sender")
-        try await senderRoom.connect(url: config.url, token: senderToken)
-
-        try await Task.sleep(nanoseconds: 1_000_000_000)
-
-        defer {
-            Task {
-                await senderRoom.disconnect()
-                await echo.disconnect()
-            }
-        }
-
-        let payload = String(repeating: "x", count: 100)
-
-        for _ in benchmark.scaledIterations {
-            benchmark.startMeasurement()
-            let response = try await senderRoom.localParticipant.performRpc(
-                destinationIdentity: Participant.Identity(from: "bench-echo"),
-                method: "echo",
-                payload: payload
-            )
-            benchmark.stopMeasurement()
-
-            precondition(response == payload, "RPC echo payload mismatch")
-
-            try await Task.sleep(nanoseconds: 500_000_000)
-        }
-    }
+    )
 }
