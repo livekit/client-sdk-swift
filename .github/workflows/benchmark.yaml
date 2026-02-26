@@ -7,11 +7,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '0 0 * * *'
-  push:
-    branches: [main]
-    paths:
-      - 'Benchmarks/**'
-      - '.github/workflows/benchmark.yaml'
 
 jobs:
   benchmark:
@@ -19,9 +14,6 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 60
     env:
-      LIVEKIT_URL: ws://localhost:7880
-      LIVEKIT_API_KEY: devkey
-      LIVEKIT_API_SECRET: secret
       LK_BENCHMARK: 1
     steps:
       - uses: actions/checkout@v4

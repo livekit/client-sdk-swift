@@ -30,23 +30,18 @@ struct BenchmarkConfig {
 
     /// Read benchmark configuration from environment variables.
     ///
-    /// Required:
-    ///   - `LIVEKIT_URL`: WebSocket URL (e.g., `ws://localhost:7880` or `wss://my-project.livekit.cloud`)
+    /// Falls back to local defaults (`ws://localhost:7880`, `devkey`/`secret`)
+    /// when environment variables are not set.
+    ///
+    /// Override with:
+    ///   - `LIVEKIT_URL`: WebSocket URL (e.g., `wss://my-project.livekit.cloud`)
     ///   - `LIVEKIT_API_KEY`: API key for token generation
     ///   - `LIVEKIT_API_SECRET`: API secret for token generation
-    ///
-    /// Optional:
-    ///   - `LIVEKIT_BENCHMARK_REGION`: Server region (recorded in environment descriptor, only used for cloud)
+    ///   - `LIVEKIT_BENCHMARK_REGION`: Server region (only used for cloud)
     static func fromEnvironment() -> BenchmarkConfig {
-        guard let url = ProcessInfo.processInfo.environment["LIVEKIT_URL"] else {
-            fatalError("LIVEKIT_URL environment variable is required")
-        }
-        guard let apiKey = ProcessInfo.processInfo.environment["LIVEKIT_API_KEY"] else {
-            fatalError("LIVEKIT_API_KEY environment variable is required")
-        }
-        guard let apiSecret = ProcessInfo.processInfo.environment["LIVEKIT_API_SECRET"] else {
-            fatalError("LIVEKIT_API_SECRET environment variable is required")
-        }
+        let url = ProcessInfo.processInfo.environment["LIVEKIT_URL"] ?? "ws://localhost:7880"
+        let apiKey = ProcessInfo.processInfo.environment["LIVEKIT_API_KEY"] ?? "devkey"
+        let apiSecret = ProcessInfo.processInfo.environment["LIVEKIT_API_SECRET"] ?? "secret"
 
         // Auto-detect mode from URL
         let mode: InfrastructureMode = if url.hasPrefix("ws://") || url.contains("localhost") {
