@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: brew install livekit jemalloc swiftly
+        run: brew install livekit jemalloc swiftly && swiftly init --quiet-shell-followup --skip-install -y
 
       - name: Run LiveKit Server
         run: livekit-server --dev &
