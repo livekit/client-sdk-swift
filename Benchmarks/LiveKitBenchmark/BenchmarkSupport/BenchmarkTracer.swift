@@ -17,7 +17,7 @@
 import Foundation
 import LiveKit
 
-/// A ``Tracer`` implementation that retains completed spans for benchmark analysis.
+/// A ``Tracing`` implementation that retains completed spans for benchmark analysis.
 ///
 /// The default ``NoopTracer`` discards spans. ``LoggingTracer`` logs and removes spans when they end. This implementation
 /// keeps them so benchmarks can extract timing data after operations complete.
@@ -35,9 +35,8 @@ extension Span {
     }
 }
 
-final class BenchmarkTracer: Tracer, @unchecked Sendable {
+final class BenchmarkTracer: Tracing, @unchecked Sendable {
     private struct State {
-        var activeSpans: [String: Span] = [:]
         var completedSpans: [String: Span] = [:]
     }
 
@@ -46,26 +45,10 @@ final class BenchmarkTracer: Tracer, @unchecked Sendable {
     @discardableResult
     func beginSpan(_ name: String) -> Span {
         let span = Span(label: name)
-        _state.mutate { $0.activeSpans[name] = span }
-        return span
-    }
-
-    func record(_ event: String, span name: String) {
-        let time = ProcessInfo.processInfo.systemUptime
-        let span = _state.read { $0.activeSpans[name] }
-        span?.record(event, at: time)
-    }
-
-    func endSpan(_ name: String) {
-        _state.mutate { state in
-            if let span = state.activeSpans.removeValue(forKey: name) {
-                state.completedSpans[name] = span
-            }
+        span.onEnd = { [weak self] span in
+            self?._state.mutate { $0.completedSpans[name] = span }
         }
-    }
-
-    func span(_ name: String) -> Span? {
-        _state.read { $0.activeSpans[name] }
+        return span
     }
 
     /// Retrieve the most recently completed span with the given name.
