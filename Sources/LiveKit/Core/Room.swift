@@ -86,7 +86,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     public var disconnectError: LiveKitError? { _state.disconnectError }
 
     /// Timing data for the most recent connection attempt.
-    public var connectSpan: Span? { sharedTracer.span("connect") }
+    public var connectStopwatch: Stopwatch? { sharedTracer.span("connect") }
 
     // MARK: - Internal
 
@@ -423,7 +423,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             // Final check if cancelled, don't fire connected events
             try Task.checkCancellation()
 
-            connectSpan?.record("room_connected")
+            connectStopwatch?.record("room_connected")
 
             _state.mutate {
                 $0.connectedUrl = finalUrl

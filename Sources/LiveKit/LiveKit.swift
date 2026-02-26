@@ -38,16 +38,21 @@ public class LiveKitSDK: NSObject, Loggable {
 
     fileprivate struct State {
         var logger: any Logger = OSLogger()
-        var tracer: any Tracer = Stopwatch()
+        #if DEBUG
+        var tracer: any Tracer = LoggingTracer()
+        #else
+        var tracer: any Tracer = NoopTracer()
+        #endif
     }
 
     fileprivate static let state = StateSync(State())
 
     /// Set a custom ``Tracer`` to capture operation timing.
     ///
-    /// The default tracer (``Stopwatch``) logs completed spans via the SDK's logger.
-    /// Provide a custom implementation to capture timing data
-    /// programmatically (e.g., for benchmarks).
+    /// The default tracer (``NoopTracer``) discards all timing data for zero
+    /// overhead. Use ``LoggingTracer`` to log completed spans, or provide a
+    /// custom implementation to capture timing data programmatically
+    /// (e.g., for benchmarks).
     ///
     /// - Note: This method must be called before any Room operations
     /// e.g. in the `App.init()` or `AppDelegate/SceneDelegate`

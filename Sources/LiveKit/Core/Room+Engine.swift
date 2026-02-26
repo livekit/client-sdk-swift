@@ -257,11 +257,11 @@ extension Room {
         // Check cancellation after WebSocket connected
         try Task.checkCancellation()
 
-        connectSpan?.record("signal")
-        connectSpan?.record("join_recv")
+        connectStopwatch?.record("signal")
+        connectStopwatch?.record("join_recv")
 
         try await configureTransports(connectResponse: connectResponse)
-        connectSpan?.record("pc_created")
+        connectStopwatch?.record("pc_created")
         // Check cancellation after configuring transports
         try Task.checkCancellation()
 
@@ -272,8 +272,8 @@ extension Room {
         try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
         try Task.checkCancellation()
 
-        connectSpan?.record("engine")
-        connectSpan?.record("pc_connected")
+        connectStopwatch?.record("engine")
+        connectStopwatch?.record("pc_connected")
     }
 
     // swiftlint:disable:next cyclomatic_complexity function_body_length
