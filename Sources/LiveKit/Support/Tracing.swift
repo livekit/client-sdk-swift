@@ -29,39 +29,47 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
     public let label: String
     public let start: TimeInterval
 
-    private struct State {
-        var entries: [Entry] = []
-    }
+    /// Handler called once when the span ends. Set by the tracer at creation time.
+    public var onEnd: (@Sendable (Span) -> Void)?
 
-    private let _state = StateSync(State())
+    private var _ended = false
+    private let _entries = StateSync<[Entry]>([])
 
     public init(label: String) {
         self.label = label
         start = ProcessInfo.processInfo.systemUptime
     }
 
-    /// Record a named event. Timestamp defaults to now if not provided.
-    public func record(_ event: String, at time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
-        _state.mutate { $0.entries.append(Entry(label: event, time: time)) }
+    /// End this span, firing the ``onEnd`` handler exactly once.
+    public func end() {
+        guard !_ended else { return }
+        _ended = true
+        onEnd?(self)
+        onEnd = nil
     }
 
-    /// Append a split (old API). Equivalent to ``record(_:at:)``.
+    /// Record a named event. Timestamp defaults to now if not provided.
+    public func record(_ event: String, at time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+        _entries.mutate { $0.append(Entry(label: event, time: time)) }
+    }
+
+    @available(*, deprecated, renamed: "record(_:at:)")
     public func split(label: String = "") {
         record(label)
     }
 
     /// A snapshot of all recorded entries.
     public var entries: [Entry] {
-        _state.entries
+        _entries.read { $0 }
     }
 
-    /// Backward-compatible alias for ``entries``.
+    @available(*, deprecated, renamed: "entries")
     public var splits: [Entry] { entries }
 
     /// Total elapsed time from start to the last recorded entry.
     public func total() -> TimeInterval {
-        _state.read { state in
-            guard let last = state.entries.last else { return 0 }
+        _entries.read { entries in
+            guard let last = entries.last else { return 0 }
             return last.time - start
         }
     }
@@ -75,7 +83,7 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
     // MARK: - CustomStringConvertible
 
     public var description: String {
-        let snapshot = _state.entries
+        let snapshot = entries
         var parts = [String]()
         var prev = start
         for entry in snapshot {
@@ -90,81 +98,48 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
 
 // MARK: - Stopwatch typealias
 
-/// Backward-compatible alias for ``Span``.
+@available(*, deprecated, renamed: "Span")
 public typealias Stopwatch = Span
 
-// MARK: - Tracer
+// MARK: - Tracing
 
-/// A shared timing instrument that manages named ``Span``s for SDK operations.
+/// A factory that creates ``Span``s for SDK operations.
 ///
-/// The SDK calls ``record(_:span:)`` at protocol-level boundaries during
-/// connect, publish, and other operations. The default implementation
-/// (``NoopTracer``) discards all timing data for zero overhead. Inject a
-/// custom implementation via ``LiveKitSDK/setTracer(_:)`` to capture
-/// timing data programmatically, or use ``LoggingTracer`` to log completed spans.
+/// The default implementation (``NoopTracer``) returns bare spans with no
+/// ``Span/onEnd`` handler for zero overhead. Inject a custom implementation
+/// via ``LiveKitSDK/setTracer(_:)`` to capture timing data programmatically,
+/// or use ``LoggingTracer`` to log completed spans.
 ///
 /// This follows the same injection pattern as ``Logger``.
-public protocol Tracer: Sendable {
-    /// Begin a new span, replacing any existing span with the same name.
+public protocol Tracing: Sendable {
+    /// Create a new span. The caller owns the returned span and is
+    /// responsible for calling ``Span/end()`` when the operation completes.
     @discardableResult
     func beginSpan(_ name: String) -> Span
-
-    /// Record a named event in the given span.
-    func record(_ event: String, span name: String)
-
-    /// End the named span and handle the completed timing data.
-    func endSpan(_ name: String)
-
-    /// Retrieve the active span with the given name, if any.
-    func span(_ name: String) -> Span?
 }
 
 // MARK: - NoopTracer
 
-/// Default ``Tracer`` that discards all timing data for zero overhead.
-public final class NoopTracer: Tracer, Sendable {
+/// Default ``Tracing`` implementation that discards all timing data for zero overhead.
+public final class NoopTracer: Tracing, Sendable {
     public init() {}
 
     @discardableResult
     public func beginSpan(_ name: String) -> Span { Span(label: name) }
-    public func record(_: String, span _: String) {}
-    public func endSpan(_: String) {}
-    public func span(_: String) -> Span? { nil }
 }
 
 // MARK: - LoggingTracer
 
-/// ``Tracer`` that logs completed spans via the SDK's logger.
-public final class LoggingTracer: Tracer, @unchecked Sendable {
-    private struct State {
-        var spans: [String: Span] = [:]
-    }
-
-    private let _state = StateSync(State())
-
+/// ``Tracing`` implementation that logs completed spans via the SDK's logger.
+public final class LoggingTracer: Tracing, Sendable {
     public init() {}
 
     @discardableResult
     public func beginSpan(_ name: String) -> Span {
         let span = Span(label: name)
-        _state.mutate { $0.spans[name] = span }
-        return span
-    }
-
-    public func record(_ event: String, span name: String) {
-        let time = ProcessInfo.processInfo.systemUptime
-        let span = _state.read { $0.spans[name] }
-        span?.record(event, at: time)
-    }
-
-    public func endSpan(_ name: String) {
-        let span = _state.mutate { $0.spans.removeValue(forKey: name) }
-        if let span {
+        span.onEnd = { span in
             sharedLogger.log("\(span)", .debug, type: LoggingTracer.self)
         }
-    }
-
-    public func span(_ name: String) -> Span? {
-        _state.read { $0.spans[name] }
+        return span
     }
 }

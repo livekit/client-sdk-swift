@@ -22,7 +22,7 @@ import LiveKit
 ///
 /// Measures the time from `room.connect()` invocation to the room reaching
 /// `connected` state, decomposed into signaling, transport setup, and
-/// data channel phases via the shared ``Tracer`` spans.
+/// data channel phases via the shared ``Tracing`` spans.
 ///
 /// Variants:
 /// - BM-CONN-001: Dual PeerConnection, subscriber-primary (default)

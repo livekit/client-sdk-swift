@@ -86,7 +86,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     public var disconnectError: LiveKitError? { _state.disconnectError }
 
     /// Timing data for the most recent connection attempt.
-    public var connectStopwatch: Stopwatch? { sharedTracer.span("connect") }
+    public var connectStopwatch: Span? { _state.connectStopwatch }
 
     // MARK: - Internal
 
@@ -182,6 +182,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var hasPublished: Bool = false
 
         var transport: TransportMode?
+
+        // Timing
+        var connectStopwatch: Span?
 
         // Agents
         var transcriptionReceivedTimes: [String: Date] = [:]
@@ -371,9 +374,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             publisherDataChannel.e2eeManager = nil
         }
 
-        sharedTracer.beginSpan("connect")
-
         _state.mutate {
+            $0.connectStopwatch = sharedTracer.beginSpan("connect")
             $0.providedUrl = providedUrl
             $0.token = token
             $0.connectionState = .connecting
@@ -444,7 +446,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 $0.connectionState = .connected
             }
 
-            sharedTracer.endSpan("connect")
+            connectStopwatch?.end()
+
             // Publish mic if mic task was created
             if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled {
                 let track = try await createMicrophoneTrackTask.value
