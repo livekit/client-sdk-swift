@@ -32,8 +32,14 @@ jobs:
       - name: Run Benchmarks
         working-directory: Benchmarks
         run: |
+          swiftly run +xcode swift package --disable-sandbox \
+            benchmark baseline update current
+
+      - name: Benchmark Report
+        working-directory: Benchmarks
+        run: |
           echo '## Benchmark Results' >> "$GITHUB_STEP_SUMMARY"
           swiftly run +xcode swift package --disable-sandbox \
-            benchmark \
+            benchmark baseline read current \
             --format markdown \
             | tee -a "$GITHUB_STEP_SUMMARY"
