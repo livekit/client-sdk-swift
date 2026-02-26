@@ -171,6 +171,11 @@ jobs:
           name: symbol-graph-${{ matrix.platform }}
           path: symbol-graph
           retention-days: 1
+  # TODO: Remove this job once the benchmark refactor is merged
+  benchmark:
+    name: Benchmark
+    uses: ./.github/workflows/benchmark.yaml
+
   lint:
     name: Lint
     runs-on: macos-latest
