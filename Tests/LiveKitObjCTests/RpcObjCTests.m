@@ -72,10 +72,7 @@
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
-
-    // Wait for room0 to see room1
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:30];
 
     // Register RPC method on room0
 #pragma clang diagnostic push

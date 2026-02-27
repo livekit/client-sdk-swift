@@ -75,10 +75,7 @@
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
-
-    // Wait for room0 to see room1
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:30];
 
     // Register text stream handler on room0
     __block TextStreamReader *receivedReader = nil;
@@ -179,8 +176,7 @@
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:30];
 
     // Register text handler on room0
     __block NSMutableString *receivedText = [NSMutableString string];
@@ -276,8 +272,7 @@
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:30];
 
     // Create temp file with test data
     NSData *testData = [@"Test file content for ObjC" dataUsingEncoding:NSUTF8StringEncoding];

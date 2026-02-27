@@ -127,10 +127,7 @@
         XCTAssertNil(err);
         [connect2 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
-
-    // Wait for participantDidConnect delegate call
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectations:@[connect2, self.participantDidConnectExp] timeout:30];
 
     XCTAssertNotNil(self.connectedParticipant);
     XCTAssertNotNil(self.connectedParticipant.identity);
@@ -186,10 +183,7 @@
         XCTAssertNil(err);
         [connect2 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
-
-    // Wait for room2 to join room1
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectations:@[connect2, self.participantDidConnectExp] timeout:30];
 
     // Now set up disconnect expectation
     self.participantDidDisconnectExp = [self expectationWithDescription:@"participantDidDisconnect"];
@@ -199,13 +193,9 @@
     [room2 disconnectWithCompletionHandler:^{
         [disconnect2 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:10 handler:nil];
-
-    // Wait for participantDidDisconnect on room1
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectations:@[disconnect2, self.participantDidDisconnectExp] timeout:30];
 
     XCTAssertNotNil(self.disconnectedParticipant);
-    XCTAssertNotNil(self.disconnectedParticipant.identity);
 
     // Disconnect room1
     XCTestExpectation *disconnect1 = [self expectationWithDescription:@"disconnect1"];

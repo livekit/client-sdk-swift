@@ -72,10 +72,7 @@
         XCTAssertNil(err);
         [connect2 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
-
-    // Wait for room1 to see room2's participant
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectations:@[connect2, self.participantJoinedExp] timeout:30];
 
     XCTAssertEqual(room1.remoteParticipants.count, (NSUInteger)1);
 

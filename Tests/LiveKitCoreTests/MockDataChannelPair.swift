@@ -17,11 +17,6 @@
 @testable import LiveKit
 
 /// Mock ``DataChannelPair`` to intercept outgoing packets.
-///
-/// Lives in `LiveKitCoreTests` rather than `LiveKitTestSupport` because
-/// `DataChannelPair` is internal to LiveKit. A public subclass in
-/// `LiveKitTestSupport` would break the generated ObjC header
-/// (`LiveKitTestSupport-Swift.h`) for ObjC test targets.
 class MockDataChannelPair: DataChannelPair, @unchecked Sendable {
     var packetHandler: (Livekit_DataPacket) -> Void
 
