@@ -253,7 +253,8 @@ extension Room {
                                                              token,
                                                              connectOptions: _state.connectOptions,
                                                              reconnectMode: _state.isReconnectingWithMode,
-                                                             adaptiveStream: _state.roomOptions.adaptiveStream)
+                                                             adaptiveStream: _state.roomOptions.adaptiveStream,
+                                                             connectSpan: connectStopwatch)
         // Check cancellation after WebSocket connected
         try Task.checkCancellation()
 

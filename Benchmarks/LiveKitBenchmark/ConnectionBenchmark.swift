@@ -29,17 +29,20 @@ import LiveKit
 
 // TODO: Add BM-CONN-003 (Single PeerConnection) when RoomOptions supports singlePeerConnection.
 
+private let dWs: BenchmarkMetric = .custom("D_WS_MS", polarity: .prefersSmaller, useScalingFactor: false)
 private let dSignal: BenchmarkMetric = .custom("D_SIGNAL_MS", polarity: .prefersSmaller, useScalingFactor: false)
 private let dTransport: BenchmarkMetric = .custom("D_TRANSPORT_MS", polarity: .prefersSmaller, useScalingFactor: false)
+private let dIceDtls: BenchmarkMetric = .custom("D_ICE_DTLS_MS", polarity: .prefersSmaller, useScalingFactor: false)
+private let dDc: BenchmarkMetric = .custom("D_DC_MS", polarity: .prefersSmaller, useScalingFactor: false)
 
 let connectionBenchmarks: @Sendable () -> Void = {
     // BM-CONN-001: Dual PeerConnection, subscriber-primary (default)
     Benchmark(
         "BM-CONN-001-DualPC-SubscriberPrimary",
         configuration: .init(
-            metrics: .default + [dSignal, dTransport],
+            metrics: .default + [dWs, dSignal, dTransport, dIceDtls, dDc],
             timeUnits: .milliseconds,
-            units: [dSignal: .count, dTransport: .count],
+            units: [dWs: .count, dSignal: .count, dTransport: .count, dIceDtls: .count, dDc: .count],
             warmupIterations: 5,
             scalingFactor: .one,
             maxDuration: .seconds(300),
@@ -62,9 +65,24 @@ let connectionBenchmarks: @Sendable () -> Void = {
 
             // Extract fine-grained timestamps from the completed connect span
             if let span = benchmarkTracer.completedSpan("connect") {
-                let splits = span.splitMilliseconds
-                benchmark.measurement(dSignal, Int(splits["signal"] ?? splits["join_recv"] ?? 0))
-                benchmark.measurement(dTransport, Int(splits["pc_connected"].map { $0 - (splits["join_recv"] ?? 0) } ?? 0))
+                let s = span.splitMilliseconds
+                let wsOpen = s["ws_open"] ?? 0
+                let joinRecv = s["signal"] ?? s["join_recv"] ?? 0
+                let answerSent = s["answer_sent"]
+                let pcConnected = s["pc_connected"] ?? 0
+                let dcOpen = s["dc_open"]
+
+                benchmark.measurement(dWs, Int(wsOpen))
+                benchmark.measurement(dSignal, Int(joinRecv - wsOpen))
+                benchmark.measurement(dTransport, Int(pcConnected - joinRecv))
+
+                if let answerSent {
+                    benchmark.measurement(dIceDtls, Int(pcConnected - answerSent))
+                }
+
+                if let dcOpen {
+                    benchmark.measurement(dDc, Int(dcOpen - pcConnected))
+                }
             }
 
             await room.disconnect()
