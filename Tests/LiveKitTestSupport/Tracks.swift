@@ -232,6 +232,7 @@ public class TestAudioTrack: LocalAudioTrack, @unchecked Sendable {
 public class AudioTrackWatcher: AudioRenderer, @unchecked Sendable {
     public let id: String
     public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
+    public var framesRendered: Int { _state.framesRendered }
 
     // MARK: - Private
 
@@ -239,6 +240,8 @@ public class AudioTrackWatcher: AudioRenderer, @unchecked Sendable {
 
     private struct State {
         var didRenderFirstFrame: Bool = false
+        var framesRendered: Int = 0
+        var minimumFramesExpectation: (count: Int, expectation: XCTestExpectation)?
     }
 
     private let _state = StateSync(State())
@@ -251,15 +254,36 @@ public class AudioTrackWatcher: AudioRenderer, @unchecked Sendable {
     public func reset() {
         _state.mutate {
             $0.didRenderFirstFrame = false
+            $0.framesRendered = 0
+            $0.minimumFramesExpectation = nil
+        }
+    }
+
+    /// Returns an expectation that is fulfilled once at least `count` audio frames have been rendered.
+    public func expect(minimumFrames count: Int) -> XCTestExpectation {
+        _state.mutate {
+            let expectation = XCTestExpectation(description: "Did render \(count) audio frames")
+            expectation.assertForOverFulfill = false
+            $0.minimumFramesExpectation = (count: count, expectation: expectation)
+            if $0.framesRendered >= count {
+                expectation.fulfill()
+            }
+            return expectation
         }
     }
 
     public func render(pcmBuffer: AVAudioPCMBuffer) {
         _state.mutate {
+            $0.framesRendered += 1
+
             if !$0.didRenderFirstFrame {
                 print("did receive first audio frame: \(String(describing: pcmBuffer))")
                 $0.didRenderFirstFrame = true
                 onDidRenderFirstFrame?(id)
+            }
+
+            if let (count, expectation) = $0.minimumFramesExpectation, $0.framesRendered >= count {
+                expectation.fulfill()
             }
         }
     }
