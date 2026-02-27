@@ -259,7 +259,8 @@ extension Room {
                                                              connectOptions: _state.connectOptions,
                                                              reconnectMode: _state.isReconnectingWithMode,
                                                              adaptiveStream: _state.roomOptions.adaptiveStream,
-                                                             singlePeerConnection: singlePC)
+                                                             singlePeerConnection: singlePC,
+                                                             connectSpan: connectStopwatch)
         } catch let error as LiveKitError where error.type == .serviceNotFound && singlePC {
             log("v1 RTC path not supported, retrying with legacy path", .warning)
             singlePC = false
@@ -268,8 +269,10 @@ extension Room {
                                                              connectOptions: _state.connectOptions,
                                                              reconnectMode: _state.isReconnectingWithMode,
                                                              adaptiveStream: _state.roomOptions.adaptiveStream,
-                                                             singlePeerConnection: false)
+                                                             singlePeerConnection: false,
+                                                             connectSpan: connectStopwatch)
         }
+
 
         // Check cancellation after WebSocket connected
         try Task.checkCancellation()
