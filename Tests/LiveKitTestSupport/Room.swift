@@ -23,6 +23,7 @@ public struct RoomTestingOptions {
     public let token: String?
     public let enableMicrophone: Bool
     public let encryptionOptions: EncryptionOptions?
+    public let singlePeerConnection: Bool
 
     // Perms
     public let canPublish: Bool
@@ -35,6 +36,7 @@ public struct RoomTestingOptions {
                 token: String? = nil,
                 enableMicrophone: Bool = false,
                 encryptionOptions: EncryptionOptions? = nil,
+                singlePeerConnection: Bool = true,
                 canPublish: Bool = false,
                 canPublishData: Bool = false,
                 canPublishSources: Set<Track.Source> = [],
@@ -45,6 +47,7 @@ public struct RoomTestingOptions {
         self.token = token
         self.enableMicrophone = enableMicrophone
         self.encryptionOptions = encryptionOptions
+        self.singlePeerConnection = singlePeerConnection
         self.canPublish = canPublish
         self.canPublishData = canPublishData
         self.canPublishSources = canPublishSources
@@ -115,7 +118,7 @@ public extension LKTestCase {
 
             // Room options
             let encryptionOptions = $0.element.encryptionOptions ?? EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
-            let roomOptions = RoomOptions(encryptionOptions: encryptionOptions, reportRemoteTrackStatistics: true, singlePeerConnection: true)
+            let roomOptions = RoomOptions(encryptionOptions: encryptionOptions, reportRemoteTrackStatistics: true, singlePeerConnection: $0.element.singlePeerConnection)
 
             let room = Room(delegate: $0.element.delegate, connectOptions: connectOptions, roomOptions: roomOptions)
             let identity = "identity-\($0.offset)"
