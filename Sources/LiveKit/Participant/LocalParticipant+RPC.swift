@@ -115,6 +115,35 @@ public extension LocalParticipant {
     }
 }
 
+// MARK: - Objective-C Compatibility
+
+public extension LocalParticipant {
+    @objc
+    @available(*, deprecated, message: "Use async performRpc(...) method instead.")
+    func performRpc(
+        destinationIdentity: Identity,
+        method: String,
+        payload: String,
+        responseTimeout: TimeInterval,
+        onSuccess: @Sendable @escaping (String) -> Void,
+        onError: @Sendable @escaping (Error) -> Void
+    ) {
+        Task {
+            do {
+                let response = try await performRpc(
+                    destinationIdentity: destinationIdentity,
+                    method: method,
+                    payload: payload,
+                    responseTimeout: responseTimeout
+                )
+                onSuccess(response)
+            } catch {
+                onError(error)
+            }
+        }
+    }
+}
+
 // MARK: - RPC Internal
 
 extension LocalParticipant {

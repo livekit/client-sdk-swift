@@ -16,7 +16,7 @@
 
 @testable import LiveKit
 #if canImport(LiveKitTestSupport)
-import LiveKitTestSupport
+@testable import LiveKitTestSupport
 #endif
 
 class RpcTests: LKTestCase {

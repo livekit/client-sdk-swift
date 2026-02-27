@@ -117,7 +117,7 @@ public extension LocalParticipant {
 
 public extension LocalParticipant {
     @objc
-    @available(*, unavailable, message: "Use async sendText(_:options:) method instead.")
+    @available(*, deprecated, message: "Use async sendText(_:options:) method instead.")
     func sendText(
         text: String,
         options: StreamTextOptions,
@@ -130,7 +130,7 @@ public extension LocalParticipant {
     }
 
     @objc
-    @available(*, unavailable, message: "Use async sendFile(_:options:) method instead.")
+    @available(*, deprecated, message: "Use async sendFile(_:options:) method instead.")
     func sendFile(
         fileURL: URL,
         options: StreamByteOptions,
@@ -143,7 +143,7 @@ public extension LocalParticipant {
     }
 
     @objc
-    @available(*, unavailable, message: "Use async streamText(options:) method instead.")
+    @available(*, deprecated, message: "Use async streamText(options:) method instead.")
     func streamText(
         options: StreamTextOptions,
         streamHandler: @Sendable @escaping (TextStreamWriter) -> Void,
@@ -155,7 +155,7 @@ public extension LocalParticipant {
     }
 
     @objc
-    @available(*, unavailable, message: "Use async streamBytes(options:) method instead.")
+    @available(*, deprecated, message: "Use async streamBytes(options:) method instead.")
     func streamBytes(
         options: StreamByteOptions,
         streamHandler: @Sendable @escaping (ByteStreamWriter) -> Void,

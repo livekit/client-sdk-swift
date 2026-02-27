@@ -68,3 +68,37 @@ public extension Room {
         await rpcState.isRpcMethodRegistered(method)
     }
 }
+
+// MARK: - Objective-C Compatibility
+
+public extension Room {
+    @objc
+    @available(*, deprecated, message: "Use async registerRpcMethod(_:handler:) method instead.")
+    func registerRpcMethod(
+        _ method: String,
+        handler: @Sendable @escaping (Participant.Identity, String) -> String,
+        onError: (@Sendable (Error) -> Void)?
+    ) {
+        Task {
+            do {
+                try await registerRpcMethod(method) { data in
+                    handler(data.callerIdentity, data.payload)
+                }
+            } catch {
+                onError?(error)
+            }
+        }
+    }
+
+    @objc
+    @available(*, deprecated, message: "Use async unregisterRpcMethod(_:) method instead.")
+    func unregisterRpcMethodObjC(_ method: String, onCompletion: @Sendable @escaping () -> Void) {
+        Task { await unregisterRpcMethod(method); onCompletion() }
+    }
+
+    @objc
+    @available(*, deprecated, message: "Use async isRpcMethodRegistered(_:) method instead.")
+    func isRpcMethodRegisteredObjC(_ method: String, onCompletion: @Sendable @escaping (Bool) -> Void) {
+        Task { let result = await isRpcMethodRegistered(method); onCompletion(result) }
+    }
+}

@@ -60,7 +60,7 @@ public final class TextStreamWriter: NSObject, Sendable {
 
 public extension TextStreamWriter {
     @objc
-    @available(*, unavailable, message: "Use async write(_:) method instead.")
+    @available(*, deprecated, message: "Use async write(_:) method instead.")
     func write(_ text: String, onCompletion: @Sendable @escaping (Error?) -> Void) {
         Task {
             do { try await write(text) } catch { onCompletion(error) }
@@ -68,7 +68,7 @@ public extension TextStreamWriter {
     }
 
     @objc
-    @available(*, unavailable, message: "Use async close(reason:) method instead.")
+    @available(*, deprecated, message: "Use async close(reason:) method instead.")
     func close(reason: String?, onCompletion: @Sendable @escaping (Error?) -> Void) {
         Task {
             do { try await close(reason: reason) } catch { onCompletion(error) }

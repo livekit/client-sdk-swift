@@ -75,7 +75,7 @@ extension ByteStreamWriter {
 
 public extension ByteStreamWriter {
     @objc
-    @available(*, unavailable, message: "Use async write(_:) method instead.")
+    @available(*, deprecated, message: "Use async write(_:) method instead.")
     func write(_ data: Data, completion: @Sendable @escaping (Error?) -> Void) {
         Task {
             do { try await write(data) } catch { completion(error) }
@@ -83,7 +83,7 @@ public extension ByteStreamWriter {
     }
 
     @objc
-    @available(*, unavailable, message: "Use async close(reason:) method instead.")
+    @available(*, deprecated, message: "Use async close(reason:) method instead.")
     func close(reason: String?, completion: @Sendable @escaping (Error?) -> Void) {
         Task {
             do { try await close(reason: reason) } catch { completion(error) }
