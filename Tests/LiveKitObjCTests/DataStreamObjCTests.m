@@ -105,15 +105,11 @@
                                                          replyToStreamID:nil];
     XCTestExpectation *sendExp = [self expectationWithDescription:@"textSent"];
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    [room1.localParticipant sendTextWithText:@"Hello from ObjC" options:options onCompletion:^(TextStreamInfo *info) {
+    [room1.localParticipant sendText:@"Hello from ObjC" options:options completionHandler:^(TextStreamInfo *info, NSError *err) {
+        XCTAssertNil(err);
         XCTAssertNotNil(info);
         [sendExp fulfill];
-    } onError:^(NSError *err) {
-        XCTFail(@"sendText failed: %@", err);
     }];
-#pragma clang diagnostic pop
 
     [self waitForExpectations:@[receivedStreamExp, sendExp] timeout:30];
 
@@ -205,7 +201,7 @@
 
     [NSThread sleepForTimeInterval:1.0];
 
-    // Stream text from room1 using deprecated wrapper
+    // Stream text from room1 using auto-generated completion handler variant
     StreamTextOptions *options = [[StreamTextOptions alloc] initWithTopic:@"stream-text"
                                                               attributes:@{}
                                                     destinationIdentities:@[]
@@ -214,9 +210,9 @@
                                                        attachedStreamIDs:@[]
                                                          replyToStreamID:nil];
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    [room1.localParticipant streamTextWithOptions:options streamHandler:^(TextStreamWriter *writer) {
+    [room1.localParticipant streamTextWithOptions:options completionHandler:^(TextStreamWriter *writer, NSError *err) {
+        XCTAssertNil(err);
+        XCTAssertNotNil(writer);
         // Use auto-bridged async methods (completion handler variants) for ordered writes
         [writer write:@"Hello " completionHandler:^(NSError *err1) {
             XCTAssertNil(err1);
@@ -227,10 +223,7 @@
                 }];
             }];
         }];
-    } onError:^(NSError *err) {
-        XCTFail(@"streamText failed: %@", err);
     }];
-#pragma clang diagnostic pop
 
     [self waitForExpectationsWithTimeout:30 handler:nil];
 
@@ -322,15 +315,11 @@
                                                                totalSizeNumber:nil];
     XCTestExpectation *sendExp = [self expectationWithDescription:@"fileSent"];
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    [room1.localParticipant sendFileWithFileURL:fileURL options:options onCompletion:^(ByteStreamInfo *info) {
+    [room1.localParticipant sendFile:fileURL options:options completionHandler:^(ByteStreamInfo *info, NSError *err) {
+        XCTAssertNil(err);
         XCTAssertNotNil(info);
         [sendExp fulfill];
-    } onError:^(NSError *err) {
-        XCTFail(@"sendFile failed: %@", err);
     }];
-#pragma clang diagnostic pop
 
     [self waitForExpectations:@[readCompleteExp, sendExp] timeout:30];
 
