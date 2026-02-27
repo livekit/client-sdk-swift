@@ -53,6 +53,8 @@ public extension Room {
 
     /// Unregisters a previously registered RPC method.
     ///
+    /// ObjC: auto-generated as `unregisterRpcMethod:completionHandler:`.
+    ///
     /// - Parameter method: The name of the RPC method to unregister
     ///
     func unregisterRpcMethod(_ method: String) async {
@@ -60,6 +62,8 @@ public extension Room {
     }
 
     /// Checks whether or not a handler has been registered for an RPC method.
+    ///
+    /// ObjC: auto-generated as `isRpcMethodRegistered:completionHandler:`.
     ///
     /// - Parameter method: The name of the RPC method to check.
     /// - Returns: `true` if a handler has been registered, otherwise `false`.
@@ -72,6 +76,10 @@ public extension Room {
 // MARK: - Objective-C Compatibility
 
 public extension Room {
+    /// ObjC wrapper for ``registerRpcMethod(_:handler:)``.
+    ///
+    /// Required because `RpcInvocationData` is a Swift struct and cannot be
+    /// auto-bridged to ObjC. The handler receives flattened parameters instead.
     @objc
     @available(*, deprecated, message: "Use async registerRpcMethod(_:handler:) method instead.")
     func registerRpcMethod(
@@ -88,17 +96,5 @@ public extension Room {
                 onError?(error)
             }
         }
-    }
-
-    @objc
-    @available(*, deprecated, message: "Use async unregisterRpcMethod(_:) method instead.")
-    func unregisterRpcMethodObjC(_ method: String, onCompletion: @Sendable @escaping () -> Void) {
-        Task { await unregisterRpcMethod(method); onCompletion() }
-    }
-
-    @objc
-    @available(*, deprecated, message: "Use async isRpcMethodRegistered(_:) method instead.")
-    func isRpcMethodRegisteredObjC(_ method: String, onCompletion: @Sendable @escaping (Bool) -> Void) {
-        Task { let result = await isRpcMethodRegistered(method); onCompletion(result) }
     }
 }

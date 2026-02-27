@@ -90,19 +90,15 @@
     XCTestExpectation *rpcExp = [self expectationWithDescription:@"rpcResponse"];
     __block NSString *rpcResponse = nil;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [room1.localParticipant performRpcWithDestinationIdentity:responderIdentity
                                                        method:@"greet"
                                                       payload:@"World"
                                               responseTimeout:15.0
-                                                    onSuccess:^(NSString *response) {
+                                            completionHandler:^(NSString *response, NSError *err) {
+        XCTAssertNil(err);
         rpcResponse = response;
         [rpcExp fulfill];
-    } onError:^(NSError *err) {
-        XCTFail(@"performRpc failed: %@", err);
     }];
-#pragma clang diagnostic pop
 
     [self waitForExpectationsWithTimeout:30 handler:nil];
 
@@ -148,36 +144,27 @@
 
     [NSThread sleepForTimeInterval:1.0];
 
-    // Verify it's registered
+    // Verify it's registered (auto-generated completionHandler variant)
     XCTestExpectation *isRegisteredExp = [self expectationWithDescription:@"isRegistered"];
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    [room isRpcMethodRegisteredObjC:@"test-method" onCompletion:^(BOOL result) {
+    [room isRpcMethodRegistered:@"test-method" completionHandler:^(BOOL result) {
         XCTAssertTrue(result);
         [isRegisteredExp fulfill];
     }];
-#pragma clang diagnostic pop
     [self waitForExpectationsWithTimeout:10 handler:nil];
 
-    // Unregister
+    // Unregister (auto-generated completionHandler variant)
     XCTestExpectation *unregisterExp = [self expectationWithDescription:@"unregistered"];
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    [room unregisterRpcMethodObjC:@"test-method" onCompletion:^{
+    [room unregisterRpcMethod:@"test-method" completionHandler:^{
         [unregisterExp fulfill];
     }];
-#pragma clang diagnostic pop
     [self waitForExpectationsWithTimeout:10 handler:nil];
 
     // Verify it's no longer registered
     XCTestExpectation *notRegisteredExp = [self expectationWithDescription:@"notRegistered"];
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    [room isRpcMethodRegisteredObjC:@"test-method" onCompletion:^(BOOL result) {
+    [room isRpcMethodRegistered:@"test-method" completionHandler:^(BOOL result) {
         XCTAssertFalse(result);
         [notRegisteredExp fulfill];
     }];
-#pragma clang diagnostic pop
     [self waitForExpectationsWithTimeout:10 handler:nil];
 
     // Disconnect

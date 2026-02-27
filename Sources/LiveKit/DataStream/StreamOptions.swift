@@ -101,6 +101,8 @@ public final class StreamByteOptions: NSObject, StreamOptions {
     }
 
     /// ObjC-compatible initializer that accepts `NSNumber?` for `totalSize`.
+    ///
+    /// Required because `Int?` does not auto-bridge to ObjC.
 
     @available(*, deprecated, message: "Use init(topic:attributes:destinationIdentities:id:mimeType:name:totalSize:) instead.")
     public convenience init(

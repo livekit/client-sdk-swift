@@ -20,6 +20,10 @@ import Foundation
 
 public extension LocalParticipant {
     /// Initiate an RPC call to a remote participant
+    ///
+    /// ObjC: auto-generated as
+    /// `performRpcWithDestinationIdentity:method:payload:responseTimeout:completionHandler:`.
+    ///
     /// - Parameters:
     ///   - destinationIdentity: The identity of the destination participant
     ///   - method: The method name to call
@@ -112,35 +116,6 @@ public extension LocalParticipant {
     func unregisterRpcMethod(_ method: String) async {
         guard let room = try? requireRoom() else { return }
         await room.unregisterRpcMethod(method)
-    }
-}
-
-// MARK: - Objective-C Compatibility
-
-public extension LocalParticipant {
-    @objc
-    @available(*, deprecated, message: "Use async performRpc(...) method instead.")
-    func performRpc(
-        destinationIdentity: Identity,
-        method: String,
-        payload: String,
-        responseTimeout: TimeInterval,
-        onSuccess: @Sendable @escaping (String) -> Void,
-        onError: @Sendable @escaping (Error) -> Void
-    ) {
-        Task {
-            do {
-                let response = try await performRpc(
-                    destinationIdentity: destinationIdentity,
-                    method: method,
-                    payload: payload,
-                    responseTimeout: responseTimeout
-                )
-                onSuccess(response)
-            } catch {
-                onError(error)
-            }
-        }
     }
 }
 

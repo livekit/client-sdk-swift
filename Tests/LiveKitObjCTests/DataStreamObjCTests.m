@@ -129,6 +129,13 @@
 
     XCTAssertEqualObjects(receivedText, @"Hello from ObjC");
 
+    // Unregister text stream handler (auto-generated completionHandler variant)
+    XCTestExpectation *unregisterExp = [self expectationWithDescription:@"unregisterText"];
+    [room0 unregisterTextStreamHandlerFor:@"test-text" completionHandler:^{
+        [unregisterExp fulfill];
+    }];
+    [self waitForExpectationsWithTimeout:10 handler:nil];
+
     // Disconnect
     XCTestExpectation *disconnect0 = [self expectationWithDescription:@"disconnect0"];
     XCTestExpectation *disconnect1 = [self expectationWithDescription:@"disconnect1"];
@@ -325,6 +332,114 @@
 
     // Clean up temp file
     [[NSFileManager defaultManager] removeItemAtPath:tempPath error:nil];
+
+    // Unregister byte stream handler (auto-generated completionHandler variant)
+    XCTestExpectation *unregisterExp = [self expectationWithDescription:@"unregisterBytes"];
+    [room0 unregisterByteStreamHandlerFor:@"test-file" completionHandler:^{
+        [unregisterExp fulfill];
+    }];
+    [self waitForExpectationsWithTimeout:10 handler:nil];
+
+    // Disconnect
+    XCTestExpectation *disconnect0 = [self expectationWithDescription:@"disconnect0"];
+    XCTestExpectation *disconnect1 = [self expectationWithDescription:@"disconnect1"];
+    [room0 disconnectWithCompletionHandler:^{ [disconnect0 fulfill]; }];
+    [room1 disconnectWithCompletionHandler:^{ [disconnect1 fulfill]; }];
+    [self waitForExpectationsWithTimeout:10 handler:nil];
+}
+
+- (void)testStreamBytes {
+    NSString *roomName = [[NSUUID UUID] UUIDString];
+    NSString *url = [LKObjCRoomHelper serverURL];
+    NSError *error = nil;
+
+    NSString *token0 = [LKObjCRoomHelper generateTokenWithRoomName:roomName
+                                                          identity:@"bytes-recv"
+                                                        canPublish:NO
+                                                    canPublishData:NO
+                                                      canSubscribe:YES
+                                                             error:&error];
+    XCTAssertNil(error);
+
+    NSString *token1 = [LKObjCRoomHelper generateTokenWithRoomName:roomName
+                                                          identity:@"bytes-send"
+                                                        canPublish:NO
+                                                    canPublishData:YES
+                                                      canSubscribe:NO
+                                                             error:&error];
+    XCTAssertNil(error);
+
+    Room *room0 = [[Room alloc] initWithDelegate:self connectOptions:nil roomOptions:nil];
+    Room *room1 = [[Room alloc] initWithDelegate:nil connectOptions:nil roomOptions:nil];
+
+    // Connect both rooms
+    XCTestExpectation *connect0 = [self expectationWithDescription:@"connect0"];
+    [room0 connectWithUrl:url token:token0 connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+        XCTAssertNil(err);
+        [connect0 fulfill];
+    }];
+    [self waitForExpectationsWithTimeout:30 handler:nil];
+
+    self.participantJoinedExp = [self expectationWithDescription:@"participantJoined"];
+
+    XCTestExpectation *connect1 = [self expectationWithDescription:@"connect1"];
+    [room1 connectWithUrl:url token:token1 connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+        XCTAssertNil(err);
+        [connect1 fulfill];
+    }];
+    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:30];
+
+    // Register byte stream handler on room0
+    __block NSMutableData *receivedData = [NSMutableData data];
+    XCTestExpectation *readCompleteExp = [self expectationWithDescription:@"readComplete"];
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    [room0 registerByteStreamHandlerFor:@"stream-bytes" onNewStream:^(ByteStreamReader *reader, ParticipantIdentity *identity) {
+        [reader readChunksOnChunk:^(NSData *chunk) {
+            [receivedData appendData:chunk];
+        } onCompletion:^(NSError *err) {
+            XCTAssertNil(err);
+            [readCompleteExp fulfill];
+        }];
+    } onError:nil];
+#pragma clang diagnostic pop
+
+    [NSThread sleepForTimeInterval:1.0];
+
+    // Stream bytes from room1 using auto-generated completionHandler variant
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    StreamByteOptions *options = [[StreamByteOptions alloc] initWithTopic:@"stream-bytes"
+                                                              attributes:@{}
+                                                    destinationIdentities:@[]
+                                                                      id:nil
+                                                                mimeType:@"application/octet-stream"
+                                                                    name:nil
+                                                               totalSizeNumber:nil];
+#pragma clang diagnostic pop
+
+    NSData *chunk1 = [@"Hello " dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *chunk2 = [@"Bytes" dataUsingEncoding:NSUTF8StringEncoding];
+
+    [room1.localParticipant streamBytesWithOptions:options completionHandler:^(ByteStreamWriter *writer, NSError *err) {
+        XCTAssertNil(err);
+        XCTAssertNotNil(writer);
+        [writer write:chunk1 completionHandler:^(NSError *err1) {
+            XCTAssertNil(err1);
+            [writer write:chunk2 completionHandler:^(NSError *err2) {
+                XCTAssertNil(err2);
+                [writer closeWithReason:nil completionHandler:^(NSError *err3) {
+                    XCTAssertNil(err3);
+                }];
+            }];
+        }];
+    }];
+
+    [self waitForExpectationsWithTimeout:30 handler:nil];
+
+    NSData *expected = [@"Hello Bytes" dataUsingEncoding:NSUTF8StringEncoding];
+    XCTAssertEqualObjects(receivedData, expected);
 
     // Disconnect
     XCTestExpectation *disconnect0 = [self expectationWithDescription:@"disconnect0"];
