@@ -33,7 +33,8 @@ let benchmarks: @Sendable () -> Void = {
 
     // Metric configuration: focus on wall clock time
     Benchmark.defaultConfiguration = .init(
-        metrics: [.wallClock],
+        metrics: .default,
+        timeUnits: .milliseconds,
         warmupIterations: 5,
         scalingFactor: .one,
         maxDuration: .seconds(300),

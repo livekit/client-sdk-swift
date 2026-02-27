@@ -25,11 +25,11 @@ import LiveKit
 /// Inject via `LiveKitSDK.setTracer()` before running benchmarks.
 
 extension Span {
-    /// All events as label → microseconds relative to `start`.
-    var splitMicroseconds: [String: Int64] {
+    /// All events as label → milliseconds relative to `start`.
+    var splitMilliseconds: [String: Int64] {
         var result = [String: Int64]()
         for entry in entries {
-            result[entry.label] = Int64((entry.time - start) * 1_000_000)
+            result[entry.label] = Int64((entry.time - start) * 1000)
         }
         return result
     }

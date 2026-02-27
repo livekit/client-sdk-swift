@@ -29,16 +29,17 @@ import LiveKit
 
 // TODO: Add BM-CONN-003 (Single PeerConnection) when RoomOptions supports singlePeerConnection.
 
+private let dSignal: BenchmarkMetric = .custom("D_SIGNAL_MS", polarity: .prefersSmaller, useScalingFactor: false)
+private let dTransport: BenchmarkMetric = .custom("D_TRANSPORT_MS", polarity: .prefersSmaller, useScalingFactor: false)
+
 let connectionBenchmarks: @Sendable () -> Void = {
     // BM-CONN-001: Dual PeerConnection, subscriber-primary (default)
     Benchmark(
         "BM-CONN-001-DualPC-SubscriberPrimary",
         configuration: .init(
-            metrics: [
-                .wallClock,
-                .custom("D_SIGNAL", polarity: .prefersSmaller, useScalingFactor: false),
-                .custom("D_TRANSPORT", polarity: .prefersSmaller, useScalingFactor: false),
-            ],
+            metrics: .default + [dSignal, dTransport],
+            timeUnits: .milliseconds,
+            units: [dSignal: .count, dTransport: .count],
             warmupIterations: 5,
             scalingFactor: .one,
             maxDuration: .seconds(300),
@@ -61,11 +62,9 @@ let connectionBenchmarks: @Sendable () -> Void = {
 
             // Extract fine-grained timestamps from the completed connect span
             if let span = benchmarkTracer.completedSpan("connect") {
-                let splits = span.splitMicroseconds
-                benchmark.measurement(.custom("D_SIGNAL", polarity: .prefersSmaller, useScalingFactor: false),
-                                      Int(splits["signal"] ?? splits["join_recv"] ?? 0))
-                benchmark.measurement(.custom("D_TRANSPORT", polarity: .prefersSmaller, useScalingFactor: false),
-                                      Int(splits["pc_connected"].map { $0 - (splits["join_recv"] ?? 0) } ?? 0))
+                let splits = span.splitMilliseconds
+                benchmark.measurement(dSignal, Int(splits["signal"] ?? splits["join_recv"] ?? 0))
+                benchmark.measurement(dTransport, Int(splits["pc_connected"].map { $0 - (splits["join_recv"] ?? 0) } ?? 0))
             }
 
             await room.disconnect()
