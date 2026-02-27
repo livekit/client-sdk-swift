@@ -16,7 +16,7 @@
 
 @testable import LiveKit
 #if canImport(LiveKitTestSupport)
-@testable import LiveKitTestSupport
+import LiveKitTestSupport
 #endif
 
 class RoomTests: LKTestCase, @unchecked Sendable {
