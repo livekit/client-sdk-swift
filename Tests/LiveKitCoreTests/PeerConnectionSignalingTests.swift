@@ -27,6 +27,7 @@
 /// V1 tests will fall back to V0 on localhost if the server doesn't support /rtc/v1.
 
 import Combine
+import CoreVideo
 @testable import LiveKit
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -437,18 +438,17 @@ extension PeerConnectionSignalingTests {
                 try await room1.localParticipant.publish(audioTrack: track)
             }
 
-            // Publish video tracks using createSampleVideoTrack for frame generation
-            var captureTasks = [Task<Void, any Error>]()
+            // Publish video tracks using dummy pixel buffers (no network download needed)
             for i in 0 ..< videoCount {
                 let track = LocalVideoTrack.createBufferTrack(name: "video-\(i)")
                 guard let capturer = track.capturer as? BufferCapturer else {
                     XCTFail("Expected BufferCapturer")
                     return
                 }
-                let captureTask = try await self.createSampleVideoTrack(targetFps: 5) { buffer in
-                    capturer.capture(buffer)
-                }
-                captureTasks.append(captureTask)
+                // BufferCapturer requires at least one frame before publish (to resolve dimensions)
+                var pixelBuffer: CVPixelBuffer?
+                CVPixelBufferCreate(kCFAllocatorDefault, 320, 240, kCVPixelFormatType_32BGRA, nil, &pixelBuffer)
+                if let pixelBuffer { capturer.capture(pixelBuffer) }
                 try await room1.localParticipant.publish(videoTrack: track)
             }
 
@@ -487,11 +487,6 @@ extension PeerConnectionSignalingTests {
             print("[\(mode)] Subscriber sees \(subscriberTrackCount) tracks")
             XCTAssertGreaterThanOrEqual(subscriberTrackCount, totalExpected,
                                         "Subscriber should see all \(totalExpected) published tracks")
-
-            // Clean up capture tasks
-            for task in captureTasks {
-                task.cancel()
-            }
 
             print("[\(mode)] Test passed - publish many tracks working!")
         }

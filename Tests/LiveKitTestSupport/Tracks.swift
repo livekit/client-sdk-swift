@@ -220,6 +220,8 @@ public class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendabl
 public class TestAudioTrack: LocalAudioTrack, @unchecked Sendable {
     override public func startCapture() async throws {}
     override public func stopCapture() async throws {}
+    // Bypass frame-waiting since no real audio engine is running.
+    override public func startWaitingForFrames() async throws {}
 
     public convenience init(name: String = Track.microphoneName) {
         let source = RTC.createAudioSource(nil)
