@@ -36,7 +36,7 @@ public struct RoomTestingOptions {
                 token: String? = nil,
                 enableMicrophone: Bool = false,
                 encryptionOptions: EncryptionOptions? = nil,
-                singlePeerConnection: Bool = true,
+                singlePeerConnection: Bool = false,
                 canPublish: Bool = false,
                 canPublishData: Bool = false,
                 canPublishSources: Set<Track.Source> = [],
