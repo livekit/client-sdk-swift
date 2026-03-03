@@ -158,6 +158,7 @@ extension Room {
             let publisher = try Transport(config: rtcConfiguration,
                                           target: .publisher,
                                           primary: isSinglePC || !isSubscriberPrimary,
+                                          singlePCMode: isSinglePC,
                                           delegate: self)
 
             await publisher.set { [weak self] offer, offerId in

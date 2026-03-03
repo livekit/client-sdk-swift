@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// swiftlint:disable file_length
+
 import Foundation
 
 internal import LiveKitWebRTC
@@ -27,6 +29,7 @@ actor Transport: NSObject, Loggable {
 
     nonisolated let target: Livekit_SignalTarget
     nonisolated let isPrimary: Bool
+    nonisolated let singlePCMode: Bool
 
     var connectionState: LKRTCPeerConnectionState {
         _pc.connectionState
@@ -74,6 +77,7 @@ actor Transport: NSObject, Loggable {
     init(config: LKRTCConfiguration,
          target: Livekit_SignalTarget,
          primary: Bool,
+         singlePCMode: Bool = false,
          delegate: TransportDelegate) throws
     {
         // try create peerConnection
@@ -84,6 +88,7 @@ actor Transport: NSObject, Loggable {
 
         self.target = target
         isPrimary = primary
+        self.singlePCMode = singlePCMode
         _pc = pc
 
         super.init()
@@ -173,7 +178,13 @@ actor Transport: NSObject, Loggable {
         // Actually negotiate
         func _negotiateSequence() async throws {
             _latestOfferId += 1
-            let offer = try await createOffer(for: constraints)
+            var offer = try await createOffer(for: constraints)
+            if singlePCMode {
+                let mungedSDP = Self.mungeInactiveToRecvOnlyForMedia(offer.sdp)
+                if mungedSDP != offer.sdp {
+                    offer = RTC.createSessionDescription(type: offer.type, sdp: mungedSDP)
+                }
+            }
             try await set(localDescription: offer)
             try await _onOffer(offer, _latestOfferId)
         }
@@ -199,6 +210,41 @@ actor Transport: NSObject, Loggable {
         }
 
         _pc.close()
+    }
+}
+
+// MARK: - SDP Munging
+
+extension Transport {
+    /// Munge SDP to change `a=inactive` to `a=recvonly` for RTP media m-lines in single PC mode.
+    /// WebRTC can generate inactive direction even when transceivers were configured as recvonly.
+    /// Only rewrites RTP m-sections — non-RTP sections (e.g. data channel `m=application`) are preserved.
+    static func mungeInactiveToRecvOnlyForMedia(_ sdp: String) -> String {
+        let usesCRLF = sdp.contains("\r\n")
+        let eol = usesCRLF ? "\r\n" : "\n"
+        let lines = sdp.components(separatedBy: usesCRLF ? "\r\n" : "\n")
+
+        var out: [String] = []
+        out.reserveCapacity(lines.count)
+        var inRTPMediaSection = false
+
+        for line in lines {
+            let l = line.trimmingCharacters(in: .whitespaces)
+            if l.hasPrefix("m=") {
+                inRTPMediaSection = l.contains("RTP/")
+            }
+            if inRTPMediaSection, l == "a=inactive" {
+                out.append("a=recvonly")
+            } else {
+                out.append(line)
+            }
+        }
+
+        var result = out.joined(separator: eol)
+        if sdp.hasSuffix(eol), !result.hasSuffix(eol) {
+            result.append(eol)
+        }
+        return result
     }
 }
 
