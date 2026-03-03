@@ -206,10 +206,17 @@ extension Error {
         switch nsError.domain {
         case NSURLErrorDomain,
              // CFNetwork errors (SSL/TLS failures, proxy issues, etc.)
-             "kCFErrorDomainCFNetwork",
-             // Low-level socket errors (ECONNREFUSED, ECONNRESET, ETIMEDOUT, etc.)
-             NSPOSIXErrorDomain:
+             "kCFErrorDomainCFNetwork":
             return true
+        case NSPOSIXErrorDomain:
+            // Only whitelist known socket-related POSIX codes; non-network
+            // errors (ENOMEM, EACCES, …) should not be classified as network errors.
+            let socketCodes: Set<Int32> = [
+                ECONNREFUSED, ECONNRESET, ECONNABORTED,
+                ETIMEDOUT, ENETUNREACH, ENETDOWN,
+                EHOSTUNREACH, EPIPE, ENOTCONN,
+            ]
+            return socketCodes.contains(Int32(nsError.code))
         default:
             return false
         }
