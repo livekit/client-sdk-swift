@@ -58,7 +58,7 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     // MARK: CoreImage
 
-    private let ciContext: CIContext = .metal()
+    private let ciContext: CIContext
 
     private let blurFilter = CIFilter.gaussianBlur()
     private let blendFilter = CIFilter.blendWithMask()
@@ -72,8 +72,12 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
     // MARK: Init
 
     /// Initialize the background blur video processor.
-    /// - Parameter highQuality: If true, use more detailed segmentation, but at the cost of performance.
-    public init(highQuality: Bool = true) {
+    /// - Parameters:
+    ///   - highQuality: If true, use more detailed segmentation, but at the cost of performance.
+    ///   - gpu: If true, use GPU rendering for better performance. Set to false when the app may be backgrounded (e.g. during PiP).
+    public init(highQuality: Bool = true, gpu: Bool = true) {
+        ciContext = gpu ? .metal() : CIContext(options: [.useSoftwareRenderer: true])
+        super.init()
         segmentationRequest.qualityLevel = highQuality ? .balanced : .fast
     }
 
