@@ -185,7 +185,10 @@ extension LiveKitError {
             return LiveKitError(.cancelled)
         }
 
-        // TODO: Identify more network error types
+        if error.isNetworkError {
+            return LiveKitError(.network, internalError: error)
+        }
+
         log("Uncategorized error for: \(String(describing: error))")
         return LiveKitError(.unknown)
     }
@@ -196,6 +199,29 @@ extension LiveKitError {
 }
 
 extension Error {
+    /// Returns `true` for URLError, CFNetwork, and POSIX socket errors.
+    var isNetworkError: Bool {
+        if self is URLError { return true }
+        let nsError = self as NSError
+        switch nsError.domain {
+        case NSURLErrorDomain,
+             // CFNetwork errors (SSL/TLS failures, proxy issues, etc.)
+             "kCFErrorDomainCFNetwork":
+            return true
+        case NSPOSIXErrorDomain:
+            // Only whitelist known socket-related POSIX codes; non-network
+            // errors (ENOMEM, EACCES, …) should not be classified as network errors.
+            let socketCodes: Set<Int32> = [
+                ECONNREFUSED, ECONNRESET, ECONNABORTED,
+                ETIMEDOUT, ENETUNREACH, ENETDOWN,
+                EHOSTUNREACH, EPIPE, ENOTCONN,
+            ]
+            return socketCodes.contains(Int32(nsError.code))
+        default:
+            return false
+        }
+    }
+
     /// Returns `true` for network/timeouts that should trigger region failover.
     var isRetryableForRegionFailover: Bool {
         if let liveKitError = self as? LiveKitError {
@@ -207,12 +233,7 @@ extension Error {
             }
         }
 
-        if self is URLError {
-            return true
-        }
-
-        let nsError = self as NSError
-        return nsError.domain == NSURLErrorDomain
+        return isNetworkError
     }
 }
 
