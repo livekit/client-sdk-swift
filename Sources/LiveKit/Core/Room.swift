@@ -89,7 +89,12 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     // MARK: - Internal
 
-    public var e2eeManager: E2EEManager?
+    private let _e2eeManager = StateSync<E2EEManager?>(nil)
+
+    public var e2eeManager: E2EEManager? {
+        get { _e2eeManager.copy() }
+        set { _e2eeManager.mutate { $0 = newValue } }
+    }
 
     public lazy var localParticipant: LocalParticipant = .init(room: self)
 

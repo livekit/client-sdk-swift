@@ -20,6 +20,10 @@ import Foundation
 
 public extension LocalParticipant {
     /// Initiate an RPC call to a remote participant
+    ///
+    /// ObjC: auto-generated as
+    /// `performRpcWithDestinationIdentity:method:payload:responseTimeout:completionHandler:`.
+    ///
     /// - Parameters:
     ///   - destinationIdentity: The identity of the destination participant
     ///   - method: The method name to call
