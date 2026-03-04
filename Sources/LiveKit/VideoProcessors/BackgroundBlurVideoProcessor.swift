@@ -76,7 +76,7 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
     ///   - highQuality: If true, use more detailed segmentation, but at the cost of performance.
     ///   - gpu: If true, use GPU rendering for better performance. Set to false when the app may be backgrounded (e.g. during PiP).
     public init(highQuality: Bool = true, gpu: Bool = true) {
-        ciContext = gpu ? .metal() : CIContext(options: [.useSoftwareRenderer: true])
+        ciContext = gpu ? .metal() : .softwareRenderer()
         super.init()
         segmentationRequest.qualityLevel = highQuality ? .balanced : .fast
     }
