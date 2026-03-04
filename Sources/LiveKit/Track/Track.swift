@@ -203,6 +203,12 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         await _resumeOrSuspendStatisticsTimer()
     }
 
+    /// Cancel the statistics timer without changing any state.
+    /// The timer will restart when the track is re-attached to a transport.
+    func cancelStatisticsTimer() {
+        _statisticsTimer.cancel()
+    }
+
     func set(trackState: TrackState) {
         _state.mutate { $0.trackState = trackState }
     }

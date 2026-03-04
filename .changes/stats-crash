@@ -1,0 +1,1 @@
+patch type="fixed" "Crash during PeerConnection teardown caused by stats timer race"
