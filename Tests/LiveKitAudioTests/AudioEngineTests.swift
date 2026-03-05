@@ -18,151 +18,132 @@
 
 @preconcurrency import AVFoundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 import LiveKitWebRTC
 import LKObjCHelpers
 
-class AudioEngineTests: LKTestCase, @unchecked Sendable {
-    override func tearDown() async throws {}
-
+@Suite(.serialized, .tags(.audio, .e2e)) struct AudioEngineTests {
     #if !targetEnvironment(simulator)
     // Test if mic is authorized. Only works on device.
-    func testMicAuthorized() async {
+    @Test func micAuthorized() async {
         let status = AVCaptureDevice.authorizationStatus(for: .audio)
         if status != .authorized {
             let result = await AVCaptureDevice.requestAccess(for: .audio)
-            XCTAssert(result)
+            #expect(result)
         }
 
-        XCTAssert(status == .authorized)
+        #expect(status == .authorized)
     }
     #endif
 
     // Test if state transitions pass internal checks.
-    func testStateTransitions() async {
+    @Test func stateTransitions() {
         let adm = AudioManager.shared
         // Start Playout
         adm.initPlayout()
-        XCTAssert(adm.isPlayoutInitialized)
+        #expect(adm.isPlayoutInitialized)
         adm.startPlayout()
-        XCTAssert(adm.isPlaying)
+        #expect(adm.isPlaying)
 
         // Start Recording
         adm.initRecording()
-        XCTAssert(adm.isRecordingInitialized)
+        #expect(adm.isRecordingInitialized)
         adm.startRecording()
-        XCTAssert(adm.isRecording)
+        #expect(adm.isRecording)
 
         // Stop engine
         adm.stopRecording()
-        XCTAssert(!adm.isRecording)
-        XCTAssert(!adm.isRecordingInitialized)
+        #expect(!adm.isRecording)
+        #expect(!adm.isRecordingInitialized)
 
         adm.stopPlayout()
-        XCTAssert(!adm.isPlaying)
-        XCTAssert(!adm.isPlayoutInitialized)
+        #expect(!adm.isPlaying)
+        #expect(!adm.isPlayoutInitialized)
     }
 
-    func testRecordingAlwaysPreparedMode() async throws {
+    @Test func recordingAlwaysPreparedMode() async throws {
         let adm = AudioManager.shared
 
         // Ensure initially not initialized.
-        XCTAssert(!adm.isRecordingInitialized)
+        #expect(!adm.isRecordingInitialized)
 
         // Ensure recording is initialized after set to true.
         try await adm.setRecordingAlwaysPreparedMode(true)
 
         #if os(iOS)
         let session = AVAudioSession.sharedInstance()
-        XCTAssert(session.category == .playAndRecord)
-        XCTAssert(session.mode == .videoChat || session.mode == .voiceChat)
+        #expect(session.category == .playAndRecord)
+        #expect(session.mode == .videoChat || session.mode == .voiceChat)
         #endif
 
         adm.initRecording()
-        XCTAssert(adm.isRecordingInitialized)
+        #expect(adm.isRecordingInitialized)
 
         adm.startRecording()
-        XCTAssert(adm.isRecordingInitialized)
+        #expect(adm.isRecordingInitialized)
 
         adm.stopRecording()
-        XCTAssert(!adm.isRecordingInitialized)
+        #expect(!adm.isRecordingInitialized)
     }
 
-    func testConfigureDucking() async {
+    @Test func configureDucking() {
         AudioManager.shared.isAdvancedDuckingEnabled = false
-        XCTAssert(!AudioManager.shared.isAdvancedDuckingEnabled)
+        #expect(!AudioManager.shared.isAdvancedDuckingEnabled)
 
         AudioManager.shared.isAdvancedDuckingEnabled = true
-        XCTAssert(AudioManager.shared.isAdvancedDuckingEnabled)
+        #expect(AudioManager.shared.isAdvancedDuckingEnabled)
 
         if #available(iOS 17, macOS 14.0, visionOS 1.0, *) {
             AudioManager.shared.duckingLevel = .default
-            XCTAssert(AudioManager.shared.duckingLevel == .default)
+            #expect(AudioManager.shared.duckingLevel == .default)
 
             AudioManager.shared.duckingLevel = .min
-            XCTAssert(AudioManager.shared.duckingLevel == .min)
+            #expect(AudioManager.shared.duckingLevel == .min)
 
             AudioManager.shared.duckingLevel = .max
-            XCTAssert(AudioManager.shared.duckingLevel == .max)
+            #expect(AudioManager.shared.duckingLevel == .max)
 
             AudioManager.shared.duckingLevel = .mid
-            XCTAssert(AudioManager.shared.duckingLevel == .mid)
+            #expect(AudioManager.shared.duckingLevel == .mid)
         }
     }
 
     // Test start generating local audio buffer without joining to room.
-    func testPreconnectAudioBuffer() async throws {
-        print("Setting recording always prepared mode...")
-        // try AudioManager.set(audioDeviceModuleType: .platformDefault)
-
-        // Set up expectation...
-        let didReceiveAudioFrame = expectation(description: "Did receive audio frame")
-        didReceiveAudioFrame.assertForOverFulfill = false
-
-        let didConnectToRoom = expectation(description: "Did connect to room")
-        didConnectToRoom.assertForOverFulfill = false
-
-        // Create an audio frame watcher...
-        let audioFrameWatcher = AudioTrackWatcher(id: "notifier01") { _ in
-            didReceiveAudioFrame.fulfill()
-        }
-
-        let localMicTrack = LocalAudioTrack.createTrack()
-        // Attach audio frame watcher...
-        localMicTrack.add(audioRenderer: audioFrameWatcher)
-
-        Task {
-            print("Starting local recording...")
-            try AudioManager.shared.startLocalRecording()
-        }
-
-        // Wait for audio frame...
-        print("Waiting for first audio frame...")
-        await fulfillment(of: [didReceiveAudioFrame], timeout: 10)
-
-        Task.detached {
-            print("Connecting to room...")
-            // Wait for 3 seconds...
-            try? await Task.sleep(nanoseconds: 3 * 1_000_000_000)
-
-            try await self.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
-                print("Publishing mic...")
-                try await rooms[0].localParticipant.setMicrophone(enabled: true)
-                didConnectToRoom.fulfill()
+    @Test func preconnectAudioBuffer() async throws {
+        // Phase 1: Verify audio frames are received without a room connection
+        try await confirmation("Should receive audio frame") { audioFrameConfirm in
+            let audioFrameWatcher = AudioTrackWatcher(id: "notifier01") { _ in
+                audioFrameConfirm()
             }
+
+            let localMicTrack = LocalAudioTrack.createTrack()
+            localMicTrack.add(audioRenderer: audioFrameWatcher)
+
+            Task {
+                print("Starting local recording...")
+                try AudioManager.shared.startLocalRecording()
+            }
+
+            // Wait for audio frame...
+            print("Waiting for first audio frame...")
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
+
+            localMicTrack.remove(audioRenderer: audioFrameWatcher)
         }
 
-        print("Waiting for room to connect & disconnect...")
-        await fulfillment(of: [didConnectToRoom], timeout: 10)
-
-        localMicTrack.remove(audioRenderer: audioFrameWatcher)
+        // Phase 2: Connect to room and publish mic
+        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+            print("Publishing mic...")
+            try await rooms[0].localParticipant.setMicrophone(enabled: true)
+        }
     }
 
     // Test the manual rendering mode (no-device mode) of AVAudioEngine based AudioDeviceModule.
     // In manual rendering, no device access will be initialized such as mic and speaker.
-    func testManualRenderingModeSineGenerator() async throws {
+    @Test func manualRenderingModeSineGenerator() async throws {
         // Set manual rendering mode...
         try AudioManager.shared.setManualRenderingMode(true)
 
@@ -173,7 +154,7 @@ class AudioEngineTests: LKTestCase, @unchecked Sendable {
         // Check if manual rendering mode is set...
         let isManualRenderingMode = AudioManager.shared.isManualRenderingMode
         print("manualRenderingMode: \(isManualRenderingMode)")
-        XCTAssert(isManualRenderingMode)
+        #expect(isManualRenderingMode)
 
         let recorder = try TestAudioRecorder()
 
@@ -195,15 +176,15 @@ class AudioEngineTests: LKTestCase, @unchecked Sendable {
 
         // Play the recorded file...
         let player = try AVAudioPlayer(contentsOf: recorder.filePath)
-        XCTAssertTrue(player.play(), "Failed to start audio playback")
+        #expect(player.play(), "Failed to start audio playback")
         while player.isPlaying {
             try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
         }
     }
 
-    func testManualRenderingModeAudioFile() async throws {
+    @Test func manualRenderingModeAudioFile() async throws {
         // Sample audio
-        let url = URL(string: "https://github.com/rafaelreis-hotmart/Audio-Sample-files/raw/refs/heads/master/sample.wav")!
+        let url = try #require(URL(string: "https://github.com/rafaelreis-hotmart/Audio-Sample-files/raw/refs/heads/master/sample.wav"))
 
         print("Downloading sample audio from \(url)...")
         let (downloadedLocalUrl, _) = try await URLSession.shared.downloadBackport(from: url)
@@ -230,7 +211,7 @@ class AudioEngineTests: LKTestCase, @unchecked Sendable {
         // Check if manual rendering mode is set...
         let isManualRenderingMode = AudioManager.shared.isManualRenderingMode
         print("manualRenderingMode: \(isManualRenderingMode)")
-        XCTAssert(isManualRenderingMode)
+        #expect(isManualRenderingMode)
 
         let recorder = try TestAudioRecorder()
 
@@ -259,15 +240,15 @@ class AudioEngineTests: LKTestCase, @unchecked Sendable {
 
         // Play the recorded file...
         let player = try AVAudioPlayer(contentsOf: recorder.filePath)
-        XCTAssertTrue(player.play(), "Failed to start audio playback")
+        #expect(player.play(), "Failed to start audio playback")
         while player.isPlaying {
             try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
         }
     }
 
-    func testManualRenderingModePublishAudio() async throws {
+    @Test func manualRenderingModePublishAudio() async throws {
         // Sample audio
-        let url = URL(string: "https://github.com/rafaelreis-hotmart/Audio-Sample-files/raw/refs/heads/master/sample.wav")!
+        let url = try #require(URL(string: "https://github.com/rafaelreis-hotmart/Audio-Sample-files/raw/refs/heads/master/sample.wav"))
 
         print("Downloading sample audio from \(url)...")
         let (downloadedLocalUrl, _) = try await URLSession.shared.downloadBackport(from: url)
@@ -291,11 +272,11 @@ class AudioEngineTests: LKTestCase, @unchecked Sendable {
         // Check if manual rendering mode is set...
         let isManualRenderingMode = AudioManager.shared.isManualRenderingMode
         print("manualRenderingMode: \(isManualRenderingMode)")
-        XCTAssert(isManualRenderingMode)
+        #expect(isManualRenderingMode)
 
-        let readBuffer = AVAudioPCMBuffer(pcmFormat: audioFileFormat, frameCapacity: 480)!
+        let readBuffer = try #require(AVAudioPCMBuffer(pcmFormat: audioFileFormat, frameCapacity: 480))
 
-        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
             let room1 = rooms[0]
 
             let ns5 = UInt64(20 * 1_000_000_000)
@@ -320,7 +301,7 @@ class AudioEngineTests: LKTestCase, @unchecked Sendable {
     }
 
     #if os(iOS) || os(visionOS) || os(tvOS)
-    func testBackwardCompatibility() async throws {
+    @Test func backwardCompatibility() throws {
         struct TestState {
             var trackState: AudioManager.TrackState = .none
         }
@@ -338,22 +319,22 @@ class AudioEngineTests: LKTestCase, @unchecked Sendable {
         try session.setConfiguration(config.toRTCType(), active: true)
         session.unlockForConfiguration()
 
-        XCTAssert(_testState.trackState == .none)
+        #expect(_testState.trackState == .none)
 
         AudioManager.shared.initPlayout()
-        XCTAssert(_testState.trackState == .remoteOnly)
+        #expect(_testState.trackState == .remoteOnly)
 
         AudioManager.shared.initRecording()
-        XCTAssert(_testState.trackState == .localAndRemote)
+        #expect(_testState.trackState == .localAndRemote)
 
         AudioManager.shared.stopRecording()
-        XCTAssert(_testState.trackState == .remoteOnly)
+        #expect(_testState.trackState == .remoteOnly)
 
         AudioManager.shared.stopPlayout()
-        XCTAssert(_testState.trackState == .none)
+        #expect(_testState.trackState == .none)
     }
 
-    func testDefaultAudioSessionConfiguration() async throws {
+    @Test func defaultAudioSessionConfiguration() {
         AudioManager.shared.initPlayout()
         AudioManager.shared.initRecording()
         AudioManager.shared.stopRecording()
@@ -362,25 +343,21 @@ class AudioEngineTests: LKTestCase, @unchecked Sendable {
     #endif
 
     // Test if audio engine can start while another AVAudioEngine is running with VP enabled.
-    func testMultipleAudioEngine() async throws {
+    @Test func multipleAudioEngine() async throws {
         // Start sample audio engine with VP.
         let engine = AVAudioEngine()
         try engine.outputNode.setVoiceProcessingEnabled(true)
 
         let outputFormat = engine.outputNode.inputFormat(forBus: 0)
         let generator = SineWaveSourceNode(frequency: 480, sampleRate: outputFormat.sampleRate)
-        let monoFormat = AVAudioFormat(standardFormatWithSampleRate: outputFormat.sampleRate, channels: 1)!
+        let monoFormat = try #require(AVAudioFormat(standardFormatWithSampleRate: outputFormat.sampleRate, channels: 1))
         engine.attach(generator)
         engine.connect(generator, to: engine.mainMixerNode, format: monoFormat)
         engine.connect(engine.mainMixerNode, to: engine.outputNode, format: outputFormat)
 
-        // engine.prepare()
-        // sleep(1)
         print("isVoiceProcessingEnabled: \(engine.outputNode.isVoiceProcessingEnabled)")
 
-        // try LKObjCHelpers.catchException {
         try engine.start()
-        // }
         print("isRunning: \(engine.isRunning)")
 
         // Attempt to start ADM's audio engine while another engine is running first.

@@ -14,89 +14,145 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class RoomTests: LKTestCase, @unchecked Sendable {
-    func testRoomProperties() async throws {
-        try await withRooms([RoomTestingOptions()]) { rooms in
+@Suite(.serialized, .tags(.e2e)) final class RoomTests: @unchecked Sendable {
+    @Test func roomProperties() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
             // Alias to Room
             let room1 = rooms[0]
 
             // SID
             let sid = try await room1.sid()
             print("Room.sid(): \(String(describing: sid))")
-            XCTAssert(sid.stringValue.starts(with: "RM_"))
+            #expect(sid.stringValue.starts(with: "RM_"))
 
             // creationTime
-            XCTAssert(room1.creationTime != nil)
+            #expect(room1.creationTime != nil)
             print("Room.creationTime: \(String(describing: room1.creationTime))")
         }
     }
 
-    func testParticipantCleanUp() async throws {
+    @Test func participantCleanUp() async throws {
         // Create 2 Rooms
-        try await withRooms([RoomTestingOptions(delegate: self), RoomTestingOptions(delegate: self)]) { _ in
+        try await TestEnvironment.withRooms([RoomTestingOptions(delegate: self), RoomTestingOptions(delegate: self)]) { _ in
             // Nothing to do here
         }
     }
 
-    func testResourcesCleanUp() async throws {
-        try await withRooms([RoomTestingOptions()]) { rooms in
-            let room = rooms[0]
+    @Test func resourcesCleanUp() async throws {
+        var refs = WeakRoomRefs()
 
-            self.noLeaks(of: room.signalClient)
-            let socket = await room.signalClient._state.socket
-            try self.noLeaks(of: XCTUnwrap(socket))
-
-            let (publisher, subscriber) = room._state.read { ($0.publisher, $0.subscriber) }
-            if let publisher { self.noLeaks(of: publisher) }
-            if let subscriber { self.noLeaks(of: subscriber) }
-
-            self.noLeaks(of: room.publisherDataChannel)
-            self.noLeaks(of: room.subscriberDataChannel)
-
-            self.noLeaks(of: room.incomingStreamManager)
-            self.noLeaks(of: room.outgoingStreamManager)
-
-            if let e2eeManager = room.e2eeManager { self.noLeaks(of: e2eeManager) }
-            self.noLeaks(of: room.preConnectBuffer)
-            self.noLeaks(of: room.rpcState)
-            self.noLeaks(of: room.metricsManager)
-
-            self.noLeaks(of: room.delegates)
-            self.noLeaks(of: room.activeParticipantCompleters)
-            self.noLeaks(of: room.primaryTransportConnectedCompleter)
-            self.noLeaks(of: room.publisherTransportConnectedCompleter)
-
-            self.noLeaks(of: room.localParticipant)
-            for remoteParticipant in room.remoteParticipants.values {
-                self.noLeaks(of: remoteParticipant)
-            }
-
-            self.noLeaks(of: room._state)
-            self.noLeaks(of: room)
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
+            await refs.capture(from: rooms[0])
         }
+
+        // Allow time for deallocation after withRooms returns (rooms disconnected)
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+
+        refs.expectAllNil()
     }
 
-    func testSendDataPacket() async throws {
-        try await withRooms([RoomTestingOptions()]) { rooms in
+    @Test func sendDataPacket() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
             let room = rooms[0]
 
-            let expectDataPacket = self.expectation(description: "Should send data packet")
+            try await confirmation("Should send data packet") { confirm in
+                let mockDataChannel = MockDataChannelPair { packet in
+                    #expect(packet.participantIdentity == room.localParticipant.identity?.stringValue ?? "")
+                    confirm()
+                }
+                room.publisherDataChannel = mockDataChannel
 
-            let mockDataChannel = MockDataChannelPair { packet in
-                XCTAssertEqual(packet.participantIdentity, room.localParticipant.identity?.stringValue ?? "")
-                expectDataPacket.fulfill()
+                try await room.send(dataPacket: Livekit_DataPacket())
+
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
-            room.publisherDataChannel = mockDataChannel
-
-            try await room.send(dataPacket: Livekit_DataPacket())
-
-            await self.fulfillment(of: [expectDataPacket], timeout: 5)
         }
+    }
+}
+
+private struct WeakRoomRefs: @unchecked Sendable {
+    weak var signalClient: SignalClient?
+    weak var socket: WebSocket?
+    weak var publisher: Transport?
+    weak var subscriber: Transport?
+    weak var publisherDataChannel: DataChannelPair?
+    weak var subscriberDataChannel: DataChannelPair?
+    weak var incomingStreamManager: IncomingStreamManager?
+    weak var outgoingStreamManager: OutgoingStreamManager?
+    weak var e2eeManager: E2EEManager?
+    weak var preConnectBuffer: PreConnectAudioBuffer?
+    weak var rpcState: RpcStateManager?
+    weak var metricsManager: MetricsManager?
+    weak var delegates: MulticastDelegate<RoomDelegate>?
+    weak var activeParticipantCompleters: CompleterMapActor<Void>?
+    weak var primaryTransportConnectedCompleter: AsyncCompleter<Void>?
+    weak var publisherTransportConnectedCompleter: AsyncCompleter<Void>?
+    weak var localParticipant: LocalParticipant?
+    var remoteParticipantChecks: [() -> Bool] = []
+    weak var state: StateSync<Room.State>?
+    weak var room: Room?
+
+    mutating func capture(from room: Room) async {
+        signalClient = room.signalClient
+        socket = await room.signalClient._state.socket
+
+        let transports = room._state.read { ($0.publisher, $0.subscriber) }
+        publisher = transports.0
+        subscriber = transports.1
+
+        publisherDataChannel = room.publisherDataChannel
+        subscriberDataChannel = room.subscriberDataChannel
+        incomingStreamManager = room.incomingStreamManager
+        outgoingStreamManager = room.outgoingStreamManager
+        if let mgr = room.e2eeManager { e2eeManager = mgr }
+        preConnectBuffer = room.preConnectBuffer
+        rpcState = room.rpcState
+        metricsManager = room.metricsManager
+        delegates = room.delegates
+        activeParticipantCompleters = room.activeParticipantCompleters
+        primaryTransportConnectedCompleter = room.primaryTransportConnectedCompleter
+        publisherTransportConnectedCompleter = room.publisherTransportConnectedCompleter
+        localParticipant = room.localParticipant
+
+        for remoteParticipant in room.remoteParticipants.values {
+            weak var weakRP: RemoteParticipant? = remoteParticipant
+            remoteParticipantChecks.append { weakRP == nil }
+        }
+
+        state = room._state
+        self.room = room
+    }
+
+    func expectAllNil() {
+        #expect(signalClient == nil, "Leaked object: SignalClient")
+        #expect(socket == nil, "Leaked object: WebSocket")
+        #expect(publisher == nil, "Leaked object: Publisher Transport")
+        #expect(subscriber == nil, "Leaked object: Subscriber Transport")
+        #expect(publisherDataChannel == nil, "Leaked object: Publisher DataChannel")
+        #expect(subscriberDataChannel == nil, "Leaked object: Subscriber DataChannel")
+        #expect(incomingStreamManager == nil, "Leaked object: IncomingStreamManager")
+        #expect(outgoingStreamManager == nil, "Leaked object: OutgoingStreamManager")
+        #expect(e2eeManager == nil, "Leaked object: E2EEManager")
+        #expect(preConnectBuffer == nil, "Leaked object: PreConnectBuffer")
+        #expect(rpcState == nil, "Leaked object: RpcState")
+        #expect(metricsManager == nil, "Leaked object: MetricsManager")
+        #expect(delegates == nil, "Leaked object: Delegates")
+        #expect(activeParticipantCompleters == nil, "Leaked object: ActiveParticipantCompleters")
+        #expect(primaryTransportConnectedCompleter == nil, "Leaked object: PrimaryTransportConnectedCompleter")
+        #expect(publisherTransportConnectedCompleter == nil, "Leaked object: PublisherTransportConnectedCompleter")
+        #expect(localParticipant == nil, "Leaked object: LocalParticipant")
+        for check in remoteParticipantChecks {
+            #expect(check(), "Leaked object: RemoteParticipant")
+        }
+        #expect(state == nil, "Leaked object: Room.State")
+        #expect(room == nil, "Leaked object: Room")
     }
 }
 
@@ -105,6 +161,6 @@ extension RoomTests: RoomDelegate {
         print("participantDidDisconnect: \(participant)")
         // Check issue: https://github.com/livekit/client-sdk-swift/issues/300
         // participant.identity is null in participantDidDisconnect delegate
-        XCTAssert(participant.identity != nil, "participant.identity is nil in participantDidDisconnect delegate")
+        #expect(participant.identity != nil, "participant.identity is nil in participantDidDisconnect delegate")
     }
 }

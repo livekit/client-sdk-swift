@@ -15,6 +15,7 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
@@ -54,37 +55,37 @@ private class ProcessingDelegateTester: AudioCustomProcessingDelegate, @unchecke
     }
 }
 
-class AudioProcessingLifecycle: LKTestCase {
-    func testAudioProcessing() async throws {
+@Suite(.serialized, .tags(.audio, .e2e)) struct AudioProcessingLifecycle {
+    @Test func audioProcessing() async throws {
         let processorA = ProcessingDelegateTester(label: "A")
         let processorB = ProcessingDelegateTester(label: "B")
         // Set processing delegate
         AudioManager.shared.capturePostProcessingDelegate = processorA
 
-        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
             // Alias to Room1
             let room1 = rooms[0]
             // Publish mic
             try await room1.localParticipant.setMicrophone(enabled: true)
-            await self.sleep(forSeconds: 1)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
 
             // Verify processorA was initialized and received audio
             let stateA = processorA._state.copy()
-            XCTAssertTrue(stateA.entries.contains(.initialize), "Processor A should have been initialized")
-            XCTAssertTrue(stateA.entries.contains(.process), "Processor A should have processed audio")
+            #expect(stateA.entries.contains(.initialize), "Processor A should have been initialized")
+            #expect(stateA.entries.contains(.process), "Processor A should have processed audio")
 
             // Switch to processorB
             AudioManager.shared.capturePostProcessingDelegate = processorB
-            await self.sleep(forSeconds: 1)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
 
             // Verify processorA was released
             let stateA2 = processorA._state.copy()
-            XCTAssertTrue(stateA2.entries.contains(.release), "Processor A should have been released")
+            #expect(stateA2.entries.contains(.release), "Processor A should have been released")
 
             // Verify processorB was initialized and received audio
             let stateB = processorB._state.copy()
-            XCTAssertTrue(stateB.entries.contains(.initialize), "Processor B should have been initialized")
-            XCTAssertTrue(stateB.entries.contains(.process), "Processor B should have processed audio")
+            #expect(stateB.entries.contains(.initialize), "Processor B should have been initialized")
+            #expect(stateB.entries.contains(.process), "Processor B should have processed audio")
         }
 
         // Remove processing delegate
@@ -92,11 +93,11 @@ class AudioProcessingLifecycle: LKTestCase {
 
         // Verify processorB was released
         let stateB2 = processorB._state.copy()
-        XCTAssertTrue(stateB2.entries.contains(.release), "Processor B should have been released")
+        #expect(stateB2.entries.contains(.release), "Processor B should have been released")
     }
 
-    func testLocalAudioTrackRendererAPI() async throws {
-        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+    @Test func localAudioTrackRendererAPI() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
             let room1 = rooms[0]
 
             // Create a test renderer
@@ -107,7 +108,7 @@ class AudioProcessingLifecycle: LKTestCase {
 
             // Get the local audio track
             guard let localAudioTrack = room1.localParticipant.audioTracks.first?.track as? LocalAudioTrack else {
-                XCTFail("No local audio track found")
+                Issue.record("No local audio track found")
                 return
             }
 
@@ -115,11 +116,11 @@ class AudioProcessingLifecycle: LKTestCase {
             localAudioTrack.add(audioRenderer: renderer)
 
             // Wait for audio to flow
-            await self.sleep(forSeconds: 1)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
 
             // Verify renderer received audio
             let count = renderer.renderCount.copy()
-            XCTAssertGreaterThan(count, 0, "Renderer should have received audio buffers via LocalAudioTrack.add()")
+            #expect(count > 0, "Renderer should have received audio buffers via LocalAudioTrack.add()")
 
             // Remove renderer
             localAudioTrack.remove(audioRenderer: renderer)
@@ -128,11 +129,11 @@ class AudioProcessingLifecycle: LKTestCase {
             renderer.renderCount.mutate { $0 = 0 }
 
             // Wait a bit
-            await self.sleep(forSeconds: 1)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
 
             // Verify no more audio is received
             let countAfterRemove = renderer.renderCount.copy()
-            XCTAssertEqual(countAfterRemove, 0, "Renderer should not receive audio after removal")
+            #expect(countAfterRemove == 0, "Renderer should not receive audio after removal")
         }
     }
 }

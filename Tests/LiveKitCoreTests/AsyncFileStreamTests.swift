@@ -14,30 +14,32 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class AsyncFileStreamTests: LKTestCase {
+struct AsyncFileStreamTests {
     private let testBuffer = generateTestBuffer(
         chunkSize: 4096,
         chunkCount: 10,
         extraBytes: 100
     )
 
-    func testNonExistentFile() async throws {
+    @Test func nonExistentFile() throws {
         do {
             _ = try AsyncFileStream(
                 readingFrom: URL(fileURLWithPath: "/non/existent/file")
             )
-            XCTFail("Expected error")
+            Issue.record("Expected error")
         } catch {
-            XCTAssertNotNil(error as? AsyncFileStream<ReadMode>.Error)
+            #expect(error is AsyncFileStream<ReadMode>.Error)
         }
     }
 
-    func testRead() async throws {
+    @Test func read() async throws {
         let testFileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
         try testBuffer.write(to: testFileURL)
@@ -50,10 +52,10 @@ class AsyncFileStreamTests: LKTestCase {
         for try await chunk in stream.chunks() {
             readBuffer.append(chunk)
         }
-        XCTAssertEqual(readBuffer, testBuffer)
+        #expect(readBuffer == testBuffer)
     }
 
-    func testWrite() async throws {
+    @Test func write() async throws {
         let testFileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: testFileURL) }
@@ -63,7 +65,7 @@ class AsyncFileStreamTests: LKTestCase {
         stream.close()
 
         let readBuffer = try Data(contentsOf: testFileURL)
-        XCTAssertEqual(readBuffer, testBuffer)
+        #expect(readBuffer == testBuffer)
     }
 
     private static func generateTestBuffer(chunkSize: Int, chunkCount: Int, extraBytes: Int) -> Data {
