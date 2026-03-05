@@ -1,6 +1,7 @@
 // swift-tools-version:5.9
 // (Xcode15.0+)
 
+import Foundation
 import PackageDescription
 
 let package = Package(
@@ -47,9 +48,15 @@ let package = Package(
             resources: [
                 .process("PrivacyInfo.xcprivacy"),
             ],
-            swiftSettings: [
-                .enableExperimentalFeature("AccessLevelOnImport"),
-            ]
+            swiftSettings: {
+                var settings: [SwiftSetting] = [
+                    .enableExperimentalFeature("AccessLevelOnImport"),
+                ]
+                if ProcessInfo.processInfo.environment["LK_BENCHMARK"] != nil {
+                    settings.append(.define("LK_BENCHMARK"))
+                }
+                return settings
+            }()
         ),
         .target(
             name: "LiveKitTestSupport",

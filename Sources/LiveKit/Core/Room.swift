@@ -85,7 +85,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     public var disconnectError: LiveKitError? { _state.disconnectError }
 
-    public var connectStopwatch: Stopwatch { _state.connectStopwatch }
+    /// Timing data for the most recent connection attempt.
+    public var connectStopwatch: Span? { _state.connectStopwatch }
 
     // MARK: - Internal
 
@@ -167,12 +168,14 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var connectionState: ConnectionState = .disconnected
         var reconnectTask: AnyTaskCancellable?
         var disconnectError: LiveKitError?
-        var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
 
         var publisher: Transport?
         var subscriber: Transport?
         var isSubscriberPrimary: Bool = false
+
+        // Timing
+        var connectStopwatch: Span?
 
         // Agents
         var transcriptionReceivedTimes: [String: Date] = [:]
@@ -216,8 +219,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 roomOptions: RoomOptions? = nil)
     {
         // Ensure manager shared objects are instantiated
+        #if !LK_BENCHMARK
         DeviceManager.prepare()
         AudioManager.prepare()
+        #endif
 
         _state = StateSync(State(connectOptions: connectOptions ?? ConnectOptions(),
                                  roomOptions: roomOptions ?? RoomOptions()))
@@ -361,6 +366,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
 
         _state.mutate {
+            $0.connectStopwatch = sharedTracer.beginSpan("connect")
             $0.providedUrl = providedUrl
             $0.token = token
             $0.connectionState = .connecting
@@ -424,10 +430,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             // Final check if cancelled, don't fire connected events
             try Task.checkCancellation()
 
+            connectStopwatch?.record("room_connected")
+
             _state.mutate {
                 $0.connectedUrl = finalUrl
                 $0.connectionState = .connected
             }
+
+            connectStopwatch?.end()
+
             // Publish mic if mic task was created
             if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled {
                 let track = try await createMicrophoneTrackTask.value
