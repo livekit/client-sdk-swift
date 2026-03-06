@@ -18,6 +18,8 @@
 
 import AVFoundation
 
+internal import LiveKitWebRTC
+
 /// An ``AudioEngineObserver`` that configures the `AVAudioSession` based on the state of the audio engine.
 public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @unchecked Sendable {
     /// Controls automatic configuration of the `AVAudioSession` based on audio engine state.
@@ -120,6 +122,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             do {
                 log("AudioSession configuring category to: \(config.category)")
                 try session.setCategory(config.category, mode: config.mode, options: config.categoryOptions)
+                try session.setPreferredIOBufferDuration(LKRTCAudioSessionConfiguration.webRTC().ioBufferDuration)
             } catch {
                 log("AudioSession failed to configure with error: \(error)", .error)
             }
