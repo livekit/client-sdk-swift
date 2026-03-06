@@ -141,17 +141,19 @@ public extension LKTestCase {
                     token: token)
         }
 
-        // Connect all Rooms concurrently
-        try await withThrowingTaskGroup(of: Void.self) { group in
-            for element in rooms {
-                group.addTask {
-                    try await element.room.connect(url: element.url, token: element.token)
-                    XCTAssert(element.room.localParticipant.identity != nil, "LocalParticipant.identity is nil")
-                    print("LocalParticipant.identity: \(String(describing: element.room.localParticipant.identity))")
+        // Connect all Rooms concurrently (retry on transient failure)
+        try await Task.retrying(totalAttempts: 3, retryDelay: 2) { _, _ in
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for element in rooms {
+                    group.addTask {
+                        try await element.room.connect(url: element.url, token: element.token)
+                        XCTAssert(element.room.localParticipant.identity != nil, "LocalParticipant.identity is nil")
+                        print("LocalParticipant.identity: \(String(describing: element.room.localParticipant.identity))")
+                    }
                 }
+                try await group.waitForAll()
             }
-            try await group.waitForAll()
-        }
+        }.value
 
         let observerToken = try liveKitServerToken(for: roomName,
                                                    identity: "observer",
@@ -200,15 +202,19 @@ public extension LKTestCase {
         // Execute block
         try await block(allRooms)
 
-        // Disconnect all Rooms concurrently
+        // Gracefully unpublish all tracks then disconnect.
         try await withThrowingTaskGroup(of: Void.self) { group in
             for element in rooms {
                 group.addTask {
+                    await element.room.localParticipant.unpublishAll()
                     await element.room.disconnect()
                 }
             }
             try await group.waitForAll()
         }
+
+        // Allow the server to fully tear down resources before the next test.
+        try await Task.sleep(nanoseconds: 1_000_000_000)
     }
 }
 

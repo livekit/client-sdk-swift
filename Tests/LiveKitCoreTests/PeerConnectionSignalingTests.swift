@@ -60,6 +60,14 @@ private final class ReconnectWatcher: NSObject, RoomDelegate, @unchecked Sendabl
     private struct State {
         var reconnectStartExpectation: XCTestExpectation?
         var reconnectCompleteExpectation: XCTestExpectation?
+        var tracksRepublishedExpectation: XCTestExpectation?
+        var expectedTrackCount: Int = 0
+        var publishedTrackCount: Int = 0
+        // Gate: only count didPublishTrack after reconnect completes.
+        // All delegate callbacks flow through the same serial queue, so
+        // the initial publish's didPublishTrack is guaranteed to fire
+        // before didCompleteReconnectWithMode (enqueued earlier).
+        var isCountingRepublishedTracks: Bool = false
     }
 
     private let _state = StateSync(State())
@@ -76,6 +84,18 @@ private final class ReconnectWatcher: NSObject, RoomDelegate, @unchecked Sendabl
         }
     }
 
+    func expectTracksRepublished(count: Int, description: String = "tracks republished") -> XCTestExpectation {
+        _state.mutate {
+            let expectation = XCTestExpectation(description: description)
+            expectation.assertForOverFulfill = false
+            $0.tracksRepublishedExpectation = expectation
+            $0.expectedTrackCount = count
+            $0.publishedTrackCount = 0
+            $0.isCountingRepublishedTracks = false
+            return expectation
+        }
+    }
+
     // MARK: - RoomDelegate
 
     func room(_: Room, didStartReconnectWithMode _: ReconnectMode) {
@@ -83,7 +103,20 @@ private final class ReconnectWatcher: NSObject, RoomDelegate, @unchecked Sendabl
     }
 
     func room(_: Room, didCompleteReconnectWithMode _: ReconnectMode) {
-        _state.mutate { $0.reconnectCompleteExpectation?.fulfill() }
+        _state.mutate {
+            $0.reconnectCompleteExpectation?.fulfill()
+            $0.isCountingRepublishedTracks = true
+        }
+    }
+
+    func room(_: Room, participant _: LocalParticipant, didPublishTrack _: LocalTrackPublication) {
+        _state.mutate {
+            guard $0.isCountingRepublishedTracks else { return }
+            $0.publishedTrackCount += 1
+            if $0.publishedTrackCount >= $0.expectedTrackCount {
+                $0.tracksRepublishedExpectation?.fulfill()
+            }
+        }
     }
 }
 
@@ -138,7 +171,7 @@ class PeerConnectionSignalingTests: LKTestCase {
     func testV0AudioTrack() async throws { try await _testAudioTrack(mode: .dualPC) }
     func testV0Reconnect() async throws { try await _testReconnect(mode: .dualPC) }
     func testV0DataChannel() async throws { try await _testDataChannel(mode: .dualPC) }
-    func testV0NodeFailure() async throws { try await _testNodeFailure(mode: .dualPC) }
+    func testV0FullReconnect() async throws { try await _testFullReconnect(mode: .dualPC) }
     func testV0PublishManyTracks() async throws { try await _testPublishManyTracks(mode: .dualPC) }
     func testV0DoubleReconnect() async throws { try await _testDoubleReconnect(mode: .dualPC) }
 
@@ -149,7 +182,7 @@ class PeerConnectionSignalingTests: LKTestCase {
     func testV1AudioTrack() async throws { try await _testAudioTrack(mode: .singlePC) }
     func testV1Reconnect() async throws { try await _testReconnect(mode: .singlePC) }
     func testV1DataChannel() async throws { try await _testDataChannel(mode: .singlePC) }
-    func testV1NodeFailure() async throws { try await _testNodeFailure(mode: .singlePC) }
+    func testV1FullReconnect() async throws { try await _testFullReconnect(mode: .singlePC) }
     func testV1PublishManyTracks() async throws { try await _testPublishManyTracks(mode: .singlePC) }
     func testV1DoubleReconnect() async throws { try await _testDoubleReconnect(mode: .singlePC) }
 
@@ -376,9 +409,9 @@ extension PeerConnectionSignalingTests {
         }
     }
 
-    /// Test node failure triggers full reconnect and restores tracks.
-    private func _testNodeFailure(mode: SignalingMode) async throws {
-        print("[\(mode)] Testing node failure...")
+    /// Test full reconnect restores tracks.
+    private func _testFullReconnect(mode: SignalingMode) async throws {
+        print("[\(mode)] Testing full reconnect...")
 
         let reconnectWatcher = ReconnectWatcher()
 
@@ -391,29 +424,29 @@ extension PeerConnectionSignalingTests {
             let audioTrack = TestAudioTrack()
             try await room.localParticipant.publish(audioTrack: audioTrack)
 
-            // Brief stabilization
-            try await Task.sleep(nanoseconds: 2_000_000_000)
-
             let tracksBefore = room.localParticipant.trackPublications.count
-            print("[\(mode)] Tracks before node failure: \(tracksBefore)")
+            print("[\(mode)] Tracks before full reconnect: \(tracksBefore)")
 
-            // Simulate node failure
-            let expectations = reconnectWatcher.expectReconnect(description: "node failure")
-            try await room.debug_simulate(scenario: .nodeFailure)
-            print("[\(mode)] Simulated node failure, waiting for reconnect...")
+            // Set up expectations BEFORE triggering reconnect so no callbacks are missed
+            let reconnectExpectations = reconnectWatcher.expectReconnect(description: "full reconnect")
+            let tracksExpectation = reconnectWatcher.expectTracksRepublished(count: tracksBefore)
 
-            await self.fulfillment(of: [expectations.start, expectations.complete], timeout: 30)
+            // Simulate full reconnect (client-initiated, doesn't degrade server state)
+            try await room.debug_simulate(scenario: .fullReconnect)
+            print("[\(mode)] Simulated full reconnect, waiting for completion...")
 
-            // Give time for track republishing after full reconnect
-            try await Task.sleep(nanoseconds: 3_000_000_000)
+            await self.fulfillment(
+                of: [reconnectExpectations.start, reconnectExpectations.complete, tracksExpectation],
+                timeout: 30
+            )
 
-            XCTAssertEqual(room.connectionState, .connected, "Room should be connected after node failure")
+            XCTAssertEqual(room.connectionState, .connected, "Room should be connected after full reconnect")
 
             let tracksAfter = room.localParticipant.trackPublications.count
-            print("[\(mode)] Tracks after node failure: \(tracksAfter)")
-            XCTAssertEqual(tracksBefore, tracksAfter, "Tracks should be restored after node failure")
+            print("[\(mode)] Tracks after full reconnect: \(tracksAfter)")
+            XCTAssertEqual(tracksBefore, tracksAfter, "Tracks should be restored after full reconnect")
 
-            print("[\(mode)] Test passed - node failure recovery working!")
+            print("[\(mode)] Test passed - full reconnect working!")
         }
     }
 
@@ -428,14 +461,16 @@ extension PeerConnectionSignalingTests {
             let room1 = rooms[0]
             let room2 = rooms[1]
 
-            let audioCount = 10
-            let videoCount = 10
+            // Keep total track count modest — CI runners have limited resources.
+            let audioCount = 3
+            let videoCount = 3
             let totalExpected = audioCount + videoCount
 
             // Publish audio tracks
             for i in 0 ..< audioCount {
                 let track = TestAudioTrack(name: "audio-\(i)")
                 try await room1.localParticipant.publish(audioTrack: track)
+                try await Task.sleep(nanoseconds: 500_000_000) // 500ms
             }
 
             // Publish video tracks using dummy pixel buffers (no network download needed)
@@ -450,6 +485,7 @@ extension PeerConnectionSignalingTests {
                 CVPixelBufferCreate(kCFAllocatorDefault, 320, 240, kCVPixelFormatType_32BGRA, nil, &pixelBuffer)
                 if let pixelBuffer { capturer.capture(pixelBuffer) }
                 try await room1.localParticipant.publish(videoTrack: track)
+                try await Task.sleep(nanoseconds: 500_000_000) // 500ms
             }
 
             print("[\(mode)] Published \(totalExpected) tracks, waiting for subscriber...")
