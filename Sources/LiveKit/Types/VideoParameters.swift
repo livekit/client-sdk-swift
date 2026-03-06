@@ -258,7 +258,7 @@ public extension VideoParameters {
 
     static let presetScreenShareH720FPS5 = VideoParameters(
         dimensions: .h720_169,
-        encoding: VideoEncoding(maxBitrate: 400_000, maxFps: 5)
+        encoding: VideoEncoding(maxBitrate: 800_000, maxFps: 5)
     )
 
     static let presetScreenShareH720FPS15 = VideoParameters(
@@ -273,6 +273,6 @@ public extension VideoParameters {
 
     static let presetScreenShareH1080FPS30 = VideoParameters(
         dimensions: .h1080_169,
-        encoding: VideoEncoding(maxBitrate: 4_000_000, maxFps: 30)
+        encoding: VideoEncoding(maxBitrate: 5_000_000, maxFps: 30)
     )
 }
