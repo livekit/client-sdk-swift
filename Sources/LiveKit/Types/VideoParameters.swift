@@ -82,7 +82,9 @@ extension VideoParameters {
             let fps: Int
         }
 
-        let layers = [Layer(scaleDownBy: 2, fps: 3)]
+        let layers = [
+            Layer(scaleDownBy: 2, fps: encoding.maxFps),
+        ]
 
         return layers.map {
             let dimensions = Dimensions(width: Int32((Double(dimensions.width) / $0.scaleDownBy).rounded(.down)),
