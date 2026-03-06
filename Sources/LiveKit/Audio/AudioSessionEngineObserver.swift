@@ -19,6 +19,13 @@
 import AVFoundation
 
 /// An ``AudioEngineObserver`` that configures the `AVAudioSession` based on the state of the audio engine.
+/// Preferred sample rate in Hz, matching WebRTC's default.
+private let kPreferredSampleRate: Double = 48000.0
+
+/// Preferred IO buffer duration in seconds (20ms), matching WebRTC's default.
+/// At 48kHz this equals 960 frames, well within AVAudioEngine's maxFramesPerSlice limit.
+private let kPreferredIOBufferDuration: TimeInterval = 0.02
+
 public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @unchecked Sendable {
     /// Controls automatic configuration of the `AVAudioSession` based on audio engine state.
     ///
@@ -123,6 +130,20 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             } catch {
                 log("AudioSession failed to configure with error: \(error)", .error)
             }
+
+            #if !targetEnvironment(macCatalyst)
+            do {
+                try session.setPreferredSampleRate(kPreferredSampleRate)
+            } catch {
+                log("AudioSession failed to set preferred sample rate with error: \(error)", .error)
+            }
+
+            do {
+                try session.setPreferredIOBufferDuration(kPreferredIOBufferDuration)
+            } catch {
+                log("AudioSession failed to set preferred IO buffer duration with error: \(error)", .error)
+            }
+            #endif
 
             if !oldState.isPlayoutEnabled, !oldState.isRecordingEnabled {
                 do {
