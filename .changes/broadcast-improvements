@@ -1,0 +1,1 @@
+patch type="fixed" "Screen share via broadcast extension showing 3fps on receiver due to hardcoded simulcast layer FPS"
