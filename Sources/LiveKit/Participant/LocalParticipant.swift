@@ -86,7 +86,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
             return await _notifyDidUnpublish()
         }
 
-        if let publisher = room._state.publisher, let sender = track._state.rtpSender {
+        if let publisher = room._state.transport?.publisher, let sender = track._state.rtpSender {
             // Remove all simulcast senders...
             let simulcastSenders = track._state.read { Array($0.rtpSenderForCodec.values) }
             for simulcastSender in simulcastSenders {

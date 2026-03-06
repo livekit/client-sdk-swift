@@ -23,6 +23,7 @@ public struct RoomTestingOptions {
     public let token: String?
     public let enableMicrophone: Bool
     public let encryptionOptions: EncryptionOptions?
+    public let singlePeerConnection: Bool
 
     // Perms
     public let canPublish: Bool
@@ -35,6 +36,7 @@ public struct RoomTestingOptions {
                 token: String? = nil,
                 enableMicrophone: Bool = false,
                 encryptionOptions: EncryptionOptions? = nil,
+                singlePeerConnection: Bool = false,
                 canPublish: Bool = false,
                 canPublishData: Bool = false,
                 canPublishSources: Set<Track.Source> = [],
@@ -45,6 +47,7 @@ public struct RoomTestingOptions {
         self.token = token
         self.enableMicrophone = enableMicrophone
         self.encryptionOptions = encryptionOptions
+        self.singlePeerConnection = singlePeerConnection
         self.canPublish = canPublish
         self.canPublishData = canPublishData
         self.canPublishSources = canPublishSources
@@ -115,7 +118,7 @@ public extension LKTestCase {
 
             // Room options
             let encryptionOptions = $0.element.encryptionOptions ?? EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
-            let roomOptions = RoomOptions(encryptionOptions: encryptionOptions, reportRemoteTrackStatistics: true)
+            let roomOptions = RoomOptions(encryptionOptions: encryptionOptions, reportRemoteTrackStatistics: true, singlePeerConnection: $0.element.singlePeerConnection)
 
             let room = Room(delegate: $0.element.delegate, connectOptions: connectOptions, roomOptions: roomOptions)
             let identity = "identity-\($0.offset)"
@@ -138,17 +141,19 @@ public extension LKTestCase {
                     token: token)
         }
 
-        // Connect all Rooms concurrently
-        try await withThrowingTaskGroup(of: Void.self) { group in
-            for element in rooms {
-                group.addTask {
-                    try await element.room.connect(url: element.url, token: element.token)
-                    XCTAssert(element.room.localParticipant.identity != nil, "LocalParticipant.identity is nil")
-                    print("LocalParticipant.identity: \(String(describing: element.room.localParticipant.identity))")
+        // Connect all Rooms concurrently (retry on transient failure)
+        try await Task.retrying(totalAttempts: 3, retryDelay: 2) { _, _ in
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for element in rooms {
+                    group.addTask {
+                        try await element.room.connect(url: element.url, token: element.token)
+                        XCTAssert(element.room.localParticipant.identity != nil, "LocalParticipant.identity is nil")
+                        print("LocalParticipant.identity: \(String(describing: element.room.localParticipant.identity))")
+                    }
                 }
+                try await group.waitForAll()
             }
-            try await group.waitForAll()
-        }
+        }.value
 
         let observerToken = try liveKitServerToken(for: roomName,
                                                    identity: "observer",
@@ -197,15 +202,19 @@ public extension LKTestCase {
         // Execute block
         try await block(allRooms)
 
-        // Disconnect all Rooms concurrently
+        // Gracefully unpublish all tracks then disconnect.
         try await withThrowingTaskGroup(of: Void.self) { group in
             for element in rooms {
                 group.addTask {
+                    await element.room.localParticipant.unpublishAll()
                     await element.room.disconnect()
                 }
             }
             try await group.waitForAll()
         }
+
+        // Allow the server to fully tear down resources before the next test.
+        try await Task.sleep(nanoseconds: 1_000_000_000)
     }
 }
 
