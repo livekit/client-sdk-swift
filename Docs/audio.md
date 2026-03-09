@@ -122,7 +122,7 @@ You can control how mic mute/unmute works:
 try AudioManager.shared.set(microphoneMuteMode: .voiceProcessing)
 ```
 
-- `.voiceProcessing` (default): Uses `AVAudioEngine.isVoiceProcessingInputMuted`. Fast and does not reconfigure the audio session on mute/unmute. iOS plays a short system sound when muting or unmuting.
+- `.voiceProcessing` (default): Uses the Voice Processing I/O mute API internally. Fast and does not reconfigure the audio session on mute/unmute. iOS plays a short system sound when muting or unmuting.
 - `.restart`: Shuts down the audio engine on mute and restarts it on unmute. This deactivates and reconfigures the audio session, so it is slower and may affect audio session category or volume. No system sound is played. Not recommended for most apps.
 - `.inputMixer`: Mutes the input mixer only. The audio engine keeps running and the mic indicator remains on. No system sound is played.
 
@@ -134,7 +134,7 @@ try AudioManager.shared.set(microphoneMuteMode: .voiceProcessing)
 
 Notes:
 
-- `.voiceProcessing` uses `AVAudioInputNode.isVoiceProcessingInputMuted`. In our testing,
+- `.voiceProcessing` uses the Voice Processing I/O mute API. In our testing,
   this can behave like an app-wide mute for voice-processing input, affecting other
   `AVAudioEngine` instances that use the mic. If you have another engine that uses mic
   input, consider `.inputMixer` or manage muting yourself.
