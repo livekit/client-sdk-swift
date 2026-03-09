@@ -16,18 +16,31 @@
 
 import Foundation
 
-@objc
+@objcMembers
 public final class VideoEncoding: NSObject, MediaEncoding, Sendable {
-    @objc
     public let maxBitrate: Int
 
-    @objc
     public let maxFps: Int
 
-    @objc
+    /// Priority for bandwidth allocation.
+    public let bitratePriority: Priority?
+
+    /// Priority for DSCP marking.
+    /// Requires `ConnectOptions.isDscpEnabled` to be true.
+    public let networkPriority: Priority?
+
     public init(maxBitrate: Int, maxFps: Int) {
         self.maxBitrate = maxBitrate
         self.maxFps = maxFps
+        bitratePriority = nil
+        networkPriority = nil
+    }
+
+    public init(maxBitrate: Int, maxFps: Int, bitratePriority: Priority?, networkPriority: Priority?) {
+        self.maxBitrate = maxBitrate
+        self.maxFps = maxFps
+        self.bitratePriority = bitratePriority
+        self.networkPriority = networkPriority
     }
 
     // MARK: - Equal
@@ -35,13 +48,17 @@ public final class VideoEncoding: NSObject, MediaEncoding, Sendable {
     override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
         return maxBitrate == other.maxBitrate &&
-            maxFps == other.maxFps
+            maxFps == other.maxFps &&
+            bitratePriority == other.bitratePriority &&
+            networkPriority == other.networkPriority
     }
 
     override public var hash: Int {
         var hasher = Hasher()
         hasher.combine(maxBitrate)
         hasher.combine(maxFps)
+        hasher.combine(bitratePriority)
+        hasher.combine(networkPriority)
         return hasher.finalize()
     }
 }

@@ -186,6 +186,33 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
 
         return next?.engineWillConnectOutput(engine, src: src, dst: dst, format: format, context: context) ?? 0
     }
+
+    public func engineWillStart(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
+        log("isPlayoutEnabled: \(isPlayoutEnabled), isRecordingEnabled: \(isRecordingEnabled)")
+        let (micNode, appNode) = _state.read {
+            ($0.micNode, $0.appNode)
+        }
+
+        micNode.reset()
+        appNode.reset()
+
+        return next?.engineWillStart(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
+    }
+
+    public func engineDidStop(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
+        log("isPlayoutEnabled: \(isPlayoutEnabled), isRecordingEnabled: \(isRecordingEnabled)")
+        // Invoke next first
+        let nextResult = next?.engineDidStop(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+
+        let (micNode, appNode) = _state.read {
+            ($0.micNode, $0.appNode)
+        }
+
+        micNode.stop()
+        appNode.stop()
+
+        return nextResult ?? 0
+    }
 }
 
 extension MixerEngineObserver {

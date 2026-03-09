@@ -16,7 +16,7 @@
 
 internal import LiveKitWebRTC
 
-@objc
+@objcMembers
 public class RemoteVideoTrack: Track, RemoteTrackProtocol, @unchecked Sendable {
     init(name: String,
          source: Track.Source,

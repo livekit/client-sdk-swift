@@ -17,15 +17,13 @@
 import Foundation
 
 /// Options used when establishing a connection.
-@objc
+@objcMembers
 public final class ConnectOptions: NSObject, Sendable {
     /// Automatically subscribe to ``RemoteParticipant``'s tracks.
     /// Defaults to true.
-    @objc
     public let autoSubscribe: Bool
 
     /// The number of attempts to reconnect when the network disconnects.
-    @objc
     public let reconnectAttempts: Int
 
     /// The minimum delay value for reconnection attempts.
@@ -33,7 +31,6 @@ public final class ConnectOptions: NSObject, Sendable {
     ///
     /// This value serves as the starting point for the easeOutCirc reconnection curve.
     /// See `reconnectMaxDelay` for more details on how the reconnection delay is calculated.
-    @objc
     public let reconnectAttemptDelay: TimeInterval
 
     /// The maximum delay between reconnect attempts.
@@ -53,35 +50,30 @@ public final class ConnectOptions: NSObject, Sendable {
     ///
     /// This approach provides larger delays early in the reconnection sequence to reduce
     /// unnecessary network traffic when connections are likely to fail.
-    @objc
     public let reconnectMaxDelay: TimeInterval
 
     /// The timeout interval for the initial websocket connection.
-    @objc
     public let socketConnectTimeoutInterval: TimeInterval
 
-    @objc
     public let primaryTransportConnectTimeout: TimeInterval
 
-    @objc
     public let publisherTransportConnectTimeout: TimeInterval
 
     /// Custom ice servers
-    @objc
     public let iceServers: [IceServer]
 
-    @objc
     public let iceTransportPolicy: IceTransportPolicy
 
+    /// Allows DSCP codes to be set on outgoing packets when network priority is used.
+    /// Defaults to false.
+    public let isDscpEnabled: Bool
+
     /// Enable microphone concurrently while connecting.
-    @objc
     public let enableMicrophone: Bool
 
     /// LiveKit server protocol version to use. Generally, it's not recommended to change this.
-    @objc
     public let protocolVersion: ProtocolVersion
 
-    @objc
     override public init() {
         autoSubscribe = true
         reconnectAttempts = 10
@@ -92,11 +84,11 @@ public final class ConnectOptions: NSObject, Sendable {
         publisherTransportConnectTimeout = .defaultTransportState
         iceServers = []
         iceTransportPolicy = .all
+        isDscpEnabled = false
         enableMicrophone = false
         protocolVersion = .v16
     }
 
-    @objc
     public init(autoSubscribe: Bool = true,
                 reconnectAttempts: Int = 10,
                 reconnectAttemptDelay: TimeInterval = .defaultReconnectDelay,
@@ -106,6 +98,7 @@ public final class ConnectOptions: NSObject, Sendable {
                 publisherTransportConnectTimeout: TimeInterval = .defaultTransportState,
                 iceServers: [IceServer] = [],
                 iceTransportPolicy: IceTransportPolicy = .all,
+                isDscpEnabled: Bool = false,
                 enableMicrophone: Bool = false,
                 protocolVersion: ProtocolVersion = .v16)
     {
@@ -118,6 +111,7 @@ public final class ConnectOptions: NSObject, Sendable {
         self.publisherTransportConnectTimeout = publisherTransportConnectTimeout
         self.iceServers = iceServers
         self.iceTransportPolicy = iceTransportPolicy
+        self.isDscpEnabled = isDscpEnabled
         self.enableMicrophone = enableMicrophone
         self.protocolVersion = protocolVersion
     }
@@ -135,6 +129,7 @@ public final class ConnectOptions: NSObject, Sendable {
             publisherTransportConnectTimeout == other.publisherTransportConnectTimeout &&
             iceServers == other.iceServers &&
             iceTransportPolicy == other.iceTransportPolicy &&
+            isDscpEnabled == other.isDscpEnabled &&
             enableMicrophone == other.enableMicrophone &&
             protocolVersion == other.protocolVersion
     }
@@ -150,6 +145,7 @@ public final class ConnectOptions: NSObject, Sendable {
         hasher.combine(publisherTransportConnectTimeout)
         hasher.combine(iceServers)
         hasher.combine(iceTransportPolicy)
+        hasher.combine(isDscpEnabled)
         hasher.combine(enableMicrophone)
         hasher.combine(protocolVersion)
         return hasher.finalize()

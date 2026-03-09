@@ -81,6 +81,10 @@ jobs:
             tsan: true
           - os: macos-26
             xcode: 26.1
+            platform: "macOS"
+            strict-concurrency-env: true
+          - os: macos-26
+            xcode: 26.1
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-26
             xcode: 26.1
@@ -125,6 +129,8 @@ jobs:
 
       - name: Run Tests
         uses: nick-fields/retry@v3
+        env:
+          LIBDISPATCH_COOPERATIVE_POOL_STRICT: ${{ matrix.strict-concurrency-env == true && '1' || '' }}
         with:
           timeout_minutes: ${{ env.TEST_TIMEOUT_MINUTES }}
           max_attempts: ${{ env.TEST_RETRY_ATTEMPTS }}

@@ -16,38 +16,30 @@
 
 import Foundation
 
-@objc
+@objcMembers
 public class ParticipantPermissions: NSObject, @unchecked Sendable {
     /// ``Participant`` can subscribe to tracks in the room
-    @objc
     public let canSubscribe: Bool
 
     /// ``Participant`` can publish new tracks to room
-    @objc
     public let canPublish: Bool
 
     /// ``Participant`` can publish data
-    @objc
     public let canPublishData: Bool
 
     /// ``Participant`` can publish allowed sources
-    @objc
     public let canPublishSources: Set<Track.Source.RawValue>
 
     /// ``Participant`` is hidden to others
-    @objc
     public let hidden: Bool
 
     /// Indicates it's a recorder instance
-    @objc
     public let recorder: Bool
 
     /// Indicates participant can update own metadata and attributes
-    @objc
     public let canUpdateMetadata: Bool
 
     /// Indicates participant can subscribe to metrics
-    @objc
     public let canSubscribeMetrics: Bool
 
     init(canSubscribe: Bool = false,

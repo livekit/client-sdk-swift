@@ -1,4 +1,4 @@
-# Audio related
+# Audio
 
 ## Disabling automatic `AVAudioSession` configuration
 
@@ -10,20 +10,41 @@ AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false
 
 ## Audio engine observers
 
-The SDK uses an `AudioEngineObserver` chain to configure and wire up the audio engine.
-On iOS/visionOS/tvOS, the default is:
+The SDK configures and wires the internal audio engine through an `AudioEngineObserver` chain.
+On iOS, visionOS, and tvOS, the default chain is:
 
 ```swift
 AudioManager.shared.set(engineObservers: [AudioManager.shared.audioSession, AudioManager.shared.mixer])
 ```
 
-If you only want to manage `AVAudioSession` yourself, prefer setting
-`AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false` and keep the
-default observers.
+If you only want to manage `AVAudioSession` yourself, keep the default observers and set
+`AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false`.
 
-Setting `AudioManager.shared.set(engineObservers: [])` disables all observers (no session
-handling and no mixer setup). Do this only once early in app startup; changing the chain
-while the engine is in use can cause rebuilds or unexpected behavior.
+On macOS, the default chain is:
+
+```swift
+AudioManager.shared.set(engineObservers: [AudioManager.shared.mixer])
+```
+
+Set a custom observer chain only if you need custom lifecycle hooks or audio graph wiring.
+Setting `AudioManager.shared.set(engineObservers: [])` disables all observers, including
+session handling and mixer setup. Configure the chain once early in app startup, and avoid
+changing it while the engine is in use.
+
+## Disabling automatic `AVAudioSession` deactivation
+
+> Note: If `isAutomaticConfigurationEnabled` is `false`, the SDK does not touch the audio
+> session, so this setting has no effect.
+
+By default, the SDK deactivates the `AVAudioSession` when both playout and recording are disabled (e.g., after disconnecting from a room). This allows other apps' audio (like Music) to resume.
+
+However, if your app has its own audio features that could be disrupted by deactivating the audio session, you can disable automatic deactivation:
+
+```swift
+AudioManager.shared.audioSession.isAutomaticDeactivationEnabled = false
+```
+
+When set to `false`, the audio session remains active after the LiveKit call ends, preserving your app's audio state.
 
 ## Disabling Voice Processing
 
@@ -44,6 +65,29 @@ AudioManager.shared.isVoiceProcessingBypassed = true
 ```
 
 Set it back to `false` to re-enable processing. This uses `AVAudioEngine`'s [isVoiceProcessingBypassed](https://developer.apple.com/documentation/avfaudio/avaudioinputnode/isvoiceprocessingbypassed) and works seamlessly at run-time.
+
+## Other audio ducking
+
+When using Apple's voice processing APIs, the system may *duck* (lower) *other audio* so the voice chat stays intelligible.
+
+- **What is "other audio"**: Any playback that is *not* the voice-chat stream rendered through the voice processing path (for example, media playback in your app outside the SDK, or audio from other apps).
+- **SDK default behavior**: The SDK defaults to minimal ducking with fixed behavior (`isAdvancedDuckingEnabled = false`) and a ducking level of `.min` (when available). This is intended to keep other audio as loud as possible. Stronger or dynamic ducking is opt-in.
+
+The SDK exposes two controls:
+
+- `AudioManager.shared.isAdvancedDuckingEnabled`: When enabled, ducking becomes dynamic based on voice activity from either side of the call (more ducking while someone is speaking, less ducking during silence).
+- `AudioManager.shared.duckingLevel`: Controls how much other audio is lowered (`.default`, `.min`, `.mid`, `.max`). `.default` matches Apple's historical fixed ducking amount.
+
+Example:
+
+```swift
+// Dynamic ducking based on voice activity (FaceTime / SharePlay-like behavior).
+AudioManager.shared.isAdvancedDuckingEnabled = true
+// Control the ducking amount (availability depends on the OS).
+AudioManager.shared.duckingLevel = .max // maximize voice intelligibility
+```
+
+> **NOTE**: These settings apply when the SDK is using Apple's voice processing (default). If you disable voice processing, other-audio ducking does not apply.
 
 ## Always-prepared recording mode
 
@@ -97,6 +141,7 @@ Notes:
 - If your other engines are playback-only, there is typically no impact.
 
 If you disable automatic audio session configuration (`AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false`), the SDK will not touch the session category. Make sure your app sets `.playAndRecord` before unmuting or publishing the mic.
+
 ## Capturing Audio Buffers
 
 The SDK supports capturing custom audio buffers (`AVAudioPCMBuffer`) instead of or in addition to microphone input.
@@ -107,7 +152,7 @@ To capture custom audio buffers while still using the microphone:
 
 1. Enable the microphone:
    ```swift
-   room.localParticipant.setMicrophone(enabled: true)
+   try await room.localParticipant.setMicrophone(enabled: true)
    ```
 
 2. Repeatedly call the capture method with your audio buffers:
@@ -126,7 +171,7 @@ For applications that need to provide audio without accessing the device's micro
 
 2. Enable the microphone track (this won't access the physical microphone in manual mode):
    ```swift
-   room.localParticipant.setMicrophone(enabled: true)
+   try await room.localParticipant.setMicrophone(enabled: true)
    ```
 
 3. Provide audio buffers continuously:

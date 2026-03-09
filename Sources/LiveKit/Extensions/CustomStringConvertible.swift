@@ -191,10 +191,12 @@ extension LKRTCRtpEncodingParameters {
         "RTCRtpEncodingParameters(" +
             "rid: \(String(describing: rid)), " +
             "isActive: \(String(describing: isActive)), " +
-            "minBitrateBps: \(String(describing: minBitrateBps))" +
-            "maxBitrateBps: \(String(describing: maxBitrateBps))" +
-            "maxFramerate: \(String(describing: maxFramerate))" +
-            "scaleResolutionDownBy: \(String(describing: scaleResolutionDownBy))" +
+            "minBitrateBps: \(String(describing: minBitrateBps)), " +
+            "maxBitrateBps: \(String(describing: maxBitrateBps)), " +
+            "maxFramerate: \(String(describing: maxFramerate)), " +
+            "scaleResolutionDownBy: \(String(describing: scaleResolutionDownBy)), " +
+            "bitratePriority: \(bitratePriority), " +
+            "networkPriority: \(networkPriority)" +
             ")"
     }
 }

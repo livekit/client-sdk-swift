@@ -46,15 +46,12 @@ extension Collection<VideoParameters> {
     }
 }
 
-@objc
+@objcMembers
 public final class VideoParameters: NSObject, Sendable {
-    @objc
     public let dimensions: Dimensions
 
-    @objc
     public let encoding: VideoEncoding
 
-    @objc
     public init(dimensions: Dimensions, encoding: VideoEncoding) {
         self.dimensions = dimensions
         self.encoding = encoding
@@ -91,9 +88,14 @@ extension VideoParameters {
             let dimensions = Dimensions(width: Int32((Double(dimensions.width) / $0.scaleDownBy).rounded(.down)),
                                         height: Int32((Double(dimensions.height) / $0.scaleDownBy).rounded(.down)))
             let bitrate2 = Int((Double(encoding.maxBitrate) / (pow(Double($0.scaleDownBy), 2) * (Double(encoding.maxFps) / Double($0.fps)))).rounded(.down))
-            let encoding = VideoEncoding(maxBitrate: Swift.max(150_000, bitrate2), maxFps: $0.fps)
+            let layerEncoding = VideoEncoding(
+                maxBitrate: Swift.max(150_000, bitrate2),
+                maxFps: $0.fps,
+                bitratePriority: encoding.bitratePriority,
+                networkPriority: encoding.networkPriority
+            )
 
-            return VideoParameters(dimensions: dimensions, encoding: encoding)
+            return VideoParameters(dimensions: dimensions, encoding: layerEncoding)
         }
     }
 

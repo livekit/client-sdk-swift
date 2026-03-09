@@ -12,10 +12,21 @@ on:
         type: string
   release:
     types: [published]
+
+permissions:
+  contents: read
+
 jobs:
-  publish:
-    name: Publish Docs
-    runs-on: ubuntu-latest
+  symbol-graph:
+    name: Symbol Graph (${{ matrix.artifact_name }})
+    runs-on: macos-26
+    strategy:
+      matrix:
+        include:
+          - platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.1"
+            artifact_name: symbol-graph-ios
+          - platform: "macOS"
+            artifact_name: symbol-graph-macos
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,24 +35,59 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Get Commit SHA
-        id: get_commit
-        run: |
-          COMMIT_SHA=$(git rev-parse HEAD)
-          echo "commit_sha=${COMMIT_SHA}" >> $GITHUB_OUTPUT
-          echo "Using commit SHA: ${COMMIT_SHA}"
-
-      - name: Download Archive
-        uses: dawidd6/action-download-artifact@v9
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
         with:
-          workflow: ci.yaml
-          workflow_search: false
-          commit: ${{ steps.get_commit.outputs.commit_sha }}
-          name: docs
-          if_no_artifact_found: fail
+          xcode-version: "26.1"
 
-      - name: Unzip Archive
-        run: unzip docs.zip
+      - name: Build for Release - Symbol Graph
+        run: |
+          set -o pipefail && xcodebuild build \
+            -scheme LiveKit \
+            -configuration Release \
+            -destination 'platform=${{ matrix.platform }}' \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+            OTHER_SWIFT_FLAGS="-Xfrontend -emit-symbol-graph -Xfrontend -emit-symbol-graph-dir -Xfrontend \"${PWD}/symbol-graph\"" \
+            DOCC_EXTRACT_EXTENSION_SYMBOLS=YES \
+            | xcbeautify --renderer github-actions
+
+      - name: Upload Symbol Graph
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: symbol-graph
+
+  publish:
+    name: Publish Docs
+    needs: symbol-graph
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.ref || 'main' }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.1"
+
+      - name: Download Symbol Graphs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: symbol-graph-*
+          path: symbol-graphs
+
+      - name: Build Docs
+        run: |
+          $(xcrun --find docc) convert \
+            Sources/LiveKit/LiveKit.docc \
+            --output-dir docs \
+            --additional-symbol-graph-dir symbol-graphs \
+            --transform-for-static-hosting \
+            --hosting-base-path /reference/client-sdk-swift/
 
       - name: List Files
         run: ls -la docs
