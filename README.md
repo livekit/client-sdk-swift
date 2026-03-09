@@ -180,7 +180,7 @@ AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false
 
 - `AVAudioSession` must be configured and activated with category `.playAndRecord` and mode `.voiceChat` or `.videoChat` before enabling/publishing the microphone (so the audio engine can start).
 
-To get specific timings of the audio engine lifecycle, you can provide your own `AudioEngineObserver` chain with `AudioManager.shared.set(engineObservers:)`. The default chain is `AudioManager.shared.set(engineObservers: [AudioManager.shared.audioSession, AudioManager.shared.mixer])` on iOS, visionOS, and tvOS, and `AudioManager.shared.set(engineObservers: [AudioManager.shared.mixer])` on macOS. Configure this once early in app startup and avoid changing it while the engine is in use.
+To get specific timings of the audio engine lifecycle, you can provide your own `AudioEngineObserver` chain with `AudioManager.shared.set(engineObservers:)`. Configure this once early in app startup and avoid changing it while the engine is in use.
 
 See the default `AudioSessionEngineObserver` for an example of how an `AudioEngineObserver` can configure the audio session.
 
