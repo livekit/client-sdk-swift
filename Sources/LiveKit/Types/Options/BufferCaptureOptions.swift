@@ -18,12 +18,10 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-@objc
+@objcMembers
 public final class BufferCaptureOptions: NSObject, VideoCaptureOptions, Sendable {
-    @objc
     public let dimensions: Dimensions
 
-    @objc
     public let fps: Int
 
     public init(dimensions: Dimensions = .h1080_169,

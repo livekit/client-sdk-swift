@@ -296,7 +296,7 @@ public enum MacOSScreenShareSourceType: Int, Sendable {
 @objc
 public protocol MacOSScreenCaptureSource: AnyObject {}
 
-@objc
+@objcMembers
 public class MacOSRunningApplication: NSObject {
     public let processID: pid_t
     public let bundleIdentifier: String
@@ -324,7 +324,7 @@ public class MacOSRunningApplication: NSObject {
     }
 }
 
-@objc
+@objcMembers
 public class MacOSWindow: NSObject, MacOSScreenCaptureSource {
     public let windowID: CGWindowID
     public let frame: CGRect
@@ -345,6 +345,7 @@ public class MacOSWindow: NSObject, MacOSScreenCaptureSource {
         nativeType = scWindow
     }
 
+    @objc(initFromWindowID:)
     init(from windowID: CGWindowID) {
         self.windowID = windowID
 
@@ -373,7 +374,7 @@ public class MacOSWindow: NSObject, MacOSScreenCaptureSource {
     }
 }
 
-@objc
+@objcMembers
 public class MacOSDisplay: NSObject, MacOSScreenCaptureSource {
     public let displayID: CGDirectDisplayID
     public let width: Int

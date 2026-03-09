@@ -18,7 +18,7 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-@objc
+@objcMembers
 public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
     // Default values for platform
     #if targetEnvironment(simulator)
@@ -45,22 +45,17 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
     /// Whether to enable software (WebRTC's) echo cancellation.
     /// By default, Apple's voice processing is already enabled.
     /// See ``AudioManager/isVoiceProcessingBypassed`` for details.
-    @objc
     public let echoCancellation: Bool
 
     /// Whether to enable software (WebRTC's) gain control.
     /// By default, Apple's gain control is already enabled.
     /// See ``AudioManager/isVoiceProcessingAGCEnabled`` for details.
-    @objc
     public let autoGainControl: Bool
 
-    @objc
     public let noiseSuppression: Bool
 
-    @objc
     public let highpassFilter: Bool
 
-    @objc
     public let typingNoiseDetection: Bool
 
     public init(

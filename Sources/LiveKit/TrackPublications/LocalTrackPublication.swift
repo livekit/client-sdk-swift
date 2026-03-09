@@ -17,7 +17,7 @@
 import Combine
 import Foundation
 
-@objc
+@objcMembers
 public class LocalTrackPublication: TrackPublication, @unchecked Sendable {
     // indicates whether the track was suspended(muted) by the SDK
     var _suspended: Bool = false

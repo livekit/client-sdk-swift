@@ -19,61 +19,45 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-@objc
+@objcMembers
 public class Participant: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
 
     public let delegates = MulticastDelegate<ParticipantDelegate>(label: "ParticipantDelegate")
 
-    @objc
     public var sid: Sid? { _state.sid }
 
-    @objc
     public var identity: Identity? { _state.identity }
 
-    @objc
     public var name: String? { _state.name }
 
-    @objc
     public var audioLevel: Float { _state.audioLevel }
 
-    @objc
     public var isSpeaking: Bool { _state.isSpeaking }
 
-    @objc
     public var lastSpokeAt: Date? { _state.lastSpokeAt }
 
-    @objc
     public var metadata: String? { _state.metadata }
 
-    @objc
     public var attributes: [String: String] { _state.attributes }
 
-    @objc
     public var state: ParticipantState { _state.state }
 
-    @objc
     public var connectionQuality: ConnectionQuality { _state.connectionQuality }
 
-    @objc
     public var permissions: ParticipantPermissions { _state.permissions }
 
-    @objc
     public var joinedAt: Date? { _state.joinedAt }
 
     /// The kind of participant (i.e. a standard client participant, AI agent, etc.)
-    @objc
     public var kind: Kind { _state.kind }
 
-    @objc
     public var trackPublications: [Track.Sid: TrackPublication] { _state.trackPublications }
 
-    @objc
     public var audioTracks: [TrackPublication] {
         _state.trackPublications.values.filter { $0.kind == .audio }
     }
 
-    @objc
     public var videoTracks: [TrackPublication] {
         _state.trackPublications.values.filter { $0.kind == .video }
     }

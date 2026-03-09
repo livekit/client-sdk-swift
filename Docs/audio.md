@@ -1,4 +1,4 @@
-# Audio related
+# Audio
 
 ## Disabling automatic `AVAudioSession` configuration
 
@@ -8,9 +8,33 @@ By default, the SDK automatically configures the `AVAudioSession`. However, this
 AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false
 ```
 
+## Audio engine observers
+
+The SDK configures and wires the internal audio engine through an `AudioEngineObserver` chain.
+On iOS, visionOS, and tvOS, the default chain is:
+
+```swift
+AudioManager.shared.set(engineObservers: [AudioManager.shared.audioSession, AudioManager.shared.mixer])
+```
+
+If you only want to manage `AVAudioSession` yourself, keep the default observers and set
+`AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false`.
+
+On macOS, the default chain is:
+
+```swift
+AudioManager.shared.set(engineObservers: [AudioManager.shared.mixer])
+```
+
+Set a custom observer chain only if you need custom lifecycle hooks or audio graph wiring.
+Setting `AudioManager.shared.set(engineObservers: [])` disables all observers, including
+session handling and mixer setup. Configure the chain once early in app startup, and avoid
+changing it while the engine is in use.
+
 ## Disabling automatic `AVAudioSession` deactivation
 
-> **Note**: If you have already set `isAutomaticConfigurationEnabled = false`, you don't need to worry about this setting since the SDK won't touch the audio session at all.
+> Note: If `isAutomaticConfigurationEnabled` is `false`, the SDK does not touch the audio
+> session, so this setting has no effect.
 
 By default, the SDK deactivates the `AVAudioSession` when both playout and recording are disabled (e.g., after disconnecting from a room). This allows other apps' audio (like Music) to resume.
 
@@ -98,7 +122,7 @@ You can control how mic mute/unmute works:
 try AudioManager.shared.set(microphoneMuteMode: .voiceProcessing)
 ```
 
-- `.voiceProcessing` (default): Uses `AVAudioEngine.isVoiceProcessingInputMuted`. Fast and does not reconfigure the audio session on mute/unmute. iOS plays a short system sound when muting or unmuting.
+- `.voiceProcessing` (default): Uses the Voice Processing I/O mute API internally. Fast and does not reconfigure the audio session on mute/unmute. iOS plays a short system sound when muting or unmuting.
 - `.restart`: Shuts down the audio engine on mute and restarts it on unmute. This deactivates and reconfigures the audio session, so it is slower and may affect audio session category or volume. No system sound is played. Not recommended for most apps.
 - `.inputMixer`: Mutes the input mixer only. The audio engine keeps running and the mic indicator remains on. No system sound is played.
 
@@ -108,7 +132,16 @@ try AudioManager.shared.set(microphoneMuteMode: .voiceProcessing)
 | `.restart` | No | Turns off | Slow |
 | `.inputMixer` | No | Remains on | Fast |
 
+Notes:
+
+- `.voiceProcessing` uses the Voice Processing I/O mute API. In our testing,
+  this can behave like an app-wide mute for voice-processing input, affecting other
+  `AVAudioEngine` instances that use the mic. If you have another engine that uses mic
+  input, consider `.inputMixer` or manage muting yourself.
+- If your other engines are playback-only, there is typically no impact.
+
 If you disable automatic audio session configuration (`AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false`), the SDK will not touch the session category. Make sure your app sets `.playAndRecord` before unmuting or publishing the mic.
+
 ## Capturing Audio Buffers
 
 The SDK supports capturing custom audio buffers (`AVAudioPCMBuffer`) instead of or in addition to microphone input.
@@ -119,7 +152,7 @@ To capture custom audio buffers while still using the microphone:
 
 1. Enable the microphone:
    ```swift
-   room.localParticipant.setMicrophone(enabled: true)
+   try await room.localParticipant.setMicrophone(enabled: true)
    ```
 
 2. Repeatedly call the capture method with your audio buffers:
@@ -138,7 +171,7 @@ For applications that need to provide audio without accessing the device's micro
 
 2. Enable the microphone track (this won't access the physical microphone in manual mode):
    ```swift
-   room.localParticipant.setMicrophone(enabled: true)
+   try await room.localParticipant.setMicrophone(enabled: true)
    ```
 
 3. Provide audio buffers continuously:
