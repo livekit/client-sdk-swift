@@ -144,14 +144,9 @@ actor SignalClient: Loggable {
                                              token: token,
                                              connectOptions: connectOptions)
 
-            // Store immediately so cleanUp() can close it and identity checks work
-            _state.mutate { $0.socket = socket }
-
-            let messageLoopTask = socket.subscribe(self, state: socket) { observer, message, socket in
-                guard observer._state.socket === socket else { return }
+            let messageLoopTask = socket.subscribe(self) { observer, message in
                 await observer.onWebSocketMessage(message)
-            } onFailure: { observer, error, socket in
-                guard observer._state.socket === socket else { return }
+            } onFailure: { observer, error in
                 await observer.cleanUp(withError: error)
             }
             _state.mutate { $0.messageLoopTask = messageLoopTask }
@@ -162,6 +157,7 @@ actor SignalClient: Loggable {
 
             // Successfully connected
             _state.mutate {
+                $0.socket = socket
                 $0.connectionState = .connected
             }
 
