@@ -51,7 +51,7 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
     }
 
     @discardableResult
-    func play(_ buffer: AVAudioPCMBuffer) throws -> SoundPlayback {
+    func play(_ buffer: AVAudioPCMBuffer, loop: Bool = false) throws -> SoundPlayback {
         guard let (index, node, generation) = _state.mutate({ items -> (Int, AVAudioPlayerNode, UInt64)? in
             guard let index = items.firstIndex(where: { !$0.isInUse }) else {
                 return nil
@@ -66,9 +66,13 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
             throw LiveKitError(.audioEngine, message: "No available player nodes")
         }
 
-        node.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
-            self?.audioCallbackQueue.async { [weak self] in
-                self?.freeSlot(index: index, generation: generation)
+        if loop {
+            node.scheduleBuffer(buffer, at: nil, options: .loops)
+        } else {
+            node.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+                self?.audioCallbackQueue.async { [weak self] in
+                    self?.freeSlot(index: index, generation: generation)
+                }
             }
         }
         node.play()

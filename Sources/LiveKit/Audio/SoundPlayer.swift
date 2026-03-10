@@ -16,6 +16,25 @@
 
 @preconcurrency import AVFAudio
 
+/// Options for controlling sound playback behavior.
+public struct PlaybackOptions: Sendable {
+    /// How to handle existing playback of the same sound.
+    public enum Mode: Sendable {
+        /// Play concurrently with any existing playback of the same sound.
+        case concurrent
+        /// Stop any existing playback of the same sound before playing.
+        case replace
+    }
+
+    public var mode: Mode
+    public var loop: Bool
+
+    public init(mode: Mode = .concurrent, loop: Bool = false) {
+        self.mode = mode
+        self.loop = loop
+    }
+}
+
 public class SoundPlayer: Loggable, @unchecked Sendable {
     // MARK: - Public
 
@@ -125,8 +144,12 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
         }
     }
 
-    public func play(id: String) throws {
+    public func play(id: String, options: PlaybackOptions = PlaybackOptions()) throws {
         try startIfNeeded()
+
+        if options.mode == .replace {
+            stop(id: id)
+        }
 
         guard let audioBuffer = _state.read(\.sounds[id]) else {
             throw LiveKitError(.audioEngine, message: "Sound not prepared")
@@ -154,7 +177,7 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
             bufferToSchedule = audioBuffer
         }
 
-        let playback = try playerNodePool.play(bufferToSchedule)
+        let playback = try playerNodePool.play(bufferToSchedule, loop: options.loop)
         _state.mutate {
             // Clean up finished playbacks
             $0.activePlaybacks[id] = ($0.activePlaybacks[id] ?? []).filter { $0.isPlaying }
