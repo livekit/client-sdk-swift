@@ -63,15 +63,7 @@ extension SampleBufferVideoRenderer: LKRTCVideoRenderer {
     nonisolated func renderFrame(_ frame: LKRTCVideoFrame?) {
         guard let frame else { return }
 
-        var pixelBuffer: CVPixelBuffer?
-
-        if let rtcPixelBuffer = frame.buffer as? LKRTCCVPixelBuffer {
-            pixelBuffer = rtcPixelBuffer.pixelBuffer
-        } else if let rtcI420Buffer = frame.buffer as? LKRTCI420Buffer {
-            pixelBuffer = rtcI420Buffer.toPixelBuffer()
-        }
-
-        guard let pixelBuffer else {
+        guard let pixelBuffer = frame.buffer.toRenderablePixelBuffer() else {
             log("pixelBuffer is nil", .error)
             return
         }
@@ -94,6 +86,36 @@ extension SampleBufferVideoRenderer: LKRTCVideoRenderer {
                 self.setNeedsLayout()
             }
         }
+    }
+}
+
+private extension LKRTCVideoFrameBuffer {
+    func toRenderablePixelBuffer() -> CVPixelBuffer? {
+        if let rtcPixelBuffer = self as? LKRTCCVPixelBuffer {
+            let pixelBuffer = rtcPixelBuffer.pixelBuffer
+            let pixelBufferWidth = CVPixelBufferGetWidth(pixelBuffer)
+            let pixelBufferHeight = CVPixelBufferGetHeight(pixelBuffer)
+
+            let requiresCropOrScale =
+                rtcPixelBuffer.cropX != 0 ||
+                rtcPixelBuffer.cropY != 0 ||
+                Int(rtcPixelBuffer.cropWidth) != pixelBufferWidth ||
+                Int(rtcPixelBuffer.cropHeight) != pixelBufferHeight ||
+                Int(rtcPixelBuffer.width) != pixelBufferWidth ||
+                Int(rtcPixelBuffer.height) != pixelBufferHeight
+
+            if !requiresCropOrScale {
+                return pixelBuffer
+            }
+
+            return (rtcPixelBuffer.toI420() as? LKRTCI420Buffer)?.toPixelBuffer()
+        }
+
+        if let rtcI420Buffer = self as? LKRTCI420Buffer {
+            return rtcI420Buffer.toPixelBuffer()
+        }
+
+        return nil
     }
 }
 
