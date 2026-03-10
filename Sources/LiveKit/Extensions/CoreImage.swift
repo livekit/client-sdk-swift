@@ -16,7 +16,7 @@
 
 import CoreImage
 
-public extension CIContext {
+extension CIContext {
     /// CPU-based context safe for use when the app may be backgrounded (e.g. during PiP).
     static func softwareRenderer() -> CIContext {
         CIContext(options: [.useSoftwareRenderer: true])

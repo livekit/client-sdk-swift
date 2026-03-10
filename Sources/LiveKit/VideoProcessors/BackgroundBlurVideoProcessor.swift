@@ -71,12 +71,15 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     // MARK: Init
 
+    private let useMetal: Bool
+
     /// Initialize the background blur video processor.
     /// - Parameters:
     ///   - highQuality: If true, use more detailed segmentation, but at the cost of performance.
-    ///   - gpu: If true, use GPU rendering for better performance. Set to false when the app may be backgrounded (e.g. during PiP).
-    public init(highQuality: Bool = true, gpu: Bool = true) {
-        ciContext = gpu ? .metal() : .softwareRenderer()
+    ///   - useMetal: If true, use Metal rendering for better performance. Set to false when the app may be backgrounded (e.g. during PiP).
+    public init(highQuality: Bool = true, useMetal: Bool = true) {
+        self.useMetal = useMetal
+        ciContext = useMetal ? .metal() : .softwareRenderer()
         super.init()
         segmentationRequest.qualityLevel = highQuality ? .balanced : .fast
     }
@@ -173,7 +176,13 @@ public final class BackgroundBlurVideoProcessor: NSObject, @unchecked Sendable, 
 
     private func getOutputBuffer(of size: CGSize) -> CVPixelBuffer? {
         if cachedPixelBufferSize != size {
-            cachedPixelBuffer = .metal(width: Int(size.width), height: Int(size.height))
+            if useMetal {
+                cachedPixelBuffer = .metal(width: Int(size.width), height: Int(size.height))
+            } else {
+                var pixelBuffer: CVPixelBuffer?
+                CVPixelBufferCreate(kCFAllocatorDefault, Int(size.width), Int(size.height), kCVPixelFormatType_32BGRA, nil, &pixelBuffer)
+                cachedPixelBuffer = pixelBuffer
+            }
             cachedPixelBufferSize = size
         }
         return cachedPixelBuffer
