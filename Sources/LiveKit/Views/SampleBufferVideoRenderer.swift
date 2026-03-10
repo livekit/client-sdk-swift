@@ -25,11 +25,7 @@ class SampleBufferVideoRenderer: NativeView, Loggable {
     }
 
     private let _state = StateSync(State())
-    #if swift(>=6.0)
-    private nonisolated(unsafe) let _sampleBufferDisplayPixelBufferProvider = SampleBufferDisplayPixelBufferProvider()
-    #else
     private let _sampleBufferDisplayPixelBufferProvider = SampleBufferDisplayPixelBufferProvider()
-    #endif
 
     override init(frame: CGRect) {
         sampleBufferDisplayLayer = AVSampleBufferDisplayLayer()
@@ -110,7 +106,7 @@ extension SampleBufferVideoRenderer: Mirrorable {
 
 /// Produces `CVPixelBuffer`s that match the logical frame geometry expected by
 /// `AVSampleBufferDisplayLayer`, including any WebRTC crop/scale metadata.
-private final class SampleBufferDisplayPixelBufferProvider: Loggable {
+private final class SampleBufferDisplayPixelBufferProvider: @unchecked Sendable, Loggable {
     private struct PoolConfiguration: Equatable {
         let width: Int
         let height: Int
@@ -153,15 +149,11 @@ private final class SampleBufferDisplayPixelBufferProvider: Loggable {
                 state.pixelBufferPool = Self.makePixelBufferPool(configuration: configuration)
             }
 
-            guard let pixelBufferPool = state.pixelBufferPool else {
-                log("Failed to create pixel buffer pool for sample-buffer rendering", .error)
-                return nil
-            }
-
-            return pixelBufferPool
+            return state.pixelBufferPool
         }
 
         guard let pixelBufferPool else {
+            log("Failed to create pixel buffer pool for sample-buffer rendering", .error)
             return nil
         }
 
@@ -177,8 +169,8 @@ private final class SampleBufferDisplayPixelBufferProvider: Loggable {
 
         let didCropAndScale: Bool
         if tempBufferSize > 0 {
-            // Allocate scratch space locally so the expensive crop/scale work does
-            // not happen while holding StateSync's lock.
+            // Allocate scratch space locally so crop/scale work stays outside
+            // the provider lock while keeping the implementation simple.
             var tempBuffer = [UInt8](repeating: .zero, count: tempBufferSize)
             didCropAndScale = tempBuffer.withUnsafeMutableBufferPointer {
                 buffer.cropAndScale(to: outputPixelBuffer, withTempBuffer: $0.baseAddress)
@@ -205,9 +197,13 @@ private final class SampleBufferDisplayPixelBufferProvider: Loggable {
             kCVPixelBufferPixelFormatTypeKey as String: configuration.pixelFormat,
         ] as [String: Any]
 
+        let poolAttributes = [
+            kCVPixelBufferPoolMinimumBufferCountKey as String: 4,
+        ] as CFDictionary
+
         var pixelBufferPool: CVPixelBufferPool?
         let status = CVPixelBufferPoolCreate(kCFAllocatorDefault,
-                                             nil,
+                                             poolAttributes,
                                              options as CFDictionary,
                                              &pixelBufferPool)
 
