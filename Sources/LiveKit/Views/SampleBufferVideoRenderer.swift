@@ -120,7 +120,6 @@ private final class SampleBufferDisplayPixelBufferProvider: Loggable {
     private struct State {
         var poolConfiguration: PoolConfiguration?
         var pixelBufferPool: CVPixelBufferPool?
-        var tempBuffer: [UInt8] = []
     }
 
     private let _state = StateSync(State())
@@ -144,7 +143,7 @@ private final class SampleBufferDisplayPixelBufferProvider: Loggable {
             return buffer.pixelBuffer
         }
 
-        return _state.mutate { state in
+        let pixelBufferPool: CVPixelBufferPool? = _state.mutate { state in
             let configuration = PoolConfiguration(width: Int(buffer.width),
                                                   height: Int(buffer.height),
                                                   pixelFormat: CVPixelBufferGetPixelFormatType(buffer.pixelBuffer))
@@ -152,7 +151,6 @@ private final class SampleBufferDisplayPixelBufferProvider: Loggable {
             if state.poolConfiguration != configuration {
                 state.poolConfiguration = configuration
                 state.pixelBufferPool = Self.makePixelBufferPool(configuration: configuration)
-                state.tempBuffer.removeAll(keepingCapacity: false)
             }
 
             guard let pixelBufferPool = state.pixelBufferPool else {
@@ -160,36 +158,41 @@ private final class SampleBufferDisplayPixelBufferProvider: Loggable {
                 return nil
             }
 
-            // Materialize a new CVPixelBuffer because AVSampleBufferDisplayLayer
-            // cannot interpret RTCCVPixelBuffer crop metadata on its own.
-            guard let outputPixelBuffer = Self.makePixelBuffer(from: pixelBufferPool) else {
-                log("Failed to allocate pixel buffer for sample-buffer rendering", .error)
-                return nil
-            }
-
-            let tempBufferSize = Int(buffer.bufferSizeForCroppingAndScaling(toWidth: buffer.width,
-                                                                            height: buffer.height))
-            if tempBufferSize > state.tempBuffer.count {
-                // WebRTC reuses caller-provided scratch space for NV12 scaling.
-                state.tempBuffer = [UInt8](repeating: .zero, count: tempBufferSize)
-            }
-
-            let didCropAndScale: Bool
-            if tempBufferSize > 0 {
-                didCropAndScale = state.tempBuffer.withUnsafeMutableBufferPointer {
-                    buffer.cropAndScale(to: outputPixelBuffer, withTempBuffer: $0.baseAddress)
-                }
-            } else {
-                didCropAndScale = buffer.cropAndScale(to: outputPixelBuffer, withTempBuffer: nil)
-            }
-
-            guard didCropAndScale else {
-                log("Failed to crop and scale RTCCVPixelBuffer for sample-buffer rendering", .error)
-                return nil
-            }
-
-            return outputPixelBuffer
+            return pixelBufferPool
         }
+
+        guard let pixelBufferPool else {
+            return nil
+        }
+
+        // Materialize a new CVPixelBuffer because AVSampleBufferDisplayLayer
+        // cannot interpret RTCCVPixelBuffer crop metadata on its own.
+        guard let outputPixelBuffer = Self.makePixelBuffer(from: pixelBufferPool) else {
+            log("Failed to allocate pixel buffer for sample-buffer rendering", .error)
+            return nil
+        }
+
+        let tempBufferSize = Int(buffer.bufferSizeForCroppingAndScaling(toWidth: buffer.width,
+                                                                        height: buffer.height))
+
+        let didCropAndScale: Bool
+        if tempBufferSize > 0 {
+            // Allocate scratch space locally so the expensive crop/scale work does
+            // not happen while holding StateSync's lock.
+            var tempBuffer = [UInt8](repeating: .zero, count: tempBufferSize)
+            didCropAndScale = tempBuffer.withUnsafeMutableBufferPointer {
+                buffer.cropAndScale(to: outputPixelBuffer, withTempBuffer: $0.baseAddress)
+            }
+        } else {
+            didCropAndScale = buffer.cropAndScale(to: outputPixelBuffer, withTempBuffer: nil)
+        }
+
+        guard didCropAndScale else {
+            log("Failed to crop and scale RTCCVPixelBuffer for sample-buffer rendering", .error)
+            return nil
+        }
+
+        return outputPixelBuffer
     }
 
     private static func makePixelBufferPool(configuration: PoolConfiguration) -> CVPixelBufferPool? {
