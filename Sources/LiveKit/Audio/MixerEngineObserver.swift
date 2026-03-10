@@ -47,6 +47,12 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
         set { _state.mutate { $0.micMixerNode.outputVolume = newValue } }
     }
 
+    /// Adjust the volume of sound player audio sent to remote participants. Range is 0.0 ~ 1.0.
+    public var soundPlayerVolume: Float {
+        get { _state.read { $0.soundPlayerNodes.mixerNode.outputVolume } }
+        set { _state.mutate { $0.soundPlayerNodes.mixerNode.outputVolume = newValue } }
+    }
+
     // MARK: - Internal
 
     var appAudioNode: AVAudioPlayerNode {
@@ -60,13 +66,16 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
     struct State {
         var next: (any AudioEngineObserver)?
 
-        // AppAudio
+        // App audio (Input)
         let appNode = AVAudioPlayerNode()
         let appMixerNode = AVAudioMixerNode()
 
-        // Not connected for device rendering mode.
+        // Mic audio (Input), not connected for device rendering mode.
         let micNode = AVAudioPlayerNode()
         let micMixerNode = AVAudioMixerNode()
+
+        // Sound player audio (Input) — for sending sounds to remote participants via WebRTC
+        let soundPlayerNodes = AVAudioPlayerNodePool()
 
         // Reference to mainMixerNode
         weak var mainMixerNode: AVAudioMixerNode?
@@ -92,14 +101,15 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
 
     public func engineDidCreate(_ engine: AVAudioEngine) -> Int {
         log("isManualRenderingMode: \(engine.isInManualRenderingMode)")
-        let (appNode, appMixerNode, micNode, micMixerNode) = _state.read {
-            ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode)
+        let (appNode, appMixerNode, micNode, micMixerNode, soundPlayerNodes) = _state.read {
+            ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode, $0.soundPlayerNodes)
         }
 
         engine.attach(appNode)
         engine.attach(appMixerNode)
         engine.attach(micNode)
         engine.attach(micMixerNode)
+        engine.attach(soundPlayerNodes)
 
         // Invoke next
         return next?.engineDidCreate(engine) ?? 0
@@ -110,14 +120,15 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
         // Invoke next
         let nextResult = next?.engineWillRelease(engine)
 
-        let (appNode, appMixerNode, micNode, micMixerNode) = _state.read {
-            ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode)
+        let (appNode, appMixerNode, micNode, micMixerNode, soundPlayerNodes) = _state.read {
+            ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode, $0.soundPlayerNodes)
         }
 
         engine.detach(appNode)
         engine.detach(appMixerNode)
         engine.detach(micNode)
         engine.detach(micMixerNode)
+        engine.detach(soundPlayerNodes)
 
         return nextResult ?? 0
     }
@@ -133,8 +144,8 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
         }
 
         // Read nodes from state lock.
-        let (appNode, appMixerNode, micNode, micMixerNode) = _state.read {
-            ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode)
+        let (appNode, appMixerNode, micNode, micMixerNode, soundPlayerNodes) = _state.read {
+            ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode, $0.soundPlayerNodes)
         }
 
         // AVAudioPlayerNode doesn't support Int16 so we ensure to use Float32
@@ -160,6 +171,10 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
         engine.connect(micNode, to: micMixerNode, format: playerNodeFormat)
         // Always connect micMixer to mainMixer
         engine.connect(micMixerNode, to: mainMixerNode, format: format)
+
+        log("Connecting soundPlayerNodes -> mainMixer")
+        // soundPlayerNodes -> mainMixer -> WebRTC (remote)
+        engine.connect(soundPlayerNodes, to: mainMixerNode, format: format, playerNodeFormat: playerNodeFormat)
 
         _state.mutate {
             if let previousEngineFormat = $0.playerNodeFormat, previousEngineFormat != format {
@@ -189,12 +204,13 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
 
     public func engineWillStart(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
         log("isPlayoutEnabled: \(isPlayoutEnabled), isRecordingEnabled: \(isRecordingEnabled)")
-        let (micNode, appNode) = _state.read {
-            ($0.micNode, $0.appNode)
+        let (micNode, appNode, soundPlayerNodes) = _state.read {
+            ($0.micNode, $0.appNode, $0.soundPlayerNodes)
         }
 
         micNode.reset()
         appNode.reset()
+        soundPlayerNodes.reset()
 
         return next?.engineWillStart(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
     }
@@ -229,6 +245,28 @@ extension MixerEngineObserver {
             $0.converters[format] = newConverter
             return newConverter
         }
+    }
+
+    /// Play a sound buffer through the input path for remote participants via WebRTC.
+    @discardableResult
+    func playSound(_ inputBuffer: AVAudioPCMBuffer, loop: Bool = false) -> SoundPlayback? {
+        guard let converter = converter(for: inputBuffer.format) else {
+            log("Failed to get converter for sound buffer format: \(inputBuffer.format)", .warning)
+            return nil
+        }
+
+        let buffer = converter.convert(from: inputBuffer)
+
+        let (isConnected, soundPlayerNodes) = _state.read {
+            ($0.isInputConnected, $0.soundPlayerNodes)
+        }
+
+        guard isConnected, let engine = soundPlayerNodes.engine, engine.isRunning else {
+            log("Engine is not running, cannot play sound remotely", .warning)
+            return nil
+        }
+
+        return try? soundPlayerNodes.play(buffer, loop: loop)
     }
 
     // Capture appAudio and apply conversion automatically suitable for internal audio engine.

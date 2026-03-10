@@ -26,12 +26,24 @@ public struct PlaybackOptions: Sendable {
         case replace
     }
 
+    /// Where the sound should be played.
+    public enum Destination: Sendable {
+        /// Play locally only (through device speakers).
+        case local
+        /// Play for remote participants only (through WebRTC). Requires an active Room connection.
+        case remote
+        /// Play both locally and for remote participants.
+        case localAndRemote
+    }
+
     public var mode: Mode
     public var loop: Bool
+    public var destination: Destination
 
-    public init(mode: Mode = .concurrent, loop: Bool = false) {
+    public init(mode: Mode = .concurrent, loop: Bool = false, destination: Destination = .localAndRemote) {
         self.mode = mode
         self.loop = loop
+        self.destination = destination
     }
 }
 
@@ -145,8 +157,6 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
     }
 
     public func play(id: String, options: PlaybackOptions = PlaybackOptions()) throws {
-        try startIfNeeded()
-
         if options.mode == .replace {
             stop(id: id)
         }
@@ -155,33 +165,46 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
             throw LiveKitError(.audioEngine, message: "Sound not prepared")
         }
 
-        guard let outputFormat else {
-            throw LiveKitError(.audioEngine, message: "Failed to get output format")
-        }
+        let playLocal = options.destination == .local || options.destination == .localAndRemote
+        let playRemote = options.destination == .remote || options.destination == .localAndRemote
 
-        // Convert if format doesn't match. A new converter is created each time
-        // to avoid thread-safety issues with shared converter state.
-        let bufferToSchedule: AVAudioPCMBuffer
-        if audioBuffer.format != outputFormat {
-            let outputBufferCapacity = AudioConverter.frameCapacity(from: audioBuffer.format,
-                                                                    to: outputFormat,
-                                                                    inputFrameCount: audioBuffer.frameLength)
-            guard let converter = AudioConverter(from: audioBuffer.format,
-                                                 to: outputFormat,
-                                                 outputBufferCapacity: outputBufferCapacity)
-            else {
-                throw LiveKitError(.audioEngine, message: "Failed to create audio converter")
+        // Play locally through standalone engine
+        if playLocal {
+            try startIfNeeded()
+
+            guard let outputFormat else {
+                throw LiveKitError(.audioEngine, message: "Failed to get output format")
             }
-            bufferToSchedule = converter.convert(from: audioBuffer)
-        } else {
-            bufferToSchedule = audioBuffer
+
+            // Convert if format doesn't match. A new converter is created each time
+            // to avoid thread-safety issues with shared converter state.
+            let bufferToSchedule: AVAudioPCMBuffer
+            if audioBuffer.format != outputFormat {
+                let outputBufferCapacity = AudioConverter.frameCapacity(from: audioBuffer.format,
+                                                                        to: outputFormat,
+                                                                        inputFrameCount: audioBuffer.frameLength)
+                guard let converter = AudioConverter(from: audioBuffer.format,
+                                                     to: outputFormat,
+                                                     outputBufferCapacity: outputBufferCapacity)
+                else {
+                    throw LiveKitError(.audioEngine, message: "Failed to create audio converter")
+                }
+                bufferToSchedule = converter.convert(from: audioBuffer)
+            } else {
+                bufferToSchedule = audioBuffer
+            }
+
+            let playback = try playerNodePool.play(bufferToSchedule, loop: options.loop)
+            _state.mutate {
+                // Clean up finished playbacks
+                $0.activePlaybacks[id] = ($0.activePlaybacks[id] ?? []).filter { $0.isPlaying }
+                $0.activePlaybacks[id, default: []].append(playback)
+            }
         }
 
-        let playback = try playerNodePool.play(bufferToSchedule, loop: options.loop)
-        _state.mutate {
-            // Clean up finished playbacks
-            $0.activePlaybacks[id] = ($0.activePlaybacks[id] ?? []).filter { $0.isPlaying }
-            $0.activePlaybacks[id, default: []].append(playback)
+        // Play remotely through MixerEngineObserver's input path (WebRTC)
+        if playRemote {
+            AudioManager.shared.mixer.playSound(audioBuffer, loop: options.loop)
         }
     }
 }
