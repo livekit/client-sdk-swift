@@ -92,23 +92,7 @@ extension SampleBufferVideoRenderer: LKRTCVideoRenderer {
 private extension LKRTCVideoFrameBuffer {
     func toRenderablePixelBuffer() -> CVPixelBuffer? {
         if let rtcPixelBuffer = self as? LKRTCCVPixelBuffer {
-            let pixelBuffer = rtcPixelBuffer.pixelBuffer
-            let pixelBufferWidth = CVPixelBufferGetWidth(pixelBuffer)
-            let pixelBufferHeight = CVPixelBufferGetHeight(pixelBuffer)
-
-            let requiresCropOrScale =
-                rtcPixelBuffer.cropX != 0 ||
-                rtcPixelBuffer.cropY != 0 ||
-                Int(rtcPixelBuffer.cropWidth) != pixelBufferWidth ||
-                Int(rtcPixelBuffer.cropHeight) != pixelBufferHeight ||
-                Int(rtcPixelBuffer.width) != pixelBufferWidth ||
-                Int(rtcPixelBuffer.height) != pixelBufferHeight
-
-            if !requiresCropOrScale {
-                return pixelBuffer
-            }
-
-            return (rtcPixelBuffer.toI420() as? LKRTCI420Buffer)?.toPixelBuffer()
+            return rtcPixelBuffer.toRenderablePixelBuffer()
         }
 
         if let rtcI420Buffer = self as? LKRTCI420Buffer {
@@ -116,6 +100,64 @@ private extension LKRTCVideoFrameBuffer {
         }
 
         return nil
+    }
+}
+
+private extension LKRTCCVPixelBuffer {
+    func toRenderablePixelBuffer() -> CVPixelBuffer? {
+        if !requiresCropping(), !requiresScaling(toWidth: width, height: height) {
+            return pixelBuffer
+        }
+
+        guard let outputPixelBuffer = Self.makePixelBuffer(width: Int(width),
+                                                           height: Int(height),
+                                                           pixelFormat: CVPixelBufferGetPixelFormatType(pixelBuffer))
+        else {
+            return (toI420() as? LKRTCI420Buffer)?.toPixelBuffer()
+        }
+
+        let tempBufferSize = Int(bufferSizeForCroppingAndScaling(toWidth: width, height: height))
+
+        let didCropAndScale: Bool
+        if tempBufferSize > 0 {
+            var tempBuffer = [UInt8](repeating: .zero, count: tempBufferSize)
+            didCropAndScale = tempBuffer.withUnsafeMutableBufferPointer {
+                cropAndScale(to: outputPixelBuffer, withTempBuffer: $0.baseAddress)
+            }
+        } else {
+            didCropAndScale = cropAndScale(to: outputPixelBuffer, withTempBuffer: nil)
+        }
+
+        if didCropAndScale {
+            return outputPixelBuffer
+        }
+
+        return (toI420() as? LKRTCI420Buffer)?.toPixelBuffer()
+    }
+
+    private static func makePixelBuffer(width: Int,
+                                        height: Int,
+                                        pixelFormat: OSType) -> CVPixelBuffer?
+    {
+        let options = [
+            kCVPixelBufferCGImageCompatibilityKey as String: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:] as [String: Any],
+        ] as [String: Any]
+
+        var outputPixelBuffer: CVPixelBuffer?
+        let status = CVPixelBufferCreate(kCFAllocatorDefault,
+                                         width,
+                                         height,
+                                         pixelFormat,
+                                         options as CFDictionary,
+                                         &outputPixelBuffer)
+
+        guard status == kCVReturnSuccess else {
+            return nil
+        }
+
+        return outputPixelBuffer
     }
 }
 
