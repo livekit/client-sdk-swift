@@ -44,7 +44,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
                     await onElement(observer, element, &state)
                 }
             } catch {
-                if error is CancellationError { return }
+                if error is CancellationError || Task.isCancelled { return }
                 if let observer, let onFailure {
                     await onFailure(observer, error, &state)
                 }
@@ -106,7 +106,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
                     await onElement(observer, element, &state)
                 }
             } catch {
-                if error is CancellationError { return }
+                if error is CancellationError || Task.isCancelled { return }
                 if let observer, let onFailure {
                     await onFailure(observer, error, &state)
                 }
