@@ -180,11 +180,11 @@ AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false
 
 - `AVAudioSession` must be configured and activated with category `.playAndRecord` and mode `.voiceChat` or `.videoChat` before enabling/publishing the microphone (so the audio engine can start).
 
-To get specific timings of the audio engine lifecycle, you can provide your own `AudioEngineObserver` chain with `AudioManager.shared.set(engineObservers:)`.
+To get specific timings of the audio engine lifecycle, you can provide your own `AudioEngineObserver` chain with `AudioManager.shared.set(engineObservers:)`. Configure this once early in app startup and avoid changing it while the engine is in use.
 
 See the default `AudioSessionEngineObserver` for an example of how an `AudioEngineObserver` can configure the audio session.
 
-- If you want to reduce mic publish latency, you can pre-warm the audio engine with `AudioManager.shared.setRecordingAlwaysPreparedMode(true)`.
+- If you want to reduce mic publish latency, you can pre-warm the audio engine with `try await AudioManager.shared.setRecordingAlwaysPreparedMode(true)`.
 - For additional audio-related information, see the [Audio guide](./Docs/audio.md).
 
 ### Integration with CallKit

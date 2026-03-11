@@ -25,6 +25,7 @@ class SampleBufferVideoRenderer: NativeView, Loggable {
     }
 
     private let _state = StateSync(State())
+    private let _sampleBufferDisplayPixelBufferProvider = SampleBufferDisplayPixelBufferProvider()
 
     override init(frame: CGRect) {
         sampleBufferDisplayLayer = AVSampleBufferDisplayLayer()
@@ -63,15 +64,7 @@ extension SampleBufferVideoRenderer: LKRTCVideoRenderer {
     nonisolated func renderFrame(_ frame: LKRTCVideoFrame?) {
         guard let frame else { return }
 
-        var pixelBuffer: CVPixelBuffer?
-
-        if let rtcPixelBuffer = frame.buffer as? LKRTCCVPixelBuffer {
-            pixelBuffer = rtcPixelBuffer.pixelBuffer
-        } else if let rtcI420Buffer = frame.buffer as? LKRTCI420Buffer {
-            pixelBuffer = rtcI420Buffer.toPixelBuffer()
-        }
-
-        guard let pixelBuffer else {
+        guard let pixelBuffer = _sampleBufferDisplayPixelBufferProvider.makePixelBuffer(from: frame.buffer) else {
             log("pixelBuffer is nil", .error)
             return
         }
@@ -108,6 +101,130 @@ extension SampleBufferVideoRenderer: Mirrorable {
         if didUpdateIsMirrored {
             setNeedsLayout()
         }
+    }
+}
+
+/// Produces `CVPixelBuffer`s that match the logical frame geometry expected by
+/// `AVSampleBufferDisplayLayer`, including any WebRTC crop/scale metadata.
+private final class SampleBufferDisplayPixelBufferProvider: @unchecked Sendable, Loggable {
+    private struct PoolConfiguration: Equatable {
+        let width: Int
+        let height: Int
+        let pixelFormat: OSType
+    }
+
+    private struct State {
+        var poolConfiguration: PoolConfiguration?
+        var pixelBufferPool: CVPixelBufferPool?
+    }
+
+    private let _state = StateSync(State())
+
+    func makePixelBuffer(from buffer: LKRTCVideoFrameBuffer) -> CVPixelBuffer? {
+        if let rtcPixelBuffer = buffer as? LKRTCCVPixelBuffer {
+            return makePixelBuffer(from: rtcPixelBuffer)
+        }
+
+        if let rtcI420Buffer = buffer as? LKRTCI420Buffer {
+            return rtcI420Buffer.toPixelBuffer()
+        }
+
+        log("Unsupported video frame buffer type: \(type(of: buffer))", .error)
+        return nil
+    }
+
+    private func makePixelBuffer(from buffer: LKRTCCVPixelBuffer) -> CVPixelBuffer? {
+        // Fast path: the backing CVPixelBuffer already matches the logical frame.
+        if !buffer.requiresCropping(), !buffer.requiresScaling(toWidth: buffer.width, height: buffer.height) {
+            return buffer.pixelBuffer
+        }
+
+        let pixelBufferPool: CVPixelBufferPool? = _state.mutate { state in
+            let configuration = PoolConfiguration(width: Int(buffer.width),
+                                                  height: Int(buffer.height),
+                                                  pixelFormat: CVPixelBufferGetPixelFormatType(buffer.pixelBuffer))
+
+            if state.poolConfiguration != configuration {
+                state.poolConfiguration = configuration
+                state.pixelBufferPool = Self.makePixelBufferPool(configuration: configuration)
+            }
+
+            return state.pixelBufferPool
+        }
+
+        guard let pixelBufferPool else {
+            log("Failed to create pixel buffer pool for sample-buffer rendering", .error)
+            return nil
+        }
+
+        // Materialize a new CVPixelBuffer because AVSampleBufferDisplayLayer
+        // cannot interpret RTCCVPixelBuffer crop metadata on its own.
+        guard let outputPixelBuffer = Self.makePixelBuffer(from: pixelBufferPool) else {
+            log("Failed to allocate pixel buffer for sample-buffer rendering", .error)
+            return nil
+        }
+
+        let tempBufferSize = Int(buffer.bufferSizeForCroppingAndScaling(toWidth: buffer.width,
+                                                                        height: buffer.height))
+
+        let didCropAndScale: Bool
+        if tempBufferSize > 0 {
+            // Allocate scratch space locally so crop/scale work stays outside
+            // the provider lock while keeping the implementation simple.
+            var tempBuffer = [UInt8](repeating: .zero, count: tempBufferSize)
+            didCropAndScale = tempBuffer.withUnsafeMutableBufferPointer {
+                buffer.cropAndScale(to: outputPixelBuffer, withTempBuffer: $0.baseAddress)
+            }
+        } else {
+            didCropAndScale = buffer.cropAndScale(to: outputPixelBuffer, withTempBuffer: nil)
+        }
+
+        guard didCropAndScale else {
+            log("Failed to crop and scale RTCCVPixelBuffer for sample-buffer rendering", .error)
+            return nil
+        }
+
+        return outputPixelBuffer
+    }
+
+    private static func makePixelBufferPool(configuration: PoolConfiguration) -> CVPixelBufferPool? {
+        let options = [
+            kCVPixelBufferCGImageCompatibilityKey as String: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:] as [String: Any],
+            kCVPixelBufferWidthKey as String: configuration.width,
+            kCVPixelBufferHeightKey as String: configuration.height,
+            kCVPixelBufferPixelFormatTypeKey as String: configuration.pixelFormat,
+        ] as [String: Any]
+
+        let poolAttributes = [
+            kCVPixelBufferPoolMinimumBufferCountKey as String: 4,
+        ] as CFDictionary
+
+        var pixelBufferPool: CVPixelBufferPool?
+        let status = CVPixelBufferPoolCreate(kCFAllocatorDefault,
+                                             poolAttributes,
+                                             options as CFDictionary,
+                                             &pixelBufferPool)
+
+        guard status == kCVReturnSuccess else {
+            return nil
+        }
+
+        return pixelBufferPool
+    }
+
+    private static func makePixelBuffer(from pixelBufferPool: CVPixelBufferPool) -> CVPixelBuffer? {
+        var pixelBuffer: CVPixelBuffer?
+        let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault,
+                                                        pixelBufferPool,
+                                                        &pixelBuffer)
+
+        guard status == kCVReturnSuccess else {
+            return nil
+        }
+
+        return pixelBuffer
     }
 }
 

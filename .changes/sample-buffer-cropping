@@ -1,0 +1,1 @@
+patch type="fixed" "Correct sample-buffer rendering for cropped and scaled screen-share frames"
