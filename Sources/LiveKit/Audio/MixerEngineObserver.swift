@@ -96,13 +96,16 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
             ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode)
         }
 
-        // Set maximumFramesToRender high enough to handle any IO buffer size iOS may negotiate.
+        // Set maximumFramesToRender high enough to handle any IO buffer size the OS may negotiate.
         // Must be set before render resources are allocated (i.e. before attach/connect/start).
         // Derives from WebRTC's preferred config (typically 48kHz * 0.02s = 960 frames) with a 2x
         // safety margin, preventing kAudioUnitErr_TooManyFramesToProcess (-10874).
+        #if os(iOS) || os(visionOS) || os(tvOS)
         let config = LKRTCAudioSessionConfiguration.webRTC()
-        let preferredFrames = AVAudioFrameCount(config.sampleRate * config.ioBufferDuration)
-        let maxFrames = preferredFrames * 2
+        let maxFrames = AVAudioFrameCount(config.sampleRate * config.ioBufferDuration) * 2
+        #else
+        let maxFrames: AVAudioFrameCount = 4096
+        #endif
 
         appNode.auAudioUnit.maximumFramesToRender = maxFrames
         appMixerNode.auAudioUnit.maximumFramesToRender = maxFrames
