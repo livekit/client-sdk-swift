@@ -19,37 +19,34 @@
 import AVFAudio
 import CoreMedia
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-final class BroadcastAudioCodecTests: XCTestCase {
-    private var codec: BroadcastAudioCodec!
+@Suite(.tags(.broadcast))
+struct BroadcastAudioCodecTests {
+    private let codec = BroadcastAudioCodec()
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        codec = BroadcastAudioCodec()
+    @Test func encodeDecode() throws {
+        let testBuffer = try #require(createTestAudioBuffer())
+
+        let (metadata, audioData) = try codec.encode(testBuffer)
+        let decodedBuffer = try codec.decode(audioData, with: metadata)
+
+        #expect(decodedBuffer.frameLength == AVAudioFrameCount(testBuffer.numSamples))
+
+        let asbd = try #require(testBuffer.formatDescription?.audioStreamBasicDescription)
+        #expect(decodedBuffer.format.streamDescription.pointee == asbd)
     }
 
-    func testEncodeDecode() throws {
-        let testBuffer = try XCTUnwrap(createTestAudioBuffer())
-
-        let (metadata, audioData) = try XCTUnwrap(codec.encode(testBuffer))
-        let decodedBuffer = try XCTUnwrap(codec.decode(audioData, with: metadata))
-
-        XCTAssertEqual(decodedBuffer.frameLength, AVAudioFrameCount(testBuffer.numSamples))
-
-        let asbd = try XCTUnwrap(testBuffer.formatDescription?.audioStreamBasicDescription)
-        XCTAssertEqual(decodedBuffer.format.streamDescription.pointee, asbd)
-    }
-
-    func testDecodeEmpty() throws {
+    @Test func decodeEmpty() throws {
         let metadata = BroadcastAudioCodec.Metadata(
             sampleCount: 1,
             description: AudioStreamBasicDescription()
         )
-        XCTAssertThrowsError(try codec.decode(Data(), with: metadata)) { error in
-            XCTAssertEqual(error as? BroadcastAudioCodec.Error, .decodingFailed)
+        #expect(throws: BroadcastAudioCodec.Error.decodingFailed) {
+            try codec.decode(Data(), with: metadata)
         }
     }
 

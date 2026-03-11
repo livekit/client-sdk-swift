@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class ByteStreamReaderTests: LKTestCase, @unchecked Sendable {
+@Suite(.tags(.dataStream))
+final class ByteStreamReaderTests: @unchecked Sendable {
     private var continuation: StreamReaderSource.Continuation!
     private var reader: ByteStreamReader!
 
@@ -53,142 +56,126 @@ class ByteStreamReaderTests: LKTestCase, @unchecked Sendable {
         continuation.finish(throwing: closingError)
     }
 
-    override func setUp() {
-        super.setUp()
+    init() {
         let source = StreamReaderSource {
             self.continuation = $0
         }
         reader = ByteStreamReader(info: testInfo, source: source)
     }
 
-    func testChunkRead() async throws {
-        let receiveExpectation = expectation(description: "Receive all chunks")
-        let closureExpectation = expectation(description: "Normal closure")
-
-        Task {
-            var chunkIndex = 0
-            for try await chunk in reader {
-                XCTAssertEqual(chunk, testChunks[chunkIndex])
-                if chunkIndex == testChunks.count - 1 {
-                    receiveExpectation.fulfill()
+    @Test func chunkRead() async throws {
+        try await confirmation("Receive all chunks") { receiveConfirm in
+            try await confirmation("Normal closure") { closureConfirm in
+                Task {
+                    var chunkIndex = 0
+                    for try await chunk in reader {
+                        #expect(chunk == testChunks[chunkIndex])
+                        if chunkIndex == testChunks.count - 1 {
+                            receiveConfirm()
+                        }
+                        chunkIndex += 1
+                    }
+                    closureConfirm()
                 }
-                chunkIndex += 1
-            }
-            closureExpectation.fulfill()
-        }
 
-        sendPayload()
+                sendPayload()
 
-        await fulfillment(
-            of: [receiveExpectation, closureExpectation],
-            timeout: 5,
-            enforceOrder: true
-        )
-    }
-
-    func testChunkReadError() async throws {
-        let throwsExpectation = expectation(description: "Read throws error")
-        let testError = StreamError.abnormalEnd(reason: "test")
-
-        Task {
-            do {
-                for try await _ in reader {}
-            } catch {
-                XCTAssertEqual(error as? StreamError, testError)
-                throwsExpectation.fulfill()
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
         }
-        sendPayload(closingError: testError)
-
-        await fulfillment(
-            of: [throwsExpectation],
-            timeout: 5
-        )
     }
 
-    func testReadAll() async throws {
-        let readExpectation = expectation(description: "Read full payload")
+    @Test func chunkReadError() async throws {
+        try await confirmation("Read throws error") { confirm in
+            let testError = StreamError.abnormalEnd(reason: "test")
 
-        Task {
-            let fullPayload = try await reader.readAll()
-            XCTAssertEqual(fullPayload, testPayload)
-            readExpectation.fulfill()
-        }
-        sendPayload()
-
-        await fulfillment(
-            of: [readExpectation],
-            timeout: 5
-        )
-    }
-
-    func testReadToFile() async throws {
-        let writtenExpectation = expectation(description: "File properly written")
-        Task {
-            do {
-                let fileURL = try await reader.writeToFile()
-                XCTAssertEqual(fileURL.lastPathComponent, reader.info.name)
-
-                let fileContents = try Data(contentsOf: fileURL)
-                XCTAssertEqual(fileContents, testPayload)
-
-                writtenExpectation.fulfill()
-            } catch {
-                print(error)
+            Task {
+                do {
+                    for try await _ in reader {}
+                } catch {
+                    #expect(error as? StreamError == testError)
+                    confirm()
+                }
             }
-        }
-        sendPayload()
+            sendPayload(closingError: testError)
 
-        await fulfillment(
-            of: [writtenExpectation],
-            timeout: 5
-        )
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+        }
     }
 
-    func testResolveFileName() {
-        XCTAssertEqual(
+    @Test func readAll() async throws {
+        try await confirmation("Read full payload") { confirm in
+            Task {
+                let fullPayload = try await reader.readAll()
+                #expect(fullPayload == testPayload)
+                confirm()
+            }
+            sendPayload()
+
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+        }
+    }
+
+    @Test func readToFile() async throws {
+        try await confirmation("File properly written") { confirm in
+            Task {
+                do {
+                    let fileURL = try await reader.writeToFile()
+                    #expect(fileURL.lastPathComponent == reader.info.name)
+
+                    let fileContents = try Data(contentsOf: fileURL)
+                    #expect(fileContents == testPayload)
+
+                    confirm()
+                } catch {
+                    print(error)
+                }
+            }
+            sendPayload()
+
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+        }
+    }
+
+    @Test func resolveFileName() {
+        #expect(
             ByteStreamReader.resolveFileName(
                 preferredName: nil,
                 fallbackName: "[fallback]",
                 mimeType: "text/plain"
-            ),
-            "[fallback].txt",
+            ) == "[fallback].txt",
             "Fallback name should be used when no preferred name is provided"
         )
-        XCTAssertEqual(
+        #expect(
             ByteStreamReader.resolveFileName(
                 preferredName: "name",
                 fallbackName: "[fallback]",
                 mimeType: "text/plain"
-            ),
-            "name.txt",
+            ) == "name.txt",
             "preferred name should take precedence over fallback name"
         )
-        XCTAssertEqual(
+        #expect(
             ByteStreamReader.resolveFileName(
                 preferredName: "name.jpeg",
                 fallbackName: "[fallback]",
                 mimeType: "text/plain"
-            ),
-            "name.jpeg",
+            ) == "name.jpeg",
             "File extension in preferred name should take precedence"
         )
-        XCTAssertEqual(
+        #expect(
             ByteStreamReader.resolveFileName(
                 preferredName: "name",
                 fallbackName: "[fallback]",
                 mimeType: "image/jpeg"
-            ),
-            "name.jpeg",
+            ) == "name.jpeg",
             "File extension should be resolved from MIME type"
         )
-        XCTAssertEqual(
+        #expect(
             ByteStreamReader.resolveFileName(
                 preferredName: "name",
                 fallbackName: "[fallback]",
                 mimeType: "text/invalid"
-            ),
-            "name.bin",
+            ) == "name.bin",
             "Default extension should be used when MIME type is not recognized"
         )
     }

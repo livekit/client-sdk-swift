@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
 import LiveKitTestSupport
-import XCTest
+import Testing
 
-class RegionManagerTests: XCTestCase {
-    override func tearDown() {
-        super.tearDown()
+@Suite(.serialized, .tags(.networking)) struct RegionManagerTests {
+    private func cleanUpMockURLProtocol() {
         URLProtocol.unregisterClass(MockURLProtocol.self)
         MockURLProtocol.reset()
     }
 
-    func testResolveUrl() async throws {
+    @Test func resolveUrl() async throws {
         // Test data.
         let testRegionSettings = [Livekit_RegionInfo.with {
             $0.region = "otokyo1a"
@@ -43,12 +43,12 @@ class RegionManagerTests: XCTestCase {
             $0.distance = 7_823_582
         }].map { $0.toLKType() }.compactMap { $0 }
 
-        let providedUrl = try XCTUnwrap(URL(string: "https://example.livekit.cloud"))
+        let providedUrl = try #require(URL(string: "https://example.livekit.cloud"))
         let regionManager = RegionManager(providedUrl: providedUrl)
 
         // See if request should be initiated.
         let shouldRequestInitially = await regionManager.shouldRequestSettings()
-        XCTAssertTrue(shouldRequestInitially, "Should require to request region settings")
+        #expect(shouldRequestInitially, "Should require to request region settings")
 
         await regionManager.setStateForTesting(.init(lastRequested: Date(),
                                                      all: testRegionSettings,
@@ -56,23 +56,23 @@ class RegionManagerTests: XCTestCase {
 
         // See if request is not required to be initiated.
         let shouldRequestAfterSeed = await regionManager.shouldRequestSettings()
-        XCTAssertFalse(shouldRequestAfterSeed, "Should not require to request region settings")
+        #expect(!shouldRequestAfterSeed, "Should not require to request region settings")
 
         let attempt1 = try await regionManager.resolveBest(token: "")
-        XCTAssert(attempt1.url == testRegionSettings[0].url)
+        #expect(attempt1.url == testRegionSettings[0].url)
         await regionManager.markFailed(region: attempt1)
 
         let attempt2 = try await regionManager.resolveBest(token: "")
-        XCTAssert(attempt2.url == testRegionSettings[1].url)
+        #expect(attempt2.url == testRegionSettings[1].url)
         await regionManager.markFailed(region: attempt2)
 
         let attempt3 = try await regionManager.resolveBest(token: "")
-        XCTAssert(attempt3.url == testRegionSettings[2].url)
+        #expect(attempt3.url == testRegionSettings[2].url)
         await regionManager.markFailed(region: attempt3)
 
         // No more regions
         let attempt4 = try? await regionManager.resolveBest(token: "")
-        XCTAssert(attempt4 == nil)
+        #expect(attempt4 == nil)
 
         // Simulate cache time elapse.
         let snapshot = await regionManager.snapshot()
@@ -82,78 +82,64 @@ class RegionManagerTests: XCTestCase {
 
         // After cache time elapsed, should require to request region settings again.
         let shouldRequestAfterCache = await regionManager.shouldRequestSettings()
-        XCTAssertTrue(shouldRequestAfterCache, "Should require to request region settings")
+        #expect(shouldRequestAfterCache, "Should require to request region settings")
     }
 
-    func testIsCloud() throws {
-        XCTAssertTrue(try XCTUnwrap(URL(string: "wss://test.livekit.cloud")?.isCloud))
-        XCTAssertTrue(try XCTUnwrap(URL(string: "wss://test.livekit.run")?.isCloud))
-        XCTAssertFalse(try XCTUnwrap(URL(string: "wss://self-hosted.example.com")?.isCloud))
-        XCTAssertFalse(try XCTUnwrap(URL(string: "ws://localhost:7880")?.isCloud))
+    @Test(arguments: [
+        ("wss://test.livekit.cloud", true),
+        ("wss://test.livekit.run", true),
+        ("wss://self-hosted.example.com", false),
+        ("ws://localhost:7880", false),
+    ])
+    func isCloud(urlString: String, expected: Bool) throws {
+        let isCloud = try #require(URL(string: urlString)?.isCloud)
+        #expect(isCloud == expected)
     }
 
-    func testRegionSettingsUrlConversion() {
-        XCTAssertEqual(URL(string: "wss://test.livekit.cloud")?.regionSettingsUrl().absoluteString,
-                       "https://test.livekit.cloud/settings/regions")
-        XCTAssertEqual(URL(string: "ws://test.livekit.cloud")?.regionSettingsUrl().absoluteString,
-                       "http://test.livekit.cloud/settings/regions")
-        XCTAssertEqual(URL(string: "https://test.livekit.cloud")?.regionSettingsUrl().absoluteString,
-                       "https://test.livekit.cloud/settings/regions")
+    @Test(arguments: [
+        ("wss://test.livekit.cloud", "https://test.livekit.cloud/settings/regions"),
+        ("ws://test.livekit.cloud", "http://test.livekit.cloud/settings/regions"),
+        ("https://test.livekit.cloud", "https://test.livekit.cloud/settings/regions"),
+    ])
+    func regionSettingsUrlConversion(input: String, expected: String) {
+        #expect(URL(string: input)?.regionSettingsUrl().absoluteString == expected)
     }
 
-    func testRegionManagerShouldRetryConnection() {
-        XCTAssertTrue(LiveKitError(.network).isRetryableForRegionFailover)
-        XCTAssertTrue(LiveKitError(.timedOut).isRetryableForRegionFailover)
-        XCTAssertFalse(LiveKitError(.validation).isRetryableForRegionFailover)
+    @Test func regionManagerShouldRetryConnection() {
+        #expect(LiveKitError(.network).isRetryableForRegionFailover)
+        #expect(LiveKitError(.timedOut).isRetryableForRegionFailover)
+        #expect(!LiveKitError(.validation).isRetryableForRegionFailover)
 
-        XCTAssertTrue(URLError(.timedOut).isRetryableForRegionFailover)
-        XCTAssertTrue(NSError(domain: NSURLErrorDomain, code: -1).isRetryableForRegionFailover)
-        XCTAssertFalse(NSError(domain: "other", code: -1).isRetryableForRegionFailover)
+        #expect(URLError(.timedOut).isRetryableForRegionFailover)
+        #expect(NSError(domain: NSURLErrorDomain, code: -1).isRetryableForRegionFailover)
+        #expect(!NSError(domain: "other", code: -1).isRetryableForRegionFailover)
     }
 
-    func testFetchRegionSettingsClassifies4xxAsValidation() async throws {
-        let providedUrl = try XCTUnwrap(URL(string: "https://example.livekit.cloud"))
+    @Test(arguments: [
+        (401, LiveKitErrorType.validation),
+        (500, LiveKitErrorType.regionManager),
+    ])
+    func fetchRegionSettingsClassifiesHttpErrors(statusCode: Int, expectedErrorType: LiveKitErrorType) async throws {
+        let providedUrl = try #require(URL(string: "https://example.livekit.cloud"))
         let regionManager = RegionManager(providedUrl: providedUrl)
 
-        try MockURLProtocol.setAllowedHosts([XCTUnwrap(providedUrl.host)])
+        try MockURLProtocol.setAllowedHosts([#require(providedUrl.host)])
         MockURLProtocol.setAllowedPaths(["/settings/regions"])
         MockURLProtocol.setRequestHandler { (_: URLRequest) in
-            MockURLProtocol.Response(statusCode: 401,
+            MockURLProtocol.Response(statusCode: statusCode,
                                      headers: [:],
-                                     body: Data("not allowed".utf8))
+                                     body: Data("error".utf8))
         }
         URLProtocol.registerClass(MockURLProtocol.self)
+        defer { cleanUpMockURLProtocol() }
 
         do {
             _ = try await regionManager.resolveBest(token: "token")
-            XCTFail("Expected error")
+            Issue.record("Expected error for status \(statusCode)")
         } catch let error as LiveKitError {
-            XCTAssertEqual(error.type, .validation)
+            #expect(error.type == expectedErrorType)
         } catch {
-            XCTFail("Expected LiveKitError, got \(error)")
-        }
-    }
-
-    func testFetchRegionSettingsClassifies5xxAsRegionManagerError() async throws {
-        let providedUrl = try XCTUnwrap(URL(string: "https://example.livekit.cloud"))
-        let regionManager = RegionManager(providedUrl: providedUrl)
-
-        try MockURLProtocol.setAllowedHosts([XCTUnwrap(providedUrl.host)])
-        MockURLProtocol.setAllowedPaths(["/settings/regions"])
-        MockURLProtocol.setRequestHandler { (_: URLRequest) in
-            MockURLProtocol.Response(statusCode: 500,
-                                     headers: [:],
-                                     body: Data("server error".utf8))
-        }
-        URLProtocol.registerClass(MockURLProtocol.self)
-
-        do {
-            _ = try await regionManager.resolveBest(token: "token")
-            XCTFail("Expected error")
-        } catch let error as LiveKitError {
-            XCTAssertEqual(error.type, .regionManager)
-        } catch {
-            XCTFail("Expected LiveKitError, got \(error)")
+            Issue.record("Expected LiveKitError, got \(error)")
         }
     }
 }

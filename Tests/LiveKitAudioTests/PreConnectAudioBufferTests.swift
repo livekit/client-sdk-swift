@@ -14,39 +14,41 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class PreConnectAudioBufferTests: LKTestCase {
-    func testParticipantActiveStateSendsAudioData() async throws {
-        let receiveExpectation = expectation(description: "Receives audio data")
+@Suite(.serialized, .tags(.audio, .e2e)) struct PreConnectAudioBufferTests {
+    @Test func participantActiveStateSendsAudioData() async throws {
+        try await confirmation("Receives audio data") { confirm in
+            try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublish: true, canPublishData: true)]) { rooms in
+                let subscriberRoom = rooms[0]
+                let publisherRoom = rooms[1]
 
-        try await withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublish: true, canPublishData: true)]) { rooms in
-            let subscriberRoom = rooms[0]
-            let publisherRoom = rooms[1]
-
-            try await subscriberRoom.registerByteStreamHandler(for: PreConnectAudioBuffer.dataTopic) { reader, participant in
-                XCTAssertEqual(participant, publisherRoom.localParticipant.identity)
-                do {
-                    let data = try await reader.readAll()
-                    XCTAssertFalse(data.isEmpty, "Received audio data should not be empty")
-                    receiveExpectation.fulfill()
-                } catch {
-                    XCTFail("Read failed: \(error.localizedDescription)")
+                try await subscriberRoom.registerByteStreamHandler(for: PreConnectAudioBuffer.dataTopic) { reader, participant in
+                    #expect(participant == publisherRoom.localParticipant.identity)
+                    do {
+                        let data = try await reader.readAll()
+                        #expect(!data.isEmpty, "Received audio data should not be empty")
+                        confirm()
+                    } catch {
+                        Issue.record("Read failed: \(error.localizedDescription)")
+                    }
                 }
+
+                let buffer = PreConnectAudioBuffer(room: publisherRoom)
+
+                try await buffer.startRecording()
+                try await Task.sleep(nanoseconds: NSEC_PER_SEC / 2)
+
+                subscriberRoom.localParticipant._state.mutate { $0.kind = .agent } // override kind
+                buffer.room(publisherRoom, participant: subscriberRoom.localParticipant, didUpdateState: .active)
+
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
             }
-
-            let buffer = PreConnectAudioBuffer(room: publisherRoom)
-
-            try await buffer.startRecording()
-            try await Task.sleep(nanoseconds: NSEC_PER_SEC / 2)
-
-            subscriberRoom.localParticipant._state.mutate { $0.kind = .agent } // override kind
-            buffer.room(publisherRoom, participant: subscriberRoom.localParticipant, didUpdateState: .active)
-
-            await self.fulfillment(of: [receiveExpectation], timeout: 10)
         }
     }
 }

@@ -17,6 +17,7 @@
 import AVFoundation
 import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
@@ -37,14 +38,15 @@ class TestTrack: LocalAudioTrack, @unchecked Sendable {
     }
 }
 
-class TrackTests: LKTestCase {
+@Suite(.tags(.media))
+struct TrackTests {
     #if os(iOS) || os(visionOS) || os(tvOS)
-    func testConcurrentStartStop() async throws {
+    @Test func concurrentStartStop() async throws {
         // Set config func to watch state changes.
         AudioManager.shared.customConfigureAudioSessionFunc = { newState, _ in
             print("localTracksCount: \(newState.localTracksCount)")
-            if newState.localTracksCount < 0 { XCTFail("localTracksCount should never be negative") }
-            if newState.localTracksCount > 2 { XCTFail("localTracksCount should never higher than 2 in this test") }
+            if newState.localTracksCount < 0 { Issue.record("localTracksCount should never be negative") }
+            if newState.localTracksCount > 2 { Issue.record("localTracksCount should never higher than 2 in this test") }
         }
 
         let track1 = TestTrack()
@@ -70,7 +72,7 @@ class TrackTests: LKTestCase {
 
         AudioManager.shared.customConfigureAudioSessionFunc = nil
 
-        XCTAssertEqual(AudioManager.shared._state.localTracksCount, 0, "localTracksCount should be 0")
+        #expect(AudioManager.shared._state.localTracksCount == 0, "localTracksCount should be 0")
     }
     #endif
 }
