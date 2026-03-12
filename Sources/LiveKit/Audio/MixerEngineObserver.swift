@@ -115,11 +115,19 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
         micNode.auAudioUnit.maximumFramesToRender = maxFrames
         micMixerNode.auAudioUnit.maximumFramesToRender = maxFrames
 
-        log("maximumFramesToRender=\(maxFrames) " +
-            "(appNode=\(appNode.auAudioUnit.maximumFramesToRender), " +
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        let config = LKRTCAudioSessionConfiguration.webRTC()
+        let webRTCPreferredFrames = AVAudioFrameCount(config.sampleRate * config.ioBufferDuration)
+        #else
+        let webRTCPreferredFrames: AVAudioFrameCount = 0
+        #endif
+
+        log("maximumFramesToRender=\(maxFrames), " +
+            "webRTCPreferredFrames=\(webRTCPreferredFrames), " +
+            "appNode=\(appNode.auAudioUnit.maximumFramesToRender), " +
             "appMixerNode=\(appMixerNode.auAudioUnit.maximumFramesToRender), " +
             "micNode=\(micNode.auAudioUnit.maximumFramesToRender), " +
-            "micMixerNode=\(micMixerNode.auAudioUnit.maximumFramesToRender))", .debug)
+            "micMixerNode=\(micMixerNode.auAudioUnit.maximumFramesToRender)", .debug)
 
         engine.attach(appNode)
         engine.attach(appMixerNode)
