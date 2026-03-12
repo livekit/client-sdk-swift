@@ -1,0 +1,1 @@
+patch type="fixed" "Set maximumFramesToRender on mixer audio nodes to prevent kAudioUnitErr_TooManyFramesToProcess (-10874) when iOS negotiates larger IO buffer sizes"

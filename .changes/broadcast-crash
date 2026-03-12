@@ -1,0 +1,1 @@
+patch type="fixed" "Use software rendering in BroadcastImageCodec to avoid GPU crash when app is backgrounded during PiP"
