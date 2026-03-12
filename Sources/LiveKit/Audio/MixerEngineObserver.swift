@@ -121,6 +121,14 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
         micNode.auAudioUnit.maximumFramesToRender = maxFrames
         micMixerNode.auAudioUnit.maximumFramesToRender = maxFrames
 
+        log("maximumFramesToRender: " +
+            "outputNode=\(engine.outputNode.auAudioUnit.maximumFramesToRender), " +
+            "appNode=\(appNode.auAudioUnit.maximumFramesToRender), " +
+            "appMixerNode=\(appMixerNode.auAudioUnit.maximumFramesToRender), " +
+            "micNode=\(micNode.auAudioUnit.maximumFramesToRender), " +
+            "micMixerNode=\(micMixerNode.auAudioUnit.maximumFramesToRender), " +
+            "target=\(maxFrames)", .debug)
+
         engine.attach(appNode)
         engine.attach(appMixerNode)
         engine.attach(micNode)

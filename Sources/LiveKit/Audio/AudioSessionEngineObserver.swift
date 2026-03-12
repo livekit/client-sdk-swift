@@ -131,6 +131,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 // As a fallback, MixerEngineObserver sets maximumFramesToRender on its nodes to
                 // handle larger-than-expected buffer sizes.
                 // See: https://developer.apple.com/documentation/avfaudio/avaudiosession/setpreferrediobufferduration(_:)
+                // See: https://developer.apple.com/library/archive/qa/qa1631/_index.html
                 try session.setPreferredIOBufferDuration(LKRTCAudioSessionConfiguration.webRTC().ioBufferDuration)
             } catch {
                 log("AudioSession failed to configure with error: \(error)", .error)
