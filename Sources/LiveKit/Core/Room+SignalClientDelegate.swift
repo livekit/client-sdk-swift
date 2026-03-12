@@ -342,15 +342,15 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_: SignalClient, didReceiveIceCandidate iceCandidate: IceCandidate, target: Livekit_SignalTarget) async {
-        guard let transport = target == .subscriber ? _state.subscriber : _state.publisher else {
+        guard let mode = _state.transport else {
             log("Failed to add ice candidate, transport is nil for target: \(target)", .error)
             return
         }
 
         do {
-            try await transport.add(iceCandidate: iceCandidate)
+            try await mode.transport(for: target).add(iceCandidate: iceCandidate)
         } catch {
-            log("Failed to add ice candidate for transport: \(transport), error: \(error)", .error)
+            log("Failed to add ice candidate for target: \(target), error: \(error)", .error)
         }
     }
 
@@ -366,12 +366,12 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription, offerId: UInt32) async {
-        log("Received offer with offerId: \(offerId), creating & sending answer...")
-
-        guard let subscriber = _state.subscriber else {
-            log("Failed to send answer, subscriber is nil", .error)
+        guard let subscriber = _state.transport?.dedicatedSubscriber else {
+            log("Received offer but not in dual PC mode, ignoring")
             return
         }
+
+        log("Received offer with offerId: \(offerId), creating & sending answer...")
 
         do {
             try await subscriber.set(remoteDescription: offer)
@@ -403,6 +403,25 @@ extension Room: SignalClientDelegate {
         // Notify LocalParticipant.
         localParticipant.delegates.notify {
             $0.participant?(self.localParticipant, remoteDidSubscribeTrack: track)
+        }
+    }
+
+    func signalClient(_: SignalClient, didReceiveMediaSectionsRequirement requirement: Livekit_MediaSectionsRequirement) async {
+        guard case let .publisherOnly(publisher) = _state.transport else { return }
+
+        let transceiverInit = LKRTCRtpTransceiverInit()
+        transceiverInit.direction = .recvOnly
+
+        do {
+            for _ in 0 ..< requirement.numAudios {
+                _ = try await publisher.addTransceiver(ofType: .audio, transceiverInit: transceiverInit)
+            }
+            for _ in 0 ..< requirement.numVideos {
+                _ = try await publisher.addTransceiver(ofType: .video, transceiverInit: transceiverInit)
+            }
+            try await publisherShouldNegotiate()
+        } catch {
+            log("Failed to add transceivers for media sections requirement: \(error)", .error)
         }
     }
 }

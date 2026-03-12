@@ -21,22 +21,6 @@ import Foundation
 import LiveKitTestSupport
 #endif
 
-class TestTrack: LocalAudioTrack, @unchecked Sendable {
-    init() {
-        let source = RTC.createAudioSource(nil)
-        let _track = RTC.createAudioTrack(source: source)
-        super.init(name: "test_audio_track", source: .microphone, track: _track, reportStatistics: false, captureOptions: AudioCaptureOptions())
-    }
-
-    override func startCapture() async throws {
-        try? await Task.sleep(nanoseconds: UInt64(Double.random(in: 0.0 ... 1.0) * 1_000_000))
-    }
-
-    override func stopCapture() async throws {
-        try? await Task.sleep(nanoseconds: UInt64(Double.random(in: 0.0 ... 1.0) * 1_000_000))
-    }
-}
-
 class TrackTests: LKTestCase {
     #if os(iOS) || os(visionOS) || os(tvOS)
     func testConcurrentStartStop() async throws {
@@ -47,8 +31,8 @@ class TrackTests: LKTestCase {
             if newState.localTracksCount > 2 { XCTFail("localTracksCount should never higher than 2 in this test") }
         }
 
-        let track1 = TestTrack()
-        let track2 = TestTrack()
+        let track1 = TestAudioTrack()
+        let track2 = TestAudioTrack()
 
         try await withThrowingTaskGroup(of: Void.self) { group in
             for _ in 0 ..< 1000 {
