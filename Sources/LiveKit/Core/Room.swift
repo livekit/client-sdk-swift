@@ -44,32 +44,41 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         try await _sidCompleter.wait()
     }
 
+    /// The name of the Room, as assigned on the LiveKit server.
     public var name: String? { _state.name }
 
     /// Room's metadata.
     public var metadata: String? { _state.metadata }
 
+    /// The version string of the LiveKit server this client is connected to.
     public var serverVersion: String? { _state.serverInfo?.version.nilIfEmpty }
 
     /// Region code the client is currently connected to.
     public var serverRegion: String? { _state.serverInfo?.region.nilIfEmpty }
 
-    /// Region code the client is currently connected to.
+    /// The ID of the server node the client is currently connected to.
     public var serverNodeId: String? { _state.serverInfo?.nodeID.nilIfEmpty }
 
+    /// A dictionary of all remote participants in the room, keyed by their identity.
     public var remoteParticipants: [Participant.Identity: RemoteParticipant] { _state.remoteParticipants }
 
+    /// The list of participants (including the local participant) currently speaking,
+    /// ordered by audio level from loudest to quietest.
     public var activeSpeakers: [Participant] { _state.activeSpeakers }
 
+    /// The date and time at which the room was created on the server.
     public var creationTime: Date? { _state.creationTime }
 
     /// If the current room has a participant with `recorder:true` in its JWT grant.
     public var isRecording: Bool { _state.isRecording }
 
+    /// The maximum number of participants allowed in this room, as configured on the server.
     public var maxParticipants: Int { _state.maxParticipants }
 
+    /// The current number of participants in the room, including the local participant.
     public var participantCount: Int { _state.numParticipants }
 
+    /// The number of participants currently publishing media tracks in the room.
     public var publishersCount: Int { _state.numPublishers }
 
     /// User-provided URL.
@@ -78,11 +87,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     /// Actual server URL used for the current connection (may include a regional URL).
     public var connectedUrl: String? { _state.connectedUrl?.absoluteString }
 
+    /// The JWT token used for the current connection.
     public var token: String? { _state.token }
 
     /// Current ``ConnectionState`` of the ``Room``.
     public var connectionState: ConnectionState { _state.connectionState }
 
+    /// The error that caused the most recent disconnection, if any.
     public var disconnectError: LiveKitError? { _state.disconnectError }
 
     public var connectStopwatch: Stopwatch { _state.connectStopwatch }
