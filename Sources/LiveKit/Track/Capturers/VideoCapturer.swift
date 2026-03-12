@@ -79,11 +79,6 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
         var dimensions: Dimensions?
         weak var processor: VideoProcessor?
         var isFrameProcessingBusy: Bool = false
-
-        // Frame drop diagnostics
-        var totalFramesReceived: Int = 0
-        var framesDroppedBusy: Int = 0
-        var lastDropLogTime: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()
     }
 
     let _state: StateSync<State>
@@ -291,34 +286,14 @@ extension VideoCapturer {
                 options: options)
     }
 
-    private func logDropSummaryIfNeeded() {
-        let now = CFAbsoluteTimeGetCurrent()
-        let snapshot = _state.mutate { s -> (Int, Int, Bool) in
-            let elapsed = now - s.lastDropLogTime
-            guard elapsed >= 5.0 else { return (0, 0, false) }
-            let result = (s.totalFramesReceived, s.framesDroppedBusy, true)
-            s.totalFramesReceived = 0
-            s.framesDroppedBusy = 0
-            s.lastDropLogTime = now
-            return result
-        }
-        guard snapshot.2 else { return }
-        let (total, dropped, _) = snapshot
-        let dropPct = total > 0 ? Double(dropped) / Double(total) * 100 : 0
-        log("[capturer] frames: \(total), dropped(busy): \(dropped) (\(String(format: "%.1f", dropPct))%)", .info)
-    }
-
     // Process the captured frame
     private func _process(frame: LKRTCVideoFrame,
                           capturer: LKRTCVideoCapturer,
                           device: AVCaptureDevice?,
                           options: VideoCaptureOptions)
     {
-        _state.mutate { $0.totalFramesReceived += 1 }
-
         if _state.isFrameProcessingBusy {
-            _state.mutate { $0.framesDroppedBusy += 1 }
-            logDropSummaryIfNeeded()
+            log("Frame processing hasn't completed yet, skipping frame...", .warning)
             return
         }
 

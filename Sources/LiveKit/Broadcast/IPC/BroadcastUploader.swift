@@ -26,24 +26,10 @@ final class BroadcastUploader: Sendable, Loggable {
     private let imageCodec = BroadcastImageCodec()
     private let audioCodec = BroadcastAudioCodec()
 
-    private struct PendingFrame {
-        let header: BroadcastIPCHeader
-        let payload: Data
-    }
-
     private struct State {
-        var isSending = false
-        var pendingFrame: PendingFrame?
+        var isUploadingImage = false
         var shouldUploadAudio = false
         var messageLoopTask: AnyTaskCancellable?
-
-        // Frame drop diagnostics
-        var totalVideoFrames: Int = 0
-        var droppedVideoFrames: Int = 0
-        var totalEncodeTime: Double = 0
-        var totalEncodedBytes: Int = 0
-        var encodedFrameCount: Int = 0
-        var lastLogTime: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()
     }
 
     private let state = StateSync(State())
@@ -87,38 +73,25 @@ final class BroadcastUploader: Sendable, Loggable {
         }
         switch type {
         case .video:
-            state.mutate { $0.totalVideoFrames += 1 }
-
-            let rotation = VideoRotation(sampleBuffer.replayKitOrientation ?? .up)
-            let encodeStart = CFAbsoluteTimeGetCurrent()
-            let (metadata, imageData) = try imageCodec.encode(sampleBuffer)
-            let encodeTime = CFAbsoluteTimeGetCurrent() - encodeStart
-
-            state.mutate {
-                $0.totalEncodeTime += encodeTime
-                $0.totalEncodedBytes += imageData.count
-                $0.encodedFrameCount += 1
-            }
-
-            let frame = PendingFrame(
-                header: .image(metadata, rotation),
-                payload: imageData
-            )
-
-            let shouldSend = state.mutate {
-                guard !$0.isSending else {
-                    if $0.pendingFrame != nil { $0.droppedVideoFrames += 1 }
-                    $0.pendingFrame = frame
-                    return false
-                }
-                $0.isSending = true
+            let canUpload = state.mutate {
+                guard !$0.isUploadingImage else { return false }
+                $0.isUploadingImage = true
                 return true
             }
+            guard canUpload else { return }
 
-            if shouldSend {
-                sendFrame(frame)
+            let rotation = VideoRotation(sampleBuffer.replayKitOrientation ?? .up)
+            do {
+                let (metadata, imageData) = try imageCodec.encode(sampleBuffer)
+                Task {
+                    let header = BroadcastIPCHeader.image(metadata, rotation)
+                    try await channel.send(header: header, payload: imageData)
+                    state.mutate { $0.isUploadingImage = false }
+                }
+            } catch {
+                state.mutate { $0.isUploadingImage = false }
+                throw error
             }
-            logPeriodicSummary()
         case .audioApp:
             guard state.shouldUploadAudio else { return }
             let (metadata, audioData) = try audioCodec.encode(sampleBuffer)
@@ -129,43 +102,6 @@ final class BroadcastUploader: Sendable, Loggable {
         default:
             throw Error.unsupportedSample
         }
-    }
-
-    private func sendFrame(_ frame: PendingFrame) {
-        Task {
-            try await channel.send(header: frame.header, payload: frame.payload)
-            let next = state.mutate { s -> PendingFrame? in
-                if let pending = s.pendingFrame {
-                    s.pendingFrame = nil
-                    return pending
-                }
-                s.isSending = false
-                return nil
-            }
-            if let next { sendFrame(next) }
-        }
-    }
-
-    private func logPeriodicSummary() {
-        let now = CFAbsoluteTimeGetCurrent()
-        let snapshot = state.mutate { s -> (Int, Int, Double, Int, Int, Bool) in
-            let elapsed = now - s.lastLogTime
-            guard elapsed >= 5.0 else { return (0, 0, 0, 0, 0, false) }
-            let result = (s.totalVideoFrames, s.droppedVideoFrames, s.totalEncodeTime, s.totalEncodedBytes, s.encodedFrameCount, true)
-            s.totalVideoFrames = 0
-            s.droppedVideoFrames = 0
-            s.totalEncodeTime = 0
-            s.totalEncodedBytes = 0
-            s.encodedFrameCount = 0
-            s.lastLogTime = now
-            return result
-        }
-        guard snapshot.5 else { return }
-        let (total, dropped, encodeTime, encodedBytes, encodedCount, _) = snapshot
-        let dropPct = total > 0 ? Double(dropped) / Double(total) * 100 : 0
-        let avgEncodeMs = encodedCount > 0 ? (encodeTime / Double(encodedCount)) * 1000 : 0
-        let avgSizeKB = encodedCount > 0 ? encodedBytes / encodedCount / 1024 : 0
-        log("[broadcast] frames: \(total), dropped: \(dropped) (\(String(format: "%.1f", dropPct))%), avgEncode: \(String(format: "%.1f", avgEncodeMs))ms, avgSize: \(avgSizeKB)KB", .info)
     }
 
     private func processMessageHeader(_ header: BroadcastIPCHeader) {
