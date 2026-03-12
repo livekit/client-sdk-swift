@@ -96,6 +96,42 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
             ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode)
         }
 
+        // Match the outputNode's maximumFramesToRender so our nodes can handle the same
+        // buffer sizes the engine expects, preventing kAudioUnitErr_TooManyFramesToProcess (-10874).
+        // Must be set before render resources are allocated (i.e. before attach/connect/start).
+        //
+        // Complementary to the preferredIOBufferDuration hint set in AudioSessionEngineObserver,
+        // which iOS may ignore on some devices.
+        //
+        // Note: AVAudioEngine may override these values during prepare()/start(), propagating the
+        // outputNode's maximumFramesToRender to all hosted nodes. If that occurs, the actual fix
+        // must move into the WebRTC layer (audio_engine_device.mm).
+        // See: https://developer.apple.com/documentation/audiotoolbox/auaudiounit/maximumframestorender
+        // See: https://developer.apple.com/forums/thread/111968
+        let maxFrames = engine.outputNode.auAudioUnit.maximumFramesToRender
+
+        log("maximumFramesToRender before: " +
+            "appNode=\(appNode.auAudioUnit.maximumFramesToRender), " +
+            "appMixerNode=\(appMixerNode.auAudioUnit.maximumFramesToRender), " +
+            "micNode=\(micNode.auAudioUnit.maximumFramesToRender), " +
+            "micMixerNode=\(micMixerNode.auAudioUnit.maximumFramesToRender)", .debug)
+
+        appNode.auAudioUnit.maximumFramesToRender = maxFrames
+        appMixerNode.auAudioUnit.maximumFramesToRender = maxFrames
+        micNode.auAudioUnit.maximumFramesToRender = maxFrames
+        micMixerNode.auAudioUnit.maximumFramesToRender = maxFrames
+
+        log("maximumFramesToRender setting to \(maxFrames): " +
+            "appNode=\(appNode.auAudioUnit.maximumFramesToRender), " +
+            "appMixerNode=\(appMixerNode.auAudioUnit.maximumFramesToRender), " +
+            "micNode=\(micNode.auAudioUnit.maximumFramesToRender), " +
+            "micMixerNode=\(micMixerNode.auAudioUnit.maximumFramesToRender)", .debug)
+
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        let config = LKRTCAudioSessionConfiguration.webRTC()
+        log("webRTCPreferredFrames=\(AVAudioFrameCount(config.sampleRate * config.ioBufferDuration))", .debug)
+        #endif
+
         engine.attach(appNode)
         engine.attach(appMixerNode)
         engine.attach(micNode)

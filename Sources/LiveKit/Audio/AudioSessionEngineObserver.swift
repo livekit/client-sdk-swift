@@ -18,6 +18,8 @@
 
 import AVFoundation
 
+internal import LiveKitWebRTC
+
 /// An ``AudioEngineObserver`` that configures the `AVAudioSession` based on the state of the audio engine.
 public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @unchecked Sendable {
     /// Controls automatic configuration of the `AVAudioSession` based on audio engine state.
@@ -120,6 +122,17 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             do {
                 log("AudioSession configuring category to: \(config.category)")
                 try session.setCategory(config.category, mode: config.mode, options: config.categoryOptions)
+                // Request WebRTC's preferred IO buffer duration (0.02s / 20ms, defined as
+                // RTCAudioSessionHighPerformanceIOBufferDuration in RTCAudioSessionConfiguration.m).
+                // WebRTC also sets this internally via RTCAudioSession+Configuration.mm when
+                // configuring the audio session, but we set it here as well since we manage the
+                // session category ourselves. This is only a hint — iOS may ignore it and negotiate
+                // a larger buffer on some devices, causing kAudioUnitErr_TooManyFramesToProcess (-10874).
+                // As a fallback, MixerEngineObserver sets maximumFramesToRender on its nodes to
+                // handle larger-than-expected buffer sizes.
+                // See: https://developer.apple.com/documentation/avfaudio/avaudiosession/setpreferrediobufferduration(_:)
+                // See: https://developer.apple.com/library/archive/qa/qa1631/_index.html
+                try session.setPreferredIOBufferDuration(LKRTCAudioSessionConfiguration.webRTC().ioBufferDuration)
             } catch {
                 log("AudioSession failed to configure with error: \(error)", .error)
             }
