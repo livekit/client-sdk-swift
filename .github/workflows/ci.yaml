@@ -53,9 +53,6 @@ jobs:
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-15
             xcode: 16.4
-            platform: "visionOS Simulator,name=Apple Vision Pro,OS=2.5"
-          - os: macos-15
-            xcode: 16.4
             platform: "tvOS Simulator,name=Apple TV,OS=18.5"
 
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md
