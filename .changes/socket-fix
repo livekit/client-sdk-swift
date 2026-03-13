@@ -1,0 +1,1 @@
+patch type="fixed" "WebSocket failing to connect in some concurrent scenarios"

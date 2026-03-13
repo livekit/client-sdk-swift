@@ -99,4 +99,29 @@ public final class StreamByteOptions: NSObject, StreamOptions {
         self.name = name
         self.totalSize = totalSize
     }
+
+    /// ObjC-compatible initializer that accepts `NSNumber?` for `totalSize`.
+    ///
+    /// Required because `Int?` does not auto-bridge to ObjC.
+
+    @available(*, deprecated, message: "Use init(topic:attributes:destinationIdentities:id:mimeType:name:totalSize:) instead.")
+    public convenience init(
+        topic: String,
+        attributes: [String: String],
+        destinationIdentities: [Participant.Identity],
+        id: String?,
+        mimeType: String?,
+        name: String?,
+        totalSizeNumber: NSNumber?
+    ) {
+        self.init(
+            topic: topic,
+            attributes: attributes,
+            destinationIdentities: destinationIdentities,
+            id: id,
+            mimeType: mimeType,
+            name: name,
+            totalSize: totalSizeNumber?.intValue
+        )
+    }
 }

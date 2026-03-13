@@ -89,7 +89,12 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     // MARK: - Internal
 
-    public var e2eeManager: E2EEManager?
+    private let _e2eeManager = StateSync<E2EEManager?>(nil)
+
+    public var e2eeManager: E2EEManager? {
+        get { _e2eeManager.copy() }
+        set { _e2eeManager.mutate { $0 = newValue } }
+    }
 
     public lazy var localParticipant: LocalParticipant = .init(room: self)
 
@@ -494,6 +499,9 @@ extension Room {
         publisherTransportConnectedCompleter.reset()
 
         await signalClient.cleanUp(withError: disconnectError)
+        // Cancel all track stats timers before closing transports to prevent
+        // stats collection from accessing destroyed WebRTC channels.
+        cancelTimers()
         await cleanUpRTC()
         await cleanUpParticipants(isFullReconnect: isFullReconnect)
 
@@ -522,6 +530,14 @@ extension Room {
                 reconnectTask: $0.reconnectTask,
                 disconnectError: LiveKitError.from(error: disconnectError)
             )
+        }
+    }
+
+    private func cancelTimers() {
+        for (_, participant) in allParticipants {
+            for (_, publication) in participant._state.trackPublications {
+                publication.track?.cancelStatisticsTimer()
+            }
         }
     }
 }

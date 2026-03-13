@@ -17,14 +17,14 @@
 @testable import LiveKit
 
 /// Mock ``DataChannelPair`` to intercept outgoing packets.
-public class MockDataChannelPair: DataChannelPair, @unchecked Sendable {
-    public var packetHandler: (Livekit_DataPacket) -> Void
+class MockDataChannelPair: DataChannelPair, @unchecked Sendable {
+    var packetHandler: (Livekit_DataPacket) -> Void
 
-    public init(packetHandler: @escaping (Livekit_DataPacket) -> Void) {
+    init(packetHandler: @escaping (Livekit_DataPacket) -> Void) {
         self.packetHandler = packetHandler
     }
 
-    override public func send(dataPacket packet: Livekit_DataPacket) async throws {
+    override func send(dataPacket packet: Livekit_DataPacket) async throws {
         packetHandler(packet)
     }
 }
