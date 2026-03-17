@@ -16,7 +16,6 @@
 
 // API inspired by swift-collections by Apple Inc.
 // https://github.com/apple/swift-collections
-// Licensed under Apache License 2.0 with Runtime Library Exception.
 
 struct OrderedDictionary<Key: Hashable, Value>: ExpressibleByDictionaryLiteral {
     private var pairs: [(key: Key, value: Value)] = []
