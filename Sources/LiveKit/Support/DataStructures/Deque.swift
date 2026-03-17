@@ -17,26 +17,56 @@
 // API inspired by swift-collections by Apple Inc.
 // https://github.com/apple/swift-collections
 
+/// A double-ended queue backed by a circular buffer.
+/// Provides O(1) amortized `append` and `removeFirst`.
 struct Deque<Element>: ExpressibleByArrayLiteral {
-    private var storage: [Element] = []
+    private var buffer: [Element?] = []
+    private var head = 0
+    private var count_ = 0
 
     init() {}
 
     init(arrayLiteral elements: Element...) {
-        storage = elements
+        buffer = elements.map { $0 }
+        count_ = elements.count
     }
 
-    var isEmpty: Bool { storage.isEmpty }
+    var isEmpty: Bool { count_ == 0 }
 
-    var first: Element? { storage.first }
+    var first: Element? {
+        guard count_ > 0 else { return nil }
+        return buffer[head]
+    }
 
     mutating func append(_ element: Element) {
-        storage.append(element)
+        if count_ == buffer.count {
+            grow()
+        }
+        let tail = (head + count_) % buffer.count
+        buffer[tail] = element
+        count_ += 1
     }
 
     @discardableResult
     mutating func removeFirst() -> Element {
-        storage.removeFirst()
+        guard count_ > 0 else {
+            fatalError("Cannot removeFirst from an empty Deque")
+        }
+        let element = buffer[head]!
+        buffer[head] = nil
+        head = (head + 1) % buffer.count
+        count_ -= 1
+        return element
+    }
+
+    private mutating func grow() {
+        let newCapacity = max(buffer.count * 2, 4)
+        var newBuffer = [Element?](repeating: nil, count: newCapacity)
+        for i in 0 ..< count_ {
+            newBuffer[i] = buffer[(head + i) % buffer.count]
+        }
+        buffer = newBuffer
+        head = 0
     }
 }
 
