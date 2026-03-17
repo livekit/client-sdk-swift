@@ -81,12 +81,16 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         set { _state.mutate { $0.next = newValue } }
     }
 
+    public init() {
+        _state.onDidMutate = { [weak self] new, old in
+            guard let self,
+                  new.isSpeakerOutputPreferred != old.isSpeakerOutputPreferred else { return }
+            _ = self.configureIfNeeded(oldState: old, newState: new)
+        }
+    }
+
     // MARK: - Audio Session Configuration
 
-    /// Attempts to configure the audio session for the given state transition.
-    ///
-    /// Returns an error code if configuration fails, or 0 on success.
-    /// When `isAutomaticConfigurationEnabled` is `false`, this is a no-op.
     private func configureIfNeeded(oldState: State, newState: State) -> Int {
         guard newState.isAutomaticConfigurationEnabled else { return 0 }
 
@@ -108,8 +112,6 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         }
     }
 
-    /// Configures the `AVAudioSession` based on the state transition. Throws if activation,
-    /// deactivation, or category configuration fails, allowing the caller to abort the transition.
     @Sendable private func configureAudioSession(oldState: State, newState: State) throws {
         let session = AVAudioSession.sharedInstance()
 
@@ -137,7 +139,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 // RTCAudioSessionHighPerformanceIOBufferDuration in RTCAudioSessionConfiguration.m).
                 // WebRTC also sets this internally via RTCAudioSession+Configuration.mm when
                 // configuring the audio session, but we set it here as well since we manage the
-                // session category ourselves. This is only a hint — iOS may ignore it and negotiate
+                // session category ourselves. This is only a hint, iOS may ignore it and negotiate
                 // a larger buffer on some devices, causing kAudioUnitErr_TooManyFramesToProcess (-10874).
                 // As a fallback, MixerEngineObserver sets maximumFramesToRender on its nodes to
                 // handle larger-than-expected buffer sizes.
@@ -164,41 +166,37 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     // MARK: - AudioEngineObserver
 
     public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
-        let oldState = _state.copy()
-        let newState = oldState.copy {
+        let result: Int = _state.mutate {
+            let oldState = $0
             $0.isPlayoutEnabled = isPlayoutEnabled
             $0.isRecordingEnabled = isRecordingEnabled
+            let result = configureIfNeeded(oldState: oldState, newState: $0)
+            if result != 0 {
+                // Rollback state on failure so it stays consistent with WebRTC's rollback.
+                $0 = oldState
+            }
+            return result
         }
-
-        let result = configureIfNeeded(oldState: oldState, newState: newState)
         guard result == 0 else { return result }
-
-        _state.mutate { $0 = newState }
         return _state.next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
     }
 
     public func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
         let nextResult = _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
 
-        let oldState = _state.copy()
-        let newState = oldState.copy {
+        let result: Int = _state.mutate {
+            let oldState = $0
             $0.isPlayoutEnabled = isPlayoutEnabled
             $0.isRecordingEnabled = isRecordingEnabled
+            let result = configureIfNeeded(oldState: oldState, newState: $0)
+            if result != 0 {
+                // Rollback state on failure so it stays consistent with WebRTC's rollback.
+                $0 = oldState
+            }
+            return result
         }
-
-        let result = configureIfNeeded(oldState: oldState, newState: newState)
         guard result == 0 else { return result }
-
-        _state.mutate { $0 = newState }
         return nextResult
-    }
-}
-
-extension AudioSessionEngineObserver.State {
-    func copy(_ block: (inout AudioSessionEngineObserver.State) -> Void) -> AudioSessionEngineObserver.State {
-        var stateCopy = self
-        block(&stateCopy)
-        return stateCopy
     }
 }
 
