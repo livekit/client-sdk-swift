@@ -164,7 +164,8 @@ jobs:
             BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
             OTHER_SWIFT_FLAGS="-Xfrontend -emit-symbol-graph\
                                -Xfrontend -emit-symbol-graph-dir\
-                               -Xfrontend \"${PWD}/symbol-graph\"" \
+                               -Xfrontend \"${PWD}/symbol-graph\" \
+                               -enable-experimental-feature Lifetimes" \
             DOCC_EXTRACT_EXTENSION_SYMBOLS=YES | xcbeautify --renderer github-actions
 
       - name: Upload Symbol Graph
