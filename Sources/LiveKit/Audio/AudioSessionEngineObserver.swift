@@ -64,7 +64,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
     }
 
-    struct State: Sendable {
+    struct State {
         var next: (any AudioEngineObserver)?
 
         var isAutomaticConfigurationEnabled: Bool = true
@@ -85,7 +85,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         _state.onDidMutate = { [weak self] new, old in
             guard let self,
                   new.isSpeakerOutputPreferred != old.isSpeakerOutputPreferred else { return }
-            _ = self.configureIfNeeded(oldState: old, newState: new)
+            _ = configureIfNeeded(oldState: old, newState: new)
         }
     }
 
