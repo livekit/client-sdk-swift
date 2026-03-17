@@ -1,0 +1,44 @@
+/*
+ * Copyright 2026 LiveKit
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// API inspired by swift-collections by Apple Inc.
+// https://github.com/apple/swift-collections
+// Licensed under Apache License 2.0 with Runtime Library Exception.
+
+struct Deque<Element>: ExpressibleByArrayLiteral {
+    private var storage: [Element] = []
+
+    init() {}
+
+    init(arrayLiteral elements: Element...) {
+        storage = elements
+    }
+
+    var isEmpty: Bool { storage.isEmpty }
+
+    var first: Element? { storage.first }
+
+    mutating func append(_ element: Element) {
+        storage.append(element)
+    }
+
+    @discardableResult
+    mutating func removeFirst() -> Element {
+        storage.removeFirst()
+    }
+}
+
+extension Deque: Sendable where Element: Sendable {}
