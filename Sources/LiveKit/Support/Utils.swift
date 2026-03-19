@@ -219,8 +219,8 @@ class Utils: Loggable {
 
         var pathSegments = url.pathComponents
         pathSegments.removeAll(where: { $0.isEmpty || $0 == "/" })
-        if !url.hasDirectoryPath, !pathSegments.isEmpty,
-           ["rtc", "validate"].contains(pathSegments.last!)
+        if !url.hasDirectoryPath, let last = pathSegments.last,
+           ["rtc", "validate"].contains(last)
         {
             pathSegments.removeLast()
         }
