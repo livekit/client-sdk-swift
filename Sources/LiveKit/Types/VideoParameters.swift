@@ -82,7 +82,9 @@ extension VideoParameters {
             let fps: Int
         }
 
-        let layers = [Layer(scaleDownBy: 2, fps: 3)]
+        let layers = [
+            Layer(scaleDownBy: 2, fps: encoding.maxFps),
+        ]
 
         return layers.map {
             let dimensions = Dimensions(width: Int32((Double(dimensions.width) / $0.scaleDownBy).rounded(.down)),
@@ -256,7 +258,7 @@ public extension VideoParameters {
 
     static let presetScreenShareH720FPS5 = VideoParameters(
         dimensions: .h720_169,
-        encoding: VideoEncoding(maxBitrate: 400_000, maxFps: 5)
+        encoding: VideoEncoding(maxBitrate: 800_000, maxFps: 5)
     )
 
     static let presetScreenShareH720FPS15 = VideoParameters(
@@ -271,6 +273,6 @@ public extension VideoParameters {
 
     static let presetScreenShareH1080FPS30 = VideoParameters(
         dimensions: .h1080_169,
-        encoding: VideoEncoding(maxBitrate: 4_000_000, maxFps: 30)
+        encoding: VideoEncoding(maxBitrate: 5_000_000, maxFps: 30)
     )
 }

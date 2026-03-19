@@ -406,7 +406,8 @@ public extension LocalParticipant {
                             return nil
                         }
                         // Wait until broadcasting to publish track
-                        localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: defaultOptions)
+                        localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: defaultOptions,
+                                                                                        reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
                     } else {
                         let options = (captureOptions as? ScreenShareCaptureOptions) ?? defaultOptions
                         localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)

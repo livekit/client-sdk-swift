@@ -220,9 +220,24 @@ actor SignalClient: Loggable {
         }
     }
 
+    // Tears down connection state: closes socket, cancels timers, resets completers.
+    //
+    // Non-throwing: timer.cancel(), _state.mutate, completer.reset(),
+    // queue.clear() are all `async` but never `try`. CancellationError
+    // cannot interrupt the sequence.
+    //
+    // Idempotent: closing a nil socket, cancelling a stopped timer, or
+    // resetting an empty completer are all safe no-ops.
+    //
+    // Must never be guarded by Task.isCancelled — see Room.cleanUp()
+    // for the full cancellation contract.
+    //
+    // Only called from:
+    //   Room.cleanUp()           ──► forwards disconnectError
+    //   subscribe() onFailure    ──► WebSocket error (guarded: suppressed when
+    //                                Task.isCancelled, preventing stale loops
+    //                                from tearing down a new connection)
     func cleanUp(withError disconnectError: Error? = nil) async {
-        if Task.isCancelled { return }
-
         log("withError: \(String(describing: disconnectError))")
 
         // Cancel ping/pong timers immediately to prevent stale timers from affecting future connections

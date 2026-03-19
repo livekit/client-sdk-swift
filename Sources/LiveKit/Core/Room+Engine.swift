@@ -480,8 +480,9 @@ extension Room {
         } catch {
             log("[Connect] Sequence failed with error: \(error)")
 
+            // Only clean up if the reconnect task wasn't cancelled — when cancelled,
+            // the caller (disconnect() or a new reconnect) handles cleanup separately.
             if !Task.isCancelled {
-                // Finally disconnect if all attempts fail
                 await cleanUp(withError: error)
             }
         }

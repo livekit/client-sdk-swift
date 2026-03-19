@@ -1,5 +1,5 @@
-// swift-tools-version:5.9
-// (Xcode15.0+)
+// swift-tools-version:6.2
+// (Xcode26.0+)
 
 import PackageDescription
 
@@ -10,6 +10,7 @@ let package = Package(
         .macOS(.v10_15),
         .macCatalyst(.v14),
         .tvOS(.v17),
+        .visionOS(.v26),
     ],
     products: [
         .library(
@@ -80,7 +81,8 @@ let package = Package(
             ]
         ),
     ],
-    swiftLanguageVersions: [
-        .v5,
+    swiftLanguageModes: [
+        .v5, // opt-out from dynamic actor isolation checks
+        .v6,
     ]
 )

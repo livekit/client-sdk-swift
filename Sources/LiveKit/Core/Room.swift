@@ -484,11 +484,42 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 // MARK: - Internal
 
 extension Room {
-    // Resets state of Room
-    func cleanUp(withError disconnectError: Error? = nil,
-                 isFullReconnect: Bool = false) async
+    // Resets state of Room.
+    //
+    // Safety properties:
+    //
+    //   Non-throwing: Every operation is either synchronous or `async` (no `try`).
+    //   CancellationError cannot interrupt the sequence mid-execution because
+    //   there are no throwing suspension points (`try await`).
+    //
+    //   Idempotent: Socket close, timer cancel, completer reset, and state
+    //   mutation to .disconnected are all safe to call multiple times. A second
+    //   cleanUp() on an already-disconnected Room is a no-op in effect.
+    //
+    //   No re-entrancy risk: The subscribe() helper suppresses onFailure
+    //   callbacks when Task.isCancelled is true (AsyncSequence+Subscribe:47),
+    //   so cancelling the messageLoopTask inside cleanUp cannot trigger a
+    //   recursive cleanUp call through the onFailure path.
+    //
+    // Cancellation contract — cleanUp() must NEVER be guarded by Task.isCancelled:
+    //
+    //   disconnect()
+    //       cancelReconnect() ──► reconnectTask cancelled
+    //       await cleanUp()   ──► runs in disconnect's own (non-cancelled) Task
+    //
+    //   startReconnect() catch
+    //       if !Task.isCancelled ──► skips when reconnect was cancelled;
+    //       await cleanUp()         caller (disconnect/new reconnect) owns cleanup
+    //
+    //   connect() catch
+    //       await cleanUp()   ──► connect failed, clean up and re-throw
+    //
+    // @nonobjc is required: Room is @objcMembers, which causes async method
+    // calls to create a new task context — silently breaking Task.isCancelled
+    // propagation. This method is internal and never called from ObjC.
+    @nonobjc func cleanUp(withError disconnectError: Error? = nil,
+                          isFullReconnect: Bool = false) async
     {
-        guard !Task.isCancelled else { return }
         log("withError: \(String(describing: disconnectError)), isFullReconnect: \(isFullReconnect)")
 
         // Reset completers
@@ -497,6 +528,9 @@ extension Room {
         publisherTransportConnectedCompleter.reset()
 
         await signalClient.cleanUp(withError: disconnectError)
+        // Cancel all track stats timers before closing transports to prevent
+        // stats collection from accessing destroyed WebRTC channels.
+        cancelTimers()
         await cleanUpRTC()
         await cleanUpParticipants(isFullReconnect: isFullReconnect)
 
@@ -525,6 +559,14 @@ extension Room {
                 reconnectTask: $0.reconnectTask,
                 disconnectError: LiveKitError.from(error: disconnectError)
             )
+        }
+    }
+
+    private func cancelTimers() {
+        for (_, participant) in allParticipants {
+            for (_, publication) in participant._state.trackPublications {
+                publication.track?.cancelStatisticsTimer()
+            }
         }
     }
 }
