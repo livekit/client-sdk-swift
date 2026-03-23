@@ -77,6 +77,11 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
         // Counts calls to start/stopCapturer so multiple Tracks can use the same VideoCapturer.
         var startStopCounter: Int = 0
         var dimensions: Dimensions?
+        // Stabilization: require N consecutive frames with the same dimensions before accepting a change.
+        // This prevents oscillation during iOS device rotation where frames alternate between
+        // portrait and landscape dimensions on consecutive frames.
+        var pendingDimensions: Dimensions?
+        var pendingDimensionsCount: Int = 0
         weak var processor: VideoProcessor?
         var isFrameProcessingBusy: Bool = false
     }
@@ -90,11 +95,52 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
         set { _state.mutate { $0.processor = newValue } }
     }
 
+    /// Number of consecutive frames required before accepting a dimension change.
+    static let dimensionStabilizationThreshold = 3
+
     func set(dimensions newValue: Dimensions?) {
         let didUpdate = _state.mutate {
-            let oldDimensions = $0.dimensions
-            $0.dimensions = newValue
-            return newValue != oldDimensions
+            // nil always propagates immediately (e.g., capture stopped).
+            guard let newValue else {
+                let wasNonNil = $0.dimensions != nil
+                $0.dimensions = nil
+                $0.pendingDimensions = nil
+                $0.pendingDimensionsCount = 0
+                return wasNonNil
+            }
+
+            // Already at these dimensions — reset any pending change and skip.
+            if newValue == $0.dimensions {
+                $0.pendingDimensions = nil
+                $0.pendingDimensionsCount = 0
+                return false
+            }
+
+            // First dimensions ever — accept immediately.
+            if $0.dimensions == nil {
+                $0.dimensions = newValue
+                $0.pendingDimensions = nil
+                $0.pendingDimensionsCount = 0
+                return true
+            }
+
+            // Accumulate consecutive frames with the same new dimensions.
+            if newValue == $0.pendingDimensions {
+                $0.pendingDimensionsCount += 1
+            } else {
+                $0.pendingDimensions = newValue
+                $0.pendingDimensionsCount = 1
+            }
+
+            // Accept once the threshold is met.
+            if $0.pendingDimensionsCount >= Self.dimensionStabilizationThreshold {
+                $0.dimensions = newValue
+                $0.pendingDimensions = nil
+                $0.pendingDimensionsCount = 0
+                return true
+            }
+
+            return false
         }
 
         if didUpdate {
