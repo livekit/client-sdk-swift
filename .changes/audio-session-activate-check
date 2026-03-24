@@ -1,0 +1,1 @@
+patch type="fixed" "Stop audio publishing when audio session activation fails by propagating configuration errors to the audio engine"
