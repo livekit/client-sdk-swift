@@ -512,15 +512,11 @@ public class VideoView: NativeView, Loggable {
             _primaryRenderer.frame = rendererFrame
 
             #if os(iOS) || os(macOS)
-            // Only update rotationOverride when the value actually changes.
-            // The setter unconditionally recomputes drawableSize, which becomes (0,0)
-            // for local tracks (videoFrameSize is zero). The correction runs in the
-            // next layout pass, but the MTKView's display-link can fire in between,
-            // consuming the current frame against an empty drawable.
             if let mtlVideoView = _primaryRenderer as? LKRTCMTLVideoView {
-                let newOverride: NSNumber? = state.rotationOverride.map { NSNumber(value: $0.rawValue) }
-                if mtlVideoView.rotationOverride != newOverride {
-                    mtlVideoView.rotationOverride = newOverride
+                if let rotationOverride = state.rotationOverride {
+                    mtlVideoView.rotationOverride = NSNumber(value: rotationOverride.rawValue)
+                } else {
+                    mtlVideoView.rotationOverride = nil
                 }
             }
             #endif
@@ -640,18 +636,8 @@ extension VideoView: VideoRenderer {
             return
         }
 
-        // For local tracks, use the capturer's stabilized dimensions to avoid oscillation
-        // during device rotation (accelerometer jitter causes per-frame dimension toggling).
-        // For remote tracks, compute dimensions from the frame rotation as before.
-        let effectiveDimensions: Dimensions = if let localTrack = track as? LocalVideoTrack,
-                                                 let stableDimensions = localTrack.capturer.dimensions
-        {
-            stableDimensions
-        } else {
-            dimensions
-        }
-
-        if track?.set(dimensions: effectiveDimensions) == true {
+        // Update track dimensions
+        if track?.set(dimensions: dimensions) == true {
             Task { @MainActor in self.setNeedsLayout() }
         }
 
