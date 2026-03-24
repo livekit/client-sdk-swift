@@ -64,17 +64,39 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
     }
 
-    struct State: Sendable {
+    /// Represents an audio session requirement from a specific component.
+    ///
+    /// Multiple components (e.g., WebRTC engine, SoundPlayer) can independently
+    /// register their requirements. The audio session stays active as long as
+    /// any component requires playout or recording.
+    public struct SessionRequirement: Sendable {
+        public static let none = Self(isPlayoutEnabled: false, isRecordingEnabled: false)
+        public static let playbackOnly = Self(isPlayoutEnabled: true, isRecordingEnabled: false)
+        public static let recordingOnly = Self(isPlayoutEnabled: false, isRecordingEnabled: true)
+        public static let playbackAndRecording = Self(isPlayoutEnabled: true, isRecordingEnabled: true)
+
+        public let isPlayoutEnabled: Bool
+        public let isRecordingEnabled: Bool
+
+        public init(isPlayoutEnabled: Bool = false, isRecordingEnabled: Bool = false) {
+            self.isPlayoutEnabled = isPlayoutEnabled
+            self.isRecordingEnabled = isRecordingEnabled
+        }
+    }
+
+    struct State {
         var next: (any AudioEngineObserver)?
 
         var isAutomaticConfigurationEnabled: Bool = true
         var isAutomaticDeactivationEnabled: Bool = true
-        var isPlayoutEnabled: Bool = false
-        var isRecordingEnabled: Bool = false
         var isSpeakerOutputPreferred: Bool = true
+
+        var sessionRequirements: [UUID: SessionRequirement] = [:]
     }
 
     let _state = StateSync(State())
+
+    private let sessionRequirementId = UUID()
 
     public var next: (any AudioEngineObserver)? {
         get { _state.next }
@@ -100,8 +122,19 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         }
     }
 
+    /// Register or update an audio session requirement for the given identifier.
+    ///
+    /// Use this to keep the audio session active from external components
+    /// (e.g., ``SoundPlayer``) that need playout or recording independently
+    /// of the WebRTC engine lifecycle.
+    public func set(requirement: SessionRequirement, for id: UUID) {
+        _state.mutate { $0.sessionRequirements[id] = requirement }
+    }
+
     @Sendable func configure(oldState: State, newState: State) {
         let session = AVAudioSession.sharedInstance()
+
+        log("configure isRecordingEnabled: \(newState.isRecordingEnabled), isPlayoutEnabled: \(newState.isPlayoutEnabled)")
 
         if (!newState.isPlayoutEnabled && !newState.isRecordingEnabled) && (oldState.isPlayoutEnabled || oldState.isRecordingEnabled) {
             if newState.isAutomaticDeactivationEnabled {
@@ -149,10 +182,8 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     }
 
     public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
-        _state.mutate {
-            $0.isPlayoutEnabled = isPlayoutEnabled
-            $0.isRecordingEnabled = isRecordingEnabled
-        }
+        let requirement = SessionRequirement(isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+        set(requirement: requirement, for: sessionRequirementId)
 
         // Call next last
         return _state.next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
@@ -162,13 +193,16 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         // Call next first
         let nextResult = _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
 
-        _state.mutate {
-            $0.isPlayoutEnabled = isPlayoutEnabled
-            $0.isRecordingEnabled = isRecordingEnabled
-        }
+        let requirement = SessionRequirement(isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+        set(requirement: requirement, for: sessionRequirementId)
 
         return nextResult ?? 0
     }
+}
+
+extension AudioSessionEngineObserver.State {
+    var isPlayoutEnabled: Bool { sessionRequirements.values.contains(where: \.isPlayoutEnabled) }
+    var isRecordingEnabled: Bool { sessionRequirements.values.contains(where: \.isRecordingEnabled) }
 }
 
 #endif

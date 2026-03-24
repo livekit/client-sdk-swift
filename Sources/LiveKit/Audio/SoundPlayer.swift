@@ -56,6 +56,7 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
 
     private let engine = AVAudioEngine()
     private let playerNodePool: AVAudioPlayerNodePool
+    private let sessionRequirementId = UUID()
 
     private struct State {
         var sounds: [String: AVAudioPCMBuffer] = [:]
@@ -88,7 +89,21 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
                                              interleaved: outputFormat.isInterleaved)!
         engine.connect(playerNodePool, to: engine.mainMixerNode,
                        format: outputFormat, playerNodeFormat: playerNodeFormat)
+
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        AudioManager.shared.audioSession.set(requirement: .playbackOnly, for: sessionRequirementId)
+        #endif
+
         try engine.start()
+    }
+
+    private func stopEngine() {
+        playerNodePool.stop()
+        engine.stop()
+
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        AudioManager.shared.audioSession.set(requirement: .none, for: sessionRequirementId)
+        #endif
     }
 
     // MARK: - Public API
@@ -135,8 +150,7 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
         }
 
         if shouldStop {
-            playerNodePool.stop()
-            engine.stop()
+            stopEngine()
         }
     }
 
@@ -197,7 +211,7 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
             let playback = try playerNodePool.play(bufferToSchedule, loop: options.loop)
             _state.mutate {
                 // Clean up finished playbacks
-                $0.activePlaybacks[id] = ($0.activePlaybacks[id] ?? []).filter { $0.isPlaying }
+                $0.activePlaybacks[id] = ($0.activePlaybacks[id] ?? []).filter(\.isPlaying)
                 $0.activePlaybacks[id, default: []].append(playback)
             }
         }
