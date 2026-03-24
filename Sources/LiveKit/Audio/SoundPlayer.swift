@@ -68,11 +68,20 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
             remote.removeAll { !$0.isPlaying }
         }
 
-        mutating func stopAll() {
-            for p in local { p.stop() }
-            for p in remote { p.stop() }
-            local.removeAll()
-            remote.removeAll()
+        mutating func stop(destination: PlaybackOptions.Destination) {
+            switch destination {
+            case .local:
+                for p in local { p.stop() }
+                local.removeAll()
+            case .remote:
+                for p in remote { p.stop() }
+                remote.removeAll()
+            case .localAndRemote:
+                for p in local { p.stop() }
+                for p in remote { p.stop() }
+                local.removeAll()
+                remote.removeAll()
+            }
         }
     }
 
@@ -159,7 +168,7 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
 
     public func release(id: String) {
         let (sound, shouldStop) = _state.mutate {
-            $0.sounds[id]?.stopAll()
+            $0.sounds[id]?.stop(destination: .localAndRemote)
             let sound = $0.sounds.removeValue(forKey: id)
             return (sound, $0.sounds.isEmpty)
         }
@@ -176,18 +185,18 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
     }
 
     /// Stops all playing or queued sounds without releasing prepared audio buffers.
-    public func stopAll() {
+    public func stopAll(destination: PlaybackOptions.Destination = .localAndRemote) {
         _state.mutate {
             for id in $0.sounds.keys {
-                $0.sounds[id]?.stopAll()
+                $0.sounds[id]?.stop(destination: destination)
             }
         }
     }
 
     /// Stops all playing or queued sounds for the specified id without releasing prepared audio buffers.
-    public func stop(id: String) {
+    public func stop(id: String, destination: PlaybackOptions.Destination = .localAndRemote) {
         _state.mutate {
-            $0.sounds[id]?.stopAll()
+            $0.sounds[id]?.stop(destination: destination)
         }
     }
 
