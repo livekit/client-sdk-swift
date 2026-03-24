@@ -30,9 +30,13 @@ public struct PlaybackOptions: Sendable {
     public enum Destination: Sendable {
         /// Play locally only (through device speakers).
         case local
-        /// Play for remote participants only (through WebRTC). Requires an active Room connection.
+        /// Play for remote participants only (through WebRTC).
+        ///
+        /// If remote routing is unavailable, playback is skipped.
         case remote
         /// Play both locally and for remote participants.
+        ///
+        /// Remote playback is best-effort and may be skipped if remote routing is unavailable.
         case localAndRemote
     }
 
@@ -87,6 +91,7 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
 
     private struct State {
         var sounds: [String: Sound] = [:]
+        var playerNodeFormat: AVAudioFormat?
     }
 
     private let _state = StateSync(State())
@@ -104,21 +109,30 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
         return format
     }
 
-    private func startIfNeeded() throws {
-        guard !engine.isRunning else { return }
+    private func makePlayerNodeFormat(for outputFormat: AVAudioFormat) -> AVAudioFormat {
+        AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                      sampleRate: outputFormat.sampleRate,
+                      channels: outputFormat.channelCount,
+                      interleaved: outputFormat.isInterleaved)!
+    }
+
+    private func startIfNeeded(state: inout State) throws -> AVAudioFormat {
+        if engine.isRunning, let playerNodeFormat = state.playerNodeFormat {
+            return playerNodeFormat
+        }
         guard let outputFormat else {
             throw LiveKitError(.audioEngine, message: "Invalid output format")
         }
-        let playerNodeFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                             sampleRate: outputFormat.sampleRate,
-                                             channels: outputFormat.channelCount,
-                                             interleaved: outputFormat.isInterleaved)!
+        let playerNodeFormat = makePlayerNodeFormat(for: outputFormat)
         engine.connect(playerNodePool, to: engine.mainMixerNode,
                        format: outputFormat, playerNodeFormat: playerNodeFormat)
         try engine.start()
+        state.playerNodeFormat = playerNodeFormat
+        return playerNodeFormat
     }
 
-    private func stopEngine() {
+    private func stopEngine(state: inout State) {
+        state.playerNodeFormat = nil
         playerNodePool.stop()
         engine.stop()
     }
@@ -140,6 +154,10 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
 
     // MARK: - Public API
 
+    /// Decodes and caches audio for the given identifier.
+    ///
+    /// Preparing a sound also acquires a playback session requirement and starts the
+    /// local engine early to reduce first-play latency.
     public func prepare(url: URL, withId id: String) throws {
         // Already prepared, ignore.
         guard _state.read({ $0.sounds[id] }) == nil else { return }
@@ -159,87 +177,127 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
         try AudioManager.shared.audioSession.set(requirement: .playbackOnly, for: requirementId)
         #endif
 
-        try startIfNeeded()
+        do {
+            let wasAlreadyPrepared = try _state.mutate { state in
+                guard state.sounds[id] == nil else { return true }
+                _ = try startIfNeeded(state: &state)
+                state.sounds[id] = Sound(buffer: readBuffer, sessionRequirementId: requirementId)
+                return false
+            }
 
-        _state.mutate {
-            $0.sounds[id] = Sound(buffer: readBuffer, sessionRequirementId: requirementId)
+            guard !wasAlreadyPrepared else {
+                #if os(iOS) || os(visionOS) || os(tvOS)
+                try? AudioManager.shared.audioSession.removeRequirement(for: requirementId)
+                #endif
+                return
+            }
+        } catch {
+            #if os(iOS) || os(visionOS) || os(tvOS)
+            try? AudioManager.shared.audioSession.removeRequirement(for: requirementId)
+            #endif
+            throw error
         }
     }
 
+    /// Releases a prepared sound, stops any active playback, and relinquishes its session requirement.
     public func release(id: String) {
-        let (sound, shouldStop) = _state.mutate {
-            $0.sounds[id]?.stop(destination: .localAndRemote)
-            let sound = $0.sounds.removeValue(forKey: id)
-            return (sound, $0.sounds.isEmpty)
-        }
-
-        if shouldStop {
-            stopEngine()
+        let sound = _state.mutate { state -> Sound? in
+            guard var sound = state.sounds.removeValue(forKey: id) else { return nil }
+            sound.stop(destination: .localAndRemote)
+            if state.sounds.isEmpty {
+                stopEngine(state: &state)
+            }
+            return sound
         }
 
         #if os(iOS) || os(visionOS) || os(tvOS)
         if let sound {
-            try? AudioManager.shared.audioSession.set(requirement: .none, for: sound.sessionRequirementId)
+            try? AudioManager.shared.audioSession.removeRequirement(for: sound.sessionRequirementId)
         }
         #endif
     }
 
+    /// Returns `true` if a sound has been prepared for the given identifier.
+    public func isPrepared(id: String) -> Bool {
+        _state.read { $0.sounds[id] != nil }
+    }
+
+    /// Returns `true` if the sound currently has active playback for the selected destination.
+    public func isPlaying(id: String, destination: PlaybackOptions.Destination = .localAndRemote) -> Bool {
+        _state.mutate { state in
+            guard var sound = state.sounds[id] else { return false }
+            sound.cleanUp()
+            state.sounds[id] = sound
+
+            switch destination {
+            case .local:
+                return !sound.local.isEmpty
+            case .remote:
+                return !sound.remote.isEmpty
+            case .localAndRemote:
+                return !sound.local.isEmpty || !sound.remote.isEmpty
+            }
+        }
+    }
+
     /// Stops all playing or queued sounds without releasing prepared audio buffers.
     public func stopAll(destination: PlaybackOptions.Destination = .localAndRemote) {
-        _state.mutate {
-            for id in $0.sounds.keys {
-                $0.sounds[id]?.stop(destination: destination)
+        _state.mutate { state in
+            for id in state.sounds.keys {
+                state.sounds[id]?.stop(destination: destination)
             }
         }
     }
 
     /// Stops all playing or queued sounds for the specified id without releasing prepared audio buffers.
     public func stop(id: String, destination: PlaybackOptions.Destination = .localAndRemote) {
-        _state.mutate {
-            $0.sounds[id]?.stop(destination: destination)
+        _state.mutate { state in
+            state.sounds[id]?.stop(destination: destination)
         }
     }
 
+    /// Plays a prepared sound.
+    ///
+    /// Remote playback is best-effort and is skipped if remote routing is unavailable.
+    ///
+    /// - Throws: ``LiveKitError`` if the sound is not prepared or local playback setup fails.
     public func play(id: String, options: PlaybackOptions = PlaybackOptions()) throws {
-        if options.mode == .replace {
-            stop(id: id)
-        }
-
-        guard let buffer = _state.read({ $0.sounds[id]?.buffer }) else {
-            throw LiveKitError(.audioEngine, message: "Sound not prepared")
-        }
-
         let playLocal = options.destination == .local || options.destination == .localAndRemote
         let playRemote = options.destination == .remote || options.destination == .localAndRemote
 
-        var localPlayback: SoundPlayback?
-        var remotePlayback: SoundPlayback?
-
-        if playLocal {
-            try startIfNeeded()
-
-            guard let outputFormat else {
-                throw LiveKitError(.audioEngine, message: "Failed to get output format")
+        try _state.mutate { state in
+            guard var sound = state.sounds[id] else {
+                throw LiveKitError(.audioEngine, message: "Sound not prepared")
             }
 
-            let bufferToSchedule = try convertBuffer(buffer, to: outputFormat)
-            localPlayback = try playerNodePool.play(bufferToSchedule, loop: options.loop)
-        }
-
-        if playRemote {
-            remotePlayback = AudioManager.shared.mixer.playSound(buffer, loop: options.loop)
-        }
-
-        if localPlayback != nil || remotePlayback != nil {
-            _state.mutate {
-                $0.sounds[id]?.cleanUp()
-                if let localPlayback {
-                    $0.sounds[id]?.local.append(localPlayback)
-                }
-                if let remotePlayback {
-                    $0.sounds[id]?.remote.append(remotePlayback)
-                }
+            if options.mode == .replace {
+                sound.stop(destination: .localAndRemote)
             }
+
+            sound.cleanUp()
+
+            var localPlayback: SoundPlayback?
+            var remotePlayback: SoundPlayback?
+
+            if playLocal {
+                let playerNodeFormat = try startIfNeeded(state: &state)
+                let bufferToSchedule = try convertBuffer(sound.buffer, to: playerNodeFormat)
+                localPlayback = try playerNodePool.play(bufferToSchedule, loop: options.loop)
+            }
+
+            if playRemote {
+                remotePlayback = AudioManager.shared.mixer.playSound(sound.buffer, loop: options.loop)
+            }
+
+            if let localPlayback {
+                sound.local.append(localPlayback)
+            }
+
+            if let remotePlayback {
+                sound.remote.append(remotePlayback)
+            }
+
+            state.sounds[id] = sound
         }
     }
 }

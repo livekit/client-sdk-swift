@@ -69,7 +69,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     /// Multiple components (e.g., WebRTC engine, SoundPlayer) can independently
     /// register their requirements. The audio session stays active as long as
     /// any component requires playout or recording.
-    public struct SessionRequirement: Sendable {
+    public struct SessionRequirement: Sendable, Equatable {
         public static let none = Self(isPlayoutEnabled: false, isRecordingEnabled: false)
         public static let playbackOnly = Self(isPlayoutEnabled: true, isRecordingEnabled: false)
         public static let recordingOnly = Self(isPlayoutEnabled: false, isRecordingEnabled: true)
@@ -117,11 +117,33 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     /// (e.g., ``SoundPlayer``) that need playout or recording independently
     /// of the WebRTC engine lifecycle.
     ///
+    /// Setting ``SessionRequirement/none`` removes the requirement.
+    ///
     /// - Throws: ``LiveKitError`` if the audio session fails to configure or activate.
     public func set(requirement: SessionRequirement, for id: UUID) throws {
+        try updateRequirements {
+            if requirement == .none {
+                $0.removeValue(forKey: id)
+            } else {
+                $0[id] = requirement
+            }
+        }
+    }
+
+    /// Removes a previously registered audio session requirement.
+    ///
+    /// - Throws: ``LiveKitError`` if removing the requirement fails to reconfigure the audio session.
+    public func removeRequirement(for id: UUID) throws {
+        try updateRequirements {
+            $0.removeValue(forKey: id)
+        }
+    }
+
+    private func updateRequirements(_ block: (inout [UUID: SessionRequirement]) -> Void) throws {
         try _state.mutate {
             let oldState = $0
-            $0.sessionRequirements[id] = requirement
+            block(&$0.sessionRequirements)
+            guard $0.sessionRequirements != oldState.sessionRequirements else { return }
             let result = configureIfNeeded(oldState: oldState, newState: $0)
             if result != 0 {
                 $0 = oldState

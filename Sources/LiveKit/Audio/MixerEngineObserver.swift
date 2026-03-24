@@ -291,7 +291,7 @@ extension MixerEngineObserver {
         }
 
         guard isConnected, let playerNodeFormat, let engine = soundPlayerNodes.engine, engine.isRunning else {
-            log("Engine is not running or input not connected, cannot play sound remotely", .warning)
+            log("Engine is not running or input not connected, skipping remote sound playback", .debug)
             return nil
         }
 
@@ -305,7 +305,7 @@ extension MixerEngineObserver {
                                                  to: playerNodeFormat,
                                                  outputBufferCapacity: outputBufferCapacity)
             else {
-                log("Failed to create converter for sound buffer", .warning)
+                log("Failed to create converter for sound buffer, skipping remote sound playback", .debug)
                 return nil
             }
             bufferToSchedule = converter.convert(from: inputBuffer)
@@ -316,7 +316,7 @@ extension MixerEngineObserver {
         do {
             return try soundPlayerNodes.play(bufferToSchedule, loop: loop)
         } catch {
-            log("Failed to play sound remotely: \(error)", .warning)
+            log("Failed to play sound remotely: \(error)", .debug)
             return nil
         }
     }
