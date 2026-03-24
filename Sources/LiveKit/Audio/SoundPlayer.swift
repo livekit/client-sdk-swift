@@ -188,6 +188,8 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
         let playLocal = options.destination == .local || options.destination == .localAndRemote
         let playRemote = options.destination == .remote || options.destination == .localAndRemote
 
+        var playbacks = [SoundPlayback]()
+
         // Play locally through standalone engine
         if playLocal {
             try startIfNeeded()
@@ -197,21 +199,20 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
             }
 
             let bufferToSchedule = try convertBuffer(audioBuffer, to: outputFormat)
-            let playback = try playerNodePool.play(bufferToSchedule, loop: options.loop)
-            _state.mutate {
-                // Clean up finished playbacks
-                $0.activePlaybacks[id] = ($0.activePlaybacks[id] ?? []).filter(\.isPlaying)
-                $0.activePlaybacks[id, default: []].append(playback)
-            }
+            playbacks.append(try playerNodePool.play(bufferToSchedule, loop: options.loop))
         }
 
         // Play remotely through MixerEngineObserver's input path (WebRTC)
         if playRemote {
             if let playback = AudioManager.shared.mixer.playSound(audioBuffer, loop: options.loop) {
-                _state.mutate {
-                    $0.activePlaybacks[id] = ($0.activePlaybacks[id] ?? []).filter(\.isPlaying)
-                    $0.activePlaybacks[id, default: []].append(playback)
-                }
+                playbacks.append(playback)
+            }
+        }
+
+        if !playbacks.isEmpty {
+            _state.mutate {
+                $0.activePlaybacks[id] = ($0.activePlaybacks[id] ?? []).filter(\.isPlaying)
+                $0.activePlaybacks[id, default: []].append(contentsOf: playbacks)
             }
         }
     }
