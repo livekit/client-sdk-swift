@@ -50,9 +50,15 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
         _state = StateSync(items)
     }
 
+    private struct AcquiredNode {
+        let index: Int
+        let node: AVAudioPlayerNode
+        let generation: UInt64
+    }
+
     @discardableResult
     func play(_ buffer: AVAudioPCMBuffer, loop: Bool = false) throws -> SoundPlayback {
-        guard let (index, node, generation) = _state.mutate({ items -> (Int, AVAudioPlayerNode, UInt64)? in
+        guard let acquired = _state.mutate({ items -> AcquiredNode? in
             guard let index = items.firstIndex(where: { !$0.isInUse }) else {
                 return nil
             }
@@ -61,24 +67,24 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
             let node = items[index].node
             node.volume = 1.0
             node.pan = 0.0
-            return (index, node, items[index].generation)
+            return AcquiredNode(index: index, node: node, generation: items[index].generation)
         }) else {
             throw LiveKitError(.audioEngine, message: "No available player nodes")
         }
 
         if loop {
-            node.scheduleBuffer(buffer, at: nil, options: .loops)
+            acquired.node.scheduleBuffer(buffer, at: nil, options: .loops)
         } else {
-            node.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+            acquired.node.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
                 self?.audioCallbackQueue.async { [weak self] in
-                    self?.freeSlot(index: index, generation: generation)
+                    self?.freeSlot(index: acquired.index, generation: acquired.generation)
                 }
             }
         }
-        node.play()
+        acquired.node.play()
 
-        return NodePlayback(node: node) { [weak self] in
-            self?.freeSlot(index: index, generation: generation)
+        return NodePlayback(node: acquired.node) { [weak self] in
+            self?.freeSlot(index: acquired.index, generation: acquired.generation)
         }
     }
 
