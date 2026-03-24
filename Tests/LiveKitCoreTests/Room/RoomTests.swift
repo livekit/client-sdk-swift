@@ -81,6 +81,41 @@ class RoomTests: LKTestCase, @unchecked Sendable {
         }
     }
 
+    /// Verify that cleanUp() runs to completion even when called from a
+    /// cancelled Task — the scenario that occurs when a reconnect task is
+    /// cancelled by disconnect() or a newer reconnect.
+    func testCleanUpRunsWhenTaskIsCancelled() async throws {
+        try await withRooms([RoomTestingOptions()]) { rooms in
+            let room = rooms[0]
+
+            XCTAssertEqual(room.connectionState, .connected)
+
+            // Grab socket reference for leak checking
+            let socket = await room.signalClient._state.socket
+            try self.noLeaks(of: XCTUnwrap(socket))
+            self.noLeaks(of: room.signalClient)
+
+            // Call cleanUp from a cancelled Task context — reproduces the
+            // reconnect-cancellation scenario where Task.isCancelled is true.
+            let task = Task {
+                do { try await Task.sleep(nanoseconds: NSEC_PER_SEC * 60) } catch {}
+                XCTAssert(Task.isCancelled)
+                await room.cleanUp()
+            }
+            task.cancel()
+            _ = await task.result
+
+            // Verify cleanup actually ran (not skipped due to cancellation)
+            XCTAssertEqual(room.connectionState, .disconnected)
+
+            let socketAfterCleanUp = await room.signalClient._state.socket
+            XCTAssertNil(socketAfterCleanUp)
+
+            let signalConnectionState = await room.signalClient.connectionState
+            XCTAssertEqual(signalConnectionState, .disconnected)
+        }
+    }
+
     func testSendDataPacket() async throws {
         try await withRooms([RoomTestingOptions()]) { rooms in
             let room = rooms[0]

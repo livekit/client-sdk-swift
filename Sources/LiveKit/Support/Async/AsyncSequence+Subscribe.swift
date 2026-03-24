@@ -27,7 +27,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
     ///   - priority: The priority of the task.
     ///   - state: The initial mutable state.
     ///   - onElement: Called for each element.
-    ///   - onFailure: Called when the sequence terminates with an error. Cancellation errors are ignored.
+    ///   - onFailure: Called when the sequence terminates with an error. Skipped on cancellation.
     /// - Returns: The task cancellable.
     func subscribe<O: AnyObject & Sendable, State: Sendable>(
         _ observer: O,
@@ -44,7 +44,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
                     await onElement(observer, element, &state)
                 }
             } catch {
-                if error is CancellationError { return }
+                if error is CancellationError || Task.isCancelled { return }
                 if let observer, let onFailure {
                     await onFailure(observer, error, &state)
                 }
@@ -88,7 +88,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
     ///   - priority: The priority of the task.
     ///   - state: The initial mutable state.
     ///   - onElement: Called for each element on the MainActor.
-    ///   - onFailure: Called when the sequence terminates with an error on the MainActor. Cancellation errors are ignored.
+    ///   - onFailure: Called when the sequence terminates with an error on the MainActor. Skipped on cancellation.
     /// - Returns: The task cancellable.
     @MainActor
     func subscribeOnMainActor<O: AnyObject & Sendable, State: Sendable>(
@@ -106,7 +106,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
                     await onElement(observer, element, &state)
                 }
             } catch {
-                if error is CancellationError { return }
+                if error is CancellationError || Task.isCancelled { return }
                 if let observer, let onFailure {
                     await onFailure(observer, error, &state)
                 }

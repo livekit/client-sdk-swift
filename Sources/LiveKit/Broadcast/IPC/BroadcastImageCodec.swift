@@ -56,7 +56,8 @@ struct BroadcastImageCodec: Sendable {
         try jpegDecode(encodedData, metadata)
     }
 
-    private let imageContext = CIContext(options: nil)
+    // Use software rendering to avoid GPU crashes when the app is backgrounded during PiP.
+    private let imageContext: CIContext = .softwareRenderer()
     private let colorSpace = CGColorSpaceCreateDeviceRGB()
 
     private func jpegEncode(_ imageBuffer: CVImageBuffer) throws -> Data {
