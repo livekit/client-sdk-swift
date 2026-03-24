@@ -210,16 +210,11 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 
     public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
         let requirement = SessionRequirement(isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
-        let result: Int = _state.mutate {
-            let oldState = $0
-            $0.sessionRequirements[sessionRequirementId] = requirement
-            let result = configureIfNeeded(oldState: oldState, newState: $0)
-            if result != 0 {
-                $0 = oldState
-            }
-            return result
+        do {
+            try set(requirement: requirement, for: sessionRequirementId)
+        } catch {
+            return kAudioEngineErrorFailedToConfigureAudioSession
         }
-        guard result == 0 else { return result }
         return _state.next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
     }
 
@@ -227,16 +222,11 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         let nextResult = _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
 
         let requirement = SessionRequirement(isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
-        let result: Int = _state.mutate {
-            let oldState = $0
-            $0.sessionRequirements[sessionRequirementId] = requirement
-            let result = configureIfNeeded(oldState: oldState, newState: $0)
-            if result != 0 {
-                $0 = oldState
-            }
-            return result
+        do {
+            try set(requirement: requirement, for: sessionRequirementId)
+        } catch {
+            return kAudioEngineErrorFailedToConfigureAudioSession
         }
-        guard result == 0 else { return result }
         return nextResult
     }
 }
