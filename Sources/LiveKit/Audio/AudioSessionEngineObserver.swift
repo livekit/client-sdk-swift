@@ -64,17 +64,39 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
     }
 
+    /// Represents an audio session requirement from a specific component.
+    ///
+    /// Multiple components (e.g., WebRTC engine, SoundPlayer) can independently
+    /// register their requirements. The audio session stays active as long as
+    /// any component requires playout or recording.
+    public struct SessionRequirement: Sendable, Equatable {
+        public static let none = Self(isPlayoutEnabled: false, isRecordingEnabled: false)
+        public static let playbackOnly = Self(isPlayoutEnabled: true, isRecordingEnabled: false)
+        public static let recordingOnly = Self(isPlayoutEnabled: false, isRecordingEnabled: true)
+        public static let playbackAndRecording = Self(isPlayoutEnabled: true, isRecordingEnabled: true)
+
+        public let isPlayoutEnabled: Bool
+        public let isRecordingEnabled: Bool
+
+        public init(isPlayoutEnabled: Bool = false, isRecordingEnabled: Bool = false) {
+            self.isPlayoutEnabled = isPlayoutEnabled
+            self.isRecordingEnabled = isRecordingEnabled
+        }
+    }
+
     struct State {
         var next: (any AudioEngineObserver)?
 
         var isAutomaticConfigurationEnabled: Bool = true
         var isAutomaticDeactivationEnabled: Bool = true
-        var isPlayoutEnabled: Bool = false
-        var isRecordingEnabled: Bool = false
         var isSpeakerOutputPreferred: Bool = true
+
+        var sessionRequirements: [UUID: SessionRequirement] = [:]
     }
 
     let _state = StateSync(State())
+
+    private let sessionRequirementId = UUID()
 
     public var next: (any AudioEngineObserver)? {
         get { _state.next }
@@ -86,6 +108,47 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             guard let self,
                   new.isSpeakerOutputPreferred != old.isSpeakerOutputPreferred else { return }
             _ = configureIfNeeded(oldState: old, newState: new)
+        }
+    }
+
+    /// Register or update an audio session requirement for the given identifier.
+    ///
+    /// Use this to keep the audio session active from external components
+    /// (e.g., ``SoundPlayer``) that need playout or recording independently
+    /// of the WebRTC engine lifecycle.
+    ///
+    /// Setting ``SessionRequirement/none`` removes the requirement.
+    ///
+    /// - Throws: ``LiveKitError`` if the audio session fails to configure or activate.
+    public func set(requirement: SessionRequirement, for id: UUID) throws {
+        try updateRequirements {
+            if requirement == .none {
+                $0.removeValue(forKey: id)
+            } else {
+                $0[id] = requirement
+            }
+        }
+    }
+
+    /// Removes a previously registered audio session requirement.
+    ///
+    /// - Throws: ``LiveKitError`` if removing the requirement fails to reconfigure the audio session.
+    public func removeRequirement(for id: UUID) throws {
+        try updateRequirements {
+            $0.removeValue(forKey: id)
+        }
+    }
+
+    private func updateRequirements(_ block: (inout [UUID: SessionRequirement]) -> Void) throws {
+        try _state.mutate {
+            let oldState = $0
+            block(&$0.sessionRequirements)
+            guard $0.sessionRequirements != oldState.sessionRequirements else { return }
+            let result = configureIfNeeded(oldState: oldState, newState: $0)
+            if result != 0 {
+                $0 = oldState
+                throw LiveKitError(.audioSession, message: "Failed to configure audio session")
+            }
         }
     }
 
@@ -114,6 +177,8 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 
     @Sendable private func configureAudioSession(oldState: State, newState: State) throws {
         let session = AVAudioSession.sharedInstance()
+
+        log("configure isRecordingEnabled: \(newState.isRecordingEnabled), isPlayoutEnabled: \(newState.isPlayoutEnabled)")
 
         if (!newState.isPlayoutEnabled && !newState.isRecordingEnabled) && (oldState.isPlayoutEnabled || oldState.isRecordingEnabled) {
             if newState.isAutomaticDeactivationEnabled {
@@ -166,38 +231,31 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     // MARK: - AudioEngineObserver
 
     public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
-        let result: Int = _state.mutate {
-            let oldState = $0
-            $0.isPlayoutEnabled = isPlayoutEnabled
-            $0.isRecordingEnabled = isRecordingEnabled
-            let result = configureIfNeeded(oldState: oldState, newState: $0)
-            if result != 0 {
-                // Rollback state on failure so it stays consistent with WebRTC's rollback.
-                $0 = oldState
-            }
-            return result
+        let requirement = SessionRequirement(isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+        do {
+            try set(requirement: requirement, for: sessionRequirementId)
+        } catch {
+            return kAudioEngineErrorFailedToConfigureAudioSession
         }
-        guard result == 0 else { return result }
         return _state.next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
     }
 
     public func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
         let nextResult = _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
 
-        let result: Int = _state.mutate {
-            let oldState = $0
-            $0.isPlayoutEnabled = isPlayoutEnabled
-            $0.isRecordingEnabled = isRecordingEnabled
-            let result = configureIfNeeded(oldState: oldState, newState: $0)
-            if result != 0 {
-                // Rollback state on failure so it stays consistent with WebRTC's rollback.
-                $0 = oldState
-            }
-            return result
+        let requirement = SessionRequirement(isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+        do {
+            try set(requirement: requirement, for: sessionRequirementId)
+        } catch {
+            return kAudioEngineErrorFailedToConfigureAudioSession
         }
-        guard result == 0 else { return result }
         return nextResult
     }
+}
+
+extension AudioSessionEngineObserver.State {
+    var isPlayoutEnabled: Bool { sessionRequirements.values.contains(where: \.isPlayoutEnabled) }
+    var isRecordingEnabled: Bool { sessionRequirements.values.contains(where: \.isRecordingEnabled) }
 }
 
 #endif
