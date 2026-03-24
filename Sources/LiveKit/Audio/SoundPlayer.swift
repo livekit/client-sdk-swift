@@ -56,14 +56,28 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
 
     private let engine = AVAudioEngine()
     private let playerNodePool: AVAudioPlayerNodePool
-    private struct State {
-        var sounds: [String: PreparedSound] = [:]
-        var activePlaybacks: [String: [SoundPlayback]] = [:]
-    }
 
-    private struct PreparedSound {
+    private struct Sound {
         let buffer: AVAudioPCMBuffer
         let sessionRequirementId: UUID
+        var local: [SoundPlayback] = []
+        var remote: [SoundPlayback] = []
+
+        mutating func cleanUp() {
+            local.removeAll { !$0.isPlaying }
+            remote.removeAll { !$0.isPlaying }
+        }
+
+        mutating func stopAll() {
+            for p in local { p.stop() }
+            for p in remote { p.stop() }
+            local.removeAll()
+            remote.removeAll()
+        }
+    }
+
+    private struct State {
+        var sounds: [String: Sound] = [:]
     }
 
     private let _state = StateSync(State())
@@ -118,14 +132,19 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
     // MARK: - Public API
 
     public func prepare(url: URL, withId id: String) throws {
-        // Prepare audio file
+        // Already prepared, ignore.
+        guard _state.read({ $0.sounds[id] }) == nil else { return }
+
+        // Read audio file into raw PCM buffer.
         let audioFile = try AVAudioFile(forReading: url)
-        // Read into buffer using the file's processing format (always standard Float32 PCM)
-        guard let readBuffer = AVAudioPCMBuffer(pcmFormat: audioFile.processingFormat, frameCapacity: AVAudioFrameCount(audioFile.length)) else {
+        guard let readBuffer = AVAudioPCMBuffer(pcmFormat: audioFile.processingFormat,
+                                                frameCapacity: AVAudioFrameCount(audioFile.length))
+        else {
             throw LiveKitError(.audioEngine, message: "Failed to allocate audio buffer")
         }
         try audioFile.read(into: readBuffer, frameCount: AVAudioFrameCount(audioFile.length))
 
+        // Acquire session requirement before starting engine.
         let requirementId = UUID()
         #if os(iOS) || os(visionOS) || os(tvOS)
         try AudioManager.shared.audioSession.set(requirement: .playbackOnly, for: requirementId)
@@ -134,19 +153,15 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
         try startIfNeeded()
 
         _state.mutate {
-            $0.sounds[id] = PreparedSound(buffer: readBuffer, sessionRequirementId: requirementId)
+            $0.sounds[id] = Sound(buffer: readBuffer, sessionRequirementId: requirementId)
         }
     }
 
     public func release(id: String) {
-        let (playbacks, sound, shouldStop) = _state.mutate {
-            let playbacks = $0.activePlaybacks.removeValue(forKey: id) ?? []
+        let (sound, shouldStop) = _state.mutate {
+            $0.sounds[id]?.stopAll()
             let sound = $0.sounds.removeValue(forKey: id)
-            return (playbacks, sound, $0.sounds.isEmpty)
-        }
-
-        for playback in playbacks {
-            playback.stop()
+            return (sound, $0.sounds.isEmpty)
         }
 
         if shouldStop {
@@ -162,17 +177,17 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
 
     /// Stops all playing or queued sounds without releasing prepared audio buffers.
     public func stopAll() {
-        playerNodePool.reset()
-        _state.mutate { $0.activePlaybacks.removeAll() }
+        _state.mutate {
+            for id in $0.sounds.keys {
+                $0.sounds[id]?.stopAll()
+            }
+        }
     }
 
     /// Stops all playing or queued sounds for the specified id without releasing prepared audio buffers.
     public func stop(id: String) {
-        let playbacks = _state.mutate {
-            $0.activePlaybacks.removeValue(forKey: id) ?? []
-        }
-        for playback in playbacks {
-            playback.stop()
+        _state.mutate {
+            $0.sounds[id]?.stopAll()
         }
     }
 
@@ -181,16 +196,16 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
             stop(id: id)
         }
 
-        guard let audioBuffer = _state.read({ $0.sounds[id]?.buffer }) else {
+        guard let buffer = _state.read({ $0.sounds[id]?.buffer }) else {
             throw LiveKitError(.audioEngine, message: "Sound not prepared")
         }
 
         let playLocal = options.destination == .local || options.destination == .localAndRemote
         let playRemote = options.destination == .remote || options.destination == .localAndRemote
 
-        var playbacks = [SoundPlayback]()
+        var localPlayback: SoundPlayback?
+        var remotePlayback: SoundPlayback?
 
-        // Play locally through standalone engine
         if playLocal {
             try startIfNeeded()
 
@@ -198,21 +213,23 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
                 throw LiveKitError(.audioEngine, message: "Failed to get output format")
             }
 
-            let bufferToSchedule = try convertBuffer(audioBuffer, to: outputFormat)
-            playbacks.append(try playerNodePool.play(bufferToSchedule, loop: options.loop))
+            let bufferToSchedule = try convertBuffer(buffer, to: outputFormat)
+            localPlayback = try playerNodePool.play(bufferToSchedule, loop: options.loop)
         }
 
-        // Play remotely through MixerEngineObserver's input path (WebRTC)
         if playRemote {
-            if let playback = AudioManager.shared.mixer.playSound(audioBuffer, loop: options.loop) {
-                playbacks.append(playback)
-            }
+            remotePlayback = AudioManager.shared.mixer.playSound(buffer, loop: options.loop)
         }
 
-        if !playbacks.isEmpty {
+        if localPlayback != nil || remotePlayback != nil {
             _state.mutate {
-                $0.activePlaybacks[id] = ($0.activePlaybacks[id] ?? []).filter(\.isPlaying)
-                $0.activePlaybacks[id, default: []].append(contentsOf: playbacks)
+                $0.sounds[id]?.cleanUp()
+                if let localPlayback {
+                    $0.sounds[id]?.local.append(localPlayback)
+                }
+                if let remotePlayback {
+                    $0.sounds[id]?.remote.append(remotePlayback)
+                }
             }
         }
     }
