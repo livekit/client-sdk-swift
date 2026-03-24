@@ -207,7 +207,12 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
 
         // Play remotely through MixerEngineObserver's input path (WebRTC)
         if playRemote {
-            AudioManager.shared.mixer.playSound(audioBuffer, loop: options.loop)
+            if let playback = AudioManager.shared.mixer.playSound(audioBuffer, loop: options.loop) {
+                _state.mutate {
+                    $0.activePlaybacks[id] = ($0.activePlaybacks[id] ?? []).filter(\.isPlaying)
+                    $0.activePlaybacks[id, default: []].append(playback)
+                }
+            }
         }
     }
 }
