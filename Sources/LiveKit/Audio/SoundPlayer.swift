@@ -75,14 +75,22 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
         mutating func stop(destination: PlaybackOptions.Destination) {
             switch destination {
             case .local:
-                for p in local { p.stop() }
+                for p in local {
+                    p.stop()
+                }
                 local.removeAll()
             case .remote:
-                for p in remote { p.stop() }
+                for p in remote {
+                    p.stop()
+                }
                 remote.removeAll()
             case .localAndRemote:
-                for p in local { p.stop() }
-                for p in remote { p.stop() }
+                for p in local {
+                    p.stop()
+                }
+                for p in remote {
+                    p.stop()
+                }
                 local.removeAll()
                 remote.removeAll()
             }
