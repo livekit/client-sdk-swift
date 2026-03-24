@@ -224,18 +224,15 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
 
     /// Returns `true` if the sound currently has active playback for the selected destination.
     public func isPlaying(id: String, destination: PlaybackOptions.Destination = .localAndRemote) -> Bool {
-        _state.mutate { state in
-            guard var sound = state.sounds[id] else { return false }
-            sound.cleanUp()
-            state.sounds[id] = sound
-
+        _state.read { state in
+            guard let sound = state.sounds[id] else { return false }
             switch destination {
             case .local:
-                return !sound.local.isEmpty
+                return sound.local.contains(where: \.isPlaying)
             case .remote:
-                return !sound.remote.isEmpty
+                return sound.remote.contains(where: \.isPlaying)
             case .localAndRemote:
-                return !sound.local.isEmpty || !sound.remote.isEmpty
+                return sound.local.contains(where: \.isPlaying) || sound.remote.contains(where: \.isPlaying)
             }
         }
     }
