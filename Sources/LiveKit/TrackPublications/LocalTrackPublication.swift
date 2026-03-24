@@ -41,6 +41,7 @@ public class LocalTrackPublication: TrackPublication, @unchecked Sendable {
     // MARK: - Private
 
     private let _debounce = Debounce(delay: 0.1)
+    private var _lastRecomputeTime: TimeInterval = 0
 
     public func mute() async throws {
         guard let track = track as? LocalTrack else {
@@ -176,7 +177,10 @@ extension LocalTrackPublication {
             return
         }
 
-        log("Re-computing sender parameters, dimensions: \(String(describing: track.capturer.dimensions))")
+        let now = ProcessInfo.processInfo.systemUptime
+        let interval = _lastRecomputeTime > 0 ? Int((now - _lastRecomputeTime) * 1000) : -1
+        _lastRecomputeTime = now
+        log("[publication] recompute sender params, dimensions: \(String(describing: track.capturer.dimensions)), sinceLastRecompute: \(interval)ms")
 
         // get current parameters
         let parameters = sender.parameters
