@@ -56,11 +56,14 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
 
     private let engine = AVAudioEngine()
     private let playerNodePool: AVAudioPlayerNodePool
-    private let sessionRequirementId = UUID()
-
     private struct State {
-        var sounds: [String: AVAudioPCMBuffer] = [:]
+        var sounds: [String: PreparedSound] = [:]
         var activePlaybacks: [String: [SoundPlayback]] = [:]
+    }
+
+    private struct PreparedSound {
+        let buffer: AVAudioPCMBuffer
+        let sessionRequirementId: UUID
     }
 
     private let _state = StateSync(State())
@@ -89,60 +92,57 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
                                              interleaved: outputFormat.isInterleaved)!
         engine.connect(playerNodePool, to: engine.mainMixerNode,
                        format: outputFormat, playerNodeFormat: playerNodeFormat)
-
-        #if os(iOS) || os(visionOS) || os(tvOS)
-        try AudioManager.shared.audioSession.set(requirement: .playbackOnly, for: sessionRequirementId)
-        #endif
-
         try engine.start()
     }
 
     private func stopEngine() {
         playerNodePool.stop()
         engine.stop()
+    }
 
-        #if os(iOS) || os(visionOS) || os(tvOS)
-        try? AudioManager.shared.audioSession.set(requirement: .none, for: sessionRequirementId)
-        #endif
+    /// Converts a buffer to the target format. Returns the buffer as-is if formats already match.
+    private func convertBuffer(_ buffer: AVAudioPCMBuffer, to targetFormat: AVAudioFormat) throws -> AVAudioPCMBuffer {
+        guard buffer.format != targetFormat else { return buffer }
+        let outputBufferCapacity = AudioConverter.frameCapacity(from: buffer.format,
+                                                                to: targetFormat,
+                                                                inputFrameCount: buffer.frameLength)
+        guard let converter = AudioConverter(from: buffer.format,
+                                             to: targetFormat,
+                                             outputBufferCapacity: outputBufferCapacity)
+        else {
+            throw LiveKitError(.audioEngine, message: "Failed to create audio converter")
+        }
+        return converter.convert(from: buffer)
     }
 
     // MARK: - Public API
 
     public func prepare(url: URL, withId id: String) throws {
-        try startIfNeeded()
-
-        guard let outputFormat else {
-            throw LiveKitError(.audioEngine, message: "Failed to get output format")
-        }
-
         // Prepare audio file
         let audioFile = try AVAudioFile(forReading: url)
-        // Prepare buffer
+        // Read into buffer using the file's processing format (always standard Float32 PCM)
         guard let readBuffer = AVAudioPCMBuffer(pcmFormat: audioFile.processingFormat, frameCapacity: AVAudioFrameCount(audioFile.length)) else {
             throw LiveKitError(.audioEngine, message: "Failed to allocate audio buffer")
         }
-        // Read all into buffer
         try audioFile.read(into: readBuffer, frameCount: AVAudioFrameCount(audioFile.length))
-        // Compute required convert buffer capacity
-        let outputBufferCapacity = AudioConverter.frameCapacity(from: readBuffer.format, to: outputFormat, inputFrameCount: readBuffer.frameLength)
-        // Create converter
-        guard let converter = AudioConverter(from: readBuffer.format, to: outputFormat, outputBufferCapacity: outputBufferCapacity) else {
-            throw LiveKitError(.audioEngine, message: "Failed to create audio converter")
-        }
-        // Convert to suitable format for audio engine
-        let convertedBuffer = converter.convert(from: readBuffer)
-        // Register
+
+        let requirementId = UUID()
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        try AudioManager.shared.audioSession.set(requirement: .playbackOnly, for: requirementId)
+        #endif
+
+        try startIfNeeded()
+
         _state.mutate {
-            $0.sounds[id] = convertedBuffer
+            $0.sounds[id] = PreparedSound(buffer: readBuffer, sessionRequirementId: requirementId)
         }
     }
 
     public func release(id: String) {
-        // Stop active playbacks before removing
-        let (playbacks, shouldStop) = _state.mutate {
+        let (playbacks, sound, shouldStop) = _state.mutate {
             let playbacks = $0.activePlaybacks.removeValue(forKey: id) ?? []
-            $0.sounds.removeValue(forKey: id)
-            return (playbacks, $0.sounds.isEmpty)
+            let sound = $0.sounds.removeValue(forKey: id)
+            return (playbacks, sound, $0.sounds.isEmpty)
         }
 
         for playback in playbacks {
@@ -152,6 +152,12 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
         if shouldStop {
             stopEngine()
         }
+
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        if let sound {
+            try? AudioManager.shared.audioSession.set(requirement: .none, for: sound.sessionRequirementId)
+        }
+        #endif
     }
 
     /// Stops all playing or queued sounds without releasing prepared audio buffers.
@@ -175,7 +181,7 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
             stop(id: id)
         }
 
-        guard let audioBuffer = _state.read(\.sounds[id]) else {
+        guard let audioBuffer = _state.read({ $0.sounds[id]?.buffer }) else {
             throw LiveKitError(.audioEngine, message: "Sound not prepared")
         }
 
@@ -190,24 +196,7 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
                 throw LiveKitError(.audioEngine, message: "Failed to get output format")
             }
 
-            // Convert if format doesn't match. A new converter is created each time
-            // to avoid thread-safety issues with shared converter state.
-            let bufferToSchedule: AVAudioPCMBuffer
-            if audioBuffer.format != outputFormat {
-                let outputBufferCapacity = AudioConverter.frameCapacity(from: audioBuffer.format,
-                                                                        to: outputFormat,
-                                                                        inputFrameCount: audioBuffer.frameLength)
-                guard let converter = AudioConverter(from: audioBuffer.format,
-                                                     to: outputFormat,
-                                                     outputBufferCapacity: outputBufferCapacity)
-                else {
-                    throw LiveKitError(.audioEngine, message: "Failed to create audio converter")
-                }
-                bufferToSchedule = converter.convert(from: audioBuffer)
-            } else {
-                bufferToSchedule = audioBuffer
-            }
-
+            let bufferToSchedule = try convertBuffer(audioBuffer, to: outputFormat)
             let playback = try playerNodePool.play(bufferToSchedule, loop: options.loop)
             _state.mutate {
                 // Clean up finished playbacks

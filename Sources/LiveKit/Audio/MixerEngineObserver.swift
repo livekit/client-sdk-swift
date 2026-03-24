@@ -286,23 +286,39 @@ extension MixerEngineObserver {
     /// Play a sound buffer through the input path for remote participants via WebRTC.
     @discardableResult
     func playSound(_ inputBuffer: AVAudioPCMBuffer, loop: Bool = false) -> SoundPlayback? {
-        guard let converter = converter(for: inputBuffer.format) else {
-            log("Failed to get converter for sound buffer format: \(inputBuffer.format)", .warning)
+        let (isConnected, soundPlayerNodes, playerNodeFormat) = _state.read {
+            ($0.isInputConnected, $0.soundPlayerNodes, $0.playerNodeFormat)
+        }
+
+        guard isConnected, let playerNodeFormat, let engine = soundPlayerNodes.engine, engine.isRunning else {
+            log("Engine is not running or input not connected, cannot play sound remotely", .warning)
             return nil
         }
 
-        let buffer = converter.convert(from: inputBuffer)
-
-        let (isConnected, soundPlayerNodes) = _state.read {
-            ($0.isInputConnected, $0.soundPlayerNodes)
+        // Convert buffer to engine format with a properly-sized converter.
+        let bufferToSchedule: AVAudioPCMBuffer
+        if inputBuffer.format != playerNodeFormat {
+            let outputBufferCapacity = AudioConverter.frameCapacity(from: inputBuffer.format,
+                                                                    to: playerNodeFormat,
+                                                                    inputFrameCount: inputBuffer.frameLength)
+            guard let converter = AudioConverter(from: inputBuffer.format,
+                                                 to: playerNodeFormat,
+                                                 outputBufferCapacity: outputBufferCapacity)
+            else {
+                log("Failed to create converter for sound buffer", .warning)
+                return nil
+            }
+            bufferToSchedule = converter.convert(from: inputBuffer)
+        } else {
+            bufferToSchedule = inputBuffer
         }
 
-        guard isConnected, let engine = soundPlayerNodes.engine, engine.isRunning else {
-            log("Engine is not running, cannot play sound remotely", .warning)
+        do {
+            return try soundPlayerNodes.play(bufferToSchedule, loop: loop)
+        } catch {
+            log("Failed to play sound remotely: \(error)", .warning)
             return nil
         }
-
-        return try? soundPlayerNodes.play(buffer, loop: loop)
     }
 
     // Capture appAudio and apply conversion automatically suitable for internal audio engine.
