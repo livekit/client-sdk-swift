@@ -91,7 +91,7 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
                        format: outputFormat, playerNodeFormat: playerNodeFormat)
 
         #if os(iOS) || os(visionOS) || os(tvOS)
-        AudioManager.shared.audioSession.set(requirement: .playbackOnly, for: sessionRequirementId)
+        try AudioManager.shared.audioSession.set(requirement: .playbackOnly, for: sessionRequirementId)
         #endif
 
         try engine.start()
@@ -102,7 +102,7 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
         engine.stop()
 
         #if os(iOS) || os(visionOS) || os(tvOS)
-        AudioManager.shared.audioSession.set(requirement: .none, for: sessionRequirementId)
+        try? AudioManager.shared.audioSession.set(requirement: .none, for: sessionRequirementId)
         #endif
     }
 

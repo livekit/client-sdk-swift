@@ -116,8 +116,18 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     /// Use this to keep the audio session active from external components
     /// (e.g., ``SoundPlayer``) that need playout or recording independently
     /// of the WebRTC engine lifecycle.
-    public func set(requirement: SessionRequirement, for id: UUID) {
-        _state.mutate { $0.sessionRequirements[id] = requirement }
+    ///
+    /// - Throws: ``LiveKitError`` if the audio session fails to configure or activate.
+    public func set(requirement: SessionRequirement, for id: UUID) throws {
+        try _state.mutate {
+            let oldState = $0
+            $0.sessionRequirements[id] = requirement
+            let result = configureIfNeeded(oldState: oldState, newState: $0)
+            if result != 0 {
+                $0 = oldState
+                throw LiveKitError(.audioSession, message: "Failed to configure audio session")
+            }
+        }
     }
 
     // MARK: - Audio Session Configuration
