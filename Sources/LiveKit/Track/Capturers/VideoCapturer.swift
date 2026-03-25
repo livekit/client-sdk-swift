@@ -79,6 +79,11 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
         var dimensions: Dimensions?
         weak var processor: VideoProcessor?
         var isFrameProcessingBusy: Bool = false
+
+        var lastRotation: LKRTCVideoRotation?
+        var rotationChangeCount: Int = 0
+        var frameSkipCount: Int = 0
+        var lastDimensionChangeTime: TimeInterval = 0
     }
 
     let _state: StateSync<State>
@@ -91,16 +96,24 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
     }
 
     func set(dimensions newValue: Dimensions?) {
-        let didUpdate = _state.mutate {
+        let now = ProcessInfo.processInfo.systemUptime
+        let (didUpdate, oldDimensions, lastChangeTime) = _state.mutate {
             let oldDimensions = $0.dimensions
             $0.dimensions = newValue
-            return newValue != oldDimensions
+            let didUpdate = newValue != oldDimensions
+            let lastTime = $0.lastDimensionChangeTime
+            if didUpdate { $0.lastDimensionChangeTime = now }
+            return (didUpdate, oldDimensions, lastTime)
         }
 
         if didUpdate {
             delegates.notify { $0.capturer?(self, didUpdate: newValue) }
 
             if let newValue {
+                let interval = now - lastChangeTime
+                if lastChangeTime > 0, interval < 0.1 {
+                    log("[capture] rapid dimension change: \(String(describing: oldDimensions)) -> \(newValue), interval: \(Int(interval * 1000))ms")
+                }
                 log("[publish] dimensions: \(String(describing: newValue))")
                 dimensionsCompleter.resume(returning: newValue)
             } else {
@@ -293,7 +306,15 @@ extension VideoCapturer {
                           options: VideoCaptureOptions)
     {
         if _state.isFrameProcessingBusy {
-            log("Frame processing hasn't completed yet, skipping frame...", .warning)
+            let count = _state.mutate {
+                $0.frameSkipCount += 1
+                return $0.frameSkipCount
+            }
+            if count == 1 || count == 10 || count == 50 {
+                let dims = _state.dimensions
+                let rot = _state.lastRotation
+                log("[capture] frame skip #\(count), busy, lastRotation: \(String(describing: rot?.rawValue)), dimensions: \(String(describing: dims))")
+            }
             return
         }
 
@@ -301,7 +322,10 @@ extension VideoCapturer {
             guard let self else { return }
 
             // Mark as frame processing busy.
-            _state.mutate { $0.isFrameProcessingBusy = true }
+            _state.mutate {
+                $0.isFrameProcessingBusy = true
+                $0.frameSkipCount = 0
+            }
             defer {
                 self._state.mutate { $0.isFrameProcessingBusy = false }
             }
@@ -322,6 +346,8 @@ extension VideoCapturer {
                 rtcFrame = processedFrame.toRTCType()
             }
 
+            _logRotationChange(rtcFrame.rotation, frameWidth: rtcFrame.width, frameHeight: rtcFrame.height)
+
             // Resolve real dimensions (apply frame rotation)
             set(dimensions: Dimensions(width: rtcFrame.width, height: rtcFrame.height).apply(rotation: rtcFrame.rotation))
 
@@ -333,6 +359,22 @@ extension VideoCapturer {
                     renderer.render?(frame: lkFrame, captureDevice: device, captureOptions: options)
                 }
             }
+        }
+    }
+
+    private func _logRotationChange(_ rotation: LKRTCVideoRotation, frameWidth: Int32, frameHeight: Int32) {
+        let (oldRotation, count) = _state.mutate {
+            let old = $0.lastRotation
+            if let old, old != rotation {
+                $0.rotationChangeCount += 1
+            } else {
+                $0.rotationChangeCount = 0
+            }
+            $0.lastRotation = rotation
+            return (old, $0.rotationChangeCount)
+        }
+        if let oldRotation, oldRotation != rotation {
+            log("[capture] rotation: \(oldRotation.rawValue) -> \(rotation.rawValue), frame: \(frameWidth)x\(frameHeight), consecutiveChanges: \(count)")
         }
     }
 }

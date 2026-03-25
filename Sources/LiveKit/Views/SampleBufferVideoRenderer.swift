@@ -22,6 +22,7 @@ class SampleBufferVideoRenderer: NativeView, Loggable {
     private struct State {
         var isMirrored: Bool = false
         var videoRotation: VideoRotation = ._0
+        var rotationChangeCount: Int = 0
     }
 
     private let _state = StateSync(State())
@@ -75,10 +76,20 @@ extension SampleBufferVideoRenderer: LKRTCVideoRenderer {
         }
 
         let rotation = frame.rotation.toLKType()
-        let didUpdateRotation = _state.mutate {
-            let result = $0.videoRotation != rotation
+        let (didUpdateRotation, oldRotation, rotChangeCount) = _state.mutate {
+            let old = $0.videoRotation
+            let didChange = old != rotation
             $0.videoRotation = rotation
-            return result
+            if didChange {
+                $0.rotationChangeCount += 1
+            } else {
+                $0.rotationChangeCount = 0
+            }
+            return (didChange, old, $0.rotationChangeCount)
+        }
+
+        if didUpdateRotation {
+            log("[sampleBuffer] rotation: \(oldRotation) -> \(rotation), consecutiveChanges: \(rotChangeCount)")
         }
 
         Task { @MainActor in

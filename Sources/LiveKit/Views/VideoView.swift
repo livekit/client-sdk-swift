@@ -105,6 +105,9 @@ public class VideoView: NativeView, Loggable {
                     $0.didRenderFirstFrame = false
                     $0.isRendering = false
                     $0.rendererSize = nil
+                    $0.layoutTriggerCount = 0
+                    $0.lastLayoutTriggerTime = 0
+                    $0.didLogNilDimensions = false
                 }
                 $0.track = newValue
             }
@@ -235,6 +238,10 @@ public class VideoView: NativeView, Loggable {
         // Only used for rendering local tracks
         var captureOptions: VideoCaptureOptions?
         var captureDevice: AVCaptureDevice?
+
+        var layoutTriggerCount: Int = 0
+        var lastLayoutTriggerTime: TimeInterval = 0
+        var didLogNilDimensions: Bool = false
 
         // whether if current state should be rendering
         var shouldRender: Bool {
@@ -479,7 +486,10 @@ public class VideoView: NativeView, Loggable {
 
         // dimensions are required to continue computation
         guard let dimensions = track._state.dimensions else {
-            // log("dimensions are nil, cannot layout without dimensions, track: \(track)", .debug)
+            if !state.didLogNilDimensions {
+                log("[view] layout: dimensions nil for track \(String(describing: track.sid)), skipping")
+                _state.mutate { $0.didLogNilDimensions = true }
+            }
             return
         }
 
@@ -513,10 +523,9 @@ public class VideoView: NativeView, Loggable {
 
             #if os(iOS) || os(macOS)
             if let mtlVideoView = _primaryRenderer as? LKRTCMTLVideoView {
-                if let rotationOverride = state.rotationOverride {
-                    mtlVideoView.rotationOverride = NSNumber(value: rotationOverride.rawValue)
-                } else {
-                    mtlVideoView.rotationOverride = nil
+                let newOverride = state.rotationOverride.map { NSNumber(value: $0.rawValue) }
+                if newOverride != mtlVideoView.rotationOverride {
+                    mtlVideoView.rotationOverride = newOverride
                 }
             }
             #endif
@@ -623,7 +632,9 @@ extension VideoView: VideoRenderer {
 
         // prevent any extra rendering if already !isEnabled etc.
         guard state.shouldRender, let pr = _primaryRenderer else {
-            log("canRender is false, skipping render...")
+            if state.isRendering {
+                log("[view] render skipped: shouldRender=false, isEnabled=\(state.isEnabled), isHidden=\(state.isHidden), track=\(state.track != nil)")
+            }
             return
         }
 
@@ -631,13 +642,24 @@ extension VideoView: VideoRenderer {
         let dimensions = frame.dimensions.apply(rotation: rotation.toRTCType())
 
         guard dimensions.isRenderSafe else {
-            log("skipping render for dimension \(dimensions)", .warning)
-            // renderState.insert(.didSkipUnsafeFrame)
+            log("[view] render skipped: unsafe dimensions \(dimensions)", .warning)
             return
         }
 
         // Update track dimensions
         if track?.set(dimensions: dimensions) == true {
+            let now = ProcessInfo.processInfo.systemUptime
+            let count = _state.mutate {
+                if $0.lastLayoutTriggerTime > 0, (now - $0.lastLayoutTriggerTime) > 1.0 {
+                    $0.layoutTriggerCount = 0
+                }
+                $0.layoutTriggerCount += 1
+                $0.lastLayoutTriggerTime = now
+                return $0.layoutTriggerCount
+            }
+            if count == 1 || count == 5 || count == 20 || count == 100 || count % 200 == 0 {
+                log("[view] layout trigger #\(count), dims: \(dimensions), rotation: \(rotation)")
+            }
             Task { @MainActor in self.setNeedsLayout() }
         }
 
