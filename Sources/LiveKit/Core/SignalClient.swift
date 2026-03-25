@@ -115,7 +115,8 @@ actor SignalClient: Loggable {
                  connectOptions: ConnectOptions? = nil,
                  reconnectMode: ReconnectMode? = nil,
                  participantSid: Participant.Sid? = nil,
-                 adaptiveStream: Bool) async throws -> ConnectResponse
+                 adaptiveStream: Bool,
+                 connectSpan: Span? = nil) async throws -> ConnectResponse
     {
         await cleanUp()
 
@@ -143,6 +144,7 @@ actor SignalClient: Loggable {
             let socket = try await WebSocket(url: url,
                                              token: token,
                                              connectOptions: connectOptions)
+            connectSpan?.record("ws_open")
 
             let messageLoopTask = socket.subscribe(self) { observer, message in
                 await observer.onWebSocketMessage(message)

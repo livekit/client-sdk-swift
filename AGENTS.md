@@ -12,6 +12,12 @@ xcodebuild build -scheme LiveKit -destination 'platform=macOS'
 # Run tests (requires local server: livekit-server --dev, install via brew install livekit)
 xcodebuild test -scheme LiveKit -only-testing LiveKitCoreTests -destination 'platform=macOS'
 
+# Build benchmarks
+cd Benchmarks && swiftly run +xcode swift build
+
+# Run benchmarks (requires local server: livekit-server --dev)
+cd Benchmarks && LK_BENCHMARK=1 swiftly run +xcode swift package --disable-sandbox benchmark
+
 # List available simulators for platform-specific builds
 xcrun simctl list devices
 ```

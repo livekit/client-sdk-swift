@@ -253,12 +253,16 @@ extension Room {
                                                              token,
                                                              connectOptions: _state.connectOptions,
                                                              reconnectMode: _state.isReconnectingWithMode,
-                                                             adaptiveStream: _state.roomOptions.adaptiveStream)
+                                                             adaptiveStream: _state.roomOptions.adaptiveStream,
+                                                             connectSpan: connectStopwatch)
         // Check cancellation after WebSocket connected
         try Task.checkCancellation()
 
-        _state.mutate { $0.connectStopwatch.split(label: "signal") }
+        connectStopwatch?.record("signal")
+        connectStopwatch?.record("join_recv")
+
         try await configureTransports(connectResponse: connectResponse)
+        connectStopwatch?.record("pc_created")
         // Check cancellation after configuring transports
         try Task.checkCancellation()
 
@@ -269,8 +273,8 @@ extension Room {
         try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
         try Task.checkCancellation()
 
-        _state.mutate { $0.connectStopwatch.split(label: "engine") }
-        log("\(_state.connectStopwatch)")
+        connectStopwatch?.record("engine")
+        connectStopwatch?.record("pc_connected")
     }
 
     // swiftlint:disable:next cyclomatic_complexity function_body_length
