@@ -48,7 +48,7 @@ class RoomTests: LKTestCase, @unchecked Sendable {
             let room = rooms[0]
 
             self.noLeaks(of: room.signalClient)
-            let socket = await room.signalClient._state.socket
+            let socket = await room.signalClient._state.socket as? WebSocket
             try self.noLeaks(of: XCTUnwrap(socket))
 
             let (publisher, subscriber) = room._state.read { ($0.publisher, $0.subscriber) }
