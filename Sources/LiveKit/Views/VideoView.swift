@@ -523,10 +523,9 @@ public class VideoView: NativeView, Loggable {
 
             #if os(iOS) || os(macOS)
             if let mtlVideoView = _primaryRenderer as? LKRTCMTLVideoView {
-                if let rotationOverride = state.rotationOverride {
-                    mtlVideoView.rotationOverride = NSNumber(value: rotationOverride.rawValue)
-                } else {
-                    mtlVideoView.rotationOverride = nil
+                let newOverride = state.rotationOverride.map { NSNumber(value: $0.rawValue) }
+                if newOverride != mtlVideoView.rotationOverride {
+                    mtlVideoView.rotationOverride = newOverride
                 }
             }
             #endif
