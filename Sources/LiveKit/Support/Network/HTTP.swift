@@ -51,8 +51,10 @@ class HTTP: NSObject {
             let details = "HTTP \(statusCode): \(body)"
 
             // Treat request/token/permissions issues as validation errors.
+            // 404 is reported separately so the v1 → v0 RTC path fallback can
+            // distinguish "endpoint doesn't exist" from other client errors.
             if (400 ..< 500).contains(statusCode), statusCode != 429 {
-                throw LiveKitError(.validation, message: details)
+                throw LiveKitError(statusCode == 404 ? .serviceNotFound : .validation, message: details)
             }
 
             // Treat server/rate-limit issues as network errors.
