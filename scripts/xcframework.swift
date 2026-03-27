@@ -18,14 +18,17 @@
 
 import ArgumentParser // apple/swift-argument-parser ~> 1.5.0
 import Foundation
+import PathKit // @kylef ~> 1.0
+import Rainbow // @onevcat ~> 4.0
 import Stencil // @stencilproject ~> 0.15.1
 import Subprocess // swiftlang/swift-subprocess == main
+import ZIPFoundation // @weichsel ~> 0.9
 
 // MARK: - Helpers
 
 let fm = FileManager.default
 
-func step(_ msg: String) { print("\n==> \(msg)") }
+func step(_ msg: String) { print("\n==> \(msg)".green.bold) }
 
 /// Run a command, return trimmed stdout.
 @discardableResult
@@ -49,36 +52,6 @@ func exec(_ args: [String]) async throws -> String {
     return (result.standardOutput ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
-/// Run a command, print all output.
-func execPrint(_ args: [String]) async throws {
-    let output = try await exec(args)
-    if !output.isEmpty { print(output) }
-}
-
-func findFirst(under root: String, named name: String, isDirectory: Bool? = nil) -> String? {
-    guard let enumerator = fm.enumerator(atPath: root) else { return nil }
-    while let path = enumerator.nextObject() as? String {
-        if (path as NSString).lastPathComponent == name {
-            let full = (root as NSString).appendingPathComponent(path)
-            if let isDirectory {
-                var isDir: ObjCBool = false
-                fm.fileExists(atPath: full, isDirectory: &isDir)
-                if isDir.boolValue != isDirectory { continue }
-            }
-            return full
-        }
-    }
-    return nil
-}
-
-func subdirs(of path: String) -> [String] {
-    (try? fm.contentsOfDirectory(atPath: path))?.compactMap { entry in
-        let full = (path as NSString).appendingPathComponent(entry)
-        var isDir: ObjCBool = false
-        return fm.fileExists(atPath: full, isDirectory: &isDir) && isDir.boolValue ? full : nil
-    }.sorted() ?? []
-}
-
 // MARK: - Platform
 
 struct Platform {
@@ -95,6 +68,46 @@ let platforms: [Platform] = [
     .init(label: "visionOS Device", destination: "generic/platform=visionOS", stagingName: "xros-arm64"),
     .init(label: "visionOS Simulator", destination: "generic/platform=visionOS Simulator", stagingName: "xros-arm64-simulator"),
 ]
+
+// MARK: - Binary dependency info
+
+struct BinaryDep {
+    let url: String
+    let checksum: String
+}
+
+// Regex: url: "https://github.com/.../foo.git", exact: "1.2.3"
+private let depLineRegex = #/url:\s*"(?<url>https://[^"]+)".*exact:\s*"(?<version>[^"]+)"/#
+// Regex: checksum: "abc123..."
+private let checksumRegex = #/checksum:\s*"(?<hash>[0-9a-f]{64})"/#
+
+/// Parse binary dependency URL + version from our Package.swift, then read checksum
+/// from the upstream Package.swift in the local SPM checkout.
+func parseBinaryDep(repoRoot: Path, spmDir: Path, pattern: String, xcfw: String) throws -> BinaryDep {
+    let contents: String = try (repoRoot + "Package.swift").read()
+    guard let line = contents.components(separatedBy: .newlines)
+        .first(where: { $0.contains("github") && $0.contains(pattern) }),
+        let match = line.firstMatch(of: depLineRegex)
+    else {
+        throw ValidationError("\(pattern) not found in Package.swift")
+    }
+
+    let repo = String(match.url).replacingOccurrences(of: ".git", with: "")
+    let ver = String(match.version)
+    let zipURL = "\(repo)/releases/download/\(ver)/\(xcfw).xcframework.zip"
+
+    // Read checksum from local SPM checkout
+    let repoName = repo.components(separatedBy: "/").last ?? pattern
+    let checkoutPkg = spmDir + "checkouts" + repoName + "Package.swift"
+    guard checkoutPkg.exists else {
+        throw ValidationError("Upstream Package.swift not found at \(checkoutPkg). Run SPM resolve first.")
+    }
+    let upstreamContents: String = try checkoutPkg.read()
+    guard let csMatch = upstreamContents.firstMatch(of: checksumRegex) else {
+        throw ValidationError("Could not find checksum in \(checkoutPkg)")
+    }
+    return BinaryDep(url: zipURL, checksum: String(csMatch.hash))
+}
 
 // MARK: - Command
 
@@ -123,104 +136,101 @@ struct BuildXCFramework: AsyncParsableCommand {
 
     mutating func run() async throws {
         // Resolve repo root by walking up from cwd to find Package.swift
-        let repoRoot: String = {
-            var dir = URL(fileURLWithPath: fm.currentDirectoryPath)
-            while dir.path != "/" {
-                if fm.fileExists(atPath: dir.appendingPathComponent("Package.swift").path) { return dir.path }
-                dir = dir.deletingLastPathComponent()
-            }
-            return fm.currentDirectoryPath
-        }()
-        let outputDir = output ?? (repoRoot as NSString).appendingPathComponent("build/xcframework")
-        let buildDir = (NSTemporaryDirectory() as NSString).appendingPathComponent("livekit-xcfw-\(UUID().uuidString)")
-        let spmDir = (buildDir as NSString).appendingPathComponent("spm")
+        var repoRoot = Path(fm.currentDirectoryPath)
+        while repoRoot != Path("/"), !(repoRoot + "Package.swift").exists {
+            repoRoot = repoRoot.parent()
+        }
 
-        defer { try? fm.removeItem(atPath: buildDir) }
-        try fm.createDirectory(atPath: buildDir, withIntermediateDirectories: true)
-        if fm.fileExists(atPath: outputDir) { try fm.removeItem(atPath: outputDir) }
-        try fm.createDirectory(atPath: outputDir, withIntermediateDirectories: true)
+        let outputDir = Path(output ?? (repoRoot + "build" + "xcframework").string)
+        let buildDir = Path(NSTemporaryDirectory()) + "livekit-xcfw-\(UUID().uuidString)"
+        let spmDir = buildDir + "spm"
 
-        // --- Parse binary dependency info from Package.swift ---
-        step("Resolving binary dependencies from Package.swift...")
-        let webrtcDep = try await parseBinaryDep(repoRoot: repoRoot, pattern: "webrtc-xcframework", xcfw: "LiveKitWebRTC")
-        let uniffiDep = try await parseBinaryDep(repoRoot: repoRoot, pattern: "uniffi-xcframework", xcfw: "RustLiveKitUniFFI")
-        print("  LiveKitWebRTC: \(webrtcDep.url)")
-        print("  RustLiveKitUniFFI: \(uniffiDep.url)")
+        defer { try? buildDir.delete() }
+        try buildDir.mkpath()
+        if outputDir.exists { try outputDir.delete() }
+        try outputDir.mkpath()
 
-        // --- Resolve SPM packages once before parallel builds ---
+        // --- Resolve SPM packages (populates spmDir/checkouts) ---
         step("Resolving Swift packages...")
         try await exec([
             "xcodebuild", "-resolvePackageDependencies",
             "-scheme", "LiveKit",
-            "-clonedSourcePackagesDirPath", spmDir,
+            "-clonedSourcePackagesDirPath", spmDir.string,
         ])
+
+        // --- Parse binary dependency info from local checkouts ---
+        step("Reading binary dependency info...")
+        let webrtcDep = try parseBinaryDep(repoRoot: repoRoot, spmDir: spmDir, pattern: "webrtc-xcframework", xcfw: "LiveKitWebRTC")
+        let uniffiDep = try parseBinaryDep(repoRoot: repoRoot, spmDir: spmDir, pattern: "uniffi-xcframework", xcfw: "RustLiveKitUniFFI")
+        print("  LiveKitWebRTC: \(webrtcDep.url)")
+        print("  RustLiveKitUniFFI: \(uniffiDep.url)")
 
         // --- Archive & stage all platforms (parallel) ---
         step("Archiving \(platforms.count) platforms in parallel...")
-        let stagingDirs: [(Platform, String)] = try await withThrowingTaskGroup(
-            of: (Platform, String).self,
-            returning: [(Platform, String)].self,
+        let stagingDirs: [(Platform, Path)] = try await withThrowingTaskGroup(
+            of: (Platform, Path).self,
+            returning: [(Platform, Path)].self,
         ) { group in
             for p in platforms {
                 group.addTask {
-                    let archive = (buildDir as NSString).appendingPathComponent("\(p.stagingName).xcarchive")
-                    let dd = (buildDir as NSString).appendingPathComponent("dd-\(p.stagingName)")
+                    let archive = buildDir + "\(p.stagingName).xcarchive"
+                    let dd = buildDir + "dd-\(p.stagingName)"
 
                     let archiveOutput = try await exec([
                         "xcodebuild", "archive",
                         "-scheme", "LiveKit", "-configuration", "Release",
                         "-destination", p.destination,
-                        "-archivePath", archive, "-derivedDataPath", dd,
-                        "-clonedSourcePackagesDirPath", spmDir,
+                        "-archivePath", archive.string, "-derivedDataPath", dd.string,
+                        "-clonedSourcePackagesDirPath", spmDir.string,
                         "BUILD_LIBRARY_FOR_DISTRIBUTION=YES", "SKIP_INSTALL=NO",
                     ])
                     let lastLine = archiveOutput.components(separatedBy: .newlines).last ?? ""
                     print("  \(p.label): \(lastLine)")
 
-                    let bpRoot = "\(dd)/Build/Intermediates.noindex/ArchiveIntermediates/LiveKit/BuildProductsPath"
-                    guard let bp = subdirs(of: bpRoot).first else {
+                    let bpRoot = dd + "Build/Intermediates.noindex/ArchiveIntermediates/LiveKit/BuildProductsPath"
+                    guard let bp = try bpRoot.children().first(where: { $0.isDirectory }) else {
                         throw ValidationError("Build products not found for \(p.label)")
                     }
 
-                    let staging = (buildDir as NSString).appendingPathComponent("staging/\(p.stagingName)")
+                    let staging = buildDir + "staging" + p.stagingName
                     try await stageArtifacts(label: p.label, archive: archive, bp: bp, staging: staging, repoRoot: repoRoot)
                     return (p, staging)
                 }
             }
-            var results: [(Platform, String)] = []
+            var results: [(Platform, Path)] = []
             for try await result in group {
                 results.append(result)
             }
-            // Preserve platform order for deterministic xcframework
             return results.sorted { $0.0.stagingName < $1.0.stagingName }
         }
-        print("  All \(stagingDirs.count) platforms archived.")
+        print("  All \(stagingDirs.count) platforms archived.".green)
 
         // --- Create LiveKit.xcframework ---
         step("Creating LiveKit.xcframework...")
         var xcfwArgs = ["xcodebuild", "-create-xcframework"]
         for (_, staging) in stagingDirs {
-            xcfwArgs += ["-library", "\(staging)/LiveKit.a"]
-            let headers = (staging as NSString).appendingPathComponent("include")
-            if fm.fileExists(atPath: headers) { xcfwArgs += ["-headers", headers] }
+            xcfwArgs += ["-library", (staging + "LiveKit.a").string]
+            let headers = staging + "include"
+            if headers.exists { xcfwArgs += ["-headers", headers.string] }
         }
-        let xcfwPath = (outputDir as NSString).appendingPathComponent("LiveKit.xcframework")
-        xcfwArgs += ["-output", xcfwPath]
-        try await execPrint(xcfwArgs)
+        let xcfwPath = outputDir + "LiveKit.xcframework"
+        xcfwArgs += ["-output", xcfwPath.string]
+        let xcfwOutput = try await exec(xcfwArgs)
+        if !xcfwOutput.isEmpty { print(xcfwOutput) }
 
-        // --- Embed Swift modules ---
+        // --- Embed Swift modules into xcframework slices ---
         step("Embedding Swift modules into xcframework slices...")
         try embedSwiftModules(xcfwPath: xcfwPath, stagingDirs: stagingDirs)
 
-        // --- Zip & checksum LiveKit.xcframework ---
-        step("Zipping LiveKit.xcframework...")
-        let liveKitZip = "LiveKit.xcframework.zip"
-        try await exec("bash", "-c", "cd '\(outputDir)' && zip -qry '\(liveKitZip)' 'LiveKit.xcframework'")
-        let liveKitChecksum = try await exec(
-            "swift", "package", "compute-checksum",
-            (outputDir as NSString).appendingPathComponent(liveKitZip),
-        )
-        print("  \(liveKitZip)  checksum: \(liveKitChecksum)")
+        // --- Zip & checksum (release builds only) ---
+        var liveKitChecksum = ""
+        if !local {
+            step("Zipping LiveKit.xcframework...")
+            let zipPath = outputDir + "LiveKit.xcframework.zip"
+            try fm.zipItem(at: xcfwPath.url, to: zipPath.url)
+            liveKitChecksum = try await exec("swift", "package", "compute-checksum", zipPath.string)
+            print("  LiveKit.xcframework.zip  checksum: \(liveKitChecksum)")
+        }
 
         // --- Generate Package.swift ---
         step("Generating Package.swift...")
@@ -233,66 +243,21 @@ struct BuildXCFramework: AsyncParsableCommand {
         // --- Summary ---
         step("Done! Output: \(outputDir)")
         print("")
-        for item in try fm.contentsOfDirectory(atPath: outputDir).sorted() {
+        for item in try outputDir.children().map(\.lastComponent).sorted() {
             print(item)
         }
         print("")
         print("LiveKit.xcframework:")
-        for slice in subdirs(of: (outputDir as NSString).appendingPathComponent("LiveKit.xcframework"))
-            .map({ ($0 as NSString).lastPathComponent }).sorted()
-        {
+        for slice in try xcfwPath.children().filter(\.isDirectory).map(\.lastComponent).sorted() {
             print("  - \(slice)")
         }
     }
 
-    // MARK: - Parse dependency info from Package.swift
-
-    struct BinaryDep {
-        let url: String
-        let checksum: String
-    }
-
-    /// Parse binary dependency URL and checksum from the upstream Package.swift.
-    /// Fetches the upstream repo's Package.swift to get the checksum.
-    func parseBinaryDep(repoRoot: String, pattern: String, xcfw: String) async throws -> BinaryDep {
-        let contents = try String(contentsOfFile: (repoRoot as NSString).appendingPathComponent("Package.swift"), encoding: .utf8)
-        guard let line = contents.components(separatedBy: .newlines)
-            .first(where: { $0.contains("github") && $0.contains(pattern) })
-        else {
-            throw ValidationError("\(pattern) not found in Package.swift")
-        }
-        guard let urlRange = line.range(of: #"https://[^"]+"#, options: .regularExpression),
-              let verRange = line.range(of: #"exact: "([^"]+)"#, options: .regularExpression)
-        else {
-            throw ValidationError("Could not parse URL/version from: \(line)")
-        }
-        let repo = String(line[urlRange]).replacingOccurrences(of: ".git", with: "")
-        let ver = line[verRange].replacingOccurrences(of: "exact: \"", with: "")
-        let zipURL = "\(repo)/releases/download/\(ver)/\(xcfw).xcframework.zip"
-
-        // Fetch upstream Package.swift to get the checksum
-        let rawURL = repo.replacingOccurrences(of: "github.com", with: "raw.githubusercontent.com") + "/\(ver)/Package.swift"
-        let upstreamPkg = try await exec("curl", "-fsSL", rawURL)
-        guard let csLine = upstreamPkg.components(separatedBy: .newlines)
-            .first(where: { $0.contains("checksum") })
-        else {
-            throw ValidationError("Could not find checksum in upstream Package.swift at \(rawURL)")
-        }
-        guard let csRange = csLine.range(of: #""[0-9a-f]{64}""#, options: .regularExpression) else {
-            throw ValidationError("Could not parse checksum from: \(csLine)")
-        }
-        let checksum = String(csLine[csRange]).trimmingCharacters(in: CharacterSet(charactersIn: "\""))
-
-        return BinaryDep(url: zipURL, checksum: checksum)
-    }
-
-    // stage() moved to free function for TaskGroup compatibility
-
     // MARK: - Embed Swift modules
 
-    func embedSwiftModules(xcfwPath: String, stagingDirs: [(Platform, String)]) throws {
-        for sliceDir in subdirs(of: xcfwPath) {
-            let sliceBase = (sliceDir as NSString).lastPathComponent
+    func embedSwiftModules(xcfwPath: Path, stagingDirs: [(Platform, Path)]) throws {
+        for sliceDir in try xcfwPath.children().filter(\.isDirectory) {
+            let sliceBase = sliceDir.lastComponent
             let slicePfx = sliceBase.components(separatedBy: "-").first ?? ""
             let sliceSim = sliceBase.hasSuffix("-simulator")
             let sliceCat = sliceBase.hasSuffix("-maccatalyst")
@@ -303,14 +268,15 @@ struct BuildXCFramework: AsyncParsableCommand {
                    sliceSim == platform.stagingName.hasSuffix("-simulator"),
                    sliceCat == platform.stagingName.hasSuffix("-maccatalyst")
                 {
-                    for item in (try? fm.contentsOfDirectory(atPath: staging)) ?? [] {
-                        let src = (staging as NSString).appendingPathComponent(item)
-                        let dst = (sliceDir as NSString).appendingPathComponent(item)
-                        if item.hasSuffix(".swiftmodule"), !fm.fileExists(atPath: dst) {
-                            try fm.copyItem(atPath: src, toPath: dst)
-                            print("  + \(item) -> \(sliceBase)")
+                    for item in try staging.children() {
+                        let dst = sliceDir + item.lastComponent
+                        if item.lastComponent.hasSuffix(".swiftmodule"), !dst.exists {
+                            try item.copy(dst)
+                            print("  + \(item.lastComponent) -> \(sliceBase)")
                         }
-                        if item.hasSuffix(".bundle") { try? fm.copyItem(atPath: src, toPath: dst) }
+                        if item.lastComponent.hasSuffix(".bundle"), !dst.exists {
+                            try? item.copy(dst)
+                        }
                     }
                     break
                 }
@@ -321,13 +287,10 @@ struct BuildXCFramework: AsyncParsableCommand {
     // MARK: - Generate Package.swift via Stencil
 
     func generatePackageSwift(
-        outputDir: String, liveKitChecksum: String,
-        webrtcDep: BinaryDep, uniffiDep: BinaryDep, repoRoot: String,
+        outputDir: Path, liveKitChecksum: String,
+        webrtcDep: BinaryDep, uniffiDep: BinaryDep, repoRoot: Path,
     ) throws {
-        let scriptsDir = (repoRoot as NSString).appendingPathComponent("scripts")
-        let templatePath = (scriptsDir as NSString).appendingPathComponent("Package.swift.stencil")
-        let tmpl = try String(contentsOfFile: templatePath, encoding: .utf8)
-
+        let tmpl: String = try (repoRoot + "scripts" + "Package.swift.stencil").read()
         let baseURL = version.map {
             "https://github.com/livekit/client-sdk-swift-xcframework/releases/download/\($0)"
         } ?? ""
@@ -342,64 +305,46 @@ struct BuildXCFramework: AsyncParsableCommand {
             "uniffiURL": uniffiDep.url,
             "uniffiChecksum": uniffiDep.checksum,
         ])
-        try rendered.write(
-            toFile: (outputDir as NSString).appendingPathComponent("Package.swift"),
-            atomically: true, encoding: .utf8,
-        )
+        try (outputDir + "Package.swift").write(rendered)
     }
 }
 
 // MARK: - Stage (free function for TaskGroup compatibility)
 
-func stageArtifacts(label: String, archive: String, bp: String, staging: String, repoRoot: String) async throws {
-    try fm.createDirectory(atPath: staging, withIntermediateDirectories: true)
+func stageArtifacts(label: String, archive: Path, bp: Path, staging: Path, repoRoot: Path) async throws {
+    try staging.mkpath()
 
     // Discover source modules dynamically from .o files in the archive
-    let productsDir = "\(archive)/Products"
-    var objects: [String] = []
-    if let enumerator = fm.enumerator(atPath: productsDir) {
-        while let path = enumerator.nextObject() as? String {
-            if path.hasSuffix(".o") {
-                objects.append((productsDir as NSString).appendingPathComponent(path))
-            }
-        }
-    }
+    let productsDir = archive + "Products"
+    let objects = try productsDir.recursiveChildren().filter { $0.extension == "o" }
 
     // Also include liblivekit_uniffi.a (Rust/C static lib)
-    if let lib = findFirst(under: bp, named: "liblivekit_uniffi.a", isDirectory: false) {
-        objects.append(lib)
+    var allObjects = objects.map(\.string)
+    if let lib = try bp.recursiveChildren().first(where: { $0.lastComponent == "liblivekit_uniffi.a" }) {
+        allObjects.append(lib.string)
     }
 
-    print("  Merging \(objects.count) objects into LiveKit.a (\(label))")
-    try await exec(["libtool", "-static", "-o", "\(staging)/LiveKit.a"] + objects)
+    print("  Merging \(allObjects.count) objects into LiveKit.a (\(label))")
+    try await exec(["libtool", "-static", "-o", (staging + "LiveKit.a").string] + allObjects)
 
     // Copy all .swiftmodule directories from build products
-    for item in (try? fm.contentsOfDirectory(atPath: bp)) ?? [] where item.hasSuffix(".swiftmodule") {
-        let src = (bp as NSString).appendingPathComponent(item)
-        try await exec("cp", "-R", src, staging)
+    for item in try bp.children() where item.lastComponent.hasSuffix(".swiftmodule") {
+        try item.copy(staging + item.lastComponent)
     }
 
     // ObjC headers + module map for LKObjCHelpers
-    let includeDir = (staging as NSString).appendingPathComponent("include/LKObjCHelpers")
-    try fm.createDirectory(atPath: includeDir, withIntermediateDirectories: true)
-    let objcSrc = (repoRoot as NSString).appendingPathComponent("Sources/LKObjCHelpers/include")
-    if fm.fileExists(atPath: objcSrc) {
-        for h in try fm.contentsOfDirectory(atPath: objcSrc).filter({ $0.hasSuffix(".h") }) {
-            try fm.copyItem(
-                atPath: (objcSrc as NSString).appendingPathComponent(h),
-                toPath: (includeDir as NSString).appendingPathComponent(h),
-            )
+    let includeDir = staging + "include" + "LKObjCHelpers"
+    try includeDir.mkpath()
+    let objcSrc = repoRoot + "Sources" + "LKObjCHelpers" + "include"
+    if objcSrc.exists {
+        for h in try objcSrc.children().filter({ $0.extension == "h" }) {
+            try h.copy(includeDir + h.lastComponent)
         }
     }
-    try "module LKObjCHelpers {\n    header \"LKObjCHelpers.h\"\n    export *\n}\n"
-        .write(toFile: (includeDir as NSString).appendingPathComponent("module.modulemap"),
-               atomically: true, encoding: .utf8)
+    try (includeDir + "module.modulemap").write("module LKObjCHelpers {\n    header \"LKObjCHelpers.h\"\n    export *\n}\n")
 
     // Resource bundles
-    for item in (try? fm.contentsOfDirectory(atPath: bp)) ?? [] where item.hasSuffix(".bundle") {
-        try? fm.copyItem(
-            atPath: (bp as NSString).appendingPathComponent(item),
-            toPath: (staging as NSString).appendingPathComponent(item),
-        )
+    for item in try bp.children() where item.lastComponent.hasSuffix(".bundle") {
+        try? item.copy(staging + item.lastComponent)
     }
 }
