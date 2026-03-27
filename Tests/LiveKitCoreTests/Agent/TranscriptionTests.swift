@@ -51,13 +51,17 @@ class TranscriptionTests: LKTestCase, @unchecked Sendable {
         let segmentID = "test-segment"
         let streamID = UUID().uuidString
         let testChunks = ["Hey", " there!", " What's up?"]
-        let expectedContent = ["Hey", "Hey there!", "Hey there! What's up?"]
+        // Each sendText creates a separate stream. Non-final streams emit a
+        // stream-close finalization message after their content message.
+        let expectedContent = ["Hey", "Hey", "Hey there!", "Hey there!", "Hey there! What's up?"]
+        let expectedIsFinal = [false, true, false, true, true]
 
         try await runTranscriptionTest(
             chunks: testChunks,
             segmentID: segmentID,
             streamID: streamID,
-            expectedContent: expectedContent
+            expectedContent: expectedContent,
+            expectedIsFinal: expectedIsFinal
         )
     }
 
@@ -65,14 +69,102 @@ class TranscriptionTests: LKTestCase, @unchecked Sendable {
     func testReplace() async throws {
         let segmentID = "test-segment"
         let testChunks = ["Hey", "Hey there!", "Hey there! What's up?"]
-        let expectedContent = ["Hey", "Hey there!", "Hey there! What's up?"]
+        let expectedContent = ["Hey", "Hey", "Hey there!", "Hey there!", "Hey there! What's up?"]
+        let expectedIsFinal = [false, true, false, true, true]
 
         try await runTranscriptionTest(
             chunks: testChunks,
             segmentID: segmentID,
             streamID: nil,
-            expectedContent: expectedContent
+            expectedContent: expectedContent,
+            expectedIsFinal: expectedIsFinal
         )
+    }
+
+    // Verifies stream-close finalization for a single stream with incremental writes.
+    // This mirrors real agent behavior where all chunks arrive within one stream
+    // and the attribute is always "false" — finality comes from the stream closing.
+    func testStreamCloseFinalizes() async throws {
+        let segmentID = "test-segment"
+        let testChunks = ["Hey", " there!", " What's up?"]
+        let expectedContent = ["Hey", "Hey there!", "Hey there! What's up?", "Hey there! What's up?"]
+        let expectedIsFinal = [false, false, false, true]
+
+        try await withRooms([
+            RoomTestingOptions(canSubscribe: true),
+            RoomTestingOptions(canPublishData: true),
+        ]) { rooms in
+            self.rooms = rooms
+            try await self.setupTestEnvironment(expectedCount: expectedContent.count)
+
+            let topic = "lk.transcription"
+            let attributes: [String: String] = [
+                "lk.segment_id": segmentID,
+                "lk.transcription_final": "false",
+            ]
+            let options = StreamTextOptions(topic: topic, attributes: attributes)
+            let writer = try await self.senderRoom.localParticipant.streamText(options: options)
+            for chunk in testChunks {
+                try await writer.write(chunk)
+                try await Task.sleep(nanoseconds: 10_000_000)
+            }
+            try await writer.close()
+
+            await self.fulfillment(of: [self.messageExpectation], timeout: 5)
+            self.collectionTask.cancel()
+
+            let updates = await self.messageCollector.getUpdates()
+            let messages = await self.messageCollector.getMessages()
+
+            self.validateTranscriptionResults(
+                updates: updates,
+                messages: messages,
+                segmentID: segmentID,
+                expectedContent: expectedContent,
+                expectedIsFinal: expectedIsFinal
+            )
+        }
+    }
+
+    // Verifies that no duplicate finalization message is emitted when
+    // the attribute already marks the segment as final.
+    func testAttributeBasedIsFinal() async throws {
+        let segmentID = "test-segment"
+        let expectedContent = ["Hello!"]
+        let expectedIsFinal = [true]
+
+        try await withRooms([
+            RoomTestingOptions(canSubscribe: true),
+            RoomTestingOptions(canPublishData: true),
+        ]) { rooms in
+            self.rooms = rooms
+            try await self.setupTestEnvironment(expectedCount: 1)
+
+            let topic = "lk.transcription"
+            let attributes: [String: String] = [
+                "lk.segment_id": segmentID,
+                "lk.transcription_final": "true",
+            ]
+            let options = StreamTextOptions(topic: topic, attributes: attributes)
+            try await self.senderRoom.localParticipant.sendText("Hello!", options: options)
+
+            await self.fulfillment(of: [self.messageExpectation], timeout: 5)
+            // Brief wait to ensure no extra messages arrive
+            try await Task.sleep(nanoseconds: 100_000_000)
+            self.collectionTask.cancel()
+
+            let updates = await self.messageCollector.getUpdates()
+            let messages = await self.messageCollector.getMessages()
+
+            // Exactly 1 message — no duplicate from stream-close
+            self.validateTranscriptionResults(
+                updates: updates,
+                messages: messages,
+                segmentID: segmentID,
+                expectedContent: expectedContent,
+                expectedIsFinal: expectedIsFinal
+            )
+        }
     }
 
     private func setupTestEnvironment(expectedCount: Int) async throws {
@@ -125,13 +217,20 @@ class TranscriptionTests: LKTestCase, @unchecked Sendable {
         updates: [ReceivedMessage],
         messages: OrderedDictionary<ReceivedMessage.ID, ReceivedMessage>,
         segmentID: String,
-        expectedContent: [String]
+        expectedContent: [String],
+        expectedIsFinal: [Bool]
     ) {
         // Validate updates
         XCTAssertEqual(updates.count, expectedContent.count)
         for (index, expected) in expectedContent.enumerated() {
             XCTAssertEqual(updates[index].content, .agentTranscript(expected))
             XCTAssertEqual(updates[index].id, segmentID)
+        }
+
+        // Validate isFinal
+        XCTAssertEqual(updates.count, expectedIsFinal.count)
+        for (index, expected) in expectedIsFinal.enumerated() {
+            XCTAssertEqual(updates[index].isFinal, expected, "isFinal mismatch at index \(index)")
         }
 
         // Validate timestamps are consistent
@@ -146,13 +245,15 @@ class TranscriptionTests: LKTestCase, @unchecked Sendable {
         XCTAssertEqual(messages.values[0].content, .agentTranscript(expectedContent.last!))
         XCTAssertEqual(messages.values[0].id, segmentID)
         XCTAssertEqual(messages.values[0].timestamp, firstTimestamp)
+        XCTAssertTrue(messages.values[0].isFinal)
     }
 
     private func runTranscriptionTest(
         chunks: [String],
         segmentID: String,
         streamID: String? = nil,
-        expectedContent: [String]
+        expectedContent: [String],
+        expectedIsFinal: [Bool]
     ) async throws {
         try await withRooms([
             RoomTestingOptions(canSubscribe: true),
@@ -177,7 +278,8 @@ class TranscriptionTests: LKTestCase, @unchecked Sendable {
                 updates: updates,
                 messages: messages,
                 segmentID: segmentID,
-                expectedContent: expectedContent
+                expectedContent: expectedContent,
+                expectedIsFinal: expectedIsFinal
             )
         }
     }
