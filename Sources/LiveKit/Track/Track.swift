@@ -92,7 +92,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
 
     let mediaTrack: LKRTCMediaStreamTrack
 
-    struct State: Sendable {
+    struct State {
         let name: String
         let kind: Kind
         let source: Source

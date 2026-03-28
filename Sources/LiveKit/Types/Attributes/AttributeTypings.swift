@@ -51,7 +51,7 @@ extension TranscriptionAttributes {
 
 // MARK: - AgentAttributes
 
-struct AgentAttributes: Codable, Sendable {
+struct AgentAttributes: Codable {
     let lkAgentInputs: [AgentInput]?
     let lkAgentOutputs: [AgentOutput]?
     let lkAgentState: AgentState?
@@ -65,13 +65,13 @@ struct AgentAttributes: Codable, Sendable {
     }
 }
 
-enum AgentInput: String, Codable, Sendable {
+enum AgentInput: String, Codable {
     case audio
     case text
     case video
 }
 
-enum AgentOutput: String, Codable, Sendable {
+enum AgentOutput: String, Codable {
     case audio
     case transcription
 }
@@ -87,7 +87,7 @@ public enum AgentState: String, Codable, Sendable {
 // MARK: - TranscriptionAttributes
 
 /// Schema for transcription-related attributes
-struct TranscriptionAttributes: Codable, Sendable {
+struct TranscriptionAttributes: Codable {
     /// The segment id of the transcription
     let lkSegmentID: String?
     /// The associated track id of the transcription

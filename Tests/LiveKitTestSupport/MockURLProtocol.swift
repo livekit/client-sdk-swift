@@ -30,7 +30,7 @@ public final class MockURLProtocol: URLProtocol {
         }
     }
 
-    private struct State: Sendable {
+    private struct State {
         var allowedHosts = Set<String>()
         var allowedPaths = Set<String>()
         var requestHandler: (@Sendable (URLRequest) throws -> Response)?

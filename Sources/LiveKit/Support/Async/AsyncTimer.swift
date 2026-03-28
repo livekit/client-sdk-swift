@@ -23,7 +23,7 @@ final class AsyncTimer: Sendable, Loggable {
 
     // MARK: - Private
 
-    struct State: Sendable {
+    struct State {
         var isStarted: Bool = false
         var interval: TimeInterval
         var task: AnyTaskCancellable?

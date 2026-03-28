@@ -202,7 +202,7 @@ public class VideoView: NativeView, Loggable {
         case secondary
     }
 
-    struct State: Sendable {
+    struct State {
         weak var track: Track?
         var isEnabled: Bool = true
         var isHidden: Bool = false

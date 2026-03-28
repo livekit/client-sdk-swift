@@ -25,7 +25,7 @@ actor SignalClient: Loggable {
 
     typealias AddTrackRequestPopulator = @Sendable (inout Livekit_AddTrackRequest) throws -> Void
 
-    enum ConnectResponse: Sendable {
+    enum ConnectResponse {
         case join(Livekit_JoinResponse)
         case reconnect(Livekit_ReconnectResponse)
 
