@@ -42,7 +42,7 @@ struct Deque<Element>: ExpressibleByArrayLiteral {
         if count_ == buffer.count {
             grow()
         }
-        let tail = (head + count_) % buffer.count
+        let tail = (head + count_) & (buffer.count - 1)
         buffer[tail] = element
         count_ += 1
     }
@@ -50,11 +50,11 @@ struct Deque<Element>: ExpressibleByArrayLiteral {
     @discardableResult
     mutating func removeFirst() -> Element {
         guard count_ > 0 else {
-            fatalError("Cannot removeFirst from an empty Deque")
+            preconditionFailure("Cannot removeFirst from an empty Deque")
         }
         let element = buffer[head]!
         buffer[head] = nil
-        head = (head + 1) % buffer.count
+        head = (head + 1) & (buffer.count - 1)
         count_ -= 1
         return element
     }
@@ -62,8 +62,9 @@ struct Deque<Element>: ExpressibleByArrayLiteral {
     private mutating func grow() {
         let newCapacity = max(buffer.count * 2, 4)
         var newBuffer = [Element?](repeating: nil, count: newCapacity)
+        let mask = buffer.count - 1
         for i in 0 ..< count_ {
-            newBuffer[i] = buffer[(head + i) % buffer.count]
+            newBuffer[i] = buffer[(head + i) & mask]
         }
         buffer = newBuffer
         head = 0

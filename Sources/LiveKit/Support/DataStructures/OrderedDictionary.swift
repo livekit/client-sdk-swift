@@ -32,8 +32,12 @@ struct OrderedDictionary<Key: Hashable, Value>: ExpressibleByDictionaryLiteral {
 
     init(uniqueKeysWithValues keysAndValues: some Sequence<(Key, Value)>) {
         for (key, value) in keysAndValues {
-            pairs.append((key, value))
-            index[key] = pairs.count - 1
+            if let i = index[key] {
+                pairs[i] = (key, value)
+            } else {
+                index[key] = pairs.count
+                pairs.append((key, value))
+            }
         }
     }
 
