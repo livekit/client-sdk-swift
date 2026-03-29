@@ -16,7 +16,7 @@
 
 import Foundation
 
-struct TrackSettings: Equatable, Hashable, Sendable {
+struct TrackSettings: Equatable, Hashable {
     let isEnabled: Bool
     let dimensions: Dimensions
     let videoQuality: VideoQuality

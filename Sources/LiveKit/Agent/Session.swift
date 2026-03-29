@@ -16,7 +16,6 @@
 
 import Combine
 import Foundation
-import OrderedCollections
 
 /// A ``Session`` represents a connection to a LiveKit Room that can contain an ``Agent``.
 ///

@@ -15,7 +15,6 @@
  */
 
 @testable import LiveKit
-import OrderedCollections
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif

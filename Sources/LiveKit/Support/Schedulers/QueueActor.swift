@@ -21,7 +21,7 @@ actor QueueActor<T: Sendable>: Loggable {
 
     // MARK: - Public
 
-    enum State: Sendable {
+    enum State {
         case resumed
         case suspended
     }
