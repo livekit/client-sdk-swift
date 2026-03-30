@@ -19,7 +19,7 @@ import Foundation
 // MARK: - RegionManager
 
 actor RegionManager: Loggable {
-    struct State: Sendable {
+    struct State {
         var lastRequested: Date?
         var all: [RegionInfo] = []
         var remaining: [RegionInfo] = []

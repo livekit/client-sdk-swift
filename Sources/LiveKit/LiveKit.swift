@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import Foundation
-internal import LiveKitWebRTC
 internal import LiveKitUniFFI
+internal import LiveKitWebRTC
+import Foundation
 
 /// The open source platform for real-time communication.
 ///
