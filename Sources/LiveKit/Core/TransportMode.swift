@@ -16,7 +16,7 @@
 
 internal import LiveKitWebRTC
 
-enum TransportMode: Equatable, Sendable {
+enum TransportMode: Equatable {
     /// Single peer connection: publisher handles both publishing and receiving.
     case publisherOnly(publisher: Transport)
     /// Dual peer connection with subscriber as primary (default).
