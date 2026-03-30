@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
 internal import LiveKitUniFFI
+import Foundation
 
 // MARK: - Source
 
@@ -97,7 +97,7 @@ public struct TokenRequestOptions: Sendable, Equatable {
     }
 }
 
-struct TokenSourceRequest: Sendable, Encodable {
+struct TokenSourceRequest: Encodable {
     let roomName: String?
     let participantName: String?
     let participantIdentity: String?

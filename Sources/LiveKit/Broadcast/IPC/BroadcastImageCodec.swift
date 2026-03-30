@@ -20,7 +20,7 @@ import AVFoundation
 @preconcurrency import CoreImage
 
 /// Encode and decode image samples for transport.
-struct BroadcastImageCodec: Sendable {
+struct BroadcastImageCodec {
     struct Metadata: Codable {
         let width: Int
         let height: Int

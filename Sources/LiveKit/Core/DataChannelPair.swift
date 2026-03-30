@@ -54,7 +54,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    private struct Buffers: Sendable {
+    private struct Buffers {
         var lossyBuffer = SendBuffer()
         var reliableBuffer = SendBuffer()
         var reliableRetryBuffer = RetryBuffer(minAmount: DataChannelPair.reliableRetryAmount)
@@ -119,7 +119,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    private struct PublishDataRequest: Sendable {
+    private struct PublishDataRequest {
         let data: LKRTCDataBuffer
         let sequence: UInt32
         let continuation: CheckedContinuation<Void, any Error>?
@@ -129,11 +129,11 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    private struct ChannelEvent: Sendable {
+    private struct ChannelEvent {
         let channelKind: ChannelKind
         let detail: Detail
 
-        enum Detail: Sendable {
+        enum Detail {
             case publishData(PublishDataRequest)
             case publishedData(PublishDataRequest)
             case bufferedAmountChanged(UInt64)
