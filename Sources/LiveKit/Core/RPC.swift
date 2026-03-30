@@ -136,7 +136,7 @@ public struct RpcInvocationData {
     public let responseTimeout: TimeInterval
 }
 
-struct PendingRpcResponse: Sendable {
+struct PendingRpcResponse {
     let participantIdentity: Participant.Identity
     let onResolve: @Sendable (_ payload: String?, _ error: RpcError?) -> Void
 }

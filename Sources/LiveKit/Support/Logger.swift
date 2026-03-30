@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import OSLog
-internal import LiveKitWebRTC
 internal import LiveKitUniFFI
+internal import LiveKitWebRTC
+import OSLog
 
 // MARK: - Logger
 

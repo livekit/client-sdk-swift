@@ -134,7 +134,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     // MARK: - State
 
-    struct State: Equatable, Sendable {
+    struct State: Equatable {
         // Options
         var connectOptions: ConnectOptions
         var roomOptions: RoomOptions
