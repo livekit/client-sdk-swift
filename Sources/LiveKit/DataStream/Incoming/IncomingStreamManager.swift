@@ -36,7 +36,7 @@ actor IncomingStreamManager: Loggable {
     private var textStreamHandlers: [String: TextStreamHandler] = [:]
 
     /// Events are processed in a serial (FIFO) order
-    enum StreamEvent: Sendable {
+    enum StreamEvent {
         case header(Livekit_DataStream.Header, String, EncryptionType)
         case chunk(Livekit_DataStream.Chunk, EncryptionType)
         case trailer(Livekit_DataStream.Trailer, EncryptionType)

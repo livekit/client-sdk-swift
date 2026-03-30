@@ -16,7 +16,7 @@
 
 internal import LiveKitWebRTC
 
-struct IceCandidate: Codable, Sendable {
+struct IceCandidate: Codable {
     let sdp: String
     let sdpMLineIndex: Int32
     let sdpMid: String?

@@ -64,7 +64,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
     }
 
-    struct State: Sendable {
+    struct State {
         var next: (any AudioEngineObserver)?
 
         var isAutomaticConfigurationEnabled: Bool = true
@@ -82,25 +82,37 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     }
 
     public init() {
-        _state.onDidMutate = { new_, old_ in
-            if new_.isAutomaticConfigurationEnabled, new_.isPlayoutEnabled != old_.isPlayoutEnabled ||
-                new_.isRecordingEnabled != old_.isRecordingEnabled ||
-                new_.isSpeakerOutputPreferred != old_.isSpeakerOutputPreferred
-            {
-                // Legacy config func
-                if let config_func = AudioManager.shared._state.customConfigureFunc {
-                    // Simulate state and invoke custom config func.
-                    let old_state = AudioManager.State(localTracksCount: old_.isRecordingEnabled ? 1 : 0, remoteTracksCount: old_.isPlayoutEnabled ? 1 : 0)
-                    let new_state = AudioManager.State(localTracksCount: new_.isRecordingEnabled ? 1 : 0, remoteTracksCount: new_.isPlayoutEnabled ? 1 : 0)
-                    config_func(new_state, old_state)
-                } else {
-                    self.configure(oldState: old_, newState: new_)
-                }
-            }
+        _state.onDidMutate = { [weak self] new, old in
+            guard let self,
+                  new.isSpeakerOutputPreferred != old.isSpeakerOutputPreferred else { return }
+            _ = configureIfNeeded(oldState: old, newState: new)
         }
     }
 
-    @Sendable func configure(oldState: State, newState: State) {
+    // MARK: - Audio Session Configuration
+
+    private func configureIfNeeded(oldState: State, newState: State) -> Int {
+        guard newState.isAutomaticConfigurationEnabled else { return 0 }
+
+        // Deprecated: `customConfigureAudioSessionFunc` overrides the default configuration.
+        // This path does not support error propagation since the legacy func returns Void.
+        // Use `set(engineObservers:)` with a custom `AudioEngineObserver` instead.
+        if let legacyConfigFunc = AudioManager.shared._state.customConfigureFunc {
+            let oldLegacy = AudioManager.State(localTracksCount: oldState.isRecordingEnabled ? 1 : 0, remoteTracksCount: oldState.isPlayoutEnabled ? 1 : 0)
+            let newLegacy = AudioManager.State(localTracksCount: newState.isRecordingEnabled ? 1 : 0, remoteTracksCount: newState.isPlayoutEnabled ? 1 : 0)
+            legacyConfigFunc(newLegacy, oldLegacy)
+            return 0
+        }
+
+        do {
+            try configureAudioSession(oldState: oldState, newState: newState)
+            return 0
+        } catch {
+            return kAudioEngineErrorFailedToConfigureAudioSession
+        }
+    }
+
+    @Sendable private func configureAudioSession(oldState: State, newState: State) throws {
         let session = AVAudioSession.sharedInstance()
 
         if (!newState.isPlayoutEnabled && !newState.isRecordingEnabled) && (oldState.isPlayoutEnabled || oldState.isRecordingEnabled) {
@@ -110,6 +122,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                     try session.setActive(false, options: .notifyOthersOnDeactivation)
                 } catch {
                     log("AudioSession failed to deactivate with error: \(error)", .error)
+                    throw error
                 }
             } else {
                 log("AudioSession deactivation skipped...")
@@ -126,7 +139,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 // RTCAudioSessionHighPerformanceIOBufferDuration in RTCAudioSessionConfiguration.m).
                 // WebRTC also sets this internally via RTCAudioSession+Configuration.mm when
                 // configuring the audio session, but we set it here as well since we manage the
-                // session category ourselves. This is only a hint — iOS may ignore it and negotiate
+                // session category ourselves. This is only a hint, iOS may ignore it and negotiate
                 // a larger buffer on some devices, causing kAudioUnitErr_TooManyFramesToProcess (-10874).
                 // As a fallback, MixerEngineObserver sets maximumFramesToRender on its nodes to
                 // handle larger-than-expected buffer sizes.
@@ -135,6 +148,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 try session.setPreferredIOBufferDuration(LKRTCAudioSessionConfiguration.webRTC().ioBufferDuration)
             } catch {
                 log("AudioSession failed to configure with error: \(error)", .error)
+                throw error
             }
 
             if !oldState.isPlayoutEnabled, !oldState.isRecordingEnabled {
@@ -143,31 +157,46 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                     try session.setActive(true)
                 } catch {
                     log("AudioSession failed to activate AudioSession with error: \(error)", .error)
+                    throw error
                 }
             }
         }
     }
 
+    // MARK: - AudioEngineObserver
+
     public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
-        _state.mutate {
+        let result: Int = _state.mutate {
+            let oldState = $0
             $0.isPlayoutEnabled = isPlayoutEnabled
             $0.isRecordingEnabled = isRecordingEnabled
+            let result = configureIfNeeded(oldState: oldState, newState: $0)
+            if result != 0 {
+                // Rollback state on failure so it stays consistent with WebRTC's rollback.
+                $0 = oldState
+            }
+            return result
         }
-
-        // Call next last
+        guard result == 0 else { return result }
         return _state.next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
     }
 
     public func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
-        // Call next first
-        let nextResult = _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+        let nextResult = _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
 
-        _state.mutate {
+        let result: Int = _state.mutate {
+            let oldState = $0
             $0.isPlayoutEnabled = isPlayoutEnabled
             $0.isRecordingEnabled = isRecordingEnabled
+            let result = configureIfNeeded(oldState: oldState, newState: $0)
+            if result != 0 {
+                // Rollback state on failure so it stays consistent with WebRTC's rollback.
+                $0 = oldState
+            }
+            return result
         }
-
-        return nextResult ?? 0
+        guard result == 0 else { return result }
+        return nextResult
     }
 }
 
