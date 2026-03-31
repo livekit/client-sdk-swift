@@ -52,7 +52,7 @@ Key components:
 - `StateSync<T>` - thread-safe state container with `@dynamicMemberLookup`; triggers `onDidMutate` callbacks
 - `MulticastDelegate<T>` - weak-reference delegate collection for event broadcasting
 
-Dependencies: LiveKitWebRTC, LiveKitUniFFI, SwiftProtobuf, swift-collections.
+Dependencies: LiveKitWebRTC, LiveKitUniFFI, SwiftProtobuf.
 
 ## WebRTC
 
