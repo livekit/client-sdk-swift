@@ -291,7 +291,6 @@ extension MixerEngineObserver {
         }
 
         guard isConnected, let playerNodeFormat, let engine = soundPlayerNodes.engine, engine.isRunning else {
-            log("Engine is not running or input not connected, skipping remote sound playback", .debug)
             return nil
         }
 
