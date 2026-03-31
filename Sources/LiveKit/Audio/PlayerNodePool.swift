@@ -97,7 +97,7 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
             return items.map(\.node)
         }
         for node in nodes {
-            node.stop()
+            queueNodeStop(node)
         }
     }
 
@@ -115,10 +115,18 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
     }
 
     private func freeSlot(index: Int, generation: UInt64) {
-        _state.mutate { items in
-            guard items[index].generation == generation else { return }
+        let node = _state.mutate { items -> AVAudioPlayerNode? in
+            guard items[index].generation == generation else { return nil }
             items[index].isInUse = false
-            items[index].node.stop()
+            return items[index].node
+        }
+        queueNodeStop(node)
+    }
+
+    private func queueNodeStop(_ node: AVAudioPlayerNode?) {
+        guard let node else { return }
+        audioCallbackQueue.async(qos: .default, flags: .enforceQoS) {
+            node.stop()
         }
     }
 }
@@ -137,7 +145,6 @@ class NodePlayback: SoundPlayback, @unchecked Sendable {
     }
 
     func stop() {
-        node?.stop()
         onStop()
     }
 }
