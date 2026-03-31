@@ -31,6 +31,9 @@ public enum LiveKitErrorType: Int, Sendable {
 
     case network // Network issue
     case validation // Validation issue
+    // HTTP 404 from validation endpoint; distinct from .validation so the
+    // v1 → v0 RTC path fallback can fire without masking token/permission errors.
+    case serviceNotFound
 
     // Server
     case duplicateIdentity = 500
@@ -87,6 +90,8 @@ extension LiveKitErrorType: CustomStringConvertible {
             "Network error"
         case .validation:
             "Validation error"
+        case .serviceNotFound:
+            "Service not found"
         case .duplicateIdentity:
             "Duplicate Participant identity"
         case .serverShutdown:

@@ -16,7 +16,6 @@
 
 // swiftlint:disable file_length
 
-import DequeModule
 import Foundation
 
 internal import LiveKitWebRTC
