@@ -22,10 +22,33 @@ public struct ReceivedMessage: Identifiable, Equatable, Codable, Sendable {
     public let timestamp: Date
     public let content: Content
 
+    /// Whether this message represents a finalized transcription segment.
+    ///
+    /// A segment is finalized when its text is complete and will not change further.
+    /// Two signals can set this to `true`:
+    /// - The `lk.transcription_final` stream attribute is `"true"` (attribute-based).
+    /// - The text stream closes, implying the segment is complete (stream-close).
+    public let isFinal: Bool
+
     public enum Content: Equatable, Codable, Sendable {
         case agentTranscript(String)
         case userTranscript(String)
         case userInput(String)
+    }
+
+    public init(id: String, timestamp: Date, content: Content, isFinal: Bool = false) {
+        self.id = id
+        self.timestamp = timestamp
+        self.content = content
+        self.isFinal = isFinal
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        content = try container.decode(Content.self, forKey: .content)
+        isFinal = try container.decodeIfPresent(Bool.self, forKey: .isFinal) ?? false
     }
 }
 

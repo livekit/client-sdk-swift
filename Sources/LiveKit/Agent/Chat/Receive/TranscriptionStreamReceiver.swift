@@ -92,9 +92,21 @@ actor TranscriptionStreamReceiver: MessageReceiver, Loggable {
         let topic = topic
 
         try await room.registerTextStreamHandler(for: topic) { [weak self] reader, participantIdentity in
+            var lastMessage: ReceivedMessage?
             for try await message in reader where !message.isEmpty {
                 guard let self else { return }
-                await continuation.yield(processIncoming(partialMessage: message, reader: reader, participantIdentity: participantIdentity))
+                let msg = await self.processIncoming(partialMessage: message, reader: reader, participantIdentity: participantIdentity)
+                lastMessage = msg
+                continuation.yield(msg)
+            }
+            // Stream closed — yield a final message if not already marked.
+            if let last = lastMessage, !last.isFinal {
+                continuation.yield(ReceivedMessage(
+                    id: last.id,
+                    timestamp: last.timestamp,
+                    content: last.content,
+                    isFinal: true
+                ))
             }
         }
 
@@ -156,7 +168,8 @@ actor TranscriptionStreamReceiver: MessageReceiver, Loggable {
         return ReceivedMessage(
             id: segmentID,
             timestamp: timestamp,
-            content: participantIdentity == room.localParticipant.identity ? .userTranscript(updatedContent) : .agentTranscript(updatedContent)
+            content: participantIdentity == room.localParticipant.identity ? .userTranscript(updatedContent) : .agentTranscript(updatedContent),
+            isFinal: isFinal
         )
     }
 
