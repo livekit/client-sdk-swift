@@ -57,7 +57,15 @@ extension Room {
         log()
 
         let publisher = try requirePublisher()
-        await publisher.negotiate()
+        // If the publisher transport has disconnected or failed (e.g. after
+        // unpublishing all tracks and ICE timing out), use an ICE restart
+        // to re-establish connectivity instead of a regular negotiation.
+        let connectionState = await publisher.connectionState
+        if connectionState.isDisconnected {
+            try await publisher.createAndSendOffer(iceRestart: true)
+        } else {
+            await publisher.negotiate()
+        }
         _state.mutate { $0.hasPublished = true }
     }
 
