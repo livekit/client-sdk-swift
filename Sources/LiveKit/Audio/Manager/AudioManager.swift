@@ -26,18 +26,38 @@ internal import LiveKitWebRTC
 ///
 /// Multiple components can independently register their requirements. On platforms that use
 /// `AVAudioSession`, the session stays active as long as any component requires playout or recording.
-public struct SessionRequirement: Sendable, Equatable {
-    public static let none = Self(isPlayoutEnabled: false, isRecordingEnabled: false)
-    public static let playbackOnly = Self(isPlayoutEnabled: true, isRecordingEnabled: false)
-    public static let recordingOnly = Self(isPlayoutEnabled: false, isRecordingEnabled: true)
-    public static let playbackAndRecording = Self(isPlayoutEnabled: true, isRecordingEnabled: true)
+public struct SessionRequirement: OptionSet, Sendable {
+    public let rawValue: UInt8
 
-    public let isPlayoutEnabled: Bool
-    public let isRecordingEnabled: Bool
+    public static let playout = Self(rawValue: 1 << 0)
+    public static let recording = Self(rawValue: 1 << 1)
+
+    public static let none: Self = []
+    public static let playbackOnly: Self = [.playout]
+    public static let recordingOnly: Self = [.recording]
+    public static let playbackAndRecording: Self = [.playout, .recording]
+
+    public init(rawValue: UInt8) {
+        self.rawValue = rawValue
+    }
 
     public init(isPlayoutEnabled: Bool = false, isRecordingEnabled: Bool = false) {
-        self.isPlayoutEnabled = isPlayoutEnabled
-        self.isRecordingEnabled = isRecordingEnabled
+        var rawValue: UInt8 = 0
+        if isPlayoutEnabled {
+            rawValue |= Self.playout.rawValue
+        }
+        if isRecordingEnabled {
+            rawValue |= Self.recording.rawValue
+        }
+        self.init(rawValue: rawValue)
+    }
+
+    public var isPlayoutEnabled: Bool {
+        contains(.playout)
+    }
+
+    public var isRecordingEnabled: Bool {
+        contains(.recording)
     }
 }
 
