@@ -85,24 +85,24 @@ public actor SoundPlayer: Loggable {
             remote.removeAll { !$0.isPlaying }
         }
 
-        mutating func stop(destination: PlaybackOptions.Destination) {
+        mutating func stop(destination: PlaybackOptions.Destination) async {
             switch destination {
             case .local:
                 for p in local {
-                    p.stop()
+                    await p.stop()
                 }
                 local.removeAll()
             case .remote:
                 for p in remote {
-                    p.stop()
+                    await p.stop()
                 }
                 remote.removeAll()
             case .localAndRemote:
                 for p in local {
-                    p.stop()
+                    await p.stop()
                 }
                 for p in remote {
-                    p.stop()
+                    await p.stop()
                 }
                 local.removeAll()
                 remote.removeAll()
@@ -225,9 +225,9 @@ public actor SoundPlayer: Loggable {
     }
 
     /// Releases a prepared sound, stops any active playback, and relinquishes its session requirement.
-    public func release(id: String) {
+    public func release(id: String) async {
         guard var sound = sounds.removeValue(forKey: id) else { return }
-        sound.stop(destination: .localAndRemote)
+        await sound.stop(destination: .localAndRemote)
         if sounds.isEmpty {
             stopEngine()
         }
@@ -256,15 +256,20 @@ public actor SoundPlayer: Loggable {
     }
 
     /// Stops all playing or queued sounds without releasing prepared audio buffers.
-    public func stopAll(destination: PlaybackOptions.Destination = .localAndRemote) {
+    public func stopAll(destination: PlaybackOptions.Destination = .localAndRemote) async {
         for id in sounds.keys {
-            sounds[id]?.stop(destination: destination)
+            if var sound = sounds[id] {
+                await sound.stop(destination: destination)
+                sounds[id] = sound
+            }
         }
     }
 
     /// Stops all playing or queued sounds for the specified id without releasing prepared audio buffers.
-    public func stop(id: String, destination: PlaybackOptions.Destination = .localAndRemote) {
-        sounds[id]?.stop(destination: destination)
+    public func stop(id: String, destination: PlaybackOptions.Destination = .localAndRemote) async {
+        guard var sound = sounds[id] else { return }
+        await sound.stop(destination: destination)
+        sounds[id] = sound
     }
 
     /// Plays a prepared sound.
@@ -273,7 +278,7 @@ public actor SoundPlayer: Loggable {
     ///
     /// - Throws: ``LiveKitError`` if the sound is not prepared, local playback setup fails,
     ///   or the local player-node pool is exhausted.
-    public func play(id: String, options: PlaybackOptions = PlaybackOptions()) throws {
+    public func play(id: String, options: PlaybackOptions = PlaybackOptions()) async throws {
         let playLocal = options.destination == .local || options.destination == .localAndRemote
         let playRemote = options.destination == .remote || options.destination == .localAndRemote
 
@@ -282,7 +287,7 @@ public actor SoundPlayer: Loggable {
         }
 
         if options.mode == .replace {
-            sound.stop(destination: .localAndRemote)
+            await sound.stop(destination: .localAndRemote)
         }
 
         sound.cleanUp()

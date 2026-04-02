@@ -19,7 +19,7 @@
 /// Represents an active sound playback that can be stopped.
 protocol SoundPlayback: AnyObject, Sendable {
     var isPlaying: Bool { get }
-    func stop()
+    func stop() async
 }
 
 /// Manages a pool of AVAudioPlayerNodes for concurrent audio playback.
@@ -35,13 +35,20 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
         mixerNode.engine
     }
 
+    private enum NodeState {
+        case idle
+        case inUse
+        case stopping
+    }
+
     private struct NodeItem {
         let node: AVAudioPlayerNode
-        var isInUse: Bool = false
+        var state: NodeState = .idle
         var generation: UInt64 = 0
     }
 
     private let executionQueue = DispatchQueue(label: "audio.playerNodePool.queue")
+    private let stopQueue = DispatchQueue(label: "audio.playerNodePool.stop", qos: .default)
     private var items: [NodeItem]
 
     init(poolSize: Int = 10) {
@@ -58,11 +65,11 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
     @discardableResult
     func play(_ buffer: AVAudioPCMBuffer, loop: Bool = false) throws -> SoundPlayback {
         let acquired = try executionQueue.sync { () throws -> AcquiredNode in
-            guard let index = items.firstIndex(where: { !$0.isInUse }) else {
+            guard let index = items.firstIndex(where: { $0.state == .idle }) else {
                 throw LiveKitError(.audioEngine, message: "No available player nodes")
             }
 
-            items[index].isInUse = true
+            items[index].state = .inUse
             items[index].generation &+= 1
 
             let node = items[index].node
@@ -75,7 +82,7 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
             } else {
                 node.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
                     self?.executionQueue.async { [weak self] in
-                        self?.releaseSlot(index: index, generation: generation, shouldStopNode: false)
+                        self?.releaseCompletedSlot(index: index, generation: generation)
                     }
                 }
             }
@@ -86,8 +93,9 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
         }
 
         return NodePlayback(node: acquired.node) { [weak self] in
-            self?.executionQueue.sync {
-                self?.releaseSlot(index: acquired.index, generation: acquired.generation, shouldStopNode: true)
+            guard let self else { return }
+            await withCheckedContinuation { continuation in
+                self.beginStoppingSlot(index: acquired.index, generation: acquired.generation, continuation: continuation)
             }
         }
     }
@@ -97,7 +105,7 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
             for index in items.indices {
                 let node = items[index].node
                 node.stop()
-                items[index].isInUse = false
+                items[index].state = .idle
                 items[index].generation &+= 1
             }
         }
@@ -108,7 +116,7 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
             for index in items.indices {
                 let node = items[index].node
                 node.reset()
-                items[index].isInUse = false
+                items[index].state = .idle
                 items[index].generation &+= 1
             }
         }
@@ -123,14 +131,46 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
         }
     }
 
-    private func releaseSlot(index: Int, generation: UInt64, shouldStopNode: Bool) {
+    private func releaseCompletedSlot(index: Int, generation: UInt64) {
         guard items[index].generation == generation else { return }
+        items[index].state = .idle
+    }
 
-        if shouldStopNode {
-            items[index].node.stop()
+    private func beginStoppingSlot(index: Int,
+                                   generation: UInt64,
+                                   continuation: CheckedContinuation<Void, Never>)
+    {
+        executionQueue.async { [weak self] in
+            guard let self else {
+                continuation.resume()
+                return
+            }
+            guard items[index].generation == generation else {
+                continuation.resume()
+                return
+            }
+
+            items[index].state = .stopping
+            items[index].generation &+= 1
+            let node = items[index].node
+
+            stopQueue.async { [weak self] in
+                node.stop()
+                guard let self else {
+                    continuation.resume()
+                    return
+                }
+                executionQueue.async { [self] in
+                    finishStoppingSlot(index: index)
+                    continuation.resume()
+                }
+            }
         }
+    }
 
-        items[index].isInUse = false
+    private func finishStoppingSlot(index: Int) {
+        guard items.indices.contains(index) else { return }
+        items[index].state = .idle
     }
 }
 
@@ -138,17 +178,17 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
 
 class NodePlayback: SoundPlayback, @unchecked Sendable {
     private weak var node: AVAudioPlayerNode?
-    private let onStop: @Sendable () -> Void
+    private let onStop: @Sendable () async -> Void
 
     var isPlaying: Bool { node?.isPlaying ?? false }
 
-    init(node: AVAudioPlayerNode, onStop: @escaping @Sendable () -> Void) {
+    init(node: AVAudioPlayerNode, onStop: @escaping @Sendable () async -> Void) {
         self.node = node
         self.onStop = onStop
     }
 
-    func stop() {
-        onStop()
+    func stop() async {
+        await onStop()
     }
 }
 
