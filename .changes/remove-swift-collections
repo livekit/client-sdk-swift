@@ -1,1 +1,0 @@
-patch type="changed" "Remove swift-collections dependency by replacing with minimal internal implementations"
