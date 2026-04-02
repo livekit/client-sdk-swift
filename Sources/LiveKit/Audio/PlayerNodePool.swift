@@ -157,8 +157,12 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
                     continuation.resume()
                     return
                 }
-                executionQueue.async { [self] in
-                    finishStoppingSlot(index: index)
+                executionQueue.async { [weak self] in
+                    guard let pool = self else {
+                        continuation.resume()
+                        return
+                    }
+                    pool.finishStoppingSlot(index: index)
                     continuation.resume()
                 }
             }
