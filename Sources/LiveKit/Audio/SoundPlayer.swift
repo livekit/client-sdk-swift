@@ -84,7 +84,7 @@ public actor SoundPlayer: Loggable {
 
     private struct Sound {
         let buffer: AVAudioPCMBuffer
-        let releaseSessionRequirement: @Sendable () -> Void
+        let sessionRequirementHandle: SessionRequirementHandle
         var local: [SoundPlayback] = []
         var remote: [SoundPlayback] = []
 
@@ -173,15 +173,6 @@ public actor SoundPlayer: Loggable {
         return converter.convert(from: buffer)
     }
 
-    private nonisolated static func acquirePlaybackSessionRelease() throws -> @Sendable () -> Void {
-        #if os(iOS) || os(visionOS) || os(tvOS)
-        let handle = try AudioManager.shared.audioSession.acquire(requirement: .playbackOnly)
-        return { try? handle.release() }
-        #else
-        return {}
-        #endif
-    }
-
     private nonisolated static func decodeBuffer(from url: URL) async throws -> AVAudioPCMBuffer {
         guard url.isFileURL else {
             throw LiveKitError(.invalidParameter, message: "Only file URLs are supported")
@@ -212,18 +203,18 @@ public actor SoundPlayer: Loggable {
         guard sounds[id] == nil else { return }
 
         let readBuffer = try await Self.decodeBuffer(from: url)
-        let releaseSessionRequirement = try Self.acquirePlaybackSessionRelease()
+        let sessionRequirementHandle = try AudioManager.shared.acquireSessionRequirement(.playbackOnly)
 
         do {
             guard sounds[id] == nil else {
-                releaseSessionRequirement()
+                try? sessionRequirementHandle.release()
                 return
             }
 
             _ = try startIfNeeded()
-            sounds[id] = Sound(buffer: readBuffer, releaseSessionRequirement: releaseSessionRequirement)
+            sounds[id] = Sound(buffer: readBuffer, sessionRequirementHandle: sessionRequirementHandle)
         } catch {
-            releaseSessionRequirement()
+            try? sessionRequirementHandle.release()
             throw error
         }
     }
@@ -236,7 +227,7 @@ public actor SoundPlayer: Loggable {
             stopEngine()
         }
 
-        sound.releaseSessionRequirement()
+        try? sound.sessionRequirementHandle.release()
     }
 
     /// Returns `true` if a sound has been prepared for the given identifier.

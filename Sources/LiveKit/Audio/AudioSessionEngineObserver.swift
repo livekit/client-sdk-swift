@@ -64,47 +64,6 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
     }
 
-    /// Represents an audio session requirement from a specific component.
-    ///
-    /// Multiple components (e.g., WebRTC engine, SoundPlayer) can independently
-    /// register their requirements. The audio session stays active as long as
-    /// any component requires playout or recording.
-    public struct SessionRequirement: Sendable, Equatable {
-        public static let none = Self(isPlayoutEnabled: false, isRecordingEnabled: false)
-        public static let playbackOnly = Self(isPlayoutEnabled: true, isRecordingEnabled: false)
-        public static let recordingOnly = Self(isPlayoutEnabled: false, isRecordingEnabled: true)
-        public static let playbackAndRecording = Self(isPlayoutEnabled: true, isRecordingEnabled: true)
-
-        public let isPlayoutEnabled: Bool
-        public let isRecordingEnabled: Bool
-
-        public init(isPlayoutEnabled: Bool = false, isRecordingEnabled: Bool = false) {
-            self.isPlayoutEnabled = isPlayoutEnabled
-            self.isRecordingEnabled = isRecordingEnabled
-        }
-    }
-
-    /// Opaque handle for an externally acquired audio session requirement.
-    ///
-    /// Call ``release()`` when the requirement is no longer needed.
-    public final class SessionRequirementHandle: @unchecked Sendable {
-        fileprivate let id: UUID
-        private weak var observer: AudioSessionEngineObserver?
-
-        fileprivate init(id: UUID, observer: AudioSessionEngineObserver) {
-            self.id = id
-            self.observer = observer
-        }
-
-        /// Releases the associated audio session requirement.
-        ///
-        /// Releasing the same handle multiple times is a no-op.
-        public func release() throws {
-            guard let observer else { return }
-            try observer.removeRequirement(for: id)
-        }
-    }
-
     struct State {
         var next: (any AudioEngineObserver)?
 
@@ -142,7 +101,10 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     public func acquire(requirement: SessionRequirement) throws -> SessionRequirementHandle {
         let id = UUID()
         try set(requirement: requirement, for: id)
-        return SessionRequirementHandle(id: id, observer: self)
+        return SessionRequirementHandle(releaseImpl: { [weak self] in
+            guard let self else { return }
+            try removeRequirement(for: id)
+        })
     }
 
     private func set(requirement: SessionRequirement, for id: UUID) throws {

@@ -22,6 +22,43 @@ import Combine
 
 internal import LiveKitWebRTC
 
+/// Represents an audio session requirement from a specific component.
+///
+/// Multiple components can independently register their requirements. On platforms that use
+/// `AVAudioSession`, the session stays active as long as any component requires playout or recording.
+public struct SessionRequirement: Sendable, Equatable {
+    public static let none = Self(isPlayoutEnabled: false, isRecordingEnabled: false)
+    public static let playbackOnly = Self(isPlayoutEnabled: true, isRecordingEnabled: false)
+    public static let recordingOnly = Self(isPlayoutEnabled: false, isRecordingEnabled: true)
+    public static let playbackAndRecording = Self(isPlayoutEnabled: true, isRecordingEnabled: true)
+
+    public let isPlayoutEnabled: Bool
+    public let isRecordingEnabled: Bool
+
+    public init(isPlayoutEnabled: Bool = false, isRecordingEnabled: Bool = false) {
+        self.isPlayoutEnabled = isPlayoutEnabled
+        self.isRecordingEnabled = isRecordingEnabled
+    }
+}
+
+/// Opaque handle for an acquired audio session requirement.
+///
+/// Call ``release()`` when the requirement is no longer needed.
+public final class SessionRequirementHandle: @unchecked Sendable {
+    private let releaseImpl: @Sendable () throws -> Void
+
+    init(releaseImpl: @escaping @Sendable () throws -> Void) {
+        self.releaseImpl = releaseImpl
+    }
+
+    /// Releases the associated audio session requirement.
+    ///
+    /// Releasing the same handle multiple times is a no-op.
+    public func release() throws {
+        try releaseImpl()
+    }
+}
+
 // Audio Session Configuration related
 public class AudioManager: Loggable {
     // MARK: - Public
@@ -373,6 +410,17 @@ public class AudioManager: Loggable {
 
     public var isEngineRunning: Bool {
         RTC.audioDeviceModule.isEngineRunning
+    }
+
+    /// Acquires an audio session requirement for external ownership.
+    ///
+    /// On platforms without `AVAudioSession`, this returns a no-op handle.
+    public func acquireSessionRequirement(_ requirement: SessionRequirement) throws -> SessionRequirementHandle {
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        try audioSession.acquire(requirement: requirement)
+        #else
+        SessionRequirementHandle(releaseImpl: {})
+        #endif
     }
 
     /// The mute state of internal audio engine which uses Voice Processing I/O mute API ``AVAudioInputNode.isVoiceProcessingInputMuted``.
