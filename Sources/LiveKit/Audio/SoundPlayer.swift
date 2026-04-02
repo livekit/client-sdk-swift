@@ -51,9 +51,22 @@ public struct PlaybackOptions: Sendable {
     }
 }
 
+/// High-level API for preparing and playing short sounds locally and over the room mixer.
+///
+/// ```swift
+/// try await SoundPlayer.shared.prepare(url: clickURL, withId: "click")
+/// try await SoundPlayer.shared.play(id: "click")
+/// ```
+///
+/// Prepared sounds must come from local file URLs and use a format supported by `AVAudioFile`
+/// on the current platform.
+///
+/// Local playback uses a fixed internal player-node pool. If that pool is exhausted, `play(id:)`
+/// throws instead of silently dropping local playback.
 public actor SoundPlayer: Loggable {
     // MARK: - Public
 
+    /// Shared sound player instance.
     public static let shared = SoundPlayer()
 
     // MARK: - Private
@@ -180,6 +193,9 @@ public actor SoundPlayer: Loggable {
     ///
     /// Preparing a sound also acquires a playback session requirement and starts the
     /// local engine early to reduce first-play latency.
+    ///
+    /// - Note: Only local file URLs are supported.
+    /// - Note: The file format must be readable by `AVAudioFile` on the current platform.
     public func prepare(url: URL, withId id: String) async throws {
         guard sounds[id] == nil else { return }
 
@@ -255,7 +271,8 @@ public actor SoundPlayer: Loggable {
     ///
     /// Remote playback is best-effort and is skipped if remote routing is unavailable.
     ///
-    /// - Throws: ``LiveKitError`` if the sound is not prepared or local playback setup fails.
+    /// - Throws: ``LiveKitError`` if the sound is not prepared, local playback setup fails,
+    ///   or the local player-node pool is exhausted.
     public func play(id: String, options: PlaybackOptions = PlaybackOptions()) throws {
         let playLocal = options.destination == .local || options.destination == .localAndRemote
         let playRemote = options.destination == .remote || options.destination == .localAndRemote
