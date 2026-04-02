@@ -94,9 +94,7 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
 
         return NodePlayback(node: acquired.node) { [weak self] in
             guard let self else { return }
-            await withCheckedContinuation { continuation in
-                self.beginStoppingSlot(index: acquired.index, generation: acquired.generation, continuation: continuation)
-            }
+            await beginStoppingSlot(index: acquired.index, generation: acquired.generation)
         }
     }
 
@@ -136,24 +134,23 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
         items[index].state = .idle
     }
 
-    private func beginStoppingSlot(index: Int,
-                                   generation: UInt64,
-                                   continuation: CheckedContinuation<Void, Never>)
-    {
-        executionQueue.async { [weak self] in
-            guard let self else {
-                continuation.resume()
-                return
-            }
-            guard items[index].generation == generation else {
-                continuation.resume()
-                return
-            }
+    private func beginStoppingSlot(index: Int, generation: UInt64) async {
+        let node: AVAudioPlayerNode? = await withCheckedContinuation { (continuation: CheckedContinuation<AVAudioPlayerNode?, Never>) in
+            executionQueue.async { [self] in
+                guard items[index].generation == generation else {
+                    continuation.resume(returning: nil)
+                    return
+                }
 
-            items[index].state = .stopping
-            items[index].generation &+= 1
-            let node = items[index].node
+                items[index].state = .stopping
+                items[index].generation &+= 1
+                continuation.resume(returning: items[index].node)
+            }
+        }
 
+        guard let node else { return }
+
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             stopQueue.async { [weak self] in
                 node.stop()
                 guard let self else {

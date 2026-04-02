@@ -38,6 +38,14 @@ public struct PlaybackOptions: Sendable {
         ///
         /// Remote playback is best-effort and may be skipped if remote routing is unavailable.
         case localAndRemote
+
+        var includesLocal: Bool {
+            self == .local || self == .localAndRemote
+        }
+
+        var includesRemote: Bool {
+            self == .remote || self == .localAndRemote
+        }
     }
 
     public var mode: Mode
@@ -80,6 +88,13 @@ public actor SoundPlayer: Loggable {
         var local: [SoundPlayback] = []
         var remote: [SoundPlayback] = []
 
+        private static func stop(_ playbacks: inout [SoundPlayback]) async {
+            for playback in playbacks {
+                await playback.stop()
+            }
+            playbacks.removeAll()
+        }
+
         mutating func cleanUp() {
             local.removeAll { !$0.isPlaying }
             remote.removeAll { !$0.isPlaying }
@@ -88,24 +103,12 @@ public actor SoundPlayer: Loggable {
         mutating func stop(destination: PlaybackOptions.Destination) async {
             switch destination {
             case .local:
-                for p in local {
-                    await p.stop()
-                }
-                local.removeAll()
+                await Self.stop(&local)
             case .remote:
-                for p in remote {
-                    await p.stop()
-                }
-                remote.removeAll()
+                await Self.stop(&remote)
             case .localAndRemote:
-                for p in local {
-                    await p.stop()
-                }
-                for p in remote {
-                    await p.stop()
-                }
-                local.removeAll()
-                remote.removeAll()
+                await Self.stop(&local)
+                await Self.stop(&remote)
             }
         }
     }
@@ -170,6 +173,15 @@ public actor SoundPlayer: Loggable {
         return converter.convert(from: buffer)
     }
 
+    private nonisolated static func acquirePlaybackSessionRelease() throws -> @Sendable () -> Void {
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        let handle = try AudioManager.shared.audioSession.acquire(requirement: .playbackOnly)
+        return { try? handle.release() }
+        #else
+        return {}
+        #endif
+    }
+
     private nonisolated static func decodeBuffer(from url: URL) async throws -> AVAudioPCMBuffer {
         guard url.isFileURL else {
             throw LiveKitError(.invalidParameter, message: "Only file URLs are supported")
@@ -200,14 +212,7 @@ public actor SoundPlayer: Loggable {
         guard sounds[id] == nil else { return }
 
         let readBuffer = try await Self.decodeBuffer(from: url)
-
-        let releaseSessionRequirement: @Sendable () -> Void
-        #if os(iOS) || os(visionOS) || os(tvOS)
-        let sessionRequirementHandle = try AudioManager.shared.audioSession.acquire(requirement: .playbackOnly)
-        releaseSessionRequirement = { try? sessionRequirementHandle.release() }
-        #else
-        releaseSessionRequirement = {}
-        #endif
+        let releaseSessionRequirement = try Self.acquirePlaybackSessionRelease()
 
         do {
             guard sounds[id] == nil else {
@@ -276,9 +281,6 @@ public actor SoundPlayer: Loggable {
     /// - Throws: ``LiveKitError`` if the sound is not prepared, local playback setup fails,
     ///   or the local player-node pool is exhausted.
     public func play(id: String, options: PlaybackOptions = PlaybackOptions()) async throws {
-        let playLocal = options.destination == .local || options.destination == .localAndRemote
-        let playRemote = options.destination == .remote || options.destination == .localAndRemote
-
         guard var sound = sounds[id] else {
             throw LiveKitError(.audioEngine, message: "Sound not prepared")
         }
@@ -292,13 +294,13 @@ public actor SoundPlayer: Loggable {
         var localPlayback: SoundPlayback?
         var remotePlayback: SoundPlayback?
 
-        if playLocal {
+        if options.destination.includesLocal {
             let playerNodeFormat = try startIfNeeded()
             let bufferToSchedule = try convertBuffer(sound.buffer, to: playerNodeFormat)
             localPlayback = try playerNodePool.play(bufferToSchedule, loop: options.loop)
         }
 
-        if playRemote {
+        if options.destination.includesRemote {
             remotePlayback = AudioManager.shared.mixer.playSound(sound.buffer, loop: options.loop)
         }
 
