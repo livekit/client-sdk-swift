@@ -84,6 +84,27 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         }
     }
 
+    /// Opaque handle for an externally acquired audio session requirement.
+    ///
+    /// Call ``release()`` when the requirement is no longer needed.
+    public final class SessionRequirementHandle: @unchecked Sendable {
+        fileprivate let id: UUID
+        private weak var observer: AudioSessionEngineObserver?
+
+        fileprivate init(id: UUID, observer: AudioSessionEngineObserver) {
+            self.id = id
+            self.observer = observer
+        }
+
+        /// Releases the associated audio session requirement.
+        ///
+        /// Releasing the same handle multiple times is a no-op.
+        public func release() throws {
+            guard let observer else { return }
+            try observer.removeRequirement(for: id)
+        }
+    }
+
     struct State {
         var next: (any AudioEngineObserver)?
 
@@ -111,16 +132,20 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         }
     }
 
-    /// Register or update an audio session requirement for the given identifier.
+    /// Acquires an audio session requirement handle for external ownership.
     ///
     /// Use this to keep the audio session active from external components
     /// (e.g., ``SoundPlayer``) that need playout or recording independently
     /// of the WebRTC engine lifecycle.
     ///
-    /// Setting ``SessionRequirement/none`` removes the requirement.
-    ///
     /// - Throws: ``LiveKitError`` if the audio session fails to configure or activate.
-    public func set(requirement: SessionRequirement, for id: UUID) throws {
+    public func acquire(requirement: SessionRequirement) throws -> SessionRequirementHandle {
+        let id = UUID()
+        try set(requirement: requirement, for: id)
+        return SessionRequirementHandle(id: id, observer: self)
+    }
+
+    private func set(requirement: SessionRequirement, for id: UUID) throws {
         try updateRequirements {
             if requirement == .none {
                 $0.removeValue(forKey: id)
@@ -130,10 +155,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         }
     }
 
-    /// Removes a previously registered audio session requirement.
-    ///
-    /// - Throws: ``LiveKitError`` if removing the requirement fails to reconfigure the audio session.
-    public func removeRequirement(for id: UUID) throws {
+    fileprivate func removeRequirement(for id: UUID) throws {
         try updateRequirements {
             $0.removeValue(forKey: id)
         }

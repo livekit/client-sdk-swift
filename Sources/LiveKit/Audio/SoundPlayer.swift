@@ -76,7 +76,7 @@ public actor SoundPlayer: Loggable {
 
     private struct Sound {
         let buffer: AVAudioPCMBuffer
-        let sessionRequirementId: UUID
+        let releaseSessionRequirement: @Sendable () -> Void
         var local: [SoundPlayback] = []
         var remote: [SoundPlayback] = []
 
@@ -201,25 +201,24 @@ public actor SoundPlayer: Loggable {
 
         let readBuffer = try await Self.decodeBuffer(from: url)
 
-        let requirementId = UUID()
+        let releaseSessionRequirement: @Sendable () -> Void
         #if os(iOS) || os(visionOS) || os(tvOS)
-        try AudioManager.shared.audioSession.set(requirement: .playbackOnly, for: requirementId)
+        let sessionRequirementHandle = try AudioManager.shared.audioSession.acquire(requirement: .playbackOnly)
+        releaseSessionRequirement = { try? sessionRequirementHandle.release() }
+        #else
+        releaseSessionRequirement = {}
         #endif
 
         do {
             guard sounds[id] == nil else {
-                #if os(iOS) || os(visionOS) || os(tvOS)
-                try? AudioManager.shared.audioSession.removeRequirement(for: requirementId)
-                #endif
+                releaseSessionRequirement()
                 return
             }
 
             _ = try startIfNeeded()
-            sounds[id] = Sound(buffer: readBuffer, sessionRequirementId: requirementId)
+            sounds[id] = Sound(buffer: readBuffer, releaseSessionRequirement: releaseSessionRequirement)
         } catch {
-            #if os(iOS) || os(visionOS) || os(tvOS)
-            try? AudioManager.shared.audioSession.removeRequirement(for: requirementId)
-            #endif
+            releaseSessionRequirement()
             throw error
         }
     }
@@ -232,9 +231,7 @@ public actor SoundPlayer: Loggable {
             stopEngine()
         }
 
-        #if os(iOS) || os(visionOS) || os(tvOS)
-        try? AudioManager.shared.audioSession.removeRequirement(for: sound.sessionRequirementId)
-        #endif
+        sound.releaseSessionRequirement()
     }
 
     /// Returns `true` if a sound has been prepared for the given identifier.
