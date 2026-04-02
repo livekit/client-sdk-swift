@@ -28,7 +28,7 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
     let mixerNode = AVAudioMixerNode()
 
     var playerNodes: [AVAudioPlayerNode] {
-        _state.read { $0.map(\.node) }
+        executionQueue.sync { items.map(\.node) }
     }
 
     var engine: AVAudioEngine? {
@@ -41,13 +41,12 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
         var generation: UInt64 = 0
     }
 
-    private let audioCallbackQueue = DispatchQueue(label: "audio.playerNodePool.queue")
-    private let _state: StateSync<[NodeItem]>
+    private let executionQueue = DispatchQueue(label: "audio.playerNodePool.queue")
+    private var items: [NodeItem]
 
     init(poolSize: Int = 10) {
         self.poolSize = poolSize
-        let items = (0 ..< poolSize).map { _ in NodeItem(node: AVAudioPlayerNode()) }
-        _state = StateSync(items)
+        items = (0 ..< poolSize).map { _ in NodeItem(node: AVAudioPlayerNode()) }
     }
 
     private struct AcquiredNode {
@@ -58,76 +57,71 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
 
     @discardableResult
     func play(_ buffer: AVAudioPCMBuffer, loop: Bool = false) throws -> SoundPlayback {
-        guard let acquired = _state.mutate({ items -> AcquiredNode? in
+        let acquired = try executionQueue.sync { () throws -> AcquiredNode in
             guard let index = items.firstIndex(where: { !$0.isInUse }) else {
-                return nil
+                throw LiveKitError(.audioEngine, message: "No available player nodes")
             }
+
             items[index].isInUse = true
             items[index].generation &+= 1
+
             let node = items[index].node
+            let generation = items[index].generation
             node.volume = 1.0
             node.pan = 0.0
-            return AcquiredNode(index: index, node: node, generation: items[index].generation)
-        }) else {
-            throw LiveKitError(.audioEngine, message: "No available player nodes")
-        }
 
-        if loop {
-            acquired.node.scheduleBuffer(buffer, at: nil, options: .loops)
-        } else {
-            acquired.node.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
-                self?.audioCallbackQueue.async { [weak self] in
-                    self?.freeSlot(index: acquired.index, generation: acquired.generation)
+            if loop {
+                node.scheduleBuffer(buffer, at: nil, options: .loops)
+            } else {
+                node.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+                    self?.executionQueue.async { [weak self] in
+                        self?.releaseSlot(index: index, generation: generation, shouldStopNode: false)
+                    }
                 }
             }
+
+            node.play()
+
+            return AcquiredNode(index: index, node: node, generation: generation)
         }
-        acquired.node.play()
 
         return NodePlayback(node: acquired.node) { [weak self] in
-            self?.freeSlot(index: acquired.index, generation: acquired.generation)
+            self?.executionQueue.sync {
+                self?.releaseSlot(index: acquired.index, generation: acquired.generation, shouldStopNode: true)
+            }
         }
     }
 
     func stop() {
-        let nodes = _state.mutate { items in
+        executionQueue.sync {
             for index in items.indices {
+                let node = items[index].node
+                node.stop()
                 items[index].isInUse = false
                 items[index].generation &+= 1
             }
-            return items.map(\.node)
-        }
-        for node in nodes {
-            queueNodeStop(node)
         }
     }
 
     func reset() {
-        let nodes = _state.mutate { items in
+        executionQueue.sync {
             for index in items.indices {
+                let node = items[index].node
+                node.reset()
                 items[index].isInUse = false
                 items[index].generation &+= 1
             }
-            return items.map(\.node)
-        }
-        for node in nodes {
-            node.reset()
         }
     }
 
-    private func freeSlot(index: Int, generation: UInt64) {
-        let node = _state.mutate { items -> AVAudioPlayerNode? in
-            guard items[index].generation == generation else { return nil }
-            items[index].isInUse = false
-            return items[index].node
-        }
-        queueNodeStop(node)
-    }
+    private func releaseSlot(index: Int, generation: UInt64, shouldStopNode: Bool) {
+        guard items[index].generation == generation else { return }
 
-    private func queueNodeStop(_ node: AVAudioPlayerNode?) {
-        guard let node else { return }
-        audioCallbackQueue.async(qos: .default, flags: .enforceQoS) {
-            node.stop()
+        if shouldStopNode {
+            items[index].node.stop()
         }
+
+        items[index].isInUse = false
     }
 }
 
