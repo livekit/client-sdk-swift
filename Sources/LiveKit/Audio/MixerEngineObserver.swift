@@ -123,18 +123,21 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
             "appNode=\(appNode.auAudioUnit.maximumFramesToRender), " +
             "appMixerNode=\(appMixerNode.auAudioUnit.maximumFramesToRender), " +
             "micNode=\(micNode.auAudioUnit.maximumFramesToRender), " +
-            "micMixerNode=\(micMixerNode.auAudioUnit.maximumFramesToRender)", .debug)
+            "micMixerNode=\(micMixerNode.auAudioUnit.maximumFramesToRender), " +
+            "soundPlayerMixerNode=\(soundPlayerNodes.mixerNode.auAudioUnit.maximumFramesToRender)", .debug)
 
         appNode.auAudioUnit.maximumFramesToRender = maxFrames
         appMixerNode.auAudioUnit.maximumFramesToRender = maxFrames
         micNode.auAudioUnit.maximumFramesToRender = maxFrames
         micMixerNode.auAudioUnit.maximumFramesToRender = maxFrames
+        soundPlayerNodes.setMaximumFramesToRender(maxFrames)
 
         log("maximumFramesToRender setting to \(maxFrames): " +
             "appNode=\(appNode.auAudioUnit.maximumFramesToRender), " +
             "appMixerNode=\(appMixerNode.auAudioUnit.maximumFramesToRender), " +
             "micNode=\(micNode.auAudioUnit.maximumFramesToRender), " +
-            "micMixerNode=\(micMixerNode.auAudioUnit.maximumFramesToRender)", .debug)
+            "micMixerNode=\(micMixerNode.auAudioUnit.maximumFramesToRender), " +
+            "soundPlayerMixerNode=\(soundPlayerNodes.mixerNode.auAudioUnit.maximumFramesToRender)", .debug)
 
         #if os(iOS) || os(visionOS) || os(tvOS)
         let config = LKRTCAudioSessionConfiguration.webRTC()

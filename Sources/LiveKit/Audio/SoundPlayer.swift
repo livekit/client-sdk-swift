@@ -131,6 +131,7 @@ public class SoundPlayer: Loggable, @unchecked Sendable {
         guard let outputFormat else {
             throw LiveKitError(.audioEngine, message: "Invalid output format")
         }
+        playerNodePool.setMaximumFramesToRender(engine.outputNode.auAudioUnit.maximumFramesToRender)
         let playerNodeFormat = makePlayerNodeFormat(for: outputFormat)
         engine.connect(playerNodePool, to: engine.mainMixerNode,
                        format: outputFormat, playerNodeFormat: playerNodeFormat)
