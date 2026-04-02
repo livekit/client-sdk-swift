@@ -312,6 +312,8 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
 
 class VideoCapturerDelegateAdapter: NSObject, LKRTCVideoCapturerDelegate, Loggable {
     weak var cameraCapturer: CameraCapturer?
+    private var lastInputRotation: LKRTCVideoRotation?
+    private var lastInputDimensions: (Int32, Int32)?
 
     init(cameraCapturer: CameraCapturer? = nil) {
         self.cameraCapturer = cameraCapturer
@@ -319,6 +321,15 @@ class VideoCapturerDelegateAdapter: NSObject, LKRTCVideoCapturerDelegate, Loggab
 
     func capturer(_ capturer: LKRTCVideoCapturer, didCapture frame: LKRTCVideoFrame) {
         guard let cameraCapturer else { return }
+
+        let inputRotation = frame.rotation
+        let inputDims = (frame.width, frame.height)
+        let dimsChanged = lastInputDimensions.map { $0 != inputDims } ?? true
+        if inputRotation != lastInputRotation || dimsChanged {
+            log("[adapter] input rotation: \(inputRotation.rawValue), raw: \(frame.width)x\(frame.height), target: \(cameraCapturer.options.dimensions)")
+            lastInputRotation = inputRotation
+            lastInputDimensions = inputDims
+        }
 
         var frame = frame
         let adaptOutputFormatEnabled = (frame.width != cameraCapturer.options.dimensions.width || frame.height != cameraCapturer.options.dimensions.height)

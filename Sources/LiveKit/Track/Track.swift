@@ -99,6 +99,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
 
         var sid: Sid?
         var dimensions: Dimensions?
+        var prevDimensions: Dimensions?
         var videoFrame: VideoFrame?
         var trackState: TrackState = .stopped
         var isMuted: Bool = false
@@ -313,7 +314,19 @@ extension Track {
     func set(dimensions newValue: Dimensions?) -> Bool {
         guard _state.dimensions != newValue else { return false }
 
-        _state.mutate { $0.dimensions = newValue }
+        let (oldDimensions, isRevert) = _state.mutate {
+            let old = $0.dimensions
+            let isRevert = newValue != nil && newValue == $0.prevDimensions
+            $0.prevDimensions = old
+            $0.dimensions = newValue
+            return (old, isRevert)
+        }
+
+        if isRevert {
+            log("[track] dimension oscillation: \(String(describing: oldDimensions)) -> \(String(describing: newValue)) (REVERT)")
+        } else {
+            log("[track] dimensions: \(String(describing: oldDimensions)) -> \(String(describing: newValue))")
+        }
 
         guard let videoTrack = self as? VideoTrack else { return true }
         delegates.notify(label: { "track.didUpdateDimensions: \(newValue == nil ? "nil" : String(describing: newValue))" }) {
