@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.13.0] - 2026-04-02
+
+### Added
+
+- Single peer connection mode via `RoomOptions.singlePeerConnection`. Requires LiveKit Cloud or LiveKit OSS >= 1.9.2.
+- Missing data stream and RPC ObjC exposure with ObjC tests
+- Add isFinal property to ReceivedMessage for transcription segment finalization
+
+### Changed
+
+- Changed minimal supported visionOS version to 26 due to WebRTC dependencies
+- Update WebRTC to m144
+- Remove swift-collections dependency by replacing with minimal internal implementations
+
+### Fixed
+
+- Local video track freezing during landscape rotation or losing aspect ratio
+- Use software rendering in BroadcastImageCodec to avoid GPU crash when app is backgrounded during PiP
+- Correct sample-buffer rendering for cropped and scaled screen-share frames
+- WebSocket failing to connect in some concurrent scenarios
+- Stop audio publishing when audio session activation fails by propagating configuration errors to the audio engine
+- Set maximumFramesToRender on mixer audio nodes to prevent kAudioUnitErr_TooManyFramesToProcess (-10874) when iOS negotiates larger IO buffer sizes
+- Crash during PeerConnection teardown caused by stats timer race
+- Screen share via broadcast extension showing 3fps on receiver due to hardcoded simulcast layer FPS
+- WebSocket errors killing new connections
+
 ## [2.12.1] - 2026-02-17
 
 ### Fixed
