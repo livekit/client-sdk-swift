@@ -52,6 +52,7 @@ let package = Package(
             name: "LiveKitTestSupport",
             dependencies: [
                 "LiveKit",
+                .product(name: "LiveKitWebRTC", package: "webrtc-xcframework"),
             ],
             path: "Tests/LiveKitTestSupport"
         ),
@@ -60,6 +61,7 @@ let package = Package(
             dependencies: [
                 "LiveKit",
                 "LiveKitTestSupport",
+                .product(name: "LiveKitWebRTC", package: "webrtc-xcframework"),
             ]
         ),
         .testTarget(
