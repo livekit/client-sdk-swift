@@ -110,8 +110,10 @@ public final class SoundPlayer: Loggable {
     private let playerNodePool: AVAudioPlayerNodePool
 
     private struct Sound {
-        let buffer: AVAudioPCMBuffer
+        let sourceBuffer: AVAudioPCMBuffer
         let sessionRequirementHandle: SessionRequirementHandle
+        var cachedLocalBuffer: AVAudioPCMBuffer?
+        var cachedLocalBufferFormat: AVAudioFormat?
         var local: [SoundPlayback] = []
         var remote: [SoundPlayback] = []
 
@@ -137,6 +139,32 @@ public final class SoundPlayer: Loggable {
                 await Self.stop(&local)
                 await Self.stop(&remote)
             }
+        }
+
+        mutating func localBuffer(for playerNodeFormat: AVAudioFormat) throws -> AVAudioPCMBuffer {
+            if let cachedLocalBuffer, let cachedLocalBufferFormat, cachedLocalBufferFormat == playerNodeFormat {
+                return cachedLocalBuffer
+            }
+
+            let localBuffer: AVAudioPCMBuffer
+            if sourceBuffer.format == playerNodeFormat {
+                localBuffer = sourceBuffer
+            } else {
+                let outputBufferCapacity = AudioConverter.frameCapacity(from: sourceBuffer.format,
+                                                                        to: playerNodeFormat,
+                                                                        inputFrameCount: sourceBuffer.frameLength)
+                guard let converter = AudioConverter(from: sourceBuffer.format,
+                                                     to: playerNodeFormat,
+                                                     outputBufferCapacity: outputBufferCapacity)
+                else {
+                    throw LiveKitError(.audioEngine, message: "Failed to create audio converter")
+                }
+                localBuffer = converter.convert(from: sourceBuffer)
+            }
+
+            cachedLocalBuffer = localBuffer
+            cachedLocalBufferFormat = playerNodeFormat
+            return localBuffer
         }
     }
 
@@ -185,21 +213,6 @@ public final class SoundPlayer: Loggable {
         engine.stop()
     }
 
-    /// Converts a buffer to the target format. Returns the buffer as-is if formats already match.
-    private func convertBuffer(_ buffer: AVAudioPCMBuffer, to targetFormat: AVAudioFormat) throws -> AVAudioPCMBuffer {
-        guard buffer.format != targetFormat else { return buffer }
-        let outputBufferCapacity = AudioConverter.frameCapacity(from: buffer.format,
-                                                                to: targetFormat,
-                                                                inputFrameCount: buffer.frameLength)
-        guard let converter = AudioConverter(from: buffer.format,
-                                             to: targetFormat,
-                                             outputBufferCapacity: outputBufferCapacity)
-        else {
-            throw LiveKitError(.audioEngine, message: "Failed to create audio converter")
-        }
-        return converter.convert(from: buffer)
-    }
-
     private nonisolated static func decodeBuffer(from fileURL: URL) async throws -> AVAudioPCMBuffer {
         guard fileURL.isFileURL else {
             throw LiveKitError(.invalidParameter, message: "Only file URLs are supported")
@@ -241,7 +254,7 @@ public final class SoundPlayer: Loggable {
             }
 
             _ = try startIfNeeded()
-            sounds[id] = Sound(buffer: readBuffer, sessionRequirementHandle: sessionRequirementHandle)
+            sounds[id] = Sound(sourceBuffer: readBuffer, sessionRequirementHandle: sessionRequirementHandle)
         } catch {
             try? sessionRequirementHandle.release()
             throw error
@@ -325,12 +338,12 @@ public final class SoundPlayer: Loggable {
 
         if options.destination.includesLocal {
             let playerNodeFormat = try startIfNeeded()
-            let bufferToSchedule = try convertBuffer(sound.buffer, to: playerNodeFormat)
+            let bufferToSchedule = try sound.localBuffer(for: playerNodeFormat)
             localPlayback = try playerNodePool.play(bufferToSchedule, loop: options.loop)
         }
 
         if options.destination.includesRemote {
-            remotePlayback = AudioManager.shared.mixer.playSound(sound.buffer, loop: options.loop)
+            remotePlayback = AudioManager.shared.mixer.playSound(sound.sourceBuffer, loop: options.loop)
         }
 
         if let localPlayback {
