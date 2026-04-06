@@ -16,6 +16,13 @@
 
 @preconcurrency import AVFAudio
 
+@globalActor
+public actor SoundPlayerActor {
+    public static let shared = SoundPlayerActor()
+
+    private init() {}
+}
+
 /// Options for controlling sound playback behavior.
 public struct PlaybackOptions: Sendable {
     /// How to handle existing playback of the same sound.
@@ -90,7 +97,8 @@ public struct PlaybackOptions: Sendable {
 /// Remote playback is best-effort. It depends on the WebRTC mixer input path being available,
 /// which typically requires the microphone to be published. Local playback can still succeed
 /// even when remote playback is skipped.
-public actor SoundPlayer: Loggable {
+@SoundPlayerActor
+public final class SoundPlayer: Loggable {
     // MARK: - Public
 
     /// Shared sound player instance.
