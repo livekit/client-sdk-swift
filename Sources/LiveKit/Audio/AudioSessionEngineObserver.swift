@@ -69,12 +69,14 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 
         var isAutomaticConfigurationEnabled: Bool = true
         var isAutomaticDeactivationEnabled: Bool = true
-        var isPlayoutEnabled: Bool = false
-        var isRecordingEnabled: Bool = false
         var isSpeakerOutputPreferred: Bool = true
+
+        var sessionRequirements: [UUID: SessionRequirement] = [:]
     }
 
     let _state = StateSync(State())
+
+    private let sessionRequirementId = UUID()
 
     public var next: (any AudioEngineObserver)? {
         get { _state.next }
@@ -85,14 +87,64 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         _state.onDidMutate = { [weak self] new, old in
             guard let self,
                   new.isSpeakerOutputPreferred != old.isSpeakerOutputPreferred else { return }
-            _ = configureIfNeeded(oldState: old, newState: new)
+            do {
+                try configureIfNeeded(oldState: old, newState: new)
+            } catch {
+                log("Failed to configure audio session after speaker preference change: \(error)", .error)
+            }
+        }
+    }
+
+    /// Acquires an audio session requirement handle for external ownership.
+    ///
+    /// Use this to keep the audio session active from external components
+    /// (e.g., ``SoundPlayer``) that need playout or recording independently
+    /// of the WebRTC engine lifecycle.
+    ///
+    /// - Throws: ``LiveKitError`` if the audio session fails to configure or activate.
+    public func acquire(requirement: SessionRequirement) throws -> SessionRequirementHandle {
+        let id = UUID()
+        try set(requirement: requirement, for: id)
+        return SessionRequirementHandle(releaseImpl: { [weak self] in
+            guard let self else { return }
+            try removeRequirement(for: id)
+        })
+    }
+
+    private func set(requirement: SessionRequirement, for id: UUID) throws {
+        try updateRequirements {
+            if requirement == .none {
+                $0.removeValue(forKey: id)
+            } else {
+                $0[id] = requirement
+            }
+        }
+    }
+
+    fileprivate func removeRequirement(for id: UUID) throws {
+        try updateRequirements {
+            $0.removeValue(forKey: id)
+        }
+    }
+
+    private func updateRequirements(_ block: (inout [UUID: SessionRequirement]) -> Void) throws {
+        try _state.mutate {
+            let oldState = $0
+            block(&$0.sessionRequirements)
+            guard $0.sessionRequirements != oldState.sessionRequirements else { return }
+            do {
+                try configureIfNeeded(oldState: oldState, newState: $0)
+            } catch {
+                $0 = oldState
+                throw LiveKitError(.audioSession, message: "Failed to configure audio session")
+            }
         }
     }
 
     // MARK: - Audio Session Configuration
 
-    private func configureIfNeeded(oldState: State, newState: State) -> Int {
-        guard newState.isAutomaticConfigurationEnabled else { return 0 }
+    private func configureIfNeeded(oldState: State, newState: State) throws {
+        guard newState.isAutomaticConfigurationEnabled else { return }
 
         // Deprecated: `customConfigureAudioSessionFunc` overrides the default configuration.
         // This path does not support error propagation since the legacy func returns Void.
@@ -101,19 +153,16 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             let oldLegacy = AudioManager.State(localTracksCount: oldState.isRecordingEnabled ? 1 : 0, remoteTracksCount: oldState.isPlayoutEnabled ? 1 : 0)
             let newLegacy = AudioManager.State(localTracksCount: newState.isRecordingEnabled ? 1 : 0, remoteTracksCount: newState.isPlayoutEnabled ? 1 : 0)
             legacyConfigFunc(newLegacy, oldLegacy)
-            return 0
+            return
         }
 
-        do {
-            try configureAudioSession(oldState: oldState, newState: newState)
-            return 0
-        } catch {
-            return kAudioEngineErrorFailedToConfigureAudioSession
-        }
+        try configureAudioSession(oldState: oldState, newState: newState)
     }
 
     @Sendable private func configureAudioSession(oldState: State, newState: State) throws {
         let session = AVAudioSession.sharedInstance()
+
+        log("configure isRecordingEnabled: \(newState.isRecordingEnabled), isPlayoutEnabled: \(newState.isPlayoutEnabled)")
 
         if (!newState.isPlayoutEnabled && !newState.isRecordingEnabled) && (oldState.isPlayoutEnabled || oldState.isRecordingEnabled) {
             if newState.isAutomaticDeactivationEnabled {
@@ -166,38 +215,31 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     // MARK: - AudioEngineObserver
 
     public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
-        let result: Int = _state.mutate {
-            let oldState = $0
-            $0.isPlayoutEnabled = isPlayoutEnabled
-            $0.isRecordingEnabled = isRecordingEnabled
-            let result = configureIfNeeded(oldState: oldState, newState: $0)
-            if result != 0 {
-                // Rollback state on failure so it stays consistent with WebRTC's rollback.
-                $0 = oldState
-            }
-            return result
+        let requirement = SessionRequirement(isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+        do {
+            try set(requirement: requirement, for: sessionRequirementId)
+        } catch {
+            return kAudioEngineErrorFailedToConfigureAudioSession
         }
-        guard result == 0 else { return result }
         return _state.next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
     }
 
     public func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
         let nextResult = _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
 
-        let result: Int = _state.mutate {
-            let oldState = $0
-            $0.isPlayoutEnabled = isPlayoutEnabled
-            $0.isRecordingEnabled = isRecordingEnabled
-            let result = configureIfNeeded(oldState: oldState, newState: $0)
-            if result != 0 {
-                // Rollback state on failure so it stays consistent with WebRTC's rollback.
-                $0 = oldState
-            }
-            return result
+        let requirement = SessionRequirement(isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+        do {
+            try set(requirement: requirement, for: sessionRequirementId)
+        } catch {
+            return kAudioEngineErrorFailedToConfigureAudioSession
         }
-        guard result == 0 else { return result }
         return nextResult
     }
+}
+
+extension AudioSessionEngineObserver.State {
+    var isPlayoutEnabled: Bool { sessionRequirements.values.contains(where: \.isPlayoutEnabled) }
+    var isRecordingEnabled: Bool { sessionRequirements.values.contains(where: \.isRecordingEnabled) }
 }
 
 #endif

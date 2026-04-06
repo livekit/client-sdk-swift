@@ -22,6 +22,81 @@ import Combine
 
 internal import LiveKitWebRTC
 
+/// Represents an audio session requirement from a specific component.
+///
+/// Multiple components can independently register their requirements. On platforms that use
+/// `AVAudioSession`, the session stays active as long as any component requires playout or recording.
+public struct SessionRequirement: OptionSet, Sendable {
+    public let rawValue: UInt8
+
+    public static let playout = Self(rawValue: 1 << 0)
+    public static let recording = Self(rawValue: 1 << 1)
+
+    public static let none: Self = []
+    public static let playbackOnly: Self = [.playout]
+    public static let recordingOnly: Self = [.recording]
+    public static let playbackAndRecording: Self = [.playout, .recording]
+
+    public init(rawValue: UInt8) {
+        self.rawValue = rawValue
+    }
+
+    public init(isPlayoutEnabled: Bool = false, isRecordingEnabled: Bool = false) {
+        var rawValue: UInt8 = 0
+        if isPlayoutEnabled {
+            rawValue |= Self.playout.rawValue
+        }
+        if isRecordingEnabled {
+            rawValue |= Self.recording.rawValue
+        }
+        self.init(rawValue: rawValue)
+    }
+
+    public var isPlayoutEnabled: Bool {
+        contains(.playout)
+    }
+
+    public var isRecordingEnabled: Bool {
+        contains(.recording)
+    }
+}
+
+/// Opaque handle for an acquired audio session requirement.
+///
+/// Call ``release()`` when the requirement is no longer needed.
+/// If not released explicitly, the requirement is released automatically on deinit.
+public final class SessionRequirementHandle: @unchecked Sendable {
+    private struct State {
+        var releaseImpl: (@Sendable () throws -> Void)?
+    }
+
+    private let _state: StateSync<State>
+
+    init(releaseImpl: @escaping @Sendable () throws -> Void) {
+        _state = StateSync(State(releaseImpl: releaseImpl))
+    }
+
+    deinit {
+        try? releaseIfNeeded()
+    }
+
+    /// Releases the associated audio session requirement.
+    ///
+    /// Releasing the same handle multiple times is a no-op.
+    public func release() throws {
+        try releaseIfNeeded()
+    }
+
+    private func releaseIfNeeded() throws {
+        let releaseImpl = _state.mutate { state -> (@Sendable () throws -> Void)? in
+            let releaseImpl = state.releaseImpl
+            state.releaseImpl = nil
+            return releaseImpl
+        }
+        try releaseImpl?()
+    }
+}
+
 // Audio Session Configuration related
 public class AudioManager: Loggable {
     // MARK: - Public
@@ -373,6 +448,17 @@ public class AudioManager: Loggable {
 
     public var isEngineRunning: Bool {
         RTC.audioDeviceModule.isEngineRunning
+    }
+
+    /// Acquires an audio session requirement for external ownership.
+    ///
+    /// On platforms without `AVAudioSession`, this returns a no-op handle.
+    public func acquireSessionRequirement(_ requirement: SessionRequirement) throws -> SessionRequirementHandle {
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        try audioSession.acquire(requirement: requirement)
+        #else
+        SessionRequirementHandle(releaseImpl: {})
+        #endif
     }
 
     /// The mute state of internal audio engine which uses Voice Processing I/O mute API ``AVAudioInputNode.isVoiceProcessingInputMuted``.
