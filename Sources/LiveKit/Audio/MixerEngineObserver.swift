@@ -289,11 +289,11 @@ extension MixerEngineObserver {
     /// Play a sound buffer through the input path for remote participants via WebRTC.
     @discardableResult
     func playSound(_ inputBuffer: AVAudioPCMBuffer, loop: Bool = false) -> SoundPlayback? {
-        let (isConnected, soundPlayerNodes, playerNodeFormat) = _state.read {
+        let (isInputConnected, soundPlayerNodes, playerNodeFormat) = _state.read {
             ($0.isInputConnected, $0.soundPlayerNodes, $0.playerNodeFormat)
         }
 
-        guard isConnected else {
+        guard isInputConnected else {
             log("Remote sound playback skipped because the microphone is not published. Publish the microphone to send SoundPlayer audio to remote participants.", .warning)
             return nil
         }
@@ -338,11 +338,11 @@ extension MixerEngineObserver {
 
         let buffer = converter.convert(from: inputBuffer)
 
-        let (isConnected, appNode) = _state.read {
+        let (isInputConnected, appNode) = _state.read {
             ($0.isInputConnected, $0.appNode)
         }
 
-        guard isConnected, let engine = appNode.engine, engine.isRunning else {
+        guard isInputConnected, let engine = appNode.engine, engine.isRunning else {
             log("Engine is not running", .warning)
             return
         }
