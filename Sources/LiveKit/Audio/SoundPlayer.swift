@@ -170,10 +170,14 @@ public final class SoundPlayer: Loggable {
         }
     }
 
+    private struct LocalEngineState {
+        var connectedOutputFormat: AVAudioFormat?
+        var playerNodeFormat: AVAudioFormat?
+        var needsReconnect = false
+    }
+
     private var sounds: [String: Sound] = [:]
-    private var connectedOutputFormat: AVAudioFormat?
-    private var playerNodeFormat: AVAudioFormat?
-    private var engineNeedsReconnect = false
+    private var localEngineState = LocalEngineState()
 
     init(poolSize: Int = 10, notificationCenter: NotificationCenter = .default) {
         self.notificationCenter = notificationCenter
@@ -212,9 +216,9 @@ public final class SoundPlayer: Loggable {
     }
 
     private func invalidateLocalState() {
-        connectedOutputFormat = nil
-        playerNodeFormat = nil
-        engineNeedsReconnect = true
+        localEngineState.connectedOutputFormat = nil
+        localEngineState.playerNodeFormat = nil
+        localEngineState.needsReconnect = true
         playerNodePool.reset()
 
         for id in Array(sounds.keys) {
@@ -238,9 +242,9 @@ public final class SoundPlayer: Loggable {
         engine.connect(playerNodePool, to: engine.mainMixerNode,
                        format: outputFormat, playerNodeFormat: playerNodeFormat)
         try engine.start()
-        connectedOutputFormat = outputFormat
-        self.playerNodeFormat = playerNodeFormat
-        engineNeedsReconnect = false
+        localEngineState.connectedOutputFormat = outputFormat
+        localEngineState.playerNodeFormat = playerNodeFormat
+        localEngineState.needsReconnect = false
     }
 
     private func startIfNeeded() throws -> AVAudioFormat {
@@ -248,10 +252,10 @@ public final class SoundPlayer: Loggable {
             throw LiveKitError(.audioEngine, message: "Invalid output format")
         }
         let playerNodeFormat = makePlayerNodeFormat(for: outputFormat)
-        let needsReconnect = engineNeedsReconnect
+        let needsReconnect = localEngineState.needsReconnect
             || !engine.isRunning
-            || connectedOutputFormat != outputFormat
-            || self.playerNodeFormat != playerNodeFormat
+            || localEngineState.connectedOutputFormat != outputFormat
+            || localEngineState.playerNodeFormat != playerNodeFormat
 
         if needsReconnect {
             try reconnectEngine(outputFormat: outputFormat, playerNodeFormat: playerNodeFormat)
@@ -261,9 +265,9 @@ public final class SoundPlayer: Loggable {
     }
 
     private func stopEngine() {
-        connectedOutputFormat = nil
-        playerNodeFormat = nil
-        engineNeedsReconnect = false
+        localEngineState.connectedOutputFormat = nil
+        localEngineState.playerNodeFormat = nil
+        localEngineState.needsReconnect = false
         playerNodePool.stop()
         engine.stop()
     }
