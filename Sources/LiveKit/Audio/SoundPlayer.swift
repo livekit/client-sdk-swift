@@ -193,8 +193,8 @@ public final class SoundPlayer: Loggable {
         playerNodePool = AVAudioPlayerNodePool(poolSize: poolSize)
         engine.attach(playerNodePool)
         engineConfigurationObserver = notificationCenter.addObserver(forName: .AVAudioEngineConfigurationChange,
-                                                                    object: engine,
-                                                                    queue: nil)
+                                                                     object: engine,
+                                                                     queue: nil)
         { [weak self] _ in
             guard let self else { return }
             Task {
