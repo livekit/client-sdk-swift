@@ -108,6 +108,8 @@ public final class SoundPlayer: Loggable {
 
     private let engine = AVAudioEngine()
     private let playerNodePool: AVAudioPlayerNodePool
+    private let notificationCenter: NotificationCenter
+    private var engineConfigurationObserver: NSObjectProtocol?
 
     private struct Sound {
         let sourceBuffer: AVAudioPCMBuffer
@@ -169,11 +171,29 @@ public final class SoundPlayer: Loggable {
     }
 
     private var sounds: [String: Sound] = [:]
+    private var connectedOutputFormat: AVAudioFormat?
     private var playerNodeFormat: AVAudioFormat?
+    private var engineNeedsReconnect = false
 
-    init(poolSize: Int = 10) {
+    init(poolSize: Int = 10, notificationCenter: NotificationCenter = .default) {
+        self.notificationCenter = notificationCenter
         playerNodePool = AVAudioPlayerNodePool(poolSize: poolSize)
         engine.attach(playerNodePool)
+        engineConfigurationObserver = notificationCenter.addObserver(forName: .AVAudioEngineConfigurationChange,
+                                                                    object: engine,
+                                                                    queue: nil)
+        { [weak self] _ in
+            guard let self else { return }
+            Task {
+                await self.handleEngineConfigurationChange()
+            }
+        }
+    }
+
+    deinit {
+        if let engineConfigurationObserver {
+            notificationCenter.removeObserver(engineConfigurationObserver)
+        }
     }
 
     // MARK: - Engine lifecycle
@@ -191,24 +211,59 @@ public final class SoundPlayer: Loggable {
                       interleaved: outputFormat.isInterleaved)!
     }
 
-    private func startIfNeeded() throws -> AVAudioFormat {
-        if engine.isRunning, let playerNodeFormat {
-            return playerNodeFormat
+    private func invalidateLocalState() {
+        connectedOutputFormat = nil
+        playerNodeFormat = nil
+        engineNeedsReconnect = true
+        playerNodePool.reset()
+
+        for id in Array(sounds.keys) {
+            guard var sound = sounds[id] else { continue }
+            sound.cachedLocalBuffer = nil
+            sound.cachedLocalBufferFormat = nil
+            sound.local.removeAll()
+            sounds[id] = sound
         }
-        guard let outputFormat else {
-            throw LiveKitError(.audioEngine, message: "Invalid output format")
-        }
+    }
+
+    private func handleEngineConfigurationChange() {
+        invalidateLocalState()
+    }
+
+    private func reconnectEngine(outputFormat: AVAudioFormat, playerNodeFormat: AVAudioFormat) throws {
+        playerNodePool.stop()
+        engine.stop()
+        engine.disconnect(playerNodePool)
         playerNodePool.setMaximumFramesToRender(engine.outputNode.auAudioUnit.maximumFramesToRender)
-        let playerNodeFormat = makePlayerNodeFormat(for: outputFormat)
         engine.connect(playerNodePool, to: engine.mainMixerNode,
                        format: outputFormat, playerNodeFormat: playerNodeFormat)
         try engine.start()
+        connectedOutputFormat = outputFormat
         self.playerNodeFormat = playerNodeFormat
+        engineNeedsReconnect = false
+    }
+
+    private func startIfNeeded() throws -> AVAudioFormat {
+        guard let outputFormat else {
+            throw LiveKitError(.audioEngine, message: "Invalid output format")
+        }
+        let playerNodeFormat = makePlayerNodeFormat(for: outputFormat)
+        let needsReconnect = engineNeedsReconnect
+            || !engine.isRunning
+            || connectedOutputFormat != outputFormat
+            || self.playerNodeFormat != playerNodeFormat
+
+        if needsReconnect {
+            try reconnectEngine(outputFormat: outputFormat, playerNodeFormat: playerNodeFormat)
+        }
+
         return playerNodeFormat
     }
 
     private func stopEngine() {
+        connectedOutputFormat = nil
         playerNodeFormat = nil
+        engineNeedsReconnect = false
         playerNodePool.stop()
         engine.stop()
     }

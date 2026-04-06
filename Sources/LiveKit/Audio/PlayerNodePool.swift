@@ -203,6 +203,13 @@ extension AVAudioEngine {
         attach(playerNodePool.mixerNode)
     }
 
+    func disconnect(_ playerNodePool: AVAudioPlayerNodePool) {
+        for playerNode in playerNodePool.playerNodes {
+            disconnectNodeOutput(playerNode)
+        }
+        disconnectNodeOutput(playerNodePool.mixerNode)
+    }
+
     func detach(_ playerNodePool: AVAudioPlayerNodePool) {
         for playerNode in playerNodePool.playerNodes {
             playerNode.stop()
