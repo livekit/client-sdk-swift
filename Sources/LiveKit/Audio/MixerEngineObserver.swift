@@ -293,8 +293,13 @@ extension MixerEngineObserver {
             ($0.isInputConnected, $0.soundPlayerNodes, $0.playerNodeFormat)
         }
 
-        guard isConnected, let playerNodeFormat, let engine = soundPlayerNodes.engine, engine.isRunning else {
+        guard isConnected else {
             log("Remote sound playback skipped because the microphone is not published. Publish the microphone to send SoundPlayer audio to remote participants.", .warning)
+            return nil
+        }
+
+        guard let playerNodeFormat, let engine = soundPlayerNodes.engine, engine.isRunning else {
+            log("Remote sound playback skipped because the remote sound path is temporarily unavailable.", .warning)
             return nil
         }
 
