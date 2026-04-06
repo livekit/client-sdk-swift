@@ -87,7 +87,11 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         _state.onDidMutate = { [weak self] new, old in
             guard let self,
                   new.isSpeakerOutputPreferred != old.isSpeakerOutputPreferred else { return }
-            _ = configureIfNeeded(oldState: old, newState: new)
+            do {
+                try configureIfNeeded(oldState: old, newState: new)
+            } catch {
+                log("Failed to configure audio session after speaker preference change: \(error)", .error)
+            }
         }
     }
 
@@ -128,8 +132,9 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             let oldState = $0
             block(&$0.sessionRequirements)
             guard $0.sessionRequirements != oldState.sessionRequirements else { return }
-            let result = configureIfNeeded(oldState: oldState, newState: $0)
-            if result != 0 {
+            do {
+                try configureIfNeeded(oldState: oldState, newState: $0)
+            } catch {
                 $0 = oldState
                 throw LiveKitError(.audioSession, message: "Failed to configure audio session")
             }
@@ -138,8 +143,8 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 
     // MARK: - Audio Session Configuration
 
-    private func configureIfNeeded(oldState: State, newState: State) -> Int {
-        guard newState.isAutomaticConfigurationEnabled else { return 0 }
+    private func configureIfNeeded(oldState: State, newState: State) throws {
+        guard newState.isAutomaticConfigurationEnabled else { return }
 
         // Deprecated: `customConfigureAudioSessionFunc` overrides the default configuration.
         // This path does not support error propagation since the legacy func returns Void.
@@ -148,15 +153,10 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             let oldLegacy = AudioManager.State(localTracksCount: oldState.isRecordingEnabled ? 1 : 0, remoteTracksCount: oldState.isPlayoutEnabled ? 1 : 0)
             let newLegacy = AudioManager.State(localTracksCount: newState.isRecordingEnabled ? 1 : 0, remoteTracksCount: newState.isPlayoutEnabled ? 1 : 0)
             legacyConfigFunc(newLegacy, oldLegacy)
-            return 0
+            return
         }
 
-        do {
-            try configureAudioSession(oldState: oldState, newState: newState)
-            return 0
-        } catch {
-            return kAudioEngineErrorFailedToConfigureAudioSession
-        }
+        try configureAudioSession(oldState: oldState, newState: newState)
     }
 
     @Sendable private func configureAudioSession(oldState: State, newState: State) throws {
