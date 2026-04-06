@@ -294,6 +294,7 @@ extension MixerEngineObserver {
         }
 
         guard isConnected, let playerNodeFormat, let engine = soundPlayerNodes.engine, engine.isRunning else {
+            log("Remote sound playback skipped because the microphone is not published. Publish the microphone to send SoundPlayer audio to remote participants.", .warning)
             return nil
         }
 
