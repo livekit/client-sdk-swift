@@ -23,6 +23,10 @@ public struct PlaybackOptions: Sendable {
         /// Play concurrently with any existing playback of the same sound.
         case concurrent
         /// Stop any existing playback of the same sound before playing.
+        ///
+        /// Replacement is scoped by sound identifier, not by destination.
+        /// Existing local and remote playback for the same `id` are both stopped
+        /// before the new playback starts.
         case replace
     }
 
@@ -32,11 +36,13 @@ public struct PlaybackOptions: Sendable {
         case local
         /// Play for remote participants only (through WebRTC).
         ///
-        /// If remote routing is unavailable, playback is skipped.
+        /// Remote playback is best-effort. If the WebRTC mixer input path is unavailable
+        /// (for example, no active remote-routing path is connected), playback is skipped.
         case remote
         /// Play both locally and for remote participants.
         ///
-        /// Remote playback is best-effort and may be skipped if remote routing is unavailable.
+        /// Remote playback is best-effort and may be skipped when the WebRTC mixer input path
+        /// is unavailable.
         case localAndRemote
 
         var includesLocal: Bool {
@@ -62,15 +68,28 @@ public struct PlaybackOptions: Sendable {
 /// High-level API for preparing and playing short sounds locally and over the room mixer.
 ///
 /// ```swift
-/// try await SoundPlayer.shared.prepare(url: clickURL, withId: "click")
+/// try await SoundPlayer.shared.prepare(fileURL: clickFileURL, withId: "click")
 /// try await SoundPlayer.shared.play(id: "click")
+/// await SoundPlayer.shared.release(id: "click")
 /// ```
 ///
-/// Prepared sounds must come from local file URLs and use a format supported by `AVAudioFile`
+/// Prepared sounds must come from local file URLs and use a format readable by `AVAudioFile`
 /// on the current platform.
 ///
-/// Local playback uses a fixed internal player-node pool. If that pool is exhausted, `play(id:)`
-/// throws instead of silently dropping local playback.
+/// The recommended lifecycle for reusable clips is:
+/// 1. Prepare once with ``prepare(fileURL:withId:)``
+/// 2. Play one or more times with ``play(id:options:)``
+/// 3. Release with ``release(id:)`` when no longer needed
+///
+/// Preparing a sound acquires a playback session requirement and may start the local engine
+/// early to reduce first-play latency.
+///
+/// Local playback uses a fixed internal player-node pool. If that pool is exhausted,
+/// ``play(id:options:)`` throws instead of silently dropping local playback.
+///
+/// Remote playback is best-effort. It depends on the WebRTC mixer input path being available,
+/// which typically requires the microphone to be published. Local playback can still succeed
+/// even when remote playback is skipped.
 public actor SoundPlayer: Loggable {
     // MARK: - Public
 
@@ -173,13 +192,13 @@ public actor SoundPlayer: Loggable {
         return converter.convert(from: buffer)
     }
 
-    private nonisolated static func decodeBuffer(from url: URL) async throws -> AVAudioPCMBuffer {
-        guard url.isFileURL else {
+    private nonisolated static func decodeBuffer(from fileURL: URL) async throws -> AVAudioPCMBuffer {
+        guard fileURL.isFileURL else {
             throw LiveKitError(.invalidParameter, message: "Only file URLs are supported")
         }
 
         return try await Task.detached(priority: .userInitiated) {
-            let audioFile = try AVAudioFile(forReading: url)
+            let audioFile = try AVAudioFile(forReading: fileURL)
             guard let readBuffer = AVAudioPCMBuffer(pcmFormat: audioFile.processingFormat,
                                                     frameCapacity: AVAudioFrameCount(audioFile.length))
             else {
@@ -199,10 +218,12 @@ public actor SoundPlayer: Loggable {
     ///
     /// - Note: Only local file URLs are supported.
     /// - Note: The file format must be readable by `AVAudioFile` on the current platform.
-    public func prepare(url: URL, withId id: String) async throws {
+    /// - Note: Repeated playback of the same short clip should generally reuse a prepared sound
+    ///   instead of decoding from disk each time.
+    public func prepare(fileURL: URL, withId id: String) async throws {
         guard sounds[id] == nil else { return }
 
-        let readBuffer = try await Self.decodeBuffer(from: url)
+        let readBuffer = try await Self.decodeBuffer(from: fileURL)
         let sessionRequirementHandle = try AudioManager.shared.acquireSessionRequirement(.playbackOnly)
 
         do {
@@ -220,6 +241,8 @@ public actor SoundPlayer: Loggable {
     }
 
     /// Releases a prepared sound, stops any active playback, and relinquishes its session requirement.
+    ///
+    /// Releasing the last prepared sound also stops the local playback engine owned by `SoundPlayer`.
     public func release(id: String) async {
         guard var sound = sounds.removeValue(forKey: id) else { return }
         await sound.stop(destination: .localAndRemote)
@@ -267,7 +290,14 @@ public actor SoundPlayer: Loggable {
 
     /// Plays a prepared sound.
     ///
-    /// Remote playback is best-effort and is skipped if remote routing is unavailable.
+    /// Remote playback is best-effort and is skipped when the WebRTC mixer input path
+    /// is unavailable.
+    ///
+    /// When `options.mode` is `.replace`, any existing playback for the same `id`
+    /// is stopped for both local and remote destinations before the new playback starts.
+    ///
+    /// When `options.destination` includes `.localAndRemote`, local playback may still succeed
+    /// even if remote playback is skipped.
     ///
     /// - Throws: ``LiveKitError`` if the sound is not prepared, local playback setup fails,
     ///   or the local player-node pool is exhausted.
