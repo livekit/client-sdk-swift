@@ -174,6 +174,15 @@ public final class SoundPlayer: Loggable {
         var connectedOutputFormat: AVAudioFormat?
         var playerNodeFormat: AVAudioFormat?
         var needsReconnect = false
+
+        init(connectedOutputFormat: AVAudioFormat? = nil,
+             playerNodeFormat: AVAudioFormat? = nil,
+             needsReconnect: Bool = false)
+        {
+            self.connectedOutputFormat = connectedOutputFormat
+            self.playerNodeFormat = playerNodeFormat
+            self.needsReconnect = needsReconnect
+        }
     }
 
     private var sounds: [String: Sound] = [:]
@@ -215,12 +224,11 @@ public final class SoundPlayer: Loggable {
                       interleaved: outputFormat.isInterleaved)!
     }
 
-    private func invalidateLocalState() {
-        localEngineState.connectedOutputFormat = nil
-        localEngineState.playerNodeFormat = nil
-        localEngineState.needsReconnect = true
-        playerNodePool.reset()
+    private func resetLocalEngineState(needsReconnect: Bool) {
+        localEngineState = LocalEngineState(needsReconnect: needsReconnect)
+    }
 
+    private func invalidateCachedLocalBuffers() {
         for id in Array(sounds.keys) {
             guard var sound = sounds[id] else { continue }
             sound.cachedLocalBuffer = nil
@@ -228,6 +236,12 @@ public final class SoundPlayer: Loggable {
             sound.local.removeAll()
             sounds[id] = sound
         }
+    }
+
+    private func invalidateLocalState() {
+        resetLocalEngineState(needsReconnect: true)
+        playerNodePool.reset()
+        invalidateCachedLocalBuffers()
     }
 
     private func handleEngineConfigurationChange() {
@@ -265,9 +279,7 @@ public final class SoundPlayer: Loggable {
     }
 
     private func stopEngine() {
-        localEngineState.connectedOutputFormat = nil
-        localEngineState.playerNodeFormat = nil
-        localEngineState.needsReconnect = false
+        resetLocalEngineState(needsReconnect: false)
         playerNodePool.stop()
         engine.stop()
     }
