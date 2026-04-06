@@ -64,18 +64,36 @@ public struct SessionRequirement: OptionSet, Sendable {
 /// Opaque handle for an acquired audio session requirement.
 ///
 /// Call ``release()`` when the requirement is no longer needed.
+/// If not released explicitly, the requirement is released automatically on deinit.
 public final class SessionRequirementHandle: @unchecked Sendable {
-    private let releaseImpl: @Sendable () throws -> Void
+    private struct State {
+        var releaseImpl: (@Sendable () throws -> Void)?
+    }
+
+    private let _state: StateSync<State>
 
     init(releaseImpl: @escaping @Sendable () throws -> Void) {
-        self.releaseImpl = releaseImpl
+        _state = StateSync(State(releaseImpl: releaseImpl))
+    }
+
+    deinit {
+        try? releaseIfNeeded()
     }
 
     /// Releases the associated audio session requirement.
     ///
     /// Releasing the same handle multiple times is a no-op.
     public func release() throws {
-        try releaseImpl()
+        try releaseIfNeeded()
+    }
+
+    private func releaseIfNeeded() throws {
+        let releaseImpl = _state.mutate { state -> (@Sendable () throws -> Void)? in
+            let releaseImpl = state.releaseImpl
+            state.releaseImpl = nil
+            return releaseImpl
+        }
+        try releaseImpl?()
     }
 }
 
