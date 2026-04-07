@@ -165,7 +165,7 @@ public final class SoundPlayer: Loggable {
         let replacedSoundID = name.flatMap { soundIDsByName[$0] }
 
         do {
-            _ = try startIfNeeded()
+            try startEngineIfNeeded()
             sounds[soundID] = PreparedSound(name: name,
                                             sourceBuffer: readBuffer,
                                             sessionRequirementHandle: sessionRequirementHandle)
@@ -217,7 +217,7 @@ public final class SoundPlayer: Loggable {
 
     /// Stops all playing or queued sounds without releasing prepared audio buffers.
     public func stopAll(destination: PlaybackOptions.Destination = .localAndRemote) async {
-        for soundID in sounds.keys {
+        for soundID in Array(sounds.keys) {
             if var sound = sounds[soundID] {
                 await sound.stop(destination: destination)
                 sounds[soundID] = sound
@@ -266,7 +266,7 @@ public final class SoundPlayer: Loggable {
         var remotePlayback: SoundPlayback?
 
         if options.destination.includesLocal {
-            let playerNodeFormat = try startIfNeeded()
+            let playerNodeFormat = try startEngineIfNeeded()
             let bufferToSchedule = try soundState.localBuffer(for: playerNodeFormat)
             localPlayback = try playerNodePool.play(bufferToSchedule, loop: options.loop)
         }
@@ -338,7 +338,8 @@ private extension SoundPlayer {
         localEngineState.needsReconnect = false
     }
 
-    func startIfNeeded() throws -> AVAudioFormat {
+    @discardableResult
+    func startEngineIfNeeded() throws -> AVAudioFormat {
         guard let outputFormat else {
             throw LiveKitError(.audioEngine, message: "Invalid output format")
         }
