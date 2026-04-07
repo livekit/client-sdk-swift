@@ -65,7 +65,7 @@ private struct PreparedSound {
                                                  to: playerNodeFormat,
                                                  outputBufferCapacity: outputBufferCapacity)
             else {
-                throw LiveKitError(.audioEngine, message: "Failed to create audio converter")
+                throw LiveKitError(.soundPlayer, message: "Failed to create audio converter")
             }
             localBuffer = converter.convert(from: sourceBuffer)
         }
@@ -119,7 +119,7 @@ public final class SoundPlayer: Loggable {
     private var engineConfigurationObserver: NSObjectProtocol?
 
     private var sounds: [UUID: PreparedSound] = [:]
-    private var soundIDsByName: [String: UUID] = [:]
+    private var soundIdsByName: [String: UUID] = [:]
     private var localEngineState = LocalEngineState()
 
     init(poolSize: Int = 10, notificationCenter: NotificationCenter = .default) {
@@ -161,23 +161,23 @@ public final class SoundPlayer: Loggable {
     public func prepare(fileURL: URL, named name: String? = nil) async throws -> SoundHandle {
         let readBuffer = try await Self.decodeBuffer(from: fileURL)
         let sessionRequirementHandle = try AudioManager.shared.acquireSessionRequirement(.playbackOnly)
-        let soundID = UUID()
-        let replacedSoundID = name.flatMap { soundIDsByName[$0] }
+        let soundId = UUID()
+        let replacedSoundId = name.flatMap { soundIdsByName[$0] }
 
         do {
             try startEngineIfNeeded()
-            sounds[soundID] = PreparedSound(name: name,
+            sounds[soundId] = PreparedSound(name: name,
                                             sourceBuffer: readBuffer,
                                             sessionRequirementHandle: sessionRequirementHandle)
             if let name {
-                soundIDsByName[name] = soundID
+                soundIdsByName[name] = soundId
             }
 
-            if let replacedSoundID {
-                await releaseSound(id: replacedSoundID)
+            if let replacedSoundId {
+                await releaseSound(id: replacedSoundId)
             }
 
-            return SoundHandle(id: soundID)
+            return SoundHandle(id: soundId)
         } catch {
             try? sessionRequirementHandle.release()
             throw error
@@ -186,8 +186,8 @@ public final class SoundPlayer: Loggable {
 
     /// Returns the prepared sound currently associated with `name`, if any.
     public func sound(named name: String) -> SoundHandle? {
-        guard let soundID = soundIDsByName[name], sounds[soundID] != nil else { return nil }
-        return SoundHandle(id: soundID)
+        guard let soundId = soundIdsByName[name], sounds[soundId] != nil else { return nil }
+        return SoundHandle(id: soundId)
     }
 
     /// Releases a prepared sound, stops any active playback, and relinquishes its session requirement.
@@ -217,10 +217,10 @@ public final class SoundPlayer: Loggable {
 
     /// Stops all playing or queued sounds without releasing prepared audio buffers.
     public func stopAll(destination: PlaybackOptions.Destination = .localAndRemote) async {
-        for soundID in Array(sounds.keys) {
-            if var sound = sounds[soundID] {
+        for soundId in Array(sounds.keys) {
+            if var sound = sounds[soundId] {
                 await sound.stop(destination: destination)
-                if sounds[soundID] != nil { sounds[soundID] = sound }
+                if sounds[soundId] != nil { sounds[soundId] = sound }
             }
         }
     }
@@ -253,13 +253,13 @@ public final class SoundPlayer: Loggable {
     ///   or the local player-node pool is exhausted.
     public func play(_ sound: SoundHandle, options: PlaybackOptions = PlaybackOptions()) async throws {
         guard var soundState = sounds[sound.id] else {
-            throw LiveKitError(.audioEngine, message: "Sound not prepared")
+            throw LiveKitError(.soundPlayer, message: "Sound not prepared")
         }
 
         if options.mode == .replace {
             await soundState.stop(destination: .localAndRemote)
             guard sounds[sound.id] != nil else {
-                throw LiveKitError(.audioEngine, message: "Sound not prepared")
+                throw LiveKitError(.soundPlayer, message: "Sound not prepared")
             }
         }
 
@@ -309,12 +309,12 @@ private extension SoundPlayer {
     }
 
     func invalidateCachedLocalBuffers() {
-        for soundID in Array(sounds.keys) {
-            guard var sound = sounds[soundID] else { continue }
+        for soundId in Array(sounds.keys) {
+            guard var sound = sounds[soundId] else { continue }
             sound.cachedLocalBuffer = nil
             sound.cachedLocalBufferFormat = nil
             sound.local.removeAll()
-            sounds[soundID] = sound
+            sounds[soundId] = sound
         }
     }
 
@@ -344,7 +344,7 @@ private extension SoundPlayer {
     @discardableResult
     func startEngineIfNeeded() throws -> AVAudioFormat {
         guard let outputFormat else {
-            throw LiveKitError(.audioEngine, message: "Invalid output format")
+            throw LiveKitError(.soundPlayer, message: "Invalid output format")
         }
         let playerNodeFormat = makePlayerNodeFormat(for: outputFormat)
         let needsReconnect = localEngineState.needsReconnect
@@ -365,11 +365,11 @@ private extension SoundPlayer {
         engine.stop()
     }
 
-    func releaseSound(id soundID: UUID) async {
-        guard var sound = sounds.removeValue(forKey: soundID) else { return }
+    func releaseSound(id soundId: UUID) async {
+        guard var sound = sounds.removeValue(forKey: soundId) else { return }
 
-        if let name = sound.name, soundIDsByName[name] == soundID {
-            soundIDsByName.removeValue(forKey: name)
+        if let name = sound.name, soundIdsByName[name] == soundId {
+            soundIdsByName.removeValue(forKey: name)
         }
 
         await sound.stop(destination: .localAndRemote)
@@ -390,7 +390,7 @@ private extension SoundPlayer {
             guard let readBuffer = AVAudioPCMBuffer(pcmFormat: audioFile.processingFormat,
                                                     frameCapacity: AVAudioFrameCount(audioFile.length))
             else {
-                throw LiveKitError(.audioEngine, message: "Failed to allocate audio buffer")
+                throw LiveKitError(.soundPlayer, message: "Failed to allocate audio buffer")
             }
             try audioFile.read(into: readBuffer, frameCount: AVAudioFrameCount(audioFile.length))
             return readBuffer
