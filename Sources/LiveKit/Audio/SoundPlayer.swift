@@ -138,11 +138,15 @@ extension SoundPlayer {
         return format
     }
 
-    func makePlayerNodeFormat(for outputFormat: AVAudioFormat) -> AVAudioFormat {
-        AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                      sampleRate: outputFormat.sampleRate,
-                      channels: outputFormat.channelCount,
-                      interleaved: outputFormat.isInterleaved)!
+    func makePlayerNodeFormat(for outputFormat: AVAudioFormat) throws -> AVAudioFormat {
+        guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                         sampleRate: outputFormat.sampleRate,
+                                         channels: outputFormat.channelCount,
+                                         interleaved: outputFormat.isInterleaved)
+        else {
+            throw LiveKitError(.soundPlayer, message: "Failed to create player node format")
+        }
+        return format
     }
 
     func resetLocalEngineState(needsReconnect: Bool) {
@@ -187,7 +191,7 @@ extension SoundPlayer {
         guard let outputFormat else {
             throw LiveKitError(.soundPlayer, message: "Invalid output format")
         }
-        let playerNodeFormat = makePlayerNodeFormat(for: outputFormat)
+        let playerNodeFormat = try makePlayerNodeFormat(for: outputFormat)
         let needsReconnect = localEngineState.needsReconnect
             || !engine.isRunning
             || localEngineState.connectedOutputFormat != outputFormat
