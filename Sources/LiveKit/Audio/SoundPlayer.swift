@@ -122,11 +122,8 @@ public final class SoundPlayer: Loggable {
 
     /// Stops all playing or queued sounds without releasing prepared audio buffers.
     public func stopAll(destination: SoundPlaybackOptions.Destination = .localAndRemote) async {
-        for soundId in Array(sounds.keys) {
-            if var sound = sounds[soundId] {
-                await sound.stop(destination: destination)
-                if sounds[soundId] != nil { sounds[soundId] = sound }
-            }
+        for sound in sounds.values {
+            await sound.stop(destination: destination)
         }
     }
 }
@@ -154,12 +151,10 @@ extension SoundPlayer {
     }
 
     func invalidateCachedLocalBuffers() {
-        for soundId in Array(sounds.keys) {
-            guard var sound = sounds[soundId] else { continue }
+        for sound in sounds.values {
             sound.cachedLocalBuffer = nil
             sound.cachedLocalBufferFormat = nil
             sound.local.removeAll()
-            sounds[soundId] = sound
         }
     }
 
@@ -211,7 +206,7 @@ extension SoundPlayer {
     }
 
     func releaseSound(id soundId: UUID) async {
-        guard var sound = sounds.removeValue(forKey: soundId) else { return }
+        guard let sound = sounds.removeValue(forKey: soundId) else { return }
 
         if let name = sound.name, soundIdsByName[name] == soundId {
             soundIdsByName.removeValue(forKey: name)
@@ -246,13 +241,12 @@ extension SoundPlayer {
     }
 
     func stop(_ sound: SoundHandle, destination: SoundPlaybackOptions.Destination = .localAndRemote) async {
-        guard var soundState = sounds[sound.id] else { return }
+        guard let soundState = sounds[sound.id] else { return }
         await soundState.stop(destination: destination)
-        if sounds[sound.id] != nil { sounds[sound.id] = soundState }
     }
 
     func play(_ sound: SoundHandle, options: SoundPlaybackOptions = SoundPlaybackOptions()) async throws {
-        guard var soundState = sounds[sound.id] else {
+        guard let soundState = sounds[sound.id] else {
             throw LiveKitError(.soundPlayer, message: "Sound not prepared")
         }
 
@@ -265,28 +259,17 @@ extension SoundPlayer {
 
         soundState.cleanUp()
 
-        var localPlayback: SoundPlayback?
-        var remotePlayback: SoundPlayback?
-
         if options.destination.includesLocal {
             let playerNodeFormat = try startEngineIfNeeded()
             let bufferToSchedule = try soundState.localBuffer(for: playerNodeFormat)
-            localPlayback = try playerNodePool.play(bufferToSchedule, loop: options.loop)
+            soundState.local.append(try playerNodePool.play(bufferToSchedule, loop: options.loop))
         }
 
         if options.destination.includesRemote {
-            remotePlayback = AudioManager.shared.mixer.playSound(soundState.sourceBuffer, loop: options.loop)
+            if let remotePlayback = AudioManager.shared.mixer.playSound(soundState.sourceBuffer, loop: options.loop) {
+                soundState.remote.append(remotePlayback)
+            }
         }
-
-        if let localPlayback {
-            soundState.local.append(localPlayback)
-        }
-
-        if let remotePlayback {
-            soundState.remote.append(remotePlayback)
-        }
-
-        sounds[sound.id] = soundState
     }
 
     static func decodeBuffer(from fileURL: URL) async throws -> AVAudioPCMBuffer {

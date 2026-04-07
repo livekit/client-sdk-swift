@@ -114,7 +114,8 @@ public struct SoundHandle: Hashable, Sendable {
     }
 }
 
-struct PreparedSound {
+@SoundPlayerActor
+class PreparedSound {
     let name: String?
     let sourceBuffer: AVAudioPCMBuffer
     let sessionRequirementHandle: SessionRequirementHandle
@@ -123,31 +124,28 @@ struct PreparedSound {
     var local: [SoundPlayback] = []
     var remote: [SoundPlayback] = []
 
-    private static func stop(_ playbacks: inout [SoundPlayback]) async {
-        for playback in playbacks {
-            await playback.stop()
-        }
-        playbacks.removeAll()
+    init(name: String?, sourceBuffer: AVAudioPCMBuffer, sessionRequirementHandle: SessionRequirementHandle) {
+        self.name = name
+        self.sourceBuffer = sourceBuffer
+        self.sessionRequirementHandle = sessionRequirementHandle
     }
 
-    mutating func cleanUp() {
+    func cleanUp() {
         local.removeAll { !$0.isPlaying }
         remote.removeAll { !$0.isPlaying }
     }
 
-    mutating func stop(destination: SoundPlaybackOptions.Destination) async {
-        switch destination {
-        case .local:
-            await Self.stop(&local)
-        case .remote:
-            await Self.stop(&remote)
-        case .localAndRemote:
-            await Self.stop(&local)
-            await Self.stop(&remote)
+    func stop(destination: SoundPlaybackOptions.Destination) async {
+        if destination.includesLocal {
+            for playback in local { await playback.stop() }
         }
+        if destination.includesRemote {
+            for playback in remote { await playback.stop() }
+        }
+        cleanUp()
     }
 
-    mutating func localBuffer(for playerNodeFormat: AVAudioFormat) throws -> AVAudioPCMBuffer {
+    func localBuffer(for playerNodeFormat: AVAudioFormat) throws -> AVAudioPCMBuffer {
         if let cachedLocalBuffer, let cachedLocalBufferFormat, cachedLocalBufferFormat == playerNodeFormat {
             return cachedLocalBuffer
         }
