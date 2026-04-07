@@ -220,7 +220,7 @@ public final class SoundPlayer: Loggable {
         for soundID in Array(sounds.keys) {
             if var sound = sounds[soundID] {
                 await sound.stop(destination: destination)
-                sounds[soundID] = sound
+                if sounds[soundID] != nil { sounds[soundID] = sound }
             }
         }
     }
@@ -229,7 +229,7 @@ public final class SoundPlayer: Loggable {
     public func stop(_ sound: SoundHandle, destination: PlaybackOptions.Destination = .localAndRemote) async {
         guard var soundState = sounds[sound.id] else { return }
         await soundState.stop(destination: destination)
-        sounds[sound.id] = soundState
+        if sounds[sound.id] != nil { sounds[sound.id] = soundState }
     }
 
     /// Stops all playing or queued sounds associated with the given name without releasing the prepared buffer.
@@ -258,6 +258,9 @@ public final class SoundPlayer: Loggable {
 
         if options.mode == .replace {
             await soundState.stop(destination: .localAndRemote)
+            guard sounds[sound.id] != nil else {
+                throw LiveKitError(.audioEngine, message: "Sound not prepared")
+            }
         }
 
         soundState.cleanUp()

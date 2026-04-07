@@ -31,9 +31,9 @@ public struct PlaybackOptions: Sendable {
         case concurrent
         /// Stop any existing playback of the same sound before playing.
         ///
-        /// Replacement is scoped by sound identifier, not by destination.
-        /// Existing local and remote playback for the same `id` are both stopped
-        /// before the new playback starts.
+        /// Replacement is scoped by prepared sound, not by destination. Existing
+        /// local and remote playback for the same handle are both stopped before
+        /// the new playback starts.
         case replace
     }
 
