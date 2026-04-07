@@ -25,7 +25,7 @@ public actor SoundPlayerActor {
 }
 
 /// Options for controlling sound playback behavior.
-public struct PlaybackOptions: Sendable {
+public struct SoundPlaybackOptions: Sendable {
     /// How to handle existing playback of the same sound.
     public enum Mode: Sendable {
         /// Play concurrently with any existing playback of the same sound.
@@ -85,12 +85,12 @@ public struct SoundHandle: Hashable, Sendable {
     let id: UUID
 
     /// Plays this prepared sound with the provided options.
-    public func play(options: PlaybackOptions = PlaybackOptions()) async throws {
+    public func play(options: SoundPlaybackOptions = SoundPlaybackOptions()) async throws {
         try await SoundPlayer.shared.play(self, options: options)
     }
 
     /// Stops active local and/or remote playback for this prepared sound.
-    public func stop(destination: PlaybackOptions.Destination = .localAndRemote) async {
+    public func stop(destination: SoundPlaybackOptions.Destination = .localAndRemote) async {
         await SoundPlayer.shared.stop(self, destination: destination)
     }
 
@@ -109,7 +109,7 @@ public struct SoundHandle: Hashable, Sendable {
     }
 
     /// Returns `true` if this prepared sound has active playback for the selected destination.
-    public func isPlaying(destination: PlaybackOptions.Destination = .localAndRemote) async -> Bool {
+    public func isPlaying(destination: SoundPlaybackOptions.Destination = .localAndRemote) async -> Bool {
         await SoundPlayer.shared.isPlaying(self, destination: destination)
     }
 }
@@ -135,7 +135,7 @@ struct PreparedSound {
         remote.removeAll { !$0.isPlaying }
     }
 
-    mutating func stop(destination: PlaybackOptions.Destination) async {
+    mutating func stop(destination: SoundPlaybackOptions.Destination) async {
         switch destination {
         case .local:
             await Self.stop(&local)

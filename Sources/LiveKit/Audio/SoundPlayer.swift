@@ -121,7 +121,7 @@ public final class SoundPlayer: Loggable {
     }
 
     /// Stops all playing or queued sounds without releasing prepared audio buffers.
-    public func stopAll(destination: PlaybackOptions.Destination = .localAndRemote) async {
+    public func stopAll(destination: SoundPlaybackOptions.Destination = .localAndRemote) async {
         for soundId in Array(sounds.keys) {
             if var sound = sounds[soundId] {
                 await sound.stop(destination: destination)
@@ -229,7 +229,7 @@ extension SoundPlayer {
         sounds[sound.id] != nil
     }
 
-    func isPlaying(_ sound: SoundHandle, destination: PlaybackOptions.Destination = .localAndRemote) -> Bool {
+    func isPlaying(_ sound: SoundHandle, destination: SoundPlaybackOptions.Destination = .localAndRemote) -> Bool {
         guard let sound = sounds[sound.id] else { return false }
         switch destination {
         case .local:
@@ -241,13 +241,13 @@ extension SoundPlayer {
         }
     }
 
-    func stop(_ sound: SoundHandle, destination: PlaybackOptions.Destination = .localAndRemote) async {
+    func stop(_ sound: SoundHandle, destination: SoundPlaybackOptions.Destination = .localAndRemote) async {
         guard var soundState = sounds[sound.id] else { return }
         await soundState.stop(destination: destination)
         if sounds[sound.id] != nil { sounds[sound.id] = soundState }
     }
 
-    func play(_ sound: SoundHandle, options: PlaybackOptions = PlaybackOptions()) async throws {
+    func play(_ sound: SoundHandle, options: SoundPlaybackOptions = SoundPlaybackOptions()) async throws {
         guard var soundState = sounds[sound.id] else {
             throw LiveKitError(.soundPlayer, message: "Sound not prepared")
         }
