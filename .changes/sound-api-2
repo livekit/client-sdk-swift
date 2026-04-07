@@ -1,1 +1,1 @@
-minor type="added" "SoundPlayer API for local playback and best-effort remote injection"
+minor type="added" "SoundPlayer API for prepared audio clips with local playback and best-effort remote playback"
