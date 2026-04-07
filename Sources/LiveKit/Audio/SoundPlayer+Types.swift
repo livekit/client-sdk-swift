@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import Foundation
+
 @globalActor
 public actor SoundPlayerActor {
     public static let shared = SoundPlayerActor()
@@ -67,5 +69,35 @@ public struct PlaybackOptions: Sendable {
         self.mode = mode
         self.loop = loop
         self.destination = destination
+    }
+}
+
+/// Typed reference to a prepared sound managed by ``SoundPlayer``.
+///
+/// Handles are value types and do not own the underlying sound resource. They act as
+/// lightweight tokens that forward operations to ``SoundPlayer.shared``.
+public struct SoundHandle: Hashable, Sendable {
+    let id: UUID
+
+    public func play(options: PlaybackOptions = PlaybackOptions()) async throws {
+        try await SoundPlayer.shared.play(self, options: options)
+    }
+
+    public func stop(destination: PlaybackOptions.Destination = .localAndRemote) async {
+        await SoundPlayer.shared.stop(self, destination: destination)
+    }
+
+    public func release() async {
+        await SoundPlayer.shared.release(self)
+    }
+
+    public var isPrepared: Bool {
+        get async {
+            await SoundPlayer.shared.isPrepared(self)
+        }
+    }
+
+    public func isPlaying(destination: PlaybackOptions.Destination = .localAndRemote) async -> Bool {
+        await SoundPlayer.shared.isPlaying(self, destination: destination)
     }
 }
