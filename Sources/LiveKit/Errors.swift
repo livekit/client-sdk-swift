@@ -57,6 +57,7 @@ public enum LiveKitErrorType: Int, Sendable {
     // Audio
     case audioEngine = 801
     case audioSession = 802
+    case soundPlayer = 803
 
     case codecNotSupported = 901
 
@@ -118,6 +119,8 @@ extension LiveKitErrorType: CustomStringConvertible {
             "Audio Engine Error"
         case .audioSession:
             "Audio Session Error"
+        case .soundPlayer:
+            "Sound Player Error"
         case .codecNotSupported:
             "Codec not supported"
         case .encryptionFailed:
