@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+@preconcurrency import AVFAudio
 import Foundation
 
 @globalActor
@@ -74,30 +75,116 @@ public struct PlaybackOptions: Sendable {
 
 /// Typed reference to a prepared sound managed by ``SoundPlayer``.
 ///
-/// Handles are value types and do not own the underlying sound resource. They act as
-/// lightweight tokens that forward operations to ``SoundPlayer.shared``.
+/// `SoundHandle` is a value type, so it is safe to store in SwiftUI state, pass through
+/// view models, and copy. It does not own the underlying sound resource; call ``release()``
+/// when the prepared sound is no longer needed.
+///
+/// Use ``SoundPlayer/prepare(fileURL:named:)`` to create a handle. If a sound was prepared
+/// with a name, use ``SoundPlayer/sound(named:)`` to look up the current handle for that name.
 public struct SoundHandle: Hashable, Sendable {
     let id: UUID
 
+    /// Plays this prepared sound with the provided options.
     public func play(options: PlaybackOptions = PlaybackOptions()) async throws {
         try await SoundPlayer.shared.play(self, options: options)
     }
 
+    /// Stops active local and/or remote playback for this prepared sound.
     public func stop(destination: PlaybackOptions.Destination = .localAndRemote) async {
         await SoundPlayer.shared.stop(self, destination: destination)
     }
 
+    /// Releases this prepared sound and its audio session requirement.
+    ///
+    /// Other copies of the same handle become invalid after release.
     public func release() async {
         await SoundPlayer.shared.release(self)
     }
 
+    /// Returns `true` if this handle still refers to a prepared sound.
     public var isPrepared: Bool {
         get async {
             await SoundPlayer.shared.isPrepared(self)
         }
     }
 
+    /// Returns `true` if this prepared sound has active playback for the selected destination.
     public func isPlaying(destination: PlaybackOptions.Destination = .localAndRemote) async -> Bool {
         await SoundPlayer.shared.isPlaying(self, destination: destination)
+    }
+}
+
+struct PreparedSound {
+    let name: String?
+    let sourceBuffer: AVAudioPCMBuffer
+    let sessionRequirementHandle: SessionRequirementHandle
+    var cachedLocalBuffer: AVAudioPCMBuffer?
+    var cachedLocalBufferFormat: AVAudioFormat?
+    var local: [SoundPlayback] = []
+    var remote: [SoundPlayback] = []
+
+    private static func stop(_ playbacks: inout [SoundPlayback]) async {
+        for playback in playbacks {
+            await playback.stop()
+        }
+        playbacks.removeAll()
+    }
+
+    mutating func cleanUp() {
+        local.removeAll { !$0.isPlaying }
+        remote.removeAll { !$0.isPlaying }
+    }
+
+    mutating func stop(destination: PlaybackOptions.Destination) async {
+        switch destination {
+        case .local:
+            await Self.stop(&local)
+        case .remote:
+            await Self.stop(&remote)
+        case .localAndRemote:
+            await Self.stop(&local)
+            await Self.stop(&remote)
+        }
+    }
+
+    mutating func localBuffer(for playerNodeFormat: AVAudioFormat) throws -> AVAudioPCMBuffer {
+        if let cachedLocalBuffer, let cachedLocalBufferFormat, cachedLocalBufferFormat == playerNodeFormat {
+            return cachedLocalBuffer
+        }
+
+        let localBuffer: AVAudioPCMBuffer
+        if sourceBuffer.format == playerNodeFormat {
+            localBuffer = sourceBuffer
+        } else {
+            let outputBufferCapacity = AudioConverter.frameCapacity(from: sourceBuffer.format,
+                                                                    to: playerNodeFormat,
+                                                                    inputFrameCount: sourceBuffer.frameLength)
+            guard let converter = AudioConverter(from: sourceBuffer.format,
+                                                 to: playerNodeFormat,
+                                                 outputBufferCapacity: outputBufferCapacity)
+            else {
+                throw LiveKitError(.soundPlayer, message: "Failed to create audio converter")
+            }
+            localBuffer = converter.convert(from: sourceBuffer)
+        }
+
+        cachedLocalBuffer = localBuffer
+        cachedLocalBufferFormat = playerNodeFormat
+        return localBuffer
+    }
+}
+
+struct LocalEngineState {
+    var connectedOutputFormat: AVAudioFormat?
+    var playerNodeFormat: AVAudioFormat?
+    var needsReconnect = false
+
+    init(connectedOutputFormat: AVAudioFormat? = nil,
+         playerNodeFormat: AVAudioFormat? = nil,
+         needsReconnect: Bool = false)
+    {
+        self.connectedOutputFormat = connectedOutputFormat
+        self.playerNodeFormat = playerNodeFormat
+        self.needsReconnect = needsReconnect
     }
 }

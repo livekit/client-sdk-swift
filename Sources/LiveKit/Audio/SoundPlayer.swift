@@ -16,81 +16,6 @@
 
 @preconcurrency import AVFAudio
 
-private struct PreparedSound {
-    let name: String?
-    let sourceBuffer: AVAudioPCMBuffer
-    let sessionRequirementHandle: SessionRequirementHandle
-    var cachedLocalBuffer: AVAudioPCMBuffer?
-    var cachedLocalBufferFormat: AVAudioFormat?
-    var local: [SoundPlayback] = []
-    var remote: [SoundPlayback] = []
-
-    private static func stop(_ playbacks: inout [SoundPlayback]) async {
-        for playback in playbacks {
-            await playback.stop()
-        }
-        playbacks.removeAll()
-    }
-
-    mutating func cleanUp() {
-        local.removeAll { !$0.isPlaying }
-        remote.removeAll { !$0.isPlaying }
-    }
-
-    mutating func stop(destination: PlaybackOptions.Destination) async {
-        switch destination {
-        case .local:
-            await Self.stop(&local)
-        case .remote:
-            await Self.stop(&remote)
-        case .localAndRemote:
-            await Self.stop(&local)
-            await Self.stop(&remote)
-        }
-    }
-
-    mutating func localBuffer(for playerNodeFormat: AVAudioFormat) throws -> AVAudioPCMBuffer {
-        if let cachedLocalBuffer, let cachedLocalBufferFormat, cachedLocalBufferFormat == playerNodeFormat {
-            return cachedLocalBuffer
-        }
-
-        let localBuffer: AVAudioPCMBuffer
-        if sourceBuffer.format == playerNodeFormat {
-            localBuffer = sourceBuffer
-        } else {
-            let outputBufferCapacity = AudioConverter.frameCapacity(from: sourceBuffer.format,
-                                                                    to: playerNodeFormat,
-                                                                    inputFrameCount: sourceBuffer.frameLength)
-            guard let converter = AudioConverter(from: sourceBuffer.format,
-                                                 to: playerNodeFormat,
-                                                 outputBufferCapacity: outputBufferCapacity)
-            else {
-                throw LiveKitError(.soundPlayer, message: "Failed to create audio converter")
-            }
-            localBuffer = converter.convert(from: sourceBuffer)
-        }
-
-        cachedLocalBuffer = localBuffer
-        cachedLocalBufferFormat = playerNodeFormat
-        return localBuffer
-    }
-}
-
-private struct LocalEngineState {
-    var connectedOutputFormat: AVAudioFormat?
-    var playerNodeFormat: AVAudioFormat?
-    var needsReconnect = false
-
-    init(connectedOutputFormat: AVAudioFormat? = nil,
-         playerNodeFormat: AVAudioFormat? = nil,
-         needsReconnect: Bool = false)
-    {
-        self.connectedOutputFormat = connectedOutputFormat
-        self.playerNodeFormat = playerNodeFormat
-        self.needsReconnect = needsReconnect
-    }
-}
-
 /// High-level API for preparing and playing short sounds locally and over the room mixer.
 ///
 /// ```swift
@@ -113,14 +38,14 @@ public final class SoundPlayer: Loggable {
 
     // MARK: - Private
 
-    private let engine = AVAudioEngine()
-    private let playerNodePool: AVAudioPlayerNodePool
-    private let notificationCenter: NotificationCenter
-    private var engineConfigurationObserver: NSObjectProtocol?
+    let engine = AVAudioEngine()
+    let playerNodePool: AVAudioPlayerNodePool
+    let notificationCenter: NotificationCenter
+    var engineConfigurationObserver: NSObjectProtocol?
 
-    private var sounds: [UUID: PreparedSound] = [:]
-    private var soundIdsByName: [String: UUID] = [:]
-    private var localEngineState = LocalEngineState()
+    var sounds: [UUID: PreparedSound] = [:]
+    var soundIdsByName: [String: UUID] = [:]
+    var localEngineState = LocalEngineState()
 
     init(poolSize: Int = 10, notificationCenter: NotificationCenter = .default) {
         self.notificationCenter = notificationCenter
@@ -143,15 +68,17 @@ public final class SoundPlayer: Loggable {
         }
     }
 
-    // MARK: - Public API
-
-    /// Decodes and caches audio, optionally associating it with a unique name.
+    /// Decodes and caches audio, returning a handle for playback and release.
     ///
     /// Preparing a sound also acquires a playback session requirement and starts the
     /// local engine early to reduce first-play latency.
     ///
+    /// The returned ``SoundHandle`` is a lightweight value token. `SoundPlayer` owns the
+    /// prepared sound until the handle is released with ``SoundHandle/release()``.
+    ///
     /// If `name` is provided and another prepared sound already uses the same name,
-    /// the previous sound is stopped, released, and replaced.
+    /// the previous sound is stopped, released, and replaced. Use ``sound(named:)`` to look up
+    /// the current handle for a name.
     ///
     /// - Note: Only local file URLs are supported.
     /// - Note: The file format must be readable by `AVAudioFile` on the current platform.
@@ -184,35 +111,13 @@ public final class SoundPlayer: Loggable {
         }
     }
 
-    /// Returns the prepared sound currently associated with `name`, if any.
+    /// Returns the current handle for a prepared sound associated with `name`, if any.
+    ///
+    /// Names are optional aliases. Preparing another sound with the same name replaces the
+    /// previous mapping, so this returns the latest prepared sound for that name.
     public func sound(named name: String) -> SoundHandle? {
         guard let soundId = soundIdsByName[name], sounds[soundId] != nil else { return nil }
         return SoundHandle(id: soundId)
-    }
-
-    /// Releases a prepared sound, stops any active playback, and relinquishes its session requirement.
-    ///
-    /// Releasing the last prepared sound also stops the local playback engine owned by `SoundPlayer`.
-    public func release(_ sound: SoundHandle) async {
-        await releaseSound(id: sound.id)
-    }
-
-    /// Returns `true` if the handle still refers to a prepared sound.
-    public func isPrepared(_ sound: SoundHandle) -> Bool {
-        sounds[sound.id] != nil
-    }
-
-    /// Returns `true` if the sound currently has active playback for the selected destination.
-    public func isPlaying(_ sound: SoundHandle, destination: PlaybackOptions.Destination = .localAndRemote) -> Bool {
-        guard let sound = sounds[sound.id] else { return false }
-        switch destination {
-        case .local:
-            return sound.local.contains(where: \.isPlaying)
-        case .remote:
-            return sound.remote.contains(where: \.isPlaying)
-        case .localAndRemote:
-            return sound.local.contains(where: \.isPlaying) || sound.remote.contains(where: \.isPlaying)
-        }
     }
 
     /// Stops all playing or queued sounds without releasing prepared audio buffers.
@@ -224,73 +129,9 @@ public final class SoundPlayer: Loggable {
             }
         }
     }
-
-    /// Stops all playing or queued instances of a prepared sound without releasing its buffer.
-    public func stop(_ sound: SoundHandle, destination: PlaybackOptions.Destination = .localAndRemote) async {
-        guard var soundState = sounds[sound.id] else { return }
-        await soundState.stop(destination: destination)
-        if sounds[sound.id] != nil { sounds[sound.id] = soundState }
-    }
-
-    /// Stops all playing or queued sounds associated with the given name without releasing the prepared buffer.
-    public func stop(named name: String, destination: PlaybackOptions.Destination = .localAndRemote) async {
-        guard let sound = sound(named: name) else { return }
-        await sound.stop(destination: destination)
-    }
-
-    /// Plays a prepared sound.
-    ///
-    /// Remote playback is best-effort and is skipped when the WebRTC mixer input path
-    /// is unavailable.
-    ///
-    /// When `options.mode` is `.replace`, any existing playback for the same prepared sound
-    /// is stopped for both local and remote destinations before the new playback starts.
-    ///
-    /// When `options.destination` includes `.localAndRemote`, local playback may still succeed
-    /// even if remote playback is skipped.
-    ///
-    /// - Throws: ``LiveKitError`` if the sound is not prepared, local playback setup fails,
-    ///   or the local player-node pool is exhausted.
-    public func play(_ sound: SoundHandle, options: PlaybackOptions = PlaybackOptions()) async throws {
-        guard var soundState = sounds[sound.id] else {
-            throw LiveKitError(.soundPlayer, message: "Sound not prepared")
-        }
-
-        if options.mode == .replace {
-            await soundState.stop(destination: .localAndRemote)
-            guard sounds[sound.id] != nil else {
-                throw LiveKitError(.soundPlayer, message: "Sound not prepared")
-            }
-        }
-
-        soundState.cleanUp()
-
-        var localPlayback: SoundPlayback?
-        var remotePlayback: SoundPlayback?
-
-        if options.destination.includesLocal {
-            let playerNodeFormat = try startEngineIfNeeded()
-            let bufferToSchedule = try soundState.localBuffer(for: playerNodeFormat)
-            localPlayback = try playerNodePool.play(bufferToSchedule, loop: options.loop)
-        }
-
-        if options.destination.includesRemote {
-            remotePlayback = AudioManager.shared.mixer.playSound(soundState.sourceBuffer, loop: options.loop)
-        }
-
-        if let localPlayback {
-            soundState.local.append(localPlayback)
-        }
-
-        if let remotePlayback {
-            soundState.remote.append(remotePlayback)
-        }
-
-        sounds[sound.id] = soundState
-    }
 }
 
-private extension SoundPlayer {
+extension SoundPlayer {
     var outputFormat: AVAudioFormat? {
         let format = engine.outputNode.outputFormat(forBus: 0)
         guard format.channelCount > 0 else { return nil }
@@ -378,6 +219,70 @@ private extension SoundPlayer {
         }
 
         try? sound.sessionRequirementHandle.release()
+    }
+
+    func release(_ sound: SoundHandle) async {
+        await releaseSound(id: sound.id)
+    }
+
+    func isPrepared(_ sound: SoundHandle) -> Bool {
+        sounds[sound.id] != nil
+    }
+
+    func isPlaying(_ sound: SoundHandle, destination: PlaybackOptions.Destination = .localAndRemote) -> Bool {
+        guard let sound = sounds[sound.id] else { return false }
+        switch destination {
+        case .local:
+            return sound.local.contains(where: \.isPlaying)
+        case .remote:
+            return sound.remote.contains(where: \.isPlaying)
+        case .localAndRemote:
+            return sound.local.contains(where: \.isPlaying) || sound.remote.contains(where: \.isPlaying)
+        }
+    }
+
+    func stop(_ sound: SoundHandle, destination: PlaybackOptions.Destination = .localAndRemote) async {
+        guard var soundState = sounds[sound.id] else { return }
+        await soundState.stop(destination: destination)
+        if sounds[sound.id] != nil { sounds[sound.id] = soundState }
+    }
+
+    func play(_ sound: SoundHandle, options: PlaybackOptions = PlaybackOptions()) async throws {
+        guard var soundState = sounds[sound.id] else {
+            throw LiveKitError(.soundPlayer, message: "Sound not prepared")
+        }
+
+        if options.mode == .replace {
+            await soundState.stop(destination: .localAndRemote)
+            guard sounds[sound.id] != nil else {
+                throw LiveKitError(.soundPlayer, message: "Sound not prepared")
+            }
+        }
+
+        soundState.cleanUp()
+
+        var localPlayback: SoundPlayback?
+        var remotePlayback: SoundPlayback?
+
+        if options.destination.includesLocal {
+            let playerNodeFormat = try startEngineIfNeeded()
+            let bufferToSchedule = try soundState.localBuffer(for: playerNodeFormat)
+            localPlayback = try playerNodePool.play(bufferToSchedule, loop: options.loop)
+        }
+
+        if options.destination.includesRemote {
+            remotePlayback = AudioManager.shared.mixer.playSound(soundState.sourceBuffer, loop: options.loop)
+        }
+
+        if let localPlayback {
+            soundState.local.append(localPlayback)
+        }
+
+        if let remotePlayback {
+            soundState.remote.append(remotePlayback)
+        }
+
+        sounds[sound.id] = soundState
     }
 
     static func decodeBuffer(from fileURL: URL) async throws -> AVAudioPCMBuffer {
