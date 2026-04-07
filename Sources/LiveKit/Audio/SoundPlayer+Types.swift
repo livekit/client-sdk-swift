@@ -137,10 +137,14 @@ class PreparedSound {
 
     func stop(destination: SoundPlaybackOptions.Destination) async {
         if destination.includesLocal {
-            for playback in local { await playback.stop() }
+            for playback in local {
+                await playback.stop()
+            }
         }
         if destination.includesRemote {
-            for playback in remote { await playback.stop() }
+            for playback in remote {
+                await playback.stop()
+            }
         }
         cleanUp()
     }

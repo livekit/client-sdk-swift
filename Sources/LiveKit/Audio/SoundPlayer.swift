@@ -262,7 +262,7 @@ extension SoundPlayer {
         if options.destination.includesLocal {
             let playerNodeFormat = try startEngineIfNeeded()
             let bufferToSchedule = try soundState.localBuffer(for: playerNodeFormat)
-            soundState.local.append(try playerNodePool.play(bufferToSchedule, loop: options.loop))
+            try soundState.local.append(playerNodePool.play(bufferToSchedule, loop: options.loop))
         }
 
         if options.destination.includesRemote {

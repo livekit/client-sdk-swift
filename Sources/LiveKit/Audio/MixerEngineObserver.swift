@@ -189,9 +189,9 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
 
         // AVAudioPlayerNode doesn't support Int16 so we ensure to use Float32
         guard let playerNodeFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                                    sampleRate: format.sampleRate,
-                                                    channels: format.channelCount,
-                                                    interleaved: format.isInterleaved)
+                                                   sampleRate: format.sampleRate,
+                                                   channels: format.channelCount,
+                                                   interleaved: format.isInterleaved)
         else {
             log("Failed to create player node format", .error)
             return next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context) ?? 0
