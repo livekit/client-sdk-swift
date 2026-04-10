@@ -57,38 +57,38 @@ jobs:
 
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md
           - os: macos-26
-            xcode: 26.3
-            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.2"
+            xcode: 26.4
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.4"
             symbol-graph: true
           - os: macos-26
-            xcode: 26.3
-            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.2"
+            xcode: 26.4
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.4"
             extension-api-only: true
           - os: macos-26
-            xcode: 26.3
+            xcode: 26.4
             platform: "macOS"
             symbol-graph: true
           - os: macos-26
-            xcode: 26.3
+            xcode: 26.4
             platform: "macOS"
             asan: true
           - os: macos-26
-            xcode: 26.3
+            xcode: 26.4
             platform: "macOS"
             tsan: true
           - os: macos-26
-            xcode: 26.3
+            xcode: 26.4
             platform: "macOS"
             strict-concurrency-env: true
           - os: macos-26
-            xcode: 26.3
+            xcode: 26.4
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-26
-            xcode: 26.3
-            platform: "visionOS Simulator,name=Apple Vision Pro,OS=26.2"
+            xcode: 26.4
+            platform: "visionOS Simulator,name=Apple Vision Pro,OS=26.4"
           - os: macos-26
-            xcode: 26.3
-            platform: "tvOS Simulator,name=Apple TV,OS=26.2"
+            xcode: 26.4
+            platform: "tvOS Simulator,name=Apple TV,OS=26.4"
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
