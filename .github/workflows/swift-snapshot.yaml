@@ -20,7 +20,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -33,4 +33,7 @@ jobs:
         run: swiftly install -y ${{ env.SWIFT_SNAPSHOT }}
 
       - name: Build
-        run: swiftly run swift build +${{ env.SWIFT_SNAPSHOT }}
+        # --build-system native avoids a SwiftBuild resource-bundle crash
+        # ("unable to find bundle named SwiftBuild_SWBUniversalPlatform")
+        # seen in recent main-snapshot toolchains on the CI image.
+        run: swiftly run swift build +${{ env.SWIFT_SNAPSHOT }} --build-system native

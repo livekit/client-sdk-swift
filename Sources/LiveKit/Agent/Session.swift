@@ -119,9 +119,10 @@ open class Session: ObservableObject {
                  senders: [any MessageSender]?,
                  receivers: [any MessageReceiver]?)
     {
+        let room = options.room
         self.tokenSourceConfiguration = tokenSourceConfiguration
         self.options = options
-        room = options.room
+        self.room = room
 
         let textMessageSender = TextMessageSender(room: room)
         let resolvedSenders = senders ?? [textMessageSender]

@@ -96,7 +96,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install LiveKit Server
         run: brew install livekit
@@ -179,7 +179,7 @@ jobs:
     name: Lint
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install SwiftLint
         run: brew install swiftlint
       - name: SwiftLint
@@ -195,7 +195,7 @@ jobs:
     runs-on: macos-15
     steps:
       - name: Checkout Documentation Catalog
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: Sources/LiveKit/LiveKit.docc
 
@@ -230,7 +230,7 @@ jobs:
     name: Check Protocol
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           
@@ -260,7 +260,7 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
