@@ -33,4 +33,7 @@ jobs:
         run: swiftly install -y ${{ env.SWIFT_SNAPSHOT }}
 
       - name: Build
-        run: swiftly run swift build +${{ env.SWIFT_SNAPSHOT }}
+        # --build-system native avoids a SwiftBuild resource-bundle crash
+        # ("unable to find bundle named SwiftBuild_SWBUniversalPlatform")
+        # seen in recent main-snapshot toolchains on the CI image.
+        run: swiftly run swift build +${{ env.SWIFT_SNAPSHOT }} --build-system native
