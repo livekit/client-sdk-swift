@@ -215,6 +215,11 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     // MARK: - AudioEngineObserver
 
     public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
+        // No device access in manual rendering mode, skip session requirement.
+        if engine.isInManualRenderingMode {
+            return _state.next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
+        }
+
         let requirement = SessionRequirement(isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
         do {
             try set(requirement: requirement, for: sessionRequirementId)
@@ -226,6 +231,10 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 
     public func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
         let nextResult = _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
+
+        if engine.isInManualRenderingMode {
+            return nextResult
+        }
 
         let requirement = SessionRequirement(isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
         do {
