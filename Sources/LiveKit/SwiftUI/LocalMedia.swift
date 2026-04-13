@@ -121,7 +121,7 @@ open class LocalMedia: ObservableObject, Loggable {
         }
 
         AudioManager.shared.onDeviceUpdate = { [weak self] _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.audioDevices = AudioManager.shared.inputDevices
                 self?.selectedAudioDeviceID = AudioManager.shared.defaultInputDevice.deviceId
             }
