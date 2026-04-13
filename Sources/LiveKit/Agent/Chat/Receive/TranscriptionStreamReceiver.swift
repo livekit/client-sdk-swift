@@ -110,8 +110,8 @@ actor TranscriptionStreamReceiver: MessageReceiver, Loggable {
             }
         }
 
-        continuation.onTermination = { _ in
-            Task { [weak self] in
+        continuation.onTermination = { [weak self] _ in
+            Task {
                 await self?.room.unregisterTextStreamHandler(for: topic)
             }
         }
