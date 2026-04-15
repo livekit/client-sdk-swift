@@ -48,12 +48,8 @@ final class AudioConverter: Sendable {
 
     func convert(from inputBuffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer {
         var error: NSError?
-        #if swift(>=6.0)
         // Won't be accessed concurrently, marking as nonisolated(unsafe) to avoid Atomics.
         nonisolated(unsafe) var bufferFilled = false
-        #else
-        var bufferFilled = false
-        #endif
 
         converter.convert(to: outputBuffer, error: &error) { _, outStatus in
             if bufferFilled {

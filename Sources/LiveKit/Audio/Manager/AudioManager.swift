@@ -101,11 +101,7 @@ public final class SessionRequirementHandle: @unchecked Sendable {
 public class AudioManager: Loggable {
     // MARK: - Public
 
-    #if swift(>=6.0)
     public nonisolated(unsafe) static let shared = AudioManager()
-    #else
-    public static let shared = AudioManager()
-    #endif
 
     public static func prepare() {
         // Instantiate shared instance

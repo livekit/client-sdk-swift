@@ -44,11 +44,7 @@ public extension LiveKitSDK {
     /// Blocking version of ensureDeviceAccess that uses DispatchGroup to wait for permissions.
     static func ensureDeviceAccessSync(for types: Set<AVMediaType>) -> Bool {
         let group = DispatchGroup()
-        #if swift(>=6.0)
         nonisolated(unsafe) var result = false
-        #else
-        var result = false
-        #endif
 
         for type in types {
             if ![.video, .audio].contains(type) {
