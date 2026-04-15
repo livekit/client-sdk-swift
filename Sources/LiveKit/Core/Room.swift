@@ -96,6 +96,17 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         set { _e2eeManager.mutate { $0 = newValue } }
     }
 
+    /// Enables or disables end-to-end encryption on this Room.
+    ///
+    /// Requires the Room to have been constructed with ``EncryptionOptions``
+    /// (via ``RoomOptions/encryptionOptions``) and to be connected.
+    /// Otherwise this is a no-op.
+    ///
+    /// - Parameter enabled: Whether to enable encryption.
+    public func setE2EEEnabled(_ enabled: Bool) {
+        e2eeManager?.enableE2EE(enabled: enabled)
+    }
+
     public lazy var localParticipant: LocalParticipant = .init(room: self)
 
     let primaryTransportConnectedCompleter = AsyncCompleter<Void>(label: "Primary transport connect", defaultTimeout: .defaultTransportState)

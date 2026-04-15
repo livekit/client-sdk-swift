@@ -38,4 +38,29 @@ public struct SessionOptions: Sendable {
         self.preConnectAudio = preConnectAudio
         self.agentConnectTimeout = agentConnectTimeout
     }
+
+    /// Convenience initializer that configures the underlying ``Room`` with
+    /// end-to-end encryption.
+    ///
+    /// The ``Room`` is constructed internally with
+    /// `RoomOptions(encryptionOptions: encryption)`. Use this for the common
+    /// case where you only need to enable E2EE; for advanced configuration
+    /// (custom `RoomOptions`, delegate, per-participant key management),
+    /// build a ``Room`` yourself and use ``init(room:preConnectAudio:agentConnectTimeout:)``.
+    ///
+    /// - Parameters:
+    ///   - encryption: The end-to-end encryption configuration.
+    ///   - preConnectAudio: Whether to enable audio pre-connect.
+    ///   - agentConnectTimeout: Timeout for the agent to connect, in seconds.
+    public init(
+        encryption: EncryptionOptions,
+        preConnectAudio: Bool = true,
+        agentConnectTimeout: TimeInterval = 20
+    ) {
+        self.init(
+            room: Room(roomOptions: RoomOptions(encryptionOptions: encryption)),
+            preConnectAudio: preConnectAudio,
+            agentConnectTimeout: agentConnectTimeout
+        )
+    }
 }

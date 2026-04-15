@@ -88,6 +88,19 @@ public final class EncryptionOptions: NSObject, Sendable {
         self.encryptionType = encryptionType
     }
 
+    /// Creates `EncryptionOptions` configured with a shared-key
+    /// `BaseKeyProvider` derived from the given passphrase.
+    ///
+    /// - Parameters:
+    ///   - key: The shared passphrase used to derive the encryption key.
+    ///   - encryptionType: The encryption algorithm to use. Defaults to `.gcm`.
+    public static func sharedKey(_ key: String,
+                                 encryptionType: EncryptionType = .gcm) -> EncryptionOptions
+    {
+        EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: key),
+                          encryptionType: encryptionType)
+    }
+
     // MARK: - Equal
 
     override public func isEqual(_ object: Any?) -> Bool {
