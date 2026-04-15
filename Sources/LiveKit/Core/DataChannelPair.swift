@@ -376,7 +376,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     func infos() -> [Livekit_DataChannelInfo] {
         _state.read { [$0.lossy, $0.reliable] }
-            .compactMap { $0 }
+            .compactMap(\.self)
             .map { $0.toLKInfoType() }
     }
 

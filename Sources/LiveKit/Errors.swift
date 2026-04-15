@@ -146,7 +146,7 @@ public class LiveKitError: NSError, @unchecked Sendable, Loggable {
     public var underlyingError: Error? { internalError }
 
     override public var underlyingErrors: [Error] {
-        [internalError].compactMap { $0 }
+        [internalError].compactMap(\.self)
     }
 
     public init(_ type: LiveKitErrorType,

@@ -43,7 +43,7 @@ class RegionManagerTests: XCTestCase {
             $0.region = "dsyd1a"
             $0.url = "https://example.dsyd1a.production.livekit.cloud"
             $0.distance = 7_823_582
-        }].map { $0.toLKType() }.compactMap { $0 }
+        }].map { $0.toLKType() }.compactMap(\.self)
 
         let providedUrl = try XCTUnwrap(URL(string: "https://example.livekit.cloud"))
         let regionManager = RegionManager(providedUrl: providedUrl)

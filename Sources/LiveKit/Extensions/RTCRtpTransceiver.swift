@@ -37,7 +37,7 @@ extension LKRTCRtpTransceiver: Loggable {
 
         // Codecs not set in codecPreferences will not be negotiated in the offer
         do {
-            try setCodecPreferences(combinedCapabilities.compactMap { $0 }, error: ())
+            try setCodecPreferences(combinedCapabilities.compactMap(\.self), error: ())
         } catch {
             throw LiveKitError(.webRTC, message: "Failed to set codec preferences", internalError: error)
         }
