@@ -1,16 +1,22 @@
-// swift-tools-version:5.9
-// (Xcode15.0+)
+// swift-tools-version:6.0
+// (Xcode16.0+)
 
 import PackageDescription
 
+var platforms: [SupportedPlatform] = [
+    .iOS(.v13),
+    .macOS(.v10_15),
+    .macCatalyst(.v14),
+    .tvOS(.v17),
+]
+
+#if swift(>=6.2)
+platforms.append(.visionOS(.v26))
+#endif
+
 let package = Package(
     name: "LiveKit",
-    platforms: [
-        .iOS(.v13),
-        .macOS(.v10_15),
-        .macCatalyst(.v14),
-        .tvOS(.v17),
-    ],
+    platforms: platforms,
     products: [
         .library(
             name: "LiveKit",
@@ -77,7 +83,8 @@ let package = Package(
             ]
         ),
     ],
-    swiftLanguageVersions: [
-        .v5,
+    swiftLanguageModes: [
+        .v5, // opt-out from dynamic actor isolation checks
+        .v6,
     ]
 )
