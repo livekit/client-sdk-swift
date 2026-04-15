@@ -75,8 +75,5 @@ let package = Package(
             ]
         ),
     ],
-    swiftLanguageModes: [
-        .v5, // opt-out from dynamic actor isolation checks
-        .v6,
-    ]
+    swiftLanguageModes: [.v5, .v6]
 )
