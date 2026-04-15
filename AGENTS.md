@@ -84,8 +84,8 @@ Threading:
 ### Language Version
 
 - Minimum supported Xcode is Xcode 16 (Swift 6.0); see Apple's [App Store submission requirements](https://developer.apple.com/news/upcoming-requirements/?id=02212025a)
-- `Package.swift` and `.swift-version` declare the **oldest** supported version (`swift-tools-version:6.0`)
-- Keep `Package.swift`, `.swift-version`, and `LiveKitClient.podspec` in sync when changing the minimum
+- `Package.swift` (`swift-tools-version:6.0`) declares the **oldest** supported version
+- Keep `Package.swift`, `LiveKitClient.podspec`, and `.swiftformat`'s `--swiftversion` in sync when changing the minimum
 - New code should use the latest stable Swift version
 - Some constructs require `#if swift` or `#if compiler` directives to support newer-than-minimum toolchains:
 
