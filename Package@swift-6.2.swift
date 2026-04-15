@@ -44,9 +44,6 @@ let package = Package(
             ],
             resources: [
                 .process("PrivacyInfo.xcprivacy"),
-            ],
-            swiftSettings: [
-                .enableExperimentalFeature("AccessLevelOnImport"),
             ]
         ),
         .target(

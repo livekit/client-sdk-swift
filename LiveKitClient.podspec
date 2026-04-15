@@ -19,8 +19,4 @@ Pod::Spec.new do |spec|
   spec.dependency("SwiftProtobuf")
 
   spec.resource_bundles = {"Privacy" => ["Sources/LiveKit/PrivacyInfo.xcprivacy"]}
-
-  spec.pod_target_xcconfig = {
-    "OTHER_SWIFT_FLAGS" => "-enable-experimental-feature AccessLevelOnImport"
-  }
 end
