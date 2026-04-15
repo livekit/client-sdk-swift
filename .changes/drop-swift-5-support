@@ -1,0 +1,1 @@
+minor type="changed" "Drop Xcode 15 (Swift 5.x) support; minimum is now Xcode 16 / Swift 6.0"
