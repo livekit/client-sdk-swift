@@ -83,17 +83,17 @@ Threading:
 
 ### Language Version
 
-- Supported Xcode versions: current minus two major versions (including beta)
-- `Package.swift` and `.swift-version` declare the **oldest** supported version (e.g., `swift-tools-version:5.9`) for backwards compatibility
-- Keep all manifests in sync when adding dependencies
+- Minimum supported Xcode is Xcode 16 (Swift 6.0); see Apple's [App Store submission requirements](https://developer.apple.com/news/upcoming-requirements/?id=02212025a)
+- `Package.swift` and `.swift-version` declare the **oldest** supported version (`swift-tools-version:6.0`)
+- Keep `Package.swift`, `.swift-version`, and `LiveKitClient.podspec` in sync when changing the minimum
 - New code should use the latest stable Swift version
-- Some constructs require `#if swift` or `#if compiler` directives for version compatibility:
+- Some constructs require `#if swift` or `#if compiler` directives to support newer-than-minimum toolchains:
 
 ```swift
-#if swift(>=6.0)
-public nonisolated(unsafe) static let shared = AudioManager()
+#if swift(>=6.2)
+private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetoothHFP, .allowBluetoothA2DP, .allowAirPlay]
 #else
-public static let shared = AudioManager()
+private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
 #endif
 ```
 
