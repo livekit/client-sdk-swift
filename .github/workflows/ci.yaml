@@ -27,19 +27,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
+          # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-arm64-Readme.md
           - os: macos-14
-            xcode: 15.4
-            platform: "iOS Simulator,name=iPhone 15 Pro,OS=17.5"
+            xcode: 16.2
+            platform: "iOS Simulator,name=iPhone 16 Pro,OS=18.2"
           - os: macos-14
-            xcode: 15.4
+            xcode: 16.2
             platform: "macOS"
           - os: macos-14
-            xcode: 15.4
+            xcode: 16.2
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-14
-            xcode: 15.4
-            platform: "tvOS Simulator,name=Apple TV,OS=17.5"
+            xcode: 16.2
+            platform: "tvOS Simulator,name=Apple TV,OS=18.2"
 
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md
           - os: macos-15

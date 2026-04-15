@@ -15,7 +15,7 @@ jobs:
       matrix:
         include:
           - os: macos-14
-            xcode: 15.4
+            xcode: 16.2
           - os: macos-15
             xcode: 16.4
           - os: macos-26
