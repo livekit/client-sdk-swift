@@ -80,7 +80,7 @@ public enum TestEnvironment {
             let connectOptions = ConnectOptions(enableMicrophone: $0.element.enableMicrophone)
 
             let encryptionOptions = $0.element.encryptionOptions ?? EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
-            let roomOptions = RoomOptions(encryptionOptions: encryptionOptions, reportRemoteTrackStatistics: true)
+            let roomOptions = RoomOptions(encryptionOptions: encryptionOptions, reportRemoteTrackStatistics: true, singlePeerConnection: $0.element.singlePeerConnection)
 
             let room = Room(delegate: $0.element.delegate, connectOptions: connectOptions, roomOptions: roomOptions)
             let identity = "identity-\($0.offset)"
@@ -103,19 +103,21 @@ public enum TestEnvironment {
                     token: token)
         }
 
-        // Connect all Rooms concurrently
-        try await withThrowingTaskGroup(of: Void.self) { group in
-            for element in rooms {
-                group.addTask {
-                    try await element.room.connect(url: element.url, token: element.token)
-                    guard element.room.localParticipant.identity != nil else {
-                        throw LiveKitError(.invalidState, message: "LocalParticipant.identity is nil after connect")
+        // Connect all Rooms concurrently (retry on transient failure)
+        try await Task.retrying(totalAttempts: 3, retryDelay: 2) { _, _ in
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for element in rooms {
+                    group.addTask {
+                        try await element.room.connect(url: element.url, token: element.token)
+                        guard element.room.localParticipant.identity != nil else {
+                            throw LiveKitError(.invalidState, message: "LocalParticipant.identity is nil after connect")
+                        }
+                        print("LocalParticipant.identity: \(String(describing: element.room.localParticipant.identity))")
                     }
-                    print("LocalParticipant.identity: \(String(describing: element.room.localParticipant.identity))")
                 }
+                try await group.waitForAll()
             }
-            try await group.waitForAll()
-        }
+        }.value
 
         let observerToken = try liveKitServerToken(for: roomName,
                                                    identity: "observer",
@@ -154,14 +156,18 @@ public enum TestEnvironment {
         // Execute block
         try await block(allRooms)
 
-        // Disconnect all Rooms concurrently
+        // Gracefully unpublish all tracks then disconnect.
         try await withThrowingTaskGroup(of: Void.self) { group in
             for element in rooms {
                 group.addTask {
+                    await element.room.localParticipant.unpublishAll()
                     await element.room.disconnect()
                 }
             }
             try await group.waitForAll()
         }
+
+        // Allow the server to fully tear down resources before the next test.
+        try await Task.sleep(nanoseconds: 1_000_000_000)
     }
 }

@@ -40,6 +40,12 @@ actor MessageCollector {
 }
 
 @Suite(.serialized, .tags(.e2e)) final class TranscriptionTests: @unchecked Sendable {
+    private var rooms: [Room] = []
+    private var receiver: TranscriptionStreamReceiver!
+    private var senderRoom: Room!
+    private var messageCollector: MessageCollector!
+    private var collectionTask: AnyTaskCancellable!
+
     // Same segment, same stream
     @Test func updates() async throws {
         let segmentID = "test-segment"
@@ -187,7 +193,6 @@ actor MessageCollector {
             await observer.messageCollector.add(message)
         }
     }
-
 
     private func sendTranscriptionChunks(
         chunks: [String],

@@ -15,63 +15,64 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class SessionOptionsTests: LKTestCase, @unchecked Sendable {
+struct SessionOptionsTests {
     // MARK: - EncryptionOptions.sharedKey
 
-    func testSharedKeyFactoryDefaults() {
+    @Test func sharedKeyFactoryDefaults() {
         let options = EncryptionOptions.sharedKey("my-secret")
 
-        XCTAssertEqual(options.encryptionType, .gcm)
-        XCTAssertTrue(options.keyProvider.options.sharedKey)
+        #expect(options.encryptionType == .gcm)
+        #expect(options.keyProvider.options.sharedKey)
     }
 
-    func testSharedKeyFactoryRespectsEncryptionType() {
+    @Test func sharedKeyFactoryRespectsEncryptionType() {
         let options = EncryptionOptions.sharedKey("my-secret", encryptionType: .custom)
 
-        XCTAssertEqual(options.encryptionType, .custom)
-        XCTAssertTrue(options.keyProvider.options.sharedKey)
+        #expect(options.encryptionType == .custom)
+        #expect(options.keyProvider.options.sharedKey)
     }
 
     // MARK: - SessionOptions(encryption:)
 
-    func testEncryptionInitPlumbsOptionsThroughToRoom() {
+    @Test func encryptionInitPlumbsOptionsThroughToRoom() {
         let encryption = EncryptionOptions.sharedKey("my-secret")
         let options = SessionOptions(encryption: encryption)
 
         // The underlying Room carries the encryption options in its RoomOptions.
         let plumbed = options.room._state.roomOptions.encryptionOptions
-        XCTAssertNotNil(plumbed)
-        XCTAssertTrue(plumbed === encryption)
+        #expect(plumbed != nil)
+        #expect(plumbed === encryption)
     }
 
-    func testEncryptionInitPreservesOtherDefaults() {
+    @Test func encryptionInitPreservesOtherDefaults() {
         let options = SessionOptions(encryption: .sharedKey("k"))
 
-        XCTAssertTrue(options.preConnectAudio)
-        XCTAssertEqual(options.agentConnectTimeout, 20)
+        #expect(options.preConnectAudio)
+        #expect(options.agentConnectTimeout == 20)
     }
 
-    func testEncryptionInitForwardsOtherOptions() {
+    @Test func encryptionInitForwardsOtherOptions() {
         let options = SessionOptions(
             encryption: .sharedKey("k"),
             preConnectAudio: false,
             agentConnectTimeout: 5
         )
 
-        XCTAssertFalse(options.preConnectAudio)
-        XCTAssertEqual(options.agentConnectTimeout, 5)
+        #expect(!options.preConnectAudio)
+        #expect(options.agentConnectTimeout == 5)
     }
 
     // MARK: - SessionOptions(room:) escape hatch
 
-    func testRoomInitPreservesProvidedRoom() {
+    @Test func roomInitPreservesProvidedRoom() {
         let provided = Room()
         let options = SessionOptions(room: provided)
 
-        XCTAssertTrue(options.room === provided)
+        #expect(options.room === provided)
     }
 }

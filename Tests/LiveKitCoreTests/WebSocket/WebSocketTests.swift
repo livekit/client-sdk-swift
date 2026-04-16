@@ -14,23 +14,26 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class WebSocketTests: LKTestCase, @unchecked Sendable {
+@Suite(.serialized, .tags(.e2e))
+final class WebSocketTests: @unchecked Sendable {
     // MARK: - Cancellation
 
-    func testCancellationDuringConnect() async throws {
-        let url = liveKitServerUrl()
+    @Test func cancellationDuringConnect() async throws {
+        let url = TestEnvironment.liveKitServerUrl()
         let roomName = "cancel-\(UUID().uuidString.prefix(8))"
-        let token = try liveKitServerToken(for: roomName,
-                                           identity: "cancel-test",
-                                           canPublish: false,
-                                           canPublishData: false,
-                                           canPublishSources: [],
-                                           canSubscribe: false)
+        let token = try TestEnvironment.liveKitServerToken(for: roomName,
+                                                           identity: "cancel-test",
+                                                           canPublish: false,
+                                                           canPublishData: false,
+                                                           canPublishSources: [],
+                                                           canSubscribe: false)
 
         let room = Room()
         let task = Task {
@@ -52,19 +55,19 @@ class WebSocketTests: LKTestCase, @unchecked Sendable {
         }
     }
 
-    func testRapidFireConnectCancel() async throws {
-        let url = liveKitServerUrl()
+    @Test func rapidFireConnectCancel() async throws {
+        let url = TestEnvironment.liveKitServerUrl()
         var cancelled = 0
         var connected = 0
 
         for i in 1 ... 10 {
             let roomName = "fire-\(UUID().uuidString.prefix(8))"
-            let token = try liveKitServerToken(for: roomName,
-                                               identity: "fire-\(i)",
-                                               canPublish: false,
-                                               canPublishData: false,
-                                               canPublishSources: [],
-                                               canSubscribe: false)
+            let token = try TestEnvironment.liveKitServerToken(for: roomName,
+                                                               identity: "fire-\(i)",
+                                                               canPublish: false,
+                                                               canPublishData: false,
+                                                               canPublishSources: [],
+                                                               canSubscribe: false)
             let room = Room()
             let task = Task {
                 try await room.connect(url: url, token: token)
@@ -85,7 +88,7 @@ class WebSocketTests: LKTestCase, @unchecked Sendable {
         }
 
         // At least some should have been cancelled or connected — no crashes
-        XCTAssert(connected + cancelled == 10, "Expected 10 total, got \(connected + cancelled)")
+        #expect(connected + cancelled == 10, "Expected 10 total, got \(connected + cancelled)")
     }
 
     // MARK: - Stale socket race (#941)
@@ -93,18 +96,18 @@ class WebSocketTests: LKTestCase, @unchecked Sendable {
     /// Simulate the race where old WebSocket onFailure callbacks could tear
     /// down a newly established connection. Fires concurrent connect/disconnect
     /// cycles on a single Room so old sockets die while new ones are being set up.
-    func testConcurrentConnectDoesNotCorruptState() async throws {
-        let url = liveKitServerUrl()
+    @Test func concurrentConnectDoesNotCorruptState() async throws {
+        let url = TestEnvironment.liveKitServerUrl()
         let room = Room()
 
         for i in 1 ... 10 {
             let roomName = "race-\(UUID().uuidString.prefix(8))"
-            let token = try liveKitServerToken(for: roomName,
-                                               identity: "race-\(i)",
-                                               canPublish: false,
-                                               canPublishData: false,
-                                               canPublishSources: [],
-                                               canSubscribe: false)
+            let token = try TestEnvironment.liveKitServerToken(for: roomName,
+                                                               identity: "race-\(i)",
+                                                               canPublish: false,
+                                                               canPublishData: false,
+                                                               canPublishSources: [],
+                                                               canSubscribe: false)
 
             let task = Task { try await room.connect(url: url, token: token) }
 
@@ -117,19 +120,19 @@ class WebSocketTests: LKTestCase, @unchecked Sendable {
 
         // Final connect — must succeed cleanly despite all the prior churn
         let finalRoom = "race-final-\(UUID().uuidString.prefix(8))"
-        let finalToken = try liveKitServerToken(for: finalRoom,
-                                                identity: "race-final",
-                                                canPublish: false,
-                                                canPublishData: false,
-                                                canPublishSources: [],
-                                                canSubscribe: false)
+        let finalToken = try TestEnvironment.liveKitServerToken(for: finalRoom,
+                                                                identity: "race-final",
+                                                                canPublish: false,
+                                                                canPublishData: false,
+                                                                canPublishSources: [],
+                                                                canSubscribe: false)
         try await room.connect(url: url, token: finalToken)
-        XCTAssertEqual(room.connectionState, .connected)
+        #expect(room.connectionState == .connected)
 
         let socket = await room.signalClient._state.socket
-        XCTAssertNotNil(socket)
+        #expect(socket != nil)
 
         await room.disconnect()
-        XCTAssertEqual(room.connectionState, .disconnected)
+        #expect(room.connectionState == .disconnected)
     }
 }

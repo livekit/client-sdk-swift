@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
-// Tag definitions live in the test targets (LiveKitCoreTests/Tags.swift,
-// LiveKitAudioTests/Tags.swift) because `import Testing` requires a
-// .testTarget — the `LiveKitTestSupport` library is a regular .target.
+import Testing
+
+extension Tag {
+    /// Audio engine, processing, recording, and buffer tests.
+    @Tag static var audio: Self
+    /// End-to-end tests requiring a running LiveKit server.
+    @Tag static var e2e: Self
+}
