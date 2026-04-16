@@ -170,7 +170,7 @@ jobs:
 
       - name: Upload Symbol Graph
         if: ${{ matrix.symbol-graph }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: symbol-graph-${{ matrix.platform }}
           path: symbol-graph
@@ -200,7 +200,7 @@ jobs:
           sparse-checkout: Sources/LiveKit/LiveKit.docc
 
       - name: Download Symbol Graphs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: symbol-graph-*
           path: symbol-graphs
@@ -221,7 +221,7 @@ jobs:
         run: zip -r docs.zip docs
 
       - name: Upload Archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: docs
           path: docs.zip
@@ -275,7 +275,7 @@ jobs:
 
       - name: Comment on PR
         if: steps.check-changes.outputs.has_changes == 'false'
-        uses: mshick/add-pr-comment@v2
+        uses: mshick/add-pr-comment@v3
         with:
           message: |
             ⚠️ This PR does not contain any files in the `.changes` directory.
