@@ -9,7 +9,7 @@ let package = Package(
     ],
     dependencies: [
         .package(name: "client-sdk-swift", path: "../"),
-        .package(url: "https://github.com/livekit/livekit-uniffi-xcframework.git", exact: "0.0.5"),
+        .package(url: "https://github.com/livekit/livekit-uniffi-xcframework.git", from: "0.0.1"),
         .package(url: "https://github.com/ordo-one/package-benchmark.git", from: "1.29.0"),
     ],
     targets: [
