@@ -22,52 +22,33 @@ import LiveKitTestSupport
 #endif
 
 @Suite(.tags(.concurrency))
-class ThreadSafetyTests: @unchecked Sendable {
+struct ThreadSafetyTests {
     struct TestState: Equatable {
         var dictionary = [String: String]()
         var counter = 0
     }
 
-    let queueCount = 100
-    let blockCount = 1000
-
-    let safeState = StateSync(TestState())
-    var unsafeState = TestState()
-
-    let group = DispatchGroup()
-    var concurrentQueues: [DispatchQueue]
-
-    init() {
-        concurrentQueues = Array(1 ... queueCount).map { DispatchQueue(label: "testQueue_\($0)", attributes: [.concurrent]) }
-    }
-
-    deinit {
-        concurrentQueues = []
-        safeState.mutate { $0 = TestState() }
-        unsafeState = TestState()
-    }
-
-    // this should never crash
     @Test func safe() async {
+        let queueCount = 100
+        let blockCount = 1000
+        let safeState = StateSync(TestState())
+        let group = DispatchGroup()
+        let concurrentQueues = (1 ... queueCount).map { DispatchQueue(label: "testQueue_\($0)", attributes: [.concurrent]) }
+
         for queue in concurrentQueues {
             for i in 1 ... blockCount {
-                // perform write
                 queue.async(group: group) {
-                    // random sleep
                     let interval = 0.1 / Double.random(in: 1 ... 100)
-                    // print("sleeping for \(interval)")
                     Thread.sleep(forTimeInterval: interval)
 
-                    self.safeState.mutate {
+                    safeState.mutate {
                         $0.dictionary["key"] = "\(i)"
                         $0.counter += 1
                     }
                 }
 
-                // perform read
                 queue.async(group: group) {
-                    // expected to be out-of-order since concurrent queue and random sleep
-                    print("current counter value: \(self.safeState.counter)")
+                    _ = safeState.counter
                 }
             }
         }
@@ -78,45 +59,7 @@ class ThreadSafetyTests: @unchecked Sendable {
             }
         }
 
-        print("state \(safeState)")
-
         let totalBlocks = queueCount * blockCount
         #expect(safeState.counter == totalBlocks, "counter must be \(totalBlocks)")
     }
-
-    // this will crash
-//    func testUnsafe() async throws {
-//        for queue in concurrentQueues {
-//            for i in 1 ... blockCount {
-//                // perform write
-//                queue.async(group: group) {
-//                    // random sleep
-//                    let interval = 0.1 / Double.random(in: 1 ... 100)
-//                    // print("sleeping for \(interval)")
-//                    Thread.sleep(forTimeInterval: interval)
-//
-//                    // high possibility it will crash here
-//                    self.unsafeState.dictionary["key"] = "\(i)"
-//                    self.unsafeState.counter += 1
-//                }
-//
-//                // perform read
-//                queue.async(group: group) {
-//                    // expected to be out-of-order since concurrent queue and random sleep
-//                    print("current counter value: \(self.safeState.counter)")
-//                }
-//            }
-//        }
-//
-//        await withCheckedContinuation { continuation in
-//            group.notify(queue: .main) {
-//                continuation.resume()
-//            }
-//        }
-//
-//        print("state \(unsafeState)")
-//
-//        let totalBlocks = queueCount * blockCount
-//        #expect(unsafeState.counter == totalBlocks, "counter must be \(totalBlocks)")
-//    }
 }

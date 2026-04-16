@@ -24,31 +24,30 @@ import LiveKitTestSupport
 #endif
 
 @Suite(.tags(.broadcast))
-class BroadcastManagerTests: @unchecked Sendable {
-    private var manager: BroadcastManager
-
-    init() {
-        manager = BroadcastManager()
-    }
-
+struct BroadcastManagerTests {
     @Test func initialState() {
+        let manager = BroadcastManager()
         #expect(!manager.isBroadcasting)
         #expect(manager.shouldPublishTrack)
         #expect(manager.delegate == nil)
     }
 
     @Test func setDelegate() {
+        let manager = BroadcastManager()
         let delegate = MockDelegate()
         manager.delegate = delegate
         #expect(manager.delegate === delegate)
     }
 
     @Test func setShouldPublishTrack() {
+        let manager = BroadcastManager()
         manager.shouldPublishTrack = false
         #expect(!manager.shouldPublishTrack)
     }
 
     @Test func broadcastStarted() async {
+        let manager = BroadcastManager()
+
         await confirmation("All events", expectedCount: 3) { confirm in
             let delegate = MockDelegate()
             manager.delegate = delegate
@@ -60,15 +59,13 @@ class BroadcastManagerTests: @unchecked Sendable {
 
             var cancellable = Set<AnyCancellable>()
             manager.isBroadcastingPublisher.sink {
-                guard $0 else { return } // first call is initial value of false
+                guard $0 else { return }
                 confirm()
             }
             .store(in: &cancellable)
 
-            // Simulate broadcast start
             DarwinNotificationCenter.shared.postNotification(.broadcastStarted)
 
-            // Wait for delivery
             try? await Task.sleep(nanoseconds: 500_000_000)
             #expect(manager.isBroadcasting)
             confirm()

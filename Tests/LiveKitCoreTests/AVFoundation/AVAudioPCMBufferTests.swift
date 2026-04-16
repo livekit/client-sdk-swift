@@ -22,18 +22,21 @@ import LiveKitTestSupport
 #endif
 
 @Suite(.tags(.audio)) struct AVAudioPCMBufferTests {
-    @Test func resample() {
-        // Test case 1: Resample to a higher sample rate
-        resampleHelper(fromSampleRate: 44100, toSampleRate: 48000, expectedSuccess: true)
+    struct ResampleCase: CustomTestStringConvertible {
+        let from: Double
+        let to: Double
+        let shouldSucceed: Bool
+        var testDescription: String { "\(Int(from))Hz → \(Int(to))Hz (\(shouldSucceed ? "ok" : "fail"))" }
+    }
 
-        // Test case 2: Resample to a lower sample rate
-        resampleHelper(fromSampleRate: 48000, toSampleRate: 16000, expectedSuccess: true)
-
-        // Test case 3: Resample to the same sample rate
-        resampleHelper(fromSampleRate: 44100, toSampleRate: 44100, expectedSuccess: true)
-
-        // Test case 4: Resample to an invalid sample rate
-        resampleHelper(fromSampleRate: 44100, toSampleRate: 0, expectedSuccess: false)
+    @Test(arguments: [
+        ResampleCase(from: 44100, to: 48000, shouldSucceed: true),
+        ResampleCase(from: 48000, to: 16000, shouldSucceed: true),
+        ResampleCase(from: 44100, to: 44100, shouldSucceed: true),
+        ResampleCase(from: 44100, to: 0, shouldSucceed: false),
+    ])
+    func resample(_ c: ResampleCase) {
+        resampleHelper(fromSampleRate: c.from, toSampleRate: c.to, expectedSuccess: c.shouldSucceed)
     }
 
     private func resampleHelper(fromSampleRate: Double, toSampleRate: Double, expectedSuccess: Bool) {
@@ -74,15 +77,12 @@ import LiveKitTestSupport
         }
     }
 
-    @Test func toData() {
-        let sampleRates: [Double] = [8000, 16000, 22050, 24000, 32000, 44100, 48000]
-        let formats: [AVAudioCommonFormat] = [.pcmFormatFloat32, .pcmFormatInt16, .pcmFormatInt32]
+    static let sampleRates: [Double] = [8000, 16000, 22050, 24000, 32000, 44100, 48000]
+    static let formats: [AVAudioCommonFormat] = [.pcmFormatFloat32, .pcmFormatInt16, .pcmFormatInt32]
 
-        for sampleRate in sampleRates {
-            for audioFormat in formats {
-                toDataHelper(sampleRate: sampleRate, format: audioFormat)
-            }
-        }
+    @Test(arguments: sampleRates, formats)
+    func toData(sampleRate: Double, format: AVAudioCommonFormat) {
+        toDataHelper(sampleRate: sampleRate, format: format)
     }
 
     private func toDataHelper(sampleRate: Double, format: AVAudioCommonFormat) {

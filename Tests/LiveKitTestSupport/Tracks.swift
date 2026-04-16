@@ -17,14 +17,14 @@
 @preconcurrency import AVFoundation
 @testable import LiveKit
 
-nonisolated(unsafe) var cachedSampleVideoURL: URL?
+private let cachedSampleVideoURL = StateSync<URL?>(nil)
 
 // Creates a LocalVideoTrack with BufferCapturer, generates frames for approx 30 seconds.
 public func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @Sendable @escaping (CMSampleBuffer) -> Void) async throws -> Task<Void, any Error> {
     let url = URL(string: "https://storage.unxpected.co.jp/public/sample-videos/ocean-1080p.mp4")!
     let tempLocalUrl: URL
 
-    if let cachedURL = cachedSampleVideoURL, FileManager.default.fileExists(atPath: cachedURL.path) {
+    if let cachedURL = cachedSampleVideoURL.copy(), FileManager.default.fileExists(atPath: cachedURL.path) {
         print("Using cached sample video at \(cachedURL)...")
         tempLocalUrl = cachedURL
     } else {
@@ -39,7 +39,7 @@ public func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @Sendable @
 
         try FileManager.default.moveItem(at: downloadedLocalUrl, to: tempLocalUrl)
 
-        cachedSampleVideoURL = tempLocalUrl
+        cachedSampleVideoURL.mutate { $0 = tempLocalUrl }
         print("Cached sample video at \(tempLocalUrl)")
     }
 

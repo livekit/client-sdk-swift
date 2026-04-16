@@ -137,46 +137,28 @@ final class ByteStreamReaderTests: @unchecked Sendable {
         }
     }
 
-    @Test func resolveFileName() {
+    struct FileNameCase: CustomTestStringConvertible {
+        let preferred: String?
+        let fallback: String
+        let mimeType: String
+        let expected: String
+        var testDescription: String { "preferred=\(preferred ?? "nil"), mime=\(mimeType) → \(expected)" }
+    }
+
+    @Test(arguments: [
+        FileNameCase(preferred: nil, fallback: "[fallback]", mimeType: "text/plain", expected: "[fallback].txt"),
+        FileNameCase(preferred: "name", fallback: "[fallback]", mimeType: "text/plain", expected: "name.txt"),
+        FileNameCase(preferred: "name.jpeg", fallback: "[fallback]", mimeType: "text/plain", expected: "name.jpeg"),
+        FileNameCase(preferred: "name", fallback: "[fallback]", mimeType: "image/jpeg", expected: "name.jpeg"),
+        FileNameCase(preferred: "name", fallback: "[fallback]", mimeType: "text/invalid", expected: "name.bin"),
+    ])
+    func resolveFileName(_ c: FileNameCase) {
         #expect(
             ByteStreamReader.resolveFileName(
-                preferredName: nil,
-                fallbackName: "[fallback]",
-                mimeType: "text/plain"
-            ) == "[fallback].txt",
-            "Fallback name should be used when no preferred name is provided"
-        )
-        #expect(
-            ByteStreamReader.resolveFileName(
-                preferredName: "name",
-                fallbackName: "[fallback]",
-                mimeType: "text/plain"
-            ) == "name.txt",
-            "preferred name should take precedence over fallback name"
-        )
-        #expect(
-            ByteStreamReader.resolveFileName(
-                preferredName: "name.jpeg",
-                fallbackName: "[fallback]",
-                mimeType: "text/plain"
-            ) == "name.jpeg",
-            "File extension in preferred name should take precedence"
-        )
-        #expect(
-            ByteStreamReader.resolveFileName(
-                preferredName: "name",
-                fallbackName: "[fallback]",
-                mimeType: "image/jpeg"
-            ) == "name.jpeg",
-            "File extension should be resolved from MIME type"
-        )
-        #expect(
-            ByteStreamReader.resolveFileName(
-                preferredName: "name",
-                fallbackName: "[fallback]",
-                mimeType: "text/invalid"
-            ) == "name.bin",
-            "Default extension should be used when MIME type is not recognized"
+                preferredName: c.preferred,
+                fallbackName: c.fallback,
+                mimeType: c.mimeType
+            ) == c.expected
         )
     }
 }

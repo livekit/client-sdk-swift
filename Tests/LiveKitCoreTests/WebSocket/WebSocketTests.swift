@@ -22,7 +22,7 @@ import LiveKitTestSupport
 #endif
 
 @Suite(.serialized, .tags(.e2e))
-final class WebSocketTests: @unchecked Sendable {
+struct WebSocketTests {
     // MARK: - Cancellation
 
     @Test func cancellationDuringConnect() async throws {
