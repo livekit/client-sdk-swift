@@ -117,12 +117,13 @@ jobs:
 
       - name: Build for Testing
         run: |
-          NSUnbufferedIO=YES xcodebuild build-for-testing \
+          set -o pipefail && NSUnbufferedIO=YES xcodebuild build-for-testing \
             -scheme LiveKit \
             -destination 'platform=${{ matrix.platform }}' \
             -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
             -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
-            APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }}
+            APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
+            | xcbeautify --renderer github-actions
 
       - name: Run Tests
         uses: nick-fields/retry@v4
@@ -144,7 +145,8 @@ jobs:
                 -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
                 APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
                 -only-testing:$test \
-                -parallel-testing-enabled NO
+                -parallel-testing-enabled NO \
+                | xcbeautify --renderer github-actions
               then
                 echo "::error::Test failed: $test"
                 exit 1
@@ -155,7 +157,7 @@ jobs:
       - name: Build for Release
         if: ${{ matrix.symbol-graph }}
         run: |
-          NSUnbufferedIO=YES xcodebuild build\
+          set -o pipefail && NSUnbufferedIO=YES xcodebuild build\
             -scheme LiveKit \
             -configuration Release \
             -destination 'platform=${{ matrix.platform }}'  \
@@ -164,7 +166,7 @@ jobs:
             OTHER_SWIFT_FLAGS="-Xfrontend -emit-symbol-graph\
                                -Xfrontend -emit-symbol-graph-dir\
                                -Xfrontend \"${PWD}/symbol-graph\"" \
-            DOCC_EXTRACT_EXTENSION_SYMBOLS=YES
+            DOCC_EXTRACT_EXTENSION_SYMBOLS=YES | xcbeautify --renderer github-actions
 
       - name: Upload Symbol Graph
         if: ${{ matrix.symbol-graph }}
