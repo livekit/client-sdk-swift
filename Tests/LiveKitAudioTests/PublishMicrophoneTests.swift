@@ -89,7 +89,7 @@ import LiveKitTestSupport
             print("remoteAudioTrack: \(String(describing: track))")
 
             // Wait for audio frame using confirmation
-            try await confirmation("Did receive audio frame") { confirm in
+            await confirmation("Did receive audio frame") { confirm in
                 let audioFrameWatcher = AudioTrackWatcher(id: "notifier01") { _ in
                     confirm()
                 }

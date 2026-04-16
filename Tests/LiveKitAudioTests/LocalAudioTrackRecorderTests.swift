@@ -33,7 +33,7 @@ import LiveKitTestSupport
 
         let stream = try await recorder.start()
 
-        try await confirmation("Received audio data") { confirm in
+        await confirmation("Received audio data") { confirm in
             Task {
                 var dataCount = 0
                 for await data in stream {
@@ -65,7 +65,7 @@ import LiveKitTestSupport
 
         let stream = try await recorder.start()
 
-        try await confirmation("Received audio data") { confirm in
+        await confirmation("Received audio data") { confirm in
             Task {
                 var dataCount = 0
                 for await _ in stream {
@@ -101,8 +101,8 @@ import LiveKitTestSupport
         let stream1 = try await recorder1.start()
         let stream2 = try await recorder2.start()
 
-        try await confirmation("Received audio data from recorder1") { confirm1 in
-            try await confirmation("Received audio data from recorder2") { confirm2 in
+        await confirmation("Received audio data from recorder1") { confirm1 in
+            await confirmation("Received audio data from recorder2") { confirm2 in
                 Task {
                     var dataCount = 0
                     for await _ in stream1 {
@@ -133,7 +133,7 @@ import LiveKitTestSupport
         recorder2.stop()
     }
 
-    @Test func objCCompatibility() async throws {
+    @Test func objCCompatibility() async {
         let localTrack = LocalAudioTrack.createTrack(options: .noProcessing)
 
         let recorder = LocalAudioTrackRecorder(
@@ -142,8 +142,8 @@ import LiveKitTestSupport
             sampleRate: 48000
         )
 
-        try await confirmation("Received audio data") { dataConfirm in
-            try await confirmation("Completion called") { completionConfirm in
+        await confirmation("Received audio data") { dataConfirm in
+            await confirmation("Completion called") { completionConfirm in
                 recorder.start(onData: { _ in
                     dataConfirm()
                 }, onCompletion: { _ in
