@@ -92,7 +92,7 @@ import LiveKitTestSupport
         }
 
         // Allow time for deallocation
-        try await Task.sleep(for: .seconds(1))
+        try await Task.sleep(nanoseconds: 1_000_000_000)
     }
 
     @Test func sendDataPacket() async throws {

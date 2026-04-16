@@ -225,7 +225,7 @@ struct PeerConnectionSignalingTests {
 
             // Wait for remote audio track subscription
             try await waitForPublish(on: remoteParticipant) {
-                $0.firstAudioPublication?.track as? RemoteAudioTrack != nil
+                $0.firstAudioPublication?.track is RemoteAudioTrack
             }
 
             let remoteAudioTrack = try #require(
@@ -328,7 +328,6 @@ struct PeerConnectionSignalingTests {
         }
     }
 
-    // swiftlint:disable:next function_body_length
     @Test(arguments: SignalingMode.allCases)
     func publishManyTracks(mode: SignalingMode) async throws {
         try await TestEnvironment.withRooms([

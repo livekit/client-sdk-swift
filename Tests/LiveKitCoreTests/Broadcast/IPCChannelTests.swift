@@ -25,7 +25,7 @@ import LiveKitTestSupport
 import Network
 
 @Suite(.tags(.broadcast))
-struct IPCChannelTests: Sendable {
+struct IPCChannelTests {
     private let socketPath: SocketPath
 
     enum TestSetupError: Error {

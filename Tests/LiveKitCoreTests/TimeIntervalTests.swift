@@ -22,7 +22,7 @@ import LiveKitTestSupport
 #endif
 
 struct TimeIntervalTests {
-    struct DelayCase: Sendable, CustomTestStringConvertible {
+    struct DelayCase: CustomTestStringConvertible {
         let attempt: Int
         let baseDelay: TimeInterval
         let maxDelay: TimeInterval
