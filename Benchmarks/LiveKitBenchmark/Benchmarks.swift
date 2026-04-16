@@ -28,8 +28,8 @@ let benchmarkTracer = BenchmarkTracer()
 ///
 /// Run with: `swift package benchmark`
 let benchmarks: @Sendable () -> Void = {
-    // Inject our tracer so we can capture timing data
-    LiveKitSDK.setTracer(benchmarkTracer)
+    // Inject our tracing so we can capture timing data
+    LiveKitSDK.setTracing(benchmarkTracer)
 
     // Metric configuration: focus on wall clock time
     Benchmark.defaultConfiguration = .init(

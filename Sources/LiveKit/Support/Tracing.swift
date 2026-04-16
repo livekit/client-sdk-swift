@@ -106,7 +106,7 @@ public typealias Stopwatch = Span
 /// A factory that creates ``Span``s for SDK operations.
 ///
 /// The default ``LoggingTracer`` logs completed spans at debug level.
-/// Inject a custom implementation via ``LiveKitSDK/setTracer(_:)`` to
+/// Inject a custom implementation via ``LiveKitSDK/setTracing(_:)`` to
 /// capture timing data programmatically (e.g., for benchmarks).
 ///
 /// This follows the same injection pattern as ``Logger``.

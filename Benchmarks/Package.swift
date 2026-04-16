@@ -1,4 +1,4 @@
-// swift-tools-version:6.0
+// swift-tools-version:6.2
 
 import PackageDescription
 
@@ -8,7 +8,7 @@ let package = Package(
         .macOS(.v26),
     ],
     dependencies: [
-        .package(path: "../"),
+        .package(name: "client-sdk-swift", path: "../"),
         .package(url: "https://github.com/livekit/livekit-uniffi-xcframework.git", exact: "0.0.5"),
         .package(url: "https://github.com/ordo-one/package-benchmark.git", from: "1.29.0"),
     ],

@@ -22,7 +22,7 @@ import LiveKit
 /// The default ``LoggingTracer`` logs spans when they end. This implementation
 /// keeps them so benchmarks can extract timing data after operations complete.
 ///
-/// Inject via `LiveKitSDK.setTracer()` before running benchmarks.
+/// Inject via `LiveKitSDK.setTracing()` before running benchmarks.
 
 extension Span {
     /// All events as label → milliseconds relative to `start`.

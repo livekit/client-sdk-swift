@@ -375,7 +375,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
 
         _state.mutate {
-            $0.connectStopwatch = sharedTracer.beginSpan("connect")
+            $0.connectStopwatch = sharedTracing.beginSpan("connect")
             $0.providedUrl = providedUrl
             $0.token = token
             $0.connectionState = .connecting

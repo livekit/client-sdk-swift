@@ -38,7 +38,7 @@ public class LiveKitSDK: NSObject, Loggable {
 
     fileprivate struct State {
         var logger: any Logger = OSLogger()
-        var tracer: any Tracing = LoggingTracer()
+        var tracing: any Tracing = LoggingTracer()
     }
 
     fileprivate static let state = StateSync(State())
@@ -51,8 +51,8 @@ public class LiveKitSDK: NSObject, Loggable {
     ///
     /// - Note: This method must be called before any Room operations
     /// e.g. in the `App.init()` or `AppDelegate/SceneDelegate`
-    public static func setTracer(_ tracer: any Tracing) {
-        state.mutate { $0.tracer = tracer }
+    public static func setTracing(_ tracing: any Tracing) {
+        state.mutate { $0.tracing = tracing }
     }
 
     /// Set a custom logger for the SDK
@@ -91,5 +91,5 @@ public class LiveKitSDK: NSObject, Loggable {
 // Lazily initialized to the first logger
 let sharedLogger = LiveKitSDK.state.logger
 
-// Lazily initialized to the first tracer
-let sharedTracer = LiveKitSDK.state.tracer
+// Lazily initialized to the first tracing
+let sharedTracing = LiveKitSDK.state.tracing
