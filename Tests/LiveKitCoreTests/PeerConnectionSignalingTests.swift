@@ -56,7 +56,6 @@ enum SignalingMode: CustomStringConvertible, CaseIterable {
 
 /// Watches for reconnect completion via RoomDelegate.
 ///
-/// Uses `StateSync` booleans + async polling instead of `XCTestExpectation`.
 /// Delegate callbacks set flags via `StateSync`, and tests poll with `waitForReconnect()`.
 private final class ReconnectWatcher: NSObject, RoomDelegate, @unchecked Sendable {
     private struct State {
@@ -393,21 +392,16 @@ struct PeerConnectionSignalingTests {
         }
     }
 
-    @Test func v1LocalhostFallback() async throws {
+    @Test(.enabled(if: {
         let url = TestEnvironment.liveKitServerUrl()
-        guard url.contains("localhost") || url.contains("127.0.0.1") else {
-            print("Skipping localhost fallback test because LIVEKIT_TESTING_URL override is set")
-            return
-        }
-
+        return url.contains("localhost") || url.contains("127.0.0.1")
+    }(), "Requires localhost server"))
+    func v1LocalhostFallback() async throws {
         try await TestEnvironment.withRooms([roomTestingOptions(mode: .singlePC, canPublish: true)]) { rooms in
             let room = rooms[0]
             #expect(room.connectionState == .connected)
 
-            guard let transport = room._state.transport else {
-                Issue.record("Transport is nil")
-                return
-            }
+            let transport = try #require(room._state.transport, "Transport is nil")
 
             switch transport {
             case .publisherOnly:

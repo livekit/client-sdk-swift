@@ -135,13 +135,11 @@ import Testing
         URLProtocol.registerClass(MockURLProtocol.self)
         defer { cleanUpMockURLProtocol() }
 
-        do {
-            _ = try await regionManager.resolveBest(token: "token")
-            Issue.record("Expected error for status \(statusCode)")
-        } catch let error as LiveKitError {
-            #expect(error.type == expectedErrorType)
-        } catch {
-            Issue.record("Expected LiveKitError, got \(error)")
+        await #expect {
+            try await regionManager.resolveBest(token: "token")
+        } throws: { error in
+            guard let lkError = error as? LiveKitError else { return false }
+            return lkError.type == expectedErrorType
         }
     }
 }

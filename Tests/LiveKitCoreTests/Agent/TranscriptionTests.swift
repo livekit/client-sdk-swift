@@ -189,17 +189,6 @@ actor MessageCollector {
         }
     }
 
-    private func setupTestEnvironment(rooms: [Room]) async throws {
-        receiver = TranscriptionStreamReceiver(room: rooms[0])
-        let messageStream = try await receiver.messages()
-        messageCollector = MessageCollector()
-        senderRoom = rooms[1]
-
-        collectionTask = messageStream.subscribe(self) { observer, message in
-            await observer.messageCollector.add(message)
-        }
-    }
-
     private func sendTranscriptionChunks(
         chunks: [String],
         segmentID: String,

@@ -37,6 +37,7 @@ import LiveKitTestSupport
 
     func audioProcessingProcess(audioBuffer: LiveKit.LKAudioBuffer) {
         guard let pcm = audioBuffer.toAVAudioPCMBuffer() else {
+            // Cannot throw from delegate callback; record and return
             Issue.record("Failed to convert audio buffer to AVAudioPCMBuffer")
             return
         }
@@ -87,11 +88,7 @@ import LiveKitTestSupport
                 highpassFilter: false
             )
 
-            let pub1 = try await room1.localParticipant.setMicrophone(enabled: true, captureOptions: allOnOptions)
-            guard let pub1 else {
-                Issue.record("Publication is nil")
-                return
-            }
+            let pub1 = try #require(await room1.localParticipant.setMicrophone(enabled: true, captureOptions: allOnOptions))
 
             let ns = UInt64(3 * 1_000_000_000)
             try await Task.sleep(nanoseconds: ns)
@@ -106,11 +103,7 @@ import LiveKitTestSupport
 
             try await room1.localParticipant.unpublish(publication: pub1)
 
-            let pub2 = try await room1.localParticipant.setMicrophone(enabled: true, captureOptions: allOffOptions)
-            guard let pub2 else {
-                Issue.record("Publication is nil")
-                return
-            }
+            let pub2 = try #require(await room1.localParticipant.setMicrophone(enabled: true, captureOptions: allOffOptions))
 
             try await Task.sleep(nanoseconds: ns)
 

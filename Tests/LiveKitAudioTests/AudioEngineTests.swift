@@ -95,20 +95,21 @@ import LKObjCHelpers
 
         AudioManager.shared.isAdvancedDuckingEnabled = true
         #expect(AudioManager.shared.isAdvancedDuckingEnabled)
+    }
 
-        if #available(iOS 17, macOS 14.0, visionOS 1.0, *) {
-            AudioManager.shared.duckingLevel = .default
-            #expect(AudioManager.shared.duckingLevel == .default)
+    @available(iOS 17, macOS 14.0, visionOS 1.0, *)
+    @Test func configureDuckingLevel() {
+        AudioManager.shared.duckingLevel = .default
+        #expect(AudioManager.shared.duckingLevel == .default)
 
-            AudioManager.shared.duckingLevel = .min
-            #expect(AudioManager.shared.duckingLevel == .min)
+        AudioManager.shared.duckingLevel = .min
+        #expect(AudioManager.shared.duckingLevel == .min)
 
-            AudioManager.shared.duckingLevel = .max
-            #expect(AudioManager.shared.duckingLevel == .max)
+        AudioManager.shared.duckingLevel = .max
+        #expect(AudioManager.shared.duckingLevel == .max)
 
-            AudioManager.shared.duckingLevel = .mid
-            #expect(AudioManager.shared.duckingLevel == .mid)
-        }
+        AudioManager.shared.duckingLevel = .mid
+        #expect(AudioManager.shared.duckingLevel == .mid)
     }
 
     // Test start generating local audio buffer without joining to room.
@@ -122,10 +123,11 @@ import LKObjCHelpers
             let localMicTrack = LocalAudioTrack.createTrack()
             localMicTrack.add(audioRenderer: audioFrameWatcher)
 
-            Task {
+            let recordingTask = Task {
                 print("Starting local recording...")
                 try AudioManager.shared.startLocalRecording()
-            }
+            }.cancellable()
+            defer { recordingTask.cancel() }
 
             // Wait for audio frame...
             print("Waiting for first audio frame...")

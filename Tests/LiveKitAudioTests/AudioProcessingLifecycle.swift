@@ -107,10 +107,7 @@ private class ProcessingDelegateTester: AudioCustomProcessingDelegate, @unchecke
             try await room1.localParticipant.setMicrophone(enabled: true)
 
             // Get the local audio track
-            guard let localAudioTrack = room1.localParticipant.audioTracks.first?.track as? LocalAudioTrack else {
-                Issue.record("No local audio track found")
-                return
-            }
+            let localAudioTrack = try #require(room1.localParticipant.audioTracks.first?.track as? LocalAudioTrack, "No local audio track found")
 
             // Add renderer via LocalAudioTrack extension method
             localAudioTrack.add(audioRenderer: renderer)

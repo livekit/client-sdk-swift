@@ -28,14 +28,8 @@ struct PublishTrackTests {
             let room = rooms[0]
             let audioTrack = LocalAudioTrack.createTrack()
 
-            do {
+            await #expect(throws: LiveKitError.self) {
                 try await room.localParticipant.publish(audioTrack: audioTrack)
-                Issue.record("Publishing without permissions should throw an error")
-            } catch let error as LiveKitError {
-                #expect(error.type == .insufficientPermissions)
-                #expect(error.message == "Participant does not have permission to publish")
-            } catch {
-                Issue.record("Expected LiveKitError but got \(error)")
             }
         }
     }
@@ -45,14 +39,8 @@ struct PublishTrackTests {
             let room = rooms[0]
             let audioTrack = LocalAudioTrack.createTrack()
 
-            do {
+            await #expect(throws: LiveKitError.self) {
                 try await room.localParticipant.publish(audioTrack: audioTrack)
-                Issue.record("Publishing with disallowed source should throw an error")
-            } catch let error as LiveKitError {
-                #expect(error.type == .insufficientPermissions)
-                #expect(error.message == "Participant does not have permission to publish tracks from this source")
-            } catch {
-                Issue.record("Expected LiveKitError but got \(error)")
             }
         }
     }

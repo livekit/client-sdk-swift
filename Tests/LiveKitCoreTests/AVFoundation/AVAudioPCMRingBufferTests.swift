@@ -44,72 +44,44 @@ import CoreAudio
         #expect(ringBuffer.buffer.frameLength == 0)
     }
 
-    @Test func appendAndRead() {
+    @Test func appendAndRead() throws {
         let ringBuffer = AVAudioPCMRingBuffer(format: format, frameCapacity: 1024)
 
-        // Create a test buffer with 512 frames
         let testFrames: AVAudioFrameCount = 512
-        guard let testBuffer = createTestBuffer(frames: testFrames) else {
-            Issue.record("Failed to create test buffer")
-            return
-        }
+        let testBuffer = try #require(createTestBuffer(frames: testFrames))
 
-        // Append the test buffer
         ringBuffer.append(audioBuffer: testBuffer)
 
-        // Read the same number of frames
-        guard let readBuffer = ringBuffer.read(frames: testFrames) else {
-            Issue.record("Failed to read frames")
-            return
-        }
+        let readBuffer = try #require(ringBuffer.read(frames: testFrames))
 
         #expect(readBuffer.frameLength == testFrames)
         #expect(compareBuffers(buffer1: testBuffer, buffer2: readBuffer))
     }
 
-    @Test func overflow() {
+    @Test func overflow() throws {
         let capacity: AVAudioFrameCount = 1024
         let ringBuffer = AVAudioPCMRingBuffer(format: format, frameCapacity: capacity)
 
-        // Create a test buffer larger than capacity
-        guard let largeBuffer = createTestBuffer(frames: capacity + 512) else {
-            Issue.record("Failed to create large test buffer")
-            return
-        }
+        let largeBuffer = try #require(createTestBuffer(frames: capacity + 512))
 
-        // Append the large buffer
         ringBuffer.append(audioBuffer: largeBuffer)
 
         #expect(ringBuffer.read(frames: capacity + 512) == nil, "Should not be able to read more frames than capacity")
     }
 
-    @Test func wrapAround() {
+    @Test func wrapAround() throws {
         let capacity: AVAudioFrameCount = 1024
         let ringBuffer = AVAudioPCMRingBuffer(format: format, frameCapacity: capacity)
 
-        // Fill buffer with half capacity
-        guard let halfBuffer = createTestBuffer(frames: capacity / 2) else {
-            Issue.record("Failed to create half buffer")
-            return
-        }
+        let halfBuffer = try #require(createTestBuffer(frames: capacity / 2))
 
-        // First append
         ringBuffer.append(audioBuffer: halfBuffer)
 
-        // Read a quarter of the buffer
-        guard ringBuffer.read(frames: capacity / 4) != nil else {
-            Issue.record("Failed to read quarter buffer")
-            return
-        }
+        _ = try #require(ringBuffer.read(frames: capacity / 4))
 
-        // Append another half buffer (should wrap around)
         ringBuffer.append(audioBuffer: halfBuffer)
 
-        // Read remaining frames
-        guard let readBuffer = ringBuffer.read(frames: (capacity / 2) + (capacity / 4)) else {
-            Issue.record("Failed to read wrapped buffer")
-            return
-        }
+        let readBuffer = try #require(ringBuffer.read(frames: (capacity / 2) + (capacity / 4)))
 
         #expect(readBuffer.frameLength == (capacity / 2) + (capacity / 4))
     }

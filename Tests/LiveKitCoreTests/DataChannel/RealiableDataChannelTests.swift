@@ -22,7 +22,7 @@ import LiveKitTestSupport
 #endif
 
 @Suite(.serialized, .tags(.dataChannel, .e2e)) final class RealiableDataChannelTests: @unchecked Sendable {
-    var receivedData: Data = .init()
+    private let _receivedData = StateSync(Data())
     var onDataReceived: (() -> Void)?
 
     @Test func reliableRetry() async throws {
@@ -32,7 +32,7 @@ import LiveKitTestSupport
         let testData = try #require(String(repeating: testString, count: 1024).data(using: .utf8))
 
         try await confirmation("Data received", expectedCount: iterations) { confirm in
-            self.receivedData = Data()
+            self._receivedData.mutate { $0 = Data() }
             self.onDataReceived = { confirm() }
 
             try await TestEnvironment.withRooms([
@@ -43,13 +43,17 @@ import LiveKitTestSupport
                 let receiving = rooms[1]
                 let remoteIdentity = try #require(sending.remoteParticipants.keys.first)
 
-                Task {
+                let reconnectSender = Task {
                     try await Task.sleep(nanoseconds: 200_000_000) // 200 ms
                     try await sending.startReconnect(reason: .debug)
-                }
-                Task {
+                }.cancellable()
+                let reconnectReceiver = Task {
                     try await Task.sleep(nanoseconds: 400_000_000) // 400 ms
                     try await receiving.startReconnect(reason: .debug)
+                }.cancellable()
+                defer {
+                    reconnectSender.cancel()
+                    reconnectReceiver.cancel()
                 }
 
                 for _ in 0 ..< iterations {
@@ -66,14 +70,14 @@ import LiveKitTestSupport
             try? await Task.sleep(nanoseconds: 10_000_000_000)
         }
 
-        let receivedString = try #require(String(data: receivedData, encoding: .utf8))
+        let receivedString = try #require(String(data: _receivedData.copy(), encoding: .utf8))
         #expect(receivedString.count == testString.count * 1024 * iterations, "Corrupted or duplicated data")
     }
 }
 
 extension RealiableDataChannelTests: RoomDelegate {
     func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic _: String, encryptionType _: EncryptionType) {
-        receivedData.append(data)
+        _receivedData.mutate { $0.append(data) }
         onDataReceived?()
     }
 }

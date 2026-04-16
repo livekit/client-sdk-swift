@@ -29,13 +29,10 @@ struct AsyncFileStreamTests {
     )
 
     @Test func nonExistentFile() throws {
-        do {
+        #expect(throws: AsyncFileStream<ReadMode>.Error.self) {
             _ = try AsyncFileStream(
                 readingFrom: URL(fileURLWithPath: "/non/existent/file")
             )
-            Issue.record("Expected error")
-        } catch {
-            #expect(error is AsyncFileStream<ReadMode>.Error)
         }
     }
 

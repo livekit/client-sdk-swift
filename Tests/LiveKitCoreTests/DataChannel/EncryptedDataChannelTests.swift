@@ -23,8 +23,8 @@ import LiveKitTestSupport
 import LiveKitWebRTC
 
 @Suite(.serialized, .tags(.dataChannel, .e2e, .e2ee)) final class EncryptedDataChannelTests: @unchecked Sendable {
-    var receivedData: Data = .init()
-    var lastDecryptionError: Error?
+    private let _receivedData = StateSync(Data())
+    private let _lastDecryptionError = StateSync<Error?>(nil)
     var onDataReceived: (() -> Void)?
     var onDecryptionError: (() -> Void)?
 
@@ -33,7 +33,7 @@ import LiveKitWebRTC
         let testData = try #require(testMessage.data(using: .utf8))
 
         try await confirmation("Encrypted data received") { confirm in
-            self.receivedData = Data()
+            self._receivedData.mutate { $0 = Data() }
             self.onDataReceived = { confirm() }
 
             try await TestEnvironment.withRooms([
@@ -53,7 +53,7 @@ import LiveKitWebRTC
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
 
-            let receivedMessage = String(data: self.receivedData, encoding: .utf8)
+            let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
             #expect(receivedMessage == testMessage, "Received message should match sent message")
         }
     }
@@ -69,7 +69,7 @@ import LiveKitWebRTC
         let receiverKey = "receiver-secret-key-456"
 
         try await confirmation("Encrypted data with per-participant keys received") { confirm in
-            self.receivedData = Data()
+            self._receivedData.mutate { $0 = Data() }
             self.onDataReceived = { confirm() }
 
             try await TestEnvironment.withRooms([
@@ -104,7 +104,7 @@ import LiveKitWebRTC
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
 
-            let receivedMessage = String(data: self.receivedData, encoding: .utf8)
+            let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
             #expect(receivedMessage == testMessage, "Received message should match sent message with per-participant keys")
         }
     }
@@ -120,8 +120,8 @@ import LiveKitWebRTC
         let receiverKeyProvider = BaseKeyProvider(isSharedKey: true, sharedKey: receiverKey)
 
         try await confirmation("Decryption error occurred") { confirm in
-            self.receivedData = Data()
-            self.lastDecryptionError = nil
+            self._receivedData.mutate { $0 = Data() }
+            self._lastDecryptionError.mutate { $0 = nil }
             self.onDecryptionError = { confirm() }
 
             try await TestEnvironment.withRooms([
@@ -148,8 +148,8 @@ import LiveKitWebRTC
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
 
-            #expect(self.lastDecryptionError != nil, "Decryption error should have occurred")
-            #expect(self.receivedData.isEmpty, "No data should be received when decryption fails")
+            #expect(self._lastDecryptionError.copy() != nil, "Decryption error should have occurred")
+            #expect(self._receivedData.copy().isEmpty, "No data should be received when decryption fails")
         }
     }
 
@@ -165,8 +165,8 @@ import LiveKitWebRTC
         let receiverKey = "receiver-secret-key-456"
 
         try await confirmation("Decryption error occurred with per-participant keys") { confirm in
-            self.receivedData = Data()
-            self.lastDecryptionError = nil
+            self._receivedData.mutate { $0 = Data() }
+            self._lastDecryptionError.mutate { $0 = nil }
             self.onDecryptionError = { confirm() }
 
             try await TestEnvironment.withRooms([
@@ -203,8 +203,8 @@ import LiveKitWebRTC
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
 
-            #expect(self.lastDecryptionError != nil, "Decryption error should have occurred with mismatched per-participant keys")
-            #expect(self.receivedData.isEmpty, "No data should be received when per-participant key decryption fails")
+            #expect(self._lastDecryptionError.copy() != nil, "Decryption error should have occurred with mismatched per-participant keys")
+            #expect(self._receivedData.copy().isEmpty, "No data should be received when per-participant key decryption fails")
         }
     }
 
@@ -226,7 +226,7 @@ import LiveKitWebRTC
         receiverKeyProvider.setKey(key: initialKey)
 
         try await confirmation("Data received after automatic key ratcheting") { confirm in
-            self.receivedData = Data()
+            self._receivedData.mutate { $0 = Data() }
             self.onDataReceived = { confirm() }
 
             try await TestEnvironment.withRooms([
@@ -264,7 +264,7 @@ import LiveKitWebRTC
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
 
-            let receivedMessage = String(data: self.receivedData, encoding: .utf8)
+            let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
             #expect(receivedMessage == testMessage, "Message should be received after automatic key ratcheting")
         }
     }
@@ -290,7 +290,7 @@ import LiveKitWebRTC
         receiverKeyProvider.setKey(key: key2, index: 1)
 
         try await confirmation("Data received with multiple keys in key ring") { confirm in
-            self.receivedData = Data()
+            self._receivedData.mutate { $0 = Data() }
             self.onDataReceived = { confirm() }
 
             try await TestEnvironment.withRooms([
@@ -319,7 +319,7 @@ import LiveKitWebRTC
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
 
-            let receivedMessage = String(data: self.receivedData, encoding: .utf8)
+            let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
             #expect(receivedMessage == testMessage, "Message should be received with multiple keys in key ring")
         }
     }
@@ -329,12 +329,12 @@ import LiveKitWebRTC
 
 extension EncryptedDataChannelTests: RoomDelegate {
     func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic _: String, encryptionType _: EncryptionType) {
-        receivedData = data
+        _receivedData.mutate { $0 = data }
         onDataReceived?()
     }
 
     func room(_: Room, didFailToDecryptDataWithEror error: LiveKitError) {
-        lastDecryptionError = error
+        _lastDecryptionError.mutate { $0 = error }
         onDecryptionError?()
     }
 }

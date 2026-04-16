@@ -38,7 +38,7 @@ class TestTrack: LocalAudioTrack, @unchecked Sendable {
     }
 }
 
-@Suite(.tags(.media))
+@Suite(.serialized, .tags(.media))
 struct TrackTests {
     #if os(iOS) || os(visionOS) || os(tvOS)
     @Test func concurrentStartStop() async throws {
