@@ -26,8 +26,7 @@ import LiveKit
 //
 // Variants:
 // - BM-CONN-001: Dual PeerConnection, subscriber-primary (default)
-
-// TODO: Add BM-CONN-003 (Single PeerConnection) when RoomOptions supports singlePeerConnection.
+// - BM-CONN-003: Single PeerConnection
 
 private let dWs: BenchmarkMetric = .custom("D_WS_MS", polarity: .prefersSmaller, useScalingFactor: false)
 private let dSignal: BenchmarkMetric = .custom("D_SIGNAL_MS", polarity: .prefersSmaller, useScalingFactor: false)
@@ -64,6 +63,59 @@ let connectionBenchmarks: @Sendable () -> Void = {
             benchmark.stopMeasurement()
 
             // Extract fine-grained timestamps from the completed connect span
+            if let span = benchmarkTracer.completedSpan("connect") {
+                let s = span.splitMilliseconds
+                let wsOpen = s["ws_open"] ?? 0
+                let joinRecv = s["signal"] ?? s["join_recv"] ?? 0
+                let answerSent = s["answer_sent"]
+                let pcConnected = s["pc_connected"] ?? 0
+                let dcOpen = s["dc_open"]
+
+                benchmark.measurement(dWs, Int(wsOpen))
+                benchmark.measurement(dSignal, Int(joinRecv - wsOpen))
+                benchmark.measurement(dTransport, Int(pcConnected - joinRecv))
+
+                if let answerSent {
+                    benchmark.measurement(dIceDtls, Int(pcConnected - answerSent))
+                }
+
+                if let dcOpen {
+                    benchmark.measurement(dDc, Int(dcOpen - pcConnected))
+                }
+            }
+
+            await room.disconnect()
+            try await Task.sleep(nanoseconds: 2_000_000_000) // 2s inter-run delay
+        }
+    }
+
+    // BM-CONN-003: Single PeerConnection
+    Benchmark(
+        "BM-CONN-003-SinglePC",
+        configuration: .init(
+            metrics: .default + [dWs, dSignal, dTransport, dIceDtls, dDc],
+            timeUnits: .milliseconds,
+            units: [dWs: .count, dSignal: .count, dTransport: .count, dIceDtls: .count, dDc: .count],
+            warmupIterations: 5,
+            scalingFactor: .one,
+            maxDuration: .seconds(300),
+            maxIterations: 25
+        )
+    ) { benchmark in
+        let config = BenchmarkConfig.fromEnvironment()
+        let tokenGen = TokenGenerator(apiKey: config.apiKey, apiSecret: config.apiSecret)
+
+        for _ in benchmark.scaledIterations {
+            let room = Room(roomOptions: RoomOptions(singlePeerConnection: true))
+            let roomName = "benchmark-conn-003-\(UUID().uuidString.prefix(8))"
+            let token = tokenGen.generate(roomName: roomName, identity: "bench-sender")
+
+            benchmarkTracer.reset()
+
+            benchmark.startMeasurement()
+            try await room.connect(url: config.url, token: token)
+            benchmark.stopMeasurement()
+
             if let span = benchmarkTracer.completedSpan("connect") {
                 let s = span.splitMilliseconds
                 let wsOpen = s["ws_open"] ?? 0
