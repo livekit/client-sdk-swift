@@ -95,10 +95,11 @@ actor MessageCollector {
             RoomTestingOptions(canPublishData: true),
         ]) { rooms in
             self.rooms = rooms
-            try await self.setupTestEnvironment(rooms: rooms)
+            self.receiver = TranscriptionStreamReceiver(room: rooms[0])
+            self.messageCollector = MessageCollector()
+            self.senderRoom = rooms[1]
 
             try await confirmation("Receives all message updates", expectedCount: expectedContent.count) { confirm in
-                self.collectionTask.cancel()
                 let messageStream = try await self.receiver.messages()
                 self.collectionTask = messageStream.subscribe(self) { observer, message in
                     await observer.messageCollector.add(message)
@@ -117,6 +118,8 @@ actor MessageCollector {
                     try await Task.sleep(nanoseconds: 10_000_000)
                 }
                 try await writer.close()
+                // Wait for the stream-close finalization message to propagate
+                try await Task.sleep(nanoseconds: 500_000_000)
             }
 
             self.collectionTask.cancel()
@@ -146,10 +149,11 @@ actor MessageCollector {
             RoomTestingOptions(canPublishData: true),
         ]) { rooms in
             self.rooms = rooms
-            try await self.setupTestEnvironment(rooms: rooms)
+            self.receiver = TranscriptionStreamReceiver(room: rooms[0])
+            self.messageCollector = MessageCollector()
+            self.senderRoom = rooms[1]
 
             try await confirmation("Receives single message", expectedCount: 1) { confirm in
-                self.collectionTask.cancel()
                 let messageStream = try await self.receiver.messages()
                 self.collectionTask = messageStream.subscribe(self) { observer, message in
                     await observer.messageCollector.add(message)
@@ -163,6 +167,8 @@ actor MessageCollector {
                 ]
                 let options = StreamTextOptions(topic: topic, attributes: attributes)
                 try await self.senderRoom.localParticipant.sendText("Hello!", options: options)
+                // Wait for message delivery
+                try await Task.sleep(nanoseconds: 500_000_000)
             }
 
             // Brief wait to ensure no extra messages arrive
