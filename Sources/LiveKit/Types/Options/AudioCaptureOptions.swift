@@ -101,6 +101,6 @@ extension AudioCaptureOptions {
             echoCancellation ? .tfEchoCancellation : nil,
             noiseSuppression ? .tfNoiseSuppression : nil,
             autoGainControl ? .tfAutoGainControl : nil,
-        ].compactMap { $0 })
+        ].compactMap(\.self))
     }
 }

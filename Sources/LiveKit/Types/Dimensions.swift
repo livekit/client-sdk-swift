@@ -133,7 +133,7 @@ extension Dimensions {
 
     func encodings(from presets: [VideoParameters?]) -> [LKRTCRtpEncodingParameters] {
         var result: [LKRTCRtpEncodingParameters] = []
-        for (index, preset) in presets.compactMap({ $0 }).enumerated() {
+        for (index, preset) in presets.compactMap(\.self).enumerated() {
             guard let rid = VideoQuality.RIDs[safe: index] else {
                 continue
             }

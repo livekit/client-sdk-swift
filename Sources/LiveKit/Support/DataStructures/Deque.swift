@@ -27,7 +27,7 @@ struct Deque<Element>: ExpressibleByArrayLiteral {
     init() {}
 
     init(arrayLiteral elements: Element...) {
-        buffer = elements.map { $0 }
+        buffer = elements.map(\.self)
         count_ = elements.count
     }
 

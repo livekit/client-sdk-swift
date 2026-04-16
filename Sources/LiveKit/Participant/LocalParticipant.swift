@@ -302,7 +302,7 @@ extension LocalParticipant {
     }
 
     func republishAllTracks() async throws {
-        let mediaTracks = _state.trackPublications.values.map { $0.track as? LocalTrack }.compactMap { $0 }
+        let mediaTracks = _state.trackPublications.values.map { $0.track as? LocalTrack }.compactMap(\.self)
 
         await unpublishAll()
 

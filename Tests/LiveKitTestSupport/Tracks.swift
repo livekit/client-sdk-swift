@@ -19,11 +19,7 @@
 
 public extension LKTestCase {
     // Static variable to store the downloaded sample video URL
-    #if swift(>=6.0)
     nonisolated(unsafe) static var cachedSampleVideoURL: URL?
-    #else
-    static var cachedSampleVideoURL: URL?
-    #endif
 
     // Creates a LocalVideoTrack with BufferCapturer, generates frames for approx 30 seconds
     func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @Sendable @escaping (CMSampleBuffer) -> Void) async throws -> (Task<Void, any Error>) {

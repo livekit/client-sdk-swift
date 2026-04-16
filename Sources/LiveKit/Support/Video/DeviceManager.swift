@@ -56,7 +56,6 @@ class DeviceManager: @unchecked Sendable, Loggable {
         ]
         #endif
 
-        // Xcode 15.0 Swift 5.9
         if #available(iOS 17.0, macOS 14.0, tvOS 17.0, *) {
             deviceTypes.append(contentsOf: [
                 .continuityCamera,
@@ -116,7 +115,7 @@ class DeviceManager: @unchecked Sendable, Loggable {
         }
         #elseif os(visionOS)
         // For visionOS, there is no DiscoverySession so return the Persona camera if available.
-        let devices: [AVCaptureDevice] = [.systemPreferredCamera].compactMap { $0 }
+        let devices: [AVCaptureDevice] = [.systemPreferredCamera].compactMap(\.self)
         _state.mutate { $0.devices = devices }
         _devicesCompleter.resume(returning: devices)
         _multiCamDeviceSetsCompleter.resume(returning: [])

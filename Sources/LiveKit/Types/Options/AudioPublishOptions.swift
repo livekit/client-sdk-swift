@@ -76,7 +76,7 @@ extension AudioPublishOptions {
         Set([
             !dtx ? .tfNoDtx : nil,
             preConnect ? .tfPreconnectBuffer : nil,
-        ].compactMap { $0 })
+        ].compactMap(\.self))
     }
 }
 
