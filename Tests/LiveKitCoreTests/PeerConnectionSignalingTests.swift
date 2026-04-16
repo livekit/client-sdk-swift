@@ -392,10 +392,12 @@ struct PeerConnectionSignalingTests {
         }
     }
 
-    @Test(.enabled(if: {
+    private static var isLocalhost: Bool {
         let url = TestEnvironment.liveKitServerUrl()
         return url.contains("localhost") || url.contains("127.0.0.1")
-    }(), "Requires localhost server"))
+    }
+
+    @Test(.enabled(if: isLocalhost, "Requires localhost server"))
     func v1LocalhostFallback() async throws {
         try await TestEnvironment.withRooms([roomTestingOptions(mode: .singlePC, canPublish: true)]) { rooms in
             let room = rooms[0]
