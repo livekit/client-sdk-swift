@@ -30,7 +30,7 @@ final class EchoParticipant: Sendable {
 
     /// Processing timestamps: (receive time, echo sent time) in microseconds
     /// relative to an arbitrary monotonic epoch.
-    struct ProcessingTimestamp: Sendable {
+    struct ProcessingTimestamp {
         let receiveUs: Int64
         let echoSentUs: Int64
         var overheadUs: Int64 { echoSentUs - receiveUs }

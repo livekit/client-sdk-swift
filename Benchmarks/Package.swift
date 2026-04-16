@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "LiveKitBenchmark",
     platforms: [
-        .macOS(.v14),
+        .macOS(.v26),
     ],
     dependencies: [
         .package(path: "../"),

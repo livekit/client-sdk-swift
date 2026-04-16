@@ -273,7 +273,6 @@ extension Room {
                                                              connectSpan: connectStopwatch)
         }
 
-
         // Check cancellation after WebSocket connected
         try Task.checkCancellation()
 
