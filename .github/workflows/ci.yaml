@@ -126,7 +126,7 @@ jobs:
             | xcbeautify --renderer github-actions
 
       - name: Run Tests
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         env:
           LIBDISPATCH_COOPERATIVE_POOL_STRICT: ${{ matrix.strict-concurrency-env == true && '1' || '0' }}
         with:
