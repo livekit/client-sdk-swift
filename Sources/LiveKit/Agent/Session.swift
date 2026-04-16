@@ -33,6 +33,22 @@ import Foundation
 /// conversation. The session can be configured with custom message senders and receivers
 /// to support different communication channels, such as text messages or transcription streams.
 ///
+/// To enable end-to-end encryption, use the convenience
+/// ``SessionOptions/init(encryption:preConnectAudio:agentConnectTimeout:)``
+/// initializer:
+///
+/// ```swift
+/// let session = Session(
+///     tokenSource: tokenSource,
+///     options: SessionOptions(encryption: .sharedKey("my-shared-secret"))
+/// )
+/// ```
+///
+/// For advanced E2EE flows (custom key provider, per-participant keys, custom
+/// `RoomOptions`), build and configure a ``Room`` yourself and pass it via
+/// ``SessionOptions/init(room:preConnectAudio:agentConnectTimeout:)``. Use
+/// ``setEncryptionEnabled(_:)`` to toggle encryption at runtime.
+///
 /// - SeeAlso: [LiveKit SwiftUI Agent Starter](https://github.com/livekit-examples/agent-starter-swift).
 /// - SeeAlso: [LiveKit Agents documentation](https://docs.livekit.io/agents/).
 @MainActor
@@ -296,6 +312,18 @@ open class Session: ObservableObject {
     /// Resets the last error.
     public func dismissError() {
         error = nil
+    }
+
+    /// Enables or disables end-to-end encryption on the underlying ``Room``.
+    ///
+    /// Requires that encryption was configured via
+    /// ``SessionOptions/init(encryption:preConnectAudio:agentConnectTimeout:)``
+    /// or that the ``Room`` was created with `EncryptionOptions`. Otherwise
+    /// this is a no-op.
+    ///
+    /// - Parameter enabled: Whether to enable encryption.
+    public func setEncryptionEnabled(_ enabled: Bool) {
+        room.setE2EEEnabled(enabled)
     }
 
     // MARK: - Messages
