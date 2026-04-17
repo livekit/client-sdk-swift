@@ -16,7 +16,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TEST_TARGETS: "LiveKitCoreTests LiveKitObjCTests"
   TEST_TIMEOUT_MINUTES: 30
   TEST_RETRY_ATTEMPTS: 2
 
@@ -123,26 +122,16 @@ jobs:
           timeout_minutes: ${{ env.TEST_TIMEOUT_MINUTES }}
           max_attempts: ${{ env.TEST_RETRY_ATTEMPTS }}
           command: |
-            set -euo pipefail
-            IFS=' ' read -r -a tests <<< "${{ env.TEST_TARGETS }}"
-
-            for test in "${tests[@]}"; do
-              echo "::group::$test"
-              if ! NSUnbufferedIO=YES xcodebuild test \
-                -scheme LiveKit \
-                -destination 'platform=${{ matrix.platform }}' \
-                -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
-                -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
-                APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
-                -only-testing:$test \
-                -parallel-testing-enabled NO \
-                | xcbeautify --renderer github-actions
-              then
-                echo "::error::Test failed: $test"
-                exit 1
-              fi
-              echo "::endgroup::"
-            done
+            set -o pipefail && NSUnbufferedIO=YES xcodebuild test \
+              -scheme LiveKit \
+              -destination 'platform=${{ matrix.platform }}' \
+              -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
+              -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
+              APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
+              -only-testing:LiveKitCoreTests \
+              -only-testing:LiveKitObjCTests \
+              -parallel-testing-enabled NO \
+              | xcbeautify --renderer github-actions
 
       - name: Build for Release
         if: ${{ matrix.symbol-graph }}
