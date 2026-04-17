@@ -21,35 +21,28 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-/// Actor-based counter that supports both increment and decrement.
-private actor Counter {
-    var value: Int = 0
-    func increment() { value += 1 }
-    func decrement() { value -= 1 }
-}
-
-/// Thread-safe ordered result collector.
-private actor ResultCollector {
-    var values: [String] = []
-    func append(_ value: String) { values.append(value) }
-}
-
 @Suite(.serialized, .tags(.concurrency))
 struct SerialRunnerActorTests {
+    // The original tests verified that SerialRunnerActor serializes
+    // concurrent work by mutating shared state (counter, result array)
+    // from inside `serialRunner.run { }`. The serial runner guarantees
+    // only one closure runs at a time, so direct mutation is safe.
+    // We use StateSync to satisfy Sendable without @unchecked.
+
     @Test func serialRunner() async throws {
         let serialRunner = SerialRunnerActor<Void>()
-        let counter = Counter()
+        let counter = StateSync(0)
 
         try await withThrowingTaskGroup(of: Void.self) { group in
             for i in 1 ... 1000 {
                 group.addTask {
                     try await serialRunner.run {
-                        await counter.increment()
+                        counter.mutate { $0 += 1 }
                         let ns = UInt64(Double.random(in: 1 ..< 3) * 1_000_000)
                         print("task \(i) start, will wait \(ns)ns")
                         try await Task.sleep(nanoseconds: ns)
                         print("task \(i) done")
-                        await counter.decrement()
+                        counter.mutate { $0 -= 1 }
                     }
                 }
             }
@@ -57,13 +50,12 @@ struct SerialRunnerActorTests {
             try await group.waitForAll()
         }
 
-        let finalValue = await counter.value
-        #expect(finalValue == 0, "Counter should be 0 after balanced increments/decrements")
+        #expect(counter.copy() == 0, "Counter should be 0 after balanced increments/decrements")
     }
 
     @Test func serialRunnerCancel() async {
         let serialRunner = SerialRunnerActor<Void>()
-        let counter = Counter()
+        let counter = StateSync(0)
 
         await withTaskGroup(of: Void.self) { group in
             for i in 1 ... 1000 {
@@ -71,9 +63,9 @@ struct SerialRunnerActorTests {
                     let subTask = Task {
                         do {
                             try await serialRunner.run {
-                                await counter.increment()
+                                counter.mutate { $0 += 1 }
                                 defer {
-                                    Task { await counter.decrement() }
+                                    counter.mutate { $0 -= 1 }
                                 }
 
                                 let ns = UInt64(Double.random(in: 1 ..< 3) * 1_000_000)
@@ -97,22 +89,21 @@ struct SerialRunnerActorTests {
             await group.waitForAll()
         }
 
-        let finalValue = await counter.value
-        #expect(finalValue == 0, "Counter should be 0 after balanced increments/decrements")
+        #expect(counter.copy() == 0, "Counter should be 0 after balanced increments/decrements")
     }
 
     @Test func serialRunnerOrderWithCancel() async throws {
         let serialRunner = SerialRunnerActor<Void>()
-        let results = ResultCollector()
+        let results = StateSync<[String]>([])
 
         try await withThrowingTaskGroup(of: Void.self) { group in
-            // Schedule task 1
+            // Schedule task 1 (will be cancelled after 1.5s)
             group.addTask {
                 let subTask = Task {
                     do {
                         try await serialRunner.run {
                             defer {
-                                Task { await results.append("task1") }
+                                results.mutate { $0.append("task1") }
                             }
                             let ns = UInt64(3 * 1_000_000_000)
                             try await Task.sleep(nanoseconds: ns)
@@ -131,7 +122,7 @@ struct SerialRunnerActorTests {
             try await Task.sleep(nanoseconds: UInt64(0.5 * 1_000_000_000))
             group.addTask {
                 try await serialRunner.run {
-                    await results.append("task2")
+                    results.mutate { $0.append("task2") }
                 }
             }
 
@@ -139,17 +130,13 @@ struct SerialRunnerActorTests {
             try await Task.sleep(nanoseconds: UInt64(0.5 * 1_000_000_000))
             group.addTask {
                 try await serialRunner.run {
-                    await results.append("task3")
+                    results.mutate { $0.append("task3") }
                 }
             }
 
             try await group.waitForAll()
         }
 
-        // Brief wait for deferred task appends
-        try await Task.sleep(nanoseconds: 100_000_000)
-
-        let finalValues = await results.values
-        #expect(finalValues == ["task1", "task2", "task3"], "Tasks should complete in order")
+        #expect(results.copy() == ["task1", "task2", "task3"], "Tasks should complete in order")
     }
 }
