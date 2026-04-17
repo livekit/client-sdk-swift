@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.tags(.dataStream, .e2e))
+@Suite(.serialized, .tags(.dataStream, .e2e))
 struct DataStreamTests {
     enum Method: CaseIterable, CustomTestStringConvertible {
         case send, stream

@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.tags(.media, .e2e))
+@Suite(.serialized, .tags(.media, .e2e))
 struct PublishBufferCapturerTests {
     @Test(arguments: [VideoCodec.vp8])
     func publishBufferTrack(codec: VideoCodec) async throws {
