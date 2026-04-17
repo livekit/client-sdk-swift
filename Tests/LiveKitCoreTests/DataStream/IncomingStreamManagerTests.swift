@@ -35,7 +35,7 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
     @Test func registerByteHandler() async throws {
         try await manager.registerByteStreamHandler(for: topicName) { _, _ in }
 
-        try await confirmation("Throws on duplicate registration") { confirm in
+        await confirmation("Throws on duplicate registration") { confirm in
             do {
                 try await manager.registerByteStreamHandler(for: topicName) { _, _ in }
             } catch {
@@ -50,7 +50,7 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
     @Test func registerTextHandler() async throws {
         try await manager.registerTextStreamHandler(for: topicName) { _, _ in }
 
-        try await confirmation("Throws on duplicate registration") { confirm in
+        await confirmation("Throws on duplicate registration") { confirm in
             do {
                 try await manager.registerTextStreamHandler(for: topicName) { _, _ in }
             } catch {

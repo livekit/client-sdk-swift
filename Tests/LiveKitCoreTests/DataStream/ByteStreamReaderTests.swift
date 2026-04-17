@@ -63,9 +63,9 @@ final class ByteStreamReaderTests: @unchecked Sendable {
         reader = ByteStreamReader(info: testInfo, source: source)
     }
 
-    @Test func chunkRead() async throws {
-        try await confirmation("Receive all chunks") { receiveConfirm in
-            try await confirmation("Normal closure") { closureConfirm in
+    @Test func chunkRead() async {
+        await confirmation("Receive all chunks") { receiveConfirm in
+            await confirmation("Normal closure") { closureConfirm in
                 Task {
                     var chunkIndex = 0
                     for try await chunk in reader {
@@ -85,8 +85,8 @@ final class ByteStreamReaderTests: @unchecked Sendable {
         }
     }
 
-    @Test func chunkReadError() async throws {
-        try await confirmation("Read throws error") { confirm in
+    @Test func chunkReadError() async {
+        await confirmation("Read throws error") { confirm in
             let testError = StreamError.abnormalEnd(reason: "test")
 
             Task {
@@ -103,8 +103,8 @@ final class ByteStreamReaderTests: @unchecked Sendable {
         }
     }
 
-    @Test func readAll() async throws {
-        try await confirmation("Read full payload") { confirm in
+    @Test func readAll() async {
+        await confirmation("Read full payload") { confirm in
             Task {
                 let fullPayload = try await reader.readAll()
                 #expect(fullPayload == testPayload)
@@ -116,8 +116,8 @@ final class ByteStreamReaderTests: @unchecked Sendable {
         }
     }
 
-    @Test func readToFile() async throws {
-        try await confirmation("File properly written") { confirm in
+    @Test func readToFile() async {
+        await confirmation("File properly written") { confirm in
             Task {
                 do {
                     let fileURL = try await reader.writeToFile()

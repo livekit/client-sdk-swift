@@ -115,7 +115,7 @@ import LKObjCHelpers
     // Test start generating local audio buffer without joining to room.
     @Test func preconnectAudioBuffer() async throws {
         // Phase 1: Verify audio frames are received without a room connection
-        try await confirmation("Should receive audio frame") { audioFrameConfirm in
+        await confirmation("Should receive audio frame") { audioFrameConfirm in
             let audioFrameWatcher = AudioTrackWatcher(id: "notifier01") { _ in
                 audioFrameConfirm()
             }
