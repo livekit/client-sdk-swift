@@ -18,11 +18,11 @@
 
 import Foundation
 @testable import LiveKit
+import Network
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
-import Network
 
 @Suite(.tags(.broadcast))
 struct IPCChannelTests {
@@ -33,7 +33,6 @@ struct IPCChannelTests {
     }
 
     init() throws {
-        // Use relative paths to ensure socket path is not too long
         let temporaryDirectory = FileManager.default.temporaryDirectory
         FileManager.default.changeCurrentDirectoryPath(temporaryDirectory.path)
 
@@ -43,39 +42,42 @@ struct IPCChannelTests {
         self.socketPath = socketPath
     }
 
-    @Test func connectionAcceptorFirst() async throws {
-        try await confirmation("Connection established") { established in
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask {
-                    let channel = try await IPCChannel(acceptingOn: socketPath)
-                    #expect(!channel.isClosed)
-                    established()
-                }
-                group.addTask {
-                    let channel = try await IPCChannel(connectingTo: socketPath)
-                    #expect(!channel.isClosed)
-                    // Keep alive to give time acceptor to accept
-                    try await Task.shortSleep()
-                }
-                try await group.waitForAll()
+    @Test func connectionAcceptorFirst() async {
+        await confirmation("Connection established") { established in
+            let acceptTask = Task {
+                let channel = try await IPCChannel(acceptingOn: socketPath)
+                #expect(!channel.isClosed)
+                established()
+            }.cancellable()
+            let connectTask = Task {
+                let channel = try await IPCChannel(connectingTo: socketPath)
+                #expect(!channel.isClosed)
+                try await Task.shortSleep()
+            }.cancellable()
+            defer {
+                acceptTask.cancel()
+                connectTask.cancel()
             }
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
         }
     }
 
-    @Test func connectionConnectorFirst() async throws {
-        try await confirmation("Connection established") { established in
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask {
-                    let channel = try await IPCChannel(connectingTo: socketPath)
-                    #expect(!channel.isClosed)
-                    established()
-                }
-                group.addTask {
-                    let channel = try await IPCChannel(acceptingOn: socketPath)
-                    #expect(!channel.isClosed)
-                }
-                try await group.waitForAll()
+    @Test func connectionConnectorFirst() async {
+        await confirmation("Connection established") { established in
+            let connectTask = Task {
+                let channel = try await IPCChannel(connectingTo: socketPath)
+                #expect(!channel.isClosed)
+                established()
+            }.cancellable()
+            let acceptTask = Task {
+                let channel = try await IPCChannel(acceptingOn: socketPath)
+                #expect(!channel.isClosed)
+            }.cancellable()
+            defer {
+                connectTask.cancel()
+                acceptTask.cancel()
             }
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
         }
     }
 
@@ -83,7 +85,7 @@ struct IPCChannelTests {
         _ initializer: @Sendable @escaping @autoclosure () async throws -> IPCChannel,
         sourceLocation: SourceLocation = #_sourceLocation
     ) async throws {
-        try await confirmation("Throws error on cancellation") { cancelThrowsError in
+        await confirmation("Throws error on cancellation") { cancelThrowsError in
             let channelTask = Task {
                 do {
                     _ = try await initializer()
@@ -117,54 +119,62 @@ struct IPCChannelTests {
         let someField: Int
     }
 
-    @Test func messageExchange() async throws {
+    @Test func messageExchange() async {
         let testHeader = TestHeader(someField: 1)
         let testPayload = Data([1, 2, 3])
 
-        try await confirmation(expectedCount: 2) { received in
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask {
-                    let channel = try await IPCChannel(acceptingOn: socketPath)
+        await confirmation(expectedCount: 2) { received in
+            // Fire-and-forget Tasks (matching original XCTest pattern):
+            // The `for try await` loops are infinite until the channel closes.
+            // confirmation returns once expectedCount is reached; Tasks are
+            // cancelled via defer.
+            let acceptTask = Task {
+                let channel = try await IPCChannel(acceptingOn: socketPath)
 
-                    for try await (header, payload) in channel.incomingMessages(TestHeader.self) {
-                        #expect(header == testHeader)
-                        #expect(payload == testPayload)
-                        received()
-                        try await channel.send(header: testHeader, payload: testPayload)
-                    }
-                }
-                group.addTask {
-                    let channel = try await IPCChannel(connectingTo: socketPath)
+                for try await (header, payload) in channel.incomingMessages(TestHeader.self) {
+                    #expect(header == testHeader)
+                    #expect(payload == testPayload)
+                    received()
                     try await channel.send(header: testHeader, payload: testPayload)
-
-                    for try await (header, payload) in channel.incomingMessages(TestHeader.self) {
-                        #expect(header == testHeader)
-                        #expect(payload == testPayload)
-                        received()
-                    }
                 }
-                try await group.waitForAll()
+            }.cancellable()
+            let connectTask = Task {
+                let channel = try await IPCChannel(connectingTo: socketPath)
+                try await channel.send(header: testHeader, payload: testPayload)
+
+                for try await (header, payload) in channel.incomingMessages(TestHeader.self) {
+                    #expect(header == testHeader)
+                    #expect(payload == testPayload)
+                    received()
+                }
+            }.cancellable()
+            defer {
+                acceptTask.cancel()
+                connectTask.cancel()
             }
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
         }
     }
 
-    @Test func messageSequenceAfterClosure() async throws {
-        try await confirmation("Message sequence ends after closure") { sequenceEnds in
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask {
-                    let channel = try await IPCChannel(acceptingOn: socketPath)
-                    for try await _ in channel.incomingMessages(TestHeader.self) {
-                        // Received message
-                    }
-                    sequenceEnds()
+    @Test func messageSequenceAfterClosure() async {
+        await confirmation("Message sequence ends after closure") { sequenceEnds in
+            let acceptTask = Task {
+                let channel = try await IPCChannel(acceptingOn: socketPath)
+                for try await _ in channel.incomingMessages(TestHeader.self) {
+                    // Received message
                 }
-                group.addTask {
-                    let channel = try await IPCChannel(connectingTo: socketPath)
-                    try await channel.send(header: TestHeader(someField: 1))
-                    channel.close()
-                }
-                try await group.waitForAll()
+                sequenceEnds()
+            }.cancellable()
+            let sendTask = Task {
+                let channel = try await IPCChannel(connectingTo: socketPath)
+                try await channel.send(header: TestHeader(someField: 1))
+                channel.close()
+            }.cancellable()
+            defer {
+                acceptTask.cancel()
+                sendTask.cancel()
             }
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
         }
     }
 }

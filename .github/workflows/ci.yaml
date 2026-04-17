@@ -91,6 +91,9 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    env:
+      LIBDISPATCH_COOPERATIVE_POOL_STRICT: ${{ matrix.strict-concurrency-env == true && '1' || '0' }}
+      NSUnbufferedIO: "YES"
     defaults:
       run:
         shell: bash
@@ -116,13 +119,11 @@ jobs:
 
       - name: Build & Test
         uses: nick-fields/retry@v4
-        env:
-          LIBDISPATCH_COOPERATIVE_POOL_STRICT: ${{ matrix.strict-concurrency-env == true && '1' || '0' }}
         with:
           timeout_minutes: ${{ env.TEST_TIMEOUT_MINUTES }}
           max_attempts: ${{ env.TEST_RETRY_ATTEMPTS }}
           command: |
-            set -o pipefail && NSUnbufferedIO=YES xcodebuild test \
+            set -o pipefail && xcodebuild test \
               -scheme LiveKit \
               -destination 'platform=${{ matrix.platform }}' \
               -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
