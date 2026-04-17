@@ -83,7 +83,7 @@ final class TextStreamReaderTests: @unchecked Sendable {
 
                 sendPayload()
 
-                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
         }
     }
@@ -102,7 +102,7 @@ final class TextStreamReaderTests: @unchecked Sendable {
             }
             sendPayload(closingError: testError)
 
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
     }
 
@@ -115,7 +115,7 @@ final class TextStreamReaderTests: @unchecked Sendable {
             }
             sendPayload()
 
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
     }
 }

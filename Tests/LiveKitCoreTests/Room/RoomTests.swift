@@ -104,7 +104,7 @@ import LiveKitTestSupport
 
                 try await room.send(dataPacket: Livekit_DataPacket())
 
-                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
         }
     }

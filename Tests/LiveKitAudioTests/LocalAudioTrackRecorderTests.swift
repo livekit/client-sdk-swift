@@ -46,7 +46,7 @@ import LiveKitTestSupport
                 }
             }
 
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
 
         recorder.stop()
@@ -125,7 +125,7 @@ import LiveKitTestSupport
                     }
                 }
 
-                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
         }
 
@@ -150,11 +150,11 @@ import LiveKitTestSupport
                     completionConfirm()
                 })
 
-                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
 
                 recorder.stop()
 
-                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
         }
     }

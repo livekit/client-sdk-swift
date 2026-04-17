@@ -105,7 +105,7 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
             trailer.reason = "" // indicates normal closure
             manager.handle(.trailer(trailer, .none))
 
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
     }
 
@@ -152,7 +152,7 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
             trailer.reason = "" // indicates normal closure
             manager.handle(.trailer(trailer, .none))
 
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
     }
 
@@ -193,7 +193,7 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
             trailer.reason = "" // indicates normal closure
             manager.handle(.trailer(trailer, .none))
 
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
     }
 
@@ -225,7 +225,7 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
             trailer.reason = closureReason // indicates abnormal closure
             manager.handle(.trailer(trailer, .none))
 
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
     }
 
@@ -265,7 +265,7 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
             trailer.reason = "" // indicates normal closure
             manager.handle(.trailer(trailer, .none))
 
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
     }
 
@@ -305,7 +305,7 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
 
             manager.handle(.chunk(chunk, .none))
 
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
     }
 }
