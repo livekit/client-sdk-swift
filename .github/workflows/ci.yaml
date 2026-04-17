@@ -115,17 +115,7 @@ jobs:
       - name: Swift Version
         run: xcrun swift --version
 
-      - name: Build for Testing
-        run: |
-          set -o pipefail && xcodebuild build-for-testing \
-            -scheme LiveKit \
-            -destination 'platform=${{ matrix.platform }}' \
-            -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
-            -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
-            APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
-            | xcbeautify --renderer github-actions
-
-      - name: Run Tests
+      - name: Build & Test
         uses: nick-fields/retry@v4
         env:
           LIBDISPATCH_COOPERATIVE_POOL_STRICT: ${{ matrix.strict-concurrency-env == true && '1' || '0' }}
@@ -138,7 +128,7 @@ jobs:
 
             for test in "${tests[@]}"; do
               echo "::group::$test"
-              if ! NSUnbufferedIO=YES xcodebuild test-without-building \
+              if ! NSUnbufferedIO=YES xcodebuild test \
                 -scheme LiveKit \
                 -destination 'platform=${{ matrix.platform }}' \
                 -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
