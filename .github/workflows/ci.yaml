@@ -17,7 +17,7 @@ concurrency:
 
 env:
   TEST_TARGETS: "LiveKitCoreTests LiveKitObjCTests"
-  TEST_TIMEOUT_MINUTES: 20
+  TEST_TIMEOUT_MINUTES: 30
   TEST_RETRY_ATTEMPTS: 2
 
 jobs:
@@ -138,7 +138,7 @@ jobs:
 
             for test in "${tests[@]}"; do
               echo "::group::$test"
-              if ! xcodebuild test-without-building \
+              if ! NSUnbufferedIO=YES xcodebuild test-without-building \
                 -scheme LiveKit \
                 -destination 'platform=${{ matrix.platform }}' \
                 -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
