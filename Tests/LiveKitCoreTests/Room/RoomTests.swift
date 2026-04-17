@@ -67,10 +67,6 @@ import LiveKitTestSupport
 
             #expect(room.connectionState == .connected)
 
-            // Grab socket reference for leak checking
-            weak var weakSocket = await room.signalClient._state.socket
-            weak var weakSignalClient = room.signalClient
-
             // Call cleanUp from a cancelled Task context — reproduces the
             // reconnect-cancellation scenario where Task.isCancelled is true.
             let task = Task {
