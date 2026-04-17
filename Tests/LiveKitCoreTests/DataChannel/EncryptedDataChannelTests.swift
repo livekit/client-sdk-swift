@@ -25,17 +25,22 @@ import LiveKitWebRTC
 @Suite(.serialized, .tags(.dataChannel, .e2e, .e2ee)) final class EncryptedDataChannelTests: @unchecked Sendable {
     private let _receivedData = StateSync(Data())
     private let _lastDecryptionError = StateSync<Error?>(nil)
-    private let _eventReceived = StateSync(false)
     var onDataReceived: (() -> Void)?
     var onDecryptionError: (() -> Void)?
 
-    /// Polls until the delegate callback fires or timeout.
-    private func waitForEvent(timeout: TimeInterval = 5) async throws {
-        _eventReceived.mutate { $0 = false }
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if _eventReceived.copy() { return }
-            try await Task.sleep(nanoseconds: 50_000_000) // 50ms
+    /// Awaits the next delegate callback (data received or decryption error).
+    private func awaitEvent() async {
+        await withCheckedContinuation { continuation in
+            let previous = self.onDataReceived
+            self.onDataReceived = {
+                previous?()
+                continuation.resume()
+            }
+            let previousError = self.onDecryptionError
+            self.onDecryptionError = {
+                previousError?()
+                continuation.resume()
+            }
         }
     }
 
@@ -61,7 +66,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                try? await self.waitForEvent()
+                await self.awaitEvent()
             }
 
             let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
@@ -112,7 +117,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                try? await self.waitForEvent()
+                await self.awaitEvent()
             }
 
             let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
@@ -156,7 +161,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                try? await self.waitForEvent()
+                await self.awaitEvent()
             }
 
             #expect(self._lastDecryptionError.copy() != nil, "Decryption error should have occurred")
@@ -211,7 +216,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                try? await self.waitForEvent()
+                await self.awaitEvent()
             }
 
             #expect(self._lastDecryptionError.copy() != nil, "Decryption error should have occurred with mismatched per-participant keys")
@@ -254,16 +259,13 @@ import LiveKitWebRTC
                 let sender = rooms[0]
                 let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
 
-                // Sender ratchets their key forward
                 let ratchetedKey = senderKeyProvider.ratchetKey()
                 #expect(ratchetedKey != nil, "Sender key ratcheting should succeed")
 
-                // Export keys to verify they're different
                 let senderExportedKey = senderKeyProvider.exportKey()
                 let receiverExportedKey = receiverKeyProvider.exportKey()
                 #expect(senderExportedKey != receiverExportedKey, "Keys should be different after sender ratchets")
 
-                // Send encrypted data with the ratcheted key
                 let userPacket = Livekit_UserPacket.with {
                     $0.payload = testData
                     $0.destinationIdentities = [remoteIdentity.stringValue]
@@ -271,8 +273,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                // Receiver should automatically ratchet and decrypt successfully
-                try? await self.waitForEvent()
+                await self.awaitEvent()
             }
 
             let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
@@ -327,7 +328,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                try? await self.waitForEvent()
+                await self.awaitEvent()
             }
 
             let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
@@ -341,13 +342,11 @@ import LiveKitWebRTC
 extension EncryptedDataChannelTests: RoomDelegate {
     func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic _: String, encryptionType _: EncryptionType) {
         _receivedData.mutate { $0 = data }
-        _eventReceived.mutate { $0 = true }
         onDataReceived?()
     }
 
     func room(_: Room, didFailToDecryptDataWithEror error: LiveKitError) {
         _lastDecryptionError.mutate { $0 = error }
-        _eventReceived.mutate { $0 = true }
         onDecryptionError?()
     }
 }

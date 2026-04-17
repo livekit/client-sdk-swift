@@ -80,8 +80,6 @@ struct OutgoingStreamManagerTests {
                         try await writer.write(chunk)
                     }
                     try await writer.close()
-
-                    try? await Task.sleep(nanoseconds: 1_000_000_000)
                 }
             }
         }
@@ -144,8 +142,6 @@ struct OutgoingStreamManagerTests {
                         try await writer.write(chunk)
                     }
                     try await writer.close()
-
-                    try? await Task.sleep(nanoseconds: 1_000_000_000)
                 }
             }
         }
@@ -175,8 +171,6 @@ struct OutgoingStreamManagerTests {
                 #expect(error as? LiveKitError == testError)
                 confirm()
             }
-
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
     }
 }

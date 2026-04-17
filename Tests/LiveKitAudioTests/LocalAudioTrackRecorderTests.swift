@@ -34,7 +34,7 @@ import LiveKitTestSupport
         let stream = try await recorder.start()
 
         await confirmation("Received audio data") { confirm in
-            Task {
+            let processingTask = Task {
                 var dataCount = 0
                 for await data in stream {
                     dataCount += 1
@@ -46,7 +46,7 @@ import LiveKitTestSupport
                 }
             }
 
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            _ = await processingTask.result
         }
 
         recorder.stop()
@@ -66,7 +66,7 @@ import LiveKitTestSupport
         let stream = try await recorder.start()
 
         await confirmation("Received audio data") { confirm in
-            Task {
+            let processingTask = Task {
                 var dataCount = 0
                 for await _ in stream {
                     dataCount += 1
@@ -77,7 +77,7 @@ import LiveKitTestSupport
                 }
             }
 
-            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            _ = await processingTask.result
         }
 
         recorder.stop()
@@ -103,7 +103,7 @@ import LiveKitTestSupport
 
         await confirmation("Received audio data from recorder1") { confirm1 in
             await confirmation("Received audio data from recorder2") { confirm2 in
-                Task {
+                let processingTask1 = Task {
                     var dataCount = 0
                     for await _ in stream1 {
                         dataCount += 1
@@ -114,7 +114,7 @@ import LiveKitTestSupport
                     }
                 }
 
-                Task {
+                let processingTask2 = Task {
                     var dataCount = 0
                     for await _ in stream2 {
                         dataCount += 1
@@ -125,7 +125,7 @@ import LiveKitTestSupport
                     }
                 }
 
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                _ = await (processingTask1.result, processingTask2.result)
             }
         }
 

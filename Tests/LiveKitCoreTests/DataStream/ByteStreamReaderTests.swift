@@ -66,7 +66,7 @@ final class ByteStreamReaderTests: @unchecked Sendable {
     @Test func chunkRead() async {
         await confirmation("Receive all chunks") { receiveConfirm in
             await confirmation("Normal closure") { closureConfirm in
-                Task {
+                let processingTask = Task {
                     var chunkIndex = 0
                     for try await chunk in reader {
                         #expect(chunk == testChunks[chunkIndex])
@@ -80,7 +80,7 @@ final class ByteStreamReaderTests: @unchecked Sendable {
 
                 sendPayload()
 
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                _ = await processingTask.result
             }
         }
     }
@@ -89,7 +89,7 @@ final class ByteStreamReaderTests: @unchecked Sendable {
         await confirmation("Read throws error") { confirm in
             let testError = StreamError.abnormalEnd(reason: "test")
 
-            Task {
+            let processingTask = Task {
                 do {
                     for try await _ in reader {}
                 } catch {
@@ -99,26 +99,26 @@ final class ByteStreamReaderTests: @unchecked Sendable {
             }
             sendPayload(closingError: testError)
 
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            _ = await processingTask.result
         }
     }
 
     @Test func readAll() async {
         await confirmation("Read full payload") { confirm in
-            Task {
+            let processingTask = Task {
                 let fullPayload = try await reader.readAll()
                 #expect(fullPayload == testPayload)
                 confirm()
             }
             sendPayload()
 
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            _ = await processingTask.result
         }
     }
 
     @Test func readToFile() async {
         await confirmation("File properly written") { confirm in
-            Task {
+            let processingTask = Task {
                 do {
                     let fileURL = try await reader.writeToFile()
                     #expect(fileURL.lastPathComponent == reader.info.name)
@@ -133,7 +133,7 @@ final class ByteStreamReaderTests: @unchecked Sendable {
             }
             sendPayload()
 
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            _ = await processingTask.result
         }
     }
 
