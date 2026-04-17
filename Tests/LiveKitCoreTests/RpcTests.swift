@@ -114,8 +114,6 @@ struct RpcTests {
                     responseTimeout: 8,
                     version: 1
                 )
-
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
         }
     }
@@ -157,8 +155,6 @@ struct RpcTests {
                     responseTimeout: 8,
                     version: 1
                 )
-
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
         }
     }
@@ -202,8 +198,6 @@ struct RpcTests {
                     responseTimeout: 10,
                     version: 1
                 )
-
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
         }
     }

@@ -103,8 +103,6 @@ import LiveKitTestSupport
                 room.publisherDataChannel = mockDataChannel
 
                 try await room.send(dataPacket: Livekit_DataPacket())
-
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
         }
     }
