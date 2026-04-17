@@ -94,8 +94,8 @@ import Testing
         ("ws://localhost:7880", false),
     ])
     func isCloud(urlString: String, expected: Bool) throws {
-        let isCloud = try #require(URL(string: urlString)?.isCloud)
-        #expect(isCloud == expected)
+        let url = try #require(URL(string: urlString))
+        #expect(url.isCloud == expected)
     }
 
     @Test(arguments: [
