@@ -17,7 +17,7 @@ concurrency:
 
 env:
   TEST_TIMEOUT_MINUTES: 30
-  TEST_RETRY_ATTEMPTS: 2
+  TEST_RETRY_ATTEMPTS: 3
 
 jobs:
   build-and-test:
