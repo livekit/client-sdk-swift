@@ -23,6 +23,7 @@ import LiveKitTestSupport
 
 @Suite(.serialized, .tags(.dataChannel, .e2e)) final class RealiableDataChannelTests: @unchecked Sendable {
     private let _receivedData = StateSync(Data())
+    private let _receivedCount = StateSync(0)
     var onDataReceived: (() -> Void)?
 
     @Test func reliableRetry() async throws {
@@ -67,7 +68,11 @@ import LiveKitTestSupport
                 }
             }
 
-            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            // Wait for all packets to arrive (poll instead of fixed sleep)
+            let deadline = Date().addingTimeInterval(10)
+            while Date() < deadline, self._receivedCount.copy() < iterations {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
         }
 
         let receivedString = try #require(String(data: _receivedData.copy(), encoding: .utf8))
@@ -78,6 +83,7 @@ import LiveKitTestSupport
 extension RealiableDataChannelTests: RoomDelegate {
     func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic _: String, encryptionType _: EncryptionType) {
         _receivedData.mutate { $0.append(data) }
+        _receivedCount.mutate { $0 += 1 }
         onDataReceived?()
     }
 }
