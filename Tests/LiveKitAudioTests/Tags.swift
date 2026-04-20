@@ -14,21 +14,11 @@
  * limitations under the License.
  */
 
-import LiveKit
-import LiveKitWebRTC
-@_exported import XCTest
+import Testing
 
-/// Subclass of XCTestCase that performs global initialization.
-open class LKTestCase: XCTestCase {
-    override open func setUp() {
-        LiveKitSDK.setLogLevel(.info)
-        continueAfterFailure = false // Fail early
-        super.setUp()
-    }
-}
-
-public extension LKTestCase {
-    func sleep(forSeconds seconds: UInt) async {
-        try? await Task.sleep(nanoseconds: UInt64(seconds) * 1_000_000_000)
-    }
+extension Tag {
+    /// Audio engine, processing, recording, and buffer tests.
+    @Tag static var audio: Self
+    /// End-to-end tests requiring a running LiveKit server.
+    @Tag static var e2e: Self
 }

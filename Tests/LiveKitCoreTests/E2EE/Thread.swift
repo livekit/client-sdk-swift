@@ -14,15 +14,18 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 @preconcurrency import LiveKitWebRTC
 
-class E2EEThreadTests: LKTestCase {
+@Suite(.tags(.e2ee, .concurrency))
+struct E2EEThreadTests {
     // Attempt to crash LKRTCFrameCryptor initialization
-    func testCreateFrameCryptor() async throws {
+    @Test func createFrameCryptor() async throws {
         // Create peerConnection
         let peerConnection = RTC.peerConnectionFactory.peerConnection(with: .liveKitDefault(),
                                                                       constraints: .defaultPCConstraints,
@@ -39,8 +42,8 @@ class E2EEThreadTests: LKTestCase {
 
                     // Create a sender
                     guard let sender = peerConnection?.addTransceiver(of: .video)?.sender else {
-                        XCTFail("Failed to create transceiver")
-                        fatalError()
+                        Issue.record("Failed to create transceiver")
+                        return nil
                     }
 
                     // Remove sender from pc

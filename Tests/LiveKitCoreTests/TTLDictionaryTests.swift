@@ -14,41 +14,42 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
 // swiftformat:disable preferForLoop
-class TTLDictionaryTests: LKTestCase {
+struct TTLDictionaryTests {
     private let shortTTL: TimeInterval = 0.1
-    private var dictionary: TTLDictionary<String, String>!
+    private var dictionary: TTLDictionary<String, String>
 
-    override func setUp() {
-        super.setUp()
+    init() {
         dictionary = TTLDictionary<String, String>(ttl: shortTTL)
     }
 
-    func testExpiration() async throws {
+    @Test mutating func expiration() async throws {
         dictionary["key1"] = "value1"
         dictionary["key2"] = "value2"
         dictionary["key3"] = "value3"
 
-        XCTAssertNotNil(dictionary["key1"])
-        XCTAssertNotNil(dictionary["key2"])
-        XCTAssertNotNil(dictionary["key3"])
+        #expect(dictionary["key1"] != nil)
+        #expect(dictionary["key2"] != nil)
+        #expect(dictionary["key3"] != nil)
 
         try await Task.sleep(nanoseconds: UInt64(2 * shortTTL * 1_000_000_000))
 
-        XCTAssertNil(dictionary["key1"])
-        XCTAssertNil(dictionary["key2"])
-        XCTAssertNil(dictionary["key3"])
+        #expect(dictionary["key1"] == nil)
+        #expect(dictionary["key2"] == nil)
+        #expect(dictionary["key3"] == nil)
 
-        XCTAssertEqual(dictionary.count, 0)
-        XCTAssertTrue(dictionary.keys.isEmpty)
-        XCTAssertTrue(dictionary.values.isEmpty)
+        #expect(dictionary.count == 0)
+        #expect(dictionary.keys.isEmpty)
+        #expect(dictionary.values.isEmpty)
 
-        dictionary.forEach { _, _ in XCTFail("Dictionary should be empty") }
-        _ = dictionary.map { _, _ in XCTFail("Dictionary should be empty") }
+        dictionary.forEach { _, _ in Issue.record("Dictionary should be empty") }
+        _ = dictionary.map { _, _ in Issue.record("Dictionary should be empty") }
     }
 }
