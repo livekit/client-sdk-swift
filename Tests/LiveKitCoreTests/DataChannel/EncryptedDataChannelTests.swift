@@ -25,22 +25,22 @@ import LiveKitWebRTC
 @Suite(.serialized, .tags(.dataChannel, .e2e, .e2ee)) final class EncryptedDataChannelTests: @unchecked Sendable {
     private let _receivedData = StateSync(Data())
     private let _lastDecryptionError = StateSync<Error?>(nil)
-    var onDataReceived: (() -> Void)?
-    var onDecryptionError: (() -> Void)?
+    private let _onDataReceived = StateSync<(() -> Void)?>(nil)
+    private let _onDecryptionError = StateSync<(() -> Void)?>(nil)
 
     /// Awaits the next delegate callback (data received or decryption error).
     private func awaitEvent() async {
         await withCheckedContinuation { continuation in
-            let previous = self.onDataReceived
-            self.onDataReceived = {
+            let previous = self._onDataReceived.copy()
+            self._onDataReceived.mutate { $0 = {
                 previous?()
                 continuation.resume()
-            }
-            let previousError = self.onDecryptionError
-            self.onDecryptionError = {
+            }}
+            let previousError = self._onDecryptionError.copy()
+            self._onDecryptionError.mutate { $0 = {
                 previousError?()
                 continuation.resume()
-            }
+            }}
         }
     }
 
@@ -50,7 +50,7 @@ import LiveKitWebRTC
 
         try await confirmation("Encrypted data received") { confirm in
             self._receivedData.mutate { $0 = Data() }
-            self.onDataReceived = { confirm() }
+            self._onDataReceived.mutate { $0 = { confirm() } }
 
             try await TestEnvironment.withRooms([
                 RoomTestingOptions(canPublishData: true),
@@ -86,7 +86,7 @@ import LiveKitWebRTC
 
         try await confirmation("Encrypted data with per-participant keys received") { confirm in
             self._receivedData.mutate { $0 = Data() }
-            self.onDataReceived = { confirm() }
+            self._onDataReceived.mutate { $0 = { confirm() } }
 
             try await TestEnvironment.withRooms([
                 RoomTestingOptions(
@@ -138,7 +138,7 @@ import LiveKitWebRTC
         try await confirmation("Decryption error occurred") { confirm in
             self._receivedData.mutate { $0 = Data() }
             self._lastDecryptionError.mutate { $0 = nil }
-            self.onDecryptionError = { confirm() }
+            self._onDecryptionError.mutate { $0 = { confirm() } }
 
             try await TestEnvironment.withRooms([
                 RoomTestingOptions(
@@ -183,7 +183,7 @@ import LiveKitWebRTC
         try await confirmation("Decryption error occurred with per-participant keys") { confirm in
             self._receivedData.mutate { $0 = Data() }
             self._lastDecryptionError.mutate { $0 = nil }
-            self.onDecryptionError = { confirm() }
+            self._onDecryptionError.mutate { $0 = { confirm() } }
 
             try await TestEnvironment.withRooms([
                 RoomTestingOptions(
@@ -243,7 +243,7 @@ import LiveKitWebRTC
 
         try await confirmation("Data received after automatic key ratcheting") { confirm in
             self._receivedData.mutate { $0 = Data() }
-            self.onDataReceived = { confirm() }
+            self._onDataReceived.mutate { $0 = { confirm() } }
 
             try await TestEnvironment.withRooms([
                 RoomTestingOptions(
@@ -303,7 +303,7 @@ import LiveKitWebRTC
 
         try await confirmation("Data received with multiple keys in key ring") { confirm in
             self._receivedData.mutate { $0 = Data() }
-            self.onDataReceived = { confirm() }
+            self._onDataReceived.mutate { $0 = { confirm() } }
 
             try await TestEnvironment.withRooms([
                 RoomTestingOptions(
@@ -342,11 +342,11 @@ import LiveKitWebRTC
 extension EncryptedDataChannelTests: RoomDelegate {
     func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic _: String, encryptionType _: EncryptionType) {
         _receivedData.mutate { $0 = data }
-        onDataReceived?()
+        _onDataReceived.copy()?()
     }
 
     func room(_: Room, didFailToDecryptDataWithEror error: LiveKitError) {
         _lastDecryptionError.mutate { $0 = error }
-        onDecryptionError?()
+        _onDecryptionError.copy()?()
     }
 }
