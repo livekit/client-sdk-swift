@@ -123,7 +123,7 @@ jobs:
           timeout_minutes: ${{ env.TEST_TIMEOUT_MINUTES }}
           max_attempts: ${{ env.TEST_RETRY_ATTEMPTS }}
           command: |
-            set -o pipefail && xcodebuild test \
+            xcodebuild test \
               -scheme LiveKit \
               -destination 'platform=${{ matrix.platform }}' \
               -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
@@ -131,8 +131,7 @@ jobs:
               APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
               -only-testing:LiveKitCoreTests \
               -only-testing:LiveKitObjCTests \
-              -parallel-testing-enabled NO \
-              | xcbeautify --renderer github-actions
+              -parallel-testing-enabled NO
 
       - name: Build for Release
         if: ${{ matrix.symbol-graph }}
