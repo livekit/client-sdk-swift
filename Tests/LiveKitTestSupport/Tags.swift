@@ -14,15 +14,6 @@
  * limitations under the License.
  */
 
-import Foundation
-@testable import LiveKit
-import Testing
-#if canImport(LiveKitTestSupport)
-import LiveKitTestSupport
-#endif
-
-struct SDKTests {
-    @Test func readVersion() {
-        print("LiveKitSDK.version: \(LiveKitSDK.version)")
-    }
-}
+// Tag definitions live in the test targets (LiveKitCoreTests/Tags.swift,
+// LiveKitAudioTests/Tags.swift) because `import Testing` requires a
+// .testTarget — the `LiveKitTestSupport` library is a regular .target.

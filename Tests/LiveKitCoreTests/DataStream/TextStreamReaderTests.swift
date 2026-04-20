@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class TextStreamReaderTests: LKTestCase, @unchecked Sendable {
+@Suite(.tags(.dataStream))
+final class TextStreamReaderTests: @unchecked Sendable {
     private var continuation: StreamReaderSource.Continuation!
     private var reader: TextStreamReader!
 
@@ -56,72 +59,63 @@ class TextStreamReaderTests: LKTestCase, @unchecked Sendable {
         continuation.finish(throwing: closingError)
     }
 
-    override func setUp() {
-        super.setUp()
+    init() {
         let source = StreamReaderSource {
             self.continuation = $0
         }
         reader = TextStreamReader(info: testInfo, source: source)
     }
 
-    func testChunkRead() async throws {
-        let receiveExpectation = expectation(description: "Receive all chunks")
-        let closureExpectation = expectation(description: "Normal closure")
-
-        Task {
-            var chunkIndex = 0
-            for try await chunk in reader {
-                XCTAssertEqual(chunk, testChunks[chunkIndex])
-                if chunkIndex == testChunks.count - 1 {
-                    receiveExpectation.fulfill()
+    @Test func chunkRead() async {
+        await confirmation("Receive all chunks") { receiveConfirm in
+            await confirmation("Normal closure") { closureConfirm in
+                let processingTask = Task {
+                    var chunkIndex = 0
+                    for try await chunk in reader {
+                        #expect(chunk == testChunks[chunkIndex])
+                        if chunkIndex == testChunks.count - 1 {
+                            receiveConfirm()
+                        }
+                        chunkIndex += 1
+                    }
+                    closureConfirm()
                 }
-                chunkIndex += 1
-            }
-            closureExpectation.fulfill()
-        }
 
-        sendPayload()
+                sendPayload()
 
-        await fulfillment(
-            of: [receiveExpectation, closureExpectation],
-            timeout: 5,
-            enforceOrder: true
-        )
-    }
-
-    func testChunkReadError() async throws {
-        let throwsExpectation = expectation(description: "Read throws error")
-        let testError = StreamError.abnormalEnd(reason: "test")
-
-        Task {
-            do {
-                for try await _ in reader {}
-            } catch {
-                XCTAssertEqual(error as? StreamError, testError)
-                throwsExpectation.fulfill()
+                _ = await processingTask.result
             }
         }
-        sendPayload(closingError: testError)
-
-        await fulfillment(
-            of: [throwsExpectation],
-            timeout: 5
-        )
     }
 
-    func testReadAll() async throws {
-        let readExpectation = expectation(description: "Read full payload")
+    @Test func chunkReadError() async {
+        await confirmation("Read throws error") { confirm in
+            let testError = StreamError.abnormalEnd(reason: "test")
 
-        Task {
-            let fullPayload = try await reader.readAll()
-            XCTAssertEqual(fullPayload, testPayload)
-            readExpectation.fulfill()
+            let processingTask = Task {
+                do {
+                    for try await _ in reader {}
+                } catch {
+                    #expect(error as? StreamError == testError)
+                    confirm()
+                }
+            }
+            sendPayload(closingError: testError)
+
+            _ = await processingTask.result
         }
-        sendPayload()
+    }
 
-        await fulfillment(
-            of: [readExpectation],
-            timeout: 5
-        )
+    @Test func readAll() async {
+        await confirmation("Read full payload") { confirm in
+            let processingTask = Task {
+                let fullPayload = try await reader.readAll()
+                #expect(fullPayload == testPayload)
+                confirm()
+            }
+            sendPayload()
+
+            _ = await processingTask.result
+        }
     }
 }

@@ -16,45 +16,44 @@
 
 #if os(iOS)
 
+import CoreVideo
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-final class BroadcastImageCodecTests: LKTestCase {
-    private var codec: BroadcastImageCodec!
+@Suite(.tags(.broadcast))
+struct BroadcastImageCodecTests {
+    private let codec = BroadcastImageCodec()
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        codec = BroadcastImageCodec()
-    }
-
-    func testEncodeDecode() throws {
+    @Test func encodeDecode() throws {
         let (width, height) = (64, 32)
-        let testBuffer = try XCTUnwrap(createTestPixelBuffer(width: width, height: height))
+        let testBuffer = try #require(createTestPixelBuffer(width: width, height: height))
 
-        let (metadata, imageData) = try XCTUnwrap(codec.encode(testBuffer))
-        XCTAssertEqual(metadata.width, width)
-        XCTAssertEqual(metadata.height, height)
-        XCTAssertGreaterThan(imageData.count, 0)
+        let (metadata, imageData) = try codec.encode(testBuffer)
+        #expect(metadata.width == width)
+        #expect(metadata.height == height)
+        #expect(imageData.count > 0)
 
-        let decodedBuffer = try XCTUnwrap(codec.decode(imageData, with: metadata))
-        XCTAssertEqual(CVPixelBufferGetWidth(decodedBuffer), width)
-        XCTAssertEqual(CVPixelBufferGetHeight(decodedBuffer), height)
+        let decodedBuffer = try codec.decode(imageData, with: metadata)
+        #expect(CVPixelBufferGetWidth(decodedBuffer) == width)
+        #expect(CVPixelBufferGetHeight(decodedBuffer) == height)
     }
 
-    func testDecodeNonImageData() throws {
+    @Test func decodeNonImageData() throws {
         let nonImageData = Data(repeating: 0xFA, count: 1024)
         let metadata = BroadcastImageCodec.Metadata(width: 100, height: 100)
-        XCTAssertThrowsError(try codec.decode(nonImageData, with: metadata)) { error in
-            XCTAssertEqual(error as? BroadcastImageCodec.Error, .decodingFailed)
+        #expect(throws: BroadcastImageCodec.Error.decodingFailed) {
+            try codec.decode(nonImageData, with: metadata)
         }
     }
 
-    func testDecodeEmpty() throws {
+    @Test func decodeEmpty() throws {
         let metadata = BroadcastImageCodec.Metadata(width: 100, height: 100)
-        XCTAssertThrowsError(try codec.decode(Data(), with: metadata)) { error in
-            XCTAssertEqual(error as? BroadcastImageCodec.Error, .decodingFailed)
+        #expect(throws: BroadcastImageCodec.Error.decodingFailed) {
+            try codec.decode(Data(), with: metadata)
         }
     }
 

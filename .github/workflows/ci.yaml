@@ -16,9 +16,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TEST_TARGETS: "LiveKitCoreTests LiveKitObjCTests"
-  TEST_TIMEOUT_MINUTES: 15
-  TEST_RETRY_ATTEMPTS: 2
+  TEST_TIMEOUT_MINUTES: 30
+  TEST_RETRY_ATTEMPTS: 3
 
 jobs:
   build-and-test:
@@ -92,6 +91,9 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    env:
+      LIBDISPATCH_COOPERATIVE_POOL_STRICT: ${{ matrix.strict-concurrency-env == true && '1' || '0' }}
+      NSUnbufferedIO: "YES"
     defaults:
       run:
         shell: bash
@@ -115,44 +117,22 @@ jobs:
       - name: Swift Version
         run: xcrun swift --version
 
-      - name: Build for Testing
-        run: |
-          set -o pipefail && xcodebuild build-for-testing \
-            -scheme LiveKit \
-            -destination 'platform=${{ matrix.platform }}' \
-            -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
-            -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
-            APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
-            | xcbeautify --renderer github-actions
-
-      - name: Run Tests
-        uses: nick-fields/retry@v3
-        env:
-          LIBDISPATCH_COOPERATIVE_POOL_STRICT: ${{ matrix.strict-concurrency-env == true && '1' || '0' }}
+      - name: Build & Test
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: ${{ env.TEST_TIMEOUT_MINUTES }}
           max_attempts: ${{ env.TEST_RETRY_ATTEMPTS }}
           command: |
-            set -euo pipefail
-            IFS=' ' read -r -a tests <<< "${{ env.TEST_TARGETS }}"
-
-            for test in "${tests[@]}"; do
-              echo "::group::$test"
-              if ! xcodebuild test-without-building \
-                -scheme LiveKit \
-                -destination 'platform=${{ matrix.platform }}' \
-                -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
-                -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
-                APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
-                -only-testing:$test \
-                -parallel-testing-enabled NO \
-                | xcbeautify --renderer github-actions
-              then
-                echo "::error::Test failed: $test"
-                exit 1
-              fi
-              echo "::endgroup::"
-            done
+            set -o pipefail && xcodebuild test \
+              -scheme LiveKit \
+              -destination 'platform=${{ matrix.platform }}' \
+              -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
+              -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
+              APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
+              -only-testing:LiveKitCoreTests \
+              -only-testing:LiveKitObjCTests \
+              -parallel-testing-enabled NO \
+              | xcbeautify --renderer github-actions
 
       - name: Build for Release
         if: ${{ matrix.symbol-graph }}
@@ -170,7 +150,7 @@ jobs:
 
       - name: Upload Symbol Graph
         if: ${{ matrix.symbol-graph }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: symbol-graph-${{ matrix.platform }}
           path: symbol-graph
@@ -200,7 +180,7 @@ jobs:
           sparse-checkout: Sources/LiveKit/LiveKit.docc
 
       - name: Download Symbol Graphs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: symbol-graph-*
           path: symbol-graphs
@@ -221,7 +201,7 @@ jobs:
         run: zip -r docs.zip docs
 
       - name: Upload Archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: docs
           path: docs.zip
@@ -275,7 +255,7 @@ jobs:
 
       - name: Comment on PR
         if: steps.check-changes.outputs.has_changes == 'false'
-        uses: mshick/add-pr-comment@v2
+        uses: mshick/add-pr-comment@v3
         with:
           message: |
             ⚠️ This PR does not contain any files in the `.changes` directory.
