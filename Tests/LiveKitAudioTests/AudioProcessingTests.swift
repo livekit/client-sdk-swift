@@ -53,13 +53,11 @@ import LiveKitTestSupport
     }
 
     @Test func convertAudioBufferToPCM() async throws {
-        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
-            // Alias to Room1
-            let room1 = rooms[0]
+        try await TestEnvironment.withRoom(RoomTestingOptions(canPublish: true)) { room in
             // Set processing delegate
             AudioManager.shared.capturePostProcessingDelegate = self
             // Publish mic
-            try await room1.localParticipant.setMicrophone(enabled: true)
+            try await room.localParticipant.setMicrophone(enabled: true)
             // 3 secs...
             let ns = UInt64(5 * 1_000_000_000)
             try await Task.sleep(nanoseconds: ns)
@@ -70,10 +68,7 @@ import LiveKitTestSupport
         // Disable Apple VPIO.
         AudioManager.shared.isVoiceProcessingBypassed = true
 
-        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
-            // Alias to Room1
-            let room1 = rooms[0]
-
+        try await TestEnvironment.withRoom(RoomTestingOptions(canPublish: true)) { room in
             let allOnOptions = AudioCaptureOptions(
                 echoCancellation: true,
                 autoGainControl: true,
@@ -88,7 +83,7 @@ import LiveKitTestSupport
                 highpassFilter: false
             )
 
-            let pub1 = try #require(await room1.localParticipant.setMicrophone(enabled: true, captureOptions: allOnOptions))
+            let pub1 = try #require(await room.localParticipant.setMicrophone(enabled: true, captureOptions: allOnOptions))
 
             let ns = UInt64(3 * 1_000_000_000)
             try await Task.sleep(nanoseconds: ns)
@@ -101,9 +96,9 @@ import LiveKitTestSupport
             #expect(allOnConfigResult.isAutoGainControl1Enabled)
             #expect(allOnConfigResult.isHighpassFilterEnabled)
 
-            try await room1.localParticipant.unpublish(publication: pub1)
+            try await room.localParticipant.unpublish(publication: pub1)
 
-            let pub2 = try #require(await room1.localParticipant.setMicrophone(enabled: true, captureOptions: allOffOptions))
+            let pub2 = try #require(await room.localParticipant.setMicrophone(enabled: true, captureOptions: allOffOptions))
 
             try await Task.sleep(nanoseconds: ns)
 
@@ -115,7 +110,7 @@ import LiveKitTestSupport
             #expect(!allOffConfigResult.isAutoGainControl1Enabled)
             #expect(!allOffConfigResult.isHighpassFilterEnabled)
 
-            try await room1.localParticipant.unpublish(publication: pub2)
+            try await room.localParticipant.unpublish(publication: pub2)
         }
     }
 }

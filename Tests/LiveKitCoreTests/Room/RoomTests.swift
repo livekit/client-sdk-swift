@@ -23,18 +23,15 @@ import LiveKitTestSupport
 
 @Suite(.serialized, .tags(.e2e)) final class RoomTests: @unchecked Sendable {
     @Test func roomProperties() async throws {
-        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
-            // Alias to Room
-            let room1 = rooms[0]
-
+        try await TestEnvironment.withRoom { room in
             // SID
-            let sid = try await room1.sid()
+            let sid = try await room.sid()
             print("Room.sid(): \(String(describing: sid))")
             #expect(sid.stringValue.starts(with: "RM_"))
 
             // creationTime
-            #expect(room1.creationTime != nil)
-            print("Room.creationTime: \(String(describing: room1.creationTime))")
+            #expect(room.creationTime != nil)
+            print("Room.creationTime: \(String(describing: room.creationTime))")
         }
     }
 
@@ -48,8 +45,8 @@ import LiveKitTestSupport
     @Test func resourcesCleanUp() async throws {
         var refs = WeakRoomRefs()
 
-        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
-            await refs.capture(from: rooms[0])
+        try await TestEnvironment.withRoom { room in
+            await refs.capture(from: room)
         }
 
         // Allow time for deallocation after withRooms returns (rooms disconnected)
@@ -70,9 +67,7 @@ import LiveKitTestSupport
     /// cancelled Task — the scenario that occurs when a reconnect task is
     /// cancelled by disconnect() or a newer reconnect.
     @Test func cleanUpRunsWhenTaskIsCancelled() async throws {
-        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
-            let room = rooms[0]
-
+        try await TestEnvironment.withRoom { room in
             #expect(room.connectionState == .connected)
 
             // Call cleanUp from a cancelled Task context — reproduces the
@@ -100,9 +95,7 @@ import LiveKitTestSupport
     }
 
     @Test func sendDataPacket() async throws {
-        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
-            let room = rooms[0]
-
+        try await TestEnvironment.withRoom { room in
             try await confirmation("Should send data packet") { confirm in
                 let mockDataChannel = MockDataChannelPair { packet in
                     #expect(packet.participantIdentity == room.localParticipant.identity?.stringValue ?? "")

@@ -62,11 +62,9 @@ private class ProcessingDelegateTester: AudioCustomProcessingDelegate, @unchecke
         // Set processing delegate
         AudioManager.shared.capturePostProcessingDelegate = processorA
 
-        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
-            // Alias to Room1
-            let room1 = rooms[0]
+        try await TestEnvironment.withRoom(RoomTestingOptions(canPublish: true)) { room in
             // Publish mic
-            try await room1.localParticipant.setMicrophone(enabled: true)
+            try await room.localParticipant.setMicrophone(enabled: true)
             try? await Task.sleep(nanoseconds: 1_000_000_000)
 
             // Verify processorA was initialized and received audio
@@ -97,17 +95,15 @@ private class ProcessingDelegateTester: AudioCustomProcessingDelegate, @unchecke
     }
 
     @Test func localAudioTrackRendererAPI() async throws {
-        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
-            let room1 = rooms[0]
-
+        try await TestEnvironment.withRoom(RoomTestingOptions(canPublish: true)) { room in
             // Create a test renderer
             let renderer = TestAudioRenderer()
 
             // Publish microphone
-            try await room1.localParticipant.setMicrophone(enabled: true)
+            try await room.localParticipant.setMicrophone(enabled: true)
 
             // Get the local audio track
-            let localAudioTrack = try #require(room1.localParticipant.audioTracks.first?.track as? LocalAudioTrack, "No local audio track found")
+            let localAudioTrack = try #require(room.localParticipant.audioTracks.first?.track as? LocalAudioTrack, "No local audio track found")
 
             // Add renderer via LocalAudioTrack extension method
             localAudioTrack.add(audioRenderer: renderer)

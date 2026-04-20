@@ -23,10 +23,7 @@ import LiveKitTestSupport
 
 @Suite(.serialized, .tags(.audio, .e2e)) struct PublishMicrophoneTests {
     @Test func concurrentMicPublish() async throws {
-        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
-            // Alias to Room
-            let room1 = rooms[0]
-
+        try await TestEnvironment.withRoom(RoomTestingOptions(canPublish: true)) { room in
             // Lock
             struct State {
                 var firstMicPublication: LocalTrackPublication?
@@ -38,7 +35,7 @@ import LiveKitTestSupport
             try await withThrowingTaskGroup(of: Void.self) { group in
                 for _ in 1 ... 100 {
                     group.addTask {
-                        let result = try await room1.localParticipant.setMicrophone(enabled: true)
+                        let result = try await room.localParticipant.setMicrophone(enabled: true)
 
                         if let result {
                             _state.mutate {

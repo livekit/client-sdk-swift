@@ -67,6 +67,15 @@ public enum TestEnvironment {
         return try tokenGenerator.sign()
     }
 
+    /// Single-room convenience. Connects one Room, executes the block, then disconnects.
+    public static func withRoom(_ options: RoomTestingOptions = RoomTestingOptions(),
+                                _ block: @escaping (Room) async throws -> Void) async throws
+    {
+        try await withRooms([options]) { rooms in
+            try await block(rooms[0])
+        }
+    }
+
     // Set up variable number of Rooms, connect them, wait for participants to discover each other,
     // execute the block, then disconnect. Framework-agnostic (no XCTest/Testing dependency).
     // swiftlint:disable:next function_body_length

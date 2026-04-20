@@ -24,13 +24,10 @@ import LiveKitTestSupport
 @Suite(.serialized, .tags(.e2e))
 struct ParticipantTests {
     @Test func localParticipantIdentity() async throws {
-        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
-            // Alias to Room
-            let room1 = rooms[0]
+        try await TestEnvironment.withRoom { room in
+            #expect(room.localParticipant.identity != nil, "LocalParticipant's identity is nil")
 
-            #expect(room1.localParticipant.identity != nil, "LocalParticipant's identity is nil")
-
-            print("room1.localParticipant.identity: \(String(describing: room1.localParticipant.identity))")
+            print("room.localParticipant.identity: \(String(describing: room.localParticipant.identity))")
         }
     }
 

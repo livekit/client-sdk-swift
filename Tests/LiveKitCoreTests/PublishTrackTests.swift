@@ -24,8 +24,7 @@ import LiveKitTestSupport
 @Suite(.serialized, .tags(.media, .e2e))
 struct PublishTrackTests {
     @Test func publishWithoutPermissions() async throws {
-        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: false)]) { rooms in
-            let room = rooms[0]
+        try await TestEnvironment.withRoom(RoomTestingOptions(canPublish: false)) { room in
             let audioTrack = LocalAudioTrack.createTrack()
 
             await #expect(throws: LiveKitError.self) {
@@ -35,8 +34,7 @@ struct PublishTrackTests {
     }
 
     @Test func publishWithDisallowedSource() async throws {
-        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true, canPublishSources: [.camera])]) { rooms in
-            let room = rooms[0]
+        try await TestEnvironment.withRoom(RoomTestingOptions(canPublish: true, canPublishSources: [.camera])) { room in
             let audioTrack = LocalAudioTrack.createTrack()
 
             await #expect(throws: LiveKitError.self) {

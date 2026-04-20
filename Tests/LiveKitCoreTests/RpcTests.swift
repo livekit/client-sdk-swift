@@ -25,9 +25,7 @@ import LiveKitTestSupport
 struct RpcTests {
     // Test performing RPC calls and verifying outgoing packets
     @Test func performRpc() async throws {
-        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
-            let room = rooms[0]
-
+        try await TestEnvironment.withRoom { room in
             let mockDataChannel = MockDataChannelPair { packet in
                 guard case let .rpcRequest(request) = packet.value else {
                     print("Not an RPC request packet")
@@ -68,9 +66,7 @@ struct RpcTests {
 
     // Test registering and handling incoming RPC requests
     @Test func handleIncomingRpcRequest() async throws {
-        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
-            let room = rooms[0]
-
+        try await TestEnvironment.withRoom { room in
             try await confirmation("Should send RPC response packet") { confirm in
                 let mockDataChannel = MockDataChannelPair { packet in
                     guard case let .rpcResponse(response) = packet.value else {
@@ -120,9 +116,7 @@ struct RpcTests {
 
     // Test error handling for RPC calls
     @Test func rpcErrorHandling() async throws {
-        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
-            let room = rooms[0]
-
+        try await TestEnvironment.withRoom { room in
             try await confirmation("Should send error response packet") { confirm in
                 let mockDataChannel = MockDataChannelPair { packet in
                     guard case let .rpcResponse(response) = packet.value,
@@ -161,9 +155,7 @@ struct RpcTests {
 
     // Test unregistering RPC methods
     @Test func unregisterRpcMethod() async throws {
-        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
-            let room = rooms[0]
-
+        try await TestEnvironment.withRoom { room in
             try await confirmation("Should send unsupported method error packet") { confirm in
                 let mockDataChannel = MockDataChannelPair { packet in
                     guard case let .rpcResponse(response) = packet.value,

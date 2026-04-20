@@ -137,9 +137,9 @@ import LKObjCHelpers
         }
 
         // Phase 2: Connect to room and publish mic
-        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+        try await TestEnvironment.withRoom(RoomTestingOptions(canPublish: true)) { room in
             print("Publishing mic...")
-            try await rooms[0].localParticipant.setMicrophone(enabled: true)
+            try await room.localParticipant.setMicrophone(enabled: true)
         }
     }
 
@@ -278,13 +278,11 @@ import LKObjCHelpers
 
         let readBuffer = try #require(AVAudioPCMBuffer(pcmFormat: audioFileFormat, frameCapacity: 480))
 
-        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
-            let room1 = rooms[0]
-
+        try await TestEnvironment.withRoom(RoomTestingOptions(canPublish: true)) { room in
             let ns5 = UInt64(20 * 1_000_000_000)
             try await Task.sleep(nanoseconds: ns5)
 
-            try await room1.localParticipant.setMicrophone(enabled: true)
+            try await room.localParticipant.setMicrophone(enabled: true)
 
             repeat {
                 do {
