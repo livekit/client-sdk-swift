@@ -115,7 +115,7 @@ extension Room: TransportDelegate {
         }
 
         if subscriberDataChannel.isOpen {
-            connectStopwatch?.record("dc_open")
+            connectSpan?.record("dc_open")
         }
     }
 

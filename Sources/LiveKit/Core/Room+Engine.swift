@@ -260,7 +260,7 @@ extension Room {
                                                              reconnectMode: _state.isReconnectingWithMode,
                                                              adaptiveStream: _state.roomOptions.adaptiveStream,
                                                              singlePeerConnection: singlePC,
-                                                             connectSpan: connectStopwatch)
+                                                             connectSpan: connectSpan)
         } catch let error as LiveKitError where error.type == .serviceNotFound && singlePC {
             log("v1 RTC path not supported, retrying with legacy path", .warning)
             singlePC = false
@@ -270,17 +270,17 @@ extension Room {
                                                              reconnectMode: _state.isReconnectingWithMode,
                                                              adaptiveStream: _state.roomOptions.adaptiveStream,
                                                              singlePeerConnection: false,
-                                                             connectSpan: connectStopwatch)
+                                                             connectSpan: connectSpan)
         }
 
         // Check cancellation after WebSocket connected
         try Task.checkCancellation()
 
-        connectStopwatch?.record("signal")
-        connectStopwatch?.record("join_recv")
+        connectSpan?.record("signal")
+        connectSpan?.record("join_recv")
 
         try await configureTransports(connectResponse: connectResponse, singlePeerConnection: singlePC)
-        connectStopwatch?.record("pc_created")
+        connectSpan?.record("pc_created")
         // Check cancellation after configuring transports
         try Task.checkCancellation()
 
@@ -291,8 +291,8 @@ extension Room {
         try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
         try Task.checkCancellation()
 
-        connectStopwatch?.record("engine")
-        connectStopwatch?.record("pc_connected")
+        connectSpan?.record("engine")
+        connectSpan?.record("pc_connected")
     }
 
     // swiftlint:disable:next cyclomatic_complexity function_body_length

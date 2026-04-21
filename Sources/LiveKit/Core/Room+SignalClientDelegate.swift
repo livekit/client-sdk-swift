@@ -378,7 +378,7 @@ extension Room: SignalClientDelegate {
             let answer = try await subscriber.createAnswer()
             try await subscriber.set(localDescription: answer)
             try await signalClient.send(answer: answer, offerId: offerId)
-            connectStopwatch?.record("answer_sent")
+            connectSpan?.record("answer_sent")
         } catch {
             log("Failed to send answer for offerId: \(offerId), error: \(error)", .error)
         }

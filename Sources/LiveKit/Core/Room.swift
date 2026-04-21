@@ -86,7 +86,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     public var disconnectError: LiveKitError? { _state.disconnectError }
 
     /// Timing data for the most recent connection attempt.
-    public var connectStopwatch: Span? { _state.connectStopwatch }
+    public var connectSpan: Span? { _state.connectSpan }
 
     // MARK: - Internal
 
@@ -184,7 +184,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var transport: TransportMode?
 
         // Timing
-        var connectStopwatch: Span?
+        var connectSpan: Span?
 
         // Agents
         var transcriptionReceivedTimes: [String: Date] = [:]
@@ -375,7 +375,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
 
         _state.mutate {
-            $0.connectStopwatch = sharedTracing.beginSpan("connect")
+            $0.connectSpan = sharedTracing.beginSpan("connect")
             $0.providedUrl = providedUrl
             $0.token = token
             $0.connectionState = .connecting
@@ -439,14 +439,14 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             // Final check if cancelled, don't fire connected events
             try Task.checkCancellation()
 
-            connectStopwatch?.record("room_connected")
+            connectSpan?.record("room_connected")
 
             _state.mutate {
                 $0.connectedUrl = finalUrl
                 $0.connectionState = .connected
             }
 
-            connectStopwatch?.end()
+            connectSpan?.end()
 
             // Publish mic if mic task was created
             if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled {
