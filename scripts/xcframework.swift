@@ -86,39 +86,43 @@ private let depLineRegex = #/url:\s*"(?<url>https://[^"]+)".*exact:\s*"(?<versio
 // Regex: checksum: "abc123..."
 private let checksumRegex = #/checksum:\s*"(?<hash>[0-9a-f]{64})"/#
 
-/// Parse binary dependency URL + version from our Package.swift, then read checksum
-/// from the upstream Package.swift in the local SPM checkout.
-func parseBinaryDep(repoRoot: Path, spmDir: Path, pattern: String, xcfw: String) throws -> BinaryDep {
-    let contents: String = try (repoRoot + "Package.swift").read()
-    guard let line = contents.components(separatedBy: .newlines)
-        .first(where: { $0.contains("github") && $0.contains(pattern) }),
-        let match = line.firstMatch(of: depLineRegex)
-    else {
-        throw ValidationError("\(pattern) not found in Package.swift")
+/// Reads and caches the main Package.swift contents.
+struct PackageManifest {
+    let lines: [String]
+
+    init(repoRoot: Path) throws {
+        let contents: String = try (repoRoot + "Package.swift").read()
+        lines = contents.components(separatedBy: .newlines)
     }
 
-    let repo = String(match.url).replacingOccurrences(of: ".git", with: "")
-    let ver = String(match.version)
-    let zipURL = "\(repo)/releases/download/\(ver)/\(xcfw).xcframework.zip"
-
-    // Read checksum from local SPM checkout
-    let repoName = repo.components(separatedBy: "/").last ?? pattern
-    let checkoutPkg = spmDir + "checkouts" + repoName + "Package.swift"
-    guard checkoutPkg.exists else {
-        throw ValidationError("Upstream Package.swift not found at \(checkoutPkg). Run SPM resolve first.")
+    /// Extract a full dependency line matching the given pattern.
+    func dependencyLine(containing pattern: String) throws -> String {
+        guard let line = lines.first(where: { $0.contains(pattern) && $0.contains(".package") })
+        else { throw ValidationError("\(pattern) dependency not found in Package.swift") }
+        return line
     }
-    let upstreamContents: String = try checkoutPkg.read()
-    guard let csMatch = upstreamContents.firstMatch(of: checksumRegex) else {
-        throw ValidationError("Could not find checksum in \(checkoutPkg)")
-    }
-    return BinaryDep(url: zipURL, checksum: String(csMatch.hash))
-}
 
-func protobufDependencyLine(repoRoot: Path) throws -> String {
-    let contents: String = try (repoRoot + "Package.swift").read()
-    guard let line = contents.components(separatedBy: .newlines).first(where: { $0.contains("swift-protobuf") && $0.contains(".package") })
-    else { throw ValidationError("swift-protobuf dependency not found in Package.swift") }
-    return line
+    /// Parse binary dependency URL + version, then read checksum from the local SPM checkout.
+    func binaryDep(spmDir: Path, pattern: String, xcfw: String) throws -> BinaryDep {
+        guard let line = lines.first(where: { $0.contains("github") && $0.contains(pattern) }),
+              let match = line.firstMatch(of: depLineRegex)
+        else { throw ValidationError("\(pattern) not found in Package.swift") }
+
+        let repo = String(match.url).replacingOccurrences(of: ".git", with: "")
+        let ver = String(match.version)
+        let zipURL = "\(repo)/releases/download/\(ver)/\(xcfw).xcframework.zip"
+
+        let repoName = repo.components(separatedBy: "/").last ?? pattern
+        let checkoutPkg = spmDir + "checkouts" + repoName + "Package.swift"
+        guard checkoutPkg.exists else {
+            throw ValidationError("Upstream Package.swift not found at \(checkoutPkg). Run SPM resolve first.")
+        }
+        let upstreamContents: String = try checkoutPkg.read()
+        guard let csMatch = upstreamContents.firstMatch(of: checksumRegex) else {
+            throw ValidationError("Could not find checksum in \(checkoutPkg)")
+        }
+        return BinaryDep(url: zipURL, checksum: String(csMatch.hash))
+    }
 }
 
 // MARK: - Xcode project generation
@@ -126,7 +130,7 @@ func protobufDependencyLine(repoRoot: Path) throws -> String {
 /// Recursively add source files from a directory to an Xcode group and build phase.
 func addSources(
     dir: Path, group: PBXGroup, sourcesBP: PBXSourcesBuildPhase, resourcesBP: PBXResourcesBuildPhase,
-    pbxProj: PBXProj, repoRoot: Path, excludes: [String] = []
+    pbxProj: PBXProj, excludes: [String] = []
 ) throws {
     for child in try dir.children().sorted(by: { $0.string < $1.string }) {
         let name = child.lastComponent
@@ -136,28 +140,23 @@ func addSources(
             let subgroup = PBXGroup(sourceTree: .group, name: name, path: name)
             pbxProj.add(object: subgroup)
             group.children.append(subgroup)
-            try addSources(dir: child, group: subgroup, sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj, repoRoot: repoRoot)
+            try addSources(dir: child, group: subgroup, sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj)
         } else {
             let ext = child.extension ?? ""
             let fileRef = PBXFileReference(sourceTree: .absolute, name: name, path: child.string)
             pbxProj.add(object: fileRef)
             group.children.append(fileRef)
 
+            let bf = PBXBuildFile(file: fileRef)
             switch ext {
-            case "swift":
-                let bf = PBXBuildFile(file: fileRef)
-                pbxProj.add(object: bf)
-                sourcesBP.files?.append(bf)
-            case "m":
-                let bf = PBXBuildFile(file: fileRef)
+            case "swift", "m":
                 pbxProj.add(object: bf)
                 sourcesBP.files?.append(bf)
             case "xcprivacy":
-                let bf = PBXBuildFile(file: fileRef)
                 pbxProj.add(object: bf)
                 resourcesBP.files?.append(bf)
             default:
-                break // headers and other files are added to group but not to build phases
+                break
             }
         }
     }
@@ -292,7 +291,7 @@ func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
     mainGroup.children.append(liveKitGroup)
     try addSources(
         dir: repoRoot + "Sources" + "LiveKit", group: liveKitGroup,
-        sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj, repoRoot: repoRoot,
+        sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj,
         excludes: ["NOTICE"]
     )
 
@@ -302,7 +301,7 @@ func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
     mainGroup.children.append(objcGroup)
     try addSources(
         dir: repoRoot + "Sources" + "LKObjCHelpers", group: objcGroup,
-        sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj, repoRoot: repoRoot
+        sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj
     )
 
     // Make ObjC headers public in the headers build phase
@@ -387,8 +386,9 @@ struct BuildXCFramework: AsyncParsableCommand {
 
         // --- Parse binary dependency info from local checkouts ---
         step("Reading binary dependency info...")
-        let webrtcDep = try parseBinaryDep(repoRoot: repoRoot, spmDir: spmDir, pattern: "webrtc-xcframework", xcfw: "LiveKitWebRTC")
-        let uniffiDep = try parseBinaryDep(repoRoot: repoRoot, spmDir: spmDir, pattern: "uniffi-xcframework", xcfw: "RustLiveKitUniFFI")
+        let manifest = try PackageManifest(repoRoot: repoRoot)
+        let webrtcDep = try manifest.binaryDep(spmDir: spmDir, pattern: "webrtc-xcframework", xcfw: "LiveKitWebRTC")
+        let uniffiDep = try manifest.binaryDep(spmDir: spmDir, pattern: "uniffi-xcframework", xcfw: "RustLiveKitUniFFI")
         print("  LiveKitWebRTC: \(webrtcDep.url)")
         print("  RustLiveKitUniFFI: \(uniffiDep.url)")
 
@@ -428,13 +428,10 @@ struct BuildXCFramework: AsyncParsableCommand {
             return results.sorted { $0.0.archiveName < $1.0.archiveName }
         }
 
-        let archives = archiveResults.compactMap { p, r -> (Platform, Path)? in
-            if case let .success(path) = r { return (p, path) }
-            return nil
-        }
-        let failed = archiveResults.filter { if case .failure = $0.1 { return true }; return false }
-        if !failed.isEmpty {
-            print("  \(failed.count) platform(s) failed, \(archives.count) succeeded.".yellow)
+        let archives = archiveResults.compactMap { p, r -> (Platform, Path)? in try? (p, r.get()) }
+        let failedCount = archiveResults.count - archives.count
+        if failedCount > 0 {
+            print("  \(failedCount) platform(s) failed, \(archives.count) succeeded.".yellow)
         }
         guard !archives.isEmpty else {
             throw ValidationError("All platform archives failed.")
@@ -463,7 +460,8 @@ struct BuildXCFramework: AsyncParsableCommand {
         step("Generating Package.swift...")
         try generatePackageSwift(
             outputDir: outputDir, liveKitChecksum: liveKitChecksum,
-            webrtcDep: webrtcDep, uniffiDep: uniffiDep, repoRoot: repoRoot
+            webrtcDep: webrtcDep, uniffiDep: uniffiDep,
+            manifest: manifest, repoRoot: repoRoot
         )
         print("  Written to \(outputDir)/Package.swift (local=\(local))")
 
@@ -484,7 +482,8 @@ struct BuildXCFramework: AsyncParsableCommand {
 
     func generatePackageSwift(
         outputDir: Path, liveKitChecksum: String,
-        webrtcDep: BinaryDep, uniffiDep: BinaryDep, repoRoot: Path
+        webrtcDep: BinaryDep, uniffiDep: BinaryDep,
+        manifest: PackageManifest, repoRoot: Path
     ) throws {
         let tmpl: String = try (repoRoot + "scripts" + "Package.swift.stencil").read()
         let baseURL = version.map {
@@ -500,7 +499,7 @@ struct BuildXCFramework: AsyncParsableCommand {
             "webrtcChecksum": webrtcDep.checksum,
             "uniffiURL": uniffiDep.url,
             "uniffiChecksum": uniffiDep.checksum,
-            "protobufDependency": protobufDependencyLine(repoRoot: repoRoot),
+            "protobufDependency": manifest.dependencyLine(containing: "swift-protobuf"),
         ])
         try (outputDir + "Package.swift").write(rendered)
 
