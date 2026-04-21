@@ -37,15 +37,28 @@ public class LiveKitSDK: NSObject, Loggable {
     static let ffiVersion = buildVersion()
 
     fileprivate struct State {
-        var logger: Logger = OSLogger()
+        var logger: any Logger = OSLogger()
+        var tracing: any Tracing = LoggingTracer()
     }
 
     fileprivate static let state = StateSync(State())
 
+    /// Set a custom ``Tracing`` implementation to capture operation timing.
+    ///
+    /// The default ``LoggingTracer`` logs completed spans at debug level.
+    /// Provide a custom implementation to capture timing data
+    /// programmatically (e.g., for benchmarks).
+    ///
+    /// - Note: This method must be called before any Room operations
+    /// e.g. in the `App.init()` or `AppDelegate/SceneDelegate`
+    public static func setTracing(_ tracing: any Tracing) {
+        state.mutate { $0.tracing = tracing }
+    }
+
     /// Set a custom logger for the SDK
     /// - Note: This method must be called before any other logging is done
     /// e.g. in the `App.init()` or `AppDelegate/SceneDelegate`
-    public static func setLogger(_ logger: Logger) {
+    public static func setLogger(_ logger: any Logger) {
         state.mutate { $0.logger = logger }
     }
 
@@ -77,3 +90,6 @@ public class LiveKitSDK: NSObject, Loggable {
 
 // Lazily initialized to the first logger
 let sharedLogger = LiveKitSDK.state.logger
+
+// Lazily initialized to the first tracing
+let sharedTracing = LiveKitSDK.state.tracing
