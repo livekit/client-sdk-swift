@@ -22,6 +22,7 @@ import PathKit // @kylef ~> 1.0
 import Rainbow // @onevcat ~> 4.0
 import Stencil // @stencilproject ~> 0.15.1
 import Subprocess // swiftlang/swift-subprocess == main
+import XcodeProj // @tuist ~> 8.8.0
 import ZIPFoundation // @weichsel ~> 0.9
 
 // MARK: - Helpers
@@ -44,10 +45,13 @@ func exec(_ args: [String]) async throws -> String {
         .name(name),
         arguments: .init(rest),
         output: .string(limit: 50 * 1024 * 1024),
+        error: .string(limit: 10 * 1024 * 1024)
     )
     guard case .exited(0) = result.terminationStatus else {
-        let msg = result.standardOutput ?? ""
-        throw ValidationError("\(name) failed (\(result.terminationStatus)): \(msg.prefix(500))")
+        let stdout = result.standardOutput ?? ""
+        let stderr = result.standardError ?? ""
+        let combined = stderr.isEmpty ? stdout : stderr
+        throw ValidationError("\(name) failed (\(result.terminationStatus)): \(combined.suffix(1000))")
     }
     return (result.standardOutput ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 }
@@ -55,18 +59,18 @@ func exec(_ args: [String]) async throws -> String {
 // MARK: - Platform
 
 struct Platform {
-    let label, destination, stagingName: String
+    let label, destination, archiveName: String
 }
 
 let platforms: [Platform] = [
-    .init(label: "iOS Device", destination: "generic/platform=iOS", stagingName: "ios-arm64"),
-    .init(label: "iOS Simulator", destination: "generic/platform=iOS Simulator", stagingName: "ios-arm64_x86_64-simulator"),
-    .init(label: "macOS", destination: "generic/platform=macOS", stagingName: "macos-arm64_x86_64"),
-    .init(label: "Mac Catalyst", destination: "generic/platform=macOS,variant=Mac Catalyst", stagingName: "ios-arm64_x86_64-maccatalyst"),
-    .init(label: "tvOS Device", destination: "generic/platform=tvOS", stagingName: "tvos-arm64"),
-    .init(label: "tvOS Simulator", destination: "generic/platform=tvOS Simulator", stagingName: "tvos-arm64_x86_64-simulator"),
-    .init(label: "visionOS Device", destination: "generic/platform=visionOS", stagingName: "xros-arm64"),
-    .init(label: "visionOS Simulator", destination: "generic/platform=visionOS Simulator", stagingName: "xros-arm64-simulator"),
+    .init(label: "iOS Device", destination: "generic/platform=iOS", archiveName: "ios-arm64"),
+    .init(label: "iOS Simulator", destination: "generic/platform=iOS Simulator", archiveName: "ios-arm64_x86_64-simulator"),
+    .init(label: "macOS", destination: "generic/platform=macOS", archiveName: "macos-arm64_x86_64"),
+    .init(label: "Mac Catalyst", destination: "generic/platform=macOS,variant=Mac Catalyst", archiveName: "ios-arm64_x86_64-maccatalyst"),
+    .init(label: "tvOS Device", destination: "generic/platform=tvOS", archiveName: "tvos-arm64"),
+    .init(label: "tvOS Simulator", destination: "generic/platform=tvOS Simulator", archiveName: "tvos-arm64_x86_64-simulator"),
+    .init(label: "visionOS Device", destination: "generic/platform=visionOS", archiveName: "xros-arm64"),
+    .init(label: "visionOS Simulator", destination: "generic/platform=visionOS Simulator", archiveName: "xros-arm64-simulator"),
 ]
 
 // MARK: - Binary dependency info
@@ -109,6 +113,213 @@ func parseBinaryDep(repoRoot: Path, spmDir: Path, pattern: String, xcfw: String)
     return BinaryDep(url: zipURL, checksum: String(csMatch.hash))
 }
 
+// MARK: - Xcode project generation
+
+/// Recursively add source files from a directory to an Xcode group and build phase.
+func addSources(
+    dir: Path, group: PBXGroup, sourcesBP: PBXSourcesBuildPhase, resourcesBP: PBXResourcesBuildPhase,
+    pbxProj: PBXProj, repoRoot: Path, excludes: [String] = []
+) throws {
+    for child in try dir.children().sorted(by: { $0.string < $1.string }) {
+        let name = child.lastComponent
+        if excludes.contains(name) { continue }
+
+        if child.isDirectory {
+            let subgroup = PBXGroup(sourceTree: .group, name: name, path: name)
+            pbxProj.add(object: subgroup)
+            group.children.append(subgroup)
+            try addSources(dir: child, group: subgroup, sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj, repoRoot: repoRoot)
+        } else {
+            let ext = child.extension ?? ""
+            let fileRef = PBXFileReference(sourceTree: .absolute, name: name, path: child.string)
+            pbxProj.add(object: fileRef)
+            group.children.append(fileRef)
+
+            switch ext {
+            case "swift":
+                let bf = PBXBuildFile(file: fileRef)
+                pbxProj.add(object: bf)
+                sourcesBP.files?.append(bf)
+            case "m":
+                let bf = PBXBuildFile(file: fileRef)
+                pbxProj.add(object: bf)
+                sourcesBP.files?.append(bf)
+            case "xcprivacy":
+                let bf = PBXBuildFile(file: fileRef)
+                pbxProj.add(object: bf)
+                resourcesBP.files?.append(bf)
+            default:
+                break // headers and other files are added to group but not to build phases
+            }
+        }
+    }
+}
+
+/// Generate a temporary .xcodeproj with a framework target that includes all
+/// LiveKit source files directly. SPM binary dependencies (WebRTC, UniFFI) and
+/// SwiftProtobuf are added as package dependencies. The target-level
+/// MACH_O_TYPE=mh_dylib setting produces a proper dynamic .framework bundle.
+func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
+    let pbxProj = PBXProj()
+
+    // --- Project-level build configuration ---
+    let projectConfig = XCBuildConfiguration(name: "Release", buildSettings: [
+        "SDKROOT": "auto",
+        "SUPPORTED_PLATFORMS": "iphoneos iphonesimulator macosx appletvos appletvsimulator xros xrsimulator",
+        "SWIFT_VERSION": "6.0",
+        "ALWAYS_SEARCH_USER_PATHS": "NO",
+        "SUPPORTS_MACCATALYST": "YES",
+        "IPHONEOS_DEPLOYMENT_TARGET": "14.0",
+        "MACOSX_DEPLOYMENT_TARGET": "10.15",
+        "TVOS_DEPLOYMENT_TARGET": "17.0",
+        "DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER": "NO",
+    ])
+    pbxProj.add(object: projectConfig)
+
+    let projectConfigList = XCConfigurationList(
+        buildConfigurations: [projectConfig],
+        defaultConfigurationName: "Release"
+    )
+    pbxProj.add(object: projectConfigList)
+
+    let mainGroup = PBXGroup(sourceTree: .sourceRoot)
+    pbxProj.add(object: mainGroup)
+
+    let project = PBXProject(
+        name: "LiveKit",
+        buildConfigurationList: projectConfigList,
+        compatibilityVersion: "Xcode 26.0",
+        preferredProjectObjectVersion: 77,
+        minimizedProjectReferenceProxies: 1,
+        mainGroup: mainGroup
+    )
+    pbxProj.add(object: project)
+    pbxProj.rootObject = project
+
+    // --- SPM package dependencies ---
+    var remotePackageRefs: [XCRemoteSwiftPackageReference] = []
+    func addRemotePackage(url: String, version: String) -> XCRemoteSwiftPackageReference {
+        let ref = XCRemoteSwiftPackageReference(repositoryURL: url, versionRequirement: .exact(version))
+        pbxProj.add(object: ref)
+        remotePackageRefs.append(ref)
+        return ref
+    }
+
+    func addProductDep(name: String, package: XCRemoteSwiftPackageReference) -> XCSwiftPackageProductDependency {
+        let dep = XCSwiftPackageProductDependency(productName: name, package: package)
+        pbxProj.add(object: dep)
+        return dep
+    }
+
+    // Parse versions from Package.swift
+    let pkgContents: String = try (repoRoot + "Package.swift").read()
+    func extractVersion(pattern: String) -> String {
+        guard let line = pkgContents.components(separatedBy: .newlines)
+            .first(where: { $0.contains(pattern) }),
+            let match = line.firstMatch(of: #/exact:\s*"(?<ver>[^"]+)"/#) ?? line.firstMatch(of: #/from:\s*"(?<ver>[^"]+)"/#)
+        else { return "1.0.0" }
+        return String(match.ver)
+    }
+
+    let webrtcPkg = addRemotePackage(url: "https://github.com/livekit/webrtc-xcframework.git", version: extractVersion(pattern: "webrtc-xcframework"))
+    let uniffiPkg = addRemotePackage(url: "https://github.com/livekit/livekit-uniffi-xcframework.git", version: extractVersion(pattern: "uniffi-xcframework"))
+    let protobufPkg = addRemotePackage(url: "https://github.com/apple/swift-protobuf.git", version: extractVersion(pattern: "swift-protobuf"))
+
+    let webrtcDep = addProductDep(name: "LiveKitWebRTC", package: webrtcPkg)
+    let uniffiDep = addProductDep(name: "LiveKitUniFFI", package: uniffiPkg)
+    let protobufDep = addProductDep(name: "SwiftProtobuf", package: protobufPkg)
+
+    // --- Build phases ---
+    let sourcesBP = PBXSourcesBuildPhase()
+    let frameworksBP = PBXFrameworksBuildPhase()
+    let resourcesBP = PBXResourcesBuildPhase()
+    let headersBP = PBXHeadersBuildPhase()
+    pbxProj.add(object: sourcesBP)
+    pbxProj.add(object: frameworksBP)
+    pbxProj.add(object: resourcesBP)
+    pbxProj.add(object: headersBP)
+
+    // --- Target-level build configuration ---
+    let targetConfig = XCBuildConfiguration(name: "Release", buildSettings: [
+        "PRODUCT_NAME": "LiveKit",
+        "PRODUCT_BUNDLE_IDENTIFIER": "io.livekit.LiveKit",
+        "GENERATE_INFOPLIST_FILE": "YES",
+        "CURRENT_PROJECT_VERSION": "1",
+        "MARKETING_VERSION": "1.0",
+        "SKIP_INSTALL": "NO",
+        "BUILD_LIBRARY_FOR_DISTRIBUTION": "YES",
+        "INSTALL_PATH": "$(LOCAL_LIBRARY_DIR)/Frameworks",
+        "DEFINES_MODULE": "YES",
+        "MACH_O_TYPE": "mh_dylib",
+        "CLANG_ENABLE_MODULES": "YES",
+        "HEADER_SEARCH_PATHS": "$(inherited) " + (repoRoot + "Sources/LKObjCHelpers/include").string,
+        // LKObjCHelpers needs its own modulemap so `import LKObjCHelpers` works in Swift
+        "SWIFT_INCLUDE_PATHS": "$(inherited) " + (repoRoot + "Sources/LKObjCHelpers").string,
+    ])
+    pbxProj.add(object: targetConfig)
+
+    let targetConfigList = XCConfigurationList(
+        buildConfigurations: [targetConfig],
+        defaultConfigurationName: "Release"
+    )
+    pbxProj.add(object: targetConfigList)
+
+    // --- Framework target ---
+    let target = PBXNativeTarget(
+        name: "LiveKit",
+        buildConfigurationList: targetConfigList,
+        buildPhases: [headersBP, sourcesBP, frameworksBP, resourcesBP],
+        productType: .framework
+    )
+    pbxProj.add(object: target)
+    target.packageProductDependencies = [webrtcDep, uniffiDep, protobufDep]
+    project.remotePackages = remotePackageRefs
+    project.targets.append(target)
+
+    // --- Add source files ---
+    // LiveKit sources
+    let liveKitGroup = PBXGroup(sourceTree: .group, name: "LiveKit", path: "Sources/LiveKit")
+    pbxProj.add(object: liveKitGroup)
+    mainGroup.children.append(liveKitGroup)
+    try addSources(
+        dir: repoRoot + "Sources" + "LiveKit", group: liveKitGroup,
+        sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj, repoRoot: repoRoot,
+        excludes: ["NOTICE"]
+    )
+
+    // LKObjCHelpers sources
+    let objcGroup = PBXGroup(sourceTree: .group, name: "LKObjCHelpers", path: "Sources/LKObjCHelpers")
+    pbxProj.add(object: objcGroup)
+    mainGroup.children.append(objcGroup)
+    try addSources(
+        dir: repoRoot + "Sources" + "LKObjCHelpers", group: objcGroup,
+        sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj, repoRoot: repoRoot
+    )
+
+    // Make ObjC headers public in the headers build phase
+    let objcHeaderDir = repoRoot + "Sources" + "LKObjCHelpers" + "include"
+    if objcHeaderDir.exists {
+        for h in try objcHeaderDir.children().filter({ $0.extension == "h" }) {
+            if let fileRef = pbxProj.fileReferences.first(where: { $0.path == h.string }) {
+                let hf = PBXBuildFile(file: fileRef, settings: ["ATTRIBUTES": ["Public"]])
+                pbxProj.add(object: hf)
+                headersBP.files?.append(hf)
+            }
+        }
+    }
+
+    // --- Create LKObjCHelpers modulemap if it doesn't exist ---
+    let modulemapPath = repoRoot + "Sources" + "LKObjCHelpers" + "module.modulemap"
+    if !modulemapPath.exists {
+        try modulemapPath.write("module LKObjCHelpers {\n    header \"include/LKObjCHelpers.h\"\n    export *\n}\n")
+    }
+
+    // --- Write project ---
+    let xcodeProj = XcodeProj(workspace: XCWorkspace(), pbxproj: pbxProj)
+    try xcodeProj.write(path: projectPath)
+    print("  Generated \(projectPath) with \(sourcesBP.files?.count ?? 0) source files")
+}
+
 // MARK: - Command
 
 @main
@@ -116,7 +327,7 @@ struct BuildXCFramework: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "xcframework",
         abstract: "Build LiveKit.xcframework for all supported Apple platforms.",
-        discussion: "Usage: ./xcframework.swift [--version <version> | --local] [--output <dir>]",
+        discussion: "Usage: ./xcframework.swift [--version <version> | --local] [--output <dir>]"
     )
 
     @Option(help: "Version tag for release URLs (required unless --local).")
@@ -150,10 +361,17 @@ struct BuildXCFramework: AsyncParsableCommand {
         if outputDir.exists { try outputDir.delete() }
         try outputDir.mkpath()
 
+        // --- Generate Xcode project with all source files ---
+        step("Generating Xcode project...")
+        let projectPath = buildDir + "LiveKit.xcodeproj"
+        try generateFrameworkProject(at: projectPath, repoRoot: repoRoot)
+        print("  \(projectPath)")
+
         // --- Resolve SPM packages (populates spmDir/checkouts) ---
         step("Resolving Swift packages...")
         try await exec([
             "xcodebuild", "-resolvePackageDependencies",
+            "-project", projectPath.string,
             "-scheme", "LiveKit",
             "-clonedSourcePackagesDirPath", spmDir.string,
         ])
@@ -165,62 +383,65 @@ struct BuildXCFramework: AsyncParsableCommand {
         print("  LiveKitWebRTC: \(webrtcDep.url)")
         print("  RustLiveKitUniFFI: \(uniffiDep.url)")
 
-        // --- Archive & stage all platforms (parallel) ---
+        // --- Archive all platforms (parallel) ---
         step("Archiving \(platforms.count) platforms in parallel...")
-        let stagingDirs: [(Platform, Path)] = try await withThrowingTaskGroup(
-            of: (Platform, Path).self,
-            returning: [(Platform, Path)].self,
+        let archiveResults: [(Platform, Result<Path, Swift.Error>)] = await withTaskGroup(
+            of: (Platform, Result<Path, Swift.Error>).self,
+            returning: [(Platform, Result<Path, Swift.Error>)].self
         ) { group in
             for p in platforms {
                 group.addTask {
-                    let archive = buildDir + "\(p.stagingName).xcarchive"
-                    let dd = buildDir + "dd-\(p.stagingName)"
-
-                    let archiveOutput = try await exec([
-                        "xcodebuild", "archive",
-                        "-scheme", "LiveKit", "-configuration", "Release",
-                        "-destination", p.destination,
-                        "-archivePath", archive.string, "-derivedDataPath", dd.string,
-                        "-clonedSourcePackagesDirPath", spmDir.string,
-                        "BUILD_LIBRARY_FOR_DISTRIBUTION=YES", "SKIP_INSTALL=NO",
-                    ])
-                    let lastLine = archiveOutput.components(separatedBy: .newlines).last ?? ""
-                    print("  \(p.label): \(lastLine)")
-
-                    let bpRoot = dd + "Build/Intermediates.noindex/ArchiveIntermediates/LiveKit/BuildProductsPath"
-                    guard let bp = try bpRoot.children().first(where: { $0.isDirectory }) else {
-                        throw ValidationError("Build products not found for \(p.label)")
+                    let archive = buildDir + "\(p.archiveName).xcarchive"
+                    let dd = buildDir + "dd-\(p.archiveName)"
+                    do {
+                        let archiveOutput = try await exec([
+                            "xcodebuild", "archive",
+                            "-project", projectPath.string,
+                            "-scheme", "LiveKit", "-configuration", "Release",
+                            "-destination", p.destination,
+                            "-archivePath", archive.string,
+                            "-derivedDataPath", dd.string,
+                            "-clonedSourcePackagesDirPath", spmDir.string,
+                        ])
+                        let lastLine = archiveOutput.components(separatedBy: .newlines).last ?? ""
+                        print("  ✓ \(p.label): \(lastLine)")
+                        return (p, .success(archive))
+                    } catch {
+                        print("  ✗ \(p.label): \(error)".red)
+                        return (p, .failure(error))
                     }
-
-                    let staging = buildDir + "staging" + p.stagingName
-                    try await stageArtifacts(label: p.label, archive: archive, bp: bp, staging: staging, repoRoot: repoRoot)
-                    return (p, staging)
                 }
             }
-            var results: [(Platform, Path)] = []
-            for try await result in group {
+            var results: [(Platform, Result<Path, Swift.Error>)] = []
+            for await result in group {
                 results.append(result)
             }
-            return results.sorted { $0.0.stagingName < $1.0.stagingName }
+            return results.sorted { $0.0.archiveName < $1.0.archiveName }
         }
-        print("  All \(stagingDirs.count) platforms archived.".green)
+
+        let archives = archiveResults.compactMap { p, r -> (Platform, Path)? in
+            if case let .success(path) = r { return (p, path) }
+            return nil
+        }
+        let failed = archiveResults.filter { if case .failure = $0.1 { return true }; return false }
+        if !failed.isEmpty {
+            print("  \(failed.count) platform(s) failed, \(archives.count) succeeded.".yellow)
+        }
+        guard !archives.isEmpty else {
+            throw ValidationError("All platform archives failed.")
+        }
+        print("  \(archives.count) platforms archived.".green)
 
         // --- Create LiveKit.xcframework ---
         step("Creating LiveKit.xcframework...")
         var xcfwArgs = ["xcodebuild", "-create-xcframework"]
-        for (_, staging) in stagingDirs {
-            xcfwArgs += ["-library", (staging + "LiveKit.a").string]
-            let headers = staging + "include"
-            if headers.exists { xcfwArgs += ["-headers", headers.string] }
+        for (_, archive) in archives {
+            xcfwArgs += ["-archive", archive.string, "-framework", "LiveKit.framework"]
         }
         let xcfwPath = outputDir + "LiveKit.xcframework"
         xcfwArgs += ["-output", xcfwPath.string]
         let xcfwOutput = try await exec(xcfwArgs)
         if !xcfwOutput.isEmpty { print(xcfwOutput) }
-
-        // --- Embed Swift modules into xcframework slices ---
-        step("Embedding Swift modules into xcframework slices...")
-        try embedSwiftModules(xcfwPath: xcfwPath, stagingDirs: stagingDirs)
 
         // --- Zip & checksum (release builds only) ---
         var liveKitChecksum = ""
@@ -236,7 +457,7 @@ struct BuildXCFramework: AsyncParsableCommand {
         step("Generating Package.swift...")
         try generatePackageSwift(
             outputDir: outputDir, liveKitChecksum: liveKitChecksum,
-            webrtcDep: webrtcDep, uniffiDep: uniffiDep, repoRoot: repoRoot,
+            webrtcDep: webrtcDep, uniffiDep: uniffiDep, repoRoot: repoRoot
         )
         print("  Written to \(outputDir)/Package.swift (local=\(local))")
 
@@ -253,42 +474,11 @@ struct BuildXCFramework: AsyncParsableCommand {
         }
     }
 
-    // MARK: - Embed Swift modules
-
-    func embedSwiftModules(xcfwPath: Path, stagingDirs: [(Platform, Path)]) throws {
-        for sliceDir in try xcfwPath.children().filter(\.isDirectory) {
-            let sliceBase = sliceDir.lastComponent
-            let slicePfx = sliceBase.components(separatedBy: "-").first ?? ""
-            let sliceSim = sliceBase.hasSuffix("-simulator")
-            let sliceCat = sliceBase.hasSuffix("-maccatalyst")
-
-            for (platform, staging) in stagingDirs {
-                let stgPfx = platform.stagingName.components(separatedBy: "-").first ?? ""
-                if slicePfx == stgPfx,
-                   sliceSim == platform.stagingName.hasSuffix("-simulator"),
-                   sliceCat == platform.stagingName.hasSuffix("-maccatalyst")
-                {
-                    for item in try staging.children() {
-                        let dst = sliceDir + item.lastComponent
-                        if item.lastComponent.hasSuffix(".swiftmodule"), !dst.exists {
-                            try item.copy(dst)
-                            print("  + \(item.lastComponent) -> \(sliceBase)")
-                        }
-                        if item.lastComponent.hasSuffix(".bundle"), !dst.exists {
-                            try? item.copy(dst)
-                        }
-                    }
-                    break
-                }
-            }
-        }
-    }
-
     // MARK: - Generate Package.swift via Stencil
 
     func generatePackageSwift(
         outputDir: Path, liveKitChecksum: String,
-        webrtcDep: BinaryDep, uniffiDep: BinaryDep, repoRoot: Path,
+        webrtcDep: BinaryDep, uniffiDep: BinaryDep, repoRoot: Path
     ) throws {
         let tmpl: String = try (repoRoot + "scripts" + "Package.swift.stencil").read()
         let baseURL = version.map {
@@ -306,45 +496,10 @@ struct BuildXCFramework: AsyncParsableCommand {
             "uniffiChecksum": uniffiDep.checksum,
         ])
         try (outputDir + "Package.swift").write(rendered)
-    }
-}
 
-// MARK: - Stage (free function for TaskGroup compatibility)
-
-func stageArtifacts(label: String, archive: Path, bp: Path, staging: Path, repoRoot: Path) async throws {
-    try staging.mkpath()
-
-    // Discover source modules dynamically from .o files in the archive
-    let productsDir = archive + "Products"
-    let objects = try productsDir.recursiveChildren().filter { $0.extension == "o" }
-
-    // Also include liblivekit_uniffi.a (Rust/C static lib)
-    var allObjects = objects.map(\.string)
-    if let lib = try bp.recursiveChildren().first(where: { $0.lastComponent == "liblivekit_uniffi.a" }) {
-        allObjects.append(lib.string)
-    }
-
-    print("  Merging \(allObjects.count) objects into LiveKit.a (\(label))")
-    try await exec(["libtool", "-static", "-o", (staging + "LiveKit.a").string] + allObjects)
-
-    // Copy all .swiftmodule directories from build products
-    for item in try bp.children() where item.lastComponent.hasSuffix(".swiftmodule") {
-        try item.copy(staging + item.lastComponent)
-    }
-
-    // ObjC headers + module map for LKObjCHelpers
-    let includeDir = staging + "include" + "LKObjCHelpers"
-    try includeDir.mkpath()
-    let objcSrc = repoRoot + "Sources" + "LKObjCHelpers" + "include"
-    if objcSrc.exists {
-        for h in try objcSrc.children().filter({ $0.extension == "h" }) {
-            try h.copy(includeDir + h.lastComponent)
-        }
-    }
-    try (includeDir + "module.modulemap").write("module LKObjCHelpers {\n    header \"LKObjCHelpers.h\"\n    export *\n}\n")
-
-    // Resource bundles
-    for item in try bp.children() where item.lastComponent.hasSuffix(".bundle") {
-        try? item.copy(staging + item.lastComponent)
+        // Create stub target (workaround for apple/swift-package-manager#6069)
+        let stubDir = outputDir + "Sources" + "_LiveKitStub"
+        try stubDir.mkpath()
+        try (stubDir + "Stub.swift").write("// Workaround: without a non-binary target, SPM won't show the\n// package in Xcode's \"Frameworks, Libraries, and Embedded Content\".\n// See https://github.com/apple/swift-package-manager/issues/6069\nclass _LiveKitStub {}\n")
     }
 }
