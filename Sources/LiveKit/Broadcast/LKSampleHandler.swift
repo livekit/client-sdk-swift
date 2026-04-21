@@ -23,11 +23,15 @@ import ReplayKit
 import Combine
 import OSLog
 
+// swiftlint:disable duplicate_imports
+#if !COCOAPODS
 #if LK_XCFRAMEWORK
 @_implementationOnly import LKObjCHelpers
-#elseif !COCOAPODS
+#else
 import LKObjCHelpers
 #endif
+#endif
+// swiftlint:enable duplicate_imports
 
 @available(macCatalyst 13.1, *)
 open class LKSampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {

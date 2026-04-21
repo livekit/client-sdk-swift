@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 
+// swiftlint:disable file_length
 import ArgumentParser // apple/swift-argument-parser ~> 1.5.0
 import Foundation
 import PathKit // @kylef ~> 1.0
@@ -102,6 +103,14 @@ struct PackageManifest {
         return line
     }
 
+    /// Extract version string for a dependency matching the pattern.
+    func extractVersion(pattern: String) throws -> String {
+        guard let line = lines.first(where: { $0.contains(pattern) }),
+              let match = line.firstMatch(of: #/exact:\s*"(?<ver>[^"]+)"/#) ?? line.firstMatch(of: #/from:\s*"(?<ver>[^"]+)"/#)
+        else { throw ValidationError("\(pattern) version not found in Package.swift") }
+        return String(match.ver)
+    }
+
     /// Parse binary dependency URL + version, then read checksum from the local SPM checkout.
     func binaryDep(spmDir: Path, pattern: String, xcfw: String) throws -> BinaryDep {
         guard let line = lines.first(where: { $0.contains("github") && $0.contains(pattern) }),
@@ -162,6 +171,8 @@ func addSources(
     }
 }
 
+// swiftlint:disable function_body_length
+
 /// Generate a temporary .xcodeproj with a framework target that includes all
 /// LiveKit source files directly. SPM binary dependencies (WebRTC, UniFFI) and
 /// SwiftProtobuf are added as package dependencies. The target-level
@@ -169,7 +180,7 @@ func addSources(
 func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
     let pbxProj = PBXProj()
 
-    // --- Project-level build configuration ---
+    // --- Project setup ---
     let projectConfig = XCBuildConfiguration(name: "Release", buildSettings: [
         "SDKROOT": "auto",
         "SUPPORTED_PLATFORMS": "iphoneos iphonesimulator macosx appletvos appletvsimulator xros xrsimulator",
@@ -182,71 +193,29 @@ func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
         "DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER": "NO",
     ])
     pbxProj.add(object: projectConfig)
-
-    let projectConfigList = XCConfigurationList(
-        buildConfigurations: [projectConfig],
-        defaultConfigurationName: "Release"
-    )
+    let projectConfigList = XCConfigurationList(buildConfigurations: [projectConfig], defaultConfigurationName: "Release")
     pbxProj.add(object: projectConfigList)
-
     let mainGroup = PBXGroup(sourceTree: .sourceRoot)
     pbxProj.add(object: mainGroup)
-
     let project = PBXProject(
-        name: "LiveKit",
-        buildConfigurationList: projectConfigList,
-        compatibilityVersion: "Xcode 26.0",
-        preferredProjectObjectVersion: 77,
-        minimizedProjectReferenceProxies: 1,
-        mainGroup: mainGroup
+        name: "LiveKit", buildConfigurationList: projectConfigList,
+        compatibilityVersion: "Xcode 26.0", preferredProjectObjectVersion: 77,
+        minimizedProjectReferenceProxies: 1, mainGroup: mainGroup
     )
     pbxProj.add(object: project)
     pbxProj.rootObject = project
 
     // --- SPM package dependencies ---
-    var remotePackageRefs: [XCRemoteSwiftPackageReference] = []
-    func addRemotePackage(url: String, version: String) -> XCRemoteSwiftPackageReference {
-        let ref = XCRemoteSwiftPackageReference(repositoryURL: url, versionRequirement: .exact(version))
-        pbxProj.add(object: ref)
-        remotePackageRefs.append(ref)
-        return ref
-    }
+    let pkgManifest = try PackageManifest(repoRoot: repoRoot)
+    let deps = try addPackageDependencies(pbxProj: pbxProj, project: project, manifest: pkgManifest)
 
-    func addProductDep(name: String, package: XCRemoteSwiftPackageReference) -> XCSwiftPackageProductDependency {
-        let dep = XCSwiftPackageProductDependency(productName: name, package: package)
-        pbxProj.add(object: dep)
-        return dep
-    }
-
-    // Parse versions from Package.swift
-    let pkgContents: String = try (repoRoot + "Package.swift").read()
-    func extractVersion(pattern: String) throws -> String {
-        guard let line = pkgContents.components(separatedBy: .newlines)
-            .first(where: { $0.contains(pattern) }),
-            let match = line.firstMatch(of: #/exact:\s*"(?<ver>[^"]+)"/#) ?? line.firstMatch(of: #/from:\s*"(?<ver>[^"]+)"/#)
-        else { throw ValidationError("\(pattern) version not found in Package.swift") }
-        return String(match.ver)
-    }
-
-    let webrtcPkg = try addRemotePackage(url: "https://github.com/livekit/webrtc-xcframework.git", version: extractVersion(pattern: "webrtc-xcframework"))
-    let uniffiPkg = try addRemotePackage(url: "https://github.com/livekit/livekit-uniffi-xcframework.git", version: extractVersion(pattern: "uniffi-xcframework"))
-    let protobufPkg = try addRemotePackage(url: "https://github.com/apple/swift-protobuf.git", version: extractVersion(pattern: "swift-protobuf"))
-
-    let webrtcDep = addProductDep(name: "LiveKitWebRTC", package: webrtcPkg)
-    let uniffiDep = addProductDep(name: "LiveKitUniFFI", package: uniffiPkg)
-    let protobufDep = addProductDep(name: "SwiftProtobuf", package: protobufPkg)
-
-    // --- Build phases ---
+    // --- Build phases & target ---
     let sourcesBP = PBXSourcesBuildPhase()
     let frameworksBP = PBXFrameworksBuildPhase()
     let resourcesBP = PBXResourcesBuildPhase()
     let headersBP = PBXHeadersBuildPhase()
-    pbxProj.add(object: sourcesBP)
-    pbxProj.add(object: frameworksBP)
-    pbxProj.add(object: resourcesBP)
-    pbxProj.add(object: headersBP)
+    [sourcesBP, frameworksBP, resourcesBP, headersBP].forEach { pbxProj.add(object: $0) }
 
-    // --- Target-level build configuration ---
     let targetConfig = XCBuildConfiguration(name: "Release", buildSettings: [
         "PRODUCT_NAME": "LiveKit",
         "PRODUCT_BUNDLE_IDENTIFIER": "io.livekit.LiveKit",
@@ -261,62 +230,24 @@ func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
         "MACH_O_TYPE": "mh_dylib",
         "CLANG_ENABLE_MODULES": "YES",
         "HEADER_SEARCH_PATHS": "$(inherited) " + (repoRoot + "Sources/LKObjCHelpers/include").string,
-        // LK_XCFRAMEWORK flag replaces `import LKObjCHelpers` with `@_implementationOnly`
-        // to prevent leaking into .swiftinterface
         "SWIFT_ACTIVE_COMPILATION_CONDITIONS": "LK_XCFRAMEWORK",
         "SWIFT_INCLUDE_PATHS": "$(inherited) " + (repoRoot + "Sources/LKObjCHelpers").string,
     ])
     pbxProj.add(object: targetConfig)
-
-    let targetConfigList = XCConfigurationList(
-        buildConfigurations: [targetConfig],
-        defaultConfigurationName: "Release"
-    )
+    let targetConfigList = XCConfigurationList(buildConfigurations: [targetConfig], defaultConfigurationName: "Release")
     pbxProj.add(object: targetConfigList)
 
-    // --- Framework target ---
     let target = PBXNativeTarget(
-        name: "LiveKit",
-        buildConfigurationList: targetConfigList,
+        name: "LiveKit", buildConfigurationList: targetConfigList,
         buildPhases: [headersBP, sourcesBP, frameworksBP, resourcesBP],
         productType: .framework
     )
     pbxProj.add(object: target)
-    target.packageProductDependencies = [webrtcDep, uniffiDep, protobufDep]
-    project.remotePackages = remotePackageRefs
+    target.packageProductDependencies = deps
     project.targets.append(target)
 
-    // --- Add source files ---
-    // LiveKit sources
-    let liveKitGroup = PBXGroup(sourceTree: .group, name: "LiveKit", path: "Sources/LiveKit")
-    pbxProj.add(object: liveKitGroup)
-    mainGroup.children.append(liveKitGroup)
-    try addSources(
-        dir: repoRoot + "Sources" + "LiveKit", group: liveKitGroup,
-        sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj,
-        excludes: ["NOTICE"]
-    )
-
-    // LKObjCHelpers sources
-    let objcGroup = PBXGroup(sourceTree: .group, name: "LKObjCHelpers", path: "Sources/LKObjCHelpers")
-    pbxProj.add(object: objcGroup)
-    mainGroup.children.append(objcGroup)
-    try addSources(
-        dir: repoRoot + "Sources" + "LKObjCHelpers", group: objcGroup,
-        sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj
-    )
-
-    // Make ObjC headers public in the headers build phase
-    let objcHeaderDir = repoRoot + "Sources" + "LKObjCHelpers" + "include"
-    if objcHeaderDir.exists {
-        for h in try objcHeaderDir.children().filter({ $0.extension == "h" }) {
-            if let fileRef = pbxProj.fileReferences.first(where: { $0.path == h.string }) {
-                let hf = PBXBuildFile(file: fileRef, settings: ["ATTRIBUTES": ["Public"]])
-                pbxProj.add(object: hf)
-                headersBP.files?.append(hf)
-            }
-        }
-    }
+    // --- Add source files & ObjC headers ---
+    try addSourceGroups(pbxProj: pbxProj, mainGroup: mainGroup, sourcesBP: sourcesBP, resourcesBP: resourcesBP, headersBP: headersBP, repoRoot: repoRoot)
 
     // --- Create LKObjCHelpers modulemap if needed ---
     let modulemapPath = repoRoot + "Sources" + "LKObjCHelpers" + "module.modulemap"
@@ -328,6 +259,117 @@ func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
     let xcodeProj = XcodeProj(workspace: XCWorkspace(), pbxproj: pbxProj)
     try xcodeProj.write(path: projectPath)
     print("  Generated \(projectPath) with \(sourcesBP.files?.count ?? 0) source files")
+}
+
+// swiftlint:enable function_body_length
+
+private func addPackageDependencies(
+    pbxProj: PBXProj, project: PBXProject, manifest: PackageManifest
+) throws -> [XCSwiftPackageProductDependency] {
+    func addPkg(url: String, pattern: String) throws -> XCRemoteSwiftPackageReference {
+        let version = try manifest.extractVersion(pattern: pattern)
+        let ref = XCRemoteSwiftPackageReference(repositoryURL: url, versionRequirement: .exact(version))
+        pbxProj.add(object: ref)
+        return ref
+    }
+
+    func addDep(name: String, package: XCRemoteSwiftPackageReference) -> XCSwiftPackageProductDependency {
+        let dep = XCSwiftPackageProductDependency(productName: name, package: package)
+        pbxProj.add(object: dep)
+        return dep
+    }
+
+    let webrtcPkg = try addPkg(url: "https://github.com/livekit/webrtc-xcframework.git", pattern: "webrtc-xcframework")
+    let uniffiPkg = try addPkg(url: "https://github.com/livekit/livekit-uniffi-xcframework.git", pattern: "uniffi-xcframework")
+    let protobufPkg = try addPkg(url: "https://github.com/apple/swift-protobuf.git", pattern: "swift-protobuf")
+    project.remotePackages = [webrtcPkg, uniffiPkg, protobufPkg]
+
+    return [
+        addDep(name: "LiveKitWebRTC", package: webrtcPkg),
+        addDep(name: "LiveKitUniFFI", package: uniffiPkg),
+        addDep(name: "SwiftProtobuf", package: protobufPkg),
+    ]
+}
+
+// swiftlint:disable:next function_parameter_count
+private func addSourceGroups(
+    pbxProj: PBXProj, mainGroup: PBXGroup,
+    sourcesBP: PBXSourcesBuildPhase, resourcesBP: PBXResourcesBuildPhase,
+    headersBP: PBXHeadersBuildPhase, repoRoot: Path
+) throws {
+    let liveKitGroup = PBXGroup(sourceTree: .group, name: "LiveKit", path: "Sources/LiveKit")
+    pbxProj.add(object: liveKitGroup)
+    mainGroup.children.append(liveKitGroup)
+    try addSources(dir: repoRoot + "Sources/LiveKit", group: liveKitGroup,
+                   sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj, excludes: ["NOTICE"])
+
+    let objcGroup = PBXGroup(sourceTree: .group, name: "LKObjCHelpers", path: "Sources/LKObjCHelpers")
+    pbxProj.add(object: objcGroup)
+    mainGroup.children.append(objcGroup)
+    try addSources(dir: repoRoot + "Sources/LKObjCHelpers", group: objcGroup,
+                   sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj)
+
+    // Make ObjC headers public
+    let objcHeaderDir = repoRoot + "Sources" + "LKObjCHelpers" + "include"
+    if objcHeaderDir.exists {
+        for h in try objcHeaderDir.children().filter({ $0.extension == "h" }) {
+            if let fileRef = pbxProj.fileReferences.first(where: { $0.path == h.string }) {
+                let hf = PBXBuildFile(file: fileRef, settings: ["ATTRIBUTES": ["Public"]])
+                pbxProj.add(object: hf)
+                headersBP.files?.append(hf)
+            }
+        }
+    }
+}
+
+// MARK: - Archive
+
+func archiveAllPlatforms(projectPath: Path, buildDir: Path, spmDir: Path) async throws -> [(Platform, Path)] {
+    step("Archiving \(platforms.count) platforms in parallel...")
+    let results: [(Platform, Result<Path, Swift.Error>)] = await withTaskGroup(
+        of: (Platform, Result<Path, Swift.Error>).self,
+        returning: [(Platform, Result<Path, Swift.Error>)].self
+    ) { group in
+        for p in platforms {
+            group.addTask {
+                let archive = buildDir + "\(p.archiveName).xcarchive"
+                let dd = buildDir + "dd-\(p.archiveName)"
+                do {
+                    let output = try await exec([
+                        "xcodebuild", "archive",
+                        "-project", projectPath.string,
+                        "-scheme", "LiveKit", "-configuration", "Release",
+                        "-destination", p.destination,
+                        "-archivePath", archive.string,
+                        "-derivedDataPath", dd.string,
+                        "-clonedSourcePackagesDirPath", spmDir.string,
+                    ] + p.extraSettings)
+                    let lastLine = output.components(separatedBy: .newlines).last ?? ""
+                    print("  ✓ \(p.label): \(lastLine)")
+                    return (p, .success(archive))
+                } catch {
+                    print("  ✗ \(p.label): \(error)".red)
+                    return (p, .failure(error))
+                }
+            }
+        }
+        var collected: [(Platform, Result<Path, Swift.Error>)] = []
+        for await result in group {
+            collected.append(result)
+        }
+        return collected.sorted { $0.0.archiveName < $1.0.archiveName }
+    }
+
+    let archives = results.compactMap { p, r -> (Platform, Path)? in try? (p, r.get()) }
+    let failedCount = results.count - archives.count
+    if failedCount > 0 {
+        print("  \(failedCount) platform(s) failed, \(archives.count) succeeded.".yellow)
+    }
+    guard !archives.isEmpty else {
+        throw ValidationError("All platform archives failed.")
+    }
+    print("  \(archives.count) platforms archived.".green)
+    return archives
 }
 
 // MARK: - Command
@@ -355,6 +397,7 @@ struct BuildXCFramework: AsyncParsableCommand {
         }
     }
 
+    // swiftlint:disable:next function_body_length
     mutating func run() async throws {
         // Resolve repo root by walking up from cwd to find Package.swift
         var repoRoot = Path(fm.currentDirectoryPath)
@@ -395,50 +438,7 @@ struct BuildXCFramework: AsyncParsableCommand {
         print("  RustLiveKitUniFFI: \(uniffiDep.url)")
 
         // --- Archive all platforms (parallel) ---
-        step("Archiving \(platforms.count) platforms in parallel...")
-        let archiveResults: [(Platform, Result<Path, Swift.Error>)] = await withTaskGroup(
-            of: (Platform, Result<Path, Swift.Error>).self,
-            returning: [(Platform, Result<Path, Swift.Error>)].self
-        ) { group in
-            for p in platforms {
-                group.addTask {
-                    let archive = buildDir + "\(p.archiveName).xcarchive"
-                    let dd = buildDir + "dd-\(p.archiveName)"
-                    do {
-                        let archiveOutput = try await exec([
-                            "xcodebuild", "archive",
-                            "-project", projectPath.string,
-                            "-scheme", "LiveKit", "-configuration", "Release",
-                            "-destination", p.destination,
-                            "-archivePath", archive.string,
-                            "-derivedDataPath", dd.string,
-                            "-clonedSourcePackagesDirPath", spmDir.string,
-                        ] + p.extraSettings)
-                        let lastLine = archiveOutput.components(separatedBy: .newlines).last ?? ""
-                        print("  ✓ \(p.label): \(lastLine)")
-                        return (p, .success(archive))
-                    } catch {
-                        print("  ✗ \(p.label): \(error)".red)
-                        return (p, .failure(error))
-                    }
-                }
-            }
-            var results: [(Platform, Result<Path, Swift.Error>)] = []
-            for await result in group {
-                results.append(result)
-            }
-            return results.sorted { $0.0.archiveName < $1.0.archiveName }
-        }
-
-        let archives = archiveResults.compactMap { p, r -> (Platform, Path)? in try? (p, r.get()) }
-        let failedCount = archiveResults.count - archives.count
-        if failedCount > 0 {
-            print("  \(failedCount) platform(s) failed, \(archives.count) succeeded.".yellow)
-        }
-        guard !archives.isEmpty else {
-            throw ValidationError("All platform archives failed.")
-        }
-        print("  \(archives.count) platforms archived.".green)
+        let archives = try await archiveAllPlatforms(projectPath: projectPath, buildDir: buildDir, spmDir: spmDir)
 
         // --- Create LiveKit.xcframework ---
         step("Creating LiveKit.xcframework...")
@@ -460,11 +460,8 @@ struct BuildXCFramework: AsyncParsableCommand {
 
         // --- Generate Package.swift ---
         step("Generating Package.swift...")
-        try generatePackageSwift(
-            outputDir: outputDir, liveKitChecksum: liveKitChecksum,
-            webrtcDep: webrtcDep, uniffiDep: uniffiDep,
-            manifest: manifest, repoRoot: repoRoot
-        )
+        let context = OutputContext(liveKitChecksum: liveKitChecksum, webrtcDep: webrtcDep, uniffiDep: uniffiDep, manifest: manifest)
+        try generatePackageSwift(outputDir: outputDir, context: context, repoRoot: repoRoot)
         print("  Written to \(outputDir)/Package.swift (local=\(local))")
 
         // --- Summary ---
@@ -482,11 +479,13 @@ struct BuildXCFramework: AsyncParsableCommand {
 
     // MARK: - Generate Package.swift via Stencil
 
-    func generatePackageSwift(
-        outputDir: Path, liveKitChecksum: String,
-        webrtcDep: BinaryDep, uniffiDep: BinaryDep,
-        manifest: PackageManifest, repoRoot: Path
-    ) throws {
+    struct OutputContext {
+        let liveKitChecksum: String
+        let webrtcDep, uniffiDep: BinaryDep
+        let manifest: PackageManifest
+    }
+
+    func generatePackageSwift(outputDir: Path, context: OutputContext, repoRoot: Path) throws {
         let tmpl: String = try (repoRoot + "scripts" + "Package.swift.stencil").read()
         let baseURL = version.map {
             "https://github.com/livekit/client-sdk-swift-xcframework/releases/download/\($0)"
@@ -496,12 +495,12 @@ struct BuildXCFramework: AsyncParsableCommand {
         let rendered = try env.renderTemplate(name: "pkg", context: [
             "local": local,
             "baseURL": baseURL,
-            "checksumLiveKit": liveKitChecksum,
-            "webrtcURL": webrtcDep.url,
-            "webrtcChecksum": webrtcDep.checksum,
-            "uniffiURL": uniffiDep.url,
-            "uniffiChecksum": uniffiDep.checksum,
-            "protobufDependency": manifest.dependencyLine(containing: "swift-protobuf"),
+            "checksumLiveKit": context.liveKitChecksum,
+            "webrtcURL": context.webrtcDep.url,
+            "webrtcChecksum": context.webrtcDep.checksum,
+            "uniffiURL": context.uniffiDep.url,
+            "uniffiChecksum": context.uniffiDep.checksum,
+            "protobufDependency": context.manifest.dependencyLine(containing: "swift-protobuf"),
         ])
         try (outputDir + "Package.swift").write(rendered)
 
