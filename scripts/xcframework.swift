@@ -60,6 +60,7 @@ func exec(_ args: [String]) async throws -> String {
 
 struct Platform {
     let label, destination, archiveName: String
+    var extraSettings: [String] = []
 }
 
 let platforms: [Platform] = [
@@ -68,9 +69,9 @@ let platforms: [Platform] = [
     .init(label: "macOS", destination: "generic/platform=macOS", archiveName: "macos-arm64_x86_64"),
     .init(label: "Mac Catalyst", destination: "generic/platform=macOS,variant=Mac Catalyst", archiveName: "ios-arm64_x86_64-maccatalyst"),
     .init(label: "tvOS Device", destination: "generic/platform=tvOS", archiveName: "tvos-arm64"),
-    .init(label: "tvOS Simulator", destination: "generic/platform=tvOS Simulator", archiveName: "tvos-arm64_x86_64-simulator"),
+    .init(label: "tvOS Simulator", destination: "generic/platform=tvOS Simulator", archiveName: "tvos-arm64_x86_64-simulator", extraSettings: ["ARCHS=arm64"]),
     .init(label: "visionOS Device", destination: "generic/platform=visionOS", archiveName: "xros-arm64"),
-    .init(label: "visionOS Simulator", destination: "generic/platform=visionOS Simulator", archiveName: "xros-arm64-simulator"),
+    .init(label: "visionOS Simulator", destination: "generic/platform=visionOS Simulator", archiveName: "xros-arm64-simulator", extraSettings: ["ARCHS=arm64"]),
 ]
 
 // MARK: - Binary dependency info
@@ -111,6 +112,13 @@ func parseBinaryDep(repoRoot: Path, spmDir: Path, pattern: String, xcfw: String)
         throw ValidationError("Could not find checksum in \(checkoutPkg)")
     }
     return BinaryDep(url: zipURL, checksum: String(csMatch.hash))
+}
+
+func protobufDependencyLine(repoRoot: Path) throws -> String {
+    let contents: String = try (repoRoot + "Package.swift").read()
+    guard let line = contents.components(separatedBy: .newlines).first(where: { $0.contains("swift-protobuf") && $0.contains(".package") })
+    else { throw ValidationError("swift-protobuf dependency not found in Package.swift") }
+    return line
 }
 
 // MARK: - Xcode project generation
@@ -213,17 +221,17 @@ func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
 
     // Parse versions from Package.swift
     let pkgContents: String = try (repoRoot + "Package.swift").read()
-    func extractVersion(pattern: String) -> String {
+    func extractVersion(pattern: String) throws -> String {
         guard let line = pkgContents.components(separatedBy: .newlines)
             .first(where: { $0.contains(pattern) }),
             let match = line.firstMatch(of: #/exact:\s*"(?<ver>[^"]+)"/#) ?? line.firstMatch(of: #/from:\s*"(?<ver>[^"]+)"/#)
-        else { return "1.0.0" }
+        else { throw ValidationError("\(pattern) version not found in Package.swift") }
         return String(match.ver)
     }
 
-    let webrtcPkg = addRemotePackage(url: "https://github.com/livekit/webrtc-xcframework.git", version: extractVersion(pattern: "webrtc-xcframework"))
-    let uniffiPkg = addRemotePackage(url: "https://github.com/livekit/livekit-uniffi-xcframework.git", version: extractVersion(pattern: "uniffi-xcframework"))
-    let protobufPkg = addRemotePackage(url: "https://github.com/apple/swift-protobuf.git", version: extractVersion(pattern: "swift-protobuf"))
+    let webrtcPkg = try addRemotePackage(url: "https://github.com/livekit/webrtc-xcframework.git", version: extractVersion(pattern: "webrtc-xcframework"))
+    let uniffiPkg = try addRemotePackage(url: "https://github.com/livekit/livekit-uniffi-xcframework.git", version: extractVersion(pattern: "uniffi-xcframework"))
+    let protobufPkg = try addRemotePackage(url: "https://github.com/apple/swift-protobuf.git", version: extractVersion(pattern: "swift-protobuf"))
 
     let webrtcDep = addProductDep(name: "LiveKitWebRTC", package: webrtcPkg)
     let uniffiDep = addProductDep(name: "LiveKitUniFFI", package: uniffiPkg)
@@ -249,6 +257,7 @@ func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
         "SKIP_INSTALL": "NO",
         "BUILD_LIBRARY_FOR_DISTRIBUTION": "YES",
         "INSTALL_PATH": "$(LOCAL_LIBRARY_DIR)/Frameworks",
+        "DYLIB_INSTALL_NAME_BASE": "@rpath",
         "DEFINES_MODULE": "YES",
         "MACH_O_TYPE": "mh_dylib",
         "CLANG_ENABLE_MODULES": "YES",
@@ -352,7 +361,7 @@ struct BuildXCFramework: AsyncParsableCommand {
             repoRoot = repoRoot.parent()
         }
 
-        let outputDir = Path(output ?? (repoRoot + "build" + "xcframework").string)
+        let outputDir = Path(output ?? (repoRoot + ".build" + "xcframework").string)
         let buildDir = Path(NSTemporaryDirectory()) + "livekit-xcfw-\(UUID().uuidString)"
         let spmDir = buildDir + "spm"
 
@@ -402,7 +411,7 @@ struct BuildXCFramework: AsyncParsableCommand {
                             "-archivePath", archive.string,
                             "-derivedDataPath", dd.string,
                             "-clonedSourcePackagesDirPath", spmDir.string,
-                        ])
+                        ] + p.extraSettings)
                         let lastLine = archiveOutput.components(separatedBy: .newlines).last ?? ""
                         print("  ✓ \(p.label): \(lastLine)")
                         return (p, .success(archive))
@@ -443,15 +452,12 @@ struct BuildXCFramework: AsyncParsableCommand {
         let xcfwOutput = try await exec(xcfwArgs)
         if !xcfwOutput.isEmpty { print(xcfwOutput) }
 
-        // --- Zip & checksum (release builds only) ---
-        var liveKitChecksum = ""
-        if !local {
-            step("Zipping LiveKit.xcframework...")
-            let zipPath = outputDir + "LiveKit.xcframework.zip"
-            try fm.zipItem(at: xcfwPath.url, to: zipPath.url)
-            liveKitChecksum = try await exec("swift", "package", "compute-checksum", zipPath.string)
-            print("  LiveKit.xcframework.zip  checksum: \(liveKitChecksum)")
-        }
+        // --- Zip & checksum ---
+        step("Zipping LiveKit.xcframework...")
+        let zipPath = outputDir + "LiveKit.xcframework.zip"
+        try fm.zipItem(at: xcfwPath.url, to: zipPath.url)
+        let liveKitChecksum = try await exec("swift", "package", "compute-checksum", zipPath.string)
+        print("  LiveKit.xcframework.zip  checksum: \(liveKitChecksum)")
 
         // --- Generate Package.swift ---
         step("Generating Package.swift...")
@@ -494,12 +500,13 @@ struct BuildXCFramework: AsyncParsableCommand {
             "webrtcChecksum": webrtcDep.checksum,
             "uniffiURL": uniffiDep.url,
             "uniffiChecksum": uniffiDep.checksum,
+            "protobufDependency": protobufDependencyLine(repoRoot: repoRoot),
         ])
         try (outputDir + "Package.swift").write(rendered)
 
-        // Create stub target (workaround for apple/swift-package-manager#6069)
-        let stubDir = outputDir + "Sources" + "_LiveKitStub"
-        try stubDir.mkpath()
-        try (stubDir + "Stub.swift").write("// Workaround: without a non-binary target, SPM won't show the\n// package in Xcode's \"Frameworks, Libraries, and Embedded Content\".\n// See https://github.com/apple/swift-package-manager/issues/6069\nclass _LiveKitStub {}\n")
+        // LiveKitTargets needs at least one source file
+        let targetsDir = outputDir + "Sources" + "LiveKitTargets"
+        try targetsDir.mkpath()
+        try (targetsDir + "LiveKitTargets.swift").write("// Re-export LiveKit so consumers only need `import LiveKit`.\n@_exported import LiveKit\n")
     }
 }

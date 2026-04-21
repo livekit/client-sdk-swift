@@ -13,10 +13,22 @@ let package = Package(
         .visionOS(.v26),
     ],
     products: [
-        .library(name: "LiveKit", targets: ["LiveKit", "LiveKitWebRTC", "RustLiveKitUniFFI", "_LiveKitStub"]),
+        .library(name: "LiveKit", targets: ["LiveKitTargets"]),
     ],
-    targets: [{% if local %}
-        .binaryTarget(name: "LiveKit", path: "LiveKit.xcframework"),{% else %}
+    dependencies: [
+{{ protobufDependency }}
+    ],
+    targets: [
+        .target(
+            name: "LiveKitTargets",
+            dependencies: [
+                "LiveKit",
+                "LiveKitWebRTC",
+                "RustLiveKitUniFFI",
+                .product(name: "SwiftProtobuf", package: "swift-protobuf"),
+            ]
+        ),{% if local %}
+        .binaryTarget(name: "LiveKit", path: "LiveKit.xcframework.zip"),{% else %}
         .binaryTarget(
             name: "LiveKit",
             url: "{{ baseURL }}/LiveKit.xcframework.zip",
@@ -32,9 +44,5 @@ let package = Package(
             url: "{{ uniffiURL }}",
             checksum: "{{ uniffiChecksum }}"
         ),
-        // Without at least one regular (non-binary) target, this package doesn't show up
-        // in Xcode under "Frameworks, Libraries, and Embedded Content".
-        // https://github.com/apple/swift-package-manager/issues/6069
-        .target(name: "_LiveKitStub", path: "Sources/_LiveKitStub"),
     ]
 )
