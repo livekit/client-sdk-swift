@@ -204,11 +204,12 @@ actor Transport: NSObject, Loggable {
 
         // Stop listening to delegate
         _pc.delegate = nil
-        // Remove all senders (if any)
-        for sender in _pc.senders {
-            _pc.removeTrack(sender)
-        }
 
+        // Do not call removeTrack before close — it nulls sender tracks and
+        // changes transceiver directions, causing Close() to skip ClearSend/
+        // DetachTrack in its StopTransceiverProcedure and hit edge cases in
+        // the worker-thread teardown (ICE use-after-free, AVAudioEngine
+        // deallocation assertion). Close() handles full cleanup on its own.
         _pc.close()
     }
 }
