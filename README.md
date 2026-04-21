@@ -52,11 +52,19 @@ let package = Package(
 }
 ```
 
-### XCode
+### Xcode
 
 Go to Project Settings -> Swift Packages.
 
 Add a new package and enter: `https://github.com/livekit/client-sdk-swift`
+
+### Pre-built XCFramework
+
+A pre-built binary distribution is available for faster integration and CI builds. Add the XCFramework package instead:
+
+`https://github.com/livekit/client-sdk-swift-xcframework`
+
+This package bundles `LiveKit.xcframework` (dynamic framework) along with its dependencies (`LiveKitWebRTC`, `RustLiveKitUniFFI`). It contains the same code as the source package above, just pre-compiled.
 
 ### CocoaPods
 
