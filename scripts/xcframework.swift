@@ -261,7 +261,9 @@ func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
         "MACH_O_TYPE": "mh_dylib",
         "CLANG_ENABLE_MODULES": "YES",
         "HEADER_SEARCH_PATHS": "$(inherited) " + (repoRoot + "Sources/LKObjCHelpers/include").string,
-        // LKObjCHelpers needs its own modulemap so `import LKObjCHelpers` works in Swift
+        // LK_XCFRAMEWORK flag replaces `import LKObjCHelpers` with `@_implementationOnly`
+        // to prevent leaking into .swiftinterface
+        "SWIFT_ACTIVE_COMPILATION_CONDITIONS": "LK_XCFRAMEWORK",
         "SWIFT_INCLUDE_PATHS": "$(inherited) " + (repoRoot + "Sources/LKObjCHelpers").string,
     ])
     pbxProj.add(object: targetConfig)
@@ -316,7 +318,7 @@ func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
         }
     }
 
-    // --- Create LKObjCHelpers modulemap if it doesn't exist ---
+    // --- Create LKObjCHelpers modulemap if needed ---
     let modulemapPath = repoRoot + "Sources" + "LKObjCHelpers" + "module.modulemap"
     if !modulemapPath.exists {
         try modulemapPath.write("module LKObjCHelpers {\n    header \"include/LKObjCHelpers.h\"\n    export *\n}\n")

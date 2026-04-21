@@ -23,7 +23,9 @@ import ReplayKit
 import Combine
 import OSLog
 
-#if !COCOAPODS
+#if LK_XCFRAMEWORK
+@_implementationOnly import LKObjCHelpers
+#elseif !COCOAPODS
 import LKObjCHelpers
 #endif
 
