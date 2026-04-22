@@ -26,7 +26,7 @@ import OSLog
 // swiftlint:disable duplicate_imports
 #if !COCOAPODS
 #if LK_XCFRAMEWORK
-@_implementationOnly import LKObjCHelpers
+internal import LKObjCHelpers
 #else
 import LKObjCHelpers
 #endif

@@ -15,9 +15,6 @@ let package = Package(
     products: [
         .library(name: "LiveKit", targets: ["LiveKitTargets"]),
     ],
-    dependencies: [
-{{ protobufDependency }}
-    ],
     targets: [
         .target(
             name: "LiveKitTargets",
@@ -25,7 +22,6 @@ let package = Package(
                 "LiveKit",
                 "LiveKitWebRTC",
                 "RustLiveKitUniFFI",
-                .product(name: "SwiftProtobuf", package: "swift-protobuf"),
             ]
         ),{% if local %}
         .binaryTarget(name: "LiveKit", path: "LiveKit.xcframework.zip"),{% else %}

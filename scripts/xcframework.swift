@@ -96,13 +96,6 @@ struct PackageManifest {
         lines = contents.components(separatedBy: .newlines)
     }
 
-    /// Extract a full dependency line matching the given pattern.
-    func dependencyLine(containing pattern: String) throws -> String {
-        guard let line = lines.first(where: { $0.contains(pattern) && $0.contains(".package") })
-        else { throw ValidationError("\(pattern) dependency not found in Package.swift") }
-        return line
-    }
-
     /// Extract version string for a dependency matching the pattern.
     func extractVersion(pattern: String) throws -> String {
         guard let line = lines.first(where: { $0.contains(pattern) }),
@@ -460,7 +453,7 @@ struct BuildXCFramework: AsyncParsableCommand {
 
         // --- Generate Package.swift ---
         step("Generating Package.swift...")
-        let context = OutputContext(liveKitChecksum: liveKitChecksum, webrtcDep: webrtcDep, uniffiDep: uniffiDep, manifest: manifest)
+        let context = OutputContext(liveKitChecksum: liveKitChecksum, webrtcDep: webrtcDep, uniffiDep: uniffiDep)
         try generatePackageSwift(outputDir: outputDir, context: context, repoRoot: repoRoot)
         print("  Written to \(outputDir)/Package.swift (local=\(local))")
 
@@ -482,7 +475,6 @@ struct BuildXCFramework: AsyncParsableCommand {
     struct OutputContext {
         let liveKitChecksum: String
         let webrtcDep, uniffiDep: BinaryDep
-        let manifest: PackageManifest
     }
 
     func generatePackageSwift(outputDir: Path, context: OutputContext, repoRoot: Path) throws {
@@ -500,7 +492,6 @@ struct BuildXCFramework: AsyncParsableCommand {
             "webrtcChecksum": context.webrtcDep.checksum,
             "uniffiURL": context.uniffiDep.url,
             "uniffiChecksum": context.uniffiDep.checksum,
-            "protobufDependency": context.manifest.dependencyLine(containing: "swift-protobuf"),
         ])
         try (outputDir + "Package.swift").write(rendered)
 
