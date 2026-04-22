@@ -60,6 +60,12 @@ Key components:
 
 Dependencies: LiveKitWebRTC, LiveKitUniFFI, SwiftProtobuf.
 
+## Compile-Time Flags
+
+- `LK_XCFRAMEWORK` — set in the generated xcodeproj by `scripts/xcframework.swift`; switches `import SwiftProtobuf` to `internal import` in proto files so it doesn't leak into `.swiftinterface`
+- `LK_BENCHMARK` — set when building benchmarks (`Benchmarks/`); skips `DeviceManager`/`AudioManager` init in `Room.init` to allow headless benchmark runs
+- `LK_SIGNPOSTS` — enables `os.signpost` instrumentation in `StateSync` for profiling lock contention in Instruments
+
 ## WebRTC
 
 WebRTC handles the actual media transport (audio/video/data) between participants. The SDK abstracts WebRTC complexity behind `Room`, `Participant`, and `Track` APIs while LiveKit server coordinates signaling.
