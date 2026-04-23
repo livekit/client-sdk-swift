@@ -372,6 +372,63 @@ struct PeerConnectionSignalingTests {
         }
     }
 
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/issues/958"),
+          arguments: SignalingMode.allCases)
+    func republishAfterUnpublishAll(mode: SignalingMode) async throws {
+        try await TestEnvironment.withRooms([
+            roomTestingOptions(mode: mode, canPublish: true),
+            roomTestingOptions(mode: mode, canSubscribe: true),
+        ]) { rooms in
+            let room1 = rooms[0]
+            let room2 = rooms[1]
+
+            let publisherIdentity = try #require(room1.localParticipant.identity)
+            let remoteParticipant = try #require(room2.remoteParticipants[publisherIdentity])
+
+            // Phase 1: Publish audio + simulcast video (720x1280 triggers 3 layers)
+            let audioTrack1 = TestAudioTrack(name: "audio-1")
+            let videoTrack1 = LocalVideoTrack.createBufferTrack(name: "video-1")
+            if let capturer = videoTrack1.capturer as? BufferCapturer {
+                var pb: CVPixelBuffer?
+                CVPixelBufferCreate(kCFAllocatorDefault, 720, 1280, kCVPixelFormatType_32BGRA, nil, &pb)
+                if let pb { capturer.capture(pb) }
+            }
+
+            try await room1.localParticipant.publish(audioTrack: audioTrack1)
+            try await room1.localParticipant.publish(videoTrack: videoTrack1)
+
+            try await waitForPublish(on: remoteParticipant) {
+                $0.trackPublications.count >= 2
+            }
+
+            // Phase 2: Unpublish all
+            await room1.localParticipant.unpublishAll()
+
+            try await waitForPublish(on: remoteParticipant) {
+                $0.trackPublications.isEmpty
+            }
+
+            try await Task.sleep(nanoseconds: 2_000_000_000)
+
+            // Phase 3: Republish new tracks
+            let audioTrack2 = TestAudioTrack(name: "audio-2")
+            let videoTrack2 = LocalVideoTrack.createBufferTrack(name: "video-2")
+            if let capturer = videoTrack2.capturer as? BufferCapturer {
+                var pb: CVPixelBuffer?
+                CVPixelBufferCreate(kCFAllocatorDefault, 720, 1280, kCVPixelFormatType_32BGRA, nil, &pb)
+                if let pb { capturer.capture(pb) }
+            }
+
+            try await room1.localParticipant.publish(audioTrack: audioTrack2)
+            try await room1.localParticipant.publish(videoTrack: videoTrack2)
+
+            try await waitForPublish(on: remoteParticipant) {
+                $0.trackPublications.count >= 2
+            }
+            #expect(remoteParticipant.trackPublications.count >= 2, "Remote should see republished tracks")
+        }
+    }
+
     @Test(arguments: SignalingMode.allCases)
     func doubleReconnect(mode: SignalingMode) async throws {
         let reconnectWatcher = ReconnectWatcher()
