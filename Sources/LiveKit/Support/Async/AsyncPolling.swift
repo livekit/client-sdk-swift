@@ -14,21 +14,22 @@
  * limitations under the License.
  */
 
-import Foundation
+/// A type that produces values asynchronously via a `next()` poll method.
+///
+/// Conforming types get a `values` property that wraps the poll in an `AsyncStream`,
+/// enabling `for await` iteration:
+/// ```swift
+/// for await frame in stream.values {
+///     process(frame)
+/// }
+/// ```
+protocol AsyncPolling<Element>: Sendable {
+    associatedtype Element: Sendable
+    func next() async -> Element?
+}
 
-internal import LiveKitWebRTC
-
-extension LKRTCDataChannel {
-    enum Labels {
-        static let reliable = "_reliable"
-        static let lossy = "_lossy"
-        static let dataTrack = "_data_track"
-    }
-
-    func toLKInfoType() -> Livekit_DataChannelInfo {
-        Livekit_DataChannelInfo.with {
-            $0.id = UInt32(max(0, channelId))
-            $0.label = label
-        }
+extension AsyncPolling {
+    var values: AsyncStream<Element> {
+        AsyncStream(unfolding: next)
     }
 }

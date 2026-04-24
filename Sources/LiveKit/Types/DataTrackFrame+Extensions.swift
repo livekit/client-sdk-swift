@@ -16,19 +16,22 @@
 
 import Foundation
 
-internal import LiveKitWebRTC
+internal import LiveKitUniFFI
 
-extension LKRTCDataChannel {
-    enum Labels {
-        static let reliable = "_reliable"
-        static let lossy = "_lossy"
-        static let dataTrack = "_data_track"
+extension DataTrackFrame {
+    /// Creates a frame with the current Unix timestamp in milliseconds.
+    static func now(payload: Data) -> DataTrackFrame {
+        DataTrackFrame(
+            payload: payload,
+            userTimestamp: UInt64(Date().timeIntervalSince1970 * 1000)
+        )
     }
 
-    func toLKInfoType() -> Livekit_DataChannelInfo {
-        Livekit_DataChannelInfo.with {
-            $0.id = UInt32(max(0, channelId))
-            $0.label = label
-        }
+    /// Time elapsed since the frame's timestamp, if present.
+    var latency: TimeInterval? {
+        guard let ts = userTimestamp else { return nil }
+        let now = UInt64(Date().timeIntervalSince1970 * 1000)
+        guard now >= ts else { return nil }
+        return TimeInterval(now - ts) / 1000.0
     }
 }

@@ -19,6 +19,9 @@
 import Combine
 import Foundation
 
+internal import LiveKitUniFFI
+internal import LiveKitWebRTC
+
 #if canImport(Network)
 import Network
 #endif
@@ -128,6 +131,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     } encryptionProvider: { [weak self] in
         self?.e2eeManager?.dataChannelEncryptionType ?? .none
     }
+
+    // MARK: - Data Tracks
+
+    var localDataTrackManager: LocalDataTrackManager?
+    var remoteDataTrackManager: RemoteDataTrackManager?
+    var publisherDataTrackChannel: LKRTCDataChannel?
+    var subscriberDataTrackChannel: LKRTCDataChannel?
+    lazy var subscriberDataTrackChannelDelegate = SubscriberDataTrackChannelDelegate(room: self)
+    let dataTrackDelegates = MulticastDelegate<DataTrackDelegate>(label: "DataTrackDelegate")
 
     // MARK: - PreConnect
 
@@ -474,6 +486,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             try Task.checkCancellation()
 
             connectSpan?.record("room_connected")
+
+            setupDataTrackManagers()
 
             _state.mutate {
                 $0.connectedUrl = finalUrl
