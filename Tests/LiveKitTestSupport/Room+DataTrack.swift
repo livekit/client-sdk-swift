@@ -18,41 +18,45 @@ import Foundation
 @testable import LiveKit
 import LiveKitUniFFI
 
-/// Waits for a remote data track to be published by observing data track delegate events.
-public extension Room {
-    func waitForDataTrack(name: String, timeout: TimeInterval = 10) async throws -> RemoteDataTrack {
-        let watcher = DataTrackWatcher(expectedName: name)
-        dataTrackDelegates.add(delegate: watcher)
-        defer { dataTrackDelegates.remove(delegate: watcher) }
+/// Watches for a remote data track to be published. Register as a delegate
+/// on `room.dataTrackDelegates` **before** the track is published to avoid races.
+public final class DataTrackWatcher: DataTrackDelegate, @unchecked Sendable {
+    public let expectedName: String
+    private let continuation: AsyncStream<RemoteDataTrack>.Continuation
+    private let stream: AsyncStream<RemoteDataTrack>
 
+    public init(expectedName: String) {
+        self.expectedName = expectedName
+        let (stream, continuation) = AsyncStream.makeStream(of: RemoteDataTrack.self)
+        self.stream = stream
+        self.continuation = continuation
+    }
+
+    /// Waits for the expected track to appear, with timeout.
+    public func waitForTrack(timeout: TimeInterval = 15) async throws -> RemoteDataTrack {
         let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if let track = watcher.publishedTrack {
-                return track
-            }
-            try await Task.sleep(nanoseconds: 50_000_000) // 50ms poll
+        for await track in stream {
+            return track
         }
+        throw LiveKitError(.timedOut, message: "Timed out waiting for data track '\(expectedName)'")
+    }
 
-        throw LiveKitError(.timedOut, message: "Timed out waiting for data track '\(name)'")
+    // MARK: - DataTrackDelegate
+
+    public func room(_: Room, didPublishDataTrack track: RemoteDataTrack) {
+        if track.info().name == expectedName {
+            continuation.yield(track)
+            continuation.finish()
+        }
     }
 }
 
-final class DataTrackWatcher: DataTrackDelegate, @unchecked Sendable {
-    let expectedName: String
-    private let lock = NSLock()
-    private var _publishedTrack: RemoteDataTrack?
-
-    var publishedTrack: RemoteDataTrack? {
-        lock.withLock { _publishedTrack }
-    }
-
-    init(expectedName: String) {
-        self.expectedName = expectedName
-    }
-
-    func room(_: Room, didPublishDataTrack track: RemoteDataTrack) {
-        if track.info().name == expectedName {
-            lock.withLock { _publishedTrack = track }
-        }
+/// Convenience for simple cases — registers watcher, returns track.
+public extension Room {
+    func waitForDataTrack(name: String, timeout: TimeInterval = 15) async throws -> RemoteDataTrack {
+        let watcher = DataTrackWatcher(expectedName: name)
+        dataTrackDelegates.add(delegate: watcher)
+        defer { dataTrackDelegates.remove(delegate: watcher) }
+        return try await watcher.waitForTrack(timeout: timeout)
     }
 }
