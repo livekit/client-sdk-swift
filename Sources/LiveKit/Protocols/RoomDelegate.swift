@@ -16,6 +16,8 @@
 
 import Foundation
 
+internal import LiveKitUniFFI
+
 /// ``RoomDelegate`` receives room events as well as ``Participant`` events.
 ///
 /// > Important: The thread which the delegate will be called on, is not guranteed to be the `main` thread.
@@ -319,4 +321,22 @@ public protocol RoomDelegate: AnyObject, Sendable {
     @available(*, unavailable, renamed: "room(_:trackPublication:didUpdateE2EEState:)")
     @objc(room:publication:didUpdateE2EEState:) optional
     func room(_ room: Room, publication: TrackPublication, didUpdateE2EEState: E2EEState)
+}
+
+// MARK: - Data Track Delegate
+
+/// Delegate for receiving data track events from a ``Room``.
+///
+/// Data track types are not Objective-C compatible, so these callbacks
+/// are delivered through a separate Swift-only protocol.
+protocol DataTrackDelegate: AnyObject, Sendable {
+    /// A remote participant published a data track.
+    func room(_ room: Room, didPublishDataTrack track: RemoteDataTrack)
+    /// A remote participant unpublished a data track.
+    func room(_ room: Room, didUnpublishDataTrack sid: String)
+}
+
+extension DataTrackDelegate {
+    func room(_: Room, didPublishDataTrack _: RemoteDataTrack) {}
+    func room(_: Room, didUnpublishDataTrack _: String) {}
 }

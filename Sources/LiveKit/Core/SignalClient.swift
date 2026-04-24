@@ -278,6 +278,11 @@ private extension SignalClient {
     }
 
     func onWebSocketMessage(_ message: URLSessionWebSocketTask.Message) async {
+        // Forward raw bytes to delegate for data track managers before parsing.
+        if case let .data(rawData) = message {
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveRawResponse: rawData) }
+        }
+
         let response: Livekit_SignalResponse? = switch message {
         case let .data(data): try? Livekit_SignalResponse(serializedBytes: data)
         case let .string(string): try? Livekit_SignalResponse(jsonString: string)
@@ -416,6 +421,10 @@ extension SignalClient {
 // MARK: - Send methods
 
 extension SignalClient {
+    func sendRequest(_ request: Livekit_SignalRequest) async throws {
+        try await _sendRequest(request)
+    }
+
     func send(offer: LKRTCSessionDescription, offerId: UInt32) async throws {
         let r = Livekit_SignalRequest.with {
             $0.offer = offer.toPBType(offerId: offerId)

@@ -35,4 +35,6 @@ extension Tag {
     @Tag static var media: Self
     /// End-to-end encryption tests.
     @Tag static var e2ee: Self
+    /// Data track publish/subscribe tests.
+    @Tag static var dataTrack: Self
 }

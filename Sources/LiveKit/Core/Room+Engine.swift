@@ -44,6 +44,11 @@ extension Room {
         publisherDataChannel.reset()
         subscriberDataChannel.reset()
 
+        // Clean up data track channels and managers
+        publisherDataTrackChannel = nil
+        subscriberDataTrackChannel = nil
+        cleanUpDataTrackManagers()
+
         await _state.transport?.close()
 
         // Reset publish state
@@ -178,8 +183,13 @@ extension Room {
             publisherDataChannel.set(reliable: reliableDataChannel)
             publisherDataChannel.set(lossy: lossyDataChannel)
 
+            // Data track channel (unordered, unreliable — DTP handles its own sequencing)
+            publisherDataTrackChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.dataTrack,
+                                                                    configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
+
             log("dataChannel.\(String(describing: reliableDataChannel?.label)) : \(String(describing: reliableDataChannel?.channelId))")
             log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
+            log("dataChannel.\(String(describing: publisherDataTrackChannel?.label)) : \(String(describing: publisherDataTrackChannel?.channelId))")
 
             let subscriber = isSinglePC ? nil : try Transport(config: rtcConfiguration,
                                                               target: .subscriber,
@@ -447,9 +457,14 @@ extension Room {
                     if case .quick = mode {
                         try await quickReconnectSequence()
                         self.log("[Connect] Quick reconnect succeeded for attempt \(currentAttempt)")
+                        // Resend data track subscription state after quick reconnect
+                        self.remoteDataTrackManager?.resendSubscriptionUpdates()
                     } else if case .full = mode {
                         try await fullReconnectSequence()
                         self.log("[Connect] Full reconnect succeeded for attempt \(currentAttempt)")
+                        // Republish data tracks after full reconnect
+                        self.localDataTrackManager?.republishTracks()
+                        self.remoteDataTrackManager?.resendSubscriptionUpdates()
                     }
                 } catch {
                     self.log("[Connect] Reconnect mode: \(mode) failed with error: \(error)", .error)

@@ -406,6 +406,16 @@ extension Room: SignalClientDelegate {
         }
     }
 
+    func signalClient(_: SignalClient, didReceiveRawResponse data: Data) async {
+        try? localDataTrackManager?.handleSignalResponse(res: data)
+        if let identity = localParticipant.identity?.stringValue {
+            try? remoteDataTrackManager?.handleSignalResponse(
+                res: data,
+                localParticipantIdentity: identity
+            )
+        }
+    }
+
     func signalClient(_: SignalClient, didReceiveMediaSectionsRequirement requirement: Livekit_MediaSectionsRequirement) async {
         guard case let .publisherOnly(publisher) = _state.transport else { return }
 

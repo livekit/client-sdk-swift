@@ -111,6 +111,7 @@ extension Room: TransportDelegate {
         switch dataChannel.label {
         case LKRTCDataChannel.Labels.reliable: subscriberDataChannel.set(reliable: dataChannel)
         case LKRTCDataChannel.Labels.lossy: subscriberDataChannel.set(lossy: dataChannel)
+        case LKRTCDataChannel.Labels.dataTrack: configureSubscriberDataTrackChannel(dataChannel)
         default: log("Unknown data channel label \(dataChannel.label)", .warning)
         }
     }
