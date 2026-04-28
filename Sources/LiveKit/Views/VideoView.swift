@@ -773,9 +773,23 @@ extension VideoView {
         #endif
     }
 
+    /// `true` when no Metal device exists or the GPU is Apple family ≤ 6
+    /// (pre-A14 / M1), where the WebRTC Metal path is unstable under rotation.
+    static let prefersSampleBufferRenderer: Bool = {
+        guard let device = MTLCreateSystemDefaultDevice() else { return true }
+        return !device.supportsFamily(.apple7)
+    }()
+
     static func createNativeRendererView(for renderMode: VideoView.RenderMode) -> NativeRendererView {
         #if os(iOS) || os(macOS)
-        if case .sampleBuffer = renderMode {
+        let resolvedRenderMode: VideoView.RenderMode = {
+            if case .auto = renderMode {
+                return prefersSampleBufferRenderer ? .sampleBuffer : .metal
+            }
+            return renderMode
+        }()
+
+        if case .sampleBuffer = resolvedRenderMode {
             log("Using AVSampleBufferDisplayLayer for VideoView's Renderer")
             return SampleBufferVideoRenderer()
         } else {
