@@ -52,6 +52,13 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
     /// The kind of participant (i.e. a standard client participant, AI agent, etc.)
     public var kind: Kind { _state.kind }
 
+    /// The client-to-client protocol version advertised by this participant.
+    ///
+    /// `0` (`CLIENT_PROTOCOL_DEFAULT`) means the participant only supports RPC v1.
+    /// `1` (`CLIENT_PROTOCOL_DATA_STREAM_RPC`) means it supports RPC v2 (data-stream-based payloads).
+    /// Treats absent/unrecognized values as `0`.
+    public var clientProtocol: Int32 { info?.clientProtocol ?? CLIENT_PROTOCOL_DEFAULT }
+
     public var trackPublications: [Track.Sid: TrackPublication] { _state.trackPublications }
 
     public var audioTracks: [TrackPublication] {

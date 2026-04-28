@@ -23,6 +23,8 @@ import LiveKitTestSupport
 
 @Suite(.serialized, .tags(.e2e))
 struct RpcTests {
+    // MARK: - v1 (legacy) tests
+
     // Test performing RPC calls and verifying outgoing packets
     @Test func performRpc() async throws {
         try await TestEnvironment.withRoom { room in
@@ -193,4 +195,407 @@ struct RpcTests {
             }
         }
     }
+
+    // MARK: - v2 -> v2 tests
+
+    /// v2 caller happy path (short payload). Verifies the request is sent as a text data
+    /// stream on `lk.rpc_request` (not as an `RpcRequest` packet).
+    @Test func v2CallerHappyPathShort() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "v2-destination")
+            try await RpcTestSupport.installV2Remote(in: room, identity: destination)
+
+            let didStartStream = AsyncFlag()
+            let didSeeRpcRequestPacket = AsyncFlag()
+            let captured = CapturedStreamHeader()
+
+            let mockDataChannel = MockDataChannelPair { packet in
+                if case .rpcRequest = packet.value {
+                    didSeeRpcRequestPacket.set()
+                    return
+                }
+                if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
+                    captured.set(header)
+                    Task {
+                        // Simulate handler ack and v2 response stream
+                        let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
+                        try await Task.sleep(nanoseconds: 50_000_000)
+                        room.localParticipant.handleIncomingRpcAck(requestId: requestId)
+                        try await Task.sleep(nanoseconds: 50_000_000)
+                        let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "v2-response")
+                        await room.localParticipant.handleIncomingRpcResponseStream(reader: reader, senderIdentity: destination)
+                    }
+                    didStartStream.set()
+                }
+            }
+            room.publisherDataChannel = mockDataChannel
+
+            let response = try await room.localParticipant.performRpc(
+                destinationIdentity: destination,
+                method: "v2-method",
+                payload: "small payload"
+            )
+            #expect(response == "v2-response")
+            #expect(await didStartStream.value == true)
+            #expect(await didSeeRpcRequestPacket.value == false)
+
+            let header = await captured.value
+            #expect(header?.topic == RpcStreamTopic.request)
+            #expect(header?.attributes[RpcStreamAttribute.method] == "v2-method")
+            #expect(header?.attributes[RpcStreamAttribute.version] == RPC_STREAM_VERSION)
+            #expect(header?.attributes[RpcStreamAttribute.requestId] != nil)
+            #expect(header?.attributes[RpcStreamAttribute.timeoutMs] != nil)
+        }
+    }
+
+    /// v2 caller happy path (large payload >15 KB). Verifies no `REQUEST_PAYLOAD_TOO_LARGE`
+    /// is raised and the data stream succeeds.
+    @Test func v2CallerHappyPathLargePayload() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "v2-destination")
+            try await RpcTestSupport.installV2Remote(in: room, identity: destination)
+
+            let largePayload = String(repeating: "x", count: 20_000)
+
+            let mockDataChannel = MockDataChannelPair { packet in
+                if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
+                    let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
+                    Task {
+                        try await Task.sleep(nanoseconds: 50_000_000)
+                        room.localParticipant.handleIncomingRpcAck(requestId: requestId)
+                        let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: largePayload)
+                        await room.localParticipant.handleIncomingRpcResponseStream(reader: reader, senderIdentity: destination)
+                    }
+                }
+            }
+            room.publisherDataChannel = mockDataChannel
+
+            let response = try await room.localParticipant.performRpc(
+                destinationIdentity: destination,
+                method: "echo",
+                payload: largePayload
+            )
+            #expect(response.count == largePayload.count)
+        }
+    }
+
+    /// v2 handler happy path. Verifies the response is sent as a text data stream on
+    /// `lk.rpc_response` (not as a `RpcResponse` packet).
+    @Test func v2HandlerHappyPath() async throws {
+        try await TestEnvironment.withRoom { room in
+            let didSeeStreamHeader = AsyncFlag()
+            let didSeeRpcResponsePacket = AsyncFlag()
+
+            let mockDataChannel = MockDataChannelPair { packet in
+                switch packet.value {
+                case let .streamHeader(header):
+                    if header.topic == RpcStreamTopic.response {
+                        didSeeStreamHeader.set()
+                    }
+                case .rpcResponse:
+                    didSeeRpcResponsePacket.set()
+                default:
+                    break
+                }
+            }
+            room.publisherDataChannel = mockDataChannel
+
+            try await room.registerRpcMethod("greet") { data in
+                "Hello, \(data.callerIdentity)!"
+            }
+
+            let reader = RpcTestSupport.makeRequestReader(
+                requestId: "v2-req-1",
+                method: "greet",
+                payload: "Hi!",
+                timeoutMs: 8000
+            )
+            await room.localParticipant.handleIncomingRpcRequestStream(
+                reader: reader,
+                callerIdentity: Participant.Identity(from: "v2-caller")
+            )
+
+            // Allow async send tasks a moment to complete
+            try await Task.sleep(nanoseconds: 200_000_000)
+
+            #expect(await didSeeStreamHeader.value == true)
+            #expect(await didSeeRpcResponsePacket.value == false)
+        }
+    }
+
+    /// Unhandled (non-RpcError) exception from a handler must be returned as a v1
+    /// `RpcResponse` packet with `APPLICATION_ERROR`, even between two v2 clients.
+    @Test func v2HandlerUnhandledErrorReturnsPacket() async throws {
+        try await TestEnvironment.withRoom { room in
+            try await confirmation("Should send v1 RpcResponse packet with APPLICATION_ERROR") { confirm in
+                let mockDataChannel = MockDataChannelPair { packet in
+                    guard case let .rpcResponse(response) = packet.value,
+                          case let .error(error) = response.value,
+                          error.code == RpcError.BuiltInError.applicationError.code
+                    else { return }
+                    confirm()
+                }
+                room.publisherDataChannel = mockDataChannel
+
+                struct GenericError: Error {}
+                try await room.registerRpcMethod("boom") { _ in throw GenericError() }
+
+                let reader = RpcTestSupport.makeRequestReader(
+                    requestId: "v2-req-err",
+                    method: "boom",
+                    payload: "",
+                    timeoutMs: 8000
+                )
+                await room.localParticipant.handleIncomingRpcRequestStream(
+                    reader: reader,
+                    callerIdentity: Participant.Identity(from: "v2-caller")
+                )
+            }
+        }
+    }
+
+    /// `RpcError` thrown from a v2 handler must propagate to the caller via a v1
+    /// `RpcResponse` packet (preserving code/message), even between two v2 clients.
+    @Test func v2HandlerRpcErrorPassthroughViaPacket() async throws {
+        try await TestEnvironment.withRoom { room in
+            try await confirmation("Should send error response packet preserving code/message") { confirm in
+                let mockDataChannel = MockDataChannelPair { packet in
+                    guard case let .rpcResponse(response) = packet.value,
+                          case let .error(error) = response.value,
+                          error.code == 101,
+                          error.message == "Test error message"
+                    else { return }
+                    confirm()
+                }
+                room.publisherDataChannel = mockDataChannel
+
+                try await room.registerRpcMethod("custom") { _ in
+                    throw RpcError(code: 101, message: "Test error message", data: "")
+                }
+
+                let reader = RpcTestSupport.makeRequestReader(
+                    requestId: "v2-req-rpc-err",
+                    method: "custom",
+                    payload: "",
+                    timeoutMs: 8000
+                )
+                await room.localParticipant.handleIncomingRpcRequestStream(
+                    reader: reader,
+                    callerIdentity: Participant.Identity(from: "v2-caller")
+                )
+            }
+        }
+    }
+
+    /// Caller times out if no ack arrives.
+    @Test func v2CallerResponseTimeout() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "v2-destination")
+            try await RpcTestSupport.installV2Remote(in: room, identity: destination)
+
+            // Do nothing in response — let the connection timeout (7s max round-trip) fire
+            room.publisherDataChannel = MockDataChannelPair { _ in }
+
+            await #expect(throws: RpcError.self) {
+                _ = try await room.localParticipant.performRpc(
+                    destinationIdentity: destination,
+                    method: "method",
+                    payload: "x",
+                    responseTimeout: 0.05
+                )
+            }
+        }
+    }
+
+    /// Caller v2 receives an error response (packet) from a v2 handler.
+    @Test func v2CallerErrorResponse() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "v2-destination")
+            try await RpcTestSupport.installV2Remote(in: room, identity: destination)
+
+            let mockDataChannel = MockDataChannelPair { packet in
+                if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
+                    let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
+                    Task {
+                        try await Task.sleep(nanoseconds: 50_000_000)
+                        room.localParticipant.handleIncomingRpcAck(requestId: requestId)
+                        room.localParticipant.handleIncomingRpcResponse(
+                            requestId: requestId,
+                            payload: nil,
+                            error: RpcError(code: 101, message: "Test error message", data: "")
+                        )
+                    }
+                }
+            }
+            room.publisherDataChannel = mockDataChannel
+
+            do {
+                _ = try await room.localParticipant.performRpc(
+                    destinationIdentity: destination,
+                    method: "fails",
+                    payload: "x"
+                )
+                Issue.record("Expected error not thrown")
+            } catch let error as RpcError {
+                #expect(error.code == 101)
+                #expect(error.message == "Test error message")
+            }
+        }
+    }
+
+    // MARK: - v2 -> v1 tests
+
+    /// v2 caller, v1 handler: caller falls back to v1 packet path. Verifies an
+    /// `RpcRequest` packet is produced with `version: 1` and no data stream is opened.
+    @Test func v2CallerV1FallbackUsesPacket() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "v1-destination")
+            try await RpcTestSupport.installV1Remote(in: room, identity: destination)
+
+            let didSeeRpcRequest = AsyncFlag()
+            let didSeeStreamHeader = AsyncFlag()
+
+            let mockDataChannel = MockDataChannelPair { packet in
+                switch packet.value {
+                case let .rpcRequest(request):
+                    if request.version == 1, request.method == "method" {
+                        didSeeRpcRequest.set()
+                        Task {
+                            try await Task.sleep(nanoseconds: 50_000_000)
+                            room.localParticipant.handleIncomingRpcAck(requestId: request.id)
+                            room.localParticipant.handleIncomingRpcResponse(
+                                requestId: request.id,
+                                payload: "v1-response",
+                                error: nil
+                            )
+                        }
+                    }
+                case .streamHeader:
+                    didSeeStreamHeader.set()
+                default:
+                    break
+                }
+            }
+            room.publisherDataChannel = mockDataChannel
+
+            let response = try await room.localParticipant.performRpc(
+                destinationIdentity: destination,
+                method: "method",
+                payload: "x"
+            )
+            #expect(response == "v1-response")
+            #expect(await didSeeRpcRequest.value == true)
+            #expect(await didSeeStreamHeader.value == false)
+        }
+    }
+
+    /// v2 caller fallback rejects payloads >15 KB when the remote is v1.
+    @Test func v2CallerV1FallbackRejectsLargePayload() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "v1-destination")
+            try await RpcTestSupport.installV1Remote(in: room, identity: destination)
+
+            let largePayload = String(repeating: "x", count: 20_000)
+
+            await #expect(throws: RpcError.self) {
+                _ = try await room.localParticipant.performRpc(
+                    destinationIdentity: destination,
+                    method: "method",
+                    payload: largePayload
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Test support
+
+private struct RpcTestSupport {
+    /// Insert a remote participant into `room` whose `clientProtocol` advertises v2.
+    static func installV2Remote(in room: Room, identity: Participant.Identity) async throws {
+        try install(in: room, identity: identity, clientProtocol: CLIENT_PROTOCOL_DATA_STREAM_RPC)
+    }
+
+    /// Insert a remote participant into `room` whose `clientProtocol` is v1 / default.
+    static func installV1Remote(in room: Room, identity: Participant.Identity) async throws {
+        try install(in: room, identity: identity, clientProtocol: CLIENT_PROTOCOL_DEFAULT)
+    }
+
+    private static func install(in room: Room, identity: Participant.Identity, clientProtocol: Int32) throws {
+        let info = Livekit_ParticipantInfo.with {
+            $0.identity = identity.stringValue
+            $0.sid = "PA_\(UUID().uuidString.prefix(8))"
+            $0.clientProtocol = clientProtocol
+        }
+        let remote = RemoteParticipant(info: info, room: room, connectionState: .connected)
+        room._state.mutate {
+            $0.remoteParticipants[identity] = remote
+        }
+    }
+
+    static func makeRequestReader(requestId: String, method: String, payload: String, timeoutMs: UInt32) -> TextStreamReader {
+        let info = TextStreamInfo(
+            id: UUID().uuidString,
+            topic: RpcStreamTopic.request,
+            timestamp: Date(),
+            totalLength: nil,
+            attributes: [
+                RpcStreamAttribute.requestId: requestId,
+                RpcStreamAttribute.method: method,
+                RpcStreamAttribute.timeoutMs: String(timeoutMs),
+                RpcStreamAttribute.version: RPC_STREAM_VERSION,
+            ],
+            encryptionType: .none,
+            operationType: .create,
+            version: 0,
+            replyToStreamID: nil,
+            attachedStreamIDs: [],
+            generated: false
+        )
+        let source = StreamReaderSource { continuation in
+            if let data = payload.data(using: .utf8) { continuation.yield(data) }
+            continuation.finish()
+        }
+        return TextStreamReader(info: info, source: source)
+    }
+
+    static func makeResponseReader(requestId: String, payload: String) -> TextStreamReader {
+        let info = TextStreamInfo(
+            id: UUID().uuidString,
+            topic: RpcStreamTopic.response,
+            timestamp: Date(),
+            totalLength: nil,
+            attributes: [RpcStreamAttribute.requestId: requestId],
+            encryptionType: .none,
+            operationType: .create,
+            version: 0,
+            replyToStreamID: nil,
+            attachedStreamIDs: [],
+            generated: false
+        )
+        let source = StreamReaderSource { continuation in
+            if let data = payload.data(using: .utf8) { continuation.yield(data) }
+            continuation.finish()
+        }
+        return TextStreamReader(info: info, source: source)
+    }
+}
+
+/// Simple async-safe boolean flag for cross-Task signaling in tests.
+private actor AsyncFlag {
+    private(set) var value: Bool = false
+    nonisolated func set() {
+        Task { await self._set() }
+    }
+
+    private func _set() { value = true }
+}
+
+private actor CapturedStreamHeader {
+    private(set) var value: Livekit_DataStream.Header?
+    nonisolated func set(_ header: Livekit_DataStream.Header) {
+        Task { await self._set(header) }
+    }
+
+    private func _set(_ header: Livekit_DataStream.Header) { value = header }
 }

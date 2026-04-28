@@ -108,11 +108,35 @@ public struct RpcError: Error {
     }
 }
 
-/*
- * Maximum payload size for RPC requests and responses. If a payload exceeds this size,
- * the RPC call will fail with a REQUEST_PAYLOAD_TOO_LARGE(1402) or RESPONSE_PAYLOAD_TOO_LARGE(1504) error.
- */
+/// Maximum payload size for RPC v1 requests and responses. v2 (data-stream-based) payloads
+/// have no size limit. Cross-version interactions still go through v1 packets and are
+/// subject to this limit.
 let MAX_RPC_PAYLOAD_BYTES = 15360 // 15 KB
+
+// MARK: - Client protocol versioning
+
+/// Legacy client. Only supports RPC v1 (inline `RpcRequest`/`RpcResponse` packets).
+public let CLIENT_PROTOCOL_DEFAULT: Int32 = 0
+
+/// Supports RPC v2 — request and response payloads transported over data streams,
+/// lifting the v1 15 KB payload size limit.
+public let CLIENT_PROTOCOL_DATA_STREAM_RPC: Int32 = 1
+
+// MARK: - RPC v2 stream constants
+
+enum RpcStreamTopic {
+    static let request = "lk.rpc_request"
+    static let response = "lk.rpc_response"
+}
+
+enum RpcStreamAttribute {
+    static let requestId = "lk.rpc_request_id"
+    static let method = "lk.rpc_request_method"
+    static let timeoutMs = "lk.rpc_request_response_timeout_ms"
+    static let version = "lk.rpc_request_version"
+}
+
+let RPC_STREAM_VERSION = "2"
 
 /// A handler that processes an RPC request and returns a string
 /// that will be sent back to the requester.
@@ -141,31 +165,10 @@ struct PendingRpcResponse {
     let onResolve: @Sendable (_ payload: String?, _ error: RpcError?) -> Void
 }
 
-actor RpcStateManager: Loggable {
-    private var handlers: [String: RpcHandler] = [:] // methodName to handler
+/// Caller-side RPC state: tracks pending acks and pending responses for outgoing requests.
+actor RpcClientManager: Loggable {
     private var pendingAcks: Set<String> = Set()
     private var pendingResponses: [String: PendingRpcResponse] = [:] // requestId to pending response
-
-    func registerHandler(_ method: String, handler: @escaping RpcHandler) throws {
-        guard !isRpcMethodRegistered(method) else {
-            throw LiveKitError(.invalidState, message: "RPC method '\(method)' already registered")
-        }
-        handlers[method] = handler
-    }
-
-    func unregisterHandler(_ method: String) {
-        if handlers.removeValue(forKey: method) == nil {
-            log("No handler registered for RPC method '\(method)'", .warning)
-        }
-    }
-
-    func isRpcMethodRegistered(_ method: String) -> Bool {
-        handlers[method] != nil
-    }
-
-    func getHandler(for method: String) -> RpcHandler? {
-        handlers[method]
-    }
 
     func addPendingAck(_ requestId: String) {
         pendingAcks.insert(requestId)
@@ -189,8 +192,34 @@ actor RpcStateManager: Loggable {
         pendingResponses.removeValue(forKey: requestId)
     }
 
-    func removeAllPending(_ requestId: String) async {
+    func removeAllPending(_ requestId: String) {
         pendingAcks.remove(requestId)
         pendingResponses.removeValue(forKey: requestId)
+    }
+}
+
+/// Handler-side RPC state: tracks registered method handlers for incoming requests.
+actor RpcServerManager: Loggable {
+    private var handlers: [String: RpcHandler] = [:] // methodName to handler
+
+    func registerHandler(_ method: String, handler: @escaping RpcHandler) throws {
+        guard !isRpcMethodRegistered(method) else {
+            throw LiveKitError(.invalidState, message: "RPC method '\(method)' already registered")
+        }
+        handlers[method] = handler
+    }
+
+    func unregisterHandler(_ method: String) {
+        if handlers.removeValue(forKey: method) == nil {
+            log("No handler registered for RPC method '\(method)'", .warning)
+        }
+    }
+
+    func isRpcMethodRegistered(_ method: String) -> Bool {
+        handlers[method] != nil
+    }
+
+    func getHandler(for method: String) -> RpcHandler? {
+        handlers[method]
     }
 }

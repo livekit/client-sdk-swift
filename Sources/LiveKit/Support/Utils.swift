@@ -272,6 +272,7 @@ class Utils: Loggable {
             $0.sdk = .swift
             $0.version = LiveKitSDK.version
             $0.protocol = Int32(connectOptions.protocolVersion.rawValue)
+            $0.clientProtocol = CLIENT_PROTOCOL_DATA_STREAM_RPC
             $0.os = String(describing: os())
             $0.osVersion = osVersionString()
             if let model = modelIdentifier() { $0.deviceModel = model }

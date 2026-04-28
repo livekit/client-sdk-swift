@@ -28,6 +28,7 @@ public extension Room {
     ///     the remote participant who initiated the stream.
     ///
     func registerByteStreamHandler(for topic: String, onNewStream: @escaping ByteStreamHandler) async throws {
+        try Self.checkReserved(topic: topic)
         try await incomingStreamManager.registerByteStreamHandler(for: topic, onNewStream)
     }
 
@@ -42,6 +43,7 @@ public extension Room {
     ///     the remote participant who initiated the stream.
     ///
     func registerTextStreamHandler(for topic: String, onNewStream: @escaping TextStreamHandler) async throws {
+        try Self.checkReserved(topic: topic)
         try await incomingStreamManager.registerTextStreamHandler(for: topic, onNewStream)
     }
 
@@ -55,6 +57,20 @@ public extension Room {
     @objc
     func unregisterTextStreamHandler(for topic: String) async {
         await incomingStreamManager.unregisterTextStreamHandler(for: topic)
+    }
+}
+
+extension Room {
+    private static let reservedStreamTopics: Set<String> = [
+        RpcStreamTopic.request,
+        RpcStreamTopic.response,
+    ]
+
+    static func checkReserved(topic: String) throws {
+        guard !reservedStreamTopics.contains(topic) else {
+            throw LiveKitError(.invalidParameter,
+                               message: "Stream topic '\(topic)' is reserved for internal SDK use")
+        }
     }
 }
 

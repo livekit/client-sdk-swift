@@ -975,6 +975,13 @@ struct Livekit_ParticipantInfo: @unchecked Sendable {
     set {_uniqueStorage()._dataTracks = newValue}
   }
 
+  /// Client-to-client protocol version supported by this participant. Governs peer-to-peer
+  /// feature negotiation (currently RPC v2 / data-stream-based payloads).
+  var clientProtocol: Int32 {
+    get {_storage._clientProtocol}
+    set {_uniqueStorage()._clientProtocol = newValue}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum State: SwiftProtobuf.Enum, Swift.CaseIterable {
@@ -2184,6 +2191,10 @@ struct Livekit_ClientInfo: Sendable {
   /// comma separated list of additional LiveKit SDKs in use of this client, with versions
   /// e.g. "components-js:1.2.3,track-processors-js:1.2.3"
   var otherSdks: String = String()
+
+  /// Client-to-client protocol version. Governs peer-to-peer feature negotiation
+  /// (currently RPC v2 / data-stream-based payloads).
+  var clientProtocol: Int32 = 0
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -3528,6 +3539,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     var _disconnectReason: Livekit_DisconnectReason = .unknownReason
     var _kindDetails: [Livekit_ParticipantInfo.KindDetail] = []
     var _dataTracks: [Livekit_DataTrackInfo] = []
+    var _clientProtocol: Int32 = 0
 
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
@@ -3555,6 +3567,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       _disconnectReason = source._disconnectReason
       _kindDetails = source._kindDetails
       _dataTracks = source._dataTracks
+      _clientProtocol = source._clientProtocol
     }
   }
 
@@ -3590,6 +3603,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
         case 17: try { try decoder.decodeSingularInt64Field(value: &_storage._joinedAtMs) }()
         case 18: try { try decoder.decodeRepeatedEnumField(value: &_storage._kindDetails) }()
         case 19: try { try decoder.decodeRepeatedMessageField(value: &_storage._dataTracks) }()
+        case 20: try { try decoder.decodeSingularInt32Field(value: &_storage._clientProtocol) }()
         default: break
         }
       }
@@ -3653,6 +3667,9 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       if !_storage._dataTracks.isEmpty {
         try visitor.visitRepeatedMessageField(value: _storage._dataTracks, fieldNumber: 19)
       }
+      if _storage._clientProtocol != 0 {
+        try visitor.visitSingularInt32Field(value: _storage._clientProtocol, fieldNumber: 20)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -3679,6 +3696,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
         if _storage._disconnectReason != rhs_storage._disconnectReason {return false}
         if _storage._kindDetails != rhs_storage._kindDetails {return false}
         if _storage._dataTracks != rhs_storage._dataTracks {return false}
+        if _storage._clientProtocol != rhs_storage._clientProtocol {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -5354,6 +5372,7 @@ extension Livekit_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
       case 9: try { try decoder.decodeSingularStringField(value: &self.address) }()
       case 10: try { try decoder.decodeSingularStringField(value: &self.network) }()
       case 11: try { try decoder.decodeSingularStringField(value: &self.otherSdks) }()
+      case 12: try { try decoder.decodeSingularInt32Field(value: &self.clientProtocol) }()
       default: break
       }
     }
@@ -5393,6 +5412,9 @@ extension Livekit_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     if !self.otherSdks.isEmpty {
       try visitor.visitSingularStringField(value: self.otherSdks, fieldNumber: 11)
     }
+    if self.clientProtocol != 0 {
+      try visitor.visitSingularInt32Field(value: self.clientProtocol, fieldNumber: 12)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -5408,6 +5430,7 @@ extension Livekit_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     if lhs.address != rhs.address {return false}
     if lhs.network != rhs.network {return false}
     if lhs.otherSdks != rhs.otherSdks {return false}
+    if lhs.clientProtocol != rhs.clientProtocol {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

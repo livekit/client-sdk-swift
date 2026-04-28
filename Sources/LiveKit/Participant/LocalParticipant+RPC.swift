@@ -19,7 +19,13 @@ import Foundation
 // MARK: - Public RPC methods
 
 public extension LocalParticipant {
-    /// Initiate an RPC call to a remote participant
+    /// Initiate an RPC call to a remote participant.
+    ///
+    /// Transport selection is automatic and invisible to the caller:
+    /// - If the remote participant supports RPC v2 (`clientProtocol >= 1`), the request and
+    ///   any successful response are carried over data streams (no payload size limit).
+    /// - Otherwise the request is sent as a v1 `RpcRequest` packet, which is subject to a
+    ///   15 KB payload size limit (otherwise rejected with `REQUEST_PAYLOAD_TOO_LARGE`).
     ///
     /// ObjC: auto-generated as
     /// `performRpcWithDestinationIdentity:method:payload:responseTimeout:completionHandler:`.
@@ -41,7 +47,10 @@ public extension LocalParticipant {
     {
         let room = try requireRoom()
 
-        guard payload.byteLength <= MAX_RPC_PAYLOAD_BYTES else {
+        let remoteClientProtocol = room.remoteParticipants[destinationIdentity]?.clientProtocol ?? CLIENT_PROTOCOL_DEFAULT
+        let useStreamTransport = remoteClientProtocol >= CLIENT_PROTOCOL_DATA_STREAM_RPC
+
+        if !useStreamTransport, payload.byteLength > MAX_RPC_PAYLOAD_BYTES {
             throw RpcError.builtIn(.requestPayloadTooLarge)
         }
 
@@ -49,24 +58,33 @@ public extension LocalParticipant {
         let maxRoundTripLatency: TimeInterval = 7
         let minEffectiveTimeout: TimeInterval = 1
         let effectiveTimeout = max(responseTimeout - maxRoundTripLatency, minEffectiveTimeout)
-        try await publishRpcRequest(destinationIdentity: destinationIdentity,
-                                    requestId: requestId,
-                                    method: method,
-                                    payload: payload,
-                                    responseTimeout: effectiveTimeout)
+
+        if useStreamTransport {
+            try await publishRpcRequestStream(destinationIdentity: destinationIdentity,
+                                              requestId: requestId,
+                                              method: method,
+                                              payload: payload,
+                                              responseTimeout: effectiveTimeout)
+        } else {
+            try await publishRpcRequest(destinationIdentity: destinationIdentity,
+                                        requestId: requestId,
+                                        method: method,
+                                        payload: payload,
+                                        responseTimeout: effectiveTimeout)
+        }
 
         do {
             return try await withThrowingTimeout(timeout: responseTimeout) {
                 try await withCheckedThrowingContinuation { continuation in
                     Task {
-                        await room.rpcState.addPendingAck(requestId)
+                        await room.rpcClient.addPendingAck(requestId)
 
-                        await room.rpcState.setPendingResponse(requestId, response: PendingRpcResponse(
+                        await room.rpcClient.setPendingResponse(requestId, response: PendingRpcResponse(
                             participantIdentity: destinationIdentity,
                             onResolve: { payload, error in
                                 Task {
-                                    await room.rpcState.removePendingAck(requestId)
-                                    await room.rpcState.removePendingResponse(requestId)
+                                    await room.rpcClient.removePendingAck(requestId)
+                                    await room.rpcClient.removePendingResponse(requestId)
 
                                     if let error {
                                         continuation.resume(throwing: error)
@@ -81,8 +99,8 @@ public extension LocalParticipant {
                     Task {
                         try await Task.sleep(nanoseconds: UInt64(maxRoundTripLatency * 1_000_000_000))
 
-                        if await room.rpcState.hasPendingAck(requestId) {
-                            await room.rpcState.removeAllPending(requestId)
+                        if await room.rpcClient.hasPendingAck(requestId) {
+                            await room.rpcClient.removeAllPending(requestId)
                             continuation.resume(throwing: RpcError.builtIn(.connectionTimeout))
                         }
                     }
@@ -119,7 +137,7 @@ public extension LocalParticipant {
     }
 }
 
-// MARK: - RPC Internal
+// MARK: - RPC Internal — outgoing transport
 
 extension LocalParticipant {
     private func publishRpcRequest(destinationIdentity: Identity,
@@ -150,6 +168,27 @@ extension LocalParticipant {
         try await room.send(dataPacket: dataPacket)
     }
 
+    private func publishRpcRequestStream(destinationIdentity: Identity,
+                                         requestId: String,
+                                         method: String,
+                                         payload: String,
+                                         responseTimeout: TimeInterval) async throws
+    {
+        let options = StreamTextOptions(
+            topic: RpcStreamTopic.request,
+            attributes: [
+                RpcStreamAttribute.requestId: requestId,
+                RpcStreamAttribute.method: method,
+                RpcStreamAttribute.timeoutMs: String(UInt32(responseTimeout * 1000)),
+                RpcStreamAttribute.version: RPC_STREAM_VERSION,
+            ],
+            destinationIdentities: [destinationIdentity]
+        )
+        let writer = try await streamText(options: options)
+        try await writer.write(payload)
+        try await writer.close()
+    }
+
     private func publishRpcResponse(destinationIdentity: Identity,
                                     requestId: String,
                                     payload: String?,
@@ -173,6 +212,20 @@ extension LocalParticipant {
         try await room.send(dataPacket: dataPacket)
     }
 
+    private func publishRpcResponseStream(destinationIdentity: Identity,
+                                          requestId: String,
+                                          payload: String) async throws
+    {
+        let options = StreamTextOptions(
+            topic: RpcStreamTopic.response,
+            attributes: [RpcStreamAttribute.requestId: requestId],
+            destinationIdentities: [destinationIdentity]
+        )
+        let writer = try await streamText(options: options)
+        try await writer.write(payload)
+        try await writer.close()
+    }
+
     private func publishRpcAck(destinationIdentity: Identity,
                                requestId: String) async throws
     {
@@ -188,8 +241,53 @@ extension LocalParticipant {
 
         try await room.send(dataPacket: dataPacket)
     }
+}
 
-    // swiftlint:disable:next function_body_length function_parameter_count
+// MARK: - RPC Internal — incoming dispatch
+
+extension LocalParticipant {
+    /// Dispatch result: payload (success) or RpcError (failure).
+    private enum DispatchResult {
+        case success(String)
+        case failure(RpcError)
+    }
+
+    /// Look up the handler for `method`, invoke it, and produce a payload-or-error result.
+    /// The 15 KB response cap only applies on v1 (packet) response transports.
+    private func dispatchToHandler(callerIdentity: Identity,
+                                   requestId: String,
+                                   method: String,
+                                   payload: String,
+                                   responseTimeout: TimeInterval,
+                                   enforcePayloadCap: Bool) async -> DispatchResult
+    {
+        guard let room = try? requireRoom() else {
+            return .failure(RpcError.builtIn(.applicationError))
+        }
+        guard let handler = await room.rpcServer.getHandler(for: method) else {
+            return .failure(RpcError.builtIn(.unsupportedMethod))
+        }
+
+        do {
+            let response = try await handler(RpcInvocationData(requestId: requestId,
+                                                               callerIdentity: callerIdentity,
+                                                               payload: payload,
+                                                               responseTimeout: responseTimeout))
+            if enforcePayloadCap, response.byteLength > MAX_RPC_PAYLOAD_BYTES {
+                log("[Rpc] Response payload too large for \(method)", .warning)
+                return .failure(RpcError.builtIn(.responsePayloadTooLarge))
+            }
+            return .success(response)
+        } catch let error as RpcError {
+            return .failure(error)
+        } catch {
+            log("[Rpc] Uncaught error returned by RPC handler for \(method). Returning APPLICATION_ERROR instead.", .warning)
+            return .failure(RpcError.builtIn(.applicationError))
+        }
+    }
+
+    /// Handles an RPC request that arrived as a v1 `RpcRequest` packet. Always responds via
+    /// a v1 `RpcResponse` packet, since the caller signaled v1 transport by using a packet.
     func handleIncomingRpcRequest(callerIdentity: Identity,
                                   requestId: String,
                                   method: String,
@@ -197,10 +295,8 @@ extension LocalParticipant {
                                   responseTimeout: TimeInterval,
                                   version: Int) async
     {
-        guard let room = try? requireRoom() else { return }
         do {
-            try await publishRpcAck(destinationIdentity: callerIdentity,
-                                    requestId: requestId)
+            try await publishRpcAck(destinationIdentity: callerIdentity, requestId: requestId)
         } catch {
             log("[Rpc] Failed to publish RPC ack for \(requestId)", .error)
         }
@@ -217,45 +313,93 @@ extension LocalParticipant {
             return
         }
 
-        guard let handler = await room.rpcState.getHandler(for: method) else {
+        let result = await dispatchToHandler(callerIdentity: callerIdentity,
+                                             requestId: requestId,
+                                             method: method,
+                                             payload: payload,
+                                             responseTimeout: responseTimeout,
+                                             enforcePayloadCap: true)
+        do {
+            switch result {
+            case let .success(payload):
+                try await publishRpcResponse(destinationIdentity: callerIdentity,
+                                             requestId: requestId,
+                                             payload: payload,
+                                             error: nil)
+            case let .failure(error):
+                try await publishRpcResponse(destinationIdentity: callerIdentity,
+                                             requestId: requestId,
+                                             payload: nil,
+                                             error: error)
+            }
+        } catch {
+            log("[Rpc] Failed to publish RPC response for \(requestId)", .error)
+        }
+    }
+
+    /// Handles an RPC request that arrived as a v2 data stream on the `lk.rpc_request` topic.
+    /// Successful responses are sent back as a data stream on `lk.rpc_response`; errors are
+    /// sent as v1 `RpcResponse` packets per the spec.
+    func handleIncomingRpcRequestStream(reader: TextStreamReader,
+                                        callerIdentity: Identity) async
+    {
+        let attrs = reader.info.attributes
+        guard let requestId = attrs[RpcStreamAttribute.requestId],
+              let method = attrs[RpcStreamAttribute.method],
+              let timeoutMsString = attrs[RpcStreamAttribute.timeoutMs],
+              let timeoutMs = UInt32(timeoutMsString)
+        else {
+            log("[Rpc] Incoming v2 RPC request stream is missing required attributes", .error)
+            return
+        }
+        let version = attrs[RpcStreamAttribute.version] ?? ""
+        let responseTimeout = TimeInterval(timeoutMs) / 1000
+
+        do {
+            try await publishRpcAck(destinationIdentity: callerIdentity, requestId: requestId)
+        } catch {
+            log("[Rpc] Failed to publish RPC ack for \(requestId)", .error)
+        }
+
+        guard version == RPC_STREAM_VERSION else {
             do {
                 try await publishRpcResponse(destinationIdentity: callerIdentity,
                                              requestId: requestId,
                                              payload: nil,
-                                             error: RpcError.builtIn(.unsupportedMethod))
+                                             error: RpcError.builtIn(.unsupportedVersion))
             } catch {
                 log("[Rpc] Failed to publish RPC error response for \(requestId)", .error)
             }
             return
         }
 
-        var responseError: RpcError?
-        var responsePayload: String?
-
+        let payload: String
         do {
-            let response = try await handler(RpcInvocationData(requestId: requestId,
-                                                               callerIdentity: callerIdentity,
-                                                               payload: payload,
-                                                               responseTimeout: responseTimeout))
-
-            if response.byteLength > MAX_RPC_PAYLOAD_BYTES {
-                responseError = RpcError.builtIn(.responsePayloadTooLarge)
-                log("[Rpc] Response payload too large for \(method)", .warning)
-            } else {
-                responsePayload = response
-            }
-        } catch let error as RpcError {
-            responseError = error
+            payload = try await reader.readAll()
         } catch {
-            log("[Rpc] Uncaught error returned by RPC handler for \(method). Returning APPLICATION_ERROR instead.", .warning)
-            responseError = RpcError.builtIn(.applicationError)
+            log("[Rpc] Failed to read v2 RPC request payload for \(requestId): \(error)", .error)
+            return
         }
 
+        let result = await dispatchToHandler(callerIdentity: callerIdentity,
+                                             requestId: requestId,
+                                             method: method,
+                                             payload: payload,
+                                             responseTimeout: responseTimeout,
+                                             enforcePayloadCap: false)
         do {
-            try await publishRpcResponse(destinationIdentity: callerIdentity,
-                                         requestId: requestId,
-                                         payload: responsePayload,
-                                         error: responseError)
+            switch result {
+            case let .success(responsePayload):
+                try await publishRpcResponseStream(destinationIdentity: callerIdentity,
+                                                   requestId: requestId,
+                                                   payload: responsePayload)
+            case let .failure(error):
+                // Per spec: error responses always use v1 packet, even when both sides are v2.
+                try await publishRpcResponse(destinationIdentity: callerIdentity,
+                                             requestId: requestId,
+                                             payload: nil,
+                                             error: error)
+            }
         } catch {
             log("[Rpc] Failed to publish RPC response for \(requestId)", .error)
         }
@@ -264,7 +408,7 @@ extension LocalParticipant {
     func handleIncomingRpcAck(requestId: String) {
         Task {
             guard let room = try? requireRoom() else { return }
-            await room.rpcState.removePendingAck(requestId)
+            await room.rpcClient.removePendingAck(requestId)
         }
     }
 
@@ -274,12 +418,38 @@ extension LocalParticipant {
     {
         Task {
             guard let room = try? requireRoom() else { return }
-            guard let handler = await room.rpcState.removePendingResponse(requestId) else {
+            guard let handler = await room.rpcClient.removePendingResponse(requestId) else {
                 log("[Rpc] Response received for unexpected RPC request, id = \(requestId)", .error)
                 return
             }
 
             handler.onResolve(payload, error)
         }
+    }
+
+    /// Handle a v2 response stream on the `lk.rpc_response` topic. Reads the
+    /// `lk.rpc_request_id` attribute to match against pending requests, then resolves
+    /// with the streamed payload.
+    func handleIncomingRpcResponseStream(reader: TextStreamReader,
+                                         senderIdentity _: Identity) async
+    {
+        guard let requestId = reader.info.attributes[RpcStreamAttribute.requestId] else {
+            log("[Rpc] Incoming v2 RPC response stream is missing request id attribute", .error)
+            return
+        }
+        let payload: String
+        do {
+            payload = try await reader.readAll()
+        } catch {
+            log("[Rpc] Failed to read v2 RPC response payload for \(requestId): \(error)", .error)
+            return
+        }
+
+        guard let room = try? requireRoom() else { return }
+        guard let pending = await room.rpcClient.removePendingResponse(requestId) else {
+            log("[Rpc] Response stream received for unexpected RPC request, id = \(requestId)", .error)
+            return
+        }
+        pending.onResolve(payload, nil)
     }
 }

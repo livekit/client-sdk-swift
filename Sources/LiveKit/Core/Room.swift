@@ -142,7 +142,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     // MARK: - RPC
 
-    let rpcState = RpcStateManager()
+    let rpcClient = RpcClientManager()
+    let rpcServer = RpcServerManager()
 
     // MARK: - State
 
@@ -256,6 +257,22 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         Task {
             await metricsManager.register(room: self)
+        }
+
+        // Register internal handlers for RPC v2 data streams. Topics are reserved and
+        // user code is rejected from registering handlers for them via the public API.
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.request) { [weak self] reader, identity in
+                    await self?.localParticipant.handleIncomingRpcRequestStream(reader: reader, callerIdentity: identity)
+                }
+                try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.response) { [weak self] reader, identity in
+                    await self?.localParticipant.handleIncomingRpcResponseStream(reader: reader, senderIdentity: identity)
+                }
+            } catch {
+                log("[Rpc] Failed to register internal RPC stream handlers: \(error)", .error)
+            }
         }
 
         // trigger events when state mutates
