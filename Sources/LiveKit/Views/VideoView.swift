@@ -775,7 +775,7 @@ extension VideoView {
 
     /// `true` when no Metal device exists or the GPU is Apple family ≤ 6
     /// (pre-A14 / M1), where the WebRTC Metal path is unstable under rotation.
-    static let prefersSampleBufferRenderer: Bool = {
+    static let shouldAvoidMetalRenderer: Bool = {
         guard let device = MTLCreateSystemDefaultDevice() else { return true }
         return !device.supportsFamily(.apple7)
     }()
@@ -784,7 +784,7 @@ extension VideoView {
         #if os(iOS) || os(macOS)
         let resolvedRenderMode: VideoView.RenderMode = {
             if case .auto = renderMode {
-                return prefersSampleBufferRenderer ? .sampleBuffer : .metal
+                return shouldAvoidMetalRenderer ? .sampleBuffer : .metal
             }
             return renderMode
         }()
