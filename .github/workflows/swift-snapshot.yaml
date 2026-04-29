@@ -14,7 +14,7 @@ on:
 jobs:
   build-snapshot:
     name: Build
-    runs-on: macos-latest
+    runs-on: macos-26
     timeout-minutes: 30
     defaults:
       run:
