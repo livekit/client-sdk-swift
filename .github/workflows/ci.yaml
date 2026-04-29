@@ -157,7 +157,7 @@ jobs:
           retention-days: 1
   lint:
     name: Lint
-    runs-on: macos-latest
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v6
       - name: Install SwiftLint
@@ -208,7 +208,7 @@ jobs:
           retention-days: 1
   check-protocol:
     name: Check Protocol
-    runs-on: macos-latest
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v6
         with:
