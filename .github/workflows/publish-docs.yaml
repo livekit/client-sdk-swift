@@ -23,7 +23,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.4"
+          - platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.4.1"
             artifact_name: symbol-graph-ios
           - platform: "macOS"
             artifact_name: symbol-graph-macos
