@@ -169,6 +169,7 @@ class Utils: Loggable {
             URLQueryItem(name: "protocol", value: connectOptions.protocolVersion.description),
             URLQueryItem(name: "sdk", value: "swift"),
             URLQueryItem(name: "version", value: LiveKitSDK.version),
+            URLQueryItem(name: "client_protocol", value: String(CLIENT_PROTOCOL_DATA_STREAM_RPC)),
             // Additional client info
             URLQueryItem(name: "os", value: String(describing: os())),
             URLQueryItem(name: "os_version", value: osVersionString()),
