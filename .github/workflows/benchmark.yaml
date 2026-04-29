@@ -48,8 +48,13 @@ jobs:
 
       - name: Benchmark Report
         working-directory: Benchmarks
+        env:
+          TARGET: ${{ inputs.target || 'cloud' }}
         run: |
-          swiftly run +xcode swift package --disable-sandbox \
-            benchmark baseline read current \
-            --format markdown \
-            | tee -a "$GITHUB_STEP_SUMMARY"
+          {
+            echo "> **Target:** \`${TARGET}\`"
+            echo
+            swiftly run +xcode swift package --disable-sandbox \
+              benchmark baseline read current \
+              --format markdown
+          } | tee -a "$GITHUB_STEP_SUMMARY"
