@@ -23,9 +23,12 @@ jobs:
     timeout-minutes: 60
     env:
       LK_BENCHMARK: 1
-      LIVEKIT_URL: ${{ inputs.target == 'local' && '' || secrets.BENCHMARK_URL }}
-      LIVEKIT_API_KEY: ${{ inputs.target == 'local' && '' || secrets.BENCHMARK_API_KEY }}
-      LIVEKIT_API_SECRET: ${{ inputs.target == 'local' && '' || secrets.BENCHMARK_API_SECRET }}
+      # `A && B || C` is the GitHub Actions ternary; it only works when B is
+      # truthy. An empty string is falsy, so `target == 'local' && '' || …`
+      # silently falls through to the secret. Phrase it the other way around.
+      LIVEKIT_URL: ${{ inputs.target != 'local' && secrets.BENCHMARK_URL || '' }}
+      LIVEKIT_API_KEY: ${{ inputs.target != 'local' && secrets.BENCHMARK_API_KEY || '' }}
+      LIVEKIT_API_SECRET: ${{ inputs.target != 'local' && secrets.BENCHMARK_API_SECRET || '' }}
     steps:
       - uses: actions/checkout@v6
 
