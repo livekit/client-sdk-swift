@@ -52,9 +52,8 @@ jobs:
           TARGET: ${{ inputs.target || 'cloud' }}
         run: |
           {
-            echo "> **Target:** \`${TARGET}\`"
+            echo "## Target: \`${TARGET}\`"
             echo
             swiftly run +xcode swift package --disable-sandbox \
-              benchmark baseline read current \
-              --format markdown
+              benchmark baseline read current --format markdown
           } | tee -a "$GITHUB_STEP_SUMMARY"
