@@ -1,0 +1,1 @@
+patch type="fixed" "Avoid Metal pipeline freeze on iPhone 11 family by defaulting to sample buffer renderer"
