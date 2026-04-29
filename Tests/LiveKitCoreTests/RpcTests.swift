@@ -513,19 +513,19 @@ struct RpcTests {
 private struct RpcTestSupport {
     /// Insert a remote participant into `room` whose `clientProtocol` advertises v2.
     static func installV2Remote(in room: Room, identity: Participant.Identity) async throws {
-        try install(in: room, identity: identity, clientProtocol: CLIENT_PROTOCOL_DATA_STREAM_RPC)
+        try install(in: room, identity: identity, clientProtocol: .v1)
     }
 
-    /// Insert a remote participant into `room` whose `clientProtocol` is v1 / default.
+    /// Insert a remote participant into `room` whose `clientProtocol` is v0 (legacy).
     static func installV1Remote(in room: Room, identity: Participant.Identity) async throws {
-        try install(in: room, identity: identity, clientProtocol: CLIENT_PROTOCOL_DEFAULT)
+        try install(in: room, identity: identity, clientProtocol: .v0)
     }
 
-    private static func install(in room: Room, identity: Participant.Identity, clientProtocol: Int32) throws {
+    private static func install(in room: Room, identity: Participant.Identity, clientProtocol: ClientProtocol) throws {
         let info = Livekit_ParticipantInfo.with {
             $0.identity = identity.stringValue
             $0.sid = "PA_\(UUID().uuidString.prefix(8))"
-            $0.clientProtocol = clientProtocol
+            $0.clientProtocol = Int32(clientProtocol.rawValue)
         }
         let remote = RemoteParticipant(info: info, room: room, connectionState: .connected)
         room._state.mutate {

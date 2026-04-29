@@ -21,12 +21,14 @@ public extension ConnectOptions {
                   reconnectAttempts: ValueOrAbsent<Int> = .absent,
                   reconnectAttemptDelay: ValueOrAbsent<TimeInterval> = .absent,
                   reconnectMaxDelay: ValueOrAbsent<TimeInterval> = .absent,
-                  protocolVersion: ValueOrAbsent<ProtocolVersion> = .absent) -> ConnectOptions
+                  protocolVersion: ValueOrAbsent<ProtocolVersion> = .absent,
+                  clientProtocol: ValueOrAbsent<ClientProtocol> = .absent) -> ConnectOptions
     {
         ConnectOptions(autoSubscribe: autoSubscribe.value(ifAbsent: self.autoSubscribe),
                        reconnectAttempts: reconnectAttempts.value(ifAbsent: self.reconnectAttempts),
                        reconnectAttemptDelay: reconnectAttemptDelay.value(ifAbsent: self.reconnectAttemptDelay),
                        reconnectMaxDelay: reconnectMaxDelay.value(ifAbsent: self.reconnectMaxDelay),
-                       protocolVersion: protocolVersion.value(ifAbsent: self.protocolVersion))
+                       protocolVersion: protocolVersion.value(ifAbsent: self.protocolVersion),
+                       clientProtocol: clientProtocol.value(ifAbsent: self.clientProtocol))
     }
 }

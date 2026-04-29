@@ -113,15 +113,6 @@ public struct RpcError: Error {
 /// subject to this limit.
 let MAX_RPC_PAYLOAD_BYTES = 15360 // 15 KB
 
-// MARK: - Client protocol versioning
-
-/// Legacy client. Only supports RPC v1 (inline `RpcRequest`/`RpcResponse` packets).
-public let CLIENT_PROTOCOL_DEFAULT: Int32 = 0
-
-/// Supports RPC v2 — request and response payloads transported over data streams,
-/// lifting the v1 15 KB payload size limit.
-public let CLIENT_PROTOCOL_DATA_STREAM_RPC: Int32 = 1
-
 // MARK: - RPC v2 stream constants
 
 enum RpcStreamTopic {

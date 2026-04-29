@@ -54,10 +54,12 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
 
     /// The client-to-client protocol version advertised by this participant.
     ///
-    /// `0` (`CLIENT_PROTOCOL_DEFAULT`) means the participant only supports RPC v1.
-    /// `1` (`CLIENT_PROTOCOL_DATA_STREAM_RPC`) means it supports RPC v2 (data-stream-based payloads).
-    /// Treats absent/unrecognized values as `0`.
-    public var clientProtocol: Int32 { info?.clientProtocol ?? CLIENT_PROTOCOL_DEFAULT }
+    /// ``ClientProtocol/v0`` means the participant only supports RPC v1. ``ClientProtocol/v1``
+    /// means it supports RPC v2 (data-stream-based payloads). Absent or unrecognized values
+    /// are treated as ``ClientProtocol/v0``.
+    public var clientProtocol: ClientProtocol {
+        ClientProtocol(rawValue: Int(info?.clientProtocol ?? 0)) ?? .v0
+    }
 
     public var trackPublications: [Track.Sid: TrackPublication] { _state.trackPublications }
 

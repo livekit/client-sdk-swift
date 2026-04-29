@@ -169,7 +169,7 @@ class Utils: Loggable {
             URLQueryItem(name: "protocol", value: connectOptions.protocolVersion.description),
             URLQueryItem(name: "sdk", value: "swift"),
             URLQueryItem(name: "version", value: LiveKitSDK.version),
-            URLQueryItem(name: "client_protocol", value: String(CLIENT_PROTOCOL_DATA_STREAM_RPC)),
+            URLQueryItem(name: "client_protocol", value: connectOptions.clientProtocol.description),
             // Additional client info
             URLQueryItem(name: "os", value: String(describing: os())),
             URLQueryItem(name: "os_version", value: osVersionString()),
@@ -273,7 +273,7 @@ class Utils: Loggable {
             $0.sdk = .swift
             $0.version = LiveKitSDK.version
             $0.protocol = Int32(connectOptions.protocolVersion.rawValue)
-            $0.clientProtocol = CLIENT_PROTOCOL_DATA_STREAM_RPC
+            $0.clientProtocol = Int32(connectOptions.clientProtocol.rawValue)
             $0.os = String(describing: os())
             $0.osVersion = osVersionString()
             if let model = modelIdentifier() { $0.deviceModel = model }

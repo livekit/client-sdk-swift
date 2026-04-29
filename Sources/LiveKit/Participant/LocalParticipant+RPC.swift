@@ -47,8 +47,8 @@ public extension LocalParticipant {
     {
         let room = try requireRoom()
 
-        let remoteClientProtocol = room.remoteParticipants[destinationIdentity]?.clientProtocol ?? CLIENT_PROTOCOL_DEFAULT
-        let useStreamTransport = remoteClientProtocol >= CLIENT_PROTOCOL_DATA_STREAM_RPC
+        let remoteClientProtocol = room.remoteParticipants[destinationIdentity]?.clientProtocol ?? .v0
+        let useStreamTransport = remoteClientProtocol >= .v1
 
         if !useStreamTransport, payload.byteLength > MAX_RPC_PAYLOAD_BYTES {
             throw RpcError.builtIn(.requestPayloadTooLarge)
