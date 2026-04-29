@@ -28,6 +28,8 @@ let benchmarkTracer = BenchmarkTracer()
 ///
 /// Run with: `swift package benchmark`
 let benchmarks: @Sendable () -> Void = {
+    print("Benchmark target: \(BenchmarkConfig.fromEnvironment().mode)")
+
     // Inject our tracing so we can capture timing data
     LiveKitSDK.setTracing(benchmarkTracer)
 
