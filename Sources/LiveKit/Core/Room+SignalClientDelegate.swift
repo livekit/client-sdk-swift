@@ -407,9 +407,13 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_: SignalClient, didReceiveRawResponse data: Data) async {
-        try? localDataTrackManager?.handleSignalResponse(res: data)
+        // Each manager has specific handler methods per message type.
+        // Try them all — they return UnsupportedType for messages they don't handle.
+        try? localDataTrackManager?.handleSfuRequestResponse(res: data)
+        try? localDataTrackManager?.handleSfuPublishResponse(res: data)
+        try? remoteDataTrackManager?.handleSubscriberHandles(res: data)
         if let identity = localParticipant.identity?.stringValue {
-            try? remoteDataTrackManager?.handleSignalResponse(
+            try? remoteDataTrackManager?.handleSfuParticipantUpdate(
                 res: data,
                 localParticipantIdentity: identity
             )
