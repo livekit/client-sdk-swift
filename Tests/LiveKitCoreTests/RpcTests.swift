@@ -42,11 +42,11 @@ struct RpcTests {
                 Task {
                     try await Task.sleep(nanoseconds: 100_000_000)
 
-                    room.localParticipant.handleIncomingRpcAck(requestId: request.id)
+                    await room.rpcClient.handleIncomingAck(requestId: request.id)
 
                     try await Task.sleep(nanoseconds: 100_000_000)
 
-                    room.localParticipant.handleIncomingRpcResponse(
+                    await room.rpcClient.handleIncomingResponse(
                         requestId: request.id,
                         payload: "response-payload",
                         error: nil
@@ -104,7 +104,7 @@ struct RpcTests {
                     #expect(error is LiveKitError)
                 }
 
-                await room.localParticipant.handleIncomingRpcRequest(
+                await room.rpcServer.handleIncomingRequest(
                     callerIdentity: Participant.Identity(from: "test-caller"),
                     requestId: "test-request-1",
                     method: "greet",
@@ -143,7 +143,7 @@ struct RpcTests {
                     throw RpcError(code: 2000, message: "Custom error", data: "Additional data")
                 }
 
-                await room.localParticipant.handleIncomingRpcRequest(
+                await room.rpcServer.handleIncomingRequest(
                     callerIdentity: Participant.Identity(from: "test-caller"),
                     requestId: "test-request-1",
                     method: "failingMethod",
@@ -184,7 +184,7 @@ struct RpcTests {
                 let isRegistered = await room.isRpcMethodRegistered("test")
                 #expect(!isRegistered)
 
-                await room.localParticipant.handleIncomingRpcRequest(
+                await room.rpcServer.handleIncomingRequest(
                     callerIdentity: Participant.Identity(from: "test-caller"),
                     requestId: "test-request-1",
                     method: "test",
@@ -220,10 +220,10 @@ struct RpcTests {
                         // Simulate handler ack and v2 response stream
                         let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
                         try await Task.sleep(nanoseconds: 50_000_000)
-                        room.localParticipant.handleIncomingRpcAck(requestId: requestId)
+                        await room.rpcClient.handleIncomingAck(requestId: requestId)
                         try await Task.sleep(nanoseconds: 50_000_000)
                         let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "v2-response")
-                        await room.localParticipant.handleIncomingRpcResponseStream(reader: reader, senderIdentity: destination)
+                        await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
                     }
                     didStartStream.set()
                 }
@@ -262,9 +262,9 @@ struct RpcTests {
                     let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
                     Task {
                         try await Task.sleep(nanoseconds: 50_000_000)
-                        room.localParticipant.handleIncomingRpcAck(requestId: requestId)
+                        await room.rpcClient.handleIncomingAck(requestId: requestId)
                         let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: largePayload)
-                        await room.localParticipant.handleIncomingRpcResponseStream(reader: reader, senderIdentity: destination)
+                        await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
                     }
                 }
             }
@@ -310,7 +310,7 @@ struct RpcTests {
                 payload: "Hi!",
                 timeoutMs: 8000
             )
-            await room.localParticipant.handleIncomingRpcRequestStream(
+            await room.rpcServer.handleIncomingRequestStream(
                 reader: reader,
                 callerIdentity: Participant.Identity(from: "v2-caller")
             )
@@ -346,7 +346,7 @@ struct RpcTests {
                     payload: "",
                     timeoutMs: 8000
                 )
-                await room.localParticipant.handleIncomingRpcRequestStream(
+                await room.rpcServer.handleIncomingRequestStream(
                     reader: reader,
                     callerIdentity: Participant.Identity(from: "v2-caller")
                 )
@@ -379,7 +379,7 @@ struct RpcTests {
                     payload: "",
                     timeoutMs: 8000
                 )
-                await room.localParticipant.handleIncomingRpcRequestStream(
+                await room.rpcServer.handleIncomingRequestStream(
                     reader: reader,
                     callerIdentity: Participant.Identity(from: "v2-caller")
                 )
@@ -418,8 +418,8 @@ struct RpcTests {
                     let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
                     Task {
                         try await Task.sleep(nanoseconds: 50_000_000)
-                        room.localParticipant.handleIncomingRpcAck(requestId: requestId)
-                        room.localParticipant.handleIncomingRpcResponse(
+                        await room.rpcClient.handleIncomingAck(requestId: requestId)
+                        await room.rpcClient.handleIncomingResponse(
                             requestId: requestId,
                             payload: nil,
                             error: RpcError(code: 101, message: "Test error message", data: "")
@@ -462,8 +462,8 @@ struct RpcTests {
                         didSeeRpcRequest.set()
                         Task {
                             try await Task.sleep(nanoseconds: 50_000_000)
-                            room.localParticipant.handleIncomingRpcAck(requestId: request.id)
-                            room.localParticipant.handleIncomingRpcResponse(
+                            await room.rpcClient.handleIncomingAck(requestId: request.id)
+                            await room.rpcClient.handleIncomingResponse(
                                 requestId: request.id,
                                 payload: "v1-response",
                                 error: nil

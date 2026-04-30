@@ -259,16 +259,19 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             await metricsManager.register(room: self)
         }
 
-        // Register internal handlers for RPC v2 data streams. Topics are reserved and
-        // user code is rejected from registering handlers for them via the public API.
+        // Wire RPC managers and register internal handlers for RPC v2 data streams. Topics
+        // are reserved and user code is rejected from registering handlers for them via the
+        // public API.
         Task { [weak self] in
             guard let self else { return }
+            await rpcClient.attach(to: self)
+            await rpcServer.attach(to: self)
             do {
                 try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.request) { [weak self] reader, identity in
-                    await self?.localParticipant.handleIncomingRpcRequestStream(reader: reader, callerIdentity: identity)
+                    await self?.rpcServer.handleIncomingRequestStream(reader: reader, callerIdentity: identity)
                 }
                 try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.response) { [weak self] reader, identity in
-                    await self?.localParticipant.handleIncomingRpcResponseStream(reader: reader, senderIdentity: identity)
+                    await self?.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: identity)
                 }
             } catch {
                 log("[Rpc] Failed to register internal RPC stream handlers: \(error)", .error)
