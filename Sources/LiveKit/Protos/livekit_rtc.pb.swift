@@ -827,6 +827,11 @@ struct Livekit_AddTrackRequest: @unchecked Sendable {
     set {_uniqueStorage()._audioFeatures = newValue}
   }
 
+  var packetTrailerFeatures: [Livekit_PacketTrailerFeature] {
+    get {_storage._packetTrailerFeatures}
+    set {_uniqueStorage()._packetTrailerFeatures = newValue}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -3234,7 +3239,7 @@ extension Livekit_SimulcastCodec: SwiftProtobuf.Message, SwiftProtobuf._MessageI
 
 extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".AddTrackRequest"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}cid\0\u{1}name\0\u{1}type\0\u{1}width\0\u{1}height\0\u{1}muted\0\u{3}disable_dtx\0\u{1}source\0\u{1}layers\0\u{3}simulcast_codecs\0\u{1}sid\0\u{1}stereo\0\u{3}disable_red\0\u{1}encryption\0\u{1}stream\0\u{3}backup_codec_policy\0\u{3}audio_features\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}cid\0\u{1}name\0\u{1}type\0\u{1}width\0\u{1}height\0\u{1}muted\0\u{3}disable_dtx\0\u{1}source\0\u{1}layers\0\u{3}simulcast_codecs\0\u{1}sid\0\u{1}stereo\0\u{3}disable_red\0\u{1}encryption\0\u{1}stream\0\u{3}backup_codec_policy\0\u{3}audio_features\0\u{3}packet_trailer_features\0")
 
   fileprivate class _StorageClass {
     var _cid: String = String()
@@ -3254,6 +3259,7 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
     var _stream: String = String()
     var _backupCodecPolicy: Livekit_BackupCodecPolicy = .preferRegression
     var _audioFeatures: [Livekit_AudioTrackFeature] = []
+    var _packetTrailerFeatures: [Livekit_PacketTrailerFeature] = []
 
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
@@ -3281,6 +3287,7 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
       _stream = source._stream
       _backupCodecPolicy = source._backupCodecPolicy
       _audioFeatures = source._audioFeatures
+      _packetTrailerFeatures = source._packetTrailerFeatures
     }
   }
 
@@ -3316,6 +3323,7 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
         case 15: try { try decoder.decodeSingularStringField(value: &_storage._stream) }()
         case 16: try { try decoder.decodeSingularEnumField(value: &_storage._backupCodecPolicy) }()
         case 17: try { try decoder.decodeRepeatedEnumField(value: &_storage._audioFeatures) }()
+        case 18: try { try decoder.decodeRepeatedEnumField(value: &_storage._packetTrailerFeatures) }()
         default: break
         }
       }
@@ -3375,6 +3383,9 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
       if !_storage._audioFeatures.isEmpty {
         try visitor.visitPackedEnumField(value: _storage._audioFeatures, fieldNumber: 17)
       }
+      if !_storage._packetTrailerFeatures.isEmpty {
+        try visitor.visitPackedEnumField(value: _storage._packetTrailerFeatures, fieldNumber: 18)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -3401,6 +3412,7 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
         if _storage._stream != rhs_storage._stream {return false}
         if _storage._backupCodecPolicy != rhs_storage._backupCodecPolicy {return false}
         if _storage._audioFeatures != rhs_storage._audioFeatures {return false}
+        if _storage._packetTrailerFeatures != rhs_storage._packetTrailerFeatures {return false}
         return true
       }
       if !storagesAreEqual {return false}
