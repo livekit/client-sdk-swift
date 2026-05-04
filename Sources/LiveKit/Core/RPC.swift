@@ -153,5 +153,5 @@ public struct RpcInvocationData {
 
 struct PendingRpcResponse {
     let participantIdentity: Participant.Identity
-    let onResolve: @Sendable (_ payload: String?, _ error: RpcError?) -> Void
+    let completer: AsyncCompleter<String>
 }

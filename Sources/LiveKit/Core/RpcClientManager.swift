@@ -41,6 +41,13 @@ actor RpcClientManager: Loggable {
         __test_afterPublishHook = hook
     }
 
+    /// Test-only: synchronously fires the ack-timeout watchdog's terminal action for
+    /// `requestId`, exactly as the 7-second timer would. Used to deterministically exercise
+    /// the watchdog/response double-resolve race without waiting on the real timer.
+    func __test_forceAckTimeout(requestId: String) {
+        fireAckTimeoutIfPending(requestId: requestId)
+    }
+
     // MARK: - Public entry point
 
     /// Initiate an RPC call to a remote participant. Transport selection is automatic and
@@ -74,16 +81,7 @@ actor RpcClientManager: Loggable {
         pendingAcks.insert(requestId)
         pendingResponses[requestId] = PendingRpcResponse(
             participantIdentity: destinationIdentity,
-            onResolve: { [weak self] payload, error in
-                Task { [weak self] in
-                    await self?.removeAllPending(requestId)
-                    if let error {
-                        completer.resume(throwing: error)
-                    } else {
-                        completer.resume(returning: payload ?? "")
-                    }
-                }
-            }
+            completer: completer
         )
 
         do {
@@ -112,16 +110,20 @@ actor RpcClientManager: Loggable {
             await hook(requestId)
         }
 
-        // Ack watchdog: fail fast if no ack arrives within maxRoundTripLatency.
+        // Ack watchdog: fail fast if no ack arrives within maxRoundTripLatency. Note that
+        // `completer.resume` is idempotent (AsyncCompleter), so a real response that lands
+        // mid-flight here cannot crash via double-resolve — the second resume is a silent
+        // no-op and the first resolution wins.
         Task { [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(maxRoundTripLatency * 1_000_000_000))
             guard let self else { return }
-            if await self.hasPendingAck(requestId) {
-                await self.removeAllPending(requestId)
-                completer.resume(throwing: RpcError.builtIn(.connectionTimeout))
-            }
+            await self.fireAckTimeoutIfPending(requestId: requestId)
         }
 
+        defer {
+            pendingAcks.remove(requestId)
+            pendingResponses.removeValue(forKey: requestId)
+        }
         do {
             return try await completer.wait()
         } catch {
@@ -132,9 +134,23 @@ actor RpcClientManager: Loggable {
         }
     }
 
+    /// Watchdog terminal action: if `requestId` is still awaiting an ack, clear pending
+    /// state and resolve its completer with `connectionTimeout`. AsyncCompleter idempotency
+    /// makes this safe even if a real response has already resolved the completer between
+    /// the watchdog scheduling and this call running.
+    private func fireAckTimeoutIfPending(requestId: String) {
+        guard pendingAcks.contains(requestId) else { return }
+        pendingAcks.remove(requestId)
+        let pending = pendingResponses.removeValue(forKey: requestId)
+        pending?.completer.resume(throwing: RpcError.builtIn(.connectionTimeout))
+    }
+
     // MARK: - Incoming dispatch
 
-    /// Resolve a pending RPC call from a v1 `RpcResponse` packet.
+    /// Resolve a pending RPC call from a v1 `RpcResponse` packet. Note that `pendingAcks`
+    /// is intentionally not cleared here — the watchdog's gate stays armed until either
+    /// `handleIncomingAck` or `fireAckTimeoutIfPending` clears it. Either path is safe
+    /// because the completer is idempotent.
     func handleIncomingResponse(requestId: String,
                                 payload: String?,
                                 error: RpcError?)
@@ -143,7 +159,11 @@ actor RpcClientManager: Loggable {
             log("[Rpc] Response received for unexpected RPC request, id = \(requestId)", .error)
             return
         }
-        pending.onResolve(payload, error)
+        if let error {
+            pending.completer.resume(throwing: error)
+        } else {
+            pending.completer.resume(returning: payload ?? "")
+        }
     }
 
     /// Resolve a pending RPC call from a v2 response stream on `lk.rpc_response`. Reads the
@@ -166,7 +186,7 @@ actor RpcClientManager: Loggable {
             log("[Rpc] Response stream received for unexpected RPC request, id = \(requestId)", .error)
             return
         }
-        pending.onResolve(payload, nil)
+        pending.completer.resume(returning: payload)
     }
 
     /// Clear the pending-ack flag for a request when an `RpcAck` arrives.

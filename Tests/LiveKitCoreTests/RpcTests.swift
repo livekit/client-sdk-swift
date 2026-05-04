@@ -98,6 +98,47 @@ struct RpcTests {
         }
     }
 
+    /// Regression test: when an RPC response arrives at roughly the same time as the
+    /// 7-second ack-timeout watchdog fires, both paths attempt to resolve the same
+    /// completer — the response Task with `.resume(returning:)` and the watchdog Task with
+    /// `.resume(throwing: connectionTimeout)`. With the old `CheckedContinuation` this would
+    /// fatalError on the second resume; with `AsyncCompleter` the second resume is a silent
+    /// no-op and the first resolution wins.
+    ///
+    /// We use `__test_forceAckTimeout(requestId:)` to fire the watchdog synchronously
+    /// instead of waiting 7 seconds. The test injects a response first, then forces the
+    /// watchdog — the call must still resolve to the response payload, not
+    /// `connectionTimeout`.
+    @Test func performRpcResponseAndAckTimeoutDoubleResolve() async throws {
+        try await TestEnvironment.withRoom { room in
+            // No-op data channel — the test drives the response and watchdog via the hooks.
+            room.publisherDataChannel = MockDataChannelPair { _ in }
+
+            await room.rpcClient.__test_setAfterPublishHook { requestId in
+                // Step 1: deliver the response, resolving the completer with "real-response".
+                await room.rpcClient.handleIncomingResponse(
+                    requestId: requestId,
+                    payload: "real-response",
+                    error: nil
+                )
+                // Step 2: force the ack-timeout watchdog. `pendingAcks` still contains
+                // `requestId` (handleIncomingResponse intentionally leaves it set), so the
+                // watchdog gate passes and it tries to resume the completer a second time
+                // with `connectionTimeout`. Pre-fix this crashed; post-fix it's a no-op.
+                await room.rpcClient.__test_forceAckTimeout(requestId: requestId)
+            }
+
+            let response = try await room.localParticipant.performRpc(
+                destinationIdentity: Participant.Identity(from: "test-destination"),
+                method: "test-method",
+                payload: "test-payload",
+                responseTimeout: 1
+            )
+
+            #expect(response == "real-response")
+        }
+    }
+
     // Test registering and handling incoming RPC requests
     @Test func handleIncomingRpcRequest() async throws {
         try await TestEnvironment.withRoom { room in
