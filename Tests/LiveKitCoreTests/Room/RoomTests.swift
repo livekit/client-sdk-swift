@@ -117,7 +117,8 @@ private struct WeakRoomRefs: @unchecked Sendable {
     weak var outgoingStreamManager: OutgoingStreamManager?
     weak var e2eeManager: E2EEManager?
     weak var preConnectBuffer: PreConnectAudioBuffer?
-    weak var rpcState: RpcStateManager?
+    weak var rpcClient: RpcClientManager?
+    weak var rpcServer: RpcServerManager?
     weak var metricsManager: MetricsManager?
     weak var delegates: MulticastDelegate<RoomDelegate>?
     weak var activeParticipantCompleters: CompleterMapActor<Void>?
@@ -143,7 +144,8 @@ private struct WeakRoomRefs: @unchecked Sendable {
         outgoingStreamManager = room.outgoingStreamManager
         if let mgr = room.e2eeManager { e2eeManager = mgr }
         preConnectBuffer = room.preConnectBuffer
-        rpcState = room.rpcState
+        rpcClient = room.rpcClient
+        rpcServer = room.rpcServer
         metricsManager = room.metricsManager
         delegates = room.delegates
         activeParticipantCompleters = room.activeParticipantCompleters
@@ -171,7 +173,8 @@ private struct WeakRoomRefs: @unchecked Sendable {
         #expect(outgoingStreamManager == nil, "Leaked object: OutgoingStreamManager")
         #expect(e2eeManager == nil, "Leaked object: E2EEManager")
         #expect(preConnectBuffer == nil, "Leaked object: PreConnectBuffer")
-        #expect(rpcState == nil, "Leaked object: RpcState")
+        #expect(rpcClient == nil, "Leaked object: RpcClientManager")
+        #expect(rpcServer == nil, "Leaked object: RpcServerManager")
         #expect(metricsManager == nil, "Leaked object: MetricsManager")
         #expect(delegates == nil, "Leaked object: Delegates")
         #expect(activeParticipantCompleters == nil, "Leaked object: ActiveParticipantCompleters")

@@ -276,14 +276,17 @@ extension Room {
         default: (nil, nil)
         }
 
-        localParticipant.handleIncomingRpcResponse(requestId: response.requestID,
+        Task { [rpcClient] in
+            await rpcClient.handleIncomingResponse(requestId: response.requestID,
                                                    payload: payload,
                                                    error: error)
+        }
     }
 
     func room(didReceiveRpcAck ack: Livekit_RpcAck) {
-        let requestId = ack.requestID
-        localParticipant.handleIncomingRpcAck(requestId: requestId)
+        Task { [rpcClient] in
+            await rpcClient.handleIncomingAck(requestId: ack.requestID)
+        }
     }
 
     func room(didReceiveRpcRequest request: Livekit_RpcRequest, from participantIdentity: String) {
@@ -294,13 +297,13 @@ extension Room {
         let responseTimeout = TimeInterval(UInt64(request.responseTimeoutMs) / UInt64(msecPerSec))
         let version = Int(request.version)
 
-        Task {
-            await localParticipant.handleIncomingRpcRequest(callerIdentity: callerIdentity,
-                                                            requestId: requestId,
-                                                            method: method,
-                                                            payload: payload,
-                                                            responseTimeout: responseTimeout,
-                                                            version: version)
+        Task { [rpcServer] in
+            await rpcServer.handleIncomingRequest(callerIdentity: callerIdentity,
+                                                  requestId: requestId,
+                                                  method: method,
+                                                  payload: payload,
+                                                  responseTimeout: responseTimeout,
+                                                  version: version)
         }
     }
 }
