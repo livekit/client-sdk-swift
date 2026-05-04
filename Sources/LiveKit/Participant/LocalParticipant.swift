@@ -96,6 +96,13 @@ public class LocalParticipant: Participant, @unchecked Sendable {
             try await publisher.remove(track: sender)
             // Mark re-negotiation required...
             try await room.publisherShouldNegotiate()
+
+            // Reset hasPublished when no more tracks are published, so that
+            // a publisher transport disconnect doesn't trigger an unnecessary reconnect.
+            let hasPublishedTracks = _state.trackPublications.values.contains { $0.track != nil }
+            if !hasPublishedTracks {
+                room._state.mutate { $0.hasPublished = false }
+            }
         }
 
         // Wait for track to stop (if required)
