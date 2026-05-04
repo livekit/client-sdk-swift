@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.14.0] - 2026-04-29
+
+### Added
+
+- Configure end-to-end encryption directly through Session initialization
+
+### Changed
+
+- Drop Xcode 15 (Swift 5.x) support; minimum is now Xcode 16 / Swift 6.0
+- Skip AVAudioSession configuration in manual rendering mode
+
+### Fixed
+
+- Avoid Metal pipeline freeze on iPhone 11 family by defaulting to sample buffer renderer
+
 ## [2.13.0] - 2026-04-09
 
 ### Added
