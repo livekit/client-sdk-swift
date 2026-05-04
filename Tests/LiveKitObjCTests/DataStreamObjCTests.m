@@ -131,7 +131,8 @@
 
     // Unregister text stream handler (auto-generated completionHandler variant)
     XCTestExpectation *unregisterExp = [self expectationWithDescription:@"unregisterText"];
-    [room0 unregisterTextStreamHandlerFor:@"test-text" completionHandler:^{
+    [room0 unregisterTextStreamHandlerFor:@"test-text" completionHandler:^(NSError * _Nullable error) {
+        XCTAssertNil(error);
         [unregisterExp fulfill];
     }];
     [self waitForExpectationsWithTimeout:10 handler:nil];
@@ -335,7 +336,8 @@
 
     // Unregister byte stream handler (auto-generated completionHandler variant)
     XCTestExpectation *unregisterExp = [self expectationWithDescription:@"unregisterBytes"];
-    [room0 unregisterByteStreamHandlerFor:@"test-file" completionHandler:^{
+    [room0 unregisterByteStreamHandlerFor:@"test-file" completionHandler:^(NSError * _Nullable error) {
+        XCTAssertNil(error);
         [unregisterExp fulfill];
     }];
     [self waitForExpectationsWithTimeout:10 handler:nil];
