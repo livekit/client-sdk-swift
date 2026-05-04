@@ -205,7 +205,7 @@ actor RpcServerManager: Loggable {
             let response = try await handler(RpcInvocationData(requestId: requestId,
                                                                callerIdentity: callerIdentity,
                                                                payload: payload,
-                                                               responseTimeout: responseTimeout,
+                                                               responseTimeout: responseTimeout
                                                                ))
             if response.byteLength > MAX_RPC_PAYLOAD_BYTES {
                 log("[Rpc] Response payload too large for \(method)", .warning)
