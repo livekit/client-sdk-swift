@@ -42,6 +42,9 @@ public class ParticipantPermissions: NSObject, @unchecked Sendable {
     /// Indicates participant can subscribe to metrics
     public let canSubscribeMetrics: Bool
 
+    /// Indicates participant can manage an agent session via RemoteSession (control and access state)
+    public let canManageAgentSession: Bool
+
     init(canSubscribe: Bool = false,
          canPublish: Bool = false,
          canPublishData: Bool = false,
@@ -49,7 +52,8 @@ public class ParticipantPermissions: NSObject, @unchecked Sendable {
          hidden: Bool = false,
          recorder: Bool = false,
          canUpdateMetadata: Bool = false,
-         canSubscribeMetrics: Bool = false)
+         canSubscribeMetrics: Bool = false,
+         canManageAgentSession: Bool = false)
     {
         self.canSubscribe = canSubscribe
         self.canPublish = canPublish
@@ -59,6 +63,7 @@ public class ParticipantPermissions: NSObject, @unchecked Sendable {
         self.recorder = recorder
         self.canUpdateMetadata = canUpdateMetadata
         self.canSubscribeMetrics = canSubscribeMetrics
+        self.canManageAgentSession = canManageAgentSession
     }
 
     // MARK: - Equal
@@ -72,7 +77,8 @@ public class ParticipantPermissions: NSObject, @unchecked Sendable {
             hidden == other.hidden &&
             recorder == other.recorder &&
             canUpdateMetadata == other.canUpdateMetadata &&
-            canSubscribeMetrics == other.canSubscribeMetrics
+            canSubscribeMetrics == other.canSubscribeMetrics &&
+            canManageAgentSession == other.canManageAgentSession
     }
 
     override public var hash: Int {
@@ -85,6 +91,7 @@ public class ParticipantPermissions: NSObject, @unchecked Sendable {
         hasher.combine(recorder)
         hasher.combine(canUpdateMetadata)
         hasher.combine(canSubscribeMetrics)
+        hasher.combine(canManageAgentSession)
         return hasher.finalize()
     }
 }
@@ -98,6 +105,7 @@ extension Livekit_ParticipantPermission {
                                hidden: hidden,
                                recorder: recorder,
                                canUpdateMetadata: canUpdateMetadata,
-                               canSubscribeMetrics: canSubscribeMetrics)
+                               canSubscribeMetrics: canSubscribeMetrics,
+                               canManageAgentSession: canManageAgentSession)
     }
 }
