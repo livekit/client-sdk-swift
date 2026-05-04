@@ -396,6 +396,55 @@ struct RpcTests {
         }
     }
 
+    /// Regression test: a v2 handler returning a payload larger than the v1 packet cap
+    /// (15 KB) must still send its response over the v2 data stream — the 15 KB cap is a
+    /// v1 wire-format constraint, not a handler-side limit. With the cap living in
+    /// `dispatchToHandler`, a 20 KB return value would be silently mapped to
+    /// `responsePayloadTooLarge` and sent as a v1 error packet, which contradicts both
+    /// the docstring on `dispatchToHandler` ("only applies on v1 (packet) response
+    /// transports") and on `MAX_RPC_PAYLOAD_BYTES` ("v2 (data-stream-based) payloads
+    /// have no size limit").
+    @Test func v2HandlerCanReturnLargeResponse() async throws {
+        try await TestEnvironment.withRoom { room in
+            let didSeeStreamHeader = AsyncFlag()
+            let didSeeRpcResponsePacket = AsyncFlag()
+
+            let mockDataChannel = MockDataChannelPair { packet in
+                switch packet.value {
+                case let .streamHeader(header):
+                    if header.topic == RpcStreamTopic.response {
+                        didSeeStreamHeader.set()
+                    }
+                case .rpcResponse:
+                    didSeeRpcResponsePacket.set()
+                default:
+                    break
+                }
+            }
+            room.publisherDataChannel = mockDataChannel
+
+            let largePayload = String(repeating: "y", count: 20_000)
+            try await room.registerRpcMethod("echo") { _ in largePayload }
+
+            let reader = RpcTestSupport.makeRequestReader(
+                requestId: "v2-req-large",
+                method: "echo",
+                payload: "go",
+                timeoutMs: 8000
+            )
+            await room.rpcServer.handleIncomingRequestStream(
+                reader: reader,
+                callerIdentity: Participant.Identity(from: "v2-caller")
+            )
+
+            // Allow async send tasks a moment to complete.
+            try await Task.sleep(nanoseconds: 200_000_000)
+
+            #expect(await didSeeStreamHeader.value == true)
+            #expect(await didSeeRpcResponsePacket.value == false)
+        }
+    }
+
     /// Unhandled (non-RpcError) exception from a handler must be returned as a v1
     /// `RpcResponse` packet with `APPLICATION_ERROR`, even between two v2 clients.
     @Test func v2HandlerUnhandledErrorReturnsPacket() async throws {

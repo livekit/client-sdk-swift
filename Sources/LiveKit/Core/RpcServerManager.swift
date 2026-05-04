@@ -190,7 +190,8 @@ actor RpcServerManager: Loggable {
     }
 
     /// Look up the handler for `method`, invoke it, and produce a payload-or-error result.
-    /// The 15 KB response cap only applies on v1 (packet) response transports.
+    /// Size-checking the response is the responsibility of the publisher: the v1 wire has
+    /// a 15 KB cap (enforced in `publishResponse`), the v2 stream wire is unbounded.
     private func dispatchToHandler(callerIdentity: Participant.Identity,
                                    requestId: String,
                                    method: String,
@@ -205,12 +206,7 @@ actor RpcServerManager: Loggable {
             let response = try await handler(RpcInvocationData(requestId: requestId,
                                                                callerIdentity: callerIdentity,
                                                                payload: payload,
-                                                               responseTimeout: responseTimeout
-                                                               ))
-            if response.byteLength > MAX_RPC_PAYLOAD_BYTES {
-                log("[Rpc] Response payload too large for \(method)", .warning)
-                return .failure(RpcError.builtIn(.responsePayloadTooLarge))
-            }
+                                                               responseTimeout: responseTimeout))
             return .success(response)
         } catch let error as RpcError {
             return .failure(error)
@@ -222,21 +218,33 @@ actor RpcServerManager: Loggable {
 
     // MARK: - Outgoing wire
 
+    /// Publish a v1 `RpcResponse` packet. The 15 KB cap is a v1 wire-format constraint and
+    /// is enforced here: if `payload` exceeds it, the packet is sent as a
+    /// `responsePayloadTooLarge` error instead. v2 stream responses go through
+    /// `publishResponseStream` and have no size limit.
     private func publishResponse(in room: Room,
                                  destinationIdentity: Participant.Identity,
                                  requestId: String,
                                  payload: String?,
                                  error: RpcError?) async throws
     {
+        var outgoingPayload = payload
+        var outgoingError = error
+        if let p = payload, p.byteLength > MAX_RPC_PAYLOAD_BYTES {
+            log("[Rpc] Response payload too large for v1 packet (requestId=\(requestId))", .warning)
+            outgoingPayload = nil
+            outgoingError = RpcError.builtIn(.responsePayloadTooLarge)
+        }
+
         let dataPacket = Livekit_DataPacket.with {
             $0.destinationIdentities = [destinationIdentity.stringValue]
             $0.kind = .reliable
             $0.rpcResponse = Livekit_RpcResponse.with {
                 $0.requestID = requestId
-                if let error {
-                    $0.error = error.toProto()
+                if let outgoingError {
+                    $0.error = outgoingError.toProto()
                 } else {
-                    $0.payload = payload ?? ""
+                    $0.payload = outgoingPayload ?? ""
                 }
             }
         }
