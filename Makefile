@@ -5,6 +5,10 @@ proto: protoc protoc-swift
 		${PROTO_SOURCE}/livekit_models.proto \
 		${PROTO_SOURCE}/livekit_rtc.proto \
 		${PROTO_SOURCE}/livekit_metrics.proto
+	@# Use internal import for xcframework builds to keep SwiftProtobuf out of .swiftinterface
+	@for f in Sources/LiveKit/protos/*.pb.swift; do \
+		sed -i '' 's/^import SwiftProtobuf/#if LK_XCFRAMEWORK\ninternal import SwiftProtobuf\n#else\nimport SwiftProtobuf\n#endif/' "$$f"; \
+	done
 
 docs: swift-docs
 	swift doc generate Sources/LiveKit \
