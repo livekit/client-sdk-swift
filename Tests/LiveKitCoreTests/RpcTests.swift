@@ -63,6 +63,7 @@ struct RpcTests {
             )
 
             #expect(response == "response-payload")
+            #expect(await room.rpcClient.pendingCount == 0)
         }
     }
 
@@ -95,6 +96,7 @@ struct RpcTests {
             )
 
             #expect(response == "fast-response")
+            #expect(await room.rpcClient.pendingCount == 0)
         }
     }
 
@@ -136,6 +138,7 @@ struct RpcTests {
             )
 
             #expect(response == "real-response")
+            #expect(await room.rpcClient.pendingCount == 0)
         }
     }
 
@@ -164,6 +167,88 @@ struct RpcTests {
             } catch let error as RpcError {
                 #expect(error.code == RpcError.BuiltInError.recipientDisconnected.code)
             }
+            #expect(await room.rpcClient.pendingCount == 0)
+        }
+    }
+
+    /// Cancelling the Task that's awaiting `performRpc` must:
+    ///   1. propagate cancellation as an error to the awaiting Task, and
+    ///   2. clean up the manager's pending state so it doesn't leak.
+    @Test func performRpcCleansUpOnCancellation() async throws {
+        try await TestEnvironment.withRoom { room in
+            // No-op data channel — the call has nothing to resolve it, so it'd otherwise
+            // wait for the full responseTimeout.
+            room.publisherDataChannel = MockDataChannelPair { _ in }
+
+            let task = Task {
+                try await room.localParticipant.performRpc(
+                    destinationIdentity: Participant.Identity(from: "test-destination"),
+                    method: "method",
+                    payload: "x",
+                    responseTimeout: 30
+                )
+            }
+
+            // Give performRpc time to register pending state before cancelling.
+            try await Task.sleep(nanoseconds: 100_000_000)
+            #expect(await room.rpcClient.pendingCount == 1)
+
+            task.cancel()
+
+            await #expect(throws: (any Error).self) {
+                _ = try await task.value
+            }
+
+            // Allow the deferred cleanup inside performRpc to run.
+            try await Task.sleep(nanoseconds: 100_000_000)
+            #expect(await room.rpcClient.pendingCount == 0)
+        }
+    }
+
+    /// Five concurrent `performRpc` calls to the same destination must each get a
+    /// distinct `requestId`, and after all resolve, the manager's pending maps must
+    /// be empty (no leaks).
+    @Test func performRpcConcurrentRequestsHaveDistinctIds() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "test-destination")
+            let collector = TestStringCollector()
+
+            let mockDataChannel = MockDataChannelPair { packet in
+                guard case let .rpcRequest(request) = packet.value else { return }
+                Task {
+                    await collector.append(request.id)
+                    await room.rpcClient.handleIncomingAck(requestId: request.id)
+                    await room.rpcClient.handleIncomingResponse(
+                        requestId: request.id,
+                        payload: "response-\(request.id)",
+                        error: nil
+                    )
+                }
+            }
+            room.publisherDataChannel = mockDataChannel
+
+            let responses = try await withThrowingTaskGroup(of: String.self) { group in
+                for _ in 0 ..< 5 {
+                    group.addTask {
+                        try await room.localParticipant.performRpc(
+                            destinationIdentity: destination,
+                            method: "method",
+                            payload: "x"
+                        )
+                    }
+                }
+                var results: [String] = []
+                for try await result in group {
+                    results.append(result)
+                }
+                return results
+            }
+
+            #expect(responses.count == 5)
+            let observedIds = await collector.values
+            #expect(observedIds.count == 5)
+            #expect(Set(observedIds).count == 5) // distinct
+            #expect(await room.rpcClient.pendingCount == 0)
         }
     }
 
@@ -346,6 +431,7 @@ struct RpcTests {
             #expect(header?.attributes[RpcStreamAttribute.version] == RPC_STREAM_VERSION)
             #expect(header?.attributes[RpcStreamAttribute.requestId] != nil)
             #expect(header?.attributes[RpcStreamAttribute.timeoutMs] != nil)
+            #expect(await room.rpcClient.pendingCount == 0)
         }
     }
 
@@ -377,6 +463,7 @@ struct RpcTests {
                 payload: largePayload
             )
             #expect(response.count == largePayload.count)
+            #expect(await room.rpcClient.pendingCount == 0)
         }
     }
 
@@ -554,6 +641,7 @@ struct RpcTests {
                     responseTimeout: 0.05
                 )
             }
+            #expect(await room.rpcClient.pendingCount == 0)
         }
     }
 
@@ -590,6 +678,47 @@ struct RpcTests {
                 #expect(error.code == 101)
                 #expect(error.message == "Test error message")
             }
+            #expect(await room.rpcClient.pendingCount == 0)
+        }
+    }
+
+    /// A v2 response stream from any peer other than the original RPC destination must
+    /// NOT resolve the pending call — otherwise any participant could spoof responses
+    /// for someone else's in-flight RPC. Pre-fix, `handleIncomingResponseStream` ignored
+    /// the `senderIdentity` argument entirely and resolved on requestId match alone.
+    @Test func v2ResponseStreamFromWrongSenderIsIgnored() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "v2-destination")
+            let imposter = Participant.Identity(from: "v2-imposter")
+            try await RpcTestSupport.installV2Remote(in: room, identity: destination)
+
+            let mockDataChannel = MockDataChannelPair { packet in
+                if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
+                    let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
+                    Task {
+                        try await Task.sleep(nanoseconds: 50_000_000)
+                        await room.rpcClient.handleIncomingAck(requestId: requestId)
+                        // Inject a response stream from the imposter — must be ignored.
+                        let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "spoofed")
+                        await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: imposter)
+                    }
+                }
+            }
+            room.publisherDataChannel = mockDataChannel
+
+            do {
+                let response = try await room.localParticipant.performRpc(
+                    destinationIdentity: destination,
+                    method: "method",
+                    payload: "x",
+                    responseTimeout: 1
+                )
+                Issue.record("Spoofed response from wrong sender should not have resolved the call (got \(response))")
+            } catch let error as RpcError {
+                // Should time out / connection-timeout since no legitimate response arrived.
+                #expect(error.code == RpcError.BuiltInError.connectionTimeout.code)
+            }
+            #expect(await room.rpcClient.pendingCount == 0)
         }
     }
 
@@ -636,6 +765,7 @@ struct RpcTests {
             #expect(response == "v1-response")
             #expect(await didSeeRpcRequest.value == true)
             #expect(await didSeeStreamHeader.value == false)
+            #expect(await room.rpcClient.pendingCount == 0)
         }
     }
 
@@ -654,6 +784,7 @@ struct RpcTests {
                     payload: largePayload
                 )
             }
+            #expect(await room.rpcClient.pendingCount == 0)
         }
     }
 }
@@ -748,4 +879,10 @@ private actor CapturedStreamHeader {
     }
 
     private func _set(_ header: Livekit_DataStream.Header) { value = header }
+}
+
+/// Async-safe append-only collector used to assert across concurrently-running tasks.
+private actor TestStringCollector {
+    private(set) var values: [String] = []
+    func append(_ value: String) { values.append(value) }
 }

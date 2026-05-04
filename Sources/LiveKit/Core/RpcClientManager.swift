@@ -168,8 +168,10 @@ actor RpcClientManager: Loggable {
 
     /// Resolve a pending RPC call from a v2 response stream on `lk.rpc_response`. Reads the
     /// `lk.rpc_request_id` attribute to match against pending requests, then resolves
-    /// with the streamed payload.
-    func handleIncomingResponseStream(reader: TextStreamReader, senderIdentity _: Participant.Identity) async {
+    /// with the streamed payload — but only if `senderIdentity` matches the original
+    /// destination of the call. A response from any other peer is ignored (and the
+    /// pending entry is left in place so the legitimate sender can still resolve).
+    func handleIncomingResponseStream(reader: TextStreamReader, senderIdentity: Participant.Identity) async {
         guard let requestId = reader.info.attributes[RpcStreamAttribute.requestId] else {
             log("[Rpc] Incoming v2 RPC response stream is missing request id attribute", .error)
             return
@@ -182,10 +184,15 @@ actor RpcClientManager: Loggable {
             return
         }
 
-        guard let pending = pendingResponses.removeValue(forKey: requestId) else {
+        guard let pending = pendingResponses[requestId] else {
             log("[Rpc] Response stream received for unexpected RPC request, id = \(requestId)", .error)
             return
         }
+        guard pending.participantIdentity == senderIdentity else {
+            log("[Rpc] Response stream for \(requestId) from wrong sender (expected \(pending.participantIdentity), got \(senderIdentity)); ignoring", .error)
+            return
+        }
+        pendingResponses.removeValue(forKey: requestId)
         pending.completer.resume(returning: payload)
     }
 
@@ -232,6 +239,11 @@ actor RpcClientManager: Loggable {
 
     func hasPendingAck(_ requestId: String) -> Bool {
         pendingAcks.contains(requestId)
+    }
+
+    /// Number of in-flight RPCs awaiting a response. Exposed for test-time leak checks.
+    var pendingCount: Int {
+        pendingResponses.count
     }
 
     func setPendingResponse(_ requestId: String, response: PendingRpcResponse) {

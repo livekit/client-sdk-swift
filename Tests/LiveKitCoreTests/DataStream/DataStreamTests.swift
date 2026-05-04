@@ -121,4 +121,25 @@ struct DataStreamTests {
             }
         }
     }
+
+    /// `lk.` is LiveKit's reserved namespace; `Room.{register,unregister}{Text,Byte}StreamHandler`
+    /// must reject user calls on any `lk.*` topic. Pre-fix, only the two RPC v2 topics were
+    /// rejected by name and the unregister methods didn't check at all — a user could
+    /// silently disable internal SDK dispatch by unregistering an `lk.*` topic.
+    @Test func reservedPrefixRejectedOnRegisterAndUnregister() async throws {
+        try await TestEnvironment.withRoom { room in
+            await #expect(throws: LiveKitError.self) {
+                try await room.registerTextStreamHandler(for: "lk.something") { _, _ in }
+            }
+            await #expect(throws: LiveKitError.self) {
+                try await room.registerByteStreamHandler(for: "lk.something") { _, _ in }
+            }
+            await #expect(throws: LiveKitError.self) {
+                try await room.unregisterTextStreamHandler(for: "lk.rpc_request")
+            }
+            await #expect(throws: LiveKitError.self) {
+                try await room.unregisterByteStreamHandler(for: "lk.future_topic")
+            }
+        }
+    }
 }
