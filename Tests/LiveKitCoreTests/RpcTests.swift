@@ -66,6 +66,38 @@ struct RpcTests {
         }
     }
 
+    /// Regression test: a fast remote that responds immediately after publish must not race
+    /// the caller's pending-state registration. With pre-publish registration in
+    /// `RpcClientManager.performRpc`, the response arriving synchronously after `publishRequest`
+    /// finds a pending entry and resolves the call. Pre-fix, registration was deferred to an
+    /// inner Task that ran after publish, so a synchronously-injected response logged
+    /// "received for unexpected RPC request" and the call hung to the outer timeout.
+    @Test func performRpcFastRemoteResponseRace() async throws {
+        try await TestEnvironment.withRoom { room in
+            // No-op data channel — we drive the response via the test hook below instead of
+            // the usual MockDataChannelPair callback path.
+            room.publisherDataChannel = MockDataChannelPair { _ in }
+
+            await room.rpcClient.__test_setAfterPublishHook { requestId in
+                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                await room.rpcClient.handleIncomingResponse(
+                    requestId: requestId,
+                    payload: "fast-response",
+                    error: nil
+                )
+            }
+
+            let response = try await room.localParticipant.performRpc(
+                destinationIdentity: Participant.Identity(from: "test-destination"),
+                method: "test-method",
+                payload: "test-payload",
+                responseTimeout: 1
+            )
+
+            #expect(response == "fast-response")
+        }
+    }
+
     // Test registering and handling incoming RPC requests
     @Test func handleIncomingRpcRequest() async throws {
         try await TestEnvironment.withRoom { room in

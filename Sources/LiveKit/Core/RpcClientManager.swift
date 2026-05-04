@@ -27,8 +27,18 @@ actor RpcClientManager: Loggable {
     private var pendingAcks: Set<String> = Set()
     private var pendingResponses: [String: PendingRpcResponse] = [:] // requestId to pending response
 
+    /// Test-only hook fired once after the RPC request has been published but before the
+    /// caller starts waiting on the completer. Receives the freshly-generated `requestId`
+    /// so a test can simulate a fast remote ack/response that races the wait. No-op outside
+    /// of tests.
+    var __test_afterPublishHook: (@Sendable (String) async -> Void)?
+
     func attach(to room: Room) {
         self.room = room
+    }
+
+    func __test_setAfterPublishHook(_ hook: (@Sendable (String) async -> Void)?) {
+        __test_afterPublishHook = hook
     }
 
     // MARK: - Public entry point
@@ -56,57 +66,64 @@ actor RpcClientManager: Loggable {
         let minEffectiveTimeout: TimeInterval = 1
         let effectiveTimeout = max(responseTimeout - maxRoundTripLatency, minEffectiveTimeout)
 
-        if useStreamTransport {
-            try await publishRequestStream(in: room,
-                                           destinationIdentity: destinationIdentity,
-                                           requestId: requestId,
-                                           method: method,
-                                           payload: payload,
-                                           responseTimeout: effectiveTimeout)
-        } else {
-            try await publishRequest(in: room,
-                                     destinationIdentity: destinationIdentity,
-                                     requestId: requestId,
-                                     method: method,
-                                     payload: payload,
-                                     responseTimeout: effectiveTimeout)
-        }
-
-        do {
-            return try await withThrowingTimeout(timeout: responseTimeout) {
-                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
-                    Task { [weak self] in
-                        guard let self else {
-                            continuation.resume(throwing: RpcError.builtIn(.applicationError))
-                            return
-                        }
-                        await self.addPendingAck(requestId)
-                        await self.setPendingResponse(requestId, response: PendingRpcResponse(
-                            participantIdentity: destinationIdentity,
-                            onResolve: { [weak self] payload, error in
-                                Task {
-                                    await self?.removePendingAck(requestId)
-                                    await self?.removePendingResponse(requestId)
-                                    if let error {
-                                        continuation.resume(throwing: error)
-                                    } else {
-                                        continuation.resume(returning: payload ?? "")
-                                    }
-                                }
-                            }
-                        ))
-                    }
-
-                    Task { [weak self] in
-                        try await Task.sleep(nanoseconds: UInt64(maxRoundTripLatency * 1_000_000_000))
-                        guard let self else { return }
-                        if await self.hasPendingAck(requestId) {
-                            await self.removeAllPending(requestId)
-                            continuation.resume(throwing: RpcError.builtIn(.connectionTimeout))
-                        }
+        // Pre-register pending state synchronously on the actor *before* publishing the
+        // request. Prevents a race where a fast remote can ack/respond before registration
+        // completes — the response would otherwise log "received for unexpected request" and
+        // the call would hang to the outer responseTimeout.
+        let completer = AsyncCompleter<String>(label: "rpc-\(requestId)", defaultTimeout: responseTimeout)
+        pendingAcks.insert(requestId)
+        pendingResponses[requestId] = PendingRpcResponse(
+            participantIdentity: destinationIdentity,
+            onResolve: { [weak self] payload, error in
+                Task { [weak self] in
+                    await self?.removeAllPending(requestId)
+                    if let error {
+                        completer.resume(throwing: error)
+                    } else {
+                        completer.resume(returning: payload ?? "")
                     }
                 }
             }
+        )
+
+        do {
+            if useStreamTransport {
+                try await publishRequestStream(in: room,
+                                               destinationIdentity: destinationIdentity,
+                                               requestId: requestId,
+                                               method: method,
+                                               payload: payload,
+                                               responseTimeout: effectiveTimeout)
+            } else {
+                try await publishRequest(in: room,
+                                         destinationIdentity: destinationIdentity,
+                                         requestId: requestId,
+                                         method: method,
+                                         payload: payload,
+                                         responseTimeout: effectiveTimeout)
+            }
+        } catch {
+            // Publish failed — clean up the registered state before re-throwing.
+            removeAllPending(requestId)
+            throw error
+        }
+
+        if let hook = __test_afterPublishHook {
+            await hook(requestId)
+        }
+
+        // Ack watchdog: fail fast if no ack arrives within maxRoundTripLatency.
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(maxRoundTripLatency * 1_000_000_000))
+            guard let self else { return }
+            if await self.hasPendingAck(requestId) {
+                await self.removeAllPending(requestId)
+                completer.resume(throwing: RpcError.builtIn(.connectionTimeout))
+            }
+        }
+
+        do {
+            return try await completer.wait()
         } catch {
             if let error = error as? LiveKitError, error.type == .timedOut {
                 throw RpcError.builtIn(.connectionTimeout)
