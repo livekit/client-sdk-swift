@@ -57,11 +57,11 @@ jobs:
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md
           - os: macos-26
             xcode: 26.4
-            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.4"
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.4.1"
             symbol-graph: true
           - os: macos-26
             xcode: 26.4
-            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.4"
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.4.1"
             extension-api-only: true
           - os: macos-26
             xcode: 26.4
@@ -84,7 +84,7 @@ jobs:
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-26
             xcode: 26.4
-            platform: "visionOS Simulator,name=Apple Vision Pro,OS=26.4"
+            platform: "visionOS Simulator,name=Apple Vision Pro,OS=26.4.1"
           - os: macos-26
             xcode: 26.4
             platform: "tvOS Simulator,name=Apple TV,OS=26.4"
@@ -157,7 +157,7 @@ jobs:
           retention-days: 1
   lint:
     name: Lint
-    runs-on: macos-latest
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v6
       - name: Install SwiftLint
@@ -208,7 +208,7 @@ jobs:
           retention-days: 1
   check-protocol:
     name: Check Protocol
-    runs-on: macos-latest
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v6
         with:
