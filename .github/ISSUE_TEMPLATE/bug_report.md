@@ -23,6 +23,11 @@ The Xcode version which the issue occurs.
 **Steps to Reproduce**
 Steps to reproduce the behavior.
 
+**Examples**
+The problem is reproducible with:
+- [ ] [client-example-swift](https://github.com/livekit/client-example-swift)
+- [ ] [client-example-collection-swift](https://github.com/livekit/client-example-collection-swift)
+
 **Expected behavior**
 A clear and concise description of what you expected to happen.
 
