@@ -144,6 +144,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     let rpcClient = RpcClientManager()
     let rpcServer = RpcServerManager()
+    private var didWireRpcInternals = false
 
     // MARK: - State
 
@@ -259,25 +260,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             await metricsManager.register(room: self)
         }
 
-        // Wire RPC managers and register internal handlers for RPC v2 data streams. Topics
-        // are reserved and user code is rejected from registering handlers for them via the
-        // public API.
-        Task { [weak self] in
-            guard let self else { return }
-            await rpcClient.attach(to: self)
-            await rpcServer.attach(to: self)
-            do {
-                try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.request) { [weak self] reader, identity in
-                    await self?.rpcServer.handleIncomingRequestStream(reader: reader, callerIdentity: identity)
-                }
-                try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.response) { [weak self] reader, identity in
-                    await self?.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: identity)
-                }
-            } catch {
-                log("[Rpc] Failed to register internal RPC stream handlers: \(error)", .error)
-            }
-        }
-
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
             guard let self else { return }
@@ -376,6 +358,21 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         await cleanUp()
 
         try Task.checkCancellation()
+
+        // Wire RPC internals before any engine activity so incoming v2 streams aren't
+        // dropped in the gap between init and connect. Idempotent across reconnects;
+        // `incomingStreamManager` handler state persists, so we register only once.
+        if !didWireRpcInternals {
+            await rpcClient.attach(to: self)
+            await rpcServer.attach(to: self)
+            try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.request) { [weak self] reader, identity in
+                await self?.rpcServer.handleIncomingRequestStream(reader: reader, callerIdentity: identity)
+            }
+            try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.response) { [weak self] reader, identity in
+                await self?.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: identity)
+            }
+            didWireRpcInternals = true
+        }
 
         // enable E2EE
         if let e2eeOptions = state.roomOptions.e2eeOptions {
