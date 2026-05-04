@@ -139,6 +139,34 @@ struct RpcTests {
         }
     }
 
+    /// Regression test: when the destination participant disconnects mid-call, the
+    /// caller receives `recipientDisconnected` (1503) immediately rather than the
+    /// generic `connectionTimeout` (1501) after the user-supplied `responseTimeout`.
+    /// Uses `__test_afterPublishHook` to inject the disconnect synchronously after
+    /// publish so the test resolves deterministically.
+    @Test func performRpcRejectsOnRecipientDisconnect() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "test-destination")
+            room.publisherDataChannel = MockDataChannelPair { _ in }
+
+            await room.rpcClient.__test_setAfterPublishHook { _ in
+                await room.rpcClient.handleParticipantDisconnected(destination)
+            }
+
+            do {
+                _ = try await room.localParticipant.performRpc(
+                    destinationIdentity: destination,
+                    method: "method",
+                    payload: "x",
+                    responseTimeout: 1
+                )
+                Issue.record("Expected RpcError, got success")
+            } catch let error as RpcError {
+                #expect(error.code == RpcError.BuiltInError.recipientDisconnected.code)
+            }
+        }
+    }
+
     // Test registering and handling incoming RPC requests
     @Test func handleIncomingRpcRequest() async throws {
         try await TestEnvironment.withRoom { room in

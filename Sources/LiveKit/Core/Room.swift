@@ -561,6 +561,11 @@ extension Room {
     {
         log("withError: \(String(describing: disconnectError)), isFullReconnect: \(isFullReconnect)")
 
+        // Reap all in-flight RPCs with `recipientDisconnected` (1503). Runs before the
+        // participant-state wipe so callers don't hang on the response timeout during
+        // disconnect / full reconnect.
+        await rpcClient.handleAllPendingDisconnected()
+
         // Reset completers
         _sidCompleter.reset()
         primaryTransportConnectedCompleter.reset()
@@ -639,6 +644,11 @@ extension Room {
     }
 
     func _onParticipantDidDisconnect(identity: Participant.Identity) async throws {
+        // Reap any in-flight RPCs targeting this participant before tearing them down,
+        // so the caller sees `recipientDisconnected` (1503) immediately instead of
+        // hanging until the user-supplied `responseTimeout`.
+        await rpcClient.handleParticipantDisconnected(identity)
+
         guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: identity) }) else {
             throw LiveKitError(.invalidState, message: "Participant not found for \(identity)")
         }

@@ -194,6 +194,31 @@ actor RpcClientManager: Loggable {
         pendingAcks.remove(requestId)
     }
 
+    /// Reject every in-flight RPC targeting `identity` with `recipientDisconnected`
+    /// (1503). Called from `Room._onParticipantDidDisconnect(identity:)` so the caller
+    /// learns immediately instead of waiting for the user-supplied `responseTimeout`.
+    /// AsyncCompleter idempotency makes this safe even if a real response races the
+    /// disconnect.
+    func handleParticipantDisconnected(_ identity: Participant.Identity) {
+        let toReap = pendingResponses.filter { $0.value.participantIdentity == identity }
+        for (requestId, pending) in toReap {
+            pendingResponses.removeValue(forKey: requestId)
+            pendingAcks.remove(requestId)
+            pending.completer.resume(throwing: RpcError.builtIn(.recipientDisconnected))
+        }
+    }
+
+    /// Reject every in-flight RPC with `recipientDisconnected`. Called from
+    /// `Room.cleanUp(...)` during teardown / full reconnect — at that point no
+    /// participant survives, so identity-filtering is unnecessary.
+    func handleAllPendingDisconnected() {
+        for (_, pending) in pendingResponses {
+            pending.completer.resume(throwing: RpcError.builtIn(.recipientDisconnected))
+        }
+        pendingResponses.removeAll()
+        pendingAcks.removeAll()
+    }
+
     // MARK: - State ops
 
     func addPendingAck(_ requestId: String) {
