@@ -337,11 +337,23 @@ struct Livekit_MetricsRecordingHeader: Sendable {
 
   var roomTags: Dictionary<String,String> = [:]
 
+  var roomName: String = String()
+
+  var roomStartTime: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {_roomStartTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_roomStartTime = newValue}
+  }
+  /// Returns true if `roomStartTime` has been explicitly set.
+  var hasRoomStartTime: Bool {self._roomStartTime != nil}
+  /// Clears the value of `roomStartTime`. Subsequent reads from it will return its default value.
+  mutating func clearRoomStartTime() {self._roomStartTime = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
   fileprivate var _startTime: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+  fileprivate var _roomStartTime: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
 }
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
@@ -576,7 +588,7 @@ extension Livekit_EventMetric: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
 
 extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".MetricsRecordingHeader"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}room_id\0\u{2}\u{2}duration\0\u{3}start_time\0\u{3}room_tags\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}room_id\0\u{2}\u{2}duration\0\u{3}start_time\0\u{3}room_tags\0\u{3}room_name\0\u{3}room_start_time\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -588,6 +600,8 @@ extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, SwiftProtobuf._
       case 3: try { try decoder.decodeSingularUInt64Field(value: &self.duration) }()
       case 4: try { try decoder.decodeSingularMessageField(value: &self._startTime) }()
       case 5: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &self.roomTags) }()
+      case 6: try { try decoder.decodeSingularStringField(value: &self.roomName) }()
+      case 7: try { try decoder.decodeSingularMessageField(value: &self._roomStartTime) }()
       default: break
       }
     }
@@ -610,6 +624,12 @@ extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, SwiftProtobuf._
     if !self.roomTags.isEmpty {
       try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: self.roomTags, fieldNumber: 5)
     }
+    if !self.roomName.isEmpty {
+      try visitor.visitSingularStringField(value: self.roomName, fieldNumber: 6)
+    }
+    try { if let v = self._roomStartTime {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -618,6 +638,8 @@ extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, SwiftProtobuf._
     if lhs.duration != rhs.duration {return false}
     if lhs._startTime != rhs._startTime {return false}
     if lhs.roomTags != rhs.roomTags {return false}
+    if lhs.roomName != rhs.roomName {return false}
+    if lhs._roomStartTime != rhs._roomStartTime {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

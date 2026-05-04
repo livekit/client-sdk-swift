@@ -495,6 +495,9 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterable {
 
   /// media stream failure or media timeout
   case mediaFailure // = 15
+
+  /// agent encountered an error
+  case agentError // = 16
   case UNRECOGNIZED(Int)
 
   init() {
@@ -519,6 +522,7 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterable {
     case 13: self = .sipTrunkFailure
     case 14: self = .connectionTimeout
     case 15: self = .mediaFailure
+    case 16: self = .agentError
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -541,6 +545,7 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterable {
     case .sipTrunkFailure: return 13
     case .connectionTimeout: return 14
     case .mediaFailure: return 15
+    case .agentError: return 16
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -563,6 +568,7 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterable {
     .sipTrunkFailure,
     .connectionTimeout,
     .mediaFailure,
+    .agentError,
   ]
 
 }
@@ -703,6 +709,40 @@ enum Livekit_AudioTrackFeature: SwiftProtobuf.Enum, Swift.CaseIterable {
     .tfNoiseSuppression,
     .tfEnhancedNoiseCancellation,
     .tfPreconnectBuffer,
+  ]
+
+}
+
+enum Livekit_PacketTrailerFeature: SwiftProtobuf.Enum, Swift.CaseIterable {
+  typealias RawValue = Int
+  case ptfUserTimestamp // = 0
+  case ptfFrameID // = 1
+  case UNRECOGNIZED(Int)
+
+  init() {
+    self = .ptfUserTimestamp
+  }
+
+  init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .ptfUserTimestamp
+    case 1: self = .ptfFrameID
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  var rawValue: Int {
+    switch self {
+    case .ptfUserTimestamp: return 0
+    case .ptfFrameID: return 1
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static let allCases: [Livekit_PacketTrailerFeature] = [
+    .ptfUserTimestamp,
+    .ptfFrameID,
   ]
 
 }
@@ -872,6 +912,9 @@ struct Livekit_ParticipantPermission: Sendable {
   /// if a participant can subscribe to metrics
   var canSubscribeMetrics: Bool = false
 
+  /// if a participant can manage an agent session via RemoteSession (control and access state)
+  var canManageAgentSession: Bool = false
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -973,6 +1016,12 @@ struct Livekit_ParticipantInfo: @unchecked Sendable {
   var dataTracks: [Livekit_DataTrackInfo] {
     get {_storage._dataTracks}
     set {_uniqueStorage()._dataTracks = newValue}
+  }
+
+  /// protocol version used for client feature compatibility
+  var clientProtocol: Int32 {
+    get {_storage._clientProtocol}
+    set {_uniqueStorage()._clientProtocol = newValue}
   }
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -1347,6 +1396,11 @@ struct Livekit_TrackInfo: @unchecked Sendable {
   var backupCodecPolicy: Livekit_BackupCodecPolicy {
     get {_storage._backupCodecPolicy}
     set {_uniqueStorage()._backupCodecPolicy = newValue}
+  }
+
+  var packetTrailerFeatures: [Livekit_PacketTrailerFeature] {
+    get {_storage._packetTrailerFeatures}
+    set {_uniqueStorage()._packetTrailerFeatures = newValue}
   }
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -2010,6 +2064,9 @@ struct Livekit_RpcRequest: Sendable {
 
   var version: UInt32 = 0
 
+  /// Compressed payload data. When set, this field is used instead of `payload`.
+  var compressedPayload: Data = Data()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -2052,11 +2109,22 @@ struct Livekit_RpcResponse: Sendable {
     set {value = .error(newValue)}
   }
 
+  /// Compressed payload data. When set, this field is used instead of `payload`.
+  var compressedPayload: Data {
+    get {
+      if case .compressedPayload(let v)? = value {return v}
+      return Data()
+    }
+    set {value = .compressedPayload(newValue)}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Value: Equatable, Sendable {
     case payload(String)
     case error(Livekit_RpcError)
+    /// Compressed payload data. When set, this field is used instead of `payload`.
+    case compressedPayload(Data)
 
   }
 
@@ -2185,6 +2253,13 @@ struct Livekit_ClientInfo: Sendable {
   /// e.g. "components-js:1.2.3,track-processors-js:1.2.3"
   var otherSdks: String = String()
 
+  /// client protocol version
+  var clientProtocol: Int32 = 0
+
+  /// capabilities the client advertises. Populated automatically by each SDK;
+  /// not a user-configurable setting.
+  var capabilities: [Livekit_ClientInfo.Capability] = []
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum SDK: SwiftProtobuf.Enum, Swift.CaseIterable {
@@ -2269,6 +2344,44 @@ struct Livekit_ClientInfo: Sendable {
       .node,
       .unreal,
       .esp32,
+    ]
+
+  }
+
+  /// Optional capabilities advertised by the client at connect time. The SFU
+  /// uses these flags to decide whether to enable features that require
+  /// client-side support (e.g. passing RTP packet trailers through to the
+  /// subscriber instead of stripping them).
+  enum Capability: SwiftProtobuf.Enum, Swift.CaseIterable {
+    typealias RawValue = Int
+    case capUnused // = 0
+    case capPacketTrailer // = 1
+    case UNRECOGNIZED(Int)
+
+    init() {
+      self = .capUnused
+    }
+
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 0: self = .capUnused
+      case 1: self = .capPacketTrailer
+      default: self = .UNRECOGNIZED(rawValue)
+      }
+    }
+
+    var rawValue: Int {
+      switch self {
+      case .capUnused: return 0
+      case .capPacketTrailer: return 1
+      case .UNRECOGNIZED(let i): return i
+      }
+    }
+
+    // The compiler won't synthesize support with the UNRECOGNIZED case.
+    static let allCases: [Livekit_ClientInfo.Capability] = [
+      .capUnused,
+      .capPacketTrailer,
     ]
 
   }
@@ -3137,7 +3250,7 @@ extension Livekit_ClientConfigSetting: SwiftProtobuf._ProtoNameProviding {
 }
 
 extension Livekit_DisconnectReason: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0UNKNOWN_REASON\0\u{1}CLIENT_INITIATED\0\u{1}DUPLICATE_IDENTITY\0\u{1}SERVER_SHUTDOWN\0\u{1}PARTICIPANT_REMOVED\0\u{1}ROOM_DELETED\0\u{1}STATE_MISMATCH\0\u{1}JOIN_FAILURE\0\u{1}MIGRATION\0\u{1}SIGNAL_CLOSE\0\u{1}ROOM_CLOSED\0\u{1}USER_UNAVAILABLE\0\u{1}USER_REJECTED\0\u{1}SIP_TRUNK_FAILURE\0\u{1}CONNECTION_TIMEOUT\0\u{1}MEDIA_FAILURE\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0UNKNOWN_REASON\0\u{1}CLIENT_INITIATED\0\u{1}DUPLICATE_IDENTITY\0\u{1}SERVER_SHUTDOWN\0\u{1}PARTICIPANT_REMOVED\0\u{1}ROOM_DELETED\0\u{1}STATE_MISMATCH\0\u{1}JOIN_FAILURE\0\u{1}MIGRATION\0\u{1}SIGNAL_CLOSE\0\u{1}ROOM_CLOSED\0\u{1}USER_UNAVAILABLE\0\u{1}USER_REJECTED\0\u{1}SIP_TRUNK_FAILURE\0\u{1}CONNECTION_TIMEOUT\0\u{1}MEDIA_FAILURE\0\u{1}AGENT_ERROR\0")
 }
 
 extension Livekit_ReconnectReason: SwiftProtobuf._ProtoNameProviding {
@@ -3150,6 +3263,10 @@ extension Livekit_SubscriptionError: SwiftProtobuf._ProtoNameProviding {
 
 extension Livekit_AudioTrackFeature: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0TF_STEREO\0\u{1}TF_NO_DTX\0\u{1}TF_AUTO_GAIN_CONTROL\0\u{1}TF_ECHO_CANCELLATION\0\u{1}TF_NOISE_SUPPRESSION\0\u{1}TF_ENHANCED_NOISE_CANCELLATION\0\u{1}TF_PRECONNECT_BUFFER\0")
+}
+
+extension Livekit_PacketTrailerFeature: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0PTF_USER_TIMESTAMP\0\u{1}PTF_FRAME_ID\0")
 }
 
 extension Livekit_Pagination: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
@@ -3438,7 +3555,7 @@ extension Livekit_PlayoutDelay: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
 
 extension Livekit_ParticipantPermission: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ParticipantPermission"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}can_subscribe\0\u{3}can_publish\0\u{3}can_publish_data\0\u{2}\u{4}hidden\0\u{1}recorder\0\u{3}can_publish_sources\0\u{3}can_update_metadata\0\u{1}agent\0\u{3}can_subscribe_metrics\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}can_subscribe\0\u{3}can_publish\0\u{3}can_publish_data\0\u{2}\u{4}hidden\0\u{1}recorder\0\u{3}can_publish_sources\0\u{3}can_update_metadata\0\u{1}agent\0\u{3}can_subscribe_metrics\0\u{3}can_manage_agent_session\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3455,6 +3572,7 @@ extension Livekit_ParticipantPermission: SwiftProtobuf.Message, SwiftProtobuf._M
       case 10: try { try decoder.decodeSingularBoolField(value: &self.canUpdateMetadata) }()
       case 11: try { try decoder.decodeSingularBoolField(value: &self.agent) }()
       case 12: try { try decoder.decodeSingularBoolField(value: &self.canSubscribeMetrics) }()
+      case 13: try { try decoder.decodeSingularBoolField(value: &self.canManageAgentSession) }()
       default: break
       }
     }
@@ -3488,6 +3606,9 @@ extension Livekit_ParticipantPermission: SwiftProtobuf.Message, SwiftProtobuf._M
     if self.canSubscribeMetrics != false {
       try visitor.visitSingularBoolField(value: self.canSubscribeMetrics, fieldNumber: 12)
     }
+    if self.canManageAgentSession != false {
+      try visitor.visitSingularBoolField(value: self.canManageAgentSession, fieldNumber: 13)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -3501,6 +3622,7 @@ extension Livekit_ParticipantPermission: SwiftProtobuf.Message, SwiftProtobuf._M
     if lhs.canUpdateMetadata != rhs.canUpdateMetadata {return false}
     if lhs.agent != rhs.agent {return false}
     if lhs.canSubscribeMetrics != rhs.canSubscribeMetrics {return false}
+    if lhs.canManageAgentSession != rhs.canManageAgentSession {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3508,7 +3630,7 @@ extension Livekit_ParticipantPermission: SwiftProtobuf.Message, SwiftProtobuf._M
 
 extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ParticipantInfo"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}sid\0\u{1}identity\0\u{1}state\0\u{1}tracks\0\u{1}metadata\0\u{3}joined_at\0\u{2}\u{3}name\0\u{1}version\0\u{1}permission\0\u{1}region\0\u{3}is_publisher\0\u{1}kind\0\u{1}attributes\0\u{3}disconnect_reason\0\u{3}joined_at_ms\0\u{3}kind_details\0\u{3}data_tracks\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}sid\0\u{1}identity\0\u{1}state\0\u{1}tracks\0\u{1}metadata\0\u{3}joined_at\0\u{2}\u{3}name\0\u{1}version\0\u{1}permission\0\u{1}region\0\u{3}is_publisher\0\u{1}kind\0\u{1}attributes\0\u{3}disconnect_reason\0\u{3}joined_at_ms\0\u{3}kind_details\0\u{3}data_tracks\0\u{3}client_protocol\0")
 
   fileprivate class _StorageClass {
     var _sid: String = String()
@@ -3528,6 +3650,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     var _disconnectReason: Livekit_DisconnectReason = .unknownReason
     var _kindDetails: [Livekit_ParticipantInfo.KindDetail] = []
     var _dataTracks: [Livekit_DataTrackInfo] = []
+    var _clientProtocol: Int32 = 0
 
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
@@ -3555,6 +3678,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       _disconnectReason = source._disconnectReason
       _kindDetails = source._kindDetails
       _dataTracks = source._dataTracks
+      _clientProtocol = source._clientProtocol
     }
   }
 
@@ -3590,6 +3714,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
         case 17: try { try decoder.decodeSingularInt64Field(value: &_storage._joinedAtMs) }()
         case 18: try { try decoder.decodeRepeatedEnumField(value: &_storage._kindDetails) }()
         case 19: try { try decoder.decodeRepeatedMessageField(value: &_storage._dataTracks) }()
+        case 20: try { try decoder.decodeSingularInt32Field(value: &_storage._clientProtocol) }()
         default: break
         }
       }
@@ -3653,6 +3778,9 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       if !_storage._dataTracks.isEmpty {
         try visitor.visitRepeatedMessageField(value: _storage._dataTracks, fieldNumber: 19)
       }
+      if _storage._clientProtocol != 0 {
+        try visitor.visitSingularInt32Field(value: _storage._clientProtocol, fieldNumber: 20)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -3679,6 +3807,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
         if _storage._disconnectReason != rhs_storage._disconnectReason {return false}
         if _storage._kindDetails != rhs_storage._kindDetails {return false}
         if _storage._dataTracks != rhs_storage._dataTracks {return false}
+        if _storage._clientProtocol != rhs_storage._clientProtocol {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -3780,7 +3909,7 @@ extension Livekit_SimulcastCodecInfo: SwiftProtobuf.Message, SwiftProtobuf._Mess
 
 extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".TrackInfo"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}sid\0\u{1}type\0\u{1}name\0\u{1}muted\0\u{1}width\0\u{1}height\0\u{1}simulcast\0\u{3}disable_dtx\0\u{1}source\0\u{1}layers\0\u{3}mime_type\0\u{1}mid\0\u{1}codecs\0\u{1}stereo\0\u{3}disable_red\0\u{1}encryption\0\u{1}stream\0\u{1}version\0\u{3}audio_features\0\u{3}backup_codec_policy\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}sid\0\u{1}type\0\u{1}name\0\u{1}muted\0\u{1}width\0\u{1}height\0\u{1}simulcast\0\u{3}disable_dtx\0\u{1}source\0\u{1}layers\0\u{3}mime_type\0\u{1}mid\0\u{1}codecs\0\u{1}stereo\0\u{3}disable_red\0\u{1}encryption\0\u{1}stream\0\u{1}version\0\u{3}audio_features\0\u{3}backup_codec_policy\0\u{3}packet_trailer_features\0")
 
   fileprivate class _StorageClass {
     var _sid: String = String()
@@ -3803,6 +3932,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     var _version: Livekit_TimedVersion? = nil
     var _audioFeatures: [Livekit_AudioTrackFeature] = []
     var _backupCodecPolicy: Livekit_BackupCodecPolicy = .preferRegression
+    var _packetTrailerFeatures: [Livekit_PacketTrailerFeature] = []
 
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
@@ -3833,6 +3963,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
       _version = source._version
       _audioFeatures = source._audioFeatures
       _backupCodecPolicy = source._backupCodecPolicy
+      _packetTrailerFeatures = source._packetTrailerFeatures
     }
   }
 
@@ -3871,6 +4002,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
         case 18: try { try decoder.decodeSingularMessageField(value: &_storage._version) }()
         case 19: try { try decoder.decodeRepeatedEnumField(value: &_storage._audioFeatures) }()
         case 20: try { try decoder.decodeSingularEnumField(value: &_storage._backupCodecPolicy) }()
+        case 21: try { try decoder.decodeRepeatedEnumField(value: &_storage._packetTrailerFeatures) }()
         default: break
         }
       }
@@ -3943,6 +4075,9 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
       if _storage._backupCodecPolicy != .preferRegression {
         try visitor.visitSingularEnumField(value: _storage._backupCodecPolicy, fieldNumber: 20)
       }
+      if !_storage._packetTrailerFeatures.isEmpty {
+        try visitor.visitPackedEnumField(value: _storage._packetTrailerFeatures, fieldNumber: 21)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -3972,6 +4107,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
         if _storage._version != rhs_storage._version {return false}
         if _storage._audioFeatures != rhs_storage._audioFeatures {return false}
         if _storage._backupCodecPolicy != rhs_storage._backupCodecPolicy {return false}
+        if _storage._packetTrailerFeatures != rhs_storage._packetTrailerFeatures {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -5049,7 +5185,7 @@ extension Livekit_ChatMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
 
 extension Livekit_RpcRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RpcRequest"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}method\0\u{1}payload\0\u{3}response_timeout_ms\0\u{1}version\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}method\0\u{1}payload\0\u{3}response_timeout_ms\0\u{1}version\0\u{3}compressed_payload\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -5062,6 +5198,7 @@ extension Livekit_RpcRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
       case 3: try { try decoder.decodeSingularStringField(value: &self.payload) }()
       case 4: try { try decoder.decodeSingularUInt32Field(value: &self.responseTimeoutMs) }()
       case 5: try { try decoder.decodeSingularUInt32Field(value: &self.version) }()
+      case 6: try { try decoder.decodeSingularBytesField(value: &self.compressedPayload) }()
       default: break
       }
     }
@@ -5083,6 +5220,9 @@ extension Livekit_RpcRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     if self.version != 0 {
       try visitor.visitSingularUInt32Field(value: self.version, fieldNumber: 5)
     }
+    if !self.compressedPayload.isEmpty {
+      try visitor.visitSingularBytesField(value: self.compressedPayload, fieldNumber: 6)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -5092,6 +5232,7 @@ extension Livekit_RpcRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     if lhs.payload != rhs.payload {return false}
     if lhs.responseTimeoutMs != rhs.responseTimeoutMs {return false}
     if lhs.version != rhs.version {return false}
+    if lhs.compressedPayload != rhs.compressedPayload {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -5129,7 +5270,7 @@ extension Livekit_RpcAck: SwiftProtobuf.Message, SwiftProtobuf._MessageImplement
 
 extension Livekit_RpcResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RpcResponse"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}request_id\0\u{1}payload\0\u{1}error\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}request_id\0\u{1}payload\0\u{1}error\0\u{3}compressed_payload\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -5159,6 +5300,14 @@ extension Livekit_RpcResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
           self.value = .error(v)
         }
       }()
+      case 4: try {
+        var v: Data?
+        try decoder.decodeSingularBytesField(value: &v)
+        if let v = v {
+          if self.value != nil {try decoder.handleConflictingOneOf()}
+          self.value = .compressedPayload(v)
+        }
+      }()
       default: break
       }
     }
@@ -5180,6 +5329,10 @@ extension Livekit_RpcResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
     case .error?: try {
       guard case .error(let v)? = self.value else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+    }()
+    case .compressedPayload?: try {
+      guard case .compressedPayload(let v)? = self.value else { preconditionFailure() }
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 4)
     }()
     case nil: break
     }
@@ -5335,7 +5488,7 @@ extension Livekit_ServerInfo.Edition: SwiftProtobuf._ProtoNameProviding {
 
 extension Livekit_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ClientInfo"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}sdk\0\u{1}version\0\u{1}protocol\0\u{1}os\0\u{3}os_version\0\u{3}device_model\0\u{1}browser\0\u{3}browser_version\0\u{1}address\0\u{1}network\0\u{3}other_sdks\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}sdk\0\u{1}version\0\u{1}protocol\0\u{1}os\0\u{3}os_version\0\u{3}device_model\0\u{1}browser\0\u{3}browser_version\0\u{1}address\0\u{1}network\0\u{3}other_sdks\0\u{3}client_protocol\0\u{1}capabilities\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -5354,6 +5507,8 @@ extension Livekit_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
       case 9: try { try decoder.decodeSingularStringField(value: &self.address) }()
       case 10: try { try decoder.decodeSingularStringField(value: &self.network) }()
       case 11: try { try decoder.decodeSingularStringField(value: &self.otherSdks) }()
+      case 12: try { try decoder.decodeSingularInt32Field(value: &self.clientProtocol) }()
+      case 13: try { try decoder.decodeRepeatedEnumField(value: &self.capabilities) }()
       default: break
       }
     }
@@ -5393,6 +5548,12 @@ extension Livekit_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     if !self.otherSdks.isEmpty {
       try visitor.visitSingularStringField(value: self.otherSdks, fieldNumber: 11)
     }
+    if self.clientProtocol != 0 {
+      try visitor.visitSingularInt32Field(value: self.clientProtocol, fieldNumber: 12)
+    }
+    if !self.capabilities.isEmpty {
+      try visitor.visitPackedEnumField(value: self.capabilities, fieldNumber: 13)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -5408,6 +5569,8 @@ extension Livekit_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     if lhs.address != rhs.address {return false}
     if lhs.network != rhs.network {return false}
     if lhs.otherSdks != rhs.otherSdks {return false}
+    if lhs.clientProtocol != rhs.clientProtocol {return false}
+    if lhs.capabilities != rhs.capabilities {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -5415,6 +5578,10 @@ extension Livekit_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
 
 extension Livekit_ClientInfo.SDK: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0UNKNOWN\0\u{1}JS\0\u{1}SWIFT\0\u{1}ANDROID\0\u{1}FLUTTER\0\u{1}GO\0\u{1}UNITY\0\u{1}REACT_NATIVE\0\u{1}RUST\0\u{1}PYTHON\0\u{1}CPP\0\u{1}UNITY_WEB\0\u{1}NODE\0\u{1}UNREAL\0\u{1}ESP32\0")
+}
+
+extension Livekit_ClientInfo.Capability: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0CAP_UNUSED\0\u{1}CAP_PACKET_TRAILER\0")
 }
 
 extension Livekit_ClientConfiguration: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
