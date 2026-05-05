@@ -25,7 +25,6 @@ internal import LiveKitWebRTC
 protocol DataChannelDelegate: AnyObject, Sendable {
     func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket)
     func dataChannel(_ dataChannelPair: DataChannelPair, didFailToDecryptDataPacket dataPacket: Livekit_DataPacket, error: LiveKitError)
-    func dataChannelDidOpen(_ dataChannelPair: DataChannelPair)
 }
 
 // swiftlint:disable:next type_body_length
@@ -283,7 +282,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         channel?.delegate = self
 
         if isOpen {
-            handleDidOpen()
+            openCompleter.resume(returning: ())
         }
     }
 
@@ -296,13 +295,8 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         channel?.delegate = self
 
         if isOpen {
-            handleDidOpen()
+            openCompleter.resume(returning: ())
         }
-    }
-
-    private func handleDidOpen() {
-        openCompleter.resume(returning: ())
-        delegates.notify { $0.dataChannelDidOpen(self) }
     }
 
     func reset() {
@@ -423,7 +417,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
 
     func dataChannelDidChangeState(_: LKRTCDataChannel) {
         if isOpen {
-            handleDidOpen()
+            openCompleter.resume(returning: ())
         }
     }
 

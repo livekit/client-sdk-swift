@@ -740,14 +740,4 @@ extension Room: DataChannelDelegate {
             $0.room?(self, didFailToDecryptDataWithEror: error)
         }
     }
-
-    func dataChannelDidOpen(_ pair: DataChannelPair) {
-        let connectPair = _state.transport?.connectDataChannelPair(
-            publisher: publisherDataChannel,
-            subscriber: subscriberDataChannel
-        )
-        if pair === connectPair {
-            connectSpan?.record("dc_open")
-        }
-    }
 }

@@ -308,6 +308,7 @@ extension Room {
             subscriber: subscriberDataChannel
         ) {
             try? await connectPair.openCompleter.wait()
+            connectSpan?.record("dc_open")
         }
     }
 
