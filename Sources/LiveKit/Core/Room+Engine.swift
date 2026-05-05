@@ -165,6 +165,7 @@ extension Room {
                 guard let self else { return }
                 log("Publisher onOffer with offerId: \(offerId), sdp: \(offer.sdp)")
                 try await signalClient.send(offer: offer, offerId: offerId)
+                connectSpan?.record("offer_sent")
             }
 
             // data over pub channel for backwards compatibility

@@ -67,7 +67,9 @@ let connectionBenchmarks: @Sendable () -> Void = {
                 let s = span.splitMilliseconds
                 let wsOpen = s["ws_open"] ?? 0
                 let joinRecv = s["signal"] ?? s["join_recv"] ?? 0
-                let answerSent = s["answer_sent"]
+                // Either side may initiate SDP — answer_sent in dual PC subscriber-primary
+                // (server-initiated offer), offer_sent in single PC / publisher-primary.
+                let sdpDispatched = s["answer_sent"] ?? s["offer_sent"]
                 let pcConnected = s["pc_connected"] ?? 0
                 let dcOpen = s["dc_open"]
 
@@ -75,8 +77,8 @@ let connectionBenchmarks: @Sendable () -> Void = {
                 benchmark.measurement(dSignal, Int(joinRecv - wsOpen))
                 benchmark.measurement(dTransport, Int(pcConnected - joinRecv))
 
-                if let answerSent {
-                    benchmark.measurement(dIceDtls, Int(pcConnected - answerSent))
+                if let sdpDispatched {
+                    benchmark.measurement(dIceDtls, Int(pcConnected - sdpDispatched))
                 }
 
                 if let dcOpen {
@@ -120,7 +122,7 @@ let connectionBenchmarks: @Sendable () -> Void = {
                 let s = span.splitMilliseconds
                 let wsOpen = s["ws_open"] ?? 0
                 let joinRecv = s["signal"] ?? s["join_recv"] ?? 0
-                let answerSent = s["answer_sent"]
+                let sdpDispatched = s["answer_sent"] ?? s["offer_sent"]
                 let pcConnected = s["pc_connected"] ?? 0
                 let dcOpen = s["dc_open"]
 
@@ -128,8 +130,8 @@ let connectionBenchmarks: @Sendable () -> Void = {
                 benchmark.measurement(dSignal, Int(joinRecv - wsOpen))
                 benchmark.measurement(dTransport, Int(pcConnected - joinRecv))
 
-                if let answerSent {
-                    benchmark.measurement(dIceDtls, Int(pcConnected - answerSent))
+                if let sdpDispatched {
+                    benchmark.measurement(dIceDtls, Int(pcConnected - sdpDispatched))
                 }
 
                 if let dcOpen {
