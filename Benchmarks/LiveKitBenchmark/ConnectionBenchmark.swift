@@ -32,19 +32,16 @@ private let dWs: BenchmarkMetric = .custom("D_WS_MS", polarity: .prefersSmaller,
 private let dSignal: BenchmarkMetric = .custom("D_SIGNAL_MS", polarity: .prefersSmaller, useScalingFactor: false)
 private let dTransport: BenchmarkMetric = .custom("D_TRANSPORT_MS", polarity: .prefersSmaller, useScalingFactor: false)
 private let dIceDtls: BenchmarkMetric = .custom("D_ICE_DTLS_MS", polarity: .prefersSmaller, useScalingFactor: false)
-// `D_DC_MS` is not collected: the SDK does not block `connect()` on data channels
-// opening, so a `dc_open` split would race with `splitMilliseconds` being read
-// here. See spec/01-connection-time.md for the spec-defined `T_DC_OPEN`.
-// private let dDc: BenchmarkMetric = .custom("D_DC_MS", polarity: .prefersSmaller, useScalingFactor: false)
+private let dDc: BenchmarkMetric = .custom("D_DC_MS", polarity: .prefersSmaller, useScalingFactor: false)
 
 let connectionBenchmarks: @Sendable () -> Void = {
     // BM-CONN-001: Dual PeerConnection, subscriber-primary (default)
     Benchmark(
         "BM-CONN-001-DualPC-SubscriberPrimary",
         configuration: .init(
-            metrics: .default + [dWs, dSignal, dTransport, dIceDtls],
+            metrics: .default + [dWs, dSignal, dTransport, dIceDtls, dDc],
             timeUnits: .milliseconds,
-            units: [dWs: .count, dSignal: .count, dTransport: .count, dIceDtls: .count],
+            units: [dWs: .count, dSignal: .count, dTransport: .count, dIceDtls: .count, dDc: .count],
             warmupIterations: 5,
             scalingFactor: .one,
             maxDuration: .seconds(300),
@@ -63,6 +60,7 @@ let connectionBenchmarks: @Sendable () -> Void = {
 
             benchmark.startMeasurement()
             try await room.connect(url: config.url, token: token)
+            try? await room.waitUntilDataChannelsOpen()
             benchmark.stopMeasurement()
 
             // Extract fine-grained timestamps from the completed connect span
@@ -74,7 +72,7 @@ let connectionBenchmarks: @Sendable () -> Void = {
                 // (server-initiated offer), offer_sent in single PC / publisher-primary.
                 let sdpDispatched = s["answer_sent"] ?? s["offer_sent"]
                 let pcConnected = s["pc_connected"] ?? 0
-                // let dcOpen = s["dc_open"]  // see note on `dDc` above
+                let dcOpen = s["dc_open"]
 
                 benchmark.measurement(dWs, Int(wsOpen))
                 benchmark.measurement(dSignal, Int(joinRecv - wsOpen))
@@ -83,7 +81,9 @@ let connectionBenchmarks: @Sendable () -> Void = {
                 if let sdpDispatched {
                     benchmark.measurement(dIceDtls, Int(pcConnected - sdpDispatched))
                 }
-                // if let dcOpen { benchmark.measurement(dDc, Int(dcOpen - pcConnected)) }
+                if let dcOpen {
+                    benchmark.measurement(dDc, Int(dcOpen - pcConnected))
+                }
             }
 
             await room.disconnect()
@@ -95,9 +95,9 @@ let connectionBenchmarks: @Sendable () -> Void = {
     Benchmark(
         "BM-CONN-003-SinglePC",
         configuration: .init(
-            metrics: .default + [dWs, dSignal, dTransport, dIceDtls],
+            metrics: .default + [dWs, dSignal, dTransport, dIceDtls, dDc],
             timeUnits: .milliseconds,
-            units: [dWs: .count, dSignal: .count, dTransport: .count, dIceDtls: .count],
+            units: [dWs: .count, dSignal: .count, dTransport: .count, dIceDtls: .count, dDc: .count],
             warmupIterations: 5,
             scalingFactor: .one,
             maxDuration: .seconds(300),
@@ -116,6 +116,7 @@ let connectionBenchmarks: @Sendable () -> Void = {
 
             benchmark.startMeasurement()
             try await room.connect(url: config.url, token: token)
+            try? await room.waitUntilDataChannelsOpen()
             benchmark.stopMeasurement()
 
             if let span = benchmarkTracer.completedSpan("connect") {
@@ -124,7 +125,7 @@ let connectionBenchmarks: @Sendable () -> Void = {
                 let joinRecv = s["signal"] ?? s["join_recv"] ?? 0
                 let sdpDispatched = s["answer_sent"] ?? s["offer_sent"]
                 let pcConnected = s["pc_connected"] ?? 0
-                // let dcOpen = s["dc_open"]  // see note on `dDc` above
+                let dcOpen = s["dc_open"]
 
                 benchmark.measurement(dWs, Int(wsOpen))
                 benchmark.measurement(dSignal, Int(joinRecv - wsOpen))
@@ -133,7 +134,9 @@ let connectionBenchmarks: @Sendable () -> Void = {
                 if let sdpDispatched {
                     benchmark.measurement(dIceDtls, Int(pcConnected - sdpDispatched))
                 }
-                // if let dcOpen { benchmark.measurement(dDc, Int(dcOpen - pcConnected)) }
+                if let dcOpen {
+                    benchmark.measurement(dDc, Int(dcOpen - pcConnected))
+                }
             }
 
             await room.disconnect()

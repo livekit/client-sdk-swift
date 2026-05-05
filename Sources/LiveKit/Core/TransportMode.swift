@@ -50,6 +50,16 @@ extension TransportMode {
         }
     }
 
+    /// The data-channel pair that opens during the connect handshake:
+    /// the publisher pair (client-created) in single PC, the subscriber pair
+    /// (server-pushed) in dual PC.
+    func connectDataChannelPair(publisher: DataChannelPair, subscriber: DataChannelPair) -> DataChannelPair {
+        switch self {
+        case .publisherOnly: publisher
+        case .subscriberPrimary, .publisherPrimary: subscriber
+        }
+    }
+
     /// All distinct transports (one in single PC, two in dual PC).
     var allTransports: [Transport] {
         switch self {
