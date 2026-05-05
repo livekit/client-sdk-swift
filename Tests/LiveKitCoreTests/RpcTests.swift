@@ -16,6 +16,7 @@
 
 import Foundation
 @testable import LiveKit
+import os.lock
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -391,41 +392,41 @@ struct RpcTests {
             let destination = Participant.Identity(from: "v2-destination")
             try await RpcTestSupport.installV2Remote(in: room, identity: destination)
 
-            let didStartStream = AsyncFlag()
-            let didSeeRpcRequestPacket = AsyncFlag()
-            let captured = CapturedStreamHeader()
+            let captured = OSAllocatedUnfairLock<Livekit_DataStream.Header?>(initialState: nil)
 
-            let mockDataChannel = MockDataChannelPair { packet in
-                if case .rpcRequest = packet.value {
-                    didSeeRpcRequestPacket.set()
-                    return
-                }
-                if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
-                    captured.set(header)
-                    Task {
-                        // Simulate handler ack and v2 response stream
-                        let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
-                        try await Task.sleep(nanoseconds: 50_000_000)
-                        await room.rpcClient.handleIncomingAck(requestId: requestId)
-                        try await Task.sleep(nanoseconds: 50_000_000)
-                        let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "v2-response")
-                        await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
+            try await confirmation("v2 stream opened on lk.rpc_request", expectedCount: 1) { didStartStream in
+                try await confirmation("no v1 RpcRequest packet sent", expectedCount: 0) { sawRpcRequest in
+                    let mockDataChannel = MockDataChannelPair { packet in
+                        if case .rpcRequest = packet.value {
+                            sawRpcRequest()
+                            return
+                        }
+                        if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
+                            captured.withLock { $0 = header }
+                            Task {
+                                // Simulate handler ack and v2 response stream
+                                let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
+                                try await Task.sleep(nanoseconds: 50_000_000)
+                                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                                try await Task.sleep(nanoseconds: 50_000_000)
+                                let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "v2-response")
+                                await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
+                            }
+                            didStartStream()
+                        }
                     }
-                    didStartStream.set()
+                    room.publisherDataChannel = mockDataChannel
+
+                    let response = try await room.localParticipant.performRpc(
+                        destinationIdentity: destination,
+                        method: "v2-method",
+                        payload: "small payload"
+                    )
+                    #expect(response == "v2-response")
                 }
             }
-            room.publisherDataChannel = mockDataChannel
 
-            let response = try await room.localParticipant.performRpc(
-                destinationIdentity: destination,
-                method: "v2-method",
-                payload: "small payload"
-            )
-            #expect(response == "v2-response")
-            #expect(await didStartStream.value == true)
-            #expect(await didSeeRpcRequestPacket.value == false)
-
-            let header = await captured.value
+            let header = captured.withLock { $0 }
             #expect(header?.topic == RpcStreamTopic.request)
             #expect(header?.attributes[RpcStreamAttribute.method] == "v2-method")
             #expect(header?.attributes[RpcStreamAttribute.version] == RPC_STREAM_VERSION)
@@ -471,43 +472,42 @@ struct RpcTests {
     /// `lk.rpc_response` (not as a `RpcResponse` packet).
     @Test func v2HandlerHappyPath() async throws {
         try await TestEnvironment.withRoom { room in
-            let didSeeStreamHeader = AsyncFlag()
-            let didSeeRpcResponsePacket = AsyncFlag()
-
-            let mockDataChannel = MockDataChannelPair { packet in
-                switch packet.value {
-                case let .streamHeader(header):
-                    if header.topic == RpcStreamTopic.response {
-                        didSeeStreamHeader.set()
+            try await confirmation("v2 stream response sent", expectedCount: 1) { sawStreamHeader in
+                try await confirmation("no v1 RpcResponse packet", expectedCount: 0) { sawRpcResponse in
+                    let mockDataChannel = MockDataChannelPair { packet in
+                        switch packet.value {
+                        case let .streamHeader(header):
+                            if header.topic == RpcStreamTopic.response {
+                                sawStreamHeader()
+                            }
+                        case .rpcResponse:
+                            sawRpcResponse()
+                        default:
+                            break
+                        }
                     }
-                case .rpcResponse:
-                    didSeeRpcResponsePacket.set()
-                default:
-                    break
+                    room.publisherDataChannel = mockDataChannel
+
+                    try await room.registerRpcMethod("greet") { data in
+                        "Hello, \(data.callerIdentity)!"
+                    }
+
+                    let reader = RpcTestSupport.makeRequestReader(
+                        requestId: "v2-req-1",
+                        method: "greet",
+                        payload: "Hi!",
+                        timeoutMs: 8000
+                    )
+                    await room.rpcServer.handleIncomingRequestStream(
+                        reader: reader,
+                        callerIdentity: Participant.Identity(from: "v2-caller")
+                    )
+
+                    // Allow async send tasks a moment to complete before the confirmation
+                    // body returns and the counts are verified.
+                    try await Task.sleep(nanoseconds: 200_000_000)
                 }
             }
-            room.publisherDataChannel = mockDataChannel
-
-            try await room.registerRpcMethod("greet") { data in
-                "Hello, \(data.callerIdentity)!"
-            }
-
-            let reader = RpcTestSupport.makeRequestReader(
-                requestId: "v2-req-1",
-                method: "greet",
-                payload: "Hi!",
-                timeoutMs: 8000
-            )
-            await room.rpcServer.handleIncomingRequestStream(
-                reader: reader,
-                callerIdentity: Participant.Identity(from: "v2-caller")
-            )
-
-            // Allow async send tasks a moment to complete
-            try await Task.sleep(nanoseconds: 200_000_000)
-
-            #expect(await didSeeStreamHeader.value == true)
-            #expect(await didSeeRpcResponsePacket.value == false)
         }
     }
 
@@ -521,42 +521,41 @@ struct RpcTests {
     /// have no size limit").
     @Test func v2HandlerCanReturnLargeResponse() async throws {
         try await TestEnvironment.withRoom { room in
-            let didSeeStreamHeader = AsyncFlag()
-            let didSeeRpcResponsePacket = AsyncFlag()
-
-            let mockDataChannel = MockDataChannelPair { packet in
-                switch packet.value {
-                case let .streamHeader(header):
-                    if header.topic == RpcStreamTopic.response {
-                        didSeeStreamHeader.set()
+            try await confirmation("v2 stream response sent for large payload", expectedCount: 1) { sawStreamHeader in
+                try await confirmation("no v1 RpcResponse packet", expectedCount: 0) { sawRpcResponse in
+                    let mockDataChannel = MockDataChannelPair { packet in
+                        switch packet.value {
+                        case let .streamHeader(header):
+                            if header.topic == RpcStreamTopic.response {
+                                sawStreamHeader()
+                            }
+                        case .rpcResponse:
+                            sawRpcResponse()
+                        default:
+                            break
+                        }
                     }
-                case .rpcResponse:
-                    didSeeRpcResponsePacket.set()
-                default:
-                    break
+                    room.publisherDataChannel = mockDataChannel
+
+                    let largePayload = String(repeating: "y", count: 20_000)
+                    try await room.registerRpcMethod("echo") { _ in largePayload }
+
+                    let reader = RpcTestSupport.makeRequestReader(
+                        requestId: "v2-req-large",
+                        method: "echo",
+                        payload: "go",
+                        timeoutMs: 8000
+                    )
+                    await room.rpcServer.handleIncomingRequestStream(
+                        reader: reader,
+                        callerIdentity: Participant.Identity(from: "v2-caller")
+                    )
+
+                    // Allow async send tasks a moment to complete before the confirmation
+                    // body returns and the counts are verified.
+                    try await Task.sleep(nanoseconds: 200_000_000)
                 }
             }
-            room.publisherDataChannel = mockDataChannel
-
-            let largePayload = String(repeating: "y", count: 20_000)
-            try await room.registerRpcMethod("echo") { _ in largePayload }
-
-            let reader = RpcTestSupport.makeRequestReader(
-                requestId: "v2-req-large",
-                method: "echo",
-                payload: "go",
-                timeoutMs: 8000
-            )
-            await room.rpcServer.handleIncomingRequestStream(
-                reader: reader,
-                callerIdentity: Participant.Identity(from: "v2-caller")
-            )
-
-            // Allow async send tasks a moment to complete.
-            try await Task.sleep(nanoseconds: 200_000_000)
-
-            #expect(await didSeeStreamHeader.value == true)
-            #expect(await didSeeRpcResponsePacket.value == false)
         }
     }
 
@@ -731,40 +730,39 @@ struct RpcTests {
             let destination = Participant.Identity(from: "v1-destination")
             try await RpcTestSupport.installV1Remote(in: room, identity: destination)
 
-            let didSeeRpcRequest = AsyncFlag()
-            let didSeeStreamHeader = AsyncFlag()
-
-            let mockDataChannel = MockDataChannelPair { packet in
-                switch packet.value {
-                case let .rpcRequest(request):
-                    if request.version == 1, request.method == "method" {
-                        didSeeRpcRequest.set()
-                        Task {
-                            try await Task.sleep(nanoseconds: 50_000_000)
-                            await room.rpcClient.handleIncomingAck(requestId: request.id)
-                            await room.rpcClient.handleIncomingResponse(
-                                requestId: request.id,
-                                payload: "v1-response",
-                                error: nil
-                            )
+            try await confirmation("v1 RpcRequest packet sent (version 1, matching method)", expectedCount: 1) { sawRpcRequest in
+                try await confirmation("no v2 stream opened", expectedCount: 0) { sawStreamHeader in
+                    let mockDataChannel = MockDataChannelPair { packet in
+                        switch packet.value {
+                        case let .rpcRequest(request):
+                            if request.version == 1, request.method == "method" {
+                                sawRpcRequest()
+                                Task {
+                                    try await Task.sleep(nanoseconds: 50_000_000)
+                                    await room.rpcClient.handleIncomingAck(requestId: request.id)
+                                    await room.rpcClient.handleIncomingResponse(
+                                        requestId: request.id,
+                                        payload: "v1-response",
+                                        error: nil
+                                    )
+                                }
+                            }
+                        case .streamHeader:
+                            sawStreamHeader()
+                        default:
+                            break
                         }
                     }
-                case .streamHeader:
-                    didSeeStreamHeader.set()
-                default:
-                    break
+                    room.publisherDataChannel = mockDataChannel
+
+                    let response = try await room.localParticipant.performRpc(
+                        destinationIdentity: destination,
+                        method: "method",
+                        payload: "x"
+                    )
+                    #expect(response == "v1-response")
                 }
             }
-            room.publisherDataChannel = mockDataChannel
-
-            let response = try await room.localParticipant.performRpc(
-                destinationIdentity: destination,
-                method: "method",
-                payload: "x"
-            )
-            #expect(response == "v1-response")
-            #expect(await didSeeRpcRequest.value == true)
-            #expect(await didSeeStreamHeader.value == false)
             #expect(await room.rpcClient.pendingCount == 0)
         }
     }
@@ -860,25 +858,6 @@ private struct RpcTestSupport {
         }
         return TextStreamReader(info: info, source: source)
     }
-}
-
-/// Simple async-safe boolean flag for cross-Task signaling in tests.
-private actor AsyncFlag {
-    private(set) var value: Bool = false
-    nonisolated func set() {
-        Task { await self._set() }
-    }
-
-    private func _set() { value = true }
-}
-
-private actor CapturedStreamHeader {
-    private(set) var value: Livekit_DataStream.Header?
-    nonisolated func set(_ header: Livekit_DataStream.Header) {
-        Task { await self._set(header) }
-    }
-
-    private func _set(_ header: Livekit_DataStream.Header) { value = header }
 }
 
 /// Async-safe append-only collector used to assert across concurrently-running tasks.
