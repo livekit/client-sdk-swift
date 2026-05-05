@@ -39,14 +39,11 @@ struct RpcTests {
                     return
                 }
 
-                // Trigger fake response packets
+                // Trigger fake response packets. Pre-registration in performRpc is
+                // synchronous on the actor before publish, so the ack/response can fire
+                // immediately without a sleep.
                 Task {
-                    try await Task.sleep(nanoseconds: 100_000_000)
-
                     await room.rpcClient.handleIncomingAck(requestId: request.id)
-
-                    try await Task.sleep(nanoseconds: 100_000_000)
-
                     await room.rpcClient.handleIncomingResponse(
                         requestId: request.id,
                         payload: "response-payload",
@@ -181,6 +178,13 @@ struct RpcTests {
             // wait for the full responseTimeout.
             room.publisherDataChannel = MockDataChannelPair { _ in }
 
+            // Use the post-publish hook to deterministically know when performRpc has
+            // pre-registered pending state, instead of polling/sleeping.
+            let registered = AsyncCompleter<Void>(label: "performRpc-registered", defaultTimeout: 5)
+            await room.rpcClient.__test_setAfterPublishHook { _ in
+                registered.resume(returning: ())
+            }
+
             let task = Task {
                 try await room.localParticipant.performRpc(
                     destinationIdentity: Participant.Identity(from: "test-destination"),
@@ -190,8 +194,7 @@ struct RpcTests {
                 )
             }
 
-            // Give performRpc time to register pending state before cancelling.
-            try await Task.sleep(nanoseconds: 100_000_000)
+            try await registered.wait()
             #expect(await room.rpcClient.pendingCount == 1)
 
             task.cancel()
@@ -200,8 +203,6 @@ struct RpcTests {
                 _ = try await task.value
             }
 
-            // Allow the deferred cleanup inside performRpc to run.
-            try await Task.sleep(nanoseconds: 100_000_000)
             #expect(await room.rpcClient.pendingCount == 0)
         }
     }
@@ -404,11 +405,8 @@ struct RpcTests {
                         if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
                             captured.withLock { $0 = header }
                             Task {
-                                // Simulate handler ack and v2 response stream
                                 let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
-                                try await Task.sleep(nanoseconds: 50_000_000)
                                 await room.rpcClient.handleIncomingAck(requestId: requestId)
-                                try await Task.sleep(nanoseconds: 50_000_000)
                                 let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "v2-response")
                                 await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
                             }
@@ -449,7 +447,6 @@ struct RpcTests {
                 if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
                     let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
                     Task {
-                        try await Task.sleep(nanoseconds: 50_000_000)
                         await room.rpcClient.handleIncomingAck(requestId: requestId)
                         let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: largePayload)
                         await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
@@ -502,10 +499,6 @@ struct RpcTests {
                         reader: reader,
                         callerIdentity: Participant.Identity(from: "v2-caller")
                     )
-
-                    // Allow async send tasks a moment to complete before the confirmation
-                    // body returns and the counts are verified.
-                    try await Task.sleep(nanoseconds: 200_000_000)
                 }
             }
         }
@@ -550,10 +543,6 @@ struct RpcTests {
                         reader: reader,
                         callerIdentity: Participant.Identity(from: "v2-caller")
                     )
-
-                    // Allow async send tasks a moment to complete before the confirmation
-                    // body returns and the counts are verified.
-                    try await Task.sleep(nanoseconds: 200_000_000)
                 }
             }
         }
@@ -654,7 +643,6 @@ struct RpcTests {
                 if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
                     let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
                     Task {
-                        try await Task.sleep(nanoseconds: 50_000_000)
                         await room.rpcClient.handleIncomingAck(requestId: requestId)
                         await room.rpcClient.handleIncomingResponse(
                             requestId: requestId,
@@ -695,7 +683,6 @@ struct RpcTests {
                 if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
                     let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
                     Task {
-                        try await Task.sleep(nanoseconds: 50_000_000)
                         await room.rpcClient.handleIncomingAck(requestId: requestId)
                         // Inject a response stream from the imposter — must be ignored.
                         let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "spoofed")
@@ -738,7 +725,6 @@ struct RpcTests {
                             if request.version == 1, request.method == "method" {
                                 sawRpcRequest()
                                 Task {
-                                    try await Task.sleep(nanoseconds: 50_000_000)
                                     await room.rpcClient.handleIncomingAck(requestId: request.id)
                                     await room.rpcClient.handleIncomingResponse(
                                         requestId: request.id,
