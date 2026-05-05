@@ -169,6 +169,14 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
         engine.detach(micMixerNode)
         engine.detach(soundPlayerNodes)
 
+        // Reset wire-up state so a subsequent engineDidCreate +
+        // engineWillConnectInput (or wireAppAudioPath() in manual mode)
+        // re-establishes the graph on the new engine instance.
+        _state.mutate {
+            $0.isInputConnected = false
+            $0.mainMixerNode = nil
+        }
+
         return nextResult ?? 0
     }
 
@@ -342,10 +350,19 @@ extension MixerEngineObserver {
 
         let buffer = converter.convert(from: inputBuffer)
 
-        let (isInputConnected, appNode) = _state.read {
+        let (initiallyConnected, appNode) = _state.read {
             ($0.isInputConnected, $0.appNode)
         }
 
+        // Manual-rendering mode never receives `engineWillConnectInput` from
+        // the WebRTC ADM (no real device), so the input graph stays unwired
+        // and every captured buffer would otherwise be dropped. Wire the
+        // path lazily on first capture; `wireAppAudioPath()` is idempotent.
+        if !initiallyConnected, let engine = appNode.engine, engine.isInManualRenderingMode {
+            wireAppAudioPath()
+        }
+
+        let isInputConnected = initiallyConnected || _state.read { $0.isInputConnected }
         guard isInputConnected, let engine = appNode.engine, engine.isRunning else {
             log("Engine is not running", .warning)
             return
@@ -356,5 +373,69 @@ extension MixerEngineObserver {
         if !appNode.isPlaying, let engine = appNode.engine, engine.isRunning {
             appNode.play()
         }
+    }
+
+    /// Wire the app-audio input chain (`appNode → appMixerNode → mainMixerNode`)
+    /// without requiring a real device input.
+    ///
+    /// The internal `engineWillConnectInput` callback only fires when the
+    /// WebRTC ADM connects a real input device, so it never runs in manual
+    /// rendering mode (no device). Without an explicit hook, the input graph
+    /// would stay disconnected and ``capture(appAudio:)`` would drop every
+    /// buffer. Server-side avatars, screen-share-without-mic, and other
+    /// custom audio sources can call this once their engine is up to enable
+    /// app-audio publishing.
+    ///
+    /// The engine is created lazily by the ADM on first recording/playout
+    /// activation, so call this after a path that triggers ``engineDidCreate``
+    /// — e.g. publishing a microphone-source track via
+    /// ``LocalParticipant/setMicrophone(enabled:captureOptions:publishOptions:)``,
+    /// or invoking ``AudioManager/startLocalRecording()`` (neither claims a
+    /// real device when manual rendering mode is on).
+    ///
+    /// In practice consumers do not need to call this method directly:
+    /// ``capture(appAudio:)`` invokes it automatically the first time it
+    /// sees an unwired manual-rendering engine.
+    ///
+    /// - Note: Idempotent. Subsequent calls return without effect once the
+    ///   path is connected. State resets on engine release so a recreated
+    ///   engine re-wires automatically.
+    /// - SeeAlso: ``AudioManager/setManualRenderingMode(_:)``,
+    ///   ``capture(appAudio:)``
+    public func wireAppAudioPath() {
+        let (appNode, appMixerNode, alreadyConnected) = _state.read {
+            ($0.appNode, $0.appMixerNode, $0.isInputConnected)
+        }
+        guard !alreadyConnected else { return }
+        guard let engine = appNode.engine else {
+            log("wireAppAudioPath: engine not yet created — call after track publication or startLocalRecording()", .warning)
+            return
+        }
+
+        let mainMixer = engine.mainMixerNode
+        let mainFormat = mainMixer.outputFormat(forBus: 0)
+
+        // AVAudioPlayerNode requires Float32; mirrors the src=nil branch in
+        // engineWillConnectInput.
+        guard let playerNodeFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: mainFormat.sampleRate,
+            channels: mainFormat.channelCount,
+            interleaved: mainFormat.isInterleaved
+        ) else {
+            log("wireAppAudioPath: failed to derive player-node format from \(mainFormat)", .error)
+            return
+        }
+
+        engine.connect(appNode, to: appMixerNode, format: playerNodeFormat)
+        engine.connect(appMixerNode, to: mainMixer, format: mainFormat)
+
+        _state.mutate {
+            $0.playerNodeFormat = playerNodeFormat
+            $0.mainMixerNode = mainMixer
+            $0.isInputConnected = true
+        }
+
+        log("wireAppAudioPath: connected appNode → appMixerNode → mainMixerNode (no-device manual mode)")
     }
 }
