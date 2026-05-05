@@ -299,6 +299,16 @@ extension Room {
 
         connectSpan?.record("engine")
         connectSpan?.record("pc_connected")
+
+        // Wait for the data channels carrying connect-time signaling so the
+        // dc_open split is recorded before `connect()` returns. Best-effort:
+        // a timeout here doesn't fail connect (the primary transport is already up).
+        if let connectPair = _state.transport?.connectDataChannelPair(
+            publisher: publisherDataChannel,
+            subscriber: subscriberDataChannel
+        ) {
+            try? await connectPair.openCompleter.wait()
+        }
     }
 
     // swiftlint:disable:next cyclomatic_complexity function_body_length
