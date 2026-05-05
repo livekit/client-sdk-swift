@@ -283,6 +283,7 @@ extension Room {
 
         // Resume after configuring transports...
         await signalClient.resumeQueues()
+        try Task.checkCancellation()
 
         // Eager publisher negotiation must run after `resumeQueues()` —
         // offers are not queueable, so sending while suspended drops them.
