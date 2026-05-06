@@ -147,7 +147,7 @@ public extension ByteStreamReader {
 
     @available(swift, obsoleted: 1.0, message: "Use readAll()")
     @objc(readAllWithCompletionHandler:)
-    func _objc_readAll() async throws -> Data { // swiftlint:disable:this public_typed_throws
+    func _objc_readAll() async throws -> Data {
         try await readAll()
     }
 
@@ -156,7 +156,7 @@ public extension ByteStreamReader {
     func _objc_writeToFile(
         in directory: URL = FileManager.default.temporaryDirectory,
         name nameOverride: String? = nil
-    ) async throws -> URL { // swiftlint:disable:this public_typed_throws
+    ) async throws -> URL {
         try await writeToFile(in: directory, name: nameOverride)
     }
 }

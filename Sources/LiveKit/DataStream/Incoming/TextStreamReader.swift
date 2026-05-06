@@ -84,7 +84,7 @@ public extension TextStreamReader {
 
     @available(swift, obsoleted: 1.0, message: "Use readAll()")
     @objc(readAllWithCompletionHandler:)
-    func _objc_readAll() async throws -> String { // swiftlint:disable:this public_typed_throws
+    func _objc_readAll() async throws -> String {
         try await readAll()
     }
 }

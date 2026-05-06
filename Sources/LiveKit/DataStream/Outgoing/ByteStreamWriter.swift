@@ -62,13 +62,13 @@ public final class ByteStreamWriter: NSObject, Sendable {
 
     @available(swift, obsoleted: 1.0, message: "Use write(_:)")
     @objc(write:completionHandler:)
-    public func _objc_write(_ data: Data) async throws { // swiftlint:disable:this public_typed_throws
+    public func _objc_write(_ data: Data) async throws {
         try await write(data)
     }
 
     @available(swift, obsoleted: 1.0, message: "Use close(reason:)")
     @objc(closeWithReason:completionHandler:)
-    public func _objc_close(reason: String? = nil) async throws { // swiftlint:disable:this public_typed_throws
+    public func _objc_close(reason: String? = nil) async throws {
         try await close(reason: reason)
     }
 

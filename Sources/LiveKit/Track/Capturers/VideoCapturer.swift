@@ -205,21 +205,21 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
     @available(swift, obsoleted: 1.0, message: "Use startCapture()")
     @objc(startCaptureWithCompletionHandler:)
     @discardableResult
-    public func _objc_startCapture() async throws -> Bool { // swiftlint:disable:this public_typed_throws
+    public func _objc_startCapture() async throws -> Bool {
         try await startCapture()
     }
 
     @available(swift, obsoleted: 1.0, message: "Use stopCapture()")
     @objc(stopCaptureWithCompletionHandler:)
     @discardableResult
-    public func _objc_stopCapture() async throws -> Bool { // swiftlint:disable:this public_typed_throws
+    public func _objc_stopCapture() async throws -> Bool {
         try await stopCapture()
     }
 
     @available(swift, obsoleted: 1.0, message: "Use restartCapture()")
     @objc(restartCaptureWithCompletionHandler:)
     @discardableResult
-    public func _objc_restartCapture() async throws -> Bool { // swiftlint:disable:this public_typed_throws
+    public func _objc_restartCapture() async throws -> Bool {
         try await restartCapture()
     }
 }

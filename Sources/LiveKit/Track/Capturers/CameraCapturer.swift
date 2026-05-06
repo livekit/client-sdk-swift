@@ -321,34 +321,34 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
 
     @available(swift, obsoleted: 1.0, message: "Use captureDevices()")
     @objc(captureDevicesWithCompletionHandler:)
-    public static func _objc_captureDevices() async throws -> [AVCaptureDevice] { // swiftlint:disable:this public_typed_throws
+    public static func _objc_captureDevices() async throws -> [AVCaptureDevice] {
         try await captureDevices()
     }
 
     @available(swift, obsoleted: 1.0, message: "Use canSwitchPosition()")
     @objc(canSwitchPositionWithCompletionHandler:)
-    public static func _objc_canSwitchPosition() async throws -> Bool { // swiftlint:disable:this public_typed_throws
+    public static func _objc_canSwitchPosition() async throws -> Bool {
         try await canSwitchPosition()
     }
 
     @available(swift, obsoleted: 1.0, message: "Use switchCameraPosition()")
     @objc(switchCameraPositionWithCompletionHandler:)
     @discardableResult
-    public func _objc_switchCameraPosition() async throws -> Bool { // swiftlint:disable:this public_typed_throws
+    public func _objc_switchCameraPosition() async throws -> Bool {
         try await switchCameraPosition()
     }
 
     @available(swift, obsoleted: 1.0, message: "Use set(cameraPosition:)")
     @objc(setCameraPosition:completionHandler:)
     @discardableResult
-    public func _objc_set(cameraPosition position: AVCaptureDevice.Position) async throws -> Bool { // swiftlint:disable:this public_typed_throws
+    public func _objc_set(cameraPosition position: AVCaptureDevice.Position) async throws -> Bool {
         try await set(cameraPosition: position)
     }
 
     @available(swift, obsoleted: 1.0, message: "Use set(options:)")
     @objc(setOptions:completionHandler:)
     @discardableResult
-    public func _objc_set(options newOptions: CameraCaptureOptions) async throws -> Bool { // swiftlint:disable:this public_typed_throws
+    public func _objc_set(options newOptions: CameraCaptureOptions) async throws -> Bool {
         try await set(options: newOptions)
     }
 }

@@ -490,7 +490,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     /// -connectWithUrl:token:connectOptions:roomOptions:completionHandler: in Obj-C.
     /// @objc forbids typed throws, so this stays untyped.
     @available(swift, obsoleted: 1.0, message: "Use connect(url:token:connectOptions:roomOptions:)")
-    @objc(connectWithUrl:token:connectOptions:roomOptions:completionHandler:) // swiftlint:disable:next public_typed_throws
+    @objc(connectWithUrl:token:connectOptions:roomOptions:completionHandler:)
     public func _objc_connect(url urlString: String,
                               token: String,
                               connectOptions: ConnectOptions? = nil,

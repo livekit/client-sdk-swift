@@ -42,7 +42,11 @@ custom_rules:
     severity: warning
   public_typed_throws:
     name: "Public typed throws"
-    regex: "^\\s*(@\\w+(\\([^)]*\\))?\\s+)*(?:(?:static|class|final|override|convenience|nonisolated)\\s+)*(open|public)\\s+(?:(?:static|class|final|override|convenience|nonisolated)\\s+)*func\\s+\\w+(?:<[^>]*>)?\\s*\\((?:[^()]|\\([^()]*\\))*\\)\\s*(async\\s+)?\\bthrows\\b(?!\\s*\\()"
+    # `func\s+(?!_objc_)\w+` skips Obj-C-only bridge shims, which by
+    # convention are named `_objc_*` and are hidden from Swift via
+    # `@available(swift, obsoleted: 1.0)`. Typed throws is a Swift-side
+    # concern, so those shims are exempt.
+    regex: "^\\s*(@\\w+(\\([^)]*\\))?\\s+)*(?:(?:static|class|final|override|convenience|nonisolated)\\s+)*(open|public)\\s+(?:(?:static|class|final|override|convenience|nonisolated)\\s+)*func\\s+(?!_objc_)\\w+(?:<[^>]*>)?\\s*\\((?:[^()]|\\([^()]*\\))*\\)\\s*(async\\s+)?\\bthrows\\b(?!\\s*\\()"
     message: "Public throwing methods should declare a typed throws clause (e.g. `throws(LiveKitError)`). Suppress with // swiftlint:disable:next public_typed_throws if propagation is unbounded; include a one-line comment explaining why."
     severity: error
     included:
