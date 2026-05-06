@@ -621,7 +621,7 @@ struct RpcTests {
             // Do nothing in response — let the connection timeout (7s max round-trip) fire
             room.publisherDataChannel = MockDataChannelPair { _ in }
 
-            await #expect(throws: RpcError.self) {
+            let error = await #expect(throws: RpcError.self) {
                 _ = try await room.localParticipant.performRpc(
                     destinationIdentity: destination,
                     method: "method",
@@ -629,6 +629,8 @@ struct RpcTests {
                     responseTimeout: 0.05
                 )
             }
+            #expect(error?.code == RpcError.BuiltInError.connectionTimeout.code)
+
             #expect(await room.rpcClient.pendingCount == 0)
         }
     }
