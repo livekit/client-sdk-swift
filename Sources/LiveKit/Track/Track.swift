@@ -219,7 +219,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
     // Intended for child class to override
     func stopCapture() async throws {}
 
-    public final func start() async throws {
+    public final func start() async throws(LiveKitError) {
         try await _startStopSerialRunner.run { [weak self] in
             guard let self else { return }
             guard _state.trackState != .started else {
@@ -227,12 +227,12 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
                 return
             }
             try await startCapture()
-            if self is RemoteTrack { try await enable() }
+            if self is RemoteTrack { enable() }
             _state.mutate { $0.trackState = .started }
         }
     }
 
-    public final func stop() async throws {
+    public final func stop() async throws(LiveKitError) {
         try await _startStopSerialRunner.run { [weak self] in
             guard let self else { return }
             guard _state.trackState != .stopped else {
@@ -240,14 +240,14 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
                 return
             }
             try await stopCapture()
-            if self is RemoteTrack { try await disable() }
+            if self is RemoteTrack { disable() }
             _state.mutate { $0.trackState = .stopped }
         }
     }
 
     // Returns true if didEnable
     @discardableResult
-    func enable() async throws -> Bool {
+    func enable() -> Bool {
         guard !mediaTrack.isEnabled else { return false }
         mediaTrack.isEnabled = true
         return true
@@ -255,7 +255,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
 
     // Returns true if didDisable
     @discardableResult
-    func disable() async throws -> Bool {
+    func disable() -> Bool {
         guard mediaTrack.isEnabled else { return false }
         mediaTrack.isEnabled = false
         return true
@@ -335,10 +335,10 @@ extension Track {
     // workaround for error:
     // @objc can only be used with members of classes, @objc protocols, and concrete extensions of classes
     //
-    func _mute() async throws {
+    func _mute() async throws(LiveKitError) {
         // LocalTrack only, already muted
         guard self is LocalTrack, !isMuted else { return }
-        try await disable() // Disable track first
+        disable() // Disable track first
         // Only stop if VideoTrack
         if self is LocalVideoTrack {
             try await stop()
@@ -346,14 +346,14 @@ extension Track {
         set(muted: true, shouldSendSignal: true)
     }
 
-    func _unmute() async throws {
+    func _unmute() async throws(LiveKitError) {
         // LocalTrack only, already un-muted
         guard self is LocalTrack, isMuted else { return }
         // Only start if VideoTrack
         if self is LocalVideoTrack {
             try await start()
         }
-        try await enable() // Enable track
+        enable() // Enable track
         set(muted: false, shouldSendSignal: true)
     }
 }
