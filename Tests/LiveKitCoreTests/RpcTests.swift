@@ -457,7 +457,7 @@ struct RpcTests {
                 method: "echo",
                 payload: largePayload
             )
-            #expect(response.count == largePayload.count)
+            #expect(response == largePayload)
             #expect(await room.rpcClient.pendingCount == 0)
         }
     }
