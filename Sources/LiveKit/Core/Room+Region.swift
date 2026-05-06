@@ -54,7 +54,10 @@ extension Room {
     //
     // With LiveKit Cloud, it will also determine the best edge data center for
     // the current client to connect to if a token is provided.
-    public func prepareConnection(url providedUrlString: String, token: String? = nil) async throws {
+    public func prepareConnection(url providedUrlString: String, token: String? = nil) async throws(LiveKitError) {
+        // Obj-C interop: prepareConnection isn't tested via Obj-C tests today,
+        // but keep this in mind: typed throws on @objcMembers async methods
+        // strips the Obj-C completion-handler bridge.
         // Must be in disconnected state.
         guard _state.connectionState == .disconnected else {
             throw LiveKitError(.stateMismatch, message: "Cannot prepare connection when in state \(_state.connectionState)")

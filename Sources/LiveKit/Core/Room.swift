@@ -323,7 +323,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
     }
 
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    // Obj-C interop: this method is bridged to
+    // -connectWithUrl:token:connectOptions:roomOptions:completionHandler: via
+    // @objcMembers. Typed throws would silently strip the bridge, breaking
+    // Obj-C call sites — keep untyped throws here.
+    // swiftlint:disable:next cyclomatic_complexity function_body_length public_typed_throws
     public func connect(url urlString: String,
                         token: String,
                         connectOptions: ConnectOptions? = nil,
