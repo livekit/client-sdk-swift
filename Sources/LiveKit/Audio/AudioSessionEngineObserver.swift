@@ -95,6 +95,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         }
     }
 
+    // Forwards untyped AVAudioSession errors alongside LiveKitError(.audioSession).
     /// Acquires an audio session requirement handle for external ownership.
     ///
     /// Use this to keep the audio session active from external components
@@ -102,9 +103,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     /// of the WebRTC engine lifecycle.
     ///
     /// - Throws: ``LiveKitError`` if the audio session fails to configure or activate.
-    // Forwards untyped AVAudioSession errors alongside LiveKitError(.audioSession).
-    // swiftlint:disable:next public_typed_throws
-    public func acquire(requirement: SessionRequirement) throws -> SessionRequirementHandle {
+    public func acquire(requirement: SessionRequirement) throws -> SessionRequirementHandle { // swiftlint:disable:this public_typed_throws
         let id = UUID()
         try set(requirement: requirement, for: id)
         return SessionRequirementHandle(releaseImpl: { [weak self] in

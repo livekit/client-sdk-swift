@@ -84,10 +84,9 @@ public struct SoundPlaybackOptions: Sendable {
 public struct SoundHandle: Hashable, Sendable {
     let id: UUID
 
-    /// Plays this prepared sound with the provided options.
     // Forwards untyped AVAudioEngine errors.
-    // swiftlint:disable:next public_typed_throws
-    public func play(options: SoundPlaybackOptions = SoundPlaybackOptions()) async throws {
+    /// Plays this prepared sound with the provided options.
+    public func play(options: SoundPlaybackOptions = SoundPlaybackOptions()) async throws { // swiftlint:disable:this public_typed_throws
         try await SoundPlayer.shared.play(self, options: options)
     }
 

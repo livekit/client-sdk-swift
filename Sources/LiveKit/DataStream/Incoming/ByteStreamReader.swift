@@ -29,15 +29,14 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
         self.source = source
     }
 
+    // Propagates StreamError from the data-stream pipeline (intentionally untyped).
     /// Reads incoming chunks from the byte stream, concatenating them into a single data object which is returned
     /// once the stream closes normally.
     ///
     /// - Returns: The data consisting of all concatenated chunks.
     /// - Throws: ``StreamError`` if an error occurs while reading the stream.
     ///
-    // Propagates StreamError from the data-stream pipeline (intentionally untyped).
-    // swiftlint:disable:next public_typed_throws
-    public func readAll() async throws -> Data {
+    public func readAll() async throws -> Data { // swiftlint:disable:this public_typed_throws
         try await source.collect()
     }
 
@@ -56,6 +55,7 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
 }
 
 extension ByteStreamReader {
+    // Propagates StreamError + AsyncFileStream.Error during file writes (intentionally untyped).
     /// Reads incoming chunks from the byte stream, writing them to a file as they are received.
     ///
     /// - Parameters:
@@ -65,9 +65,7 @@ extension ByteStreamReader {
     /// - Returns: The URL of the written file on disk.
     /// - Throws: ``StreamError`` if an error occurs while reading the stream.
     ///
-    // Propagates StreamError + AsyncFileStream.Error during file writes (intentionally untyped).
-    // swiftlint:disable:next public_typed_throws
-    public func writeToFile(
+    public func writeToFile( // swiftlint:disable:this public_typed_throws
         in directory: URL = FileManager.default.temporaryDirectory,
         name nameOverride: String? = nil
     ) async throws -> URL {

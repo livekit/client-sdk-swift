@@ -35,9 +35,8 @@ public final class ByteStreamWriter: NSObject, Sendable {
     /// - Throws: Throws an error if the stream has been closed or data
     ///   cannot be sent to remote participants.
     ///
-    // Propagates StreamError from the outgoing data-stream pipeline (intentionally untyped).
-    // swiftlint:disable:next public_typed_throws
-    public func write(_ data: Data) async throws {
+    /// - Note: Propagates StreamError from the outgoing data-stream pipeline (intentionally untyped).
+    public func write(_ data: Data) async throws { // swiftlint:disable:this public_typed_throws
         try await destination.write(data)
     }
 
@@ -48,9 +47,8 @@ public final class ByteStreamWriter: NSObject, Sendable {
     /// - Throws: Throws an error if the stream has already been closed or closure
     ///   cannot be communicated to remote participants.
     ///
-    // Propagates StreamError from the outgoing data-stream pipeline (intentionally untyped).
-    // swiftlint:disable:next public_typed_throws
-    public func close(reason: String? = nil) async throws {
+    /// - Note: Propagates StreamError from the outgoing data-stream pipeline (intentionally untyped).
+    public func close(reason: String? = nil) async throws { // swiftlint:disable:this public_typed_throws
         try await destination.close(reason: reason)
     }
 

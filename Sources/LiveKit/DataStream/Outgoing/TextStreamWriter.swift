@@ -29,18 +29,18 @@ public final class TextStreamWriter: NSObject, Sendable {
         get async { await destination.isOpen }
     }
 
+    // Propagates StreamError from the outgoing data-stream pipeline (intentionally untyped).
     /// Write text to the stream.
     ///
     /// - Parameter text: Text to be sent.
     /// - Throws: Throws an error if the stream has been closed or text
     ///   cannot be sent to remote participants.
     ///
-    // Propagates StreamError from the outgoing data-stream pipeline (intentionally untyped).
-    // swiftlint:disable:next public_typed_throws
-    public func write(_ text: String) async throws {
+    public func write(_ text: String) async throws { // swiftlint:disable:this public_typed_throws
         try await destination.write(text)
     }
 
+    // Propagates StreamError from the outgoing data-stream pipeline (intentionally untyped).
     /// Close the stream.
     ///
     /// - Parameter reason: A textual description of why the stream is being closed. Absense
@@ -48,9 +48,7 @@ public final class TextStreamWriter: NSObject, Sendable {
     /// - Throws: Throws an error if the stream has already been closed or closure
     ///   cannot be communicated to remote participants.
     ///
-    // Propagates StreamError from the outgoing data-stream pipeline (intentionally untyped).
-    // swiftlint:disable:next public_typed_throws
-    public func close(reason: String? = nil) async throws {
+    public func close(reason: String? = nil) async throws { // swiftlint:disable:this public_typed_throws
         try await destination.close(reason: reason)
     }
 
