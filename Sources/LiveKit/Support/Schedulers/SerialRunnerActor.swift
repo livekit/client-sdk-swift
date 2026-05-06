@@ -19,7 +19,7 @@ import Foundation
 actor SerialRunnerActor<Value: Sendable> {
     private var previousTask: Task<Value, Error>?
 
-    func run(block: @Sendable @escaping () async throws -> Value) async throws -> Value {
+    func run(block: @Sendable @escaping () async throws -> Value) async throws(LiveKitError) -> Value {
         let task = Task { [previousTask] in
             // Always wait for the previous task to maintain serial ordering
             if let previousTask {
@@ -36,12 +36,20 @@ actor SerialRunnerActor<Value: Sendable> {
 
         previousTask = task
 
-        return try await withTaskCancellationHandler {
-            // Await the current task's result
-            try await task.value
-        } onCancel: {
-            // Ensure the task is canceled when requested
-            task.cancel()
+        do {
+            return try await withTaskCancellationHandler {
+                // Await the current task's result
+                try await task.value
+            } onCancel: {
+                // Ensure the task is canceled when requested
+                task.cancel()
+            }
+        } catch let error as LiveKitError {
+            throw error
+        } catch {
+            // Convert non-LK errors (block throws, CancellationError from Task system)
+            // into LiveKitError so callers see a single typed error.
+            throw LiveKitError.from(error: error) ?? LiveKitError(.unknown, internalError: error)
         }
     }
 }
