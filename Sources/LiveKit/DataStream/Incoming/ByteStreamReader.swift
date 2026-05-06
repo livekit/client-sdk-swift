@@ -29,15 +29,19 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
         self.source = source
     }
 
-    // Propagates StreamError from the data-stream pipeline (intentionally untyped).
     /// Reads incoming chunks from the byte stream, concatenating them into a single data object which is returned
     /// once the stream closes normally.
     ///
     /// - Returns: The data consisting of all concatenated chunks.
-    /// - Throws: ``StreamError`` if an error occurs while reading the stream.
-    ///
-    public func readAll() async throws -> Data { // swiftlint:disable:this public_typed_throws
-        try await source.collect()
+    /// - Throws: ``LiveKitError`` (`.dataStream`) wrapping the underlying `StreamError`
+    ///   if an error occurs while reading the stream.
+    @nonobjc
+    public func readAll() async throws(LiveKitError) -> Data {
+        do {
+            return try await source.collect()
+        } catch {
+            throw LiveKitError(from: error)
+        }
     }
 
     /// An asynchronous iterator of incoming chunks.
@@ -55,7 +59,6 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
 }
 
 extension ByteStreamReader {
-    // Propagates StreamError + AsyncFileStream.Error during file writes (intentionally untyped).
     /// Reads incoming chunks from the byte stream, writing them to a file as they are received.
     ///
     /// - Parameters:
@@ -63,14 +66,15 @@ extension ByteStreamReader {
     ///   - nameOverride: The name to use for the written file. If not specified, file name and extension will be automatically
     ///                   inferred from the stream information.
     /// - Returns: The URL of the written file on disk.
-    /// - Throws: ``StreamError`` if an error occurs while reading the stream.
-    ///
-    public func writeToFile( // swiftlint:disable:this public_typed_throws
+    /// - Throws: ``LiveKitError`` (`.dataStream`) wrapping the underlying `StreamError`
+    ///   or `AsyncFileStream.Error` if an error occurs while reading the stream or writing to disk.
+    @nonobjc
+    public func writeToFile(
         in directory: URL = FileManager.default.temporaryDirectory,
         name nameOverride: String? = nil
-    ) async throws -> URL {
+    ) async throws(LiveKitError) -> URL {
         guard directory.hasDirectoryPath else {
-            throw StreamError.notDirectory
+            throw LiveKitError(.dataStream, internalError: StreamError.notDirectory)
         }
         let fileName = Self.resolveFileName(
             preferredName: nameOverride ?? info.name,
@@ -79,14 +83,18 @@ extension ByteStreamReader {
         )
         let fileURL = directory.appendingPathComponent(fileName)
 
-        try await Task {
-            let writer = try AsyncFileStream(writingTo: fileURL)
-            defer { writer.close() }
+        do {
+            try await Task {
+                let writer = try AsyncFileStream(writingTo: fileURL)
+                defer { writer.close() }
 
-            for try await chunk in self {
-                try await writer.write(chunk)
-            }
-        }.value
+                for try await chunk in self {
+                    try await writer.write(chunk)
+                }
+            }.value
+        } catch {
+            throw LiveKitError(from: error)
+        }
 
         return fileURL
     }
@@ -135,5 +143,20 @@ public extension ByteStreamReader {
                 onCompletion?(error)
             }
         }
+    }
+
+    @available(swift, obsoleted: 1.0, message: "Use readAll()")
+    @objc(readAllWithCompletionHandler:)
+    func _objc_readAll() async throws -> Data { // swiftlint:disable:this public_typed_throws
+        try await readAll()
+    }
+
+    @available(swift, obsoleted: 1.0, message: "Use writeToFile(in:name:)")
+    @objc(writeToFileInDirectory:name:completionHandler:)
+    func _objc_writeToFile(
+        in directory: URL = FileManager.default.temporaryDirectory,
+        name nameOverride: String? = nil
+    ) async throws -> URL { // swiftlint:disable:this public_typed_throws
+        try await writeToFile(in: directory, name: nameOverride)
     }
 }

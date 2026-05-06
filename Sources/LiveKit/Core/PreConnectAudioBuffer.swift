@@ -118,13 +118,12 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         }
     }
 
-    // Propagates StreamError from outgoing data-stream APIs (untyped by design).
     /// Send the audio data to the room.
     /// - Parameters:
     ///   - room: The room instance to send the audio data.
     ///   - agents: The agents to send the audio data to.
     ///   - topic: The topic to send the audio data.
-    public func sendAudioData(to room: Room, agents: [Participant.Identity], on topic: String = dataTopic) async throws { // swiftlint:disable:this public_typed_throws
+    public func sendAudioData(to room: Room, agents: [Participant.Identity], on topic: String = dataTopic) async throws(LiveKitError) {
         guard !agents.isEmpty else { return }
 
         guard !state.sent else { return }
@@ -147,19 +146,27 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
             ],
             destinationIdentities: agents
         )
-        let writer = try await room.localParticipant.streamBytes(options: streamOptions)
 
-        var sentSize = 0
-        for await chunk in audioStream {
-            do {
-                try await writer.write(chunk)
-            } catch {
-                try await writer.close(reason: error.localizedDescription)
-                throw error
+        let sentSize: Int
+        do {
+            let writer = try await room.localParticipant.streamBytes(options: streamOptions)
+
+            var size = 0
+            for await chunk in audioStream {
+                do {
+                    try await writer.write(chunk)
+                } catch {
+                    try? await writer.close(reason: error.localizedDescription)
+                    throw error
+                }
+                size += chunk.count
             }
-            sentSize += chunk.count
+            try await writer.close()
+            sentSize = size
+        } catch {
+            // Wrap StreamError (or any other) as LiveKitError(.dataStream).
+            throw LiveKitError(from: error)
         }
-        try await writer.close()
 
         log("Sent \(recorder.duration(sentSize))s = \(sentSize / 1024)KB of audio data to \(agents.count) agent(s) \(agents)", .info)
     }

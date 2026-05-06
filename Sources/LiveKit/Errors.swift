@@ -68,6 +68,9 @@ public enum LiveKitErrorType: Int, Sendable {
     // LiveKit Cloud
     case onlyForCloud = 1101
     case regionManager = 1102
+
+    // Data streams
+    case dataStream = 1201
 }
 
 extension LiveKitErrorType: CustomStringConvertible {
@@ -131,6 +134,8 @@ extension LiveKitErrorType: CustomStringConvertible {
             "Only for LiveKit Cloud"
         case .regionManager:
             "Region manager error"
+        case .dataStream:
+            "Data stream error"
         default: "Unknown"
         }
     }
@@ -186,7 +191,8 @@ public extension LiveKitError {
     /// Wraps any `Error` as a `LiveKitError`. Pass-through for an existing
     /// `LiveKitError` (its type/message/internalError are forwarded);
     /// `CancellationError` becomes `.cancelled`; network errors become
-    /// `.network`; everything else becomes `.unknown` with `internalError` set.
+    /// `.network`; `StreamError` becomes `.dataStream`; everything else
+    /// becomes `.unknown` with `internalError` set.
     ///
     /// Designed for `throws(LiveKitError)` boundary catches:
     /// ```swift
@@ -205,6 +211,10 @@ public extension LiveKitError {
         }
         if error.isNetworkError {
             self.init(.network, internalError: error)
+            return
+        }
+        if error is StreamError {
+            self.init(.dataStream, internalError: error)
             return
         }
         self.init(.unknown, internalError: error)

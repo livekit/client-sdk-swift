@@ -32,24 +32,44 @@ public final class ByteStreamWriter: NSObject, Sendable {
     /// Write data to the stream.
     ///
     /// - Parameter data: Data to be sent.
-    /// - Throws: Throws an error if the stream has been closed or data
-    ///   cannot be sent to remote participants.
-    ///
-    /// - Note: Propagates StreamError from the outgoing data-stream pipeline (intentionally untyped).
-    public func write(_ data: Data) async throws { // swiftlint:disable:this public_typed_throws
-        try await destination.write(data)
+    /// - Throws: ``LiveKitError`` (`.dataStream`) wrapping the underlying `StreamError`
+    ///   if the stream has been closed or data cannot be sent to remote participants.
+    @nonobjc
+    public func write(_ data: Data) async throws(LiveKitError) {
+        do {
+            try await destination.write(data)
+        } catch {
+            throw LiveKitError(from: error)
+        }
     }
 
     /// Close the stream.
     ///
     /// - Parameter reason: A textual description of why the stream is being closed. Absense
     ///   of a reason indicates a normal closure.
-    /// - Throws: Throws an error if the stream has already been closed or closure
-    ///   cannot be communicated to remote participants.
-    ///
-    /// - Note: Propagates StreamError from the outgoing data-stream pipeline (intentionally untyped).
-    public func close(reason: String? = nil) async throws { // swiftlint:disable:this public_typed_throws
-        try await destination.close(reason: reason)
+    /// - Throws: ``LiveKitError`` (`.dataStream`) wrapping the underlying `StreamError`
+    ///   if the stream has already been closed or closure cannot be communicated to remote participants.
+    @nonobjc
+    public func close(reason: String? = nil) async throws(LiveKitError) {
+        do {
+            try await destination.close(reason: reason)
+        } catch {
+            throw LiveKitError(from: error)
+        }
+    }
+
+    // MARK: - Obj-C bridges
+
+    @available(swift, obsoleted: 1.0, message: "Use write(_:)")
+    @objc(write:completionHandler:)
+    public func _objc_write(_ data: Data) async throws { // swiftlint:disable:this public_typed_throws
+        try await write(data)
+    }
+
+    @available(swift, obsoleted: 1.0, message: "Use close(reason:)")
+    @objc(closeWithReason:completionHandler:)
+    public func _objc_close(reason: String? = nil) async throws { // swiftlint:disable:this public_typed_throws
+        try await close(reason: reason)
     }
 
     init(info: ByteStreamInfo, destination: StreamWriterDestination) {
