@@ -39,7 +39,7 @@ struct RemoteParticipantTests {
             let disconnected = try #require(rooms[0].remoteParticipants.values.first)
             disconnected.set(info: .init(), connectionState: .disconnected)
 
-            await #expect(throws: (any Error).self) { try await disconnected.waitUntilActive(timeout: self.timeout) }
+            await #expect(throws: LiveKitError.self) { try await disconnected.waitUntilActive(timeout: self.timeout) }
         }
     }
 

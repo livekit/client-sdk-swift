@@ -36,7 +36,7 @@ import LiveKitTestSupport
         AudioManager.shared.set(engineObservers: [])
 
         // Attempt to start, should fail
-        #expect(throws: (any Error).self) { try AudioManager.shared.startLocalRecording() }
+        #expect(throws: LiveKitError.self) { try AudioManager.shared.startLocalRecording() }
         #expect(!AudioManager.shared.isEngineRunning)
 
         // Set audio session engine observers

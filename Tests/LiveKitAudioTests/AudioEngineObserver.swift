@@ -62,7 +62,7 @@ final class TestEngineObserver: AudioEngineObserver, @unchecked Sendable {
         testObserver.shouldSucceed = false
 
         // Stop
-        #expect(throws: (any Error).self) { try AudioManager.shared.stopLocalRecording() }
+        #expect(throws: LiveKitError.self) { try AudioManager.shared.stopLocalRecording() }
         #expect(!AudioManager.shared.isEngineRunning)
 
         testObserver.shouldSucceed = true
@@ -73,7 +73,7 @@ final class TestEngineObserver: AudioEngineObserver, @unchecked Sendable {
         testObserver.shouldSucceed = false
 
         // Attempt to start, should fail
-        #expect(throws: (any Error).self) { try AudioManager.shared.startLocalRecording() }
+        #expect(throws: LiveKitError.self) { try AudioManager.shared.startLocalRecording() }
         #expect(!AudioManager.shared.isEngineRunning)
 
         // Switch to manual mode
