@@ -44,12 +44,10 @@ actor SerialRunnerActor<Value: Sendable> {
                 // Ensure the task is canceled when requested
                 task.cancel()
             }
-        } catch let error as LiveKitError {
-            throw error
         } catch {
             // Convert non-LK errors (block throws, CancellationError from Task system)
             // into LiveKitError so callers see a single typed error.
-            throw LiveKitError.from(error: error) ?? LiveKitError(.unknown, internalError: error)
+            throw LiveKitError(from: error)
         }
     }
 }

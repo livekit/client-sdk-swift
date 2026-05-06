@@ -182,23 +182,39 @@ public class LiveKitError: NSError, @unchecked Sendable, Loggable {
     }
 }
 
+public extension LiveKitError {
+    /// Wraps any `Error` as a `LiveKitError`. Pass-through for an existing
+    /// `LiveKitError` (its type/message/internalError are forwarded);
+    /// `CancellationError` becomes `.cancelled`; network errors become
+    /// `.network`; everything else becomes `.unknown` with `internalError` set.
+    ///
+    /// Designed for `throws(LiveKitError)` boundary catches:
+    /// ```swift
+    /// } catch {
+    ///     throw LiveKitError(from: error)
+    /// }
+    /// ```
+    convenience init(from error: any Error) {
+        if let lk = error as? LiveKitError {
+            self.init(lk.type, message: lk.message, internalError: lk.internalError)
+            return
+        }
+        if error is CancellationError {
+            self.init(.cancelled)
+            return
+        }
+        if error.isNetworkError {
+            self.init(.network, internalError: error)
+            return
+        }
+        self.init(.unknown, internalError: error)
+    }
+}
+
 extension LiveKitError {
     static func from(error: Error?) -> LiveKitError? {
         guard let error else { return nil }
-        if let error = error as? LiveKitError {
-            return error
-        }
-
-        if error is CancellationError {
-            return LiveKitError(.cancelled)
-        }
-
-        if error.isNetworkError {
-            return LiveKitError(.network, internalError: error)
-        }
-
-        log("Uncategorized error for: \(String(describing: error))")
-        return LiveKitError(.unknown)
+        return LiveKitError(from: error)
     }
 
     static func from(reason: Livekit_DisconnectReason) -> LiveKitError {

@@ -171,7 +171,7 @@ actor SignalClient: Loggable {
 
             let connectResponse = try await _connectResponseCompleter.wait()
             // Check cancellation after received join response
-            try Task.checkCancellation()
+            try checkCancellation()
 
             // Successfully connected
             _state.mutate {
@@ -181,10 +181,10 @@ actor SignalClient: Loggable {
 
             return connectResponse
         } catch let connectionError {
-            // Skip validation if user cancelled
+            // Skip validation if user cancelled (wrap as LiveKitError(.cancelled)).
             if connectionError is CancellationError {
                 await cleanUp(withError: connectionError)
-                throw connectionError
+                throw LiveKitError(.cancelled)
             }
 
             // Skip validation if reconnect mode

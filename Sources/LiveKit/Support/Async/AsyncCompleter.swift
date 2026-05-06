@@ -200,11 +200,9 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
                     self._entries.removeValue(forKey: entryId)
                 }
             }
-        } catch let error as LiveKitError {
-            throw error
         } catch {
             // All internal resume paths use LiveKitError; this is a safety net.
-            throw LiveKitError.from(error: error) ?? LiveKitError(.unknown)
+            throw LiveKitError(from: error)
         }
     }
 }

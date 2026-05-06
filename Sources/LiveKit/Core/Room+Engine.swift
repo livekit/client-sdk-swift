@@ -274,7 +274,7 @@ extension Room {
         }
 
         // Check cancellation after WebSocket connected
-        try Task.checkCancellation()
+        try checkCancellation()
 
         connectSpan?.record("signal")
         connectSpan?.record("join_recv")
@@ -282,14 +282,14 @@ extension Room {
         try await configureTransports(connectResponse: connectResponse, singlePeerConnection: singlePC)
         connectSpan?.record("pc_created")
         // Check cancellation after configuring transports
-        try Task.checkCancellation()
+        try checkCancellation()
 
         // Resume after configuring transports...
         await signalClient.resumeQueues()
 
         // Wait for transport...
         try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
-        try Task.checkCancellation()
+        try checkCancellation()
 
         connectSpan?.record("engine")
         connectSpan?.record("pc_connected")
@@ -338,12 +338,12 @@ extension Room {
                                                                  participantSid: localParticipant.sid,
                                                                  adaptiveStream: _state.roomOptions.adaptiveStream,
                                                                  singlePeerConnection: singlePC)
-            try Task.checkCancellation()
+            try checkCancellation()
 
             // Update configuration
             try await configureTransports(connectResponse: connectResponse,
                                           singlePeerConnection: singlePC)
-            try Task.checkCancellation()
+            try checkCancellation()
 
             // Resume after configuring transports...
             await signalClient.resumeQueues()
@@ -357,7 +357,7 @@ extension Room {
                 log("[Connect] Subscriber transport failed to connect, error: \(error)", .error)
                 throw error
             }
-            try Task.checkCancellation()
+            try checkCancellation()
 
             // send SyncState before offer
             try await sendSyncState()

@@ -347,10 +347,8 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
                 )
                 eventContinuation.yield(event)
             }
-        } catch let error as LiveKitError {
-            throw error
         } catch {
-            throw LiveKitError.from(error: error) ?? LiveKitError(.unknown, internalError: error)
+            throw LiveKitError(from: error)
         }
     }
 

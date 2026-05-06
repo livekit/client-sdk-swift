@@ -98,11 +98,9 @@ public final class SessionRequirementHandle: @unchecked Sendable {
         }
         do {
             try releaseImpl?()
-        } catch let error as LiveKitError {
-            throw error
         } catch {
             // Constructed via acquire() whose closure throws only LiveKitError.
-            throw LiveKitError.from(error: error) ?? LiveKitError(.unknown, internalError: error)
+            throw LiveKitError(from: error)
         }
     }
 }

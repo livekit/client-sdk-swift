@@ -135,9 +135,9 @@ extension Room {
                 try await fullConnectSequence(nextUrl, token)
                 return nextUrl
             } catch {
-                // Re-throw if is cancel.
+                // Re-throw if cancel (wrap as LiveKitError(.cancelled)).
                 if error is CancellationError {
-                    throw error
+                    throw LiveKitError(.cancelled)
                 }
 
                 if let liveKitError = error as? LiveKitError, liveKitError.type == .validation {
@@ -155,7 +155,7 @@ extension Room {
                     await regionManager.markFailed(region: region)
                 }
 
-                try Task.checkCancellation()
+                try checkCancellation()
 
                 await cleanUp(isFullReconnect: true)
 

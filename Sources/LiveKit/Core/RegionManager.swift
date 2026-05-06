@@ -141,11 +141,8 @@ actor RegionManager: Loggable {
         let task = startSettingsFetchIfNeeded(token: token)
         do {
             _ = try await task.value
-        } catch let error as LiveKitError {
-            throw error
         } catch {
-            // Body of the Task only throws LiveKitError; this is a safety net.
-            throw LiveKitError.from(error: error) ?? LiveKitError(.unknown, internalError: error)
+            throw LiveKitError(from: error)
         }
     }
 

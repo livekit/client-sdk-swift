@@ -37,7 +37,7 @@ actor WebSocket: Loggable, AsyncSequence {
         return config
     }
 
-    init(url: URL, token: String, connectOptions: ConnectOptions?) async throws {
+    init(url: URL, token: String, connectOptions: ConnectOptions?) async throws(LiveKitError) {
         var request = URLRequest(url: url,
                                  cachePolicy: .useProtocolCachePolicy,
                                  timeoutInterval: connectOptions?.socketConnectTimeoutInterval ?? .defaultSocketConnect)
@@ -54,13 +54,17 @@ actor WebSocket: Loggable, AsyncSequence {
                                 delegate: delegate, delegateQueue: nil)
         task = urlSession.webSocketTask(with: request)
 
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                delegate.setConnectContinuation(continuation)
-                task.resume()
+        do {
+            try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { continuation in
+                    delegate.setConnectContinuation(continuation)
+                    task.resume()
+                }
+            } onCancel: {
+                self.close()
             }
-        } onCancel: {
-            self.close()
+        } catch {
+            throw LiveKitError(from: error)
         }
     }
 

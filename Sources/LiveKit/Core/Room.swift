@@ -323,15 +323,27 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
     }
 
-    // Obj-C interop: this method is bridged to
-    // -connectWithUrl:token:connectOptions:roomOptions:completionHandler: via
-    // @objcMembers. Typed throws would silently strip the bridge, breaking
-    // Obj-C call sites — keep untyped throws here.
-    // swiftlint:disable:next cyclomatic_complexity function_body_length public_typed_throws
+    // Pure Swift API: typed throws. @objcMembers can't bridge typed-throws
+    // async methods, so we add a separate @objc shim below to preserve the
+    // Obj-C selector -connectWithUrl:token:connectOptions:roomOptions:completionHandler:.
+    @nonobjc
     public func connect(url urlString: String,
                         token: String,
                         connectOptions: ConnectOptions? = nil,
-                        roomOptions: RoomOptions? = nil) async throws
+                        roomOptions: RoomOptions? = nil) async throws(LiveKitError)
+    {
+        do {
+            try await _connect(url: urlString, token: token, connectOptions: connectOptions, roomOptions: roomOptions)
+        } catch {
+            throw LiveKitError(from: error)
+        }
+    }
+
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    private func _connect(url urlString: String,
+                          token: String,
+                          connectOptions: ConnectOptions? = nil,
+                          roomOptions: RoomOptions? = nil) async throws
     {
         guard let providedUrl = URL(string: urlString), providedUrl.isValidForConnect else {
             log("URL parse failed", .error)
@@ -359,7 +371,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         await cleanUp()
 
-        try Task.checkCancellation()
+        try checkCancellation()
 
         // enable E2EE
         if let e2eeOptions = state.roomOptions.e2eeOptions {
@@ -441,7 +453,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             // Connect sequence successful
             log("Connect sequence completed")
             // Final check if cancelled, don't fire connected events
-            try Task.checkCancellation()
+            try checkCancellation()
 
             connectSpan?.record("room_connected")
 
@@ -471,6 +483,20 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
 
         log("Connected to \(String(describing: self))", .info)
+    }
+
+    /// Obj-C bridge for ``connect(url:token:connectOptions:roomOptions:)``.
+    /// Hidden from Swift via `@available(swift, obsoleted: 1.0)`; bridged to
+    /// -connectWithUrl:token:connectOptions:roomOptions:completionHandler: in Obj-C.
+    /// @objc forbids typed throws, so this stays untyped.
+    @available(swift, obsoleted: 1.0, message: "Use connect(url:token:connectOptions:roomOptions:)")
+    @objc(connectWithUrl:token:connectOptions:roomOptions:completionHandler:) // swiftlint:disable:next public_typed_throws
+    public func _objc_connect(url urlString: String,
+                              token: String,
+                              connectOptions: ConnectOptions? = nil,
+                              roomOptions: RoomOptions? = nil) async throws
+    {
+        try await connect(url: urlString, token: token, connectOptions: connectOptions, roomOptions: roomOptions)
     }
 
     public func disconnect() async {

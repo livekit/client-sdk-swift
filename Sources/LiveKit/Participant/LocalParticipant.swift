@@ -545,7 +545,7 @@ extension LocalParticipant {
         try await track.start()
         // Starting the Track could be time consuming especially for camera etc.
         // Check cancellation after track starts.
-        try Task.checkCancellation()
+        try checkCancellation()
 
         do {
             var dimensions: Dimensions? // Only for Video
