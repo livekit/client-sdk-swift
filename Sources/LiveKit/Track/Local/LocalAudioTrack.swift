@@ -142,7 +142,7 @@ extension LocalAudioTrack {
         }
     }
 
-    func startWaitingForFrames() async throws(LiveKitError) {
+    func startWaitingForFrames() async throws {
         let frameWatcher = _frameWatcherState.mutate {
             $0.frameWatcher?.reset()
             let watcher = AudioFrameWatcher()

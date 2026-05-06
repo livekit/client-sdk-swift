@@ -418,7 +418,7 @@ extension SignalClient {
 // MARK: - Send methods
 
 extension SignalClient {
-    func send(offer: LKRTCSessionDescription, offerId: UInt32) async throws {
+    func send(offer: LKRTCSessionDescription, offerId: UInt32) async throws(LiveKitError) {
         let r = Livekit_SignalRequest.with {
             $0.offer = offer.toPBType(offerId: offerId)
         }
@@ -426,7 +426,7 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func send(answer: LKRTCSessionDescription, offerId: UInt32) async throws {
+    func send(answer: LKRTCSessionDescription, offerId: UInt32) async throws(LiveKitError) {
         let r = Livekit_SignalRequest.with {
             $0.answer = answer.toPBType(offerId: offerId)
         }
@@ -445,7 +445,7 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendMuteTrack(trackSid: Track.Sid, muted: Bool) async throws {
+    func sendMuteTrack(trackSid: Track.Sid, muted: Bool) async throws(LiveKitError) {
         let r = Livekit_SignalRequest.with {
             $0.mute = Livekit_MuteTrackRequest.with {
                 $0.sid = trackSid.stringValue

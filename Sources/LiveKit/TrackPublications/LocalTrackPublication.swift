@@ -78,14 +78,14 @@ public class LocalTrackPublication: TrackPublication, @unchecked Sendable {
 }
 
 extension LocalTrackPublication {
-    func suspend() async throws {
+    func suspend() async throws(LiveKitError) {
         // Do nothing if already muted
         guard !isMuted else { return }
         try await mute()
         _suspended = true
     }
 
-    func resume() async throws {
+    func resume() async throws(LiveKitError) {
         // Do nothing if was not suspended
         guard _suspended else { return }
         try await unmute()
