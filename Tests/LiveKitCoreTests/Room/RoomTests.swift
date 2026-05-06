@@ -152,8 +152,7 @@ private struct WeakRoomRefs: @unchecked Sendable {
         localParticipant = room.localParticipant
 
         for remoteParticipant in room.remoteParticipants.values {
-            weak var weakRP: RemoteParticipant? = remoteParticipant
-            remoteParticipantChecks.append { weakRP == nil }
+            remoteParticipantChecks.append { [weak remoteParticipant] in remoteParticipant == nil }
         }
 
         state = room._state
