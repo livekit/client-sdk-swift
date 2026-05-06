@@ -61,7 +61,6 @@ actor RpcClientManager: Loggable {
         let room = try requireRoom()
 
         let remoteClientProtocol = room.remoteParticipants[destinationIdentity]?.clientProtocol ?? .v0
-        print("Rpc - Remote client protocol: \(remoteClientProtocol)")
         let useStreamTransport = remoteClientProtocol >= .v1
 
         if !useStreamTransport, payload.byteLength > MAX_RPC_PAYLOAD_BYTES {
