@@ -388,7 +388,7 @@ struct RpcTests {
     @Test func v2CallerHappyPathShort() async throws {
         try await TestEnvironment.withRoom { room in
             let destination = Participant.Identity(from: "v2-destination")
-            try await RpcTestSupport.installV2Remote(in: room, identity: destination)
+            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v1)
 
             let captured = OSAllocatedUnfairLock<Livekit_DataStream.Header?>(initialState: nil)
 
@@ -436,7 +436,7 @@ struct RpcTests {
     @Test func v2CallerHappyPathLargePayload() async throws {
         try await TestEnvironment.withRoom { room in
             let destination = Participant.Identity(from: "v2-destination")
-            try await RpcTestSupport.installV2Remote(in: room, identity: destination)
+            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v1)
 
             let largePayload = String(repeating: "x", count: 20_000)
 
@@ -613,7 +613,7 @@ struct RpcTests {
     @Test func v2CallerResponseTimeout() async throws {
         try await TestEnvironment.withRoom { room in
             let destination = Participant.Identity(from: "v2-destination")
-            try await RpcTestSupport.installV2Remote(in: room, identity: destination)
+            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v1)
 
             // Do nothing in response — let the connection timeout (7s max round-trip) fire
             room.publisherDataChannel = MockDataChannelPair { _ in }
@@ -636,7 +636,7 @@ struct RpcTests {
     @Test func v2CallerErrorResponse() async throws {
         try await TestEnvironment.withRoom { room in
             let destination = Participant.Identity(from: "v2-destination")
-            try await RpcTestSupport.installV2Remote(in: room, identity: destination)
+            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v1)
 
             let mockDataChannel = MockDataChannelPair { packet in
                 if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
@@ -676,7 +676,7 @@ struct RpcTests {
         try await TestEnvironment.withRoom { room in
             let destination = Participant.Identity(from: "v2-destination")
             let imposter = Participant.Identity(from: "v2-imposter")
-            try await RpcTestSupport.installV2Remote(in: room, identity: destination)
+            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v1)
 
             let mockDataChannel = MockDataChannelPair { packet in
                 if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
@@ -714,7 +714,7 @@ struct RpcTests {
     @Test func v2CallerV1FallbackUsesPacket() async throws {
         try await TestEnvironment.withRoom { room in
             let destination = Participant.Identity(from: "v1-destination")
-            try await RpcTestSupport.installV1Remote(in: room, identity: destination)
+            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v0)
 
             try await confirmation("v1 RpcRequest packet sent (version 1, matching method)", expectedCount: 1) { sawRpcRequest in
                 try await confirmation("no v2 stream opened", expectedCount: 0) { sawStreamHeader in
@@ -756,7 +756,7 @@ struct RpcTests {
     @Test func v2CallerV1FallbackRejectsLargePayload() async throws {
         try await TestEnvironment.withRoom { room in
             let destination = Participant.Identity(from: "v1-destination")
-            try await RpcTestSupport.installV1Remote(in: room, identity: destination)
+            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v0)
 
             let largePayload = String(repeating: "x", count: 20_000)
 
@@ -776,13 +776,8 @@ struct RpcTests {
 
 private struct RpcTestSupport {
     /// Insert a remote participant into `room` whose `clientProtocol` advertises v2.
-    static func installV2Remote(in room: Room, identity: Participant.Identity) async throws {
-        try install(in: room, identity: identity, clientProtocol: .v1)
-    }
-
-    /// Insert a remote participant into `room` whose `clientProtocol` is v0 (legacy).
-    static func installV1Remote(in room: Room, identity: Participant.Identity) async throws {
-        try install(in: room, identity: identity, clientProtocol: .v0)
+    static func installRemote(in room: Room, identity: Participant.Identity, clientProtocol: ClientProtocol) async throws {
+        try install(in: room, identity: identity, clientProtocol: clientProtocol)
     }
 
     private static func install(in room: Room, identity: Participant.Identity, clientProtocol: ClientProtocol) throws {
