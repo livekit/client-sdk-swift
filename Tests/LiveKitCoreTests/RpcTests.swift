@@ -285,11 +285,8 @@ struct RpcTests {
                 let isRegistered = await room.isRpcMethodRegistered("greet")
                 #expect(isRegistered)
 
-                do {
+                await #expect(throws: LiveKitError.self) {
                     try await room.registerRpcMethod("greet") { _ in "" }
-                    Issue.record("Duplicate RPC method registration should fail.")
-                } catch {
-                    #expect(error is LiveKitError)
                 }
 
                 await room.rpcServer.handleIncomingRequest(
