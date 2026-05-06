@@ -28,9 +28,7 @@ public class AudioPlayerRenderer: AudioRenderer, Loggable, @unchecked Sendable {
         engine.attach(playerNode)
     }
 
-    // Forwards untyped AVAudioEngine errors.
-    // swiftlint:disable:next public_typed_throws
-    public func start() async throws {
+    public func start() async throws(LiveKitError) {
         log("Starting audio engine...")
 
         let format = engine.outputNode.outputFormat(forBus: 0)
@@ -38,7 +36,11 @@ public class AudioPlayerRenderer: AudioRenderer, Loggable, @unchecked Sendable {
 
         engine.connect(playerNode, to: engine.mainMixerNode, format: format)
 
-        try engine.start()
+        do {
+            try engine.start()
+        } catch {
+            throw LiveKitError(.audioEngine, internalError: error)
+        }
         log("Audio engine started")
     }
 

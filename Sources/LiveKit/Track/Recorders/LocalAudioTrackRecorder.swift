@@ -61,11 +61,10 @@ public final class LocalAudioTrackRecorder: NSObject, Sendable, AudioRenderer {
         self.maxSize = maxSize
     }
 
-    // Forwards untyped errors from the audio track's startCapture pipeline.
     /// Starts capturing audio from the local track and returns a stream of audio data.
     /// - Returns: A stream of audio data.
     /// - Throws: An error if the audio track cannot be started.
-    public func start() async throws -> Stream { // swiftlint:disable:this public_typed_throws
+    public func start() async throws(LiveKitError) -> Stream {
         stop()
 
         try await track.startCapture()

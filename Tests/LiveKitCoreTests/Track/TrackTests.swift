@@ -29,11 +29,11 @@ class TestTrack: LocalAudioTrack, @unchecked Sendable {
         super.init(name: "test_audio_track", source: .microphone, track: _track, reportStatistics: false, captureOptions: AudioCaptureOptions())
     }
 
-    override func startCapture() async throws {
+    override func startCapture() async throws(LiveKitError) {
         try? await Task.sleep(nanoseconds: UInt64(Double.random(in: 0.0 ... 1.0) * 1_000_000))
     }
 
-    override func stopCapture() async throws {
+    override func stopCapture() async throws(LiveKitError) {
         try? await Task.sleep(nanoseconds: UInt64(Double.random(in: 0.0 ... 1.0) * 1_000_000))
     }
 }

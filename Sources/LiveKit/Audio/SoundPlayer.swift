@@ -85,9 +85,7 @@ public final class SoundPlayer: Loggable {
     /// - Note: Repeated playback of the same short clip should generally reuse a prepared sound
     ///   instead of decoding from disk each time.
     @discardableResult
-    // Forwards untyped AVAudioFile/AVAudioEngine errors.
-    // swiftlint:disable:next public_typed_throws
-    public func prepare(fileURL: URL, named name: String? = nil) async throws -> SoundHandle {
+    public func prepare(fileURL: URL, named name: String? = nil) async throws(LiveKitError) -> SoundHandle {
         let readBuffer = try await Self.decodeBuffer(from: fileURL)
         let sessionRequirementHandle = try AudioManager.shared.acquireSessionRequirement(.playbackOnly)
         let soundId = UUID()
@@ -137,7 +135,7 @@ extension SoundPlayer {
         return format
     }
 
-    func makePlayerNodeFormat(for outputFormat: AVAudioFormat) throws -> AVAudioFormat {
+    func makePlayerNodeFormat(for outputFormat: AVAudioFormat) throws(LiveKitError) -> AVAudioFormat {
         guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32,
                                          sampleRate: outputFormat.sampleRate,
                                          channels: outputFormat.channelCount,
@@ -170,21 +168,25 @@ extension SoundPlayer {
         invalidateLocalState()
     }
 
-    func reconnectEngine(outputFormat: AVAudioFormat, playerNodeFormat: AVAudioFormat) throws {
+    func reconnectEngine(outputFormat: AVAudioFormat, playerNodeFormat: AVAudioFormat) throws(LiveKitError) {
         playerNodePool.stop()
         engine.stop()
         engine.disconnect(playerNodePool)
         playerNodePool.setMaximumFramesToRender(engine.outputNode.auAudioUnit.maximumFramesToRender)
         engine.connect(playerNodePool, to: engine.mainMixerNode,
                        format: outputFormat, playerNodeFormat: playerNodeFormat)
-        try engine.start()
+        do {
+            try engine.start()
+        } catch {
+            throw LiveKitError(.audioEngine, internalError: error)
+        }
         localEngineState.connectedOutputFormat = outputFormat
         localEngineState.playerNodeFormat = playerNodeFormat
         localEngineState.needsReconnect = false
     }
 
     @discardableResult
-    func startEngineIfNeeded() throws -> AVAudioFormat {
+    func startEngineIfNeeded() throws(LiveKitError) -> AVAudioFormat {
         guard let outputFormat else {
             throw LiveKitError(.soundPlayer, message: "Invalid output format")
         }
@@ -247,7 +249,7 @@ extension SoundPlayer {
         await soundState.stop(destination: destination)
     }
 
-    func play(_ sound: SoundHandle, options: SoundPlaybackOptions = SoundPlaybackOptions()) async throws {
+    func play(_ sound: SoundHandle, options: SoundPlaybackOptions = SoundPlaybackOptions()) async throws(LiveKitError) {
         guard let soundState = sounds[sound.id] else {
             throw LiveKitError(.soundPlayer, message: "Sound not prepared")
         }
@@ -274,12 +276,12 @@ extension SoundPlayer {
         }
     }
 
-    static func decodeBuffer(from fileURL: URL) async throws -> AVAudioPCMBuffer {
+    static func decodeBuffer(from fileURL: URL) async throws(LiveKitError) -> AVAudioPCMBuffer {
         guard fileURL.isFileURL else {
             throw LiveKitError(.invalidParameter, message: "Only file URLs are supported")
         }
 
-        return try await Task.detached(priority: .userInitiated) {
+        let task = Task.detached(priority: .userInitiated) { () throws -> AVAudioPCMBuffer in
             let audioFile = try AVAudioFile(forReading: fileURL)
             guard let readBuffer = AVAudioPCMBuffer(pcmFormat: audioFile.processingFormat,
                                                     frameCapacity: AVAudioFrameCount(audioFile.length))
@@ -288,6 +290,13 @@ extension SoundPlayer {
             }
             try audioFile.read(into: readBuffer, frameCount: AVAudioFrameCount(audioFile.length))
             return readBuffer
-        }.value
+        }
+        do {
+            return try await task.value
+        } catch let error as LiveKitError {
+            throw error
+        } catch {
+            throw LiveKitError(.soundPlayer, internalError: error)
+        }
     }
 }
