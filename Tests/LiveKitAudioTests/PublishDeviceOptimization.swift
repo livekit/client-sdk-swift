@@ -27,7 +27,7 @@ import LiveKitTestSupport
 
     // Default publish flow
     @Test func defaultMicPublish() async throws {
-        var span = Span(label: "Test: Normal publish sequence")
+        let span = Span(label: "Test: Normal publish sequence")
 
         let room1Opts = RoomTestingOptions(url: url, token: token, canPublish: true)
         try await TestEnvironment.withRooms([room1Opts]) { rooms in
@@ -48,7 +48,7 @@ import LiveKitTestSupport
         // Turn off Apple's VP
         try AudioManager.shared.setVoiceProcessingEnabled(false)
 
-        var span = Span(label: "Test: No-VP publish sequence")
+        let span = Span(label: "Test: No-VP publish sequence")
 
         let room1Opts = RoomTestingOptions(url: url, token: token, canPublish: true)
         try await TestEnvironment.withRooms([room1Opts]) { rooms in
@@ -66,7 +66,7 @@ import LiveKitTestSupport
 
     // Concurrent device acquisition publish flow
     @Test func concurrentMicPublish() async throws {
-        var span = Span(label: "Test: Normal publish sequence")
+        let span = Span(label: "Test: Normal publish sequence")
 
         let room1Opts = RoomTestingOptions(url: url, token: token, enableMicrophone: true, canPublish: true)
         try await TestEnvironment.withRooms([room1Opts]) { rooms in
