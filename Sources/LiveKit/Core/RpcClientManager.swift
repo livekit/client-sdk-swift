@@ -69,8 +69,8 @@ actor RpcClientManager: Loggable {
 
         let requestId = UUID().uuidString
         let maxRoundTripLatency: TimeInterval = 7
-        let minEffectiveTimeout: TimeInterval = 1
-        let effectiveTimeout = max(responseTimeout - maxRoundTripLatency, minEffectiveTimeout)
+        let minEffectiveTimeout: TimeInterval = maxRoundTripLatency + 1
+        let effectiveTimeout = max(responseTimeout, minEffectiveTimeout)
 
         // Pre-register pending state synchronously on the actor *before* publishing the
         // request. Prevents a race where a fast remote can ack/respond before registration

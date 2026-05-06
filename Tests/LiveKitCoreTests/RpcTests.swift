@@ -35,7 +35,7 @@ struct RpcTests {
                     return
                 }
 
-                guard request.method == "test-method", request.payload == "test-payload", request.responseTimeoutMs == 8000 else {
+                guard request.method == "test-method", request.payload == "test-payload", request.responseTimeoutMs == 15000 else {
                     return
                 }
 
