@@ -69,7 +69,7 @@ actor RegionManager: Loggable {
         _ = startSettingsFetchIfNeeded(token: token)
     }
 
-    func resolveBest(token: String) async throws -> RegionInfo {
+    func resolveBest(token: String) async throws(LiveKitError) -> RegionInfo {
         try await requestSettingsIfNeeded(token: token)
         guard let selected = state.remaining.first else {
             throw LiveKitError(.regionManager, message: "No more remaining regions.")
@@ -119,7 +119,7 @@ actor RegionManager: Loggable {
             do {
                 let data = try await Self.fetchRegionSettings(providedUrl: providedUrl, token: token)
                 let allRegions = try Self.parseRegionSettings(data: data)
-                try Task.checkCancellation()
+                try checkCancellation()
                 applyFetchedRegions(allRegions)
                 return allRegions
             } catch {
@@ -132,14 +132,21 @@ actor RegionManager: Loggable {
         return task
     }
 
-    private func requestSettingsIfNeeded(token: String) async throws {
+    private func requestSettingsIfNeeded(token: String) async throws(LiveKitError) {
         guard providedUrl.isCloud else {
             throw LiveKitError(.onlyForCloud)
         }
 
         guard shouldRequestSettings() else { return }
         let task = startSettingsFetchIfNeeded(token: token)
-        _ = try await task.value
+        do {
+            _ = try await task.value
+        } catch let error as LiveKitError {
+            throw error
+        } catch {
+            // Body of the Task only throws LiveKitError; this is a safety net.
+            throw LiveKitError.from(error: error) ?? LiveKitError(.unknown, internalError: error)
+        }
     }
 
     private func applyFetchedRegions(_ allRegions: [RegionInfo]) {
@@ -157,12 +164,18 @@ actor RegionManager: Loggable {
 
     // MARK: - Static helpers (non-isolated)
 
-    private nonisolated static func fetchRegionSettings(providedUrl: URL, token: String) async throws -> Data {
+    private nonisolated static func fetchRegionSettings(providedUrl: URL, token: String) async throws(LiveKitError) -> Data {
         var request = URLRequest(url: providedUrl.regionSettingsUrl(),
                                  cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
         request.addValue("Bearer \(token)", forHTTPHeaderField: "authorization")
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            throw LiveKitError(.network, internalError: error)
+        }
         guard let httpResponse = response as? HTTPURLResponse else {
             throw LiveKitError(.regionManager, message: "Failed to fetch region settings")
         }
@@ -187,7 +200,7 @@ actor RegionManager: Loggable {
         return data
     }
 
-    private nonisolated static func parseRegionSettings(data: Data) throws -> [RegionInfo] {
+    private nonisolated static func parseRegionSettings(data: Data) throws(LiveKitError) -> [RegionInfo] {
         do {
             let regionSettings = try Livekit_RegionSettings(jsonUTF8Data: data)
             let allRegions = regionSettings.regions.compactMap { $0.toLKType() }

@@ -23,7 +23,7 @@ class HTTP: NSObject {
                                                    delegate: nil,
                                                    delegateQueue: operationQueue)
 
-    static func requestValidation(from url: URL, token: String) async throws {
+    static func requestValidation(from url: URL, token: String) async throws(LiveKitError) {
         var request = URLRequest(url: url,
                                  cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
                                  timeoutInterval: .defaultHTTPConnect)
@@ -31,10 +31,16 @@ class HTTP: NSObject {
         request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         // Make the data request
-        let (data, response) = try await session.data(for: request)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw LiveKitError(.network, internalError: error)
+        }
 
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw URLError(.badServerResponse)
+            throw LiveKitError(.network, message: "Invalid HTTP response from \(url)")
         }
 
         guard (200 ..< 300).contains(httpResponse.statusCode) else {

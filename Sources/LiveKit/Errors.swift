@@ -206,6 +206,15 @@ extension LiveKitError {
     }
 }
 
+/// Throws `LiveKitError(.cancelled)` if the current Task is cancelled.
+///
+/// Typed-throws counterpart to `Task.checkCancellation()` for use inside
+/// `throws(LiveKitError)` contexts.
+@inlinable
+func checkCancellation() throws(LiveKitError) {
+    if Task.isCancelled { throw LiveKitError(.cancelled) }
+}
+
 extension Error {
     /// Returns `true` for URLError, CFNetwork, and POSIX socket errors.
     var isNetworkError: Bool {
