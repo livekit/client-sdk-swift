@@ -49,7 +49,7 @@ actor CompleterMapActor<T: Sendable> {
     }
 
     func resume(throwing error: any Error, for key: String) {
-        let completer = completer(for: key)
+        guard let completer = _completerMap[key] else { return }
         completer.resume(throwing: error)
     }
 
