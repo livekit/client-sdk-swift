@@ -270,7 +270,7 @@ actor SignalClient: Loggable {
 
 private extension SignalClient {
     // Send request or enqueue while reconnecting
-    func _sendRequest(_ request: Livekit_SignalRequest) async throws {
+    func _sendRequest(_ request: Livekit_SignalRequest) async throws(LiveKitError) {
         guard connectionState != .disconnected else {
             log("connectionState is .disconnected", .error)
             throw LiveKitError(.invalidState, message: "connectionState is .disconnected")
@@ -487,7 +487,7 @@ extension SignalClient {
         return try await completer.wait()
     }
 
-    func sendUpdateTrackSettings(trackSid: Track.Sid, settings: TrackSettings) async throws {
+    func sendUpdateTrackSettings(trackSid: Track.Sid, settings: TrackSettings) async throws(LiveKitError) {
         let r = Livekit_SignalRequest.with {
             $0.trackSetting = Livekit_UpdateTrackSettings.with {
                 $0.trackSids = [trackSid.stringValue]
@@ -502,7 +502,7 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendUpdateVideoLayers(trackSid: Track.Sid, layers: [Livekit_VideoLayer]) async throws {
+    func sendUpdateVideoLayers(trackSid: Track.Sid, layers: [Livekit_VideoLayer]) async throws(LiveKitError) {
         let r = Livekit_SignalRequest.with {
             $0.updateLayers = Livekit_UpdateVideoLayers.with {
                 $0.trackSid = trackSid.stringValue
@@ -515,7 +515,7 @@ extension SignalClient {
 
     func sendUpdateSubscription(participantSid: Participant.Sid,
                                 trackSid: Track.Sid,
-                                isSubscribed: Bool) async throws
+                                isSubscribed: Bool) async throws(LiveKitError)
     {
         let p = Livekit_ParticipantTracks.with {
             $0.participantSid = participantSid.stringValue
@@ -534,7 +534,7 @@ extension SignalClient {
     }
 
     func sendUpdateSubscriptionPermission(allParticipants: Bool,
-                                          trackPermissions: [ParticipantTrackPermission]) async throws
+                                          trackPermissions: [ParticipantTrackPermission]) async throws(LiveKitError)
     {
         let r = Livekit_SignalRequest.with {
             $0.subscriptionPermission = Livekit_SubscriptionPermission.with {
@@ -548,7 +548,7 @@ extension SignalClient {
 
     func sendUpdateParticipant(name: String? = nil,
                                metadata: String? = nil,
-                               attributes: [String: String]? = nil) async throws
+                               attributes: [String: String]? = nil) async throws(LiveKitError)
     {
         let r = Livekit_SignalRequest.with {
             $0.updateMetadata = Livekit_UpdateParticipantMetadata.with {
