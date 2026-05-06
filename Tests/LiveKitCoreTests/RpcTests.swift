@@ -402,7 +402,7 @@ struct RpcTests {
                         if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
                             captured.withLock { $0 = header }
                             Task {
-                                let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
+                                let requestId = try #require(header.attributes[RpcStreamAttribute.requestId])
                                 await room.rpcClient.handleIncomingAck(requestId: requestId)
                                 let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "v2-response")
                                 await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
@@ -421,12 +421,12 @@ struct RpcTests {
                 }
             }
 
-            let header = captured.withLock { $0 }
-            #expect(header?.topic == RpcStreamTopic.request)
-            #expect(header?.attributes[RpcStreamAttribute.method] == "v2-method")
-            #expect(header?.attributes[RpcStreamAttribute.version] == RPC_STREAM_VERSION)
-            #expect(header?.attributes[RpcStreamAttribute.requestId] != nil)
-            #expect(header?.attributes[RpcStreamAttribute.timeoutMs] != nil)
+            let header = try #require(captured.withLock { $0 })
+            #expect(header.topic == RpcStreamTopic.request)
+            #expect(header.attributes[RpcStreamAttribute.method] == "v2-method")
+            #expect(header.attributes[RpcStreamAttribute.version] == RPC_STREAM_VERSION)
+            #expect(header.attributes[RpcStreamAttribute.requestId] != nil)
+            #expect(header.attributes[RpcStreamAttribute.timeoutMs] != nil)
             #expect(await room.rpcClient.pendingCount == 0)
         }
     }
@@ -442,8 +442,8 @@ struct RpcTests {
 
             let mockDataChannel = MockDataChannelPair { packet in
                 if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
-                    let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
                     Task {
+                        let requestId = try #require(header.attributes[RpcStreamAttribute.requestId])
                         await room.rpcClient.handleIncomingAck(requestId: requestId)
                         let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: largePayload)
                         await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
@@ -640,8 +640,8 @@ struct RpcTests {
 
             let mockDataChannel = MockDataChannelPair { packet in
                 if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
-                    let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
                     Task {
+                        let requestId = try #require(header.attributes[RpcStreamAttribute.requestId])
                         await room.rpcClient.handleIncomingAck(requestId: requestId)
                         await room.rpcClient.handleIncomingResponse(
                             requestId: requestId,
@@ -680,8 +680,8 @@ struct RpcTests {
 
             let mockDataChannel = MockDataChannelPair { packet in
                 if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
-                    let requestId = header.attributes[RpcStreamAttribute.requestId] ?? ""
                     Task {
+                        let requestId = try #require(header.attributes[RpcStreamAttribute.requestId])
                         await room.rpcClient.handleIncomingAck(requestId: requestId)
                         // Inject a response stream from the imposter — must be ignored.
                         let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "spoofed")
