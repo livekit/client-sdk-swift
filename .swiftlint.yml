@@ -40,3 +40,17 @@ custom_rules:
     regex: "@objc(?![(\\[])\\s+(?:(?:public|open|final|internal|package)\\s+)*class\\b"
     message: "Use @objcMembers instead of @objc for classes to implicitly expose members to Objective-C."
     severity: warning
+  public_typed_throws:
+    name: "Public typed throws"
+    regex: "^\\s*(@\\w+(\\([^)]*\\))?\\s+)*(open|public)\\s+(?:(?:static|class|final|override|convenience|nonisolated)\\s+)*func\\s+[^{]*\\bthrows\\b(?!\\s*\\()"
+    message: "Public throwing methods should declare a typed throws clause (e.g. `throws(LiveKitError)`). Suppress with // swiftlint:disable:next public_typed_throws if propagation is unbounded."
+    severity: warning
+    included:
+      - "Sources/LiveKit/.*\\.swift"
+    excluded:
+      - "Sources/LiveKit/DataStream/.*"
+      - "Sources/LiveKit/Broadcast/.*"
+      - "Sources/LiveKit/Audio/.*"
+      - "Sources/LiveKit/Support/Audio/.*"
+      - "Sources/LiveKit/Token/.*"
+      - "Sources/LiveKit/Agent/Chat/.*"
