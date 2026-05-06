@@ -317,33 +317,44 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Send
 
-    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws {
+    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws(LiveKitError) {
         try await send(dataPacket: .with {
             $0.kind = kind // TODO: field is deprecated
             $0.user = userPacket
         })
     }
 
-    func send(dataPacket packet: Livekit_DataPacket) async throws {
+    func send(dataPacket packet: Livekit_DataPacket) async throws(LiveKitError) {
         let packet = try withEncryption(withSequence(packet))
-        let serializedData = try packet.serializedData()
+        let serializedData: Data
+        do {
+            serializedData = try packet.serializedData()
+        } catch {
+            throw LiveKitError(.failedToConvertData, internalError: error)
+        }
         let rtcData = RTC.createDataBuffer(data: serializedData)
 
-        try await withCheckedThrowingContinuation { continuation in
-            let request = PublishDataRequest(
-                data: rtcData,
-                sequence: packet.sequence,
-                continuation: continuation
-            )
-            let event = ChannelEvent(
-                channelKind: ChannelKind(packet.kind), // TODO: field is deprecated
-                detail: .publishData(request)
-            )
-            eventContinuation.yield(event)
+        do {
+            try await withCheckedThrowingContinuation { continuation in
+                let request = PublishDataRequest(
+                    data: rtcData,
+                    sequence: packet.sequence,
+                    continuation: continuation
+                )
+                let event = ChannelEvent(
+                    channelKind: ChannelKind(packet.kind), // TODO: field is deprecated
+                    detail: .publishData(request)
+                )
+                eventContinuation.yield(event)
+            }
+        } catch let error as LiveKitError {
+            throw error
+        } catch {
+            throw LiveKitError.from(error: error) ?? LiveKitError(.unknown, internalError: error)
         }
     }
 
-    private func withEncryption(_ packet: Livekit_DataPacket) throws -> Livekit_DataPacket {
+    private func withEncryption(_ packet: Livekit_DataPacket) throws(LiveKitError) -> Livekit_DataPacket {
         guard let e2eeManager, e2eeManager.isDataChannelEncryptionEnabled,
               let payload = Livekit_EncryptedPacketPayload(dataPacket: packet) else { return packet }
         var packet = packet

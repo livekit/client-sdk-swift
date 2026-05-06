@@ -53,7 +53,7 @@ extension Room {
         }
     }
 
-    func publisherShouldNegotiate() async throws {
+    func publisherShouldNegotiate() async throws(LiveKitError) {
         log()
 
         let publisher = try requirePublisher()
@@ -61,15 +61,15 @@ extension Room {
         _state.mutate { $0.hasPublished = true }
     }
 
-    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws {
+    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws(LiveKitError) {
         try await send(dataPacket: .with {
             $0.user = userPacket
             $0.kind = kind
         })
     }
 
-    func send(dataPacket packet: Livekit_DataPacket) async throws {
-        func ensurePublisherConnected() async throws {
+    func send(dataPacket packet: Livekit_DataPacket) async throws(LiveKitError) {
+        func ensurePublisherConnected() async throws(LiveKitError) {
             // Only needed when subscriber is primary in dual PC mode
             guard case .subscriberPrimary = _state.transport else {
                 return

@@ -296,7 +296,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
 
     // Returns true if state updated
     @discardableResult
-    func onUnpublish() async throws -> Bool {
+    func onUnpublish() async -> Bool {
         // For LocalTrack only...
         guard self is LocalTrack else { return false }
         guard _state.publishState != .unpublished else { return false }

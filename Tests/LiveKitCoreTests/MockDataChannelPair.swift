@@ -24,7 +24,7 @@ class MockDataChannelPair: DataChannelPair, @unchecked Sendable {
         self.packetHandler = packetHandler
     }
 
-    override func send(dataPacket packet: Livekit_DataPacket) async throws {
+    override func send(dataPacket packet: Livekit_DataPacket) async throws(LiveKitError) {
         packetHandler(packet)
     }
 }

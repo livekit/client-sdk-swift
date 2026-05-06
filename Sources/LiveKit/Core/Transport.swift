@@ -391,7 +391,7 @@ extension Transport {
         return transceiver
     }
 
-    func remove(track sender: LKRTCRtpSender) throws {
+    func remove(track sender: LKRTCRtpSender) throws(LiveKitError) {
         guard _pc.removeTrack(sender) else {
             throw LiveKitError(.webRTC, message: "Failed to remove track")
         }
