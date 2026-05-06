@@ -313,7 +313,7 @@ actor RpcClientManager: Loggable {
     // MARK: - Helpers
 
     private func requireRoom() throws -> Room {
-        guard let room else { throw RpcError.builtIn(.applicationError) }
+        guard let room else { throw LiveKitError(.invalidState, message: "Room is nil") }
         return room
     }
 }
