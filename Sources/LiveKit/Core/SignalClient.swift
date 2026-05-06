@@ -726,7 +726,7 @@ extension Livekit_SignalRequest {
 }
 
 private extension SignalClient {
-    func requireWebSocket() async throws -> WebSocket {
+    func requireWebSocket() async throws(LiveKitError) -> WebSocket {
         guard let result = _state.socket else {
             log("WebSocket is nil", .error)
             throw LiveKitError(.invalidState, message: "WebSocket is nil")

@@ -540,7 +540,7 @@ extension Room {
 // MARK: - Private helpers
 
 extension Room {
-    func requirePublisher() throws -> Transport {
+    func requirePublisher() throws(LiveKitError) -> Transport {
         guard let publisher = _state.transport?.publisher else {
             log("Publisher is nil", .error)
             throw LiveKitError(.invalidState, message: "Publisher is nil")
