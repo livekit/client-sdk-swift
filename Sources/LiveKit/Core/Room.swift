@@ -40,7 +40,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     public var sid: Sid? { _state.sid }
 
     /// Server assigned id of the Room. *async* version of ``Room/sid``.
-    public func sid() async throws -> Sid {
+    public func sid() async throws(LiveKitError) -> Sid {
         try await _sidCompleter.wait()
     }
 
