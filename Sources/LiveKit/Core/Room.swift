@@ -545,9 +545,9 @@ extension Room {
         log("withError: \(String(describing: disconnectError)), isFullReconnect: \(isFullReconnect)")
 
         // Reset completers
-        _sidCompleter.reset()
-        primaryTransportConnectedCompleter.reset()
-        publisherTransportConnectedCompleter.reset()
+        _sidCompleter.reset(throwing: disconnectError)
+        primaryTransportConnectedCompleter.reset(throwing: disconnectError)
+        publisherTransportConnectedCompleter.reset(throwing: disconnectError)
 
         await signalClient.cleanUp(withError: disconnectError)
         // Cancel all track stats timers before closing transports to prevent

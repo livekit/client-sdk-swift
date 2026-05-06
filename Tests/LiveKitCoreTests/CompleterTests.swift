@@ -108,4 +108,50 @@ struct CompleterTests {
             print("Unknown error: \(error)")
         }
     }
+
+    @Test func resetThrowingPropagatesTypedError() async {
+        let completer = AsyncCompleter<Void>(label: "reset-throwing", defaultTimeout: 30)
+        let task = Task { try await completer.wait() }
+        await waitForRegistration(of: completer)
+
+        completer.reset(throwing: LiveKitError(.network, message: "transport failed"))
+
+        let error = await #expect(throws: LiveKitError.self) {
+            try await task.value
+        }
+        #expect(error?.type == .network)
+    }
+
+    @Test func taskCancellationStillProducesCancelled() async {
+        let completer = AsyncCompleter<Void>(label: "task-cancel", defaultTimeout: 30)
+        let task = Task { try await completer.wait() }
+        await waitForRegistration(of: completer)
+
+        task.cancel()
+
+        let error = await #expect(throws: LiveKitError.self) {
+            try await task.value
+        }
+        #expect(error?.type == .cancelled)
+    }
+
+    @Test func resetClearsResultForReuse() async throws {
+        let completer = AsyncCompleter<Void>(label: "reuse-after-throw", defaultTimeout: 30)
+
+        let firstTask = Task { try await completer.wait() }
+        await waitForRegistration(of: completer)
+        completer.reset(throwing: LiveKitError(.network))
+        _ = await firstTask.result
+
+        let secondTask = Task { try await completer.wait() }
+        await waitForRegistration(of: completer)
+        completer.resume(returning: ())
+        try await secondTask.value
+    }
+
+    private func waitForRegistration(of completer: AsyncCompleter<some Any>) async {
+        while completer.waiterCount == 0 {
+            await Task.yield()
+        }
+    }
 }
