@@ -37,12 +37,16 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
     public var options: CameraCaptureOptions { _cameraCapturerState.options }
 
     @objc
+    // @objc disallows typed throws; bridged via NSError**.
+    // swiftlint:disable:next public_typed_throws
     public static func captureDevices() async throws -> [AVCaptureDevice] {
         try await DeviceManager.shared.devices()
     }
 
     /// Checks whether both front and back capturing devices exist, and can be switched.
     @objc
+    // @objc disallows typed throws; bridged via NSError**.
+    // swiftlint:disable:next public_typed_throws
     public static func canSwitchPosition() async throws -> Bool {
         let devices = try await captureDevices()
         return devices.contains(where: { $0.position == .front }) &&
@@ -116,6 +120,8 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
     /// Switches the camera position between `.front` and `.back` if supported by the device.
     @objc
     @discardableResult
+    // @objc disallows typed throws; bridged via NSError**.
+    // swiftlint:disable:next public_typed_throws
     public func switchCameraPosition() async throws -> Bool {
         // Cannot toggle if current position is unknown
         guard position != .unspecified else {
@@ -129,6 +135,8 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
     /// Sets the camera's position to `.front` or `.back` when supported.
     @objc
     @discardableResult
+    // @objc disallows typed throws; bridged via NSError**.
+    // swiftlint:disable:next public_typed_throws
     public func set(cameraPosition position: AVCaptureDevice.Position) async throws -> Bool {
         log("set(cameraPosition:) \(position)")
         let newOptions = options.copyWith(
@@ -141,6 +149,8 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
     /// Sets new options at runtime and resstarts capturing.
     @objc
     @discardableResult
+    // @objc disallows typed throws; bridged via NSError**.
+    // swiftlint:disable:next public_typed_throws
     public func set(options newOptions: CameraCaptureOptions) async throws -> Bool {
         log("set(options:) \(options)")
 
@@ -151,7 +161,8 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         return try await restartCapture()
     }
 
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    // Override of @objc method; typed throws unavailable.
+    // swiftlint:disable:next cyclomatic_complexity function_body_length public_typed_throws
     override public func startCapture() async throws -> Bool {
         let didStart = try await super.startCapture()
 
@@ -293,6 +304,8 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         return true
     }
 
+    // Override of @objc method; typed throws unavailable.
+    // swiftlint:disable:next public_typed_throws
     override public func stopCapture() async throws -> Bool {
         let didStop = try await super.stopCapture()
 

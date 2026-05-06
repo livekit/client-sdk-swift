@@ -82,10 +82,13 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
                                captureOptions: options)
     }
 
+    // Conforms to @objc protocol LocalTrackProtocol; @objc disallows typed throws.
+    // swiftlint:disable:next public_typed_throws
     public func mute() async throws {
         try await super._mute()
     }
 
+    // swiftlint:disable:next public_typed_throws
     public func unmute() async throws {
         try await super._unmute()
     }

@@ -138,6 +138,8 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
     /// Returns true when capturing should start, returns fals if capturing already started.
     @objc
     @discardableResult
+    // @objc disallows typed throws; bridged via NSError**.
+    // swiftlint:disable:next public_typed_throws
     public func startCapture() async throws -> Bool {
         let didStart = _state.mutate {
             // Counter was 0, so did start capturing with this call
@@ -164,6 +166,8 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
     /// Returns true when capturing should stop, returns fals if capturing already stopped.
     @objc
     @discardableResult
+    // @objc disallows typed throws; bridged via NSError**.
+    // swiftlint:disable:next public_typed_throws
     public func stopCapture() async throws -> Bool {
         let didStop = _state.mutate {
             // Counter was already 0, so did NOT stop capturing with this call
@@ -190,6 +194,8 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
 
     @objc
     @discardableResult
+    // @objc disallows typed throws; bridged via NSError**.
+    // swiftlint:disable:next public_typed_throws
     public func restartCapture() async throws -> Bool {
         try await stopCapture()
         return try await startCapture()

@@ -28,7 +28,7 @@ class DeviceManager: @unchecked Sendable, Loggable {
     }
 
     // Async version, waits until inital device fetch is complete
-    func devices() async throws -> [AVCaptureDevice] {
+    func devices() async throws(LiveKitError) -> [AVCaptureDevice] {
         try await _devicesCompleter.wait()
     }
 
@@ -83,7 +83,7 @@ class DeviceManager: @unchecked Sendable, Loggable {
     private var _multiCamDeviceSetsObservation: NSKeyValueObservation?
 
     /// Find multi-cam compatible devices.
-    func multiCamCompatibleDevices(for devices: Set<AVCaptureDevice>) async throws -> [AVCaptureDevice] {
+    func multiCamCompatibleDevices(for devices: Set<AVCaptureDevice>) async throws(LiveKitError) -> [AVCaptureDevice] {
         let deviceSets = try await _multiCamDeviceSetsCompleter.wait()
 
         let compatibleDevices = deviceSets.filter { $0.isSuperset(of: devices) }

@@ -32,6 +32,8 @@ public class InAppScreenCapturer: VideoCapturer, @unchecked Sendable {
         super.init(delegate: delegate)
     }
 
+    // Override of @objc method; typed throws unavailable.
+    // swiftlint:disable:next public_typed_throws
     override public func startCapture() async throws -> Bool {
         let didStart = try await super.startCapture()
 
@@ -50,6 +52,8 @@ public class InAppScreenCapturer: VideoCapturer, @unchecked Sendable {
         return true
     }
 
+    // Override of @objc method; typed throws unavailable.
+    // swiftlint:disable:next public_typed_throws
     override public func stopCapture() async throws -> Bool {
         let didStop = try await super.stopCapture()
 
