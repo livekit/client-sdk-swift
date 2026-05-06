@@ -28,6 +28,8 @@ public class AudioPlayerRenderer: AudioRenderer, Loggable, @unchecked Sendable {
         engine.attach(playerNode)
     }
 
+    // Forwards untyped AVAudioEngine errors.
+    // swiftlint:disable:next public_typed_throws
     public func start() async throws {
         log("Starting audio engine...")
 

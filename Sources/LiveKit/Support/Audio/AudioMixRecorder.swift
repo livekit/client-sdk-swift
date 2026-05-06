@@ -131,6 +131,8 @@ public class AudioMixRecorder: Loggable, @unchecked Sendable {
 
     // MARK: - Public Methods
 
+    // Forwards untyped AVAudioEngine errors.
+    // swiftlint:disable:next public_typed_throws
     public func start() throws {
         guard !audioEngine.isRunning else {
             log("Already running", .warning)

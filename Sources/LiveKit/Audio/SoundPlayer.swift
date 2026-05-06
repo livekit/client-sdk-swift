@@ -85,6 +85,8 @@ public final class SoundPlayer: Loggable {
     /// - Note: Repeated playback of the same short clip should generally reuse a prepared sound
     ///   instead of decoding from disk each time.
     @discardableResult
+    // Forwards untyped AVAudioFile/AVAudioEngine errors.
+    // swiftlint:disable:next public_typed_throws
     public func prepare(fileURL: URL, named name: String? = nil) async throws -> SoundHandle {
         let readBuffer = try await Self.decodeBuffer(from: fileURL)
         let sessionRequirementHandle = try AudioManager.shared.acquireSessionRequirement(.playbackOnly)

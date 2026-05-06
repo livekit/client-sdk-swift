@@ -35,6 +35,8 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable {
     /// - Returns: The string consisting of all concatenated chunks.
     /// - Throws: ``StreamError`` if an error occurs while reading the stream.
     ///
+    // Propagates StreamError from the data-stream pipeline (intentionally untyped).
+    // swiftlint:disable:next public_typed_throws
     public func readAll() async throws -> String {
         try await collect()
     }

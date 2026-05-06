@@ -35,6 +35,8 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     /// - Returns: The data consisting of all concatenated chunks.
     /// - Throws: ``StreamError`` if an error occurs while reading the stream.
     ///
+    // Propagates StreamError from the data-stream pipeline (intentionally untyped).
+    // swiftlint:disable:next public_typed_throws
     public func readAll() async throws -> Data {
         try await source.collect()
     }
@@ -63,6 +65,8 @@ extension ByteStreamReader {
     /// - Returns: The URL of the written file on disk.
     /// - Throws: ``StreamError`` if an error occurs while reading the stream.
     ///
+    // Propagates StreamError + AsyncFileStream.Error during file writes (intentionally untyped).
+    // swiftlint:disable:next public_typed_throws
     public func writeToFile(
         in directory: URL = FileManager.default.temporaryDirectory,
         name nameOverride: String? = nil

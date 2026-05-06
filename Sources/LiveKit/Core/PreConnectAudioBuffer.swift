@@ -73,6 +73,8 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     /// The room connection needs to be established and the remote participant needs to subscribe to the audio track
     /// before the timeout is reached. Otherwise, the audio stream will be flushed without sending.
     ///   - recorder: Optional custom recorder instance. If not provided, a new one will be created.
+    // Forwards untyped audio errors from LocalAudioTrackRecorder/AVAudio.
+    // swiftlint:disable:next public_typed_throws
     public func startRecording(timeout: TimeInterval = Constants.timeout, recorder: LocalAudioTrackRecorder? = nil) async throws {
         room?.add(delegate: self)
 
@@ -123,6 +125,8 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     ///   - room: The room instance to send the audio data.
     ///   - agents: The agents to send the audio data to.
     ///   - topic: The topic to send the audio data.
+    // Propagates StreamError from outgoing data-stream APIs (untyped by design).
+    // swiftlint:disable:next public_typed_throws
     public func sendAudioData(to room: Room, agents: [Participant.Identity], on topic: String = dataTopic) async throws {
         guard !agents.isEmpty else { return }
 

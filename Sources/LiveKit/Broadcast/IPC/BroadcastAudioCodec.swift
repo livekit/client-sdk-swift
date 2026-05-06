@@ -94,6 +94,8 @@ struct BroadcastAudioCodec {
 }
 
 extension AudioStreamBasicDescription: Codable {
+    // Encodable.encode requires untyped throws.
+    // swiftlint:disable:next public_typed_throws
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(mSampleRate)

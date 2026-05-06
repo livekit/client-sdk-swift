@@ -35,6 +35,8 @@ public final class TextStreamWriter: NSObject, Sendable {
     /// - Throws: Throws an error if the stream has been closed or text
     ///   cannot be sent to remote participants.
     ///
+    // Propagates StreamError from the outgoing data-stream pipeline (intentionally untyped).
+    // swiftlint:disable:next public_typed_throws
     public func write(_ text: String) async throws {
         try await destination.write(text)
     }
@@ -46,6 +48,8 @@ public final class TextStreamWriter: NSObject, Sendable {
     /// - Throws: Throws an error if the stream has already been closed or closure
     ///   cannot be communicated to remote participants.
     ///
+    // Propagates StreamError from the outgoing data-stream pipeline (intentionally untyped).
+    // swiftlint:disable:next public_typed_throws
     public func close(reason: String? = nil) async throws {
         try await destination.close(reason: reason)
     }

@@ -49,6 +49,8 @@ public struct LiteralTokenSource: TokenSourceFixed {
     /// Returns the fixed credentials without any network requests.
     ///
     /// - Returns: A `TokenSourceResponse` containing the pre-configured credentials
+    // Conforms to TokenSourceFixed protocol whose requirement is untyped throws.
+    // swiftlint:disable:next public_typed_throws
     public func fetch() async throws -> TokenSourceResponse {
         TokenSourceResponse(serverURL: serverURL, participantToken: participantToken, participantName: participantName, roomName: roomName)
     }

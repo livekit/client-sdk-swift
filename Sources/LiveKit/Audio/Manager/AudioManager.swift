@@ -83,6 +83,8 @@ public final class SessionRequirementHandle: @unchecked Sendable {
     /// Releases the associated audio session requirement.
     ///
     /// Releasing the same handle multiple times is a no-op.
+    // Forwards untyped AVAudioSession errors; per design these stay unwrapped.
+    // swiftlint:disable:next public_typed_throws
     public func release() throws {
         try releaseIfNeeded()
     }
@@ -326,6 +328,8 @@ public class AudioManager: Loggable {
     /// Defaults to `true`.
     public var isVoiceProcessingEnabled: Bool { RTC.audioDeviceModule.isVoiceProcessingEnabled }
 
+    // Forwards untyped NSError from WebRTC AudioDeviceModule.
+    // swiftlint:disable:next public_typed_throws
     public func setVoiceProcessingEnabled(_ enabled: Bool) throws {
         let result = RTC.audioDeviceModule.setVoiceProcessingEnabled(enabled)
         try checkAdmResult(code: result)
@@ -363,6 +367,8 @@ public class AudioManager: Loggable {
     /// In this mode, you can provide audio buffers by calling `AudioManager.shared.mixer.capture(appAudio:)` continuously.
     /// Remote audio will not play out automatically. Get remote mixed audio buffers with `AudioManager.shared.add(localAudioRenderer:)` or individual tracks with ``RemoteAudioTrack/add(audioRenderer:)``.
     /// - Note: While enabled, the SDK will not configure `AVAudioSession`. Configure it yourself if your app does its own audio I/O.
+    // Forwards untyped NSError from WebRTC AudioDeviceModule.
+    // swiftlint:disable:next public_typed_throws
     public func setManualRenderingMode(_ enabled: Bool) throws {
         let result = RTC.audioDeviceModule.setManualRenderingMode(enabled)
         try checkAdmResult(code: result)
@@ -387,6 +393,8 @@ public class AudioManager: Loggable {
     /// - Note: Microphone permission is required. iOS may prompt if not already granted.
     /// - Note: This persists across ``Room`` lifecycles and connections until disabled.
     /// - Throws: An error if the underlying audio device module fails to apply the setting.
+    // Forwards untyped NSError from WebRTC AudioDeviceModule.
+    // swiftlint:disable:next public_typed_throws
     public func setRecordingAlwaysPreparedMode(_ enabled: Bool) async throws {
         let result = RTC.audioDeviceModule.setRecordingAlwaysPreparedMode(enabled)
         try checkAdmResult(code: result)
@@ -394,6 +402,8 @@ public class AudioManager: Loggable {
 
     /// Starts mic input to the SDK even without any ``Room`` or a connection.
     /// Audio buffers will flow into ``LocalAudioTrack/add(audioRenderer:)`` and ``capturePostProcessingDelegate``.
+    // Forwards untyped NSError from WebRTC AudioDeviceModule.
+    // swiftlint:disable:next public_typed_throws
     public func startLocalRecording() throws {
         // Always unmute APM if muted by last session.
         RTC.audioProcessingModule.isMuted = false // TODO: Possibly not required anymore with new libs
@@ -403,6 +413,8 @@ public class AudioManager: Loggable {
     }
 
     /// Stops mic input after it was started with ``startLocalRecording()``
+    // Forwards untyped NSError from WebRTC AudioDeviceModule.
+    // swiftlint:disable:next public_typed_throws
     public func stopLocalRecording() throws {
         let result = RTC.audioDeviceModule.stopRecording()
         try checkAdmResult(code: result)
@@ -423,6 +435,8 @@ public class AudioManager: Loggable {
     /// This is useful when you need to set up connections without touching the audio
     /// device yet (e.g., CallKit flows), or to guarantee the engine remains off
     /// regardless of subscription/publication requests.
+    // Forwards untyped NSError from WebRTC AudioDeviceModule.
+    // swiftlint:disable:next public_typed_throws
     public func setEngineAvailability(_ availability: AudioEngineAvailability) throws {
         let result = RTC.audioDeviceModule.setEngineAvailability(availability.toRTCType())
         try checkAdmResult(code: result)
@@ -450,6 +464,8 @@ public class AudioManager: Loggable {
     /// Acquires an audio session requirement for external ownership.
     ///
     /// On platforms without `AVAudioSession`, this returns a no-op handle.
+    // Forwards untyped AVAudioSession errors (acquire path).
+    // swiftlint:disable:next public_typed_throws
     public func acquireSessionRequirement(_ requirement: SessionRequirement) throws -> SessionRequirementHandle {
         #if os(iOS) || os(visionOS) || os(tvOS)
         try audioSession.acquire(requirement: requirement)
