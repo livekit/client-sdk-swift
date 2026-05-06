@@ -211,7 +211,7 @@ actor RpcServerManager: Loggable {
         } catch let error as RpcError {
             return .failure(error)
         } catch {
-            log("[Rpc] Uncaught error returned by RPC handler for \(method). Returning APPLICATION_ERROR instead.", .warning)
+            log("[Rpc] Uncaught error returned by RPC handler for \(method): \(error). Returning APPLICATION_ERROR instead.", .warning)
             return .failure(RpcError.builtIn(.applicationError))
         }
     }
