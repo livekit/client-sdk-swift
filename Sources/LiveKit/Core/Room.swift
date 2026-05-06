@@ -327,23 +327,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // async methods, so we add a separate @objc shim below to preserve the
     // Obj-C selector -connectWithUrl:token:connectOptions:roomOptions:completionHandler:.
     @nonobjc
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     public func connect(url urlString: String,
                         token: String,
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) async throws(LiveKitError)
-    {
-        do {
-            try await _connect(url: urlString, token: token, connectOptions: connectOptions, roomOptions: roomOptions)
-        } catch {
-            throw LiveKitError(from: error)
-        }
-    }
-
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
-    private func _connect(url urlString: String,
-                          token: String,
-                          connectOptions: ConnectOptions? = nil,
-                          roomOptions: RoomOptions? = nil) async throws
     {
         guard let providedUrl = URL(string: urlString), providedUrl.isValidForConnect else {
             log("URL parse failed", .error)
@@ -479,7 +467,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             }
 
             await cleanUp(withError: error)
-            throw error // Re-throw the original error
+            throw LiveKitError(from: error)
         }
 
         log("Connected to \(String(describing: self))", .info)
