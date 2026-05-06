@@ -214,10 +214,10 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
     }
 
     // Intended for child class to override
-    func startCapture() async throws {}
+    func startCapture() async throws(LiveKitError) {}
 
     // Intended for child class to override
-    func stopCapture() async throws {}
+    func stopCapture() async throws(LiveKitError) {}
 
     public final func start() async throws(LiveKitError) {
         try await _startStopSerialRunner.run { [weak self] in
@@ -286,7 +286,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
 
     // Returns true if state updated
     @discardableResult
-    func onPublish() async throws -> Bool {
+    func onPublish() async -> Bool {
         // For LocalTrack only...
         guard self is LocalTrack else { return false }
         guard _state.publishState != .published else { return false }

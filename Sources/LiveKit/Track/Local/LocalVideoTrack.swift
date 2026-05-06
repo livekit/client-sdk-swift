@@ -56,11 +56,11 @@ public class LocalVideoTrack: Track, LocalTrackProtocol, @unchecked Sendable {
 
     // MARK: - Internal
 
-    override func startCapture() async throws {
+    override func startCapture() async throws(LiveKitError) {
         try await capturer.startCapture()
     }
 
-    override func stopCapture() async throws {
+    override func stopCapture() async throws(LiveKitError) {
         try await capturer.stopCapture()
     }
 }

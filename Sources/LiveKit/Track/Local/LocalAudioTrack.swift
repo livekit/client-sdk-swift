@@ -127,7 +127,7 @@ extension LocalAudioTrack {
     final class AudioFrameWatcher: AudioRenderer, Loggable {
         private let completer = AsyncCompleter<Void>(label: "Frame watcher", defaultTimeout: 5)
 
-        func wait() async throws {
+        func wait() async throws(LiveKitError) {
             try await completer.wait()
         }
 
@@ -142,7 +142,7 @@ extension LocalAudioTrack {
         }
     }
 
-    func startWaitingForFrames() async throws {
+    func startWaitingForFrames() async throws(LiveKitError) {
         let frameWatcher = _frameWatcherState.mutate {
             $0.frameWatcher?.reset()
             let watcher = AudioFrameWatcher()

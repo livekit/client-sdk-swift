@@ -99,7 +99,7 @@ actor WebSocket: Loggable, AsyncSequence {
                     // rather than CancellationError. Return nil (end-of-sequence)
                     // instead of propagating, so `subscribe` doesn't call onFailure.
                     if task.closeCode != .invalid || Task.isCancelled { return nil }
-                    throw LiveKitError.from(error: error) ?? error
+                    throw LiveKitError(from: error)
                 }
             } onCancel: {
                 task.cancel(with: .normalClosure, reason: nil)
@@ -145,8 +145,7 @@ actor WebSocket: Loggable, AsyncSequence {
 
             _continuation.mutate {
                 if let error {
-                    let lkError = LiveKitError.from(error: error) ?? LiveKitError(.unknown)
-                    $0?.resume(throwing: lkError)
+                    $0?.resume(throwing: LiveKitError(from: error))
                 } else {
                     $0?.resume()
                 }
