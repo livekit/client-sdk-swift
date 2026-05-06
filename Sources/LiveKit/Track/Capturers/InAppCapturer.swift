@@ -32,29 +32,29 @@ public class InAppScreenCapturer: VideoCapturer, @unchecked Sendable {
         super.init(delegate: delegate)
     }
 
-    // Override of @objc method; typed throws unavailable.
-    // swiftlint:disable:next public_typed_throws
-    override public func startCapture() async throws -> Bool {
+    override public func startCapture() async throws(LiveKitError) -> Bool {
         let didStart = try await super.startCapture()
 
         // Already started
         guard didStart else { return false }
 
         // TODO: force pixel format kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
-        try await RPScreenRecorder.shared().startCapture { [weak self] sampleBuffer, type, _ in
-            guard let self else { return }
-            // Only process .video
-            if type == .video {
-                capture(sampleBuffer: sampleBuffer, capturer: capturer, options: options)
+        do {
+            try await RPScreenRecorder.shared().startCapture { [weak self] sampleBuffer, type, _ in
+                guard let self else { return }
+                // Only process .video
+                if type == .video {
+                    capture(sampleBuffer: sampleBuffer, capturer: capturer, options: options)
+                }
             }
+        } catch {
+            throw LiveKitError(.webRTC, internalError: error)
         }
 
         return true
     }
 
-    // Override of @objc method; typed throws unavailable.
-    // swiftlint:disable:next public_typed_throws
-    override public func stopCapture() async throws -> Bool {
+    override public func stopCapture() async throws(LiveKitError) -> Bool {
         let didStop = try await super.stopCapture()
 
         // Already stopped

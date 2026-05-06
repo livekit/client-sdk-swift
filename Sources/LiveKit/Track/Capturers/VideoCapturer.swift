@@ -136,11 +136,9 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
     ///
     /// ``startCapture()`` and ``stopCapture()`` calls must be balanced. For example, if ``startCapture()`` is called 2 times, ``stopCapture()`` must be called 2 times also.
     /// Returns true when capturing should start, returns fals if capturing already started.
-    @objc
+    @nonobjc
     @discardableResult
-    // @objc disallows typed throws; bridged via NSError**.
-    // swiftlint:disable:next public_typed_throws
-    public func startCapture() async throws -> Bool {
+    public func startCapture() async throws(LiveKitError) -> Bool {
         let didStart = _state.mutate {
             // Counter was 0, so did start capturing with this call
             let didStart = $0.startStopCounter == 0
@@ -164,11 +162,9 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
     ///
     /// See ``startCapture()`` for more details.
     /// Returns true when capturing should stop, returns fals if capturing already stopped.
-    @objc
+    @nonobjc
     @discardableResult
-    // @objc disallows typed throws; bridged via NSError**.
-    // swiftlint:disable:next public_typed_throws
-    public func stopCapture() async throws -> Bool {
+    public func stopCapture() async throws(LiveKitError) -> Bool {
         let didStop = _state.mutate {
             // Counter was already 0, so did NOT stop capturing with this call
             if $0.startStopCounter <= 0 {
@@ -192,13 +188,39 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
         return true
     }
 
-    @objc
+    @nonobjc
     @discardableResult
-    // @objc disallows typed throws; bridged via NSError**.
-    // swiftlint:disable:next public_typed_throws
-    public func restartCapture() async throws -> Bool {
+    public func restartCapture() async throws(LiveKitError) -> Bool {
         try await stopCapture()
         return try await startCapture()
+    }
+
+    // MARK: - Obj-C bridges
+
+    //
+    // @objc disallows typed throws; these shims preserve the original
+    // selectors (-startCaptureWithCompletionHandler:, etc.) for Obj-C
+    // consumers while letting Swift see the typed versions above.
+
+    @available(swift, obsoleted: 1.0, message: "Use startCapture()")
+    @objc(startCaptureWithCompletionHandler:)
+    @discardableResult
+    public func _objc_startCapture() async throws -> Bool { // swiftlint:disable:this public_typed_throws
+        try await startCapture()
+    }
+
+    @available(swift, obsoleted: 1.0, message: "Use stopCapture()")
+    @objc(stopCaptureWithCompletionHandler:)
+    @discardableResult
+    public func _objc_stopCapture() async throws -> Bool { // swiftlint:disable:this public_typed_throws
+        try await stopCapture()
+    }
+
+    @available(swift, obsoleted: 1.0, message: "Use restartCapture()")
+    @objc(restartCaptureWithCompletionHandler:)
+    @discardableResult
+    public func _objc_restartCapture() async throws -> Bool { // swiftlint:disable:this public_typed_throws
+        try await restartCapture()
     }
 }
 
