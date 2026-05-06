@@ -136,12 +136,10 @@ private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixW
 
 #### Typed-throws / Obj-C tradeoffs
 
-- `@objc` methods cannot declare typed throws (Obj-C bridges throws as `NSError**`). Workaround: declare a pure-Swift `@nonobjc` method with typed throws, plus a sibling `@objc` shim hidden from Swift via `@available(swift, obsoleted: 1.0)` that forwards to the typed version. By convention shims are named `_objc_*` and the SwiftLint rule exempts that prefix
-- The same applies to methods conforming to `@objc` protocols (e.g. `LocalTrackProtocol`) — those stay untyped; suppress the rule with a one-line reason
-- `Task<Success, Failure>` has no typed init for arbitrary `Failure`. Use `Task<_, Error>` for the body, then `do/catch` + `LiveKitError(from:)` at the await site
-- `withCheckedThrowingContinuation` likewise only offers `CheckedContinuation<T, Error>`. Resume with `LiveKitError` values where possible, then convert at the function boundary
-- Storing a `@Sendable () throws(LiveKitError) -> Void` closure in a property requires macOS 15+ runtime support. Until the deployment target raises, store as untyped throws and convert at the call site
-- Protocol witnesses can narrow throws (`throws(LiveKitError)` satisfies a `throws` requirement). Don't change `@objc` protocols though — leave their conformers untyped per the non-breaking rule
+- `@objc` forbids typed throws. Pair `@nonobjc public func foo() throws(LiveKitError)` with an `@objc(originalSelector)` shim named `_objc_foo`, hidden from Swift via `@available(swift, obsoleted: 1.0)` (the rule's regex exempts `_objc_*`)
+- `@objc` protocol conformers (e.g. `LocalTrackProtocol`) stay untyped — suppress with a one-line reason
+- `Task<_, Failure: Error>` and `withCheckedThrowingContinuation` have no typed-failure initializers; convert at the `await` site with `LiveKitError(from:)`
+- Stored typed-throws closures need macOS 15+; until the floor moves, store untyped and convert at the call site
 
 ### Coding Style
 
