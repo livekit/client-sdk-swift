@@ -21,7 +21,6 @@ import Foundation
 /// This is distinct from ``ProtocolVersion``, which tracks the *signaling* protocol
 /// negotiated with the LiveKit server. ``ClientProtocol`` governs peer-to-peer feature
 /// negotiation between participants.
-@objc
 public enum ClientProtocol: Int, Sendable {
     /// Legacy client. Only supports RPC v1 (inline `RpcRequest`/`RpcResponse` packets,
     /// hard-capped at 15 KB request/response payloads).
