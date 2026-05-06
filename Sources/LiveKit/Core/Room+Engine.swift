@@ -39,10 +39,10 @@ extension Room {
     }
 
     // Resets state of transports
-    func cleanUpRTC() async {
+    func cleanUpRTC(withError disconnectError: Error? = nil) async {
         // Close data channels
-        publisherDataChannel.reset()
-        subscriberDataChannel.reset()
+        publisherDataChannel.reset(throwing: disconnectError)
+        subscriberDataChannel.reset(throwing: disconnectError)
 
         await _state.transport?.close()
 

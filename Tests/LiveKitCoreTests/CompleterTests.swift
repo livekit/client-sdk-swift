@@ -148,10 +148,46 @@ struct CompleterTests {
         completer.resume(returning: ())
         try await secondTask.value
     }
+}
 
-    private func waitForRegistration(of completer: AsyncCompleter<some Any>) async {
-        while completer.waiterCount == 0 {
-            await Task.yield()
-        }
+private func waitForRegistration(of completer: AsyncCompleter<some Any>) async {
+    while completer.waiterCount == 0 {
+        await Task.yield()
+    }
+}
+
+@Suite(.tags(.concurrency))
+struct CompleterMapActorTests {
+    @Test func resetThrowingFanOutsTypedErrorToAllCompleters() async {
+        let map = CompleterMapActor<Void>(label: "map-test", defaultTimeout: 30)
+
+        let completerA = await map.completer(for: "a")
+        let completerB = await map.completer(for: "b")
+
+        let taskA = Task { try await completerA.wait() }
+        let taskB = Task { try await completerB.wait() }
+
+        await waitForRegistration(of: completerA)
+        await waitForRegistration(of: completerB)
+
+        await map.reset(throwing: LiveKitError(.network, message: "fan-out"))
+
+        let errorA = await #expect(throws: LiveKitError.self) { try await taskA.value }
+        let errorB = await #expect(throws: LiveKitError.self) { try await taskB.value }
+        #expect(errorA?.type == .network)
+        #expect(errorB?.type == .network)
+    }
+
+    @Test func resetWithoutErrorDefaultsToCancelled() async {
+        let map = CompleterMapActor<Void>(label: "map-test", defaultTimeout: 30)
+        let completer = await map.completer(for: "a")
+        let task = Task { try await completer.wait() }
+
+        await waitForRegistration(of: completer)
+
+        await map.reset()
+
+        let error = await #expect(throws: LiveKitError.self) { try await task.value }
+        #expect(error?.type == .cancelled)
     }
 }

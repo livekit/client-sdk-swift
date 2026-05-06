@@ -553,7 +553,7 @@ extension Room {
         // Cancel all track stats timers before closing transports to prevent
         // stats collection from accessing destroyed WebRTC channels.
         cancelTimers()
-        await cleanUpRTC()
+        await cleanUpRTC(withError: disconnectError)
         await cleanUpParticipants(isFullReconnect: isFullReconnect)
 
         // Cleanup for E2EE

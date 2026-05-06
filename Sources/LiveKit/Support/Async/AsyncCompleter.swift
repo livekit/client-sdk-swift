@@ -53,10 +53,10 @@ actor CompleterMapActor<T: Sendable> {
         completer.resume(throwing: error)
     }
 
-    func reset() {
+    func reset(throwing error: Error? = nil) {
         // Reset call completers...
         for (_, value) in _completerMap {
-            value.reset()
+            value.reset(throwing: error)
         }
         // Clear all completers...
         _completerMap.removeAll()
