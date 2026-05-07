@@ -53,6 +53,10 @@ jobs:
         if: matrix.language == 'swift'
         run: brew install swiftly && swiftly init --quiet-shell-followup --skip-install -y
 
+      - name: Resolve SwiftPM dependencies
+        if: matrix.language == 'swift'
+        run: swiftly run +xcode swift package resolve
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
