@@ -63,10 +63,6 @@ actor RpcClientManager: Loggable {
         let remoteClientProtocol = room.remoteParticipants[destinationIdentity]?.clientProtocol ?? .v0
         let useStreamTransport = remoteClientProtocol >= .v1
 
-        if !useStreamTransport, payload.byteLength > MAX_RPC_PAYLOAD_BYTES {
-            throw RpcError.builtIn(.requestPayloadTooLarge)
-        }
-
         let requestId = UUID().uuidString
         let maxRoundTripLatency: TimeInterval = 7
         let minEffectiveTimeout: TimeInterval = maxRoundTripLatency + 1
@@ -269,8 +265,7 @@ actor RpcClientManager: Loggable {
                                 responseTimeout: TimeInterval) async throws
     {
         guard payload.byteLength <= MAX_RPC_PAYLOAD_BYTES else {
-            throw LiveKitError(.invalidParameter,
-                               message: "cannot publish data larger than \(MAX_RPC_PAYLOAD_BYTES)")
+            throw RpcError.builtIn(.requestPayloadTooLarge)
         }
 
         let dataPacket = Livekit_DataPacket.with {
