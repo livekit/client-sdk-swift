@@ -175,7 +175,7 @@ jobs:
     name: Build Docs
     needs: build-and-test
     if: always()
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - name: Checkout Documentation Catalog
         uses: actions/checkout@v6
