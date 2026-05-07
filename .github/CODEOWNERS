@@ -1,0 +1,4 @@
+# CODEOWNERS for client-sdk-swift
+# These owners will be requested for review on all PRs
+
+* @pblazej @hiroshihorie @xianshijing-lk
