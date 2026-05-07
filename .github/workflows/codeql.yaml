@@ -49,12 +49,9 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Resolve SwiftPM dependencies
+      - name: Install swiftly
         if: matrix.language == 'swift'
-        run: |
-          xcodebuild -resolvePackageDependencies \
-            -scheme LiveKit \
-            -clonedSourcePackagesDirPath SourcePackages
+        run: brew install swiftly && swiftly init --quiet-shell-followup --skip-install -y
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
@@ -66,15 +63,7 @@ jobs:
         if: matrix.language == 'swift'
         env:
           NSUnbufferedIO: "YES"
-        run: |
-          xcodebuild build \
-            -scheme LiveKit \
-            -destination 'platform=macOS' \
-            -configuration Debug \
-            -skipPackagePluginValidation \
-            -clonedSourcePackagesDirPath SourcePackages \
-            ONLY_ACTIVE_ARCH=YES \
-            COMPILER_INDEX_STORE_ENABLE=NO
+        run: swiftly run +xcode swift build
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
