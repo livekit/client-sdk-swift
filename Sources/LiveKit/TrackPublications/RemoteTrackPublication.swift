@@ -60,7 +60,7 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     }
 
     /// Subscribe or unsubscribe from this track.
-    public func set(subscribed newValue: Bool) async throws {
+    public func set(subscribed newValue: Bool) async throws(LiveKitError) {
         guard _state.isSubscribePreferred != newValue else { return }
 
         let participant = try await requireParticipant()
@@ -85,7 +85,7 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     /// Enable or disable server from sending down data for this track.
     ///
     /// This is useful when the participant is off screen, you may disable streaming down their video to reduce bandwidth requirements.
-    public func set(enabled newValue: Bool) async throws {
+    public func set(enabled newValue: Bool) async throws(LiveKitError) {
         // No-op if already the desired value
         let trackSettings = _state.trackSettings
         guard trackSettings.isEnabled != newValue else { return }
@@ -98,7 +98,7 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     }
 
     /// Set preferred video FPS for this track.
-    public func set(preferredFPS newValue: UInt) async throws {
+    public func set(preferredFPS newValue: UInt) async throws(LiveKitError) {
         // No-op if already the desired value
         let trackSettings = _state.trackSettings
         guard trackSettings.preferredFPS != newValue else { return }
@@ -114,7 +114,7 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     ///
     /// Based on this value, server will decide which layer to send.
     /// Use ``RemoteTrackPublication/set(videoQuality:)`` to explicitly set layer instead.
-    public func set(preferredDimensions newValue: Dimensions) async throws {
+    public func set(preferredDimensions newValue: Dimensions) async throws(LiveKitError) {
         // No-op if already the desired value
         let trackSettings = _state.trackSettings
         guard trackSettings.dimensions != newValue else { return }
@@ -131,7 +131,7 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     /// This indicates the highest quality the client can accept. if network
     /// bandwidth does not allow, server will automatically reduce quality to
     /// optimize for uninterrupted video.
-    public func set(videoQuality newValue: VideoQuality) async throws {
+    public func set(videoQuality newValue: VideoQuality) async throws(LiveKitError) {
         // No-op if already the desired value
         let trackSettings = _state.trackSettings
         guard trackSettings.videoQuality != newValue else { return }
@@ -209,7 +209,7 @@ private extension RemoteTrackPublication {
         return room._state.connectionState
     }
 
-    func checkUserCanModifyTrackSettings() async throws {
+    func checkUserCanModifyTrackSettings() async throws(LiveKitError) {
         // adaptiveStream must be disabled and must be subscribed
         if isAdaptiveStreamEnabled || !isSubscribed {
             throw LiveKitError(.invalidState, message: "adaptiveStream must be disabled and track must be subscribed")
@@ -266,7 +266,7 @@ extension RemoteTrackPublication {
     }
 
     // attempt to send track settings
-    func send(trackSettings newValue: TrackSettings) async throws {
+    func send(trackSettings newValue: TrackSettings) async throws(LiveKitError) {
         let participant = try await requireParticipant()
         let room = try participant.requireRoom()
 

@@ -54,7 +54,10 @@ extension Room {
     //
     // With LiveKit Cloud, it will also determine the best edge data center for
     // the current client to connect to if a token is provided.
-    public func prepareConnection(url providedUrlString: String, token: String? = nil) async throws {
+    public func prepareConnection(url providedUrlString: String, token: String? = nil) async throws(LiveKitError) {
+        // Obj-C interop: prepareConnection isn't tested via Obj-C tests today,
+        // but keep this in mind: typed throws on @objcMembers async methods
+        // strips the Obj-C completion-handler bridge.
         // Must be in disconnected state.
         guard _state.connectionState == .disconnected else {
             throw LiveKitError(.stateMismatch, message: "Cannot prepare connection when in state \(_state.connectionState)")
@@ -132,9 +135,9 @@ extension Room {
                 try await fullConnectSequence(nextUrl, token)
                 return nextUrl
             } catch {
-                // Re-throw if is cancel.
+                // Re-throw if cancel (wrap as LiveKitError(.cancelled)).
                 if error is CancellationError {
-                    throw error
+                    throw LiveKitError(.cancelled)
                 }
 
                 if let liveKitError = error as? LiveKitError, liveKitError.type == .validation {
@@ -152,7 +155,7 @@ extension Room {
                     await regionManager.markFailed(region: region)
                 }
 
-                try Task.checkCancellation()
+                try checkCancellation()
 
                 await cleanUp(isFullReconnect: true)
 

@@ -135,7 +135,7 @@ class Utils: Loggable {
         reconnectMode: ReconnectMode? = nil,
         participantSid: Participant.Sid? = nil,
         adaptiveStream: Bool
-    ) throws -> URL {
+    ) throws(LiveKitError) -> URL {
         // use default options if nil
         let connectOptions = connectOptions ?? ConnectOptions()
 
@@ -208,7 +208,7 @@ class Utils: Loggable {
         reconnectMode: ReconnectMode? = nil,
         participantSid: Participant.Sid? = nil,
         adaptiveStream: Bool
-    ) throws -> URL {
+    ) throws(LiveKitError) -> URL {
         let connectOptions = connectOptions ?? ConnectOptions()
 
         guard var builder = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
@@ -247,7 +247,7 @@ class Utils: Loggable {
     /// Converts a WebSocket URL to its HTTP validation counterpart.
     /// - `wss://host/rtc?...` → `https://host/rtc/validate?...`
     /// - `wss://host/rtc/v1?...` → `https://host/rtc/v1/validate?...`
-    static func toValidateUrl(_ wsUrl: URL) throws -> URL {
+    static func toValidateUrl(_ wsUrl: URL) throws(LiveKitError) -> URL {
         guard var components = URLComponents(url: wsUrl, resolvingAgainstBaseURL: false) else {
             throw LiveKitError(.failedToParseUrl)
         }
@@ -266,7 +266,7 @@ class Utils: Loggable {
         reconnectMode: ReconnectMode?,
         participantSid: Participant.Sid?,
         adaptiveStream: Bool
-    ) throws -> String {
+    ) throws(LiveKitError) -> String {
         var joinRequest = Livekit_JoinRequest()
         joinRequest.clientInfo = Livekit_ClientInfo.with {
             $0.sdk = .swift
@@ -290,11 +290,16 @@ class Utils: Loggable {
             }
         }
 
-        let joinRequestData = try joinRequest.serializedData()
-        let wrappedData = try Livekit_WrappedJoinRequest.with {
-            $0.compression = .none
-            $0.joinRequest = joinRequestData
-        }.serializedData()
+        let wrappedData: Data
+        do {
+            let joinRequestData = try joinRequest.serializedData()
+            wrappedData = try Livekit_WrappedJoinRequest.with {
+                $0.compression = .none
+                $0.joinRequest = joinRequestData
+            }.serializedData()
+        } catch {
+            throw LiveKitError(.failedToConvertData, internalError: error)
+        }
 
         return wrappedData.base64EncodedString()
     }

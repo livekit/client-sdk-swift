@@ -192,8 +192,8 @@ public class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendabl
 
 /// LocalAudioTrack subclass that bypasses AudioManager, avoiding audio engine errors in test environments.
 public class TestAudioTrack: LocalAudioTrack, @unchecked Sendable {
-    override public func startCapture() async throws {}
-    override public func stopCapture() async throws {}
+    override public func startCapture() async throws(LiveKitError) {}
+    override public func stopCapture() async throws(LiveKitError) {}
     // Bypass frame-waiting since no real audio engine is running.
     override public func startWaitingForFrames() async throws {}
 

@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 actor Transport: NSObject, Loggable {
     // MARK: - Types
 
-    typealias OnOfferBlock = @Sendable (LKRTCSessionDescription, UInt32) async throws -> Void
+    typealias OnOfferBlock = @Sendable (LKRTCSessionDescription, UInt32) async throws(LiveKitError) -> Void
 
     // MARK: - Public
 
@@ -112,11 +112,11 @@ actor Transport: NSObject, Loggable {
         _isRestartingIce = true
     }
 
-    func add(iceCandidate candidate: IceCandidate) async throws {
+    func add(iceCandidate candidate: IceCandidate) async {
         await _iceCandidatesQueue.process(candidate, if: remoteDescription != nil && !_isRestartingIce)
     }
 
-    func set(remoteDescription sd: LKRTCSessionDescription, offerId: UInt32) async throws {
+    func set(remoteDescription sd: LKRTCSessionDescription, offerId: UInt32) async throws(LiveKitError) {
         if signalingState != .haveLocalOffer {
             log("Received answer with unexpected signaling state: \(signalingState), expected .haveLocalOffer", .warning)
         }
@@ -130,15 +130,19 @@ actor Transport: NSObject, Loggable {
         try await set(remoteDescription: sd)
     }
 
-    func set(remoteDescription sd: LKRTCSessionDescription) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            _pc.setRemoteDescription(sd) { error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume()
+    func set(remoteDescription sd: LKRTCSessionDescription) async throws(LiveKitError) {
+        do {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                _pc.setRemoteDescription(sd) { error in
+                    if let error {
+                        continuation.resume(throwing: LiveKitError(.webRTC, internalError: error))
+                    } else {
+                        continuation.resume()
+                    }
                 }
             }
+        } catch {
+            throw LiveKitError(from: error)
         }
 
         await _iceCandidatesQueue.resume()
@@ -157,7 +161,7 @@ actor Transport: NSObject, Loggable {
         }
     }
 
-    func createAndSendOffer(iceRestart: Bool = false) async throws {
+    func createAndSendOffer(iceRestart: Bool = false) async throws(LiveKitError) {
         guard let _onOffer else {
             log("_onOffer is nil", .error)
             return
@@ -176,7 +180,7 @@ actor Transport: NSObject, Loggable {
         }
 
         // Actually negotiate
-        func _negotiateSequence() async throws {
+        func _negotiateSequence() async throws(LiveKitError) {
             _latestOfferId += 1
             var offer = try await createOffer(for: constraints)
             if singlePCMode {
@@ -321,20 +325,24 @@ extension Transport: LKRTCPeerConnectionDelegate {
 // MARK: - Private
 
 private extension Transport {
-    func createOffer(for constraints: [String: String]? = nil) async throws -> LKRTCSessionDescription {
+    func createOffer(for constraints: [String: String]? = nil) async throws(LiveKitError) -> LKRTCSessionDescription {
         let mediaConstraints = LKRTCMediaConstraints(mandatoryConstraints: constraints,
                                                      optionalConstraints: nil)
 
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<LKRTCSessionDescription, Error>) in
-            _pc.offer(for: mediaConstraints) { sd, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else if let sd {
-                    continuation.resume(returning: sd)
-                } else {
-                    continuation.resume(throwing: LiveKitError(.invalidState, message: "No session description and no error were provided."))
+        do {
+            return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<LKRTCSessionDescription, Error>) in
+                _pc.offer(for: mediaConstraints) { sd, error in
+                    if let error {
+                        continuation.resume(throwing: LiveKitError(.webRTC, internalError: error))
+                    } else if let sd {
+                        continuation.resume(returning: sd)
+                    } else {
+                        continuation.resume(throwing: LiveKitError(.invalidState, message: "No session description and no error were provided."))
+                    }
                 }
             }
+        } catch {
+            throw LiveKitError(from: error)
         }
     }
 }
@@ -342,32 +350,40 @@ private extension Transport {
 // MARK: - Internal
 
 extension Transport {
-    func createAnswer(for constraints: [String: String]? = nil) async throws -> LKRTCSessionDescription {
+    func createAnswer(for constraints: [String: String]? = nil) async throws(LiveKitError) -> LKRTCSessionDescription {
         let mediaConstraints = LKRTCMediaConstraints(mandatoryConstraints: constraints,
                                                      optionalConstraints: nil)
 
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<LKRTCSessionDescription, Error>) in
-            _pc.answer(for: mediaConstraints) { sd, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else if let sd {
-                    continuation.resume(returning: sd)
-                } else {
-                    continuation.resume(throwing: LiveKitError(.invalidState, message: "No session description and no error were provided."))
+        do {
+            return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<LKRTCSessionDescription, Error>) in
+                _pc.answer(for: mediaConstraints) { sd, error in
+                    if let error {
+                        continuation.resume(throwing: LiveKitError(.webRTC, internalError: error))
+                    } else if let sd {
+                        continuation.resume(returning: sd)
+                    } else {
+                        continuation.resume(throwing: LiveKitError(.invalidState, message: "No session description and no error were provided."))
+                    }
                 }
             }
+        } catch {
+            throw LiveKitError(from: error)
         }
     }
 
-    func set(localDescription sd: LKRTCSessionDescription) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            _pc.setLocalDescription(sd) { error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume()
+    func set(localDescription sd: LKRTCSessionDescription) async throws(LiveKitError) {
+        do {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                _pc.setLocalDescription(sd) { error in
+                    if let error {
+                        continuation.resume(throwing: LiveKitError(.webRTC, internalError: error))
+                    } else {
+                        continuation.resume()
+                    }
                 }
             }
+        } catch {
+            throw LiveKitError(from: error)
         }
     }
 
@@ -391,7 +407,7 @@ extension Transport {
         return transceiver
     }
 
-    func remove(track sender: LKRTCRtpSender) throws {
+    func remove(track sender: LKRTCRtpSender) throws(LiveKitError) {
         guard _pc.removeTrack(sender) else {
             throw LiveKitError(.webRTC, message: "Failed to remove track")
         }

@@ -43,21 +43,24 @@ public class LocalVideoTrack: Track, LocalTrackProtocol, @unchecked Sendable {
                    reportStatistics: reportStatistics)
     }
 
+    // Conforms to @objc protocol LocalTrackProtocol; @objc disallows typed throws.
+    // swiftlint:disable:next public_typed_throws
     public func mute() async throws {
         try await super._mute()
     }
 
+    // swiftlint:disable:next public_typed_throws
     public func unmute() async throws {
         try await super._unmute()
     }
 
     // MARK: - Internal
 
-    override func startCapture() async throws {
+    override func startCapture() async throws(LiveKitError) {
         try await capturer.startCapture()
     }
 
-    override func stopCapture() async throws {
+    override func stopCapture() async throws(LiveKitError) {
         try await capturer.stopCapture()
     }
 }

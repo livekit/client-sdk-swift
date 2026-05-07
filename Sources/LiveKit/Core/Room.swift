@@ -40,7 +40,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     public var sid: Sid? { _state.sid }
 
     /// Server assigned id of the Room. *async* version of ``Room/sid``.
-    public func sid() async throws -> Sid {
+    public func sid() async throws(LiveKitError) -> Sid {
         try await _sidCompleter.wait()
     }
 
@@ -323,11 +323,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
     }
 
+    // Pure Swift API: typed throws. @objcMembers can't bridge typed-throws
+    // async methods, so we add a separate @objc shim below to preserve the
+    // Obj-C selector -connectWithUrl:token:connectOptions:roomOptions:completionHandler:.
+    @nonobjc
     // swiftlint:disable:next cyclomatic_complexity function_body_length
     public func connect(url urlString: String,
                         token: String,
                         connectOptions: ConnectOptions? = nil,
-                        roomOptions: RoomOptions? = nil) async throws
+                        roomOptions: RoomOptions? = nil) async throws(LiveKitError)
     {
         guard let providedUrl = URL(string: urlString), providedUrl.isValidForConnect else {
             log("URL parse failed", .error)
@@ -355,7 +359,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         await cleanUp()
 
-        try Task.checkCancellation()
+        try checkCancellation()
 
         // enable E2EE
         if let e2eeOptions = state.roomOptions.e2eeOptions {
@@ -437,7 +441,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             // Connect sequence successful
             log("Connect sequence completed")
             // Final check if cancelled, don't fire connected events
-            try Task.checkCancellation()
+            try checkCancellation()
 
             connectSpan?.record("room_connected")
 
@@ -463,10 +467,24 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             }
 
             await cleanUp(withError: error)
-            throw error // Re-throw the original error
+            throw LiveKitError(from: error)
         }
 
         log("Connected to \(String(describing: self))", .info)
+    }
+
+    /// Obj-C bridge for ``connect(url:token:connectOptions:roomOptions:)``.
+    /// Hidden from Swift via `@available(swift, obsoleted: 1.0)`; bridged to
+    /// -connectWithUrl:token:connectOptions:roomOptions:completionHandler: in Obj-C.
+    /// @objc forbids typed throws, so this stays untyped.
+    @available(swift, obsoleted: 1.0, message: "Use connect(url:token:connectOptions:roomOptions:)")
+    @objc(connectWithUrl:token:connectOptions:roomOptions:completionHandler:)
+    public func _objc_connect(url urlString: String,
+                              token: String,
+                              connectOptions: ConnectOptions? = nil,
+                              roomOptions: RoomOptions? = nil) async throws
+    {
+        try await connect(url: urlString, token: token, connectOptions: connectOptions, roomOptions: roomOptions)
     }
 
     public func disconnect() async {

@@ -64,7 +64,7 @@ public final class LocalAudioTrackRecorder: NSObject, Sendable, AudioRenderer {
     /// Starts capturing audio from the local track and returns a stream of audio data.
     /// - Returns: A stream of audio data.
     /// - Throws: An error if the audio track cannot be started.
-    public func start() async throws -> Stream {
+    public func start() async throws(LiveKitError) -> Stream {
         stop()
 
         try await track.startCapture()

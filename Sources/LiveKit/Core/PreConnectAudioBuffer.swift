@@ -73,7 +73,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     /// The room connection needs to be established and the remote participant needs to subscribe to the audio track
     /// before the timeout is reached. Otherwise, the audio stream will be flushed without sending.
     ///   - recorder: Optional custom recorder instance. If not provided, a new one will be created.
-    public func startRecording(timeout: TimeInterval = Constants.timeout, recorder: LocalAudioTrackRecorder? = nil) async throws {
+    public func startRecording(timeout: TimeInterval = Constants.timeout, recorder: LocalAudioTrackRecorder? = nil) async throws(LiveKitError) {
         room?.add(delegate: self)
 
         let roomOptions = room?._state.roomOptions
@@ -123,7 +123,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     ///   - room: The room instance to send the audio data.
     ///   - agents: The agents to send the audio data to.
     ///   - topic: The topic to send the audio data.
-    public func sendAudioData(to room: Room, agents: [Participant.Identity], on topic: String = dataTopic) async throws {
+    public func sendAudioData(to room: Room, agents: [Participant.Identity], on topic: String = dataTopic) async throws(LiveKitError) {
         guard !agents.isEmpty else { return }
 
         guard !state.sent else { return }
@@ -146,19 +146,27 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
             ],
             destinationIdentities: agents
         )
-        let writer = try await room.localParticipant.streamBytes(options: streamOptions)
 
-        var sentSize = 0
-        for await chunk in audioStream {
-            do {
-                try await writer.write(chunk)
-            } catch {
-                try await writer.close(reason: error.localizedDescription)
-                throw error
+        let sentSize: Int
+        do {
+            let writer = try await room.localParticipant.streamBytes(options: streamOptions)
+
+            var size = 0
+            for await chunk in audioStream {
+                do {
+                    try await writer.write(chunk)
+                } catch {
+                    try? await writer.close(reason: error.localizedDescription)
+                    throw error
+                }
+                size += chunk.count
             }
-            sentSize += chunk.count
+            try await writer.close()
+            sentSize = size
+        } catch {
+            // Wrap StreamError (or any other) as LiveKitError(.dataStream).
+            throw LiveKitError(from: error)
         }
-        try await writer.close()
 
         log("Sent \(recorder.duration(sentSize))s = \(sentSize / 1024)KB of audio data to \(agents.count) agent(s) \(agents)", .info)
     }

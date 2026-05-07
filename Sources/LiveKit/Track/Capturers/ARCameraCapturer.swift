@@ -36,14 +36,18 @@ public class ARCameraCapturer: VideoCapturer, @unchecked Sendable {
         super.init(delegate: delegate)
     }
 
-    override public func startCapture() async throws -> Bool {
+    override public func startCapture() async throws(LiveKitError) -> Bool {
         let didStart = try await super.startCapture()
         // Already started
         guard didStart else { return false }
 
         try await ensureCameraAccessAuthorized()
 
-        try await arKitSession.run([cameraFrameProvider])
+        do {
+            try await arKitSession.run([cameraFrameProvider])
+        } catch {
+            throw LiveKitError(.deviceAccessDenied, internalError: error)
+        }
 
         guard let format = CameraVideoFormat.supportedVideoFormats(for: .main, cameraPositions: [.left]).first,
               let frameUpdates = cameraFrameProvider.cameraFrameUpdates(for: format)
@@ -63,7 +67,7 @@ public class ARCameraCapturer: VideoCapturer, @unchecked Sendable {
         return true
     }
 
-    private func ensureCameraAccessAuthorized() async throws {
+    private func ensureCameraAccessAuthorized() async throws(LiveKitError) {
         let queryResult = await arKitSession.queryAuthorization(for: [.cameraAccess])
         switch queryResult[.cameraAccess] {
         case .denied: throw LiveKitError(.deviceAccessDenied)
@@ -77,7 +81,7 @@ public class ARCameraCapturer: VideoCapturer, @unchecked Sendable {
         }
     }
 
-    override public func stopCapture() async throws -> Bool {
+    override public func stopCapture() async throws(LiveKitError) -> Bool {
         let didStop = try await super.stopCapture()
         // Already stopped
         guard didStop else { return false }

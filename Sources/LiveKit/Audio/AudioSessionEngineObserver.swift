@@ -102,7 +102,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     /// of the WebRTC engine lifecycle.
     ///
     /// - Throws: ``LiveKitError`` if the audio session fails to configure or activate.
-    public func acquire(requirement: SessionRequirement) throws -> SessionRequirementHandle {
+    public func acquire(requirement: SessionRequirement) throws(LiveKitError) -> SessionRequirementHandle {
         let id = UUID()
         try set(requirement: requirement, for: id)
         return SessionRequirementHandle(releaseImpl: { [weak self] in
@@ -111,7 +111,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         })
     }
 
-    private func set(requirement: SessionRequirement, for id: UUID) throws {
+    private func set(requirement: SessionRequirement, for id: UUID) throws(LiveKitError) {
         try updateRequirements {
             if requirement == .none {
                 $0.removeValue(forKey: id)
@@ -121,21 +121,21 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         }
     }
 
-    fileprivate func removeRequirement(for id: UUID) throws {
+    fileprivate func removeRequirement(for id: UUID) throws(LiveKitError) {
         try updateRequirements {
             $0.removeValue(forKey: id)
         }
     }
 
-    private func updateRequirements(_ block: (inout [UUID: SessionRequirement]) -> Void) throws {
-        try _state.mutate {
-            let oldState = $0
-            block(&$0.sessionRequirements)
-            guard $0.sessionRequirements != oldState.sessionRequirements else { return }
+    private func updateRequirements(_ block: (inout [UUID: SessionRequirement]) -> Void) throws(LiveKitError) {
+        try _state.mutate { state throws(LiveKitError) in
+            let oldState = state
+            block(&state.sessionRequirements)
+            guard state.sessionRequirements != oldState.sessionRequirements else { return }
             do {
-                try configureIfNeeded(oldState: oldState, newState: $0)
+                try configureIfNeeded(oldState: oldState, newState: state)
             } catch {
-                $0 = oldState
+                state = oldState
                 throw LiveKitError(.audioSession, message: "Failed to configure audio session")
             }
         }

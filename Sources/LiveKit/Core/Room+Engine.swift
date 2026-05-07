@@ -53,7 +53,7 @@ extension Room {
         }
     }
 
-    func publisherShouldNegotiate() async throws {
+    func publisherShouldNegotiate() async throws(LiveKitError) {
         log()
 
         let publisher = try requirePublisher()
@@ -61,15 +61,15 @@ extension Room {
         _state.mutate { $0.hasPublished = true }
     }
 
-    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws {
+    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws(LiveKitError) {
         try await send(dataPacket: .with {
             $0.user = userPacket
             $0.kind = kind
         })
     }
 
-    func send(dataPacket packet: Livekit_DataPacket) async throws {
-        func ensurePublisherConnected() async throws {
+    func send(dataPacket packet: Livekit_DataPacket) async throws(LiveKitError) {
+        func ensurePublisherConnected() async throws(LiveKitError) {
             // Only needed when subscriber is primary in dual PC mode
             guard case .subscriberPrimary = _state.transport else {
                 return
@@ -161,7 +161,7 @@ extension Room {
                                           singlePCMode: isSinglePC,
                                           delegate: self)
 
-            await publisher.set { [weak self] offer, offerId in
+            await publisher.set { [weak self] offer, offerId throws(LiveKitError) in
                 guard let self else { return }
                 log("Publisher onOffer with offerId: \(offerId), sdp: \(offer.sdp)")
                 try await signalClient.send(offer: offer, offerId: offerId)
@@ -274,7 +274,7 @@ extension Room {
         }
 
         // Check cancellation after WebSocket connected
-        try Task.checkCancellation()
+        try checkCancellation()
 
         connectSpan?.record("signal")
         connectSpan?.record("join_recv")
@@ -282,14 +282,14 @@ extension Room {
         try await configureTransports(connectResponse: connectResponse, singlePeerConnection: singlePC)
         connectSpan?.record("pc_created")
         // Check cancellation after configuring transports
-        try Task.checkCancellation()
+        try checkCancellation()
 
         // Resume after configuring transports...
         await signalClient.resumeQueues()
 
         // Wait for transport...
         try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
-        try Task.checkCancellation()
+        try checkCancellation()
 
         connectSpan?.record("engine")
         connectSpan?.record("pc_connected")
@@ -338,12 +338,12 @@ extension Room {
                                                                  participantSid: localParticipant.sid,
                                                                  adaptiveStream: _state.roomOptions.adaptiveStream,
                                                                  singlePeerConnection: singlePC)
-            try Task.checkCancellation()
+            try checkCancellation()
 
             // Update configuration
             try await configureTransports(connectResponse: connectResponse,
                                           singlePeerConnection: singlePC)
-            try Task.checkCancellation()
+            try checkCancellation()
 
             // Resume after configuring transports...
             await signalClient.resumeQueues()
@@ -357,7 +357,7 @@ extension Room {
                 log("[Connect] Subscriber transport failed to connect, error: \(error)", .error)
                 throw error
             }
-            try Task.checkCancellation()
+            try checkCancellation()
 
             // send SyncState before offer
             try await sendSyncState()
@@ -540,7 +540,7 @@ extension Room {
 // MARK: - Private helpers
 
 extension Room {
-    func requirePublisher() throws -> Transport {
+    func requirePublisher() throws(LiveKitError) -> Transport {
         guard let publisher = _state.transport?.publisher else {
             log("Publisher is nil", .error)
             throw LiveKitError(.invalidState, message: "Publisher is nil")

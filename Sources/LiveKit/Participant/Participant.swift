@@ -311,7 +311,7 @@ extension Participant {
 // MARK: - Private helpers
 
 extension Participant {
-    func requireRoom() throws -> Room {
+    func requireRoom() throws(LiveKitError) -> Room {
         guard let room = _room else {
             log("Room is nil", .error)
             throw LiveKitError(.invalidState, message: "Room is nil")
@@ -320,7 +320,7 @@ extension Participant {
         return room
     }
 
-    func requireIdentity() throws -> Participant.Identity {
+    func requireIdentity() throws(LiveKitError) -> Participant.Identity {
         guard let identity else {
             log("Identity is nil", .error)
             throw LiveKitError(.invalidState, message: "Identity is nil")

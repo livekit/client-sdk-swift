@@ -33,7 +33,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
 
     /// publish a new audio track to the Room
     @discardableResult
-    public func publish(audioTrack: LocalAudioTrack, options: AudioPublishOptions? = nil) async throws -> LocalTrackPublication {
+    public func publish(audioTrack: LocalAudioTrack, options: AudioPublishOptions? = nil) async throws(LiveKitError) -> LocalTrackPublication {
         let result = try await _publishSerialRunner.run {
             try await self._publish(track: audioTrack, options: options)
         }
@@ -43,7 +43,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
 
     /// publish a new video track to the Room
     @discardableResult
-    public func publish(videoTrack: LocalVideoTrack, options: VideoPublishOptions? = nil) async throws -> LocalTrackPublication {
+    public func publish(videoTrack: LocalVideoTrack, options: VideoPublishOptions? = nil) async throws(LiveKitError) -> LocalTrackPublication {
         let result = try await _publishSerialRunner.run {
             try await self._publish(track: videoTrack, options: options)
         }
@@ -65,7 +65,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
 
     /// unpublish an existing published track
     /// this will also stop the track
-    public func unpublish(publication: LocalTrackPublication, notify _notify: Bool = true) async throws {
+    public func unpublish(publication: LocalTrackPublication, notify _notify: Bool = true) async throws(LiveKitError) {
         let room = try requireRoom()
 
         func _notifyDidUnpublish() async {
@@ -103,7 +103,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
             try await track.stop()
         }
 
-        try await track.onUnpublish()
+        await track.onUnpublish()
 
         await _notifyDidUnpublish()
     }
@@ -114,7 +114,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
     /// - Parameters:
     ///   - data: Data to send
     ///   - options: Provide options with a ``DataPublishOptions`` class.
-    public func publish(data: Data, options: DataPublishOptions? = nil) async throws {
+    public func publish(data: Data, options: DataPublishOptions? = nil) async throws(LiveKitError) {
         let room = try requireRoom()
         let options = options ?? room._state.roomOptions.defaultDataPublishOptions
 
@@ -150,7 +150,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
      *  participant/track. Any omitted participants will not receive any permissions.
      */
     public func setTrackSubscriptionPermissions(allParticipantsAllowed: Bool,
-                                                trackPermissions: [ParticipantTrackPermission] = []) async throws
+                                                trackPermissions: [ParticipantTrackPermission] = []) async throws(LiveKitError)
     {
         self.allParticipantsAllowed = allParticipantsAllowed
         self.trackPermissions = trackPermissions
@@ -161,7 +161,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
     /// Sets and updates the metadata of the local participant.
     ///
     /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
-    public func set(metadata: String) async throws {
+    public func set(metadata: String) async throws(LiveKitError) {
         let room = try requireRoom()
         try await room.signalClient.sendUpdateParticipant(metadata: metadata)
         _state.mutate { $0.metadata = metadata }
@@ -170,19 +170,19 @@ public class LocalParticipant: Participant, @unchecked Sendable {
     /// Sets and updates the name of the local participant.
     ///
     /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
-    public func set(name: String) async throws {
+    public func set(name: String) async throws(LiveKitError) {
         let room = try requireRoom()
         try await room.signalClient.sendUpdateParticipant(name: name)
         _state.mutate { $0.name = name }
     }
 
-    public func set(attributes: [String: String]) async throws {
+    public func set(attributes: [String: String]) async throws(LiveKitError) {
         let room = try requireRoom()
         try await room.signalClient.sendUpdateParticipant(attributes: attributes)
         _state.mutate { $0.attributes = attributes }
     }
 
-    func sendTrackSubscriptionPermissions() async throws {
+    func sendTrackSubscriptionPermissions() async throws(LiveKitError) {
         let room = try requireRoom()
         guard room._state.connectionState == .connected else { return }
 
@@ -545,7 +545,7 @@ extension LocalParticipant {
         try await track.start()
         // Starting the Track could be time consuming especially for camera etc.
         // Check cancellation after track starts.
-        try Task.checkCancellation()
+        try checkCancellation()
 
         do {
             var dimensions: Dimensions? // Only for Video

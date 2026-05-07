@@ -68,6 +68,9 @@ public enum LiveKitErrorType: Int, Sendable {
     // LiveKit Cloud
     case onlyForCloud = 1101
     case regionManager = 1102
+
+    // Data streams
+    case dataStream = 1201
 }
 
 extension LiveKitErrorType: CustomStringConvertible {
@@ -131,6 +134,8 @@ extension LiveKitErrorType: CustomStringConvertible {
             "Only for LiveKit Cloud"
         case .regionManager:
             "Region manager error"
+        case .dataStream:
+            "Data stream error"
         default: "Unknown"
         }
     }
@@ -182,28 +187,58 @@ public class LiveKitError: NSError, @unchecked Sendable, Loggable {
     }
 }
 
+public extension LiveKitError {
+    /// Wraps any `Error` as a `LiveKitError`. Pass-through for an existing
+    /// `LiveKitError` (its type/message/internalError are forwarded);
+    /// `CancellationError` becomes `.cancelled`; network errors become
+    /// `.network`; `StreamError` becomes `.dataStream`; everything else
+    /// becomes `.unknown` with `internalError` set.
+    ///
+    /// Designed for `throws(LiveKitError)` boundary catches:
+    /// ```swift
+    /// } catch {
+    ///     throw LiveKitError(from: error)
+    /// }
+    /// ```
+    convenience init(from error: any Error) {
+        if let lk = error as? LiveKitError {
+            self.init(lk.type, message: lk.message, internalError: lk.internalError)
+            return
+        }
+        if error is CancellationError {
+            self.init(.cancelled)
+            return
+        }
+        if error.isNetworkError {
+            self.init(.network, internalError: error)
+            return
+        }
+        if error is StreamError {
+            self.init(.dataStream, internalError: error)
+            return
+        }
+        self.init(.unknown, internalError: error)
+    }
+}
+
 extension LiveKitError {
     static func from(error: Error?) -> LiveKitError? {
         guard let error else { return nil }
-        if let error = error as? LiveKitError {
-            return error
-        }
-
-        if error is CancellationError {
-            return LiveKitError(.cancelled)
-        }
-
-        if error.isNetworkError {
-            return LiveKitError(.network, internalError: error)
-        }
-
-        log("Uncategorized error for: \(String(describing: error))")
-        return LiveKitError(.unknown)
+        return LiveKitError(from: error)
     }
 
     static func from(reason: Livekit_DisconnectReason) -> LiveKitError {
         LiveKitError(reason.toLKType())
     }
+}
+
+/// Throws `LiveKitError(.cancelled)` if the current Task is cancelled.
+///
+/// Typed-throws counterpart to `Task.checkCancellation()` for use inside
+/// `throws(LiveKitError)` contexts.
+@inlinable
+func checkCancellation() throws(LiveKitError) {
+    if Task.isCancelled { throw LiveKitError(.cancelled) }
 }
 
 extension Error {

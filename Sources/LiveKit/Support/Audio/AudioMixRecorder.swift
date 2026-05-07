@@ -131,14 +131,18 @@ public class AudioMixRecorder: Loggable, @unchecked Sendable {
 
     // MARK: - Public Methods
 
-    public func start() throws {
+    public func start() throws(LiveKitError) {
         guard !audioEngine.isRunning else {
             log("Already running", .warning)
             return
         }
         log()
 
-        try audioEngine.start()
+        do {
+            try audioEngine.start()
+        } catch {
+            throw LiveKitError(.audioEngine, internalError: error)
+        }
         // Calculate interval based on buffer size and sample rate
         let interval = Double(maxFrameCount) / Double(processingFormat.sampleRate)
         startRenderTimer(interval: interval)

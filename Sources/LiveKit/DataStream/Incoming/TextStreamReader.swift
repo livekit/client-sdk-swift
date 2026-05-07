@@ -33,10 +33,15 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable {
     /// once the stream closes normally.
     ///
     /// - Returns: The string consisting of all concatenated chunks.
-    /// - Throws: ``StreamError`` if an error occurs while reading the stream.
-    ///
-    public func readAll() async throws -> String {
-        try await collect()
+    /// - Throws: ``LiveKitError`` (`.dataStream`) wrapping the underlying `StreamError`
+    ///   if an error occurs while reading the stream.
+    @nonobjc
+    public func readAll() async throws(LiveKitError) -> String {
+        do {
+            return try await collect()
+        } catch {
+            throw LiveKitError(from: error)
+        }
     }
 
     /// An asynchronous iterator of incoming chunks.
@@ -75,5 +80,11 @@ public extension TextStreamReader {
                 onCompletion?(error)
             }
         }
+    }
+
+    @available(swift, obsoleted: 1.0, message: "Use readAll()")
+    @objc(readAllWithCompletionHandler:)
+    func _objc_readAll() async throws -> String {
+        try await readAll()
     }
 }

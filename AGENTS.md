@@ -130,6 +130,16 @@ private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixW
 - For non-recoverable errors, propagate with `throws` using `LiveKitError` with proper type/code
 - Anticipate invalid states at compile time using algebraic data types, typestates, etc.
 - Unsafe APIs like subscript `[0]` should be wrapped and leverage optional `?`
+- Public throwing methods declare typed throws: `throws(LiveKitError)`. Enforced by the `public_typed_throws` SwiftLint rule
+- At I/O edges (Foundation/AVAudio/WebRTC/protobuf), wrap with `LiveKitError(from: error)` — passes through existing `LiveKitError`, classifies `CancellationError`/`URLError`/`StreamError`, wraps everything else as `.unknown` with `internalError` set
+- Inside `throws(LiveKitError)` contexts, use `try checkCancellation()` (typed helper in `Errors.swift`) instead of `try Task.checkCancellation()`
+
+#### Typed-throws / Obj-C tradeoffs
+
+- `@objc` forbids typed throws. Pair `@nonobjc public func foo() throws(LiveKitError)` with an `@objc(originalSelector)` shim named `_objc_foo`, hidden from Swift via `@available(swift, obsoleted: 1.0)` (the rule's regex exempts `_objc_*`)
+- `@objc` protocol conformers (e.g. `LocalTrackProtocol`) stay untyped — suppress with a one-line reason
+- `Task<_, Failure: Error>` and `withCheckedThrowingContinuation` have no typed-failure initializers; convert at the `await` site with `LiveKitError(from:)`
+- Stored typed-throws closures need macOS 15+; until the floor moves, store untyped and convert at the call site
 
 ### Coding Style
 

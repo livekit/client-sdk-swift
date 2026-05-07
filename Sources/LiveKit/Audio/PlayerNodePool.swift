@@ -63,33 +63,40 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
     }
 
     @discardableResult
-    func play(_ buffer: AVAudioPCMBuffer, loop: Bool = false) throws -> SoundPlayback {
-        let acquired = try executionQueue.sync { () throws -> AcquiredNode in
-            guard let index = items.firstIndex(where: { $0.state == .idle }) else {
-                throw LiveKitError(.audioEngine, message: "No available player nodes")
-            }
+    func play(_ buffer: AVAudioPCMBuffer, loop: Bool = false) throws(LiveKitError) -> SoundPlayback {
+        let acquired: AcquiredNode
+        do {
+            acquired = try executionQueue.sync { () throws -> AcquiredNode in
+                guard let index = items.firstIndex(where: { $0.state == .idle }) else {
+                    throw LiveKitError(.audioEngine, message: "No available player nodes")
+                }
 
-            items[index].state = .inUse
-            items[index].generation &+= 1
+                items[index].state = .inUse
+                items[index].generation &+= 1
 
-            let node = items[index].node
-            let generation = items[index].generation
-            node.volume = 1.0
-            node.pan = 0.0
+                let node = items[index].node
+                let generation = items[index].generation
+                node.volume = 1.0
+                node.pan = 0.0
 
-            if loop {
-                node.scheduleBuffer(buffer, at: nil, options: .loops)
-            } else {
-                node.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
-                    self?.executionQueue.async { [weak self] in
-                        self?.releaseCompletedSlot(index: index, generation: generation)
+                if loop {
+                    node.scheduleBuffer(buffer, at: nil, options: .loops)
+                } else {
+                    node.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+                        self?.executionQueue.async { [weak self] in
+                            self?.releaseCompletedSlot(index: index, generation: generation)
+                        }
                     }
                 }
+
+                node.play()
+
+                return AcquiredNode(index: index, node: node, generation: generation)
             }
-
-            node.play()
-
-            return AcquiredNode(index: index, node: node, generation: generation)
+        } catch let error as LiveKitError {
+            throw error
+        } catch {
+            throw LiveKitError(.audioEngine, internalError: error)
         }
 
         return NodePlayback(node: acquired.node) { [weak self] in

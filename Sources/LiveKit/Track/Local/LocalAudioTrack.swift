@@ -82,23 +82,26 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
                                captureOptions: options)
     }
 
+    // Conforms to @objc protocol LocalTrackProtocol; @objc disallows typed throws.
+    // swiftlint:disable:next public_typed_throws
     public func mute() async throws {
         try await super._mute()
     }
 
+    // swiftlint:disable:next public_typed_throws
     public func unmute() async throws {
         try await super._unmute()
     }
 
     // MARK: - Internal
 
-    override func startCapture() async throws {
+    override func startCapture() async throws(LiveKitError) {
         // AudioDeviceModule's InitRecording() and StartRecording() automatically get called by WebRTC, but
         // explicitly init & start it early to detect audio engine failures (mic not accessible for some reason, etc.).
         try AudioManager.shared.startLocalRecording()
     }
 
-    override func stopCapture() async throws {
+    override func stopCapture() async throws(LiveKitError) {
         cleanUpFrameWatcher()
     }
 }
@@ -124,7 +127,7 @@ extension LocalAudioTrack {
     final class AudioFrameWatcher: AudioRenderer, Loggable {
         private let completer = AsyncCompleter<Void>(label: "Frame watcher", defaultTimeout: 5)
 
-        func wait() async throws {
+        func wait() async throws(LiveKitError) {
             try await completer.wait()
         }
 

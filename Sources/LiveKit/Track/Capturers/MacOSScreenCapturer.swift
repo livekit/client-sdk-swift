@@ -53,7 +53,7 @@ public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
         super.init(delegate: delegate)
     }
 
-    override public func startCapture() async throws -> Bool {
+    override public func startCapture() async throws(LiveKitError) -> Bool {
         let didStart = try await super.startCapture()
 
         // Already started
@@ -104,18 +104,22 @@ public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
 
         // Why does SCStream hold strong reference to delegate?
         let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
-        try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: nil)
-        if #available(macOS 13.0, *) {
-            try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: nil)
+        do {
+            try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: nil)
+            if #available(macOS 13.0, *) {
+                try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: nil)
+            }
+            try await stream.startCapture()
+        } catch {
+            throw LiveKitError(.webRTC, internalError: error)
         }
-        try await stream.startCapture()
 
         _screenCapturerState.mutate { $0.scStream = stream }
 
         return true
     }
 
-    override public func stopCapture() async throws -> Bool {
+    override public func stopCapture() async throws(LiveKitError) -> Bool {
         let didStop = try await super.stopCapture()
 
         // Already stopped
@@ -130,8 +134,12 @@ public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
             $0.resendTimer = nil
         }
 
-        try await stream.stopCapture()
-        try stream.removeStreamOutput(self, type: .screen)
+        do {
+            try await stream.stopCapture()
+            try stream.removeStreamOutput(self, type: .screen)
+        } catch {
+            throw LiveKitError(.webRTC, internalError: error)
+        }
 
         _screenCapturerState.mutate {
             $0.scStream = nil

@@ -68,6 +68,8 @@ public actor CachingTokenSource: TokenSourceConfigurable, Loggable {
         self.validator = validator
     }
 
+    // Conforms to TokenSourceConfigurable protocol whose requirement is untyped throws.
+    // swiftlint:disable:next public_typed_throws
     public func fetch(_ options: TokenRequestOptions) async throws -> TokenSourceResponse {
         if let (cachedOptions, cachedResponse) = await store.retrieve(),
            cachedOptions == options,

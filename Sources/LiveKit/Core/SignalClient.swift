@@ -171,7 +171,7 @@ actor SignalClient: Loggable {
 
             let connectResponse = try await _connectResponseCompleter.wait()
             // Check cancellation after received join response
-            try Task.checkCancellation()
+            try checkCancellation()
 
             // Successfully connected
             _state.mutate {
@@ -181,10 +181,10 @@ actor SignalClient: Loggable {
 
             return connectResponse
         } catch let connectionError {
-            // Skip validation if user cancelled
+            // Skip validation if user cancelled (wrap as LiveKitError(.cancelled)).
             if connectionError is CancellationError {
                 await cleanUp(withError: connectionError)
-                throw connectionError
+                throw LiveKitError(.cancelled)
             }
 
             // Skip validation if reconnect mode
@@ -270,7 +270,7 @@ actor SignalClient: Loggable {
 
 private extension SignalClient {
     // Send request or enqueue while reconnecting
-    func _sendRequest(_ request: Livekit_SignalRequest) async throws {
+    func _sendRequest(_ request: Livekit_SignalRequest) async throws(LiveKitError) {
         guard connectionState != .disconnected else {
             log("connectionState is .disconnected", .error)
             throw LiveKitError(.invalidState, message: "connectionState is .disconnected")
@@ -418,7 +418,7 @@ extension SignalClient {
 // MARK: - Send methods
 
 extension SignalClient {
-    func send(offer: LKRTCSessionDescription, offerId: UInt32) async throws {
+    func send(offer: LKRTCSessionDescription, offerId: UInt32) async throws(LiveKitError) {
         let r = Livekit_SignalRequest.with {
             $0.offer = offer.toPBType(offerId: offerId)
         }
@@ -426,7 +426,7 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func send(answer: LKRTCSessionDescription, offerId: UInt32) async throws {
+    func send(answer: LKRTCSessionDescription, offerId: UInt32) async throws(LiveKitError) {
         let r = Livekit_SignalRequest.with {
             $0.answer = answer.toPBType(offerId: offerId)
         }
@@ -445,7 +445,7 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendMuteTrack(trackSid: Track.Sid, muted: Bool) async throws {
+    func sendMuteTrack(trackSid: Track.Sid, muted: Bool) async throws(LiveKitError) {
         let r = Livekit_SignalRequest.with {
             $0.mute = Livekit_MuteTrackRequest.with {
                 $0.sid = trackSid.stringValue
@@ -487,7 +487,7 @@ extension SignalClient {
         return try await completer.wait()
     }
 
-    func sendUpdateTrackSettings(trackSid: Track.Sid, settings: TrackSettings) async throws {
+    func sendUpdateTrackSettings(trackSid: Track.Sid, settings: TrackSettings) async throws(LiveKitError) {
         let r = Livekit_SignalRequest.with {
             $0.trackSetting = Livekit_UpdateTrackSettings.with {
                 $0.trackSids = [trackSid.stringValue]
@@ -502,7 +502,7 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendUpdateVideoLayers(trackSid: Track.Sid, layers: [Livekit_VideoLayer]) async throws {
+    func sendUpdateVideoLayers(trackSid: Track.Sid, layers: [Livekit_VideoLayer]) async throws(LiveKitError) {
         let r = Livekit_SignalRequest.with {
             $0.updateLayers = Livekit_UpdateVideoLayers.with {
                 $0.trackSid = trackSid.stringValue
@@ -515,7 +515,7 @@ extension SignalClient {
 
     func sendUpdateSubscription(participantSid: Participant.Sid,
                                 trackSid: Track.Sid,
-                                isSubscribed: Bool) async throws
+                                isSubscribed: Bool) async throws(LiveKitError)
     {
         let p = Livekit_ParticipantTracks.with {
             $0.participantSid = participantSid.stringValue
@@ -534,7 +534,7 @@ extension SignalClient {
     }
 
     func sendUpdateSubscriptionPermission(allParticipants: Bool,
-                                          trackPermissions: [ParticipantTrackPermission]) async throws
+                                          trackPermissions: [ParticipantTrackPermission]) async throws(LiveKitError)
     {
         let r = Livekit_SignalRequest.with {
             $0.subscriptionPermission = Livekit_SubscriptionPermission.with {
@@ -548,7 +548,7 @@ extension SignalClient {
 
     func sendUpdateParticipant(name: String? = nil,
                                metadata: String? = nil,
-                               attributes: [String: String]? = nil) async throws
+                               attributes: [String: String]? = nil) async throws(LiveKitError)
     {
         let r = Livekit_SignalRequest.with {
             $0.updateMetadata = Livekit_UpdateParticipantMetadata.with {
@@ -726,7 +726,7 @@ extension Livekit_SignalRequest {
 }
 
 private extension SignalClient {
-    func requireWebSocket() async throws -> WebSocket {
+    func requireWebSocket() async throws(LiveKitError) -> WebSocket {
         guard let result = _state.socket else {
             log("WebSocket is nil", .error)
             throw LiveKitError(.invalidState, message: "WebSocket is nil")

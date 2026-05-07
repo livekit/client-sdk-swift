@@ -42,7 +42,7 @@ public class LocalTrackPublication: TrackPublication, @unchecked Sendable {
 
     private let _debounce = Debounce(delay: 0.1)
 
-    public func mute() async throws {
+    public func mute() async throws(LiveKitError) {
         guard let track = track as? LocalTrack else {
             throw LiveKitError(.invalidState, message: "track is nil or not a LocalTrack")
         }
@@ -50,7 +50,7 @@ public class LocalTrackPublication: TrackPublication, @unchecked Sendable {
         try await track._mute()
     }
 
-    public func unmute() async throws {
+    public func unmute() async throws(LiveKitError) {
         guard let track = track as? LocalTrack else {
             throw LiveKitError(.invalidState, message: "track is nil or not a LocalTrack")
         }
@@ -78,14 +78,14 @@ public class LocalTrackPublication: TrackPublication, @unchecked Sendable {
 }
 
 extension LocalTrackPublication {
-    func suspend() async throws {
+    func suspend() async throws(LiveKitError) {
         // Do nothing if already muted
         guard !isMuted else { return }
         try await mute()
         _suspended = true
     }
 
-    func resume() async throws {
+    func resume() async throws(LiveKitError) {
         // Do nothing if was not suspended
         guard _suspended else { return }
         try await unmute()

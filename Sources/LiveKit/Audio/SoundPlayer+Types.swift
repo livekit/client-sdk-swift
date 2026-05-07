@@ -85,7 +85,7 @@ public struct SoundHandle: Hashable, Sendable {
     let id: UUID
 
     /// Plays this prepared sound with the provided options.
-    public func play(options: SoundPlaybackOptions = SoundPlaybackOptions()) async throws {
+    public func play(options: SoundPlaybackOptions = SoundPlaybackOptions()) async throws(LiveKitError) {
         try await SoundPlayer.shared.play(self, options: options)
     }
 
@@ -149,7 +149,7 @@ class PreparedSound {
         cleanUp()
     }
 
-    func localBuffer(for playerNodeFormat: AVAudioFormat) throws -> AVAudioPCMBuffer {
+    func localBuffer(for playerNodeFormat: AVAudioFormat) throws(LiveKitError) -> AVAudioPCMBuffer {
         if let cachedLocalBuffer, let cachedLocalBufferFormat, cachedLocalBufferFormat == playerNodeFormat {
             return cachedLocalBuffer
         }

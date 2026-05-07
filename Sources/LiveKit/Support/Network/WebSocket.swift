@@ -37,7 +37,7 @@ actor WebSocket: Loggable, AsyncSequence {
         return config
     }
 
-    init(url: URL, token: String, connectOptions: ConnectOptions?) async throws {
+    init(url: URL, token: String, connectOptions: ConnectOptions?) async throws(LiveKitError) {
         var request = URLRequest(url: url,
                                  cachePolicy: .useProtocolCachePolicy,
                                  timeoutInterval: connectOptions?.socketConnectTimeoutInterval ?? .defaultSocketConnect)
@@ -54,13 +54,17 @@ actor WebSocket: Loggable, AsyncSequence {
                                 delegate: delegate, delegateQueue: nil)
         task = urlSession.webSocketTask(with: request)
 
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                delegate.setConnectContinuation(continuation)
-                task.resume()
+        do {
+            try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { continuation in
+                    delegate.setConnectContinuation(continuation)
+                    task.resume()
+                }
+            } onCancel: {
+                self.close()
             }
-        } onCancel: {
-            self.close()
+        } catch {
+            throw LiveKitError(from: error)
         }
     }
 
@@ -95,7 +99,7 @@ actor WebSocket: Loggable, AsyncSequence {
                     // rather than CancellationError. Return nil (end-of-sequence)
                     // instead of propagating, so `subscribe` doesn't call onFailure.
                     if task.closeCode != .invalid || Task.isCancelled { return nil }
-                    throw LiveKitError.from(error: error) ?? error
+                    throw LiveKitError(from: error)
                 }
             } onCancel: {
                 task.cancel(with: .normalClosure, reason: nil)
@@ -141,8 +145,7 @@ actor WebSocket: Loggable, AsyncSequence {
 
             _continuation.mutate {
                 if let error {
-                    let lkError = LiveKitError.from(error: error) ?? LiveKitError(.unknown)
-                    $0?.resume(throwing: lkError)
+                    $0?.resume(throwing: LiveKitError(from: error))
                 } else {
                     $0?.resume()
                 }

@@ -23,7 +23,7 @@ public extension RemoteParticipant {
     ///   - timeout: The timeout for the operation.
     /// - Throws: `LiveKitError` if the participant is not active within the timeout.
     @discardableResult
-    func waitUntilActive(timeout: TimeInterval = .defaultParticipantActiveTimeout) async throws -> Self {
+    func waitUntilActive(timeout: TimeInterval = .defaultParticipantActiveTimeout) async throws(LiveKitError) -> Self {
         let room = try requireRoom()
         let identity = try requireIdentity()
         try await room.activeParticipantCompleters.completer(for: identity.stringValue).wait(timeout: timeout)

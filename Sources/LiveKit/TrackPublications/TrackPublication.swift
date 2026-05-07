@@ -216,7 +216,7 @@ extension TrackPublication: TrackDelegateInternal {
 // MARK: - Internal helpers
 
 extension TrackPublication {
-    func requireParticipant() async throws -> Participant {
+    func requireParticipant() async throws(LiveKitError) -> Participant {
         guard let participant else {
             log("Participant is nil", .error)
             throw LiveKitError(.invalidState, message: "Participant is nil")
