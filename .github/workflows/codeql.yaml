@@ -49,6 +49,21 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Cache SwiftPM dependencies
+        if: matrix.language == 'swift'
+        uses: actions/cache@v4
+        with:
+          path: SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('Package.swift', 'Package@swift-*.swift') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Resolve SwiftPM dependencies
+        if: matrix.language == 'swift'
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -scheme LiveKit \
+            -clonedSourcePackagesDirPath SourcePackages
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
@@ -61,6 +76,11 @@ jobs:
           set -o pipefail && xcodebuild build \
             -scheme LiveKit \
             -destination 'platform=macOS' \
+            -configuration Debug \
+            -skipPackagePluginValidation \
+            -clonedSourcePackagesDirPath SourcePackages \
+            ONLY_ACTIVE_ARCH=YES \
+            COMPILER_INDEX_STORE_ENABLE=NO \
             | xcbeautify --renderer github-actions
 
       - name: Perform CodeQL Analysis
