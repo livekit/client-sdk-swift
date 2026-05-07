@@ -31,7 +31,7 @@ struct BenchmarkConfig {
     /// Read benchmark configuration from environment variables.
     ///
     /// Falls back to local defaults (`ws://localhost:7880`, `devkey`/`secret`)
-    /// when environment variables are not set.
+    /// when environment variables are not set or are empty.
     ///
     /// Override with:
     ///   - `LIVEKIT_URL`: WebSocket URL (e.g., `wss://my-project.livekit.cloud`)
@@ -39,15 +39,22 @@ struct BenchmarkConfig {
     ///   - `LIVEKIT_API_SECRET`: API secret for token generation
     ///   - `LIVEKIT_BENCHMARK_REGION`: Server region (only used for cloud)
     static func fromEnvironment() -> BenchmarkConfig {
-        let url = ProcessInfo.processInfo.environment["LIVEKIT_URL"] ?? "ws://localhost:7880"
-        let apiKey = ProcessInfo.processInfo.environment["LIVEKIT_API_KEY"] ?? "devkey"
-        let apiSecret = ProcessInfo.processInfo.environment["LIVEKIT_API_SECRET"] ?? "secret"
+        // GitHub Actions interpolates missing `${{ secrets.X }}` to an empty
+        // string, so treat empty values the same as unset to fall back cleanly.
+        func env(_ key: String) -> String? {
+            guard let value = ProcessInfo.processInfo.environment[key], !value.isEmpty else { return nil }
+            return value
+        }
+
+        let url = env("LIVEKIT_URL") ?? "ws://localhost:7880"
+        let apiKey = env("LIVEKIT_API_KEY") ?? "devkey"
+        let apiSecret = env("LIVEKIT_API_SECRET") ?? "secret"
 
         // Auto-detect mode from URL
         let mode: InfrastructureMode = if url.hasPrefix("ws://") || url.contains("localhost") {
             .local
         } else {
-            .cloud(region: ProcessInfo.processInfo.environment["LIVEKIT_BENCHMARK_REGION"])
+            .cloud(region: env("LIVEKIT_BENCHMARK_REGION"))
         }
 
         return BenchmarkConfig(
@@ -56,5 +63,14 @@ struct BenchmarkConfig {
             apiSecret: apiSecret,
             mode: mode
         )
+    }
+}
+
+extension BenchmarkConfig.InfrastructureMode: CustomStringConvertible {
+    var description: String {
+        switch self {
+        case .local: "local"
+        case let .cloud(region): region.map { "cloud (\($0))" } ?? "cloud"
+        }
     }
 }
