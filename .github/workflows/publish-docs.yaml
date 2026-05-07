@@ -38,7 +38,7 @@ jobs:
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "26.4"
+          xcode-version: latest-stable
 
       - name: Build for Release - Symbol Graph
         run: |
@@ -72,7 +72,7 @@ jobs:
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "26.4"
+          xcode-version: latest-stable
 
       - name: Download Symbol Graphs
         uses: actions/download-artifact@v8
