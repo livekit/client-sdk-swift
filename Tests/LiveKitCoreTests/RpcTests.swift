@@ -545,59 +545,62 @@ struct RpcTests {
         }
     }
 
-    /// Unhandled (non-RpcError) exception from a handler must be returned as a v1
-    /// `RpcResponse` packet with `APPLICATION_ERROR`, even between two v2 clients.
-    @Test func v2HandlerUnhandledErrorReturnsPacket() async throws {
-        try await TestEnvironment.withRoom { room in
-            try await confirmation("Should send v1 RpcResponse packet with APPLICATION_ERROR") { confirm in
-                let mockDataChannel = MockDataChannelPair { packet in
-                    guard case let .rpcResponse(response) = packet.value,
-                          case let .error(error) = response.value,
-                          error.code == RpcError.BuiltInError.applicationError.code
-                    else { return }
-                    confirm()
-                }
-                room.publisherDataChannel = mockDataChannel
+    enum HandlerErrorScenario: CaseIterable, CustomTestStringConvertible {
+        case genericError
+        case rpcErrorPassthrough
 
-                struct GenericError: Error {}
-                try await room.registerRpcMethod("boom") { _ in throw GenericError() }
+        var testDescription: String {
+            switch self {
+            case .genericError: "generic Error → APPLICATION_ERROR"
+            case .rpcErrorPassthrough: "RpcError → preserved code/message"
+            }
+        }
 
-                let reader = RpcTestSupport.makeRequestReader(
-                    requestId: "v2-req-err",
-                    method: "boom",
-                    payload: "",
-                    timeoutMs: 8000
-                )
-                await room.rpcServer.handleIncomingRequestStream(
-                    reader: reader,
-                    callerIdentity: Participant.Identity(from: "v2-caller")
-                )
+        var expectedCode: Int {
+            switch self {
+            case .genericError: RpcError.BuiltInError.applicationError.code
+            case .rpcErrorPassthrough: 101
+            }
+        }
+
+        /// `nil` means "don't assert on message" (generic errors don't carry through).
+        var expectedMessage: String? {
+            switch self {
+            case .genericError: nil
+            case .rpcErrorPassthrough: "Test error message"
             }
         }
     }
 
-    /// `RpcError` thrown from a v2 handler must propagate to the caller via a v1
-    /// `RpcResponse` packet (preserving code/message), even between two v2 clients.
-    @Test func v2HandlerRpcErrorPassthroughViaPacket() async throws {
+    private struct GenericTestError: Error {}
+
+    /// v2 handler errors are always returned as v1 `RpcResponse` packets per spec,
+    /// regardless of caller transport. Generic `Error` → `APPLICATION_ERROR` (1500);
+    /// thrown `RpcError` → original code/message preserved.
+    @Test(arguments: HandlerErrorScenario.allCases)
+    func v2HandlerErrorReturnsPacket(_ scenario: HandlerErrorScenario) async throws {
         try await TestEnvironment.withRoom { room in
-            try await confirmation("Should send error response packet preserving code/message") { confirm in
+            try await confirmation("Sends v1 RpcResponse error packet (\(scenario.testDescription))") { confirm in
                 let mockDataChannel = MockDataChannelPair { packet in
                     guard case let .rpcResponse(response) = packet.value,
                           case let .error(error) = response.value,
-                          error.code == 101,
-                          error.message == "Test error message"
+                          error.code == scenario.expectedCode
                     else { return }
+                    if let expected = scenario.expectedMessage, error.message != expected { return }
                     confirm()
                 }
                 room.publisherDataChannel = mockDataChannel
 
-                try await room.registerRpcMethod("custom") { _ in
-                    throw RpcError(code: 101, message: "Test error message", data: "")
+                try await room.registerRpcMethod("error-method") { _ in
+                    switch scenario {
+                    case .genericError: throw GenericTestError()
+                    case .rpcErrorPassthrough: throw RpcError(code: 101, message: "Test error message", data: "")
+                    }
                 }
 
                 let reader = RpcTestSupport.makeRequestReader(
-                    requestId: "v2-req-rpc-err",
-                    method: "custom",
+                    requestId: "v2-req-error",
+                    method: "error-method",
                     payload: "",
                     timeoutMs: 8000
                 )
