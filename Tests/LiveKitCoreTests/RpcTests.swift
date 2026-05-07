@@ -618,7 +618,6 @@ struct RpcTests {
             let destination = Participant.Identity(from: "v2-destination")
             try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v1)
 
-            // Do nothing in response — let the connection timeout (7s max round-trip) fire
             room.publisherDataChannel = MockDataChannelPair { _ in }
 
             let error = await #expect(throws: RpcError.self) {
