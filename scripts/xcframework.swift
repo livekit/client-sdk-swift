@@ -495,10 +495,5 @@ struct BuildXCFramework: AsyncParsableCommand {
             "uniffiChecksum": context.uniffiDep.checksum,
         ])
         try (outputDir + "Package.swift").write(rendered)
-
-        // LiveKitTargets needs at least one source file
-        let targetsDir = outputDir + "Sources" + "LiveKitTargets"
-        try targetsDir.mkpath()
-        try (targetsDir + "LiveKitTargets.swift").write("// Re-export LiveKit so consumers only need `import LiveKit`.\n@_exported import LiveKit\n")
     }
 }
