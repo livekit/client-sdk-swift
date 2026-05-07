@@ -32,8 +32,7 @@ extension Room: TransportDelegate {
     func transport(_ transport: Transport, didUpdateState pcState: LKRTCPeerConnectionState) {
         log("target: \(transport.target), connectionState: \(pcState.description)")
 
-        let isTearingDown = _state.connectionState == .disconnecting || _state.connectionState == .disconnected
-        let pcError: LiveKitError? = isTearingDown ? nil : LiveKitError(
+        let pcError: LiveKitError? = _state.connectionState.isTearingDown ? nil : LiveKitError(
             .network, message: "Transport \(transport.target) state changed to \(pcState.description)"
         )
 

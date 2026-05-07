@@ -43,3 +43,9 @@ extension ConnectionState: Identifiable {
         rawValue
     }
 }
+
+extension ConnectionState {
+    var isTearingDown: Bool {
+        self == .disconnecting || self == .disconnected
+    }
+}
