@@ -71,7 +71,7 @@ jobs:
         if: matrix.language == 'swift'
         env:
           NSUnbufferedIO: "YES"
-        run: swiftly run +xcode swift build --product LiveKit
+        run: swiftly run +xcode swift build --target LiveKit
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
