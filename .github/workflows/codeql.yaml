@@ -69,9 +69,10 @@ jobs:
         if: matrix.language == 'swift'
         env:
           NSUnbufferedIO: "YES"
-          # Defaults are sized for the standard runner; xlarge has more.
-          CODEQL_EXTRACTOR_SWIFT_THREADS: "8"
-          CODEQL_EXTRACTOR_SWIFT_RAM: "12288"
+          # Sized for macos-26-xlarge: 5 vCPU M2 / 14 GB RAM. Defaults
+          # are 3 threads / 6 GB, sized for the standard runner.
+          CODEQL_EXTRACTOR_SWIFT_THREADS: "4"
+          CODEQL_EXTRACTOR_SWIFT_RAM: "8192"
         run: swiftly run +xcode swift build --target LiveKit
 
       - name: Perform CodeQL Analysis
