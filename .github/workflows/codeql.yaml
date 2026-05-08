@@ -30,8 +30,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Standard macos-26 is too slow under CodeQL's Swift extractor.
           - language: swift
-            os: macos-26
+            os: macos-26-xlarge
             build-mode: manual
           - language: actions
             os: ubuntu-latest
@@ -53,12 +54,9 @@ jobs:
         if: matrix.language == 'swift'
         run: brew install swiftly && swiftly init --quiet-shell-followup --skip-install -y
 
-      # CodeQL's Swift extractor wraps every swiftc invocation via
-      # DYLD_INSERT_LIBRARIES once `init` runs. Compiling SwiftProtobuf
-      # (~100 files) under that tracer would push the runner past its
-      # memory/timeout limits, so build it — and resolve the binary
-      # xcframeworks — before init. The traced step then only has to
-      # compile our own code.
+      # Pre-build the only expensive source dep outside CodeQL's tracer;
+      # binary xcframeworks (LiveKitWebRTC, LiveKitUniFFI) get fetched
+      # here too. The traced build then only has to compile LiveKit.
       - name: Pre-build dependencies
         if: matrix.language == 'swift'
         run: swiftly run +xcode swift build --target SwiftProtobuf
