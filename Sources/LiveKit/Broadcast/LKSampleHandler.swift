@@ -24,7 +24,7 @@ import Combine
 import OSLog
 
 #if !COCOAPODS
-import LKObjCHelpers
+internal import LKObjCHelpers
 #endif
 
 @available(macCatalyst 13.1, *)
