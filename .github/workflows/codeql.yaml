@@ -57,7 +57,7 @@ jobs:
       # here too. The traced build then only has to compile LiveKit.
       - name: Pre-build dependencies
         if: matrix.language == 'swift'
-        run: swiftly run +xcode swift build --target SwiftProtobuf
+        run: swiftly run +xcode swift build --target SwiftProtobuf --arch arm64
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
@@ -67,7 +67,7 @@ jobs:
 
       - name: Build LiveKit
         if: matrix.language == 'swift'
-        run: swiftly run +xcode swift build --target LiveKit
+        run: swiftly run +xcode swift build --target LiveKit --arch arm64
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
