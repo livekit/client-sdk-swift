@@ -54,9 +54,12 @@ jobs:
         if: matrix.language == 'swift'
         run: brew install swiftly && swiftly init --quiet-shell-followup --skip-install -y
 
-      - name: Resolve SwiftPM dependencies
+      # Pre-build the only expensive source dep outside CodeQL's tracer;
+      # binary xcframeworks (LiveKitWebRTC, LiveKitUniFFI) get fetched
+      # here too. The traced build then only has to compile LiveKit.
+      - name: Pre-build dependencies
         if: matrix.language == 'swift'
-        run: swiftly run +xcode swift package resolve
+        run: swiftly run +xcode swift build --target SwiftProtobuf
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
@@ -64,11 +67,11 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
 
-      - name: Build
+      - name: Build LiveKit
         if: matrix.language == 'swift'
         env:
           NSUnbufferedIO: "YES"
-        run: swiftly run +xcode swift build
+        run: swiftly run +xcode swift build --product LiveKit
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
