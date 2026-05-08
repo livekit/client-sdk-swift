@@ -113,10 +113,6 @@ extension Room: TransportDelegate {
         case LKRTCDataChannel.Labels.lossy: subscriberDataChannel.set(lossy: dataChannel)
         default: log("Unknown data channel label \(dataChannel.label)", .warning)
         }
-
-        if subscriberDataChannel.isOpen {
-            connectSpan?.record("dc_open")
-        }
     }
 
     func transportShouldNegotiate(_: Transport) {}

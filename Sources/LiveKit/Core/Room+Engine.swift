@@ -53,11 +53,11 @@ extension Room {
         }
     }
 
-    func publisherShouldNegotiate() async throws {
+    func publisherShouldNegotiate(force: Bool = false) async throws {
         log()
 
         let publisher = try requirePublisher()
-        await publisher.negotiate()
+        try await publisher.negotiate(force: force)
         _state.mutate { $0.hasPublished = true }
     }
 
@@ -165,6 +165,7 @@ extension Room {
                 guard let self else { return }
                 log("Publisher onOffer with offerId: \(offerId), sdp: \(offer.sdp)")
                 try await signalClient.send(offer: offer, offerId: offerId)
+                connectSpan?.record("offer_sent")
             }
 
             // data over pub channel for backwards compatibility
@@ -196,10 +197,6 @@ extension Room {
             _state.mutate { $0.transport = transport }
 
             log("[Connect] Fast publish enabled: \(joinResponse.fastPublish ? "true" : "false")")
-            if isSinglePC || !isSubscriberPrimary || joinResponse.fastPublish {
-                // In single PC mode or when publisher is primary, negotiate immediately
-                try await publisherShouldNegotiate()
-            }
 
         } else if case let .reconnect(reconnectResponse) = connectResponse {
             log("[Connect] Configuring transports with RECONNECT response...")
@@ -286,6 +283,16 @@ extension Room {
 
         // Resume after configuring transports...
         await signalClient.resumeQueues()
+        try Task.checkCancellation()
+
+        // Eager publisher negotiation must run after `resumeQueues()` —
+        // offers are not queueable, so sending while suspended drops them.
+        if case let .join(joinResponse) = connectResponse {
+            let isSubscriberPrimary = singlePC ? false : joinResponse.subscriberPrimary
+            if singlePC || !isSubscriberPrimary || joinResponse.fastPublish {
+                try await publisherShouldNegotiate(force: true)
+            }
+        }
 
         // Wait for transport...
         try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
