@@ -21,6 +21,8 @@ internal import LiveKitWebRTC
 
 @objcMembers
 public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @unchecked Sendable {
+    private static let volumeRange = 0.0 ... 10.0
+
     /// Playout volume of the remote audio track.
     ///
     /// A gain value in the range `0.0` to `10.0`:
@@ -32,11 +34,11 @@ public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @
     public var volume: Double {
         get {
             guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return 0 }
-            return min(max(audioTrack.source.volume, 0), 10)
+            return audioTrack.source.volume.clamped(to: Self.volumeRange)
         }
         set {
             guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
-            audioTrack.source.volume = min(max(newValue, 0), 10)
+            audioTrack.source.volume = newValue.clamped(to: Self.volumeRange)
         }
     }
 
