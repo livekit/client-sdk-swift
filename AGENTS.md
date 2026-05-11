@@ -125,6 +125,7 @@ private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixW
 - Avoid `@MainActor` for synchronization of static members in non-UI components
 - Long-running `Task` requires cooperative cancellation to avoid memory leaks (e.g., `AsyncSequence.subscribe`)
 - Use `AnyTaskCancellable` (via `task.cancellable()`) instead of manual `Task` management (enforced by SwiftLint)
+- Fire-and-forget unstructured tasks that may throw must use `Task.discardingErrors` / `Task.detachedDiscardingErrors`; bare `Task { try await ... }` silently drops errors and is flagged under Swift main-snapshot (`#NoUseUnstructuredThrowingTask`)
 - Use async primitives in `Support/Async` and `Support/Schedulers` when operation order matters
 - Prefer native Swift async/await over `Combine` for new code
 
