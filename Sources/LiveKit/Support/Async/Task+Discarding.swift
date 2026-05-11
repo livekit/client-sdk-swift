@@ -34,11 +34,17 @@ extension Task where Success == Void, Failure == Never {
         file: StaticString = #fileID,
         line: UInt = #line,
         @_inheritActorContext @_implicitSelfCapture
-        operation: sending @escaping @isolated(any) () async throws -> some Any
+        operation: sending @escaping @isolated(any) () async throws -> some Sendable
     ) -> Task<Void, Never> {
         Task(priority: priority) {
-            await runDiscardingErrors(operation,
-                                      file: file, function: function, line: line)
+            do {
+                _ = try await operation()
+            } catch is CancellationError {
+                // intentionally discarded
+            } catch {
+                DiscardingTask.log("Task error: \(error)", .error,
+                                   file: file, function: function, line: line)
+            }
         }
     }
 
@@ -56,27 +62,17 @@ extension Task where Success == Void, Failure == Never {
         function: StaticString = #function,
         file: StaticString = #fileID,
         line: UInt = #line,
-        operation: sending @escaping () async throws -> some Any
+        operation: sending @escaping () async throws -> some Sendable
     ) -> Task<Void, Never> {
         Task.detached(priority: priority) {
-            await runDiscardingErrors(operation,
-                                      file: file, function: function, line: line)
+            do {
+                _ = try await operation()
+            } catch is CancellationError {
+                // intentionally discarded
+            } catch {
+                DiscardingTask.log("Task error: \(error)", .error,
+                                   file: file, function: function, line: line)
+            }
         }
-    }
-}
-
-private func runDiscardingErrors(
-    _ operation: () async throws -> some Any,
-    file: StaticString,
-    function: StaticString,
-    line: UInt
-) async {
-    do {
-        _ = try await operation()
-    } catch is CancellationError {
-        // intentionally discarded
-    } catch {
-        DiscardingTask.log("Task error: \(error)", .error,
-                           file: file, function: function, line: line)
     }
 }
