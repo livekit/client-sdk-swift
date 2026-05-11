@@ -25,8 +25,7 @@ extension Task where Success == Void, Failure == Never {
     /// (same as `Task.init`). For a variant that detaches from the caller's
     /// context, use `Task.detachedDiscardingErrors`.
     ///
-    /// Non-cancellation errors are logged via the shared logger;
-    /// `CancellationError` is dropped silently.
+    /// Thrown errors are logged via the shared logger and discarded.
     @discardableResult
     static func discardingErrors(
         priority: TaskPriority? = nil,
@@ -39,8 +38,6 @@ extension Task where Success == Void, Failure == Never {
         Task(priority: priority) {
             do {
                 _ = try await operation()
-            } catch is CancellationError {
-                // intentionally discarded
             } catch {
                 DiscardingTask.log("Task error: \(error)", .error,
                                    file: file, function: function, line: line)
@@ -54,8 +51,7 @@ extension Task where Success == Void, Failure == Never {
     /// values (same as `Task.detached`). For a variant that inherits the
     /// caller's context, use `Task.discardingErrors`.
     ///
-    /// Non-cancellation errors are logged via the shared logger;
-    /// `CancellationError` is dropped silently.
+    /// Thrown errors are logged via the shared logger and discarded.
     @discardableResult
     static func detachedDiscardingErrors(
         priority: TaskPriority? = nil,
@@ -67,8 +63,6 @@ extension Task where Success == Void, Failure == Never {
         Task.detached(priority: priority) {
             do {
                 _ = try await operation()
-            } catch is CancellationError {
-                // intentionally discarded
             } catch {
                 DiscardingTask.log("Task error: \(error)", .error,
                                    file: file, function: function, line: line)
