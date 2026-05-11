@@ -34,7 +34,7 @@ extension Task where Success == Void, Failure == Never {
         file: StaticString = #fileID,
         line: UInt = #line,
         @_inheritActorContext @_implicitSelfCapture
-        operation: sending @escaping @isolated(any) () async throws -> Void
+        operation: sending @escaping @isolated(any) () async throws -> some Any
     ) -> Task<Void, Never> {
         Task(priority: priority) {
             await runDiscardingErrors(operation,
@@ -56,7 +56,7 @@ extension Task where Success == Void, Failure == Never {
         function: StaticString = #function,
         file: StaticString = #fileID,
         line: UInt = #line,
-        operation: sending @escaping () async throws -> Void
+        operation: sending @escaping () async throws -> some Any
     ) -> Task<Void, Never> {
         Task.detached(priority: priority) {
             await runDiscardingErrors(operation,
@@ -66,13 +66,13 @@ extension Task where Success == Void, Failure == Never {
 }
 
 private func runDiscardingErrors(
-    _ operation: () async throws -> Void,
+    _ operation: () async throws -> some Any,
     file: StaticString,
     function: StaticString,
     line: UInt
 ) async {
     do {
-        try await operation()
+        _ = try await operation()
     } catch is CancellationError {
         // intentionally discarded
     } catch {
