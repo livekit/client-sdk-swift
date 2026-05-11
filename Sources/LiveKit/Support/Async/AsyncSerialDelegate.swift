@@ -37,7 +37,7 @@ final class AsyncSerialDelegate<T: Sendable>: Sendable {
 
     func notifyDetached(_ fnc: @Sendable @escaping (T) async -> Void) {
         Task.detached {
-            try await self.notifyAsync(fnc)
+            try? await self.notifyAsync(fnc)
         }
     }
 }
