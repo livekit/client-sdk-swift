@@ -23,11 +23,11 @@ extension Task where Success == Void, Failure == Never {
     ///
     /// Inherits the caller's actor isolation, priority, and task-local values
     /// (same as `Task.init`). For a variant that detaches from the caller's
-    /// context, use `Task.detachedDiscardingErrors`.
+    /// context, use `Task.detachedDiscarding`.
     ///
     /// Thrown errors are logged via the shared logger and discarded.
     @discardableResult
-    static func discardingErrors(
+    static func discarding(
         priority: TaskPriority? = nil,
         function: StaticString = #function,
         file: StaticString = #fileID,
@@ -49,11 +49,11 @@ extension Task where Success == Void, Failure == Never {
     ///
     /// Does not inherit the caller's actor isolation, priority, or task-local
     /// values (same as `Task.detached`). For a variant that inherits the
-    /// caller's context, use `Task.discardingErrors`.
+    /// caller's context, use `Task.discarding`.
     ///
     /// Thrown errors are logged via the shared logger and discarded.
     @discardableResult
-    static func detachedDiscardingErrors(
+    static func detachedDiscarding(
         priority: TaskPriority? = nil,
         function: StaticString = #function,
         file: StaticString = #fileID,

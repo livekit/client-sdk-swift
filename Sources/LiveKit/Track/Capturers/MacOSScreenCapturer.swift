@@ -205,7 +205,7 @@ extension MacOSScreenCapturer {
 extension MacOSScreenCapturer: SCStreamDelegate {
     public func stream(_: SCStream, didStopWithError error: Error) {
         log("Stream stopped with error: \(error)", .error)
-        Task.discardingErrors {
+        Task.discarding {
             try await stopCapture()
         }
     }

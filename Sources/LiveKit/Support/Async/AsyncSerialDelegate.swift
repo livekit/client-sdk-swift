@@ -36,7 +36,7 @@ final class AsyncSerialDelegate<T: Sendable>: Sendable {
     }
 
     func notifyDetached(_ fnc: @Sendable @escaping (T) async -> Void) {
-        Task.detachedDiscardingErrors {
+        Task.detachedDiscarding {
             try await self.notifyAsync(fnc)
         }
     }

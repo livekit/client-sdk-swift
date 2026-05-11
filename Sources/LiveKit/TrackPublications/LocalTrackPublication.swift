@@ -107,7 +107,7 @@ extension LocalTrackPublication: VideoCapturerDelegate {
         // This check ensures that when this happens the track gets unpublished as well.
         #if os(iOS)
         if state == .stopped, capturer is BroadcastScreenCapturer {
-            Task.discardingErrors {
+            Task.discarding {
                 guard let participant = try await self.requireParticipant() as? LocalParticipant else {
                     return
                 }
@@ -118,7 +118,7 @@ extension LocalTrackPublication: VideoCapturerDelegate {
         // A similar check for macOS may be triggered e.g. when the display is powered off.
         #elseif os(macOS)
         if #available(macOS 12.3, *), state == .stopped, capturer is MacOSScreenCapturer {
-            Task.discardingErrors {
+            Task.discarding {
                 guard let participant = try await self.requireParticipant() as? LocalParticipant else {
                     return
                 }
@@ -158,7 +158,7 @@ extension LocalTrackPublication {
         if didUpdateFeatures {
             log("Sending audio track features: \(newFeatures)")
             // Send if features updated.
-            Task.detachedDiscardingErrors { [newFeatures] in
+            Task.detachedDiscarding { [newFeatures] in
                 let participant = try await self.requireParticipant()
                 let room = try participant.requireRoom()
                 try await room.signalClient.sendUpdateLocalAudioTrack(trackSid: self.sid,
@@ -218,7 +218,7 @@ extension LocalTrackPublication {
 
         log("Using encodings layers: \(layers.map { String(describing: $0) }.joined(separator: ", "))")
 
-        Task.detachedDiscardingErrors {
+        Task.detachedDiscarding {
             let participant = try await self.requireParticipant()
             let room = try participant.requireRoom()
             try await room.signalClient.sendUpdateVideoLayers(trackSid: track.sid!, layers: layers)
