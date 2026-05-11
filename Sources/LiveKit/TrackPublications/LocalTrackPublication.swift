@@ -158,7 +158,7 @@ extension LocalTrackPublication {
         if didUpdateFeatures {
             log("Sending audio track features: \(newFeatures)")
             // Send if features updated.
-            Task.discardingErrors { [newFeatures] in
+            Task.detachedDiscardingErrors { [newFeatures] in
                 let participant = try await self.requireParticipant()
                 let room = try participant.requireRoom()
                 try await room.signalClient.sendUpdateLocalAudioTrack(trackSid: self.sid,
@@ -218,7 +218,7 @@ extension LocalTrackPublication {
 
         log("Using encodings layers: \(layers.map { String(describing: $0) }.joined(separator: ", "))")
 
-        Task.discardingErrors {
+        Task.detachedDiscardingErrors {
             let participant = try await self.requireParticipant()
             let room = try participant.requireRoom()
             try await room.signalClient.sendUpdateVideoLayers(trackSid: track.sid!, layers: layers)

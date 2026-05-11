@@ -21,6 +21,10 @@ private enum DiscardingTask: Loggable {}
 extension Task where Success == Void, Failure == Never {
     /// Spawn an unstructured task whose thrown errors are discarded.
     ///
+    /// Inherits the caller's actor isolation, priority, and task-local values
+    /// (same as `Task.init`). For a variant that detaches from the caller's
+    /// context, use `Task.detachedDiscardingErrors`.
+    ///
     /// Non-cancellation errors are logged via the shared logger;
     /// `CancellationError` is dropped silently.
     @discardableResult
@@ -33,14 +37,46 @@ extension Task where Success == Void, Failure == Never {
         operation: sending @escaping @isolated(any) () async throws -> Void
     ) -> Task<Void, Never> {
         Task(priority: priority) {
-            do {
-                try await operation()
-            } catch is CancellationError {
-                // intentionally discarded
-            } catch {
-                DiscardingTask.log("Task error: \(error)", .error,
-                                   file: file, function: function, line: line)
-            }
+            await runDiscardingErrors(operation,
+                                      file: file, function: function, line: line)
         }
+    }
+
+    /// Spawn a detached unstructured task whose thrown errors are discarded.
+    ///
+    /// Does not inherit the caller's actor isolation, priority, or task-local
+    /// values (same as `Task.detached`). For a variant that inherits the
+    /// caller's context, use `Task.discardingErrors`.
+    ///
+    /// Non-cancellation errors are logged via the shared logger;
+    /// `CancellationError` is dropped silently.
+    @discardableResult
+    static func detachedDiscardingErrors(
+        priority: TaskPriority? = nil,
+        function: StaticString = #function,
+        file: StaticString = #fileID,
+        line: UInt = #line,
+        operation: sending @escaping () async throws -> Void
+    ) -> Task<Void, Never> {
+        Task.detached(priority: priority) {
+            await runDiscardingErrors(operation,
+                                      file: file, function: function, line: line)
+        }
+    }
+}
+
+private func runDiscardingErrors(
+    _ operation: () async throws -> Void,
+    file: StaticString,
+    function: StaticString,
+    line: UInt
+) async {
+    do {
+        try await operation()
+    } catch is CancellationError {
+        // intentionally discarded
+    } catch {
+        DiscardingTask.log("Task error: \(error)", .error,
+                           file: file, function: function, line: line)
     }
 }
