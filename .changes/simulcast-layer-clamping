@@ -1,0 +1,1 @@
+patch type="fixed" "Clamp simulcast lower-layer maxFps to the top layer, and clamp maxBitrate for layers that don't scale resolution down, so the user-configured top layer is always the highest-quality tier"
