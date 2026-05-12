@@ -19,7 +19,7 @@ import Foundation
 actor SerialRunnerActor<Value: Sendable> {
     private var previousTask: Task<Value, Error>?
 
-    func run(block: @Sendable @escaping () async throws -> Value) async throws -> Value {
+    func run(block: sending @escaping () async throws -> Value) async throws -> Value {
         let task = Task { [previousTask] in
             // Always wait for the previous task to maintain serial ordering
             if let previousTask {
