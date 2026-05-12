@@ -16,7 +16,7 @@
 
 import Foundation
 
-private enum DiscardingTask: Loggable {}
+extension Task: Loggable where Success == Void, Failure == Never {}
 
 extension Task where Success == Void, Failure == Never {
     /// Spawn an unstructured task whose thrown errors are discarded.
@@ -40,8 +40,8 @@ extension Task where Success == Void, Failure == Never {
             do {
                 _ = try await operation()
             } catch {
-                DiscardingTask.log("Task error: \(error)", .error,
-                                   file: file, function: function, line: line)
+                Self.log("Task error: \(error)", .error,
+                         file: file, function: function, line: line)
             }
         }
     }
@@ -66,8 +66,8 @@ extension Task where Success == Void, Failure == Never {
             do {
                 _ = try await operation()
             } catch {
-                DiscardingTask.log("Task error: \(error)", .error,
-                                   file: file, function: function, line: line)
+                Self.log("Task error: \(error)", .error,
+                         file: file, function: function, line: line)
             }
         }
     }
