@@ -28,44 +28,9 @@ public enum AudioProcessingMode: Sendable {
     case unknown
 }
 
-public enum AudioProcessingLifecycle: Sendable {
-    case idle
-    case running
-    case transitioning
-    case failed
-    case unknown
-}
-
-public enum AudioProcessingBackend: Sendable {
-    case disabled
-    case system
-    case software
-    case unavailable
-    case unknown
-}
-
-public struct AudioProcessingState: Sendable {
-    public let requestedMode: AudioProcessingMode
-    public let lifecycle: AudioProcessingLifecycle
-    public let backend: AudioProcessingBackend
-    public let transitionFrom: AudioProcessingMode
-    public let transitionTo: AudioProcessingMode
-    public let lastError: Int
-    public let isSystemBypassed: Bool
-    public let isSystemAGCEnabled: Bool
-    public let isSoftwareEchoCancellationEnabled: Bool
-    public let isSoftwareNoiseSuppressionEnabled: Bool
-    public let isSoftwareAutoGainControlEnabled: Bool
-    public let isSoftwareHighpassFilterEnabled: Bool
-}
-
 public extension AudioManager {
     var audioProcessingMode: AudioProcessingMode {
         RTC.audioDeviceModule.audioProcessingMode.toLKType()
-    }
-
-    var audioProcessingState: AudioProcessingState {
-        RTC.audioDeviceModule.audioProcessingState.toLKType()
     }
 
     func setAudioProcessingMode(_ mode: AudioProcessingMode) throws {
@@ -105,48 +70,5 @@ extension AudioProcessingMode {
         case .disabled: .disabled
         case .unknown: .automatic
         }
-    }
-}
-
-extension LKRTCAudioProcessingLifecycle {
-    func toLKType() -> AudioProcessingLifecycle {
-        switch self {
-        case .idle: return .idle
-        case .running: return .running
-        case .transitioning: return .transitioning
-        case .failed: return .failed
-        @unknown default: return .unknown
-        }
-    }
-}
-
-extension LKRTCAudioProcessingBackend {
-    func toLKType() -> AudioProcessingBackend {
-        switch self {
-        case .disabled: return .disabled
-        case .system: return .system
-        case .software: return .software
-        case .unavailable: return .unavailable
-        @unknown default: return .unknown
-        }
-    }
-}
-
-extension LKRTCAudioProcessingState {
-    func toLKType() -> AudioProcessingState {
-        AudioProcessingState(
-            requestedMode: requestedMode.toLKType(),
-            lifecycle: lifecycle.toLKType(),
-            backend: backend.toLKType(),
-            transitionFrom: transitionFrom.toLKType(),
-            transitionTo: transitionTo.toLKType(),
-            lastError: lastError,
-            isSystemBypassed: systemBypassed,
-            isSystemAGCEnabled: systemAGCEnabled,
-            isSoftwareEchoCancellationEnabled: softwareEchoCancellation,
-            isSoftwareNoiseSuppressionEnabled: softwareNoiseSuppression,
-            isSoftwareAutoGainControlEnabled: softwareAutoGainControl,
-            isSoftwareHighpassFilterEnabled: softwareHighpassFilter
-        )
     }
 }
