@@ -26,7 +26,8 @@ extension Task where Success == Void, Failure == Never {
     /// context, use `Task.detachedDiscarding`.
     ///
     /// Thrown errors are logged via the shared logger and discarded.
-    @discardableResult
+    /// The created task is not returned — this helper is strictly
+    /// fire-and-forget and the work cannot be cancelled by the caller.
     static func discarding(
         priority: TaskPriority? = nil,
         function: StaticString = #function,
@@ -34,7 +35,7 @@ extension Task where Success == Void, Failure == Never {
         line: UInt = #line,
         @_inheritActorContext @_implicitSelfCapture
         operation: sending @escaping @isolated(any) () async throws -> some Sendable
-    ) -> Task<Void, Never> {
+    ) {
         Task(priority: priority) {
             do {
                 _ = try await operation()
@@ -52,14 +53,15 @@ extension Task where Success == Void, Failure == Never {
     /// caller's context, use `Task.discarding`.
     ///
     /// Thrown errors are logged via the shared logger and discarded.
-    @discardableResult
+    /// The created task is not returned — this helper is strictly
+    /// fire-and-forget and the work cannot be cancelled by the caller.
     static func detachedDiscarding(
         priority: TaskPriority? = nil,
         function: StaticString = #function,
         file: StaticString = #fileID,
         line: UInt = #line,
         operation: sending @escaping () async throws -> some Sendable
-    ) -> Task<Void, Never> {
+    ) {
         Task.detached(priority: priority) {
             do {
                 _ = try await operation()
