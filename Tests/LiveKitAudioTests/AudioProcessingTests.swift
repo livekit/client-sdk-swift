@@ -65,8 +65,8 @@ import LiveKitTestSupport
     }
 
     @Test func optionsAppliedToAudioProcessingModule() async throws {
-        // Disable Apple VPIO.
-        AudioManager.shared.isVoiceProcessingBypassed = true
+        try AudioManager.shared.setAudioProcessingMode(.software)
+        defer { try? AudioManager.shared.setAudioProcessingMode(.automatic) }
 
         try await TestEnvironment.withRoom(RoomTestingOptions(canPublish: true)) { room in
             let allOnOptions = AudioCaptureOptions(

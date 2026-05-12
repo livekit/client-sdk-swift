@@ -320,12 +320,13 @@ public class AudioManager: Loggable {
         set { RTC.audioDeviceModule.duckingLevel = newValue.toRTCType() }
     }
 
-    /// The main flag that determines whether to enable Voice-Processing I/O of the internal AVAudioEngine. Toggling this requires restarting the AudioEngine.
-    /// Setting this to `false` prevents any voice-processing-related initialization, and muted talker detection will not work.
-    /// Typically, it is recommended to keep this set to `true` and toggle ``isVoiceProcessingBypassed`` when possible.
+    /// Whether the current audio processing mode uses Voice-Processing I/O of the internal AVAudioEngine.
+    /// Use ``setAudioProcessingMode(_:)`` for explicit system/software/disabled selection.
     /// Defaults to `true`.
     public var isVoiceProcessingEnabled: Bool { RTC.audioDeviceModule.isVoiceProcessingEnabled }
 
+    /// Compatibility API for enabling automatic processing or disabling processing entirely.
+    /// Prefer ``setAudioProcessingMode(_:)`` for new code.
     public func setVoiceProcessingEnabled(_ enabled: Bool) throws {
         let result = RTC.audioDeviceModule.setVoiceProcessingEnabled(enabled)
         try checkAdmResult(code: result)
@@ -544,6 +545,7 @@ let kAudioEngineErrorFailedToConfigureAudioSession = -4100
 let kAudioEngineErrorAudioSessionCategoryRecordingRequired = -4102
 
 let kAudioEngineErrorInsufficientDevicePermission = -4101
+let kAudioEngineInvalidStateError = -5000
 
 extension AudioManager {
     func checkAdmResult(code: Int) throws {
@@ -553,6 +555,8 @@ extension AudioManager {
             throw LiveKitError(.deviceAccessDenied, message: "Device permissions are not granted")
         } else if code == kAudioEngineErrorAudioSessionCategoryRecordingRequired {
             throw LiveKitError(.audioSession, message: "Recording category required for audio session")
+        } else if code == kAudioEngineInvalidStateError {
+            throw LiveKitError(.invalidState, message: "Audio engine returned invalid state")
         } else if code != 0 {
             throw LiveKitError(.audioEngine, message: "Audio engine returned error code: \(code)")
         }
