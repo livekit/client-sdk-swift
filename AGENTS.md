@@ -126,6 +126,7 @@ private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixW
 - Long-running `Task` requires cooperative cancellation to avoid memory leaks (e.g., `AsyncSequence.subscribe`)
 - Use `AnyTaskCancellable` (via `task.cancellable()`) instead of manual `Task` management (enforced by SwiftLint)
 - Fire-and-forget unstructured tasks that may throw must use `Task.discarding` / `Task.detachedDiscarding`; bare `Task { try await ... }` silently drops errors and is flagged under Swift main-snapshot (`#NoUseUnstructuredThrowingTask`)
+- Only `Task.discarding` preserves caller actor isolation in its closure; other `Support/Async/` helpers (`Task.retrying`, `AsyncSerialDelegate.notifyAsync`, etc.) run their bodies nonisolated — hop explicitly with `await MainActor.run { ... }` when UI-bound work is needed
 - Use async primitives in `Support/Async` and `Support/Schedulers` when operation order matters
 - Prefer native Swift async/await over `Combine` for new code
 
