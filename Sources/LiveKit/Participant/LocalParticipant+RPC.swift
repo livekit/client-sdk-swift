@@ -79,7 +79,7 @@ public extension LocalParticipant {
                     }
 
                     Task {
-                        try await Task.sleep(nanoseconds: UInt64(maxRoundTripLatency * 1_000_000_000))
+                        try? await Task.sleep(nanoseconds: UInt64(maxRoundTripLatency * 1_000_000_000))
 
                         if await room.rpcState.hasPendingAck(requestId) {
                             await room.rpcState.removeAllPending(requestId)

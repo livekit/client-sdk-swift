@@ -21,18 +21,18 @@ extension Task where Failure == Error {
         priority: TaskPriority? = nil,
         totalAttempts: Int = 3,
         retryDelay: TimeInterval = 1,
-        @_implicitSelfCapture operation: @Sendable @escaping (_ currentAttempt: Int, _ totalAttempts: Int) async throws -> Success
+        @_implicitSelfCapture operation: sending @escaping (_ currentAttempt: Int, _ totalAttempts: Int) async throws -> Success
     ) -> Task {
         retrying(priority: priority, totalAttempts: totalAttempts,
-                 retryDelay: { @Sendable _ in retryDelay },
+                 retryDelay: { _ in retryDelay },
                  operation: operation)
     }
 
     static func retrying(
         priority: TaskPriority? = nil,
         totalAttempts: Int,
-        retryDelay: @Sendable @escaping (_ attempt: Int) -> TimeInterval,
-        @_implicitSelfCapture operation: @Sendable @escaping (_ currentAttempt: Int, _ totalAttempts: Int) async throws -> Success
+        retryDelay: sending @escaping (_ attempt: Int) -> TimeInterval,
+        @_implicitSelfCapture operation: sending @escaping (_ currentAttempt: Int, _ totalAttempts: Int) async throws -> Success
     ) -> Task {
         Task(priority: priority) {
             for currentAttempt in 1 ..< max(1, totalAttempts) {
