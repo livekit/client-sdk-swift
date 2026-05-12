@@ -25,6 +25,18 @@ public let defaultRatchetWindowSize: Int32 = 0
 public let defaultFailureTolerance: Int32 = -1
 public let defaultKeyRingSize: Int32 = 16
 
+/// Key-derivation algorithm used by the underlying frame cryptor.
+///
+/// Mirrors the LiveKit Android SDK's `KeyProvider.Options.keyDerivationAlgorithm`
+/// so that cross-platform encryption setups can agree on the same KDF without
+/// reaching into `LiveKitWebRTC` directly. Defaults to PBKDF2, matching the
+/// previous behavior of this SDK.
+@objc
+public enum KeyDerivationAlgorithm: Int, Sendable {
+    case pbkdf2 = 0
+    case hkdf = 1
+}
+
 @objcMembers
 public final class KeyProviderOptions: NSObject, Sendable {
     public let sharedKey: Bool
@@ -39,12 +51,15 @@ public final class KeyProviderOptions: NSObject, Sendable {
 
     public let keyRingSize: Int32
 
+    public let keyDerivationAlgorithm: KeyDerivationAlgorithm
+
     public init(sharedKey: Bool = true,
                 ratchetSalt: Data = defaultRatchetSalt.data(using: .utf8)!,
                 ratchetWindowSize: Int32 = defaultRatchetWindowSize,
                 uncryptedMagicBytes: Data = defaultMagicBytes.data(using: .utf8)!,
                 failureTolerance: Int32 = defaultFailureTolerance,
-                keyRingSize: Int32 = defaultKeyRingSize)
+                keyRingSize: Int32 = defaultKeyRingSize,
+                keyDerivationAlgorithm: KeyDerivationAlgorithm = .pbkdf2)
     {
         self.sharedKey = sharedKey
         self.ratchetSalt = ratchetSalt
@@ -52,6 +67,7 @@ public final class KeyProviderOptions: NSObject, Sendable {
         self.uncryptedMagicBytes = uncryptedMagicBytes
         self.failureTolerance = failureTolerance
         self.keyRingSize = keyRingSize
+        self.keyDerivationAlgorithm = keyDerivationAlgorithm
     }
 
     // MARK: - Equal
@@ -63,7 +79,8 @@ public final class KeyProviderOptions: NSObject, Sendable {
             ratchetWindowSize == other.ratchetWindowSize &&
             uncryptedMagicBytes == other.uncryptedMagicBytes &&
             failureTolerance == other.failureTolerance &&
-            keyRingSize == other.keyRingSize
+            keyRingSize == other.keyRingSize &&
+            keyDerivationAlgorithm == other.keyDerivationAlgorithm
     }
 
     override public var hash: Int {
@@ -74,6 +91,7 @@ public final class KeyProviderOptions: NSObject, Sendable {
         hasher.combine(uncryptedMagicBytes)
         hasher.combine(failureTolerance)
         hasher.combine(keyRingSize)
+        hasher.combine(keyDerivationAlgorithm)
         return hasher.finalize()
     }
 }
@@ -98,12 +116,7 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
 
     public init(isSharedKey: Bool, sharedKey: String? = nil) {
         options = KeyProviderOptions(sharedKey: isSharedKey)
-        rtcKeyProvider = LKRTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
-                                                      ratchetWindowSize: options.ratchetWindowSize,
-                                                      sharedKeyMode: isSharedKey,
-                                                      uncryptedMagicBytes: options.uncryptedMagicBytes,
-                                                      failureTolerance: options.failureTolerance,
-                                                      keyRingSize: options.keyRingSize)
+        rtcKeyProvider = Self.makeRTCProvider(options: options)
         if isSharedKey, sharedKey != nil {
             let keyData = sharedKey!.data(using: .utf8)!
             rtcKeyProvider.setSharedKey(keyData, with: 0)
@@ -112,12 +125,32 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
 
     public init(options: KeyProviderOptions = KeyProviderOptions()) {
         self.options = options
-        rtcKeyProvider = LKRTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
-                                                      ratchetWindowSize: options.ratchetWindowSize,
-                                                      sharedKeyMode: options.sharedKey,
-                                                      uncryptedMagicBytes: options.uncryptedMagicBytes,
-                                                      failureTolerance: options.failureTolerance,
-                                                      keyRingSize: options.keyRingSize)
+        rtcKeyProvider = Self.makeRTCProvider(options: options)
+    }
+
+    /// Always build the WebRTC key provider via the init that exposes
+    /// `keyDerivationAlgorithm` so callers can opt into HKDF without losing the
+    /// access-level guarantees of this final class. `discardFrameWhenCryptorNotReady`
+    /// stays `false` to preserve the previous behavior (the older inits never
+    /// surfaced it).
+    private static func makeRTCProvider(options: KeyProviderOptions) -> LKRTCFrameCryptorKeyProvider {
+        let rtcAlgorithm: LKRTCKeyDerivationAlgorithm
+        switch options.keyDerivationAlgorithm {
+        case .pbkdf2:
+            rtcAlgorithm = .PBKDF2
+        case .hkdf:
+            rtcAlgorithm = .HKDF
+        }
+        return LKRTCFrameCryptorKeyProvider(
+            ratchetSalt: options.ratchetSalt,
+            ratchetWindowSize: options.ratchetWindowSize,
+            sharedKeyMode: options.sharedKey,
+            uncryptedMagicBytes: options.uncryptedMagicBytes,
+            failureTolerance: options.failureTolerance,
+            keyRingSize: options.keyRingSize,
+            discardFrameWhenCryptorNotReady: false,
+            keyDerivationAlgorithm: rtcAlgorithm
+        )
     }
 
     // MARK: - Key management
