@@ -1,0 +1,1 @@
+patch type="fixed" "Report transport-level disconnects as LiveKitError(.network) instead of LiveKitError(.cancelled) so consumers can distinguish network failures from user-initiated cancellation"

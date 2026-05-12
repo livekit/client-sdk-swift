@@ -299,7 +299,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    func reset() {
+    func reset(throwing error: Error? = nil) {
         let (lossy, reliable) = _state.mutate {
             let result = ($0.lossy, $0.reliable)
             $0.reliable = nil
@@ -312,7 +312,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         lossy?.close()
         reliable?.close()
 
-        openCompleter.reset()
+        openCompleter.reset(throwing: error)
     }
 
     // MARK: - Send

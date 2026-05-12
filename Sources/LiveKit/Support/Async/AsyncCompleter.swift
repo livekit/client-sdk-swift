@@ -49,14 +49,14 @@ actor CompleterMapActor<T: Sendable> {
     }
 
     func resume(throwing error: any Error, for key: String) {
-        let completer = completer(for: key)
+        guard let completer = _completerMap[key] else { return }
         completer.resume(throwing: error)
     }
 
-    func reset() {
+    func reset(throwing error: Error? = nil) {
         // Reset call completers...
         for (_, value) in _completerMap {
-            value.reset()
+            value.reset(throwing: error)
         }
         // Clear all completers...
         _completerMap.removeAll()
@@ -69,8 +69,8 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
         let continuation: CheckedContinuation<T, Error>
         let timeoutBlock: DispatchWorkItem
 
-        func cancel() {
-            continuation.resume(throwing: LiveKitError(.cancelled))
+        func cancel(throwing error: LiveKitError? = nil) {
+            continuation.resume(throwing: error ?? LiveKitError(.cancelled))
             timeoutBlock.cancel()
         }
 
@@ -96,6 +96,10 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
 
     private let _lock: some Lock = createLock()
 
+    var waiterCount: Int {
+        _lock.sync { _entries.count }
+    }
+
     init(label: String, defaultTimeout: TimeInterval) {
         self.label = label
         _defaultTimeout = defaultTimeout.toDispatchTimeInterval
@@ -111,10 +115,10 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
         }
     }
 
-    func reset() {
+    func reset(throwing error: Error? = nil) {
         _lock.sync {
             for entry in _entries.values {
-                entry.cancel()
+                entry.cancel(throwing: LiveKitError.from(error: error))
             }
             _entries.removeAll()
             _result = nil
