@@ -42,6 +42,12 @@ extension Bool {
     }
 }
 
+extension Comparable {
+    func clamped(to limits: ClosedRange<Self>) -> Self {
+        min(max(self, limits.lowerBound), limits.upperBound)
+    }
+}
+
 public extension Double {
     func rounded(to places: Int) -> Double {
         let divisor = pow(10.0, Double(places))
