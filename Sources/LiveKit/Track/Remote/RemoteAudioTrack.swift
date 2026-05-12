@@ -22,12 +22,6 @@ internal import LiveKitWebRTC
 @objcMembers
 public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @unchecked Sendable {
     private static let volumeRange = 0.0 ... 10.0
-    private static let defaultVolume = 1.0
-
-    // Work around LiveKitWebRTC versions where RTCAudioSource.volume reads the
-    // ObjC wrapper's default 0.0 until the native GetVolume fix is shipped in
-    // a new WebRTC binary.
-    private let _cachedVolume = StateSync(defaultVolume)
 
     /// Playout volume of the remote audio track.
     ///
@@ -39,13 +33,12 @@ public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @
     /// Values outside this range are clamped.
     public var volume: Double {
         get {
-            _cachedVolume.copy()
+            guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return 0 }
+            return audioTrack.source.volume.clamped(to: Self.volumeRange)
         }
         set {
             guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
-            let volume = newValue.clamped(to: Self.volumeRange)
-            _cachedVolume.mutate { $0 = volume }
-            audioTrack.source.volume = volume
+            audioTrack.source.volume = newValue.clamped(to: Self.volumeRange)
         }
     }
 
