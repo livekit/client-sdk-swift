@@ -48,19 +48,21 @@ When set to `false`, the audio session remains active after the LiveKit call end
 
 ## Disabling Voice Processing
 
-Apple's voice processing is enabled by default, such as echo cancellation and auto-gain control.
+Platform voice processing is enabled by default, such as echo cancellation and auto-gain control.
+On Apple platforms this is Apple's Voice-Processing I/O.
 
 Use `AudioProcessingMode` to choose the processing backend before publishing or starting local recording:
 
 ```swift
 try AudioManager.shared.setAudioProcessingMode(.automatic) // default
-try AudioManager.shared.setAudioProcessingMode(.system)    // require Apple VPIO
+try AudioManager.shared.setAudioProcessingMode(.platform)  // require platform processing
 try AudioManager.shared.setAudioProcessingMode(.software)  // use WebRTC APM
 try AudioManager.shared.setAudioProcessingMode(.disabled)  // no voice processing
 ```
 
-Mode changes are only supported while the audio engine is idle. To switch during a call,
-unpublish or stop local recording first, set the mode, then publish or start recording again.
+Mode changes are only supported by audio device modules that implement this API, and only
+while audio is idle. To switch during a call, unpublish or stop local recording first, set
+the mode, then publish or start recording again.
 
 If your app doesn't require voice processing at all, you can also use the compatibility API:
 
@@ -69,9 +71,9 @@ try AudioManager.shared.setVoiceProcessingEnabled(false)
 ```
 
 This is equivalent to `try AudioManager.shared.setAudioProcessingMode(.disabled)`.
-Disabling system voice processing also disables muted speaker detection.
+Disabling platform voice processing also disables muted speaker detection.
 
-If your app only needs to bypass Apple's system processing at run-time, use:
+If your app only needs to bypass Apple's platform processing at run-time, use:
 
 ```swift
 AudioManager.shared.isVoiceProcessingBypassed = true

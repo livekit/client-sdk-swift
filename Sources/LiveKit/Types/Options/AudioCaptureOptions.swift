@@ -21,15 +21,15 @@ internal import LiveKitWebRTC
 @objcMembers
 public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
     // Defaults are `true` on all platforms. These options affect WebRTC's
-    // software APM. In the default audio processing mode, Apple's VPIO handles
-    // AEC/AGC/NS on iOS device and macOS, so software APM is off. Use
+    // software APM. In the default audio processing mode, platform processing
+    // handles AEC/AGC/NS on iOS device and macOS, so software APM is off. Use
     // `AudioManager.shared.setAudioProcessingMode(.software)` to explicitly
-    // select WebRTC software processing on supported AudioEngineDevice builds.
+    // select WebRTC software processing on supported WebRTC builds.
     //
     // Platform behavior:
-    // - iOS device or macOS with `.automatic`: VPIO is active. Software APM is
-    //   off. These flags are still reported to the server as audio track
-    //   features for telemetry.
+    // - iOS device or macOS with `.automatic`: platform processing is active.
+    //   Software APM is off. These flags are still reported to the server as
+    //   audio track features for telemetry.
     // - iOS device or macOS with `.software`: Software APM is active and these
     //   flags are respected.
     // - iOS Simulator: VPIO is not reliably available. Software APM is used and

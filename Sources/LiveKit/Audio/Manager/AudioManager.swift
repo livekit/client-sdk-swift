@@ -321,7 +321,7 @@ public class AudioManager: Loggable {
     }
 
     /// Whether the current audio processing mode uses Voice-Processing I/O of the internal AVAudioEngine.
-    /// Use ``setAudioProcessingMode(_:)`` for explicit system/software/disabled selection.
+    /// Use ``setAudioProcessingMode(_:)`` for explicit platform/software/disabled selection.
     /// Defaults to `true`.
     public var isVoiceProcessingEnabled: Bool { RTC.audioDeviceModule.isVoiceProcessingEnabled }
 

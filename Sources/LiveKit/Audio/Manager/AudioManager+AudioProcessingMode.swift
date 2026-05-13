@@ -17,13 +17,13 @@
 internal import LiveKitWebRTC
 
 public enum AudioProcessingMode: Sendable {
-    /// Prefer Apple's system voice processing when available, otherwise use WebRTC software processing.
+    /// Prefer platform voice processing when available, otherwise use WebRTC software processing.
     case automatic
-    /// Require Apple's system voice processing.
-    case system
-    /// Use WebRTC software processing and disable Apple's system voice processing.
+    /// Require platform voice processing.
+    case platform
+    /// Use WebRTC software processing and disable platform voice processing.
     case software
-    /// Disable both Apple's system voice processing and WebRTC software processing.
+    /// Disable both platform voice processing and WebRTC software processing.
     case disabled
     case unknown
 }
@@ -38,10 +38,6 @@ public extension AudioManager {
             throw LiveKitError(.invalidState, message: "Unsupported audio processing mode specified")
         }
 
-        guard RTC.pcFactoryState.admType == .audioEngine else {
-            throw LiveKitError(.invalidState, message: "Audio processing mode is only supported by the audioEngine audio device module")
-        }
-
         let result = RTC.audioDeviceModule.setAudioProcessingMode(mode.toRTCType())
         try checkAdmResult(code: result)
     }
@@ -53,7 +49,7 @@ extension LKRTCAudioProcessingMode {
     func toLKType() -> AudioProcessingMode {
         switch self {
         case .automatic: return .automatic
-        case .system: return .system
+        case .platform: return .platform
         case .software: return .software
         case .disabled: return .disabled
         @unknown default: return .unknown
@@ -65,7 +61,7 @@ extension AudioProcessingMode {
     func toRTCType() -> LKRTCAudioProcessingMode {
         switch self {
         case .automatic: .automatic
-        case .system: .system
+        case .platform: .platform
         case .software: .software
         case .disabled: .disabled
         case .unknown: .automatic
