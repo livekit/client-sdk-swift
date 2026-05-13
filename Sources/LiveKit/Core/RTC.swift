@@ -18,31 +18,11 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-private extension Array where Element: LKRTCVideoCodecInfo {
-    func rewriteCodecsIfNeeded() -> [LKRTCVideoCodecInfo] {
-        // rewrite H264's profileLevelId to 42e032
-        map { $0.name == kLKRTCVideoCodecH264Name ? RTC.h264BaselineLevel5CodecInfo : $0 }
-        // logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: RTC.self)
-    }
-}
+private final class VideoEncoderFactory: LKRTCDefaultVideoEncoderFactory, @unchecked Sendable {}
 
-private class VideoEncoderFactory: LKRTCDefaultVideoEncoderFactory, @unchecked Sendable {
-    override func supportedCodecs() -> [LKRTCVideoCodecInfo] {
-        super.supportedCodecs().rewriteCodecsIfNeeded()
-    }
-}
+private final class VideoDecoderFactory: LKRTCDefaultVideoDecoderFactory, @unchecked Sendable {}
 
-private class VideoDecoderFactory: LKRTCDefaultVideoDecoderFactory, @unchecked Sendable {
-    override func supportedCodecs() -> [LKRTCVideoCodecInfo] {
-        super.supportedCodecs().rewriteCodecsIfNeeded()
-    }
-}
-
-private class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulcast, @unchecked Sendable {
-    override func supportedCodecs() -> [LKRTCVideoCodecInfo] {
-        super.supportedCodecs().rewriteCodecsIfNeeded()
-    }
-}
+private final class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulcast, @unchecked Sendable {}
 
 actor RTC {
     struct PeerConnectionFactoryState {
@@ -52,20 +32,6 @@ actor RTC {
     }
 
     static let pcFactoryState = StateSync(PeerConnectionFactoryState())
-
-    static let h264BaselineLevel5CodecInfo: LKRTCVideoCodecInfo = {
-        // this should never happen
-        guard let profileLevelId = LKRTCH264ProfileLevelId(profile: .constrainedBaseline, level: .level5) else {
-            Room.log("failed to generate profileLevelId", .error)
-            fatalError("failed to generate profileLevelId")
-        }
-
-        // create a new H264 codec with new profileLevelId
-        return LKRTCVideoCodecInfo(name: kLKRTCH264CodecName,
-                                   parameters: ["profile-level-id": profileLevelId.hexString,
-                                                "level-asymmetry-allowed": "1",
-                                                "packetization-mode": "1"])
-    }()
 
     // global properties are already lazy
 

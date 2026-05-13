@@ -1,0 +1,1 @@
+patch type="fixed" "Restore H264 hardware encoding by trusting upstream per-device profile detection; fixes high CPU with H264 simulcast on iOS 26"
