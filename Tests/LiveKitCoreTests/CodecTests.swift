@@ -57,7 +57,7 @@ struct CodecTests {
             ? RTC.encoderFactory.supportedCodecs()
             : RTC.decoderFactory.supportedCodecs()
         let h264 = codecs.filter { $0.name == "H264" }
-        let profiles = h264.compactMap { $0.parameters["profile-level-id"] as? String }
+        let profiles = h264.compactMap { $0.parameters["profile-level-id"] }
 
         // Guard against the SDK collapsing the upstream pair (ConstrainedHigh + ConstrainedBaseline)
         // into a single profile. The simulcast encoder factory wraps primary+fallback so the raw
@@ -76,13 +76,13 @@ struct CodecTests {
         )
 
         for codec in h264 {
-            let pli = (codec.parameters["profile-level-id"] as? String) ?? "?"
+            let pli = codec.parameters["profile-level-id"] ?? "?"
             #expect(
-                (codec.parameters["level-asymmetry-allowed"] as? String) == "1",
+                codec.parameters["level-asymmetry-allowed"] == "1",
                 "[\(factory)] H264 \(pli): level-asymmetry-allowed != 1"
             )
             #expect(
-                (codec.parameters["packetization-mode"] as? String) == "1",
+                codec.parameters["packetization-mode"] == "1",
                 "[\(factory)] H264 \(pli): packetization-mode != 1"
             )
 
@@ -96,5 +96,13 @@ struct CodecTests {
                 "[\(factory)] H264 \(pli): level \(String(format: "%02x", level)) below 1f (L3.1) floor"
             )
         }
+    }
+
+    @Test("H264 sender capabilities expose both ConstrainedHigh and ConstrainedBaseline")
+    func h264SenderCapabilitiesExposeBothProfiles() {
+        let plis = Set(RTC.videoSenderCapabilities.codecs
+            .filter { $0.name == "H264" }
+            .compactMap { $0.parameters["profile-level-id"] })
+        #expect(plis.count == 2, "expected ConstrainedHigh + ConstrainedBaseline in videoSenderCapabilities, got: \(plis)")
     }
 }
