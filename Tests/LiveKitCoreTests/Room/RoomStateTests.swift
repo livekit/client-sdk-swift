@@ -18,82 +18,65 @@ import Foundation
 @testable import LiveKit
 import Testing
 
-struct RoomSidTests {
-    // MARK: - State.apply(roomInfo:)
+struct RoomStateTests {
+    // MARK: - apply(roomInfo:): sid and name
 
-    @Test func applyPopulatesSidWhenNonEmpty() {
+    struct ApplyCase {
+        let initialSid: String?
+        let initialName: String?
+        let infoSid: String
+        let infoName: String
+        let expectedSid: String?
+        let expectedName: String?
+    }
+
+    /// `apply(roomInfo:)` never overwrites a known `sid` or `name` with an empty value;
+    /// non-empty values always replace.
+    @Test(arguments: [
+        ApplyCase(initialSid: nil, initialName: nil, infoSid: "RM_a", infoName: "n",
+                  expectedSid: "RM_a", expectedName: "n"),
+        ApplyCase(initialSid: nil, initialName: nil, infoSid: "", infoName: "",
+                  expectedSid: nil, expectedName: nil),
+        ApplyCase(initialSid: "RM_keep", initialName: "keep", infoSid: "", infoName: "",
+                  expectedSid: "RM_keep", expectedName: "keep"),
+        ApplyCase(initialSid: "RM_old", initialName: "old", infoSid: "RM_new", infoName: "new",
+                  expectedSid: "RM_new", expectedName: "new"),
+    ])
+    func applyMergesSidAndName(_ c: ApplyCase) {
         var state = makeState()
-        var info = Livekit_Room()
-        info.sid = "RM_abc"
-        info.name = "my-room"
+        if let sid = c.initialSid { state.sid = Room.Sid(from: sid) }
+        state.name = c.initialName
 
+        var info = Livekit_Room()
+        info.sid = c.infoSid
+        info.name = c.infoName
         state.apply(roomInfo: info)
 
-        #expect(state.sid?.stringValue == "RM_abc")
-        #expect(state.name == "my-room")
+        #expect(state.sid?.stringValue == c.expectedSid)
+        #expect(state.name == c.expectedName)
     }
 
-    @Test func applyDoesNotOverwriteSidWithEmpty() {
-        var state = makeState()
-        state.sid = Room.Sid(from: "RM_existing")
-        state.name = "existing-name"
-
-        var info = Livekit_Room()
-        info.sid = ""
-        info.name = ""
-
-        state.apply(roomInfo: info)
-
-        #expect(state.sid?.stringValue == "RM_existing")
-        #expect(state.name == "existing-name")
-    }
-
-    @Test func applyLeavesSidNilWhenEmptyAndPreviouslyUnset() {
-        var state = makeState()
-        var info = Livekit_Room()
-        info.sid = ""
-
-        state.apply(roomInfo: info)
-
-        #expect(state.sid == nil)
-    }
-
-    @Test func applyUpdatesSidOnSubsequentNonEmptyValue() {
-        var state = makeState()
-
-        var first = Livekit_Room()
-        first.sid = ""
-        state.apply(roomInfo: first)
-        #expect(state.sid == nil)
-
-        var second = Livekit_Room()
-        second.sid = "RM_late"
-        state.apply(roomInfo: second)
-        #expect(state.sid?.stringValue == "RM_late")
-    }
-
+    /// `apply(roomInfo:)` preserves existing `maxParticipants` and `creationTime` when info reports zero.
     @Test func applyPreservesMaxParticipantsAndCreationTimeOnZero() {
         var state = makeState()
         state.maxParticipants = 50
         state.creationTime = Date(timeIntervalSince1970: 1000)
 
-        let info = Livekit_Room() // all zero / empty
-
-        state.apply(roomInfo: info)
+        state.apply(roomInfo: Livekit_Room())
 
         #expect(state.maxParticipants == 50)
         #expect(state.creationTime == Date(timeIntervalSince1970: 1000))
     }
 
-    // MARK: - SignalClient delegate integration
+    // MARK: - SignalClient delegate (Room.sid() flow)
 
-    @Test func joinResponseWithEmptySidThenRoomUpdatePopulatesSid() async throws {
+    /// Issue #1009: SID delivered in a later `RoomUpdate` after an empty `JoinResponse.room.sid`.
+    @Test func joinWithEmptySidThenRoomUpdatePopulatesSid() async throws {
         let room = Room()
 
         var join = Livekit_JoinResponse()
         join.room.sid = ""
         join.room.name = "my-room"
-
         await room.signalClient(room.signalClient, didReceiveConnectResponse: .join(join))
 
         #expect(room.sid == nil)
@@ -102,21 +85,17 @@ struct RoomSidTests {
         var update = Livekit_Room()
         update.sid = "RM_delivered_later"
         update.name = "my-room"
-
         await room.signalClient(room.signalClient, didUpdateRoom: update)
 
-        #expect(room.sid?.stringValue == "RM_delivered_later")
         let awaited = try await room.sid()
         #expect(awaited.stringValue == "RM_delivered_later")
     }
 
-    @Test func joinResponseWithSidResolvesAwaitedSid() async throws {
+    @Test func joinWithSidResolvesAwaitedSid() async throws {
         let room = Room()
 
         var join = Livekit_JoinResponse()
         join.room.sid = "RM_from_join"
-        join.room.name = "my-room"
-
         await room.signalClient(room.signalClient, didReceiveConnectResponse: .join(join))
 
         let awaited = try await room.sid()
@@ -129,7 +108,6 @@ struct RoomSidTests {
         var join = Livekit_JoinResponse()
         join.room.sid = "RM_initial"
         await room.signalClient(room.signalClient, didReceiveConnectResponse: .join(join))
-        #expect(room.sid?.stringValue == "RM_initial")
 
         var update = Livekit_Room()
         update.sid = ""
