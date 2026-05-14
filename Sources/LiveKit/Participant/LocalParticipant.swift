@@ -304,6 +304,21 @@ extension LocalParticipant {
     func republishAllTracks() async throws {
         let mediaTracks = _state.trackPublications.values.map { $0.track as? LocalTrack }.compactMap(\.self)
 
+        // Detach screen share tracks without stopping their capturers — the
+        // underlying sources (iOS broadcast extension IPC, ReplayKit) cannot
+        // be restarted programmatically.
+        let screenShareTracks = mediaTracks.filter { $0.source == .screenShareVideo }
+        for track in screenShareTracks {
+            let sidsToRemove = _state.trackPublications.filter { $0.value.track === track }.map(\.key)
+            _state.mutate {
+                for sid in sidsToRemove {
+                    $0.trackPublications.removeValue(forKey: sid)
+                }
+            }
+            await track.set(transport: nil, rtpSender: nil)
+            track._state.mutate { $0.rtpSenderForCodec.removeAll() }
+        }
+
         await unpublishAll()
 
         for mediaTrack in mediaTracks {
