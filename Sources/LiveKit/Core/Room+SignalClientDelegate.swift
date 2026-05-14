@@ -112,22 +112,8 @@ extension Room: SignalClientDelegate {
             }
 
             _state.mutate {
-                $0.sid = Room.Sid(from: joinResponse.room.sid)
-                $0.name = joinResponse.room.name
+                $0.apply(roomInfo: joinResponse.room)
                 $0.serverInfo = joinResponse.serverInfo
-                $0.maxParticipants = Int(joinResponse.room.maxParticipants)
-
-                $0.metadata = joinResponse.room.metadata
-                $0.isRecording = joinResponse.room.activeRecording
-                $0.numParticipants = Int(joinResponse.room.numParticipants)
-                $0.numPublishers = Int(joinResponse.room.numPublishers)
-
-                // Attempt to get millisecond precision.
-                if joinResponse.room.creationTimeMs != 0 {
-                    $0.creationTime = Date(timeIntervalSince1970: TimeInterval(Double(joinResponse.room.creationTimeMs) / 1000))
-                } else if joinResponse.room.creationTime != 0 {
-                    $0.creationTime = Date(timeIntervalSince1970: TimeInterval(joinResponse.room.creationTime))
-                }
 
                 localParticipant.set(info: joinResponse.participant, connectionState: $0.connectionState)
                 localParticipant.set(enabledPublishCodecs: joinResponse.enabledPublishCodecs)
@@ -142,12 +128,7 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_: SignalClient, didUpdateRoom room: Livekit_Room) async {
-        _state.mutate {
-            $0.metadata = room.metadata
-            $0.isRecording = room.activeRecording
-            $0.numParticipants = Int(room.numParticipants)
-            $0.numPublishers = Int(room.numPublishers)
-        }
+        _state.mutate { $0.apply(roomInfo: room) }
     }
 
     func signalClient(_: SignalClient, didReceiveRoomMoved response: Livekit_RoomMovedResponse) async {
@@ -437,22 +418,7 @@ private extension Room {
         // Update room info if available
         guard response.hasRoom else { return }
 
-        _state.mutate {
-            $0.sid = Room.Sid(from: response.room.sid)
-            $0.name = response.room.name
-            $0.metadata = response.room.metadata
-            $0.isRecording = response.room.activeRecording
-            $0.numParticipants = Int(response.room.numParticipants)
-            $0.numPublishers = Int(response.room.numPublishers)
-            $0.maxParticipants = Int(response.room.maxParticipants)
-
-            // Attempt to get millisecond precision.
-            if response.room.creationTimeMs != 0 {
-                $0.creationTime = Date(timeIntervalSince1970: TimeInterval(Double(response.room.creationTimeMs) / 1000))
-            } else if response.room.creationTime != 0 {
-                $0.creationTime = Date(timeIntervalSince1970: TimeInterval(response.room.creationTime))
-            }
-        }
+        _state.mutate { $0.apply(roomInfo: response.room) }
     }
 
     func _disconnectAllParticipants() async {
