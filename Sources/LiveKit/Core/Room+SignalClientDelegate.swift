@@ -112,7 +112,9 @@ extension Room: SignalClientDelegate {
             }
 
             _state.mutate {
-                $0.sid = Room.Sid(from: joinResponse.room.sid)
+                if !joinResponse.room.sid.isEmpty {
+                    $0.sid = Room.Sid(from: joinResponse.room.sid)
+                }
                 $0.name = joinResponse.room.name
                 $0.serverInfo = joinResponse.serverInfo
                 $0.maxParticipants = Int(joinResponse.room.maxParticipants)
@@ -143,6 +145,9 @@ extension Room: SignalClientDelegate {
 
     func signalClient(_: SignalClient, didUpdateRoom room: Livekit_Room) async {
         _state.mutate {
+            if !room.sid.isEmpty {
+                $0.sid = Room.Sid(from: room.sid)
+            }
             $0.metadata = room.metadata
             $0.isRecording = room.activeRecording
             $0.numParticipants = Int(room.numParticipants)

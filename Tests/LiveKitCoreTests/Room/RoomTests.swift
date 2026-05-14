@@ -22,6 +22,32 @@ import LiveKitTestSupport
 #endif
 
 @Suite(.serialized, .tags(.e2e)) final class RoomTests: @unchecked Sendable {
+    @Test func roomSidResolvesFromRoomUpdateWhenJoinSidIsEmpty() async throws {
+        let room = Room()
+
+        var joinResponse = Livekit_JoinResponse()
+        joinResponse.room.name = "room-test"
+        joinResponse.room.sid = ""
+        await room.signalClient(room.signalClient, didReceiveConnectResponse: .join(joinResponse))
+
+        #expect(room.sid == nil)
+
+        let sidTask = Task {
+            try await room.sid().stringValue
+        }
+
+        try await Task.sleep(nanoseconds: 100_000_000)
+        #expect(room.sid == nil)
+
+        var roomUpdate = Livekit_Room()
+        roomUpdate.sid = "RM_test_room_sid"
+        await room.signalClient(room.signalClient, didUpdateRoom: roomUpdate)
+
+        let sid = try await sidTask.value
+        #expect(sid == "RM_test_room_sid")
+        #expect(room.sid?.stringValue == "RM_test_room_sid")
+    }
+
     @Test func roomProperties() async throws {
         try await TestEnvironment.withRoom { room in
             // SID
