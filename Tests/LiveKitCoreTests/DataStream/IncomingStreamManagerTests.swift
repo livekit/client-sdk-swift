@@ -14,84 +14,247 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class IncomingStreamManagerTests: LKTestCase, @unchecked Sendable {
-    private var manager: IncomingStreamManager!
+@Suite(.tags(.dataStream))
+struct IncomingStreamManagerTests: @unchecked Sendable {
+    private var manager: IncomingStreamManager
 
     private let topicName = "someTopic"
     private let participant = Participant.Identity(from: "someName")
 
-    override func setUp() async throws {
+    init() {
         manager = IncomingStreamManager()
     }
 
-    func testRegisterByteHandler() async throws {
+    @Test func registerByteHandler() async throws {
         try await manager.registerByteStreamHandler(for: topicName) { _, _ in }
 
-        let throwsExpectation = expectation(description: "Throws on duplicate registration")
-        do {
-            try await manager.registerByteStreamHandler(for: topicName) { _, _ in }
-        } catch {
-            XCTAssertEqual(error as? StreamError, .handlerAlreadyRegistered)
-            throwsExpectation.fulfill()
+        await confirmation("Throws on duplicate registration") { confirm in
+            do {
+                try await manager.registerByteStreamHandler(for: topicName) { _, _ in }
+            } catch {
+                #expect(error as? StreamError == .handlerAlreadyRegistered)
+                confirm()
+            }
         }
 
         await manager.unregisterByteStreamHandler(for: topicName)
-
-        await fulfillment(of: [throwsExpectation], timeout: 5)
     }
 
-    func testRegisterTextHandler() async throws {
+    @Test func registerTextHandler() async throws {
         try await manager.registerTextStreamHandler(for: topicName) { _, _ in }
 
-        let throwsExpectation = expectation(description: "Throws on duplicate registration")
-        do {
-            try await manager.registerTextStreamHandler(for: topicName) { _, _ in }
-        } catch {
-            XCTAssertEqual(error as? StreamError, .handlerAlreadyRegistered)
-            throwsExpectation.fulfill()
+        await confirmation("Throws on duplicate registration") { confirm in
+            do {
+                try await manager.registerTextStreamHandler(for: topicName) { _, _ in }
+            } catch {
+                #expect(error as? StreamError == .handlerAlreadyRegistered)
+                confirm()
+            }
         }
 
         await manager.unregisterTextStreamHandler(for: topicName)
-
-        await fulfillment(of: [throwsExpectation], timeout: 5)
     }
 
-    func testByteStream() async throws {
-        let receiveExpectation = expectation(description: "Receives payload")
+    @Test func byteStream() async throws {
+        try await confirmation("Receives payload") { confirm in
+            let testChunks = [
+                Data(repeating: 0xAB, count: 128),
+                Data(repeating: 0xCD, count: 128),
+                Data(repeating: 0xEF, count: 256),
+                Data(repeating: 0x12, count: 32),
+            ]
+            let testPayload = testChunks.reduce(Data()) { $0 + $1 }
 
-        let testChunks = [
-            Data(repeating: 0xAB, count: 128),
-            Data(repeating: 0xCD, count: 128),
-            Data(repeating: 0xEF, count: 256),
-            Data(repeating: 0x12, count: 32),
-        ]
-        let testPayload = testChunks.reduce(Data()) { $0 + $1 }
+            try await manager.registerByteStreamHandler(for: topicName) { reader, participant in
+                #expect(participant == self.participant)
+                let payload = try await reader.readAll()
+                #expect(payload == testPayload)
+                confirm()
+            }
 
-        try await manager.registerByteStreamHandler(for: topicName) { reader, participant in
-            XCTAssertEqual(participant, self.participant)
-
-            let payload = try await reader.readAll()
-            XCTAssertEqual(payload, testPayload)
-
-            receiveExpectation.fulfill()
+            await sendByteStream(chunks: testChunks)
         }
+    }
 
+    @Test func textStream() async throws {
+        try await confirmation("Receives payload") { confirm in
+            let testChunks = [
+                String(repeating: "A", count: 128),
+                String(repeating: "B", count: 128),
+                String(repeating: "C", count: 256),
+                String(repeating: "D", count: 32),
+            ]
+            let testPayload = testChunks.reduce("") { $0 + $1 }
+
+            try await manager.registerTextStreamHandler(for: topicName) { reader, participant in
+                #expect(participant == self.participant)
+                let payload = try await reader.readAll()
+                #expect(payload == testPayload)
+                confirm()
+            }
+
+            await sendTextStream(chunks: testChunks)
+        }
+    }
+
+    @Test func nonTextData() async throws {
+        try await confirmation("Throws error on non-text data") { confirm in
+            let testPayload = Data(repeating: 0xAB, count: 128)
+
+            try await manager.registerTextStreamHandler(for: topicName) { reader, _ in
+                do {
+                    _ = try await reader.readAll()
+                } catch {
+                    #expect(error as? StreamError == .decodeFailed)
+                    confirm()
+                }
+            }
+
+            await sendTextStream(rawPayload: testPayload, totalLength: UInt64(testPayload.count))
+        }
+    }
+
+    @Test func abnormalClosure() async throws {
+        try await confirmation("Throws error on abnormal closure") { confirm in
+            let closureReason = "test"
+
+            try await manager.registerByteStreamHandler(for: topicName) { reader, _ in
+                do {
+                    _ = try await reader.readAll()
+                } catch {
+                    #expect(error as? StreamError == .abnormalEnd(reason: closureReason))
+                    confirm()
+                }
+            }
+
+            let streamID = UUID().uuidString
+
+            var header = Livekit_DataStream.Header()
+            header.streamID = streamID
+            header.topic = topicName
+            header.contentHeader = .byteHeader(Livekit_DataStream.ByteHeader())
+            manager.handle(.header(header, participant.stringValue, .none))
+
+            var trailer = Livekit_DataStream.Trailer()
+            trailer.streamID = streamID
+            trailer.reason = closureReason
+            manager.handle(.trailer(trailer, .none))
+
+            // Handler processes asynchronously — give it time to complete
+            await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+                Task {
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                    c.resume()
+                }
+            }
+        }
+    }
+
+    @Test func incomplete() async throws {
+        try await confirmation("Throws error on incomplete stream") { confirm in
+            let testPayload = Data(repeating: 0xAB, count: 128)
+
+            try await manager.registerByteStreamHandler(for: topicName) { reader, _ in
+                do {
+                    _ = try await reader.readAll()
+                } catch {
+                    #expect(error as? StreamError == .incomplete)
+                    confirm()
+                }
+            }
+
+            let streamID = UUID().uuidString
+
+            var header = Livekit_DataStream.Header()
+            header.streamID = streamID
+            header.topic = topicName
+            header.contentHeader = .byteHeader(Livekit_DataStream.ByteHeader())
+            header.totalLength = UInt64(testPayload.count + 10) // expect more bytes
+            manager.handle(.header(header, participant.stringValue, .none))
+
+            var chunk = Livekit_DataStream.Chunk()
+            chunk.streamID = streamID
+            chunk.chunkIndex = 0
+            chunk.content = Data(testPayload)
+            manager.handle(.chunk(chunk, .none))
+
+            var trailer = Livekit_DataStream.Trailer()
+            trailer.streamID = streamID
+            trailer.reason = ""
+            manager.handle(.trailer(trailer, .none))
+
+            await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+                Task {
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                    c.resume()
+                }
+            }
+        }
+    }
+
+    @Test func encryptionTypeMismatch() async throws {
+        let manager = IncomingStreamManager()
+        let topic = "test-encryption-mismatch"
+
+        try await confirmation("Stream should receive error") { confirm in
+            try await manager.registerByteStreamHandler(for: topic) { reader, _ in
+                do {
+                    _ = try await reader.readAll()
+                } catch let error as StreamError {
+                    if case let .encryptionTypeMismatch(expected, received) = error {
+                        #expect(expected == .gcm)
+                        #expect(received == .none)
+                        confirm()
+                    } else {
+                        Issue.record("Expected encryptionTypeMismatch error, got \(error)")
+                    }
+                }
+            }
+
+            var header = Livekit_DataStream.Header()
+            header.streamID = "test-stream-id"
+            header.topic = topic
+            header.mimeType = "application/octet-stream"
+            header.timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+            header.contentHeader = .byteHeader(.with {
+                $0.name = "test-file.bin"
+            })
+            manager.handle(.header(header, "test-participant", .gcm))
+
+            var chunk = Livekit_DataStream.Chunk()
+            chunk.streamID = "test-stream-id"
+            chunk.chunkIndex = 0
+            chunk.content = Data("test data".utf8)
+            manager.handle(.chunk(chunk, .none))
+
+            await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+                Task {
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                    c.resume()
+                }
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func sendByteStream(chunks: [Data]) async {
         let streamID = UUID().uuidString
 
-        // 1. Send header packet
         var header = Livekit_DataStream.Header()
         header.streamID = streamID
         header.topic = topicName
         header.contentHeader = .byteHeader(Livekit_DataStream.ByteHeader())
         manager.handle(.header(header, participant.stringValue, .none))
 
-        // 2. Send chunk packets
-        for (index, chunkData) in testChunks.enumerated() {
+        for (index, chunkData) in chunks.enumerated() {
             var chunk = Livekit_DataStream.Chunk()
             chunk.streamID = streamID
             chunk.chunkIndex = UInt64(index)
@@ -99,225 +262,56 @@ class IncomingStreamManagerTests: LKTestCase, @unchecked Sendable {
             manager.handle(.chunk(chunk, .none))
         }
 
-        // 3. Send trailer packet
         var trailer = Livekit_DataStream.Trailer()
         trailer.streamID = streamID
-        trailer.reason = "" // indicates normal closure
+        trailer.reason = ""
         manager.handle(.trailer(trailer, .none))
 
-        await fulfillment(
-            of: [receiveExpectation],
-            timeout: 5
-        )
+        // Handler processes asynchronously — give it time to complete
+        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+            Task {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                c.resume()
+            }
+        }
     }
 
-    func testTextStream() async throws {
-        let receiveExpectation = expectation(description: "Receives payload")
-
-        let testChunks = [
-            String(repeating: "A", count: 128),
-            String(repeating: "B", count: 128),
-            String(repeating: "C", count: 256),
-            String(repeating: "D", count: 32),
-        ]
-        let testPayload = testChunks.reduce("") { $0 + $1 }
-
-        try await manager.registerTextStreamHandler(for: topicName) { reader, participant in
-            XCTAssertEqual(participant, self.participant)
-
-            let payload = try await reader.readAll()
-            XCTAssertEqual(payload, testPayload)
-
-            receiveExpectation.fulfill()
-        }
-
+    private func sendTextStream(chunks: [String]? = nil, rawPayload: Data? = nil, totalLength: UInt64? = nil) async {
         let streamID = UUID().uuidString
 
-        // 1. Send header packet
         var header = Livekit_DataStream.Header()
         header.streamID = streamID
         header.topic = topicName
         header.contentHeader = .textHeader(Livekit_DataStream.TextHeader())
+        if let totalLength { header.totalLength = totalLength }
         manager.handle(.header(header, participant.stringValue, .none))
 
-        // 2. Send chunk packets
-        for (index, chunkData) in testChunks.enumerated() {
+        if let chunks {
+            for (index, chunkData) in chunks.enumerated() {
+                var chunk = Livekit_DataStream.Chunk()
+                chunk.streamID = streamID
+                chunk.chunkIndex = UInt64(index)
+                chunk.content = Data(chunkData.utf8)
+                manager.handle(.chunk(chunk, .none))
+            }
+        } else if let rawPayload {
             var chunk = Livekit_DataStream.Chunk()
             chunk.streamID = streamID
-            chunk.chunkIndex = UInt64(index)
-            chunk.content = Data(chunkData.utf8)
+            chunk.chunkIndex = 0
+            chunk.content = rawPayload
             manager.handle(.chunk(chunk, .none))
         }
 
-        // 3. Send trailer packet
         var trailer = Livekit_DataStream.Trailer()
         trailer.streamID = streamID
-        trailer.reason = "" // indicates normal closure
+        trailer.reason = ""
         manager.handle(.trailer(trailer, .none))
 
-        await fulfillment(
-            of: [receiveExpectation],
-            timeout: 5
-        )
-    }
-
-    func testNonTextData() async throws {
-        let throwsExpectation = expectation(description: "Throws error on non-text data")
-
-        // This cannot be decoded as valid UTF-8
-        let testPayload = Data(repeating: 0xAB, count: 128)
-
-        try await manager.registerTextStreamHandler(for: topicName) { reader, _ in
-            do {
-                _ = try await reader.readAll()
-            } catch {
-                XCTAssertEqual(error as? StreamError, .decodeFailed)
-                throwsExpectation.fulfill()
+        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+            Task {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                c.resume()
             }
         }
-
-        let streamID = UUID().uuidString
-
-        // 1. Send header packet
-        var header = Livekit_DataStream.Header()
-        header.streamID = streamID
-        header.topic = topicName
-        header.contentHeader = .textHeader(Livekit_DataStream.TextHeader())
-        header.totalLength = UInt64(testPayload.count)
-        manager.handle(.header(header, participant.stringValue, .none))
-
-        // 2. Send chunk packet
-        var chunk = Livekit_DataStream.Chunk()
-        chunk.streamID = streamID
-        chunk.chunkIndex = 0
-        chunk.content = Data(testPayload)
-        manager.handle(.chunk(chunk, .none))
-
-        // 3. Send trailer packet
-        var trailer = Livekit_DataStream.Trailer()
-        trailer.streamID = streamID
-        trailer.reason = "" // indicates normal closure
-        manager.handle(.trailer(trailer, .none))
-
-        await fulfillment(
-            of: [throwsExpectation],
-            timeout: 5
-        )
-    }
-
-    func testAbnormalClosure() async throws {
-        let throwsExpectation = expectation(description: "Throws error on abnormal closure")
-        let closureReason = "test"
-
-        try await manager.registerByteStreamHandler(for: topicName) { reader, _ in
-            do {
-                _ = try await reader.readAll()
-            } catch {
-                XCTAssertEqual(error as? StreamError, .abnormalEnd(reason: closureReason))
-                throwsExpectation.fulfill()
-            }
-        }
-
-        let streamID = UUID().uuidString
-
-        // 1. Send header packet
-        var header = Livekit_DataStream.Header()
-        header.streamID = streamID
-        header.topic = topicName
-        header.contentHeader = .byteHeader(Livekit_DataStream.ByteHeader())
-        manager.handle(.header(header, participant.stringValue, .none))
-
-        // 2. Send trailer packet
-        var trailer = Livekit_DataStream.Trailer()
-        trailer.streamID = streamID
-        trailer.reason = closureReason // indicates abnormal closure
-        manager.handle(.trailer(trailer, .none))
-
-        await fulfillment(
-            of: [throwsExpectation],
-            timeout: 5
-        )
-    }
-
-    func testIncomplete() async throws {
-        let throwsExpectation = expectation(description: "Throws error on incomplete stream")
-
-        let testPayload = Data(repeating: 0xAB, count: 128)
-
-        try await manager.registerByteStreamHandler(for: topicName) { reader, _ in
-            do {
-                _ = try await reader.readAll()
-            } catch {
-                XCTAssertEqual(error as? StreamError, .incomplete)
-                throwsExpectation.fulfill()
-            }
-        }
-
-        let streamID = UUID().uuidString
-
-        // 1. Send header packet
-        var header = Livekit_DataStream.Header()
-        header.streamID = streamID
-        header.topic = topicName
-        header.contentHeader = .byteHeader(Livekit_DataStream.ByteHeader())
-        header.totalLength = UInt64(testPayload.count + 10) // expect more bytes
-        manager.handle(.header(header, participant.stringValue, .none))
-
-        // 2. Send chunk packet
-        var chunk = Livekit_DataStream.Chunk()
-        chunk.streamID = streamID
-        chunk.chunkIndex = 0
-        chunk.content = Data(testPayload)
-        manager.handle(.chunk(chunk, .none))
-
-        // 3. Send trailer packet
-        var trailer = Livekit_DataStream.Trailer()
-        trailer.streamID = streamID
-        trailer.reason = "" // indicates normal closure
-        manager.handle(.trailer(trailer, .none))
-
-        await fulfillment(
-            of: [throwsExpectation],
-            timeout: 5
-        )
-    }
-
-    func testEncryptionTypeMismatch() async throws {
-        let manager = IncomingStreamManager()
-        let topic = "test-encryption-mismatch"
-        let streamExpectation = expectation(description: "Stream should receive error")
-
-        try await manager.registerByteStreamHandler(for: topic) { reader, _ in
-            do {
-                _ = try await reader.readAll()
-            } catch let error as StreamError {
-                if case let .encryptionTypeMismatch(expected, received) = error {
-                    XCTAssertEqual(expected, .gcm) // Stream was created with .gcm
-                    XCTAssertEqual(received, .none) // But chunk sent with .none
-                    streamExpectation.fulfill()
-                } else {
-                    XCTFail("Expected encryptionTypeMismatch error, got \(error)")
-                }
-            }
-        }
-        var header = Livekit_DataStream.Header()
-        header.streamID = "test-stream-id"
-        header.topic = topic
-        header.mimeType = "application/octet-stream"
-        header.timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-        header.contentHeader = .byteHeader(.with {
-            $0.name = "test-file.bin"
-        })
-
-        manager.handle(.header(header, "test-participant", .gcm))
-
-        var chunk = Livekit_DataStream.Chunk()
-        chunk.streamID = "test-stream-id"
-        chunk.chunkIndex = 0
-        chunk.content = Data("test data".utf8)
-
-        manager.handle(.chunk(chunk, .none))
-
-        await fulfillment(of: [streamExpectation], timeout: 5.0)
     }
 }

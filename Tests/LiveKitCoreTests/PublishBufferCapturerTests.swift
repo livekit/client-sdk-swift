@@ -16,112 +16,68 @@
 
 import AVFoundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class PublishBufferCapturerTests: LKTestCase {
-    func testPublishBufferTrack() async throws {
-        let testCodecs: [VideoCodec] = [.vp8]
-        for codec in testCodecs {
-            print("Testing with codec: \(codec)")
-            let publishOptions = VideoPublishOptions(
-                simulcast: false,
-                preferredCodec: codec,
-                preferredBackupCodec: .none,
-                degradationPreference: .maintainResolution
-            )
-            try await testWith(publishOptions: publishOptions)
-        }
-    }
-}
+@Suite(.serialized, .tags(.media, .e2e))
+struct PublishBufferCapturerTests {
+    @Test(arguments: [VideoCodec.vp8])
+    func publishBufferTrack(codec: VideoCodec) async throws {
+        let publishOptions = VideoPublishOptions(
+            simulcast: false,
+            preferredCodec: codec,
+            preferredBackupCodec: .none,
+            degradationPreference: .maintainResolution
+        )
 
-extension PublishBufferCapturerTests {
-    // swiftlint:disable:next function_body_length
-    func testWith(publishOptions: VideoPublishOptions) async throws {
-        try await withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
-            // Alias to Rooms
+        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
             let room1 = rooms[0]
             let room2 = rooms[1]
 
             let targetDimensions: Dimensions = .h720_169
 
-            let captureOptions = BufferCaptureOptions(dimensions: targetDimensions)
-
             let bufferTrack = LocalVideoTrack.createBufferTrack(
-                options: captureOptions
+                options: BufferCaptureOptions(dimensions: targetDimensions)
             )
 
-            guard let bufferCapturer = bufferTrack.capturer as? BufferCapturer else {
-                XCTFail("Expected BufferCapturer")
-                return
-            }
+            let bufferCapturer = try #require(bufferTrack.capturer as? BufferCapturer)
 
-            let captureTask = try await self.createSampleVideoTrack { buffer in
+            let captureTask = try await createSampleVideoTrack { buffer in
                 bufferCapturer.capture(buffer)
             }
 
             try await room1.localParticipant.publish(videoTrack: bufferTrack, options: publishOptions)
 
-            guard let publisherIdentity = room1.localParticipant.identity else {
-                XCTFail("Publisher's identity is nil")
-                return
-            }
+            let publisherIdentity = try #require(room1.localParticipant.identity)
+            let remoteParticipant = try #require(room2.remoteParticipants[publisherIdentity])
 
-            // Get publisher's participant
-            guard let remoteParticipant = room2.remoteParticipants[publisherIdentity] else {
-                XCTFail("Failed to lookup Publisher (RemoteParticipant)")
-                return
-            }
-
-            // Set up expectation...
-            let didSubscribeToRemoteVideoTrack = self.expectation(description: "Did subscribe to remote video track")
-            didSubscribeToRemoteVideoTrack.assertForOverFulfill = false
-
+            // Poll for remote video track subscription
             var remoteVideoTrack: RemoteVideoTrack?
-
-            // Start watching RemoteParticipant for audio track...
-            let watchParticipant = remoteParticipant.objectWillChange.sink { _ in
-                if let track = remoteParticipant.videoTracks.first?.track as? RemoteVideoTrack, remoteVideoTrack == nil {
+            let deadline = Date().addingTimeInterval(30)
+            while Date() < deadline {
+                if let track = remoteParticipant.videoTracks.first?.track as? RemoteVideoTrack {
                     remoteVideoTrack = track
-                    didSubscribeToRemoteVideoTrack.fulfill()
+                    break
                 }
+                try await Task.sleep(nanoseconds: 200_000_000)
             }
 
-            // Wait for track...
-            print("Waiting for first video track...")
-            await self.fulfillment(of: [didSubscribeToRemoteVideoTrack], timeout: 30)
-
-            guard let remoteVideoTrack else {
-                XCTFail("RemoteVideoTrack is nil")
-                return
-            }
-
-            // Received RemoteAudioTrack...
-            print("remoteVideoTrack: \(String(describing: remoteVideoTrack))")
+            let videoTrack = try #require(remoteVideoTrack)
 
             let videoTrackWatcher = VideoTrackWatcher(id: "watcher01")
-            remoteVideoTrack.add(videoRenderer: videoTrackWatcher)
-            remoteVideoTrack.add(delegate: videoTrackWatcher)
+            videoTrack.add(videoRenderer: videoTrackWatcher)
+            videoTrack.add(delegate: videoTrackWatcher)
 
-            print("Waiting for target dimensions: \(targetDimensions)")
-            let expectTargetDimensions = videoTrackWatcher.expect(dimensions: targetDimensions)
-            await self.fulfillment(of: [expectTargetDimensions], timeout: 120)
-            print("Did render target dimensions: \(targetDimensions)")
+            try await videoTrackWatcher.waitForDimensions(targetDimensions, timeout: 120)
 
-            // Verify codec information
-            print("Waiting for codec information...")
-            if let codec = publishOptions.preferredCodec {
-                let expectCodec = videoTrackWatcher.expect(codec: codec)
-                await self.fulfillment(of: [expectCodec], timeout: 60)
-                print("Detected codecs: \(videoTrackWatcher.detectedCodecs.joined(separator: ", "))")
-                XCTAssertTrue(videoTrackWatcher.isCodecDetected(codec: codec), "Expected codec \(codec) was not detected")
+            if let preferredCodec = publishOptions.preferredCodec {
+                try await videoTrackWatcher.waitForCodec(preferredCodec, timeout: 60)
+                #expect(videoTrackWatcher.isCodecDetected(codec: preferredCodec), "Expected codec \(preferredCodec) was not detected")
             }
 
-            // Wait for video to complete...
             try await captureTask.value
-            // Clean up
-            watchParticipant.cancel()
         }
     }
 }

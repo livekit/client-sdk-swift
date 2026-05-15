@@ -8,6 +8,8 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+permissions:
+  contents: read
 jobs:
   lint:
     strategy:
@@ -15,7 +17,7 @@ jobs:
       matrix:
         include:
           - os: macos-14
-            xcode: 15.4
+            xcode: 16.2
           - os: macos-15
             xcode: 16.4
           - os: macos-26
@@ -24,7 +26,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
       - name: Setup CocoaPods
         uses: maxim-lobanov/setup-cocoapods@v1
         with:
@@ -46,7 +48,7 @@ jobs:
             --sources=https://github.com/livekit/podspecs.git/,https://cdn.cocoapods.org/
       - name: Upload Validation Directory (Failure Only)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           path: ${{ steps.lib-lint.outputs.validation_dir }}
           name: validation-xcode${{ matrix.xcode }}

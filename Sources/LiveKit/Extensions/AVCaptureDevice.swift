@@ -40,6 +40,6 @@ public extension Collection where Element: AVCaptureDevice {
     func singleDeviceforEachPosition() -> [AVCaptureDevice] {
         let front = first { $0.facingPosition == .front }
         let back = first { $0.facingPosition == .back }
-        return [front, back].compactMap { $0 }
+        return [front, back].compactMap(\.self)
     }
 }

@@ -28,7 +28,7 @@ public extension URLSession {
                     } else if let error {
                         continuation.resume(throwing: error)
                     } else {
-                        fatalError("Unknown state")
+                        continuation.resume(throwing: URLError(.unknown))
                     }
                 }
                 task.resume()

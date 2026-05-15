@@ -374,13 +374,6 @@ extension AVCaptureDevice.Position: Swift.CustomStringConvertible {
     }
 }
 
-extension Comparable {
-    // clamp a value within the range
-    func clamped(to limits: ClosedRange<Self>) -> Self {
-        min(max(self, limits.lowerBound), limits.upperBound)
-    }
-}
-
 extension AVFrameRateRange {
     // convert to a ClosedRange
     func toRange() -> ClosedRange<Int> {

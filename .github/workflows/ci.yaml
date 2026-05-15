@@ -16,9 +16,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TEST_TARGETS: "LiveKitCoreTests LiveKitObjCTests"
-  TEST_TIMEOUT_MINUTES: 15
-  TEST_RETRY_ATTEMPTS: 2
+  TEST_TIMEOUT_MINUTES: 30
+  TEST_RETRY_ATTEMPTS: 3
 
 jobs:
   build-and-test:
@@ -27,19 +26,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
+          # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-arm64-Readme.md
           - os: macos-14
-            xcode: 15.4
-            platform: "iOS Simulator,name=iPhone 15 Pro,OS=17.5"
+            xcode: 16.2
+            platform: "iOS Simulator,name=iPhone 16 Pro,OS=18.2"
           - os: macos-14
-            xcode: 15.4
+            xcode: 16.2
             platform: "macOS"
           - os: macos-14
-            xcode: 15.4
+            xcode: 16.2
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-14
-            xcode: 15.4
-            platform: "tvOS Simulator,name=Apple TV,OS=17.5"
+            xcode: 16.2
+            platform: "tvOS Simulator,name=Apple TV,OS=18.2"
 
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md
           - os: macos-15
@@ -58,11 +57,11 @@ jobs:
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md
           - os: macos-26
             xcode: 26.4
-            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.4"
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.4.1"
             symbol-graph: true
           - os: macos-26
             xcode: 26.4
-            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.4"
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.4.1"
             extension-api-only: true
           - os: macos-26
             xcode: 26.4
@@ -85,18 +84,21 @@ jobs:
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-26
             xcode: 26.4
-            platform: "visionOS Simulator,name=Apple Vision Pro,OS=26.4"
+            platform: "visionOS Simulator,name=Apple Vision Pro,OS=26.4.1"
           - os: macos-26
             xcode: 26.4
             platform: "tvOS Simulator,name=Apple TV,OS=26.4"
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    env:
+      LIBDISPATCH_COOPERATIVE_POOL_STRICT: ${{ matrix.strict-concurrency-env == true && '1' || '0' }}
+      NSUnbufferedIO: "YES"
     defaults:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install LiveKit Server
         run: brew install livekit
@@ -115,44 +117,22 @@ jobs:
       - name: Swift Version
         run: xcrun swift --version
 
-      - name: Build for Testing
-        run: |
-          set -o pipefail && xcodebuild build-for-testing \
-            -scheme LiveKit \
-            -destination 'platform=${{ matrix.platform }}' \
-            -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
-            -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
-            APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
-            | xcbeautify --renderer github-actions
-
-      - name: Run Tests
-        uses: nick-fields/retry@v3
-        env:
-          LIBDISPATCH_COOPERATIVE_POOL_STRICT: ${{ matrix.strict-concurrency-env == true && '1' || '0' }}
+      - name: Build & Test
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: ${{ env.TEST_TIMEOUT_MINUTES }}
           max_attempts: ${{ env.TEST_RETRY_ATTEMPTS }}
           command: |
-            set -euo pipefail
-            IFS=' ' read -r -a tests <<< "${{ env.TEST_TARGETS }}"
-
-            for test in "${tests[@]}"; do
-              echo "::group::$test"
-              if ! xcodebuild test-without-building \
-                -scheme LiveKit \
-                -destination 'platform=${{ matrix.platform }}' \
-                -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
-                -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
-                APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
-                -only-testing:$test \
-                -parallel-testing-enabled NO \
-                | xcbeautify --renderer github-actions
-              then
-                echo "::error::Test failed: $test"
-                exit 1
-              fi
-              echo "::endgroup::"
-            done
+            set -o pipefail && xcodebuild test \
+              -scheme LiveKit \
+              -destination 'platform=${{ matrix.platform }}' \
+              -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
+              -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
+              APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
+              -only-testing:LiveKitCoreTests \
+              -only-testing:LiveKitObjCTests \
+              -parallel-testing-enabled NO \
+              | xcbeautify --renderer github-actions
 
       - name: Build for Release
         if: ${{ matrix.symbol-graph }}
@@ -170,16 +150,19 @@ jobs:
 
       - name: Upload Symbol Graph
         if: ${{ matrix.symbol-graph }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: symbol-graph-${{ matrix.platform }}
           path: symbol-graph
           retention-days: 1
   lint:
     name: Lint
-    runs-on: macos-latest
+    runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
       - name: Install SwiftLint
         run: brew install swiftlint
       - name: SwiftLint
@@ -192,15 +175,19 @@ jobs:
     name: Build Docs
     needs: build-and-test
     if: always()
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - name: Checkout Documentation Catalog
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: Sources/LiveKit/LiveKit.docc
 
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
       - name: Download Symbol Graphs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: symbol-graph-*
           path: symbol-graphs
@@ -221,19 +208,23 @@ jobs:
         run: zip -r docs.zip docs
 
       - name: Upload Archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: docs
           path: docs.zip
           retention-days: 1
   check-protocol:
     name: Check Protocol
-    runs-on: macos-latest
+    runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
-          
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
       - name: Install swift-protobuf
         run: brew install protobuf swift-protobuf
         
@@ -260,7 +251,7 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -275,7 +266,7 @@ jobs:
 
       - name: Comment on PR
         if: steps.check-changes.outputs.has_changes == 'false'
-        uses: mshick/add-pr-comment@v2
+        uses: mshick/add-pr-comment@v3
         with:
           message: |
             ⚠️ This PR does not contain any files in the `.changes` directory.

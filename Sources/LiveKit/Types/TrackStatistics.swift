@@ -37,7 +37,7 @@ public class TrackStatistics: NSObject, @unchecked Sendable, Loggable {
     public let remoteOutboundRtpStream: [RemoteOutboundRtpStreamStatistics]
 
     init(from stats: [LKRTCStatistics], prevStatistics: TrackStatistics?) {
-        let stats = stats.map { $0.toLKType(prevStatistics: prevStatistics) }.compactMap { $0 }
+        let stats = stats.map { $0.toLKType(prevStatistics: prevStatistics) }.compactMap(\.self)
 
         codec = stats.compactMap { $0 as? CodecStatistics }
         videoSource = stats.compactMap { $0 as? VideoSourceStatistics }

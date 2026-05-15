@@ -12,6 +12,12 @@ xcodebuild build -scheme LiveKit -destination 'platform=macOS'
 # Run tests (requires local server: livekit-server --dev, install via brew install livekit)
 xcodebuild test -scheme LiveKit -only-testing LiveKitCoreTests -destination 'platform=macOS'
 
+# Build benchmarks
+cd Benchmarks && swiftly run +xcode swift build
+
+# Run benchmarks (requires local server: livekit-server --dev)
+cd Benchmarks && LK_BENCHMARK=1 swiftly run +xcode swift package --disable-sandbox benchmark
+
 # List available simulators for platform-specific builds
 xcrun simctl list devices
 ```
@@ -54,6 +60,12 @@ Key components:
 
 Dependencies: LiveKitWebRTC, LiveKitUniFFI, SwiftProtobuf.
 
+## Compile-Time Flags
+
+- `LK_XCFRAMEWORK` — set in the generated xcodeproj by `scripts/xcframework.swift`; switches `import SwiftProtobuf` to `internal import` in proto files so it doesn't leak into `.swiftinterface`
+- `LK_BENCHMARK` — set when building benchmarks (`Benchmarks/`); skips `DeviceManager`/`AudioManager` init in `Room.init` to allow headless benchmark runs
+- `LK_SIGNPOSTS` — enables `os.signpost` instrumentation in `StateSync` for profiling lock contention in Instruments
+
 ## WebRTC
 
 WebRTC handles the actual media transport (audio/video/data) between participants. The SDK abstracts WebRTC complexity behind `Room`, `Participant`, and `Track` APIs while LiveKit server coordinates signaling.
@@ -83,17 +95,17 @@ Threading:
 
 ### Language Version
 
-- Supported Xcode versions: current minus two major versions (including beta)
-- `Package.swift` and `.swift-version` declare the **oldest** supported version (e.g., `swift-tools-version:5.9`) for backwards compatibility
-- Keep all manifests in sync when adding dependencies
+- Minimum supported Xcode is Xcode 16 (Swift 6.0); see Apple's [App Store submission requirements](https://developer.apple.com/news/upcoming-requirements/?id=02212025a)
+- `Package.swift` (`swift-tools-version:6.0`) declares the **oldest** supported version
+- Keep `Package.swift`, `LiveKitClient.podspec`, and `.swiftformat`'s `--swiftversion` in sync when changing the minimum
 - New code should use the latest stable Swift version
-- Some constructs require `#if swift` or `#if compiler` directives for version compatibility:
+- Some constructs require `#if swift` or `#if compiler` directives to support newer-than-minimum toolchains:
 
 ```swift
-#if swift(>=6.0)
-public nonisolated(unsafe) static let shared = AudioManager()
+#if swift(>=6.2)
+private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetoothHFP, .allowBluetoothA2DP, .allowAirPlay]
 #else
-public static let shared = AudioManager()
+private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
 #endif
 ```
 
@@ -113,6 +125,8 @@ public static let shared = AudioManager()
 - Avoid `@MainActor` for synchronization of static members in non-UI components
 - Long-running `Task` requires cooperative cancellation to avoid memory leaks (e.g., `AsyncSequence.subscribe`)
 - Use `AnyTaskCancellable` (via `task.cancellable()`) instead of manual `Task` management (enforced by SwiftLint)
+- Fire-and-forget unstructured tasks that may throw must use `Task.discarding` / `Task.detachedDiscarding`; bare `Task { try await ... }` silently drops errors and is flagged under Swift main-snapshot (`#NoUseUnstructuredThrowingTask`)
+- Only `Task.discarding` preserves caller actor isolation in its closure; other `Support/Async/` helpers (`Task.retrying`, `AsyncSerialDelegate.notifyAsync`, etc.) run their bodies nonisolated — hop explicitly with `await MainActor.run { ... }` when UI-bound work is needed
 - Use async primitives in `Support/Async` and `Support/Schedulers` when operation order matters
 - Prefer native Swift async/await over `Combine` for new code
 
@@ -174,7 +188,13 @@ Usage notes:
 
 <skill>
 <name>swift-concurrency</name>
-<description>'Expert guidance on Swift Concurrency best practices, patterns, and implementation. Use when developers mention: (1) Swift Concurrency, async/await, actors, or tasks, (2) "use Swift Concurrency" or "modern concurrency patterns", (3) migrating to Swift 6, (4) data races or thread safety issues, (5) refactoring closures to async/await, (6) @MainActor, Sendable, or actor isolation, (7) concurrent code architecture or performance optimization, (8) concurrency-related linter warnings (SwiftLint or similar; e.g. async_without_await, Sendable/actor isolation/MainActor lint).'</description>
+<description>'Diagnose data races, convert callback-based code to async/await, implement actor isolation patterns, resolve Sendable conformance issues, and guide Swift 6 migration. Use when developers mention: (1) Swift Concurrency, async/await, actors, or tasks, (2) "use Swift Concurrency" or "modern concurrency patterns", (3) migrating to Swift 6, (4) data races or thread safety issues, (5) refactoring closures to async/await, (6) @MainActor, Sendable, or actor isolation, (7) concurrent code architecture or performance optimization, (8) concurrency-related linter warnings (SwiftLint or similar; e.g. async_without_await, Sendable/actor isolation/MainActor lint).'</description>
+<location>global</location>
+</skill>
+
+<skill>
+<name>swift-testing-expert</name>
+<description>'Expert guidance for Swift Testing: test structure, #expect/#require macros, traits and tags, parameterized tests, test plans, parallel execution, async waiting patterns, and XCTest migration. Use when writing new Swift tests, modernizing XCTest suites, debugging flaky tests, or improving test quality and maintainability in Apple-platform or Swift server projects.'</description>
 <location>global</location>
 </skill>
 

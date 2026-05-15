@@ -85,7 +85,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     public var disconnectError: LiveKitError? { _state.disconnectError }
 
-    public var connectStopwatch: Stopwatch { _state.connectStopwatch }
+    /// Timing data for the most recent connection attempt.
+    public var connectSpan: Span? { _state.connectSpan }
 
     // MARK: - Internal
 
@@ -94,6 +95,17 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     public var e2eeManager: E2EEManager? {
         get { _e2eeManager.copy() }
         set { _e2eeManager.mutate { $0 = newValue } }
+    }
+
+    /// Enables or disables end-to-end encryption on this Room.
+    ///
+    /// Requires the Room to have been constructed with ``EncryptionOptions``
+    /// (via ``RoomOptions/encryptionOptions``) and to be connected.
+    /// Otherwise this is a no-op.
+    ///
+    /// - Parameter enabled: Whether to enable encryption.
+    public func setE2EEEnabled(_ enabled: Bool) {
+        e2eeManager?.enableE2EE(enabled: enabled)
     }
 
     public lazy var localParticipant: LocalParticipant = .init(room: self)
@@ -167,13 +179,44 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var connectionState: ConnectionState = .disconnected
         var reconnectTask: AnyTaskCancellable?
         var disconnectError: LiveKitError?
-        var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
 
         var transport: TransportMode?
 
+        // Timing
+        var connectSpan: Span?
+
         // Agents
         var transcriptionReceivedTimes: [String: Date] = [:]
+
+        // Server can deliver `sid` / `name` in a later `RoomUpdate` (e.g. when the
+        // initial `JoinResponse.room.sid` is empty). Don't overwrite a known value
+        // with an empty one, otherwise `Room.sid()` resolves with an empty SID and
+        // never updates.
+        mutating func apply(roomInfo: Livekit_Room) {
+            if !roomInfo.sid.isEmpty {
+                sid = Room.Sid(from: roomInfo.sid)
+            }
+            if !roomInfo.name.isEmpty {
+                name = roomInfo.name
+            }
+
+            metadata = roomInfo.metadata
+            isRecording = roomInfo.activeRecording
+            numParticipants = Int(roomInfo.numParticipants)
+            numPublishers = Int(roomInfo.numPublishers)
+
+            if roomInfo.maxParticipants != 0 {
+                maxParticipants = Int(roomInfo.maxParticipants)
+            }
+
+            // Attempt to get millisecond precision.
+            if roomInfo.creationTimeMs != 0 {
+                creationTime = Date(timeIntervalSince1970: TimeInterval(Double(roomInfo.creationTimeMs) / 1000))
+            } else if roomInfo.creationTime != 0 {
+                creationTime = Date(timeIntervalSince1970: TimeInterval(roomInfo.creationTime))
+            }
+        }
 
         @discardableResult
         mutating func updateRemoteParticipant(info: Livekit_ParticipantInfo, room: Room) -> RemoteParticipant {
@@ -214,8 +257,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 roomOptions: RoomOptions? = nil)
     {
         // Ensure manager shared objects are instantiated
+        #if !LK_BENCHMARK
         DeviceManager.prepare()
         AudioManager.prepare()
+        #endif
 
         _state = StateSync(State(connectOptions: connectOptions ?? ConnectOptions(),
                                  roomOptions: roomOptions ?? RoomOptions()))
@@ -359,6 +404,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
 
         _state.mutate {
+            $0.connectSpan = sharedTracing.beginSpan("connect")
             $0.providedUrl = providedUrl
             $0.token = token
             $0.connectionState = .connecting
@@ -422,10 +468,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             // Final check if cancelled, don't fire connected events
             try Task.checkCancellation()
 
+            connectSpan?.record("room_connected")
+
             _state.mutate {
                 $0.connectedUrl = finalUrl
                 $0.connectionState = .connected
             }
+
+            connectSpan?.end()
+
             // Publish mic if mic task was created
             if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled {
                 let track = try await createMicrophoneTrackTask.value
@@ -523,15 +574,16 @@ extension Room {
         log("withError: \(String(describing: disconnectError)), isFullReconnect: \(isFullReconnect)")
 
         // Reset completers
-        _sidCompleter.reset()
-        primaryTransportConnectedCompleter.reset()
-        publisherTransportConnectedCompleter.reset()
+        _sidCompleter.reset(throwing: disconnectError)
+        primaryTransportConnectedCompleter.reset(throwing: disconnectError)
+        publisherTransportConnectedCompleter.reset(throwing: disconnectError)
+        await activeParticipantCompleters.reset(throwing: disconnectError)
 
         await signalClient.cleanUp(withError: disconnectError)
         // Cancel all track stats timers before closing transports to prevent
         // stats collection from accessing destroyed WebRTC channels.
         cancelTimers()
-        await cleanUpRTC()
+        await cleanUpRTC(withError: disconnectError)
         await cleanUpParticipants(isFullReconnect: isFullReconnect)
 
         // Cleanup for E2EE

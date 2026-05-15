@@ -14,31 +14,35 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class SerialRunnerActorTests: LKTestCase, @unchecked Sendable {
-    let serialRunner = SerialRunnerActor<Void>()
-    var counterValue: Int = 0
-    var resultValues: [String] = []
+@Suite(.serialized, .tags(.concurrency))
+struct SerialRunnerActorTests {
+    // The original tests verified that SerialRunnerActor serializes
+    // concurrent work by mutating shared state (counter, result array)
+    // from inside `serialRunner.run { }`. The serial runner guarantees
+    // only one closure runs at a time, so direct mutation is safe.
+    // We use StateSync to satisfy Sendable without @unchecked.
 
-    // Test whether tasks, when invoked concurrently, continue to run in a serial manner.
-    // Access to the counter value should be synchronized, aiming for a final count of 0.
-    func testSerialRuuner() async throws {
-        // Run Tasks concurrently
+    @Test func serialRunner() async throws {
+        let serialRunner = SerialRunnerActor<Void>()
+        let counter = StateSync(0)
+
         try await withThrowingTaskGroup(of: Void.self) { group in
             for i in 1 ... 1000 {
                 group.addTask {
-                    try await self.serialRunner.run {
-                        self.counterValue += 1
+                    try await serialRunner.run {
+                        counter.mutate { $0 += 1 }
                         let ns = UInt64(Double.random(in: 1 ..< 3) * 1_000_000)
-                        print("executor1 task \(i) start, will wait \(ns)ns")
-                        // Simulate random-ish time consuming task
+                        print("task \(i) start, will wait \(ns)ns")
                         try await Task.sleep(nanoseconds: ns)
-                        print("executor1 task \(i) done")
-                        self.counterValue -= 1
+                        print("task \(i) done")
+                        counter.mutate { $0 -= 1 }
                     }
                 }
             }
@@ -46,44 +50,35 @@ class SerialRunnerActorTests: LKTestCase, @unchecked Sendable {
             try await group.waitForAll()
         }
 
-        print("serialExecutor1Counter: \(counterValue)")
-        // Should end up being 0
-        XCTAssert(counterValue == 0)
+        #expect(counter.copy() == 0, "Counter should be 0 after balanced increments/decrements")
     }
 
-    // Test whether tasks invoked concurrently, and randomly cancelled, continue to run in a serial manner.
-    // Access to the counter value should be synchronized, resulting in a count of 0.
-    func testSerialRunnerCancel() async throws {
-        // Run Tasks concurrently
+    @Test func serialRunnerCancel() async {
+        let serialRunner = SerialRunnerActor<Void>()
+        let counter = StateSync(0)
+
         await withTaskGroup(of: Void.self) { group in
             for i in 1 ... 1000 {
                 group.addTask {
                     let subTask = Task {
                         do {
-                            try await self.serialRunner.run {
-                                // Increment counter
-                                self.counterValue += 1
+                            try await serialRunner.run {
+                                counter.mutate { $0 += 1 }
                                 defer {
-                                    // Decrement counter
-                                    self.counterValue -= 1
+                                    counter.mutate { $0 -= 1 }
                                 }
 
                                 let ns = UInt64(Double.random(in: 1 ..< 3) * 1_000_000)
-                                print("executor1 task \(i) start, will wait \(ns)ns")
-                                // Simulate random-ish time consuming task
+                                print("task \(i) start, will wait \(ns)ns")
                                 try await Task.sleep(nanoseconds: ns)
-
-                                print("executor1 task \(i) done")
+                                print("task \(i) done")
                             }
                         } catch {
-                            // Handle exceptions so test will continue
                             print("Task \(i) was cancelled")
                         }
                     }
 
-                    // Cancel randomly
                     if Bool.random() {
-                        print("Cancelling task \(i)...")
                         subTask.cancel()
                     }
 
@@ -94,69 +89,54 @@ class SerialRunnerActorTests: LKTestCase, @unchecked Sendable {
             await group.waitForAll()
         }
 
-        print("serialExecutor1Counter: \(counterValue)")
-        // Should end up being 0
-        XCTAssert(counterValue == 0)
+        #expect(counter.copy() == 0, "Counter should be 0 after balanced increments/decrements")
     }
 
-    func testSerialRunnerOrderWithCancel() async throws {
-        // Run Tasks concurrently
+    @Test func serialRunnerOrderWithCancel() async throws {
+        let serialRunner = SerialRunnerActor<Void>()
+        let results = StateSync<[String]>([])
+
         try await withThrowingTaskGroup(of: Void.self) { group in
-            // Schedule task 1
-            print("Scheduling task 1...")
+            // Schedule task 1 (will be cancelled after 1.5s)
             group.addTask {
                 let subTask = Task {
                     do {
-                        try await self.serialRunner.run {
+                        try await serialRunner.run {
                             defer {
-                                self.resultValues.append("task1")
-                                print("task 1 done")
+                                results.mutate { $0.append("task1") }
                             }
-                            // Simulate a long task
                             let ns = UInt64(3 * 1_000_000_000)
-                            print("task 1 waiting \(ns)ns...")
-                            // Simulate random-ish time consuming task
                             try await Task.sleep(nanoseconds: ns)
                         }
                     } catch {
-                        // Handle exceptions so test will continue
-                        print("Task 1 throwed \(error)")
+                        print("Task 1 threw \(error)")
                     }
                 }
 
-                // Cancel after 1.5 second
                 try await Task.sleep(nanoseconds: UInt64(1.5 * 1_000_000_000))
-                print("Cancelling task 1...")
                 subTask.cancel()
-
                 return await subTask.value
             }
 
             // Schedule task 2
             try await Task.sleep(nanoseconds: UInt64(0.5 * 1_000_000_000))
-            print("Scheduling task 2...")
             group.addTask {
-                try await self.serialRunner.run {
-                    self.resultValues.append("task2")
-                    print("task 2 done")
+                try await serialRunner.run {
+                    results.mutate { $0.append("task2") }
                 }
             }
 
             // Schedule task 3
             try await Task.sleep(nanoseconds: UInt64(0.5 * 1_000_000_000))
-            print("Scheduling task 3...")
             group.addTask {
-                try await self.serialRunner.run {
-                    self.resultValues.append("task3")
-                    print("task 3 done")
+                try await serialRunner.run {
+                    results.mutate { $0.append("task3") }
                 }
             }
 
             try await group.waitForAll()
         }
 
-        print("completed tasks order: \(resultValues)")
-        // Should be in order
-        XCTAssertEqual(resultValues, ["task1", "task2", "task3"])
+        #expect(results.copy() == ["task1", "task2", "task3"], "Tasks should complete in order")
     }
 }

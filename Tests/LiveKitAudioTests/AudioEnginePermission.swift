@@ -16,38 +16,39 @@
 
 @preconcurrency import AVFoundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class AudioEnginePermissionTests: LKTestCase {
+@Suite(.serialized, .tags(.audio)) struct AudioEnginePermissionTests {
     #if os(iOS) || os(visionOS) || os(tvOS)
     // Check if audio engine will fail to start instead of crashing when `AVAudioSession.category` isn't
     // configured correctly. Only for non-macOS platforms.
-    func testAudioSessionPermission() async throws {
+    @Test func audioSessionPermission() throws {
         // Test without enabling VP
         try AudioManager.shared.setVoiceProcessingEnabled(false)
 
         // First check
-        XCTAssertFalse(AudioManager.shared.isEngineRunning)
+        #expect(!AudioManager.shared.isEngineRunning)
 
         // Set no engine observer
         AudioManager.shared.set(engineObservers: [])
 
         // Attempt to start, should fail
-        XCTAssertThrowsError(try AudioManager.shared.startLocalRecording())
-        XCTAssertFalse(AudioManager.shared.isEngineRunning)
+        #expect(throws: (any Error).self) { try AudioManager.shared.startLocalRecording() }
+        #expect(!AudioManager.shared.isEngineRunning)
 
         // Set audio session engine observers
         AudioManager.shared.set(engineObservers: [AudioSessionEngineObserver()])
 
         // Attempt to start
         try AudioManager.shared.startLocalRecording()
-        XCTAssertTrue(AudioManager.shared.isEngineRunning)
+        #expect(AudioManager.shared.isEngineRunning)
 
         // Stop
         try AudioManager.shared.stopLocalRecording()
-        XCTAssertFalse(AudioManager.shared.isEngineRunning)
+        #expect(!AudioManager.shared.isEngineRunning)
 
         print("Category: \(AVAudioSession.sharedInstance().category)")
     }

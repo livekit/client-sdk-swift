@@ -57,11 +57,6 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable {
     public func makeAsyncIterator() -> AsyncChunks {
         AsyncChunks(source: source.makeAsyncIterator())
     }
-
-    #if swift(<5.11)
-    public typealias Element = String
-    public typealias AsyncIterator = AsyncChunks
-    #endif
 }
 
 // MARK: - Objective-C compatibility

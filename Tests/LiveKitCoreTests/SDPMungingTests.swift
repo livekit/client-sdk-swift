@@ -15,13 +15,14 @@
  */
 
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class SDPMungingTests: LKTestCase {
+struct SDPMungingTests {
     /// All RTP m-sections (audio, video, text) should have `a=inactive` rewritten to `a=recvonly`.
-    func testAllRTPSectionsAreMunged() {
+    @Test func allRTPSectionsAreMunged() {
         let sdp = [
             "v=0",
             "o=- 0 0 IN IP4 127.0.0.1",
@@ -45,14 +46,14 @@ class SDPMungingTests: LKTestCase {
         let result = Transport.mungeInactiveToRecvOnlyForMedia(sdp)
 
         // All four RTP sections should be munged
-        XCTAssertFalse(result.contains("a=inactive"), "All a=inactive lines in RTP sections should be rewritten")
+        #expect(!result.contains("a=inactive"), "All a=inactive lines in RTP sections should be rewritten")
 
         let recvOnlyCount = result.components(separatedBy: "a=recvonly").count - 1
-        XCTAssertEqual(recvOnlyCount, 4, "Should have 4 a=recvonly lines (2 audio + 1 video + 1 text)")
+        #expect(recvOnlyCount == 4, "Should have 4 a=recvonly lines (2 audio + 1 video + 1 text)")
     }
 
     /// `m=application` sections (data channels) should NOT be munged.
-    func testApplicationSectionNotMunged() {
+    @Test func applicationSectionNotMunged() throws {
         let sdp = [
             "v=0",
             "o=- 0 0 IN IP4 127.0.0.1",
@@ -70,17 +71,17 @@ class SDPMungingTests: LKTestCase {
         let result = Transport.mungeInactiveToRecvOnlyForMedia(sdp)
 
         // Audio section should be munged
-        XCTAssertTrue(result.contains("a=recvonly"), "Audio section a=inactive should become a=recvonly")
+        #expect(result.contains("a=recvonly"), "Audio section a=inactive should become a=recvonly")
 
         // Application section should still have a=inactive
         let lines = result.components(separatedBy: "\r\n")
-        let appSectionStart = lines.firstIndex(where: { $0.hasPrefix("m=application") })!
+        let appSectionStart = try #require(lines.firstIndex(where: { $0.hasPrefix("m=application") }))
         let inactiveAfterApp = lines[appSectionStart...].contains("a=inactive")
-        XCTAssertTrue(inactiveAfterApp, "Application section should preserve a=inactive")
+        #expect(inactiveAfterApp, "Application section should preserve a=inactive")
     }
 
     /// SDP without any `a=inactive` lines should pass through unchanged.
-    func testNoOpWhenNoInactiveLines() {
+    @Test func noOpWhenNoInactiveLines() {
         let sdp = [
             "v=0",
             "o=- 0 0 IN IP4 127.0.0.1",
@@ -97,6 +98,6 @@ class SDPMungingTests: LKTestCase {
 
         let result = Transport.mungeInactiveToRecvOnlyForMedia(sdp)
 
-        XCTAssertEqual(result, sdp, "SDP without a=inactive should pass through unchanged")
+        #expect(result == sdp, "SDP without a=inactive should pass through unchanged")
     }
 }

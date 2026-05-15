@@ -14,256 +14,268 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 import LiveKitWebRTC
 
-class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
-    var receivedDataExpectation: XCTestExpectation!
-    var receivedData: Data!
-    var decryptionErrorExpectation: XCTestExpectation!
-    var lastDecryptionError: Error?
+@Suite(.serialized, .tags(.dataChannel, .e2e, .e2ee)) final class EncryptedDataChannelTests: @unchecked Sendable {
+    private let _receivedData = StateSync(Data())
+    private let _lastDecryptionError = StateSync<Error?>(nil)
+    private let _onDataReceived = StateSync<(() -> Void)?>(nil)
+    private let _onDecryptionError = StateSync<(() -> Void)?>(nil)
 
-    override func setUp() {
-        super.setUp()
-        receivedData = Data()
-        lastDecryptionError = nil
-    }
-
-    func testEncryptionWithSharedKey() async throws {
-        receivedDataExpectation = expectation(description: "Encrypted data received")
-        let testMessage = "Hello, encrypted world!"
-        let testData = testMessage.data(using: .utf8)!
-
-        try await withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(delegate: self, canSubscribe: true),
-        ]) { rooms in
-            let sender = rooms[0]
-            let remoteIdentity = try XCTUnwrap(sender.remoteParticipants.keys.first)
-
-            let userPacket = Livekit_UserPacket.with {
-                $0.payload = testData
-                $0.destinationIdentities = [remoteIdentity.stringValue]
-            }
-
-            try await sender.send(userPacket: userPacket, kind: .reliable)
-
-            await self.fulfillment(of: [self.receivedDataExpectation], timeout: 5)
-
-            let receivedMessage = String(data: self.receivedData!, encoding: .utf8)
-            XCTAssertEqual(receivedMessage, testMessage, "Received message should match sent message")
+    /// Awaits the next delegate callback (data received or decryption error).
+    private func awaitEvent() async {
+        await withCheckedContinuation { continuation in
+            let previous = self._onDataReceived.copy()
+            self._onDataReceived.mutate { $0 = {
+                previous?()
+                continuation.resume()
+            }}
+            let previousError = self._onDecryptionError.copy()
+            self._onDecryptionError.mutate { $0 = {
+                previousError?()
+                continuation.resume()
+            }}
         }
     }
 
-    func testEncryptionWithPerParticipantKeys() async throws {
-        receivedDataExpectation = expectation(description: "Encrypted data with per-participant keys received")
-        let testMessage = "Hello, per-participant encrypted world!"
-        let testData = testMessage.data(using: .utf8)!
+    /// Builds a publisher/subscriber room pair, each with its own key provider.
+    private func encryptedRooms(sender: BaseKeyProvider, receiver: BaseKeyProvider) -> [RoomTestingOptions] {
+        [
+            RoomTestingOptions(encryptionOptions: EncryptionOptions(keyProvider: sender), canPublishData: true),
+            RoomTestingOptions(delegate: self, encryptionOptions: EncryptionOptions(keyProvider: receiver), canSubscribe: true),
+        ]
+    }
 
-        let senderKeyProvider = BaseKeyProvider(isSharedKey: false)
-        let receiverKeyProvider = BaseKeyProvider(isSharedKey: false)
+    @Test(arguments: [KeyDerivationAlgorithm.pbkdf2, .hkdf])
+    func encryptionWithSharedKey(algorithm: KeyDerivationAlgorithm) async throws {
+        let testMessage = "Hello, encrypted world!"
+        let testData = try #require(testMessage.data(using: .utf8))
+
+        let sharedKey = "shared-key-\(UUID().uuidString)"
+        let options = KeyProviderOptions(sharedKey: true, keyDerivationAlgorithm: algorithm)
+        let senderKeyProvider = BaseKeyProvider(options: options)
+        let receiverKeyProvider = BaseKeyProvider(options: options)
+        senderKeyProvider.setKey(key: sharedKey)
+        receiverKeyProvider.setKey(key: sharedKey)
+
+        try await confirmation("Encrypted data received") { confirm in
+            self._receivedData.mutate { $0 = Data() }
+            self._onDataReceived.mutate { $0 = { confirm() } }
+
+            try await TestEnvironment.withRooms(encryptedRooms(sender: senderKeyProvider, receiver: receiverKeyProvider)) { rooms in
+                let sender = rooms[0]
+                let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
+
+                let userPacket = Livekit_UserPacket.with {
+                    $0.payload = testData
+                    $0.destinationIdentities = [remoteIdentity.stringValue]
+                }
+
+                try await sender.send(userPacket: userPacket, kind: .reliable)
+
+                await self.awaitEvent()
+            }
+
+            let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
+            #expect(receivedMessage == testMessage, "Received message should match sent message")
+        }
+    }
+
+    @Test(arguments: [KeyDerivationAlgorithm.pbkdf2, .hkdf])
+    func encryptionWithPerParticipantKeys(algorithm: KeyDerivationAlgorithm) async throws {
+        let testMessage = "Hello, per-participant encrypted world!"
+        let testData = try #require(testMessage.data(using: .utf8))
+
+        let perParticipantOptions = KeyProviderOptions(sharedKey: false, keyDerivationAlgorithm: algorithm)
+        let senderKeyProvider = BaseKeyProvider(options: perParticipantOptions)
+        let receiverKeyProvider = BaseKeyProvider(options: perParticipantOptions)
 
         let senderKey = "sender-secret-key-123"
         let receiverKey = "receiver-secret-key-456"
 
-        try await withRooms([
-            RoomTestingOptions(
-                encryptionOptions: EncryptionOptions(keyProvider: senderKeyProvider), canPublishData: true
-            ),
-            RoomTestingOptions(
-                delegate: self,
-                encryptionOptions: EncryptionOptions(keyProvider: receiverKeyProvider), canSubscribe: true
-            ),
-        ]) { rooms in
-            let sender = rooms[0]
-            let receiver = rooms[1]
+        try await confirmation("Encrypted data with per-participant keys received") { confirm in
+            self._receivedData.mutate { $0 = Data() }
+            self._onDataReceived.mutate { $0 = { confirm() } }
 
-            let senderIdentity = try XCTUnwrap(sender.localParticipant.identity?.stringValue)
-            let receiverIdentity = try XCTUnwrap(receiver.localParticipant.identity?.stringValue)
+            try await TestEnvironment.withRooms(encryptedRooms(sender: senderKeyProvider, receiver: receiverKeyProvider)) { rooms in
+                let sender = rooms[0]
+                let receiver = rooms[1]
 
-            senderKeyProvider.setKey(key: senderKey, participantId: senderIdentity)
-            senderKeyProvider.setKey(key: receiverKey, participantId: receiverIdentity)
-            receiverKeyProvider.setKey(key: senderKey, participantId: senderIdentity)
-            receiverKeyProvider.setKey(key: receiverKey, participantId: receiverIdentity)
+                let senderIdentity = try #require(sender.localParticipant.identity?.stringValue)
+                let receiverIdentity = try #require(receiver.localParticipant.identity?.stringValue)
 
-            let remoteIdentity = try XCTUnwrap(sender.remoteParticipants.keys.first)
+                senderKeyProvider.setKey(key: senderKey, participantId: senderIdentity)
+                senderKeyProvider.setKey(key: receiverKey, participantId: receiverIdentity)
+                receiverKeyProvider.setKey(key: senderKey, participantId: senderIdentity)
+                receiverKeyProvider.setKey(key: receiverKey, participantId: receiverIdentity)
 
-            let userPacket = Livekit_UserPacket.with {
-                $0.payload = testData
-                $0.destinationIdentities = [remoteIdentity.stringValue]
+                let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
+
+                let userPacket = Livekit_UserPacket.with {
+                    $0.payload = testData
+                    $0.destinationIdentities = [remoteIdentity.stringValue]
+                }
+
+                try await sender.send(userPacket: userPacket, kind: .reliable)
+
+                await self.awaitEvent()
             }
 
-            try await sender.send(userPacket: userPacket, kind: .reliable)
-
-            await self.fulfillment(of: [self.receivedDataExpectation], timeout: 5)
-
-            let receivedMessage = String(data: self.receivedData!, encoding: .utf8)
-            XCTAssertEqual(receivedMessage, testMessage, "Received message should match sent message with per-participant keys")
+            let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
+            #expect(receivedMessage == testMessage, "Received message should match sent message with per-participant keys")
         }
     }
 
-    func testDecryptionFailureWithSharedKey() async throws {
-        decryptionErrorExpectation = expectation(description: "Decryption error occurred")
+    @Test(arguments: [KeyDerivationAlgorithm.pbkdf2, .hkdf])
+    func decryptionFailureWithSharedKey(algorithm: KeyDerivationAlgorithm) async throws {
         let testMessage = "This should fail to decrypt!"
-        let testData = testMessage.data(using: .utf8)!
+        let testData = try #require(testMessage.data(using: .utf8))
 
         let senderKey = "sender-shared-key-123"
         let receiverKey = "receiver-shared-key-456"
 
-        let senderKeyProvider = BaseKeyProvider(isSharedKey: true, sharedKey: senderKey)
-        let receiverKeyProvider = BaseKeyProvider(isSharedKey: true, sharedKey: receiverKey)
+        let sharedOptions = KeyProviderOptions(sharedKey: true, keyDerivationAlgorithm: algorithm)
+        let senderKeyProvider = BaseKeyProvider(options: sharedOptions)
+        let receiverKeyProvider = BaseKeyProvider(options: sharedOptions)
+        senderKeyProvider.setKey(key: senderKey)
+        receiverKeyProvider.setKey(key: receiverKey)
 
-        try await withRooms([
-            RoomTestingOptions(
-                encryptionOptions: EncryptionOptions(keyProvider: senderKeyProvider),
-                canPublishData: true
-            ),
-            RoomTestingOptions(
-                delegate: self,
-                encryptionOptions: EncryptionOptions(keyProvider: receiverKeyProvider),
-                canSubscribe: true
-            ),
-        ]) { rooms in
-            let sender = rooms[0]
-            let remoteIdentity = try XCTUnwrap(sender.remoteParticipants.keys.first)
+        try await confirmation("Decryption error occurred") { confirm in
+            self._receivedData.mutate { $0 = Data() }
+            self._lastDecryptionError.mutate { $0 = nil }
+            self._onDecryptionError.mutate { $0 = { confirm() } }
 
-            let userPacket = Livekit_UserPacket.with {
-                $0.payload = testData
-                $0.destinationIdentities = [remoteIdentity.stringValue]
+            try await TestEnvironment.withRooms(encryptedRooms(sender: senderKeyProvider, receiver: receiverKeyProvider)) { rooms in
+                let sender = rooms[0]
+                let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
+
+                let userPacket = Livekit_UserPacket.with {
+                    $0.payload = testData
+                    $0.destinationIdentities = [remoteIdentity.stringValue]
+                }
+
+                try await sender.send(userPacket: userPacket, kind: .reliable)
+
+                await self.awaitEvent()
             }
 
-            try await sender.send(userPacket: userPacket, kind: .reliable)
-
-            await self.fulfillment(of: [self.decryptionErrorExpectation], timeout: 5)
-
-            XCTAssertNotNil(self.lastDecryptionError, "Decryption error should have occurred")
-            XCTAssert(self.receivedData.isEmpty, "No data should be received when decryption fails")
+            #expect(self._lastDecryptionError.copy() != nil, "Decryption error should have occurred")
+            #expect(self._receivedData.copy().isEmpty, "No data should be received when decryption fails")
         }
     }
 
-    func testDecryptionFailureWithPerParticipantKeys() async throws {
-        decryptionErrorExpectation = expectation(description: "Decryption error occurred with per-participant keys")
+    @Test(arguments: [KeyDerivationAlgorithm.pbkdf2, .hkdf])
+    func decryptionFailureWithPerParticipantKeys(algorithm: KeyDerivationAlgorithm) async throws {
         let testMessage = "This should fail to decrypt with per-participant keys!"
-        let testData = testMessage.data(using: .utf8)!
+        let testData = try #require(testMessage.data(using: .utf8))
 
-        let senderKeyProvider = BaseKeyProvider(isSharedKey: false)
-        let receiverKeyProvider = BaseKeyProvider(isSharedKey: false)
+        let perParticipantOptions = KeyProviderOptions(sharedKey: false, keyDerivationAlgorithm: algorithm)
+        let senderKeyProvider = BaseKeyProvider(options: perParticipantOptions)
+        let receiverKeyProvider = BaseKeyProvider(options: perParticipantOptions)
 
         let senderKey = "sender-secret-key-123"
         let wrongSenderKey = "wrong-secret-key-999"
         let receiverKey = "receiver-secret-key-456"
 
-        try await withRooms([
-            RoomTestingOptions(
-                encryptionOptions: EncryptionOptions(keyProvider: senderKeyProvider),
-                canPublishData: true
-            ),
-            RoomTestingOptions(
-                delegate: self,
-                encryptionOptions: EncryptionOptions(keyProvider: receiverKeyProvider),
-                canSubscribe: true
-            ),
-        ]) { rooms in
-            let sender = rooms[0]
-            let receiver = rooms[1]
+        try await confirmation("Decryption error occurred with per-participant keys") { confirm in
+            self._receivedData.mutate { $0 = Data() }
+            self._lastDecryptionError.mutate { $0 = nil }
+            self._onDecryptionError.mutate { $0 = { confirm() } }
 
-            let senderIdentity = try XCTUnwrap(sender.localParticipant.identity?.stringValue)
-            let receiverIdentity = try XCTUnwrap(receiver.localParticipant.identity?.stringValue)
+            try await TestEnvironment.withRooms(encryptedRooms(sender: senderKeyProvider, receiver: receiverKeyProvider)) { rooms in
+                let sender = rooms[0]
+                let receiver = rooms[1]
 
-            senderKeyProvider.setKey(key: senderKey, participantId: senderIdentity)
-            senderKeyProvider.setKey(key: receiverKey, participantId: receiverIdentity)
-            receiverKeyProvider.setKey(key: wrongSenderKey, participantId: senderIdentity)
-            receiverKeyProvider.setKey(key: receiverKey, participantId: receiverIdentity)
+                let senderIdentity = try #require(sender.localParticipant.identity?.stringValue)
+                let receiverIdentity = try #require(receiver.localParticipant.identity?.stringValue)
 
-            let remoteIdentity = try XCTUnwrap(sender.remoteParticipants.keys.first)
+                senderKeyProvider.setKey(key: senderKey, participantId: senderIdentity)
+                senderKeyProvider.setKey(key: receiverKey, participantId: receiverIdentity)
+                receiverKeyProvider.setKey(key: wrongSenderKey, participantId: senderIdentity)
+                receiverKeyProvider.setKey(key: receiverKey, participantId: receiverIdentity)
 
-            let userPacket = Livekit_UserPacket.with {
-                $0.payload = testData
-                $0.destinationIdentities = [remoteIdentity.stringValue]
+                let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
+
+                let userPacket = Livekit_UserPacket.with {
+                    $0.payload = testData
+                    $0.destinationIdentities = [remoteIdentity.stringValue]
+                }
+
+                try await sender.send(userPacket: userPacket, kind: .reliable)
+
+                await self.awaitEvent()
             }
 
-            try await sender.send(userPacket: userPacket, kind: .reliable)
-
-            await self.fulfillment(of: [self.decryptionErrorExpectation], timeout: 5)
-
-            XCTAssertNotNil(self.lastDecryptionError, "Decryption error should have occurred with mismatched per-participant keys")
-            XCTAssert(self.receivedData.isEmpty, "No data should be received when per-participant key decryption fails")
+            #expect(self._lastDecryptionError.copy() != nil, "Decryption error should have occurred with mismatched per-participant keys")
+            #expect(self._receivedData.copy().isEmpty, "No data should be received when per-participant key decryption fails")
         }
     }
 
-    func testKeyRatcheting() async throws {
-        receivedDataExpectation = expectation(description: "Data received after automatic key ratcheting")
+    @Test(arguments: [KeyDerivationAlgorithm.pbkdf2, .hkdf])
+    func keyRatcheting(algorithm: KeyDerivationAlgorithm) async throws {
         let testMessage = "Hello with automatic ratcheting!"
-        let testData = testMessage.data(using: .utf8)!
+        let testData = try #require(testMessage.data(using: .utf8))
 
-        let senderKeyProvider = BaseKeyProvider(options: KeyProviderOptions(
+        let ratchetOptions = KeyProviderOptions(
             sharedKey: true,
-            ratchetWindowSize: 2
-        ))
-        let receiverKeyProvider = BaseKeyProvider(options: KeyProviderOptions(
-            sharedKey: true,
-            ratchetWindowSize: 2
-        ))
+            ratchetWindowSize: 2,
+            keyDerivationAlgorithm: algorithm
+        )
+        let senderKeyProvider = BaseKeyProvider(options: ratchetOptions)
+        let receiverKeyProvider = BaseKeyProvider(options: ratchetOptions)
 
         let initialKey = "initial-key-\(UUID().uuidString)"
         senderKeyProvider.setKey(key: initialKey)
         receiverKeyProvider.setKey(key: initialKey)
 
-        try await withRooms([
-            RoomTestingOptions(
-                encryptionOptions: EncryptionOptions(keyProvider: senderKeyProvider),
-                canPublishData: true
-            ),
-            RoomTestingOptions(
-                delegate: self,
-                encryptionOptions: EncryptionOptions(keyProvider: receiverKeyProvider),
-                canSubscribe: true
-            ),
-        ]) { rooms in
-            let sender = rooms[0]
-            let remoteIdentity = try XCTUnwrap(sender.remoteParticipants.keys.first)
+        try await confirmation("Data received after automatic key ratcheting") { confirm in
+            self._receivedData.mutate { $0 = Data() }
+            self._onDataReceived.mutate { $0 = { confirm() } }
 
-            // Sender ratchets their key forward
-            let ratchetedKey = senderKeyProvider.ratchetKey()
-            XCTAssertNotNil(ratchetedKey, "Sender key ratcheting should succeed")
+            try await TestEnvironment.withRooms(encryptedRooms(sender: senderKeyProvider, receiver: receiverKeyProvider)) { rooms in
+                let sender = rooms[0]
+                let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
 
-            // Export keys to verify they're different
-            let senderExportedKey = senderKeyProvider.exportKey()
-            let receiverExportedKey = receiverKeyProvider.exportKey()
-            XCTAssertNotEqual(senderExportedKey, receiverExportedKey, "Keys should be different after sender ratchets")
+                let ratchetedKey = senderKeyProvider.ratchetKey()
+                #expect(ratchetedKey != nil, "Sender key ratcheting should succeed")
 
-            // Send encrypted data with the ratcheted key
-            let userPacket = Livekit_UserPacket.with {
-                $0.payload = testData
-                $0.destinationIdentities = [remoteIdentity.stringValue]
+                let senderExportedKey = senderKeyProvider.exportKey()
+                let receiverExportedKey = receiverKeyProvider.exportKey()
+                #expect(senderExportedKey != receiverExportedKey, "Keys should be different after sender ratchets")
+
+                let userPacket = Livekit_UserPacket.with {
+                    $0.payload = testData
+                    $0.destinationIdentities = [remoteIdentity.stringValue]
+                }
+
+                try await sender.send(userPacket: userPacket, kind: .reliable)
+
+                await self.awaitEvent()
             }
 
-            try await sender.send(userPacket: userPacket, kind: .reliable)
-
-            // Receiver should automatically ratchet and decrypt successfully
-            await self.fulfillment(of: [self.receivedDataExpectation], timeout: 5)
-
-            let receivedMessage = String(data: self.receivedData!, encoding: .utf8)
-            XCTAssertEqual(receivedMessage, testMessage, "Message should be received after automatic key ratcheting")
+            let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
+            #expect(receivedMessage == testMessage, "Message should be received after automatic key ratcheting")
         }
     }
 
-    func testMultipleKeysInKeyRing() async throws {
-        receivedDataExpectation = expectation(description: "Data received with multiple keys in key ring")
+    @Test(arguments: [KeyDerivationAlgorithm.pbkdf2, .hkdf])
+    func multipleKeysInKeyRing(algorithm: KeyDerivationAlgorithm) async throws {
         let testMessage = "Hello with multiple keys in key ring!"
-        let testData = testMessage.data(using: .utf8)!
+        let testData = try #require(testMessage.data(using: .utf8))
 
-        let senderKeyProvider = BaseKeyProvider(options: KeyProviderOptions(
+        let keyRingOptions = KeyProviderOptions(
             sharedKey: true,
-            keyRingSize: 2
-        ))
-        let receiverKeyProvider = BaseKeyProvider(options: KeyProviderOptions(
-            sharedKey: true,
-            keyRingSize: 2
-        ))
+            keyRingSize: 2,
+            keyDerivationAlgorithm: algorithm
+        )
+        let senderKeyProvider = BaseKeyProvider(options: keyRingOptions)
+        let receiverKeyProvider = BaseKeyProvider(options: keyRingOptions)
 
         let key1 = "secret-key-1"
         let key2 = "secret-key-2"
@@ -272,33 +284,28 @@ class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
         receiverKeyProvider.setKey(key: key1, index: 0)
         receiverKeyProvider.setKey(key: key2, index: 1)
 
-        try await withRooms([
-            RoomTestingOptions(
-                encryptionOptions: EncryptionOptions(keyProvider: senderKeyProvider),
-                canPublishData: true
-            ),
-            RoomTestingOptions(
-                delegate: self,
-                encryptionOptions: EncryptionOptions(keyProvider: receiverKeyProvider),
-                canSubscribe: true
-            ),
-        ]) { rooms in
-            let sender = rooms[0]
-            let remoteIdentity = try XCTUnwrap(sender.remoteParticipants.keys.first)
+        try await confirmation("Data received with multiple keys in key ring") { confirm in
+            self._receivedData.mutate { $0 = Data() }
+            self._onDataReceived.mutate { $0 = { confirm() } }
 
-            senderKeyProvider.setCurrentKeyIndex(1)
+            try await TestEnvironment.withRooms(encryptedRooms(sender: senderKeyProvider, receiver: receiverKeyProvider)) { rooms in
+                let sender = rooms[0]
+                let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
 
-            let userPacket = Livekit_UserPacket.with {
-                $0.payload = testData
-                $0.destinationIdentities = [remoteIdentity.stringValue]
+                senderKeyProvider.setCurrentKeyIndex(1)
+
+                let userPacket = Livekit_UserPacket.with {
+                    $0.payload = testData
+                    $0.destinationIdentities = [remoteIdentity.stringValue]
+                }
+
+                try await sender.send(userPacket: userPacket, kind: .reliable)
+
+                await self.awaitEvent()
             }
 
-            try await sender.send(userPacket: userPacket, kind: .reliable)
-
-            await self.fulfillment(of: [self.receivedDataExpectation], timeout: 5)
-
-            let receivedMessage = String(data: self.receivedData!, encoding: .utf8)
-            XCTAssertEqual(receivedMessage, testMessage, "Message should be received with multiple keys in key ring")
+            let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
+            #expect(receivedMessage == testMessage, "Message should be received with multiple keys in key ring")
         }
     }
 }
@@ -307,12 +314,12 @@ class EncryptedDataChannelTests: LKTestCase, @unchecked Sendable {
 
 extension EncryptedDataChannelTests: RoomDelegate {
     func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic _: String, encryptionType _: EncryptionType) {
-        receivedData = data
-        receivedDataExpectation?.fulfill()
+        _receivedData.mutate { $0 = data }
+        _onDataReceived.copy()?()
     }
 
     func room(_: Room, didFailToDecryptDataWithEror error: LiveKitError) {
-        lastDecryptionError = error
-        decryptionErrorExpectation?.fulfill()
+        _lastDecryptionError.mutate { $0 = error }
+        _onDecryptionError.copy()?()
     }
 }

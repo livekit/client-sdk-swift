@@ -16,96 +16,80 @@
 
 import AVFoundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
-class AVAudioPCMBufferTests: LKTestCase {
-    func testResample() {
-        // Test case 1: Resample to a higher sample rate
-        testResampleHelper(fromSampleRate: 44100, toSampleRate: 48000, expectedSuccess: true)
+extension AVAudioCommonFormat: @retroactive CustomTestStringConvertible {
+    public var testDescription: String {
+        switch self {
+        case .pcmFormatFloat32: "Float32"
+        case .pcmFormatFloat64: "Float64"
+        case .pcmFormatInt16: "Int16"
+        case .pcmFormatInt32: "Int32"
+        case .otherFormat: "Other"
+        @unknown default: "Unknown(\(rawValue))"
+        }
+    }
+}
 
-        // Test case 2: Resample to a lower sample rate
-        testResampleHelper(fromSampleRate: 48000, toSampleRate: 16000, expectedSuccess: true)
-
-        // Test case 3: Resample to the same sample rate
-        testResampleHelper(fromSampleRate: 44100, toSampleRate: 44100, expectedSuccess: true)
-
-        // Test case 4: Resample to an invalid sample rate
-        testResampleHelper(fromSampleRate: 44100, toSampleRate: 0, expectedSuccess: false)
+@Suite(.tags(.audio)) struct AVAudioPCMBufferTests {
+    struct ResampleCase: CustomTestStringConvertible {
+        let from: Double
+        let to: Double
+        let shouldSucceed: Bool
+        var testDescription: String { "\(Int(from))Hz → \(Int(to))Hz (\(shouldSucceed ? "ok" : "fail"))" }
     }
 
-    private func testResampleHelper(fromSampleRate: Double, toSampleRate: Double, expectedSuccess: Bool) {
-        // Create a source buffer
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: fromSampleRate, channels: 2) else {
-            XCTFail("Failed to create audio format")
-            return
-        }
+    @Test(arguments: [
+        ResampleCase(from: 44100, to: 48000, shouldSucceed: true),
+        ResampleCase(from: 48000, to: 16000, shouldSucceed: true),
+        ResampleCase(from: 44100, to: 44100, shouldSucceed: true),
+        ResampleCase(from: 44100, to: 0, shouldSucceed: false),
+    ])
+    func resample(_ c: ResampleCase) throws {
+        try resampleHelper(fromSampleRate: c.from, toSampleRate: c.to, expectedSuccess: c.shouldSucceed)
+    }
+
+    private func resampleHelper(fromSampleRate: Double, toSampleRate: Double, expectedSuccess: Bool) throws {
+        let format = try #require(AVAudioFormat(standardFormatWithSampleRate: fromSampleRate, channels: 2))
 
         let frameCount = 1000
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frameCount)) else {
-            XCTFail("Failed to create audio buffer")
-            return
-        }
+        let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frameCount)))
 
         fillBufferWithSineWave(buffer: buffer, frameCount: frameCount)
 
-        // Perform resampling
         let resampledBuffer = buffer.resample(toSampleRate: toSampleRate)
 
         if expectedSuccess {
-            XCTAssertNotNil(resampledBuffer, "Resampling should succeed")
-
-            if let sampleRate = resampledBuffer?.format.sampleRate {
-                XCTAssertTrue(abs(sampleRate - toSampleRate) < 0.001, "Resampled buffer should have the target sample rate")
-            } else {
-                XCTFail("Resampled buffer's format or sample rate is nil")
-            }
+            let resampled = try #require(resampledBuffer, "Resampling should succeed")
+            #expect(abs(resampled.format.sampleRate - toSampleRate) < 0.001, "Resampled buffer should have the target sample rate")
 
             let expectedFrameCount = Int(Double(frameCount) * toSampleRate / fromSampleRate)
-            if let resampledFrameLength = resampledBuffer?.frameLength {
-                XCTAssertTrue(abs(Int(resampledFrameLength) - expectedFrameCount) <= 1, "Resampled buffer should have the expected frame count")
-            } else {
-                XCTFail("Resampled buffer's frame length is nil")
-            }
+            #expect(abs(Int(resampled.frameLength) - expectedFrameCount) <= 1, "Resampled buffer should have the expected frame count")
         } else {
-            XCTAssertNil(resampledBuffer, "Resampling should fail")
+            #expect(resampledBuffer == nil, "Resampling should fail")
         }
     }
 
-    func testToData() {
-        let sampleRates: [Double] = [8000, 16000, 22050, 24000, 32000, 44100, 48000]
-        let formats: [AVAudioCommonFormat] = [.pcmFormatFloat32, .pcmFormatInt16, .pcmFormatInt32]
+    static let sampleRates: [Double] = [8000, 16000, 22050, 24000, 32000, 44100, 48000]
+    static let formats: [AVAudioCommonFormat] = [.pcmFormatFloat32, .pcmFormatInt16, .pcmFormatInt32]
 
-        for sampleRate in sampleRates {
-            for audioFormat in formats {
-                testToDataHelper(sampleRate: sampleRate, format: audioFormat)
-            }
-        }
+    @Test(arguments: sampleRates, formats)
+    func toData(sampleRate: Double, format: AVAudioCommonFormat) throws {
+        try toDataHelper(sampleRate: sampleRate, format: format)
     }
 
-    private func testToDataHelper(sampleRate: Double, format: AVAudioCommonFormat) {
-        guard let audioFormat = AVAudioFormat(commonFormat: format,
-                                              sampleRate: sampleRate,
-                                              channels: 2,
-                                              interleaved: false)
-        else {
-            XCTFail("Failed to create audio format with sample rate \(sampleRate) and format \(format)")
-            return
-        }
+    private func toDataHelper(sampleRate: Double, format: AVAudioCommonFormat) throws {
+        let audioFormat = try #require(AVAudioFormat(commonFormat: format, sampleRate: sampleRate, channels: 2, interleaved: false))
 
         let frameCount = 1000
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: AVAudioFrameCount(frameCount)) else {
-            XCTFail("Failed to create audio buffer")
-            return
-        }
+        let buffer = try #require(AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: AVAudioFrameCount(frameCount)))
 
         fillBufferWithSineWave(buffer: buffer, frameCount: frameCount)
 
-        guard let data = buffer.toData() else {
-            XCTFail("toData() returned nil for format \(format) at sample rate \(sampleRate)")
-            return
-        }
+        let data = try #require(buffer.toData(), "toData() returned nil")
 
         let channels = Int(audioFormat.channelCount)
 
@@ -121,19 +105,14 @@ class AVAudioPCMBufferTests: LKTestCase {
         }
 
         let expectedSize = frameCount * channels * bytesPerSample
+        #expect(data.count == expectedSize, "Data size mismatch")
 
-        XCTAssertEqual(data.count, expectedSize, "Data size mismatch for format \(format) at sample rate \(sampleRate)")
-
-        guard let newBuffer = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: AVAudioFrameCount(frameCount)) else {
-            XCTFail("Failed to create new buffer")
-            return
-        }
+        let newBuffer = try #require(AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: AVAudioFrameCount(frameCount)))
         newBuffer.frameLength = AVAudioFrameCount(frameCount)
 
         fillBufferFromData(buffer: newBuffer, data: data)
 
-        XCTAssertTrue(compareBuffers(buffer1: buffer, buffer2: newBuffer),
-                      "Buffer data mismatch after conversion for format \(format) at sample rate \(sampleRate)")
+        #expect(compareBuffers(buffer1: buffer, buffer2: newBuffer), "Buffer data mismatch after conversion")
     }
 
     private func fillBufferWithSineWave(buffer: AVAudioPCMBuffer, frameCount: Int) {

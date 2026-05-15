@@ -29,13 +29,14 @@
 import Combine
 import CoreVideo
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
 // MARK: - SignalingMode
 
-enum SignalingMode: CustomStringConvertible {
+enum SignalingMode: CustomStringConvertible, CaseIterable {
     /// V0: Dual peer connection (/rtc path)
     case dualPC
     /// V1: Single peer connection (/rtc/v1 path)
@@ -54,57 +55,56 @@ enum SignalingMode: CustomStringConvertible {
 // MARK: - ReconnectWatcher
 
 /// Watches for reconnect completion via RoomDelegate.
-/// Uses didStartReconnectWithMode/didCompleteReconnectWithMode which fire for
-/// BOTH quick and full reconnect (unlike roomDidReconnect which skips quick).
+///
+/// Delegate callbacks set flags via `StateSync`, and tests poll with `waitForReconnect()`.
 private final class ReconnectWatcher: NSObject, RoomDelegate, @unchecked Sendable {
     private struct State {
-        var reconnectStartExpectation: XCTestExpectation?
-        var reconnectCompleteExpectation: XCTestExpectation?
-        var tracksRepublishedExpectation: XCTestExpectation?
+        var reconnectStarted = false
+        var reconnectCompleted = false
+        var tracksRepublished = false
         var expectedTrackCount: Int = 0
         var publishedTrackCount: Int = 0
-        // Gate: only count didPublishTrack after reconnect completes.
-        // All delegate callbacks flow through the same serial queue, so
-        // the initial publish's didPublishTrack is guaranteed to fire
-        // before didCompleteReconnectWithMode (enqueued earlier).
-        var isCountingRepublishedTracks: Bool = false
+        var isCountingRepublishedTracks = false
     }
 
     private let _state = StateSync(State())
 
-    func expectReconnect(description: String = "reconnect") -> (start: XCTestExpectation, complete: XCTestExpectation) {
+    func prepareForReconnect(expectedTrackCount: Int = 0) {
         _state.mutate {
-            let start = XCTestExpectation(description: "\(description) start")
-            start.assertForOverFulfill = false
-            let complete = XCTestExpectation(description: "\(description) complete")
-            complete.assertForOverFulfill = false
-            $0.reconnectStartExpectation = start
-            $0.reconnectCompleteExpectation = complete
-            return (start: start, complete: complete)
+            $0.reconnectStarted = false
+            $0.reconnectCompleted = false
+            $0.tracksRepublished = false
+            $0.expectedTrackCount = expectedTrackCount
+            $0.publishedTrackCount = 0
+            $0.isCountingRepublishedTracks = false
         }
     }
 
-    func expectTracksRepublished(count: Int, description: String = "tracks republished") -> XCTestExpectation {
-        _state.mutate {
-            let expectation = XCTestExpectation(description: description)
-            expectation.assertForOverFulfill = false
-            $0.tracksRepublishedExpectation = expectation
-            $0.expectedTrackCount = count
-            $0.publishedTrackCount = 0
-            $0.isCountingRepublishedTracks = false
-            return expectation
+    /// Polls until reconnect start + complete (and optionally tracks republished).
+    func waitForReconnect(withTracks: Bool = false, timeout: TimeInterval = 30) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let state = _state.copy()
+            if state.reconnectStarted, state.reconnectCompleted,
+               !withTracks || state.tracksRepublished
+            {
+                return
+            }
+            try await Task.sleep(nanoseconds: 200_000_000)
         }
+        let state = _state.copy()
+        Issue.record("Reconnect timed out — started: \(state.reconnectStarted), completed: \(state.reconnectCompleted), tracks: \(state.tracksRepublished)")
     }
 
     // MARK: - RoomDelegate
 
     func room(_: Room, didStartReconnectWithMode _: ReconnectMode) {
-        _state.mutate { $0.reconnectStartExpectation?.fulfill() }
+        _state.mutate { $0.reconnectStarted = true }
     }
 
     func room(_: Room, didCompleteReconnectWithMode _: ReconnectMode) {
         _state.mutate {
-            $0.reconnectCompleteExpectation?.fulfill()
+            $0.reconnectCompleted = true
             $0.isCountingRepublishedTracks = true
         }
     }
@@ -114,7 +114,7 @@ private final class ReconnectWatcher: NSObject, RoomDelegate, @unchecked Sendabl
             guard $0.isCountingRepublishedTracks else { return }
             $0.publishedTrackCount += 1
             if $0.publishedTrackCount >= $0.expectedTrackCount {
-                $0.tracksRepublishedExpectation?.fulfill()
+                $0.tracksRepublished = true
             }
         }
     }
@@ -122,7 +122,8 @@ private final class ReconnectWatcher: NSObject, RoomDelegate, @unchecked Sendabl
 
 // MARK: - PeerConnectionSignalingTests
 
-class PeerConnectionSignalingTests: LKTestCase {
+@Suite(.serialized, .tags(.e2e))
+struct PeerConnectionSignalingTests {
     // MARK: - Helpers
 
     private func roomTestingOptions(
@@ -143,14 +144,14 @@ class PeerConnectionSignalingTests: LKTestCase {
 
     private func assertSignalingModeState(_ room: Room, mode: SignalingMode) {
         guard let transport = room._state.transport else {
-            XCTFail("Transport is nil after connection")
+            Issue.record("Transport is nil after connection")
             return
         }
 
         switch transport {
         case .publisherOnly:
             if mode == .dualPC {
-                XCTFail("DualPC test should not have single-PC mode active")
+                Issue.record("DualPC test should not have single-PC mode active")
             }
         case .subscriberPrimary, .publisherPrimary:
             if mode == .singlePC {
@@ -158,232 +159,132 @@ class PeerConnectionSignalingTests: LKTestCase {
                 if url.contains("localhost") || url.contains("127.0.0.1") {
                     print("[\(mode)] SinglePC on localhost: fell back to dual PC (expected on older servers)")
                 } else {
-                    XCTFail("SinglePC requested on non-localhost URL should stay in single-PC mode")
+                    Issue.record("SinglePC requested on non-localhost URL should stay in single-PC mode")
                 }
             }
         }
     }
 
-    // MARK: - V0 (Dual PC) Tests
-
-    func testV0Connect() async throws { try await _testConnect(mode: .dualPC) }
-    func testV0TwoParticipants() async throws { try await _testTwoParticipants(mode: .dualPC) }
-    func testV0AudioTrack() async throws { try await _testAudioTrack(mode: .dualPC) }
-    func testV0Reconnect() async throws { try await _testReconnect(mode: .dualPC) }
-    func testV0DataChannel() async throws { try await _testDataChannel(mode: .dualPC) }
-    func testV0FullReconnect() async throws { try await _testFullReconnect(mode: .dualPC) }
-    func testV0PublishManyTracks() async throws { try await _testPublishManyTracks(mode: .dualPC) }
-    func testV0DoubleReconnect() async throws { try await _testDoubleReconnect(mode: .dualPC) }
-
-    // MARK: - V1 (Single PC) Tests
-
-    func testV1Connect() async throws { try await _testConnect(mode: .singlePC) }
-    func testV1TwoParticipants() async throws { try await _testTwoParticipants(mode: .singlePC) }
-    func testV1AudioTrack() async throws { try await _testAudioTrack(mode: .singlePC) }
-    func testV1Reconnect() async throws { try await _testReconnect(mode: .singlePC) }
-    func testV1DataChannel() async throws { try await _testDataChannel(mode: .singlePC) }
-    func testV1FullReconnect() async throws { try await _testFullReconnect(mode: .singlePC) }
-    func testV1PublishManyTracks() async throws { try await _testPublishManyTracks(mode: .singlePC) }
-    func testV1DoubleReconnect() async throws { try await _testDoubleReconnect(mode: .singlePC) }
-
-    func testV1LocalhostFallback() async throws {
-        let url = liveKitServerUrl()
-        guard url.contains("localhost") || url.contains("127.0.0.1") else {
-            print("Skipping localhost fallback test because LIVEKIT_TESTING_URL override is set")
-            return
+    /// Polls `objectWillChange` for a condition to become true.
+    private func waitForPublish<T: ObservableObject & Sendable>(
+        on participant: T,
+        timeout: TimeInterval = 30,
+        _ condition: @Sendable @escaping (T) -> Bool
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition(participant) { return }
+            try await Task.sleep(nanoseconds: 200_000_000)
         }
-
-        try await withRooms([roomTestingOptions(mode: .singlePC, canPublish: true)]) { rooms in
-            let room = rooms[0]
-            XCTAssertEqual(room.connectionState, .connected)
-
-            guard let transport = room._state.transport else {
-                XCTFail("Transport is nil")
-                return
-            }
-
-            switch transport {
-            case .publisherOnly:
-                print("Localhost server supports /rtc/v1 (single PC active)")
-            case .subscriberPrimary, .publisherPrimary:
-                print("Localhost server fell back to V0 as expected")
-            }
-        }
+        Issue.record("Timed out waiting for participant publish condition")
     }
-}
 
-// MARK: - Test Implementations
+    // MARK: - Parameterized Tests
 
-extension PeerConnectionSignalingTests {
-    /// Test basic connection and verify transport mode.
-    private func _testConnect(mode: SignalingMode) async throws {
-        print("[\(mode)] Testing basic connection...")
-
-        try await withRooms([roomTestingOptions(mode: mode, canPublish: true)]) { rooms in
+    @Test(arguments: SignalingMode.allCases)
+    func connect(mode: SignalingMode) async throws {
+        try await TestEnvironment.withRooms([roomTestingOptions(mode: mode, canPublish: true)]) { rooms in
             let room = rooms[0]
 
-            XCTAssertEqual(room.connectionState, .connected)
-            XCTAssertNotNil(room.localParticipant.identity, "LocalParticipant.identity should not be nil")
-            self.assertSignalingModeState(room, mode: mode)
-
-            print("[\(mode)] Connected! Room: \(room.name ?? "nil")")
-            print("[\(mode)] Test passed - connection working!")
+            #expect(room.connectionState == .connected)
+            #expect(room.localParticipant.identity != nil, "LocalParticipant.identity should not be nil")
+            assertSignalingModeState(room, mode: mode)
         }
     }
 
-    /// Test two participants discovering each other.
-    private func _testTwoParticipants(mode: SignalingMode) async throws {
-        print("[\(mode)] Testing two participants...")
-
-        try await withRooms([
+    @Test(arguments: SignalingMode.allCases)
+    func twoParticipants(mode: SignalingMode) async throws {
+        try await TestEnvironment.withRooms([
             roomTestingOptions(mode: mode, canPublish: true, canSubscribe: true),
             roomTestingOptions(mode: mode, canPublish: true, canSubscribe: true),
         ]) { rooms in
-            let room1 = rooms[0]
-            let room2 = rooms[1]
+            #expect(rooms[0].remoteParticipants.count == 1, "Room1 should see 1 remote participant")
+            #expect(rooms[1].remoteParticipants.count == 1, "Room2 should see 1 remote participant")
 
-            // withRooms already waits for participants to see each other
-            XCTAssertEqual(room1.remoteParticipants.count, 1, "Room1 should see 1 remote participant")
-            XCTAssertEqual(room2.remoteParticipants.count, 1, "Room2 should see 1 remote participant")
-
-            self.assertSignalingModeState(room1, mode: mode)
-            self.assertSignalingModeState(room2, mode: mode)
-
-            print("[\(mode)] Test passed - two participants working!")
+            assertSignalingModeState(rooms[0], mode: mode)
+            assertSignalingModeState(rooms[1], mode: mode)
         }
     }
 
-    private func _testAudioTrack(mode: SignalingMode) async throws {
-        print("[\(mode)] Testing audio track...")
-
-        try await withRooms([
+    @Test(arguments: SignalingMode.allCases)
+    func audioTrack(mode: SignalingMode) async throws {
+        try await TestEnvironment.withRooms([
             roomTestingOptions(mode: mode, canPublish: true),
             roomTestingOptions(mode: mode, canSubscribe: true),
         ]) { rooms in
             let room1 = rooms[0]
             let room2 = rooms[1]
 
-            guard let publisherIdentity = room1.localParticipant.identity else {
-                XCTFail("Publisher's identity is nil")
-                return
-            }
-
-            guard let remoteParticipant = room2.remoteParticipants[publisherIdentity] else {
-                XCTFail("Failed to lookup Publisher (RemoteParticipant)")
-                return
-            }
-
-            // Watch for remote audio track subscription
-            let didSubscribe = self.expectation(description: "Did subscribe to remote audio track")
-            didSubscribe.assertForOverFulfill = false
-            var remoteAudioTrack: RemoteAudioTrack?
-
-            let watchParticipant = remoteParticipant.objectWillChange.sink { _ in
-                if let track = remoteParticipant.firstAudioPublication?.track as? RemoteAudioTrack, remoteAudioTrack == nil {
-                    remoteAudioTrack = track
-                    didSubscribe.fulfill()
-                }
-            }
+            let publisherIdentity = try #require(room1.localParticipant.identity)
+            let remoteParticipant = try #require(room2.remoteParticipants[publisherIdentity])
 
             // Publish audio via TestAudioTrack (bypasses AudioManager)
             let audioTrack = TestAudioTrack()
             try await room1.localParticipant.publish(audioTrack: audioTrack)
 
-            print("[\(mode)] Waiting for remote audio track...")
-            await self.fulfillment(of: [didSubscribe], timeout: 30)
-
-            guard let remoteAudioTrack else {
-                XCTFail("RemoteAudioTrack is nil")
-                return
+            // Wait for remote audio track subscription
+            try await waitForPublish(on: remoteParticipant) {
+                $0.firstAudioPublication?.track is RemoteAudioTrack
             }
 
-            // Wait for actual audio frames
-            let didReceiveFrame = self.expectation(description: "Did receive audio frame")
-            didReceiveFrame.assertForOverFulfill = false
+            let remoteAudioTrack = try #require(
+                remoteParticipant.firstAudioPublication?.track as? RemoteAudioTrack
+            )
 
-            let audioWatcher = AudioTrackWatcher(id: "audio-watcher") { _ in
-                didReceiveFrame.fulfill()
-            }
+            // Wait for actual audio frames via polling
+            let audioWatcher = AudioTrackWatcher(id: "audio-watcher")
             remoteAudioTrack.add(audioRenderer: audioWatcher)
+            defer { remoteAudioTrack.remove(audioRenderer: audioWatcher) }
 
-            print("[\(mode)] Waiting for audio frames...")
-            await self.fulfillment(of: [didReceiveFrame], timeout: 30)
-
-            remoteAudioTrack.remove(audioRenderer: audioWatcher)
-            watchParticipant.cancel()
-
-            print("[\(mode)] Test passed - audio track working!")
+            let deadline = Date().addingTimeInterval(30)
+            while Date() < deadline, !audioWatcher.didRenderFirstFrame {
+                try await Task.sleep(nanoseconds: 200_000_000)
+            }
+            #expect(audioWatcher.didRenderFirstFrame, "Should have received audio frames")
         }
     }
 
-    private func _testReconnect(mode: SignalingMode) async throws {
-        print("[\(mode)] Testing reconnection...")
-
+    @Test(arguments: SignalingMode.allCases)
+    func reconnect(mode: SignalingMode) async throws {
         let reconnectWatcher = ReconnectWatcher()
 
-        try await withRooms([
+        try await TestEnvironment.withRooms([
             roomTestingOptions(mode: mode, delegate: reconnectWatcher, canPublish: true),
             roomTestingOptions(mode: mode, canSubscribe: true),
         ]) { rooms in
             let room1 = rooms[0]
             let room2 = rooms[1]
 
-            // Publish audio via TestAudioTrack (bypasses AudioManager)
             let audioTrack = TestAudioTrack()
             try await room1.localParticipant.publish(audioTrack: audioTrack)
 
-            guard let publisherIdentity = room1.localParticipant.identity else {
-                XCTFail("Publisher's identity is nil")
-                return
-            }
-
-            guard let remoteParticipant = room2.remoteParticipants[publisherIdentity] else {
-                XCTFail("Failed to lookup Publisher (RemoteParticipant)")
-                return
-            }
+            let publisherIdentity = try #require(room1.localParticipant.identity)
+            let remoteParticipant = try #require(room2.remoteParticipants[publisherIdentity])
 
             // Wait for initial track subscription
-            let didSubscribe = self.expectation(description: "Did subscribe to remote audio track")
-            didSubscribe.assertForOverFulfill = false
-
-            let watchParticipant = remoteParticipant.objectWillChange.sink { _ in
-                if remoteParticipant.firstAudioPublication?.track != nil {
-                    didSubscribe.fulfill()
-                }
+            try await waitForPublish(on: remoteParticipant) {
+                $0.firstAudioPublication?.track != nil
             }
 
-            await self.fulfillment(of: [didSubscribe], timeout: 30)
-            watchParticipant.cancel()
-
             let tracksBefore = room1.localParticipant.trackPublications.count
-            print("[\(mode)] Tracks before reconnect: \(tracksBefore)")
 
             // Trigger quick reconnect
-            let expectations = reconnectWatcher.expectReconnect(description: "quick reconnect")
+            reconnectWatcher.prepareForReconnect()
             try await room1.debug_simulate(scenario: .quickReconnect)
+            try await reconnectWatcher.waitForReconnect()
 
-            await self.fulfillment(of: [expectations.start, expectations.complete], timeout: 30)
-
-            // Verify state after reconnect
-            XCTAssertEqual(room1.connectionState, .connected, "Room should be connected after reconnect")
-
-            let tracksAfter = room1.localParticipant.trackPublications.count
-            print("[\(mode)] Tracks after reconnect: \(tracksAfter)")
-            XCTAssertEqual(tracksBefore, tracksAfter, "Track count should be preserved after reconnect")
-
-            print("[\(mode)] Test passed - reconnection working!")
+            #expect(room1.connectionState == .connected, "Room should be connected after reconnect")
+            #expect(room1.localParticipant.trackPublications.count == tracksBefore, "Track count should be preserved")
         }
     }
 
-    /// Test data channel send/receive.
-    private func _testDataChannel(mode: SignalingMode) async throws {
-        print("[\(mode)] Testing data channel...")
-
+    @Test(arguments: SignalingMode.allCases)
+    func dataChannel(mode: SignalingMode) async throws {
         struct TestPayload: Codable {
             let content: String
         }
 
-        try await withRooms([
+        try await TestEnvironment.withRooms([
             roomTestingOptions(mode: mode, canPublish: true, canPublishData: true, canSubscribe: true),
             roomTestingOptions(mode: mode, canPublish: true, canPublishData: true, canSubscribe: true),
         ]) { rooms in
@@ -394,164 +295,122 @@ extension PeerConnectionSignalingTests {
             let testPayload = TestPayload(content: UUID().uuidString)
             let jsonData = try JSONEncoder().encode(testPayload)
 
-            // Create watcher on receiver
             let room2Watcher: RoomWatcher<TestPayload> = room2.createWatcher()
 
-            // Publish data
             try await room1.localParticipant.publish(data: jsonData, options: DataPublishOptions(topic: topic))
-            print("[\(mode)] Sent data, waiting for receiver...")
 
-            // Wait for received data
             let received = try await room2Watcher.didReceiveDataCompleters.completer(for: topic).wait()
-            XCTAssertEqual(received.content, testPayload.content, "Received data should match sent data")
-
-            print("[\(mode)] Test passed - data channel working!")
+            #expect(received.content == testPayload.content, "Received data should match sent data")
         }
     }
 
-    /// Test full reconnect restores tracks.
-    private func _testFullReconnect(mode: SignalingMode) async throws {
-        print("[\(mode)] Testing full reconnect...")
-
+    @Test(arguments: SignalingMode.allCases)
+    func fullReconnect(mode: SignalingMode) async throws {
         let reconnectWatcher = ReconnectWatcher()
 
-        try await withRooms([
+        try await TestEnvironment.withRooms([
             roomTestingOptions(mode: mode, delegate: reconnectWatcher, canPublish: true),
         ]) { rooms in
             let room = rooms[0]
 
-            // Publish audio via TestAudioTrack (bypasses AudioManager)
             let audioTrack = TestAudioTrack()
             try await room.localParticipant.publish(audioTrack: audioTrack)
 
             let tracksBefore = room.localParticipant.trackPublications.count
-            print("[\(mode)] Tracks before full reconnect: \(tracksBefore)")
 
-            // Set up expectations BEFORE triggering reconnect so no callbacks are missed
-            let reconnectExpectations = reconnectWatcher.expectReconnect(description: "full reconnect")
-            let tracksExpectation = reconnectWatcher.expectTracksRepublished(count: tracksBefore)
-
-            // Simulate full reconnect (client-initiated, doesn't degrade server state)
+            reconnectWatcher.prepareForReconnect(expectedTrackCount: tracksBefore)
             try await room.debug_simulate(scenario: .fullReconnect)
-            print("[\(mode)] Simulated full reconnect, waiting for completion...")
+            try await reconnectWatcher.waitForReconnect(withTracks: true)
 
-            await self.fulfillment(
-                of: [reconnectExpectations.start, reconnectExpectations.complete, tracksExpectation],
-                timeout: 30
-            )
-
-            XCTAssertEqual(room.connectionState, .connected, "Room should be connected after full reconnect")
-
-            let tracksAfter = room.localParticipant.trackPublications.count
-            print("[\(mode)] Tracks after full reconnect: \(tracksAfter)")
-            XCTAssertEqual(tracksBefore, tracksAfter, "Tracks should be restored after full reconnect")
-
-            print("[\(mode)] Test passed - full reconnect working!")
+            #expect(room.connectionState == .connected, "Room should be connected after full reconnect")
+            #expect(room.localParticipant.trackPublications.count == tracksBefore, "Tracks should be restored")
         }
     }
 
-    // swiftlint:disable:next function_body_length
-    private func _testPublishManyTracks(mode: SignalingMode) async throws {
-        print("[\(mode)] Testing publish many tracks...")
-
-        try await withRooms([
+    @Test(arguments: SignalingMode.allCases)
+    func publishManyTracks(mode: SignalingMode) async throws {
+        try await TestEnvironment.withRooms([
             roomTestingOptions(mode: mode, canPublish: true),
             roomTestingOptions(mode: mode, canSubscribe: true),
         ]) { rooms in
             let room1 = rooms[0]
             let room2 = rooms[1]
 
-            // Keep total track count modest — CI runners have limited resources.
             let audioCount = 3
             let videoCount = 3
             let totalExpected = audioCount + videoCount
 
-            // Publish audio tracks
             for i in 0 ..< audioCount {
                 let track = TestAudioTrack(name: "audio-\(i)")
                 try await room1.localParticipant.publish(audioTrack: track)
-                try await Task.sleep(nanoseconds: 500_000_000) // 500ms
+                try await Task.sleep(nanoseconds: 500_000_000)
             }
 
-            // Publish video tracks using dummy pixel buffers (no network download needed)
             for i in 0 ..< videoCount {
                 let track = LocalVideoTrack.createBufferTrack(name: "video-\(i)")
                 guard let capturer = track.capturer as? BufferCapturer else {
-                    XCTFail("Expected BufferCapturer")
+                    Issue.record("Expected BufferCapturer")
                     return
                 }
-                // BufferCapturer requires at least one frame before publish (to resolve dimensions)
                 var pixelBuffer: CVPixelBuffer?
                 CVPixelBufferCreate(kCFAllocatorDefault, 320, 240, kCVPixelFormatType_32BGRA, nil, &pixelBuffer)
                 if let pixelBuffer { capturer.capture(pixelBuffer) }
                 try await room1.localParticipant.publish(videoTrack: track)
-                try await Task.sleep(nanoseconds: 500_000_000) // 500ms
+                try await Task.sleep(nanoseconds: 500_000_000)
             }
 
-            print("[\(mode)] Published \(totalExpected) tracks, waiting for subscriber...")
+            let publisherIdentity = try #require(room1.localParticipant.identity)
+            let remoteParticipant = try #require(room2.remoteParticipants[publisherIdentity])
 
-            guard let publisherIdentity = room1.localParticipant.identity else {
-                XCTFail("Publisher's identity is nil")
-                return
+            // Poll until subscriber sees all tracks
+            try await waitForPublish(on: remoteParticipant, timeout: 60) {
+                $0.trackPublications.count >= totalExpected
             }
 
-            guard let remoteParticipant = room2.remoteParticipants[publisherIdentity] else {
-                XCTFail("Failed to lookup Publisher (RemoteParticipant)")
-                return
-            }
-
-            // Wait for subscriber to see all tracks
-            let didReceiveAll = self.expectation(description: "Did receive all \(totalExpected) tracks")
-            didReceiveAll.assertForOverFulfill = false
-
-            let watchParticipant = remoteParticipant.objectWillChange.sink { _ in
-                let trackCount = remoteParticipant.trackPublications.count
-                if trackCount >= totalExpected {
-                    didReceiveAll.fulfill()
-                }
-            }
-
-            // Also check immediately in case tracks already arrived
-            if remoteParticipant.trackPublications.count >= totalExpected {
-                didReceiveAll.fulfill()
-            }
-
-            await self.fulfillment(of: [didReceiveAll], timeout: 60)
-            watchParticipant.cancel()
-
-            let subscriberTrackCount = remoteParticipant.trackPublications.count
-            print("[\(mode)] Subscriber sees \(subscriberTrackCount) tracks")
-            XCTAssertGreaterThanOrEqual(subscriberTrackCount, totalExpected,
-                                        "Subscriber should see all \(totalExpected) published tracks")
-
-            print("[\(mode)] Test passed - publish many tracks working!")
+            #expect(remoteParticipant.trackPublications.count >= totalExpected,
+                    "Subscriber should see all \(totalExpected) published tracks")
         }
     }
 
-    /// Test two sequential quick reconnect cycles.
-    private func _testDoubleReconnect(mode: SignalingMode) async throws {
-        print("[\(mode)] Testing double reconnect...")
-
+    @Test(arguments: SignalingMode.allCases)
+    func doubleReconnect(mode: SignalingMode) async throws {
         let reconnectWatcher = ReconnectWatcher()
 
-        try await withRooms([
+        try await TestEnvironment.withRooms([
             roomTestingOptions(mode: mode, delegate: reconnectWatcher, canPublish: true),
         ]) { rooms in
             let room = rooms[0]
 
-            self.assertSignalingModeState(room, mode: mode)
+            assertSignalingModeState(room, mode: mode)
 
             for attempt in 1 ... 2 {
-                print("[\(mode)] Triggering reconnect attempt \(attempt)...")
-                let expectations = reconnectWatcher.expectReconnect(description: "reconnect #\(attempt)")
+                reconnectWatcher.prepareForReconnect()
                 try await room.debug_simulate(scenario: .quickReconnect)
-
-                await self.fulfillment(of: [expectations.start, expectations.complete], timeout: 30)
-                XCTAssertEqual(room.connectionState, .connected, "Room should be connected after reconnect #\(attempt)")
-                print("[\(mode)] Reconnect attempt \(attempt) succeeded")
+                try await reconnectWatcher.waitForReconnect()
+                #expect(room.connectionState == .connected, "Room should be connected after reconnect #\(attempt)")
             }
+        }
+    }
 
-            print("[\(mode)] Test passed - double reconnect working!")
+    private static var isLocalhost: Bool {
+        let url = TestEnvironment.liveKitServerUrl()
+        return url.contains("localhost") || url.contains("127.0.0.1")
+    }
+
+    @Test(.enabled(if: isLocalhost, "Requires localhost server"))
+    func v1LocalhostFallback() async throws {
+        try await TestEnvironment.withRooms([roomTestingOptions(mode: .singlePC, canPublish: true)]) { rooms in
+            let room = rooms[0]
+            #expect(room.connectionState == .connected)
+
+            let transport = try #require(room._state.transport, "Transport is nil")
+
+            switch transport {
+            case .publisherOnly:
+                print("Localhost server supports /rtc/v1 (single PC active)")
+            case .subscriberPrimary, .publisherPrimary:
+                print("Localhost server fell back to V0 as expected")
+            }
         }
     }
 }

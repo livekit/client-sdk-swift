@@ -16,14 +16,15 @@
 
 @preconcurrency import AVFoundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 import LiveKitWebRTC
 
-class AudioManagerTests: LKTestCase {
+@Suite(.serialized, .tags(.audio)) struct AudioManagerTests {
     // Test legacy audio device module's startLocalRecording().
-    func testStartLocalRecordingLegacyADM() async throws {
+    @Test func startLocalRecordingLegacyADM() async throws {
         // Use legacy ADM
         try AudioManager.set(audioDeviceModuleType: .platformDefault)
 
@@ -48,14 +49,14 @@ class AudioManagerTests: LKTestCase {
 
         // Play the recorded file...
         let player = try AVAudioPlayer(contentsOf: recorder.filePath)
-        XCTAssertTrue(player.play(), "Failed to start audio playback")
+        #expect(player.play(), "Failed to start audio playback")
         while player.isPlaying {
             try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
         }
     }
 
     // Confirm different behavior of Voice-Processing-Mute between macOS and other platforms.
-    func testConfirmGlobalVpMuteStateOniOS() async throws {
+    @Test func confirmGlobalVpMuteStateOniOS() throws {
         // Ensure audio session category is `.playAndRecord`.
         #if !os(macOS)
         try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .videoChat, options: [])
@@ -68,19 +69,19 @@ class AudioManagerTests: LKTestCase {
         try e2.inputNode.setVoiceProcessingEnabled(true)
 
         // e1, e2 both un-muted
-        XCTAssert(!e1.inputNode.isVoiceProcessingInputMuted)
-        XCTAssert(!e2.inputNode.isVoiceProcessingInputMuted)
+        #expect(!e1.inputNode.isVoiceProcessingInputMuted)
+        #expect(!e2.inputNode.isVoiceProcessingInputMuted)
 
         // Mute e1, but e2 should be unaffected.
         e1.inputNode.isVoiceProcessingInputMuted = true
-        XCTAssert(e1.inputNode.isVoiceProcessingInputMuted)
+        #expect(e1.inputNode.isVoiceProcessingInputMuted)
 
         #if os(macOS)
         // On macOS, e2 isn't affected by e1's muted state.
-        XCTAssert(!e2.inputNode.isVoiceProcessingInputMuted)
+        #expect(!e2.inputNode.isVoiceProcessingInputMuted)
         #else
         // On Other platforms, e2 is affected by e1's muted state.
-        XCTAssert(e2.inputNode.isVoiceProcessingInputMuted)
+        #expect(e2.inputNode.isVoiceProcessingInputMuted)
         #endif
     }
 
@@ -89,14 +90,14 @@ class AudioManagerTests: LKTestCase {
     // it will interfere with audio recording later in the app.
     //
     // Previous RTC libs would fail this test since, RTC was always invoking AudioDeviceModule::SetMicrophoneMuted(true)
-    func testVoiceProcessingInputMuted() async throws {
+    @Test func voiceProcessingInputMuted() async throws {
         // Set VP muted state.
         func setVoiceProcessingInputMuted(_ muted: Bool) throws {
             let e = AVAudioEngine()
             // VP always needs to be enabled to read / write the vp muted state
             try e.inputNode.setVoiceProcessingEnabled(true)
             e.inputNode.isVoiceProcessingInputMuted = muted
-            XCTAssert(e.inputNode.isVoiceProcessingInputMuted == muted)
+            #expect(e.inputNode.isVoiceProcessingInputMuted == muted)
             print("Set vp muted to \(muted), and verified it is \(e.inputNode.isVoiceProcessingInputMuted)")
         }
 
@@ -117,7 +118,7 @@ class AudioManagerTests: LKTestCase {
             // Should *not* be VP-muted at this point.
             let isVpMuted = try isVoiceProcessingInputMuted()
             print("isVpMuted: \(isVpMuted)")
-            XCTAssert(!isVpMuted)
+            #expect(!isVpMuted)
         }
 
         let adm = AudioManager.shared
@@ -144,7 +145,7 @@ class AudioManagerTests: LKTestCase {
             // Should *not* be VP-muted at this point.
             let isVpMuted = try isVoiceProcessingInputMuted()
             print("isVpMuted: \(isVpMuted)")
-            XCTAssert(!isVpMuted)
+            #expect(!isVpMuted)
         }
     }
 }

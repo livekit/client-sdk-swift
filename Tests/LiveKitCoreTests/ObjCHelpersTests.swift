@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 import LKObjCHelpers
 
-class ObjCHelperTests: LKTestCase {
-    func testHelper() {
+struct ObjCHelperTests {
+    @Test func helper() {
         LKObjCHelpers.finishBroadcastWithoutError(nil)
     }
 }

@@ -1,0 +1,74 @@
+name: CodeQL
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Standard macos-26 is too slow under CodeQL's Swift extractor.
+          - language: swift
+            os: macos-26-xlarge
+            build-mode: manual
+          - language: actions
+            os: ubuntu-latest
+            build-mode: none
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Xcode
+        if: matrix.language == 'swift'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install swiftly
+        if: matrix.language == 'swift'
+        run: brew install swiftly && swiftly init --quiet-shell-followup --skip-install -y
+
+      # Resolve outside the tracer so binary xcframework downloads
+      # don't run under DYLD_INSERT_LIBRARIES.
+      - name: Resolve dependencies
+        if: matrix.language == 'swift'
+        run: swiftly run +xcode swift package resolve
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Build LiveKit
+        if: matrix.language == 'swift'
+        run: swiftly run +xcode swift build --target LiveKit --arch arm64
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"

@@ -22,6 +22,14 @@ type_name:
     - OS
 
 custom_rules:
+  no_xctest_in_swift_tests:
+    name: "No XCTest in Swift Tests"
+    regex: "^import XCTest"
+    message: "Use Swift Testing (import Testing) instead of XCTest in Swift test targets."
+    severity: error
+    included:
+      - "Tests/LiveKitCoreTests/.*\\.swift"
+      - "Tests/LiveKitAudioTests/.*\\.swift"
   no_manual_task_management:
     name: "No Manual Task Management"
     regex: "(let|var)\\s+\\w+\\s*:\\s*Task<Void,"
