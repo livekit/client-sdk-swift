@@ -31,7 +31,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
     public var device: AVCaptureDevice? { _cameraCapturerState.device }
 
     /// Current position of the device
-    public var position: AVCaptureDevice.Position { _cameraCapturerState.device?.position ?? .unspecified }
+    public var position: AVCaptureDevice.Position { _cameraCapturerState.device?.position ?? _cameraCapturerState.options.position }
 
     @objc
     public var options: CameraCaptureOptions { _cameraCapturerState.options }
@@ -288,7 +288,13 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         try await capturer.startCapture(with: device, format: selectedFormat.format, fps: selectedFps)
 
         // Update internal vars
-        _cameraCapturerState.mutate { $0.device = device }
+        _cameraCapturerState.mutate {
+            $0.device = device
+            // Persist the resolved position so reconnects re-select the same camera.
+            if device.position != .unspecified, $0.options.position != device.position {
+                $0.options = $0.options.copyWith(position: .value(device.position))
+            }
+        }
 
         return true
     }
