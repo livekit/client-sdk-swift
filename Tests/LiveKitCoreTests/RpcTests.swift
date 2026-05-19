@@ -213,15 +213,25 @@ struct RpcTests {
             await caller.disconnect()
             try await caller.connect(url: url, token: token)
 
-            // Wait for caller to rediscover responder after reconnect, otherwise
-            // `performRpc` reads `remoteParticipants[…]?.clientProtocol = nil` and
-            // falls back to the v1 packet path instead of exercising v2.
+            // After reconnect, wait until two things hold before issuing the v2 RPC:
+            //   1. The caller has rediscovered the responder — otherwise
+            //      `remoteParticipants[…]?.clientProtocol` is `nil`, the caller picks
+            //      the v1 packet path, and this test stops exercising v2 routing.
+            //   2. The publisher data channel is `.isOpen` — `connect()` returns once
+            //      `openCompleter` resolves, but DataChannelPair's send path
+            //      separately re-reads `readyState == .open` in `processSendQueue`,
+            //      and a brief reconnect race can otherwise surface as
+            //      `LiveKitError(.invalidState, "Data channel is not open")`.
             let deadline = Date().addingTimeInterval(10)
-            while Date() < deadline, caller.remoteParticipants[responderIdentity] == nil {
+            while Date() < deadline,
+                  caller.remoteParticipants[responderIdentity] == nil || !caller.publisherDataChannel.isOpen
+            {
                 try await Task.sleep(nanoseconds: 100_000_000)
             }
             try #require(caller.remoteParticipants[responderIdentity] != nil,
                          "responder did not reappear after caller reconnect")
+            try #require(caller.publisherDataChannel.isOpen,
+                         "caller's publisher data channel did not reopen after reconnect")
 
             let second = try await caller.localParticipant.performRpc(
                 destinationIdentity: responderIdentity,

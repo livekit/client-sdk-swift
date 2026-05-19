@@ -182,6 +182,12 @@ actor RpcClientManager: Loggable {
             payload = try await reader.readAll()
         } catch {
             log("[Rpc] Failed to read v2 RPC response payload for \(requestId): \(error)", .error)
+            // Fail the pending call fast instead of letting it hang to responseTimeout.
+            if let pending = pendingResponses.removeValue(forKey: requestId), pending.participantIdentity == senderIdentity {
+                pending.completer.resume(throwing: RpcError(code: RpcError.BuiltInError.applicationError.code,
+                                                            message: "Error reading RPC response payload",
+                                                            data: ""))
+            }
             return
         }
 

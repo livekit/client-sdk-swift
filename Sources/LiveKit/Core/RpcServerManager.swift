@@ -177,6 +177,17 @@ actor RpcServerManager: Loggable {
             payload = try await reader.readAll()
         } catch {
             log("[Rpc] Failed to read v2 RPC request payload for \(requestId): \(error)", .error)
+            do {
+                try await publishResponse(in: room,
+                                          destinationIdentity: callerIdentity,
+                                          requestId: requestId,
+                                          payload: nil,
+                                          error: RpcError(code: RpcError.BuiltInError.applicationError.code,
+                                                          message: "Error reading RPC request payload",
+                                                          data: ""))
+            } catch {
+                log("[Rpc] Failed to publish read-failure error response for \(requestId)", .error)
+            }
             return
         }
 
