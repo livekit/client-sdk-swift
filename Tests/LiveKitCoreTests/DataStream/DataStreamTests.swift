@@ -122,23 +122,40 @@ struct DataStreamTests {
         }
     }
 
+    enum ReservedTopicOp: CaseIterable, CustomTestStringConvertible {
+        case registerText
+        case registerByte
+        case unregisterText
+        case unregisterByte
+
+        var testDescription: String {
+            switch self {
+            case .registerText: "registerTextStreamHandler"
+            case .registerByte: "registerByteStreamHandler"
+            case .unregisterText: "unregisterTextStreamHandler"
+            case .unregisterByte: "unregisterByteStreamHandler"
+            }
+        }
+
+        func invoke(on room: Room, topic: String) async throws {
+            switch self {
+            case .registerText: try await room.registerTextStreamHandler(for: topic) { _, _ in }
+            case .registerByte: try await room.registerByteStreamHandler(for: topic) { _, _ in }
+            case .unregisterText: try await room.unregisterTextStreamHandler(for: topic)
+            case .unregisterByte: try await room.unregisterByteStreamHandler(for: topic)
+            }
+        }
+    }
+
     /// `lk.` is LiveKit's reserved namespace; `Room.{register,unregister}{Text,Byte}StreamHandler`
     /// must reject user calls on any `lk.*` topic. Pre-fix, only the two RPC v2 topics were
     /// rejected by name and the unregister methods didn't check at all — a user could
     /// silently disable internal SDK dispatch by unregistering an `lk.*` topic.
-    @Test func reservedPrefixRejectedOnRegisterAndUnregister() async throws {
+    @Test(arguments: ReservedTopicOp.allCases, ["lk.something", "lk.rpc_request", "lk.future_topic"])
+    func reservedPrefixRejected(_ op: ReservedTopicOp, _ topic: String) async throws {
         try await TestEnvironment.withRoom { room in
             await #expect(throws: LiveKitError.self) {
-                try await room.registerTextStreamHandler(for: "lk.something") { _, _ in }
-            }
-            await #expect(throws: LiveKitError.self) {
-                try await room.registerByteStreamHandler(for: "lk.something") { _, _ in }
-            }
-            await #expect(throws: LiveKitError.self) {
-                try await room.unregisterTextStreamHandler(for: "lk.rpc_request")
-            }
-            await #expect(throws: LiveKitError.self) {
-                try await room.unregisterByteStreamHandler(for: "lk.future_topic")
+                try await op.invoke(on: room, topic: topic)
             }
         }
     }

@@ -78,7 +78,7 @@ struct RpcTests {
             // the usual MockDataChannelPair callback path.
             room.publisherDataChannel = MockDataChannelPair { _ in }
 
-            await room.rpcClient.__test_setAfterPublishHook { requestId in
+            await room.rpcClient.setAfterPublish { requestId in
                 await room.rpcClient.handleIncomingAck(requestId: requestId)
                 await room.rpcClient.handleIncomingResponse(
                     requestId: requestId,
@@ -106,7 +106,7 @@ struct RpcTests {
     /// fatalError on the second resume; with `AsyncCompleter` the second resume is a silent
     /// no-op and the first resolution wins.
     ///
-    /// We use `__test_forceAckTimeout(requestId:)` to fire the watchdog synchronously
+    /// We use `fireAckTimeoutIfPending(requestId:)` to fire the watchdog synchronously
     /// instead of waiting 7 seconds. The test injects a response first, then forces the
     /// watchdog — the call must still resolve to the response payload, not
     /// `connectionTimeout`.
@@ -115,7 +115,7 @@ struct RpcTests {
             // No-op data channel — the test drives the response and watchdog via the hooks.
             room.publisherDataChannel = MockDataChannelPair { _ in }
 
-            await room.rpcClient.__test_setAfterPublishHook { requestId in
+            await room.rpcClient.setAfterPublish { requestId in
                 // Step 1: deliver the response, resolving the completer with "real-response".
                 await room.rpcClient.handleIncomingResponse(
                     requestId: requestId,
@@ -126,7 +126,7 @@ struct RpcTests {
                 // `requestId` (handleIncomingResponse intentionally leaves it set), so the
                 // watchdog gate passes and it tries to resume the completer a second time
                 // with `connectionTimeout`. Pre-fix this crashed; post-fix it's a no-op.
-                await room.rpcClient.__test_forceAckTimeout(requestId: requestId)
+                await room.rpcClient.fireAckTimeoutIfPending(requestId: requestId)
             }
 
             let response = try await room.localParticipant.performRpc(
@@ -144,14 +144,14 @@ struct RpcTests {
     /// Regression test: when the destination participant disconnects mid-call, the
     /// caller receives `recipientDisconnected` (1503) immediately rather than the
     /// generic `connectionTimeout` (1501) after the user-supplied `responseTimeout`.
-    /// Uses `__test_afterPublishHook` to inject the disconnect synchronously after
-    /// publish so the test resolves deterministically.
+    /// Uses `setAfterPublish` to inject the disconnect synchronously after publish
+    /// so the test resolves deterministically.
     @Test func performRpcRejectsOnRecipientDisconnect() async throws {
         try await TestEnvironment.withRoom { room in
             let destination = Participant.Identity(from: "test-destination")
             room.publisherDataChannel = MockDataChannelPair { _ in }
 
-            await room.rpcClient.__test_setAfterPublishHook { _ in
+            await room.rpcClient.setAfterPublish { _ in
                 await room.rpcClient.handleParticipantDisconnected(destination)
             }
 
@@ -182,7 +182,7 @@ struct RpcTests {
             // Use the post-publish hook to deterministically know when performRpc has
             // pre-registered pending state, instead of polling/sleeping.
             let registered = AsyncCompleter<Void>(label: "performRpc-registered", defaultTimeout: 5)
-            await room.rpcClient.__test_setAfterPublishHook { _ in
+            await room.rpcClient.setAfterPublish { _ in
                 registered.resume(returning: ())
             }
 

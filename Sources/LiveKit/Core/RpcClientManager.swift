@@ -27,25 +27,18 @@ actor RpcClientManager: Loggable {
     private var pendingAcks: Set<String> = Set()
     private var pendingResponses: [String: PendingRpcResponse] = [:] // requestId to pending response
 
-    /// Test-only hook fired once after the RPC request has been published but before the
-    /// caller starts waiting on the completer. Receives the freshly-generated `requestId`
-    /// so a test can simulate a fast remote ack/response that races the wait. No-op outside
-    /// of tests.
-    var __test_afterPublishHook: (@Sendable (String) async -> Void)?
+    /// Hook fired once after the RPC request has been published but before the caller
+    /// starts waiting on the completer. Receives the freshly-generated `requestId` so
+    /// a caller can simulate a fast remote ack/response that races the wait. Used by
+    /// tests (reachable via `@testable import LiveKit`).
+    var afterPublish: (@Sendable (String) async -> Void)?
 
     func attach(to room: Room) {
         self.room = room
     }
 
-    func __test_setAfterPublishHook(_ hook: (@Sendable (String) async -> Void)?) {
-        __test_afterPublishHook = hook
-    }
-
-    /// Test-only: synchronously fires the ack-timeout watchdog's terminal action for
-    /// `requestId`, exactly as the 7-second timer would. Used to deterministically exercise
-    /// the watchdog/response double-resolve race without waiting on the real timer.
-    func __test_forceAckTimeout(requestId: String) {
-        fireAckTimeoutIfPending(requestId: requestId)
+    func setAfterPublish(_ hook: (@Sendable (String) async -> Void)?) {
+        afterPublish = hook
     }
 
     // MARK: - Public entry point
@@ -102,7 +95,7 @@ actor RpcClientManager: Loggable {
             throw error
         }
 
-        if let hook = __test_afterPublishHook {
+        if let hook = afterPublish {
             await hook(requestId)
         }
 
@@ -136,7 +129,7 @@ actor RpcClientManager: Loggable {
     /// state and resolve its completer with `connectionTimeout`. AsyncCompleter idempotency
     /// makes this safe even if a real response has already resolved the completer between
     /// the watchdog scheduling and this call running.
-    private func fireAckTimeoutIfPending(requestId: String) {
+    func fireAckTimeoutIfPending(requestId: String) {
         guard pendingAcks.contains(requestId) else { return }
         pendingAcks.remove(requestId)
         let pending = pendingResponses.removeValue(forKey: requestId)
