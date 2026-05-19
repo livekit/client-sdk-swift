@@ -144,9 +144,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     let rpcClient = RpcClientManager()
     let rpcServer = RpcServerManager()
-
-    // swiftlint:disable:next no_manual_task_management
-    private var rpcInternalSetup: Task<Void, Error>?
+    private var rpcInternalSetup: MemoizedTask<Void>?
 
     // MARK: - State
 
@@ -392,16 +390,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         // Wire RPC internals before any engine activity so incoming v2 streams aren't
         // dropped in the gap between init and connect.
-        let setup = rpcInternalSetup ?? Task { [rpcClient, rpcServer, incomingStreamManager, weak self] in
-            guard let self else { return }
-            await rpcClient.attach(to: self)
-            await rpcServer.attach(to: self)
-            try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.request) { [weak rpcServer] reader, identity in
-                await rpcServer?.handleIncomingRequestStream(reader: reader, callerIdentity: identity)
-            }
-            try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.response) { [weak rpcClient] reader, identity in
-                await rpcClient?.handleIncomingResponseStream(reader: reader, senderIdentity: identity)
-            }
+        let setup = rpcInternalSetup ?? MemoizedTask { [weak self] in
+            try await self?.wireRpcInternals()
         }
         rpcInternalSetup = setup
         do { try await setup.value } catch {
@@ -647,6 +637,17 @@ extension Room {
             for (_, publication) in participant._state.trackPublications {
                 publication.track?.cancelStatisticsTimer()
             }
+        }
+    }
+
+    private func wireRpcInternals() async throws {
+        await rpcClient.attach(to: self)
+        await rpcServer.attach(to: self)
+        try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.request) { [weak rpcServer] reader, identity in
+            await rpcServer?.handleIncomingRequestStream(reader: reader, callerIdentity: identity)
+        }
+        try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.response) { [weak rpcClient] reader, identity in
+            await rpcClient?.handleIncomingResponseStream(reader: reader, senderIdentity: identity)
         }
     }
 }
