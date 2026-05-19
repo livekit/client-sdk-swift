@@ -55,6 +55,7 @@ actor RpcServerManager: Loggable {
 
     // MARK: - Incoming dispatch
 
+    // swiftlint:disable function_parameter_count
     /// Handle an RPC request that arrived as a v1 `RpcRequest` packet. Always responds via
     /// a v1 `RpcResponse` packet, since the caller signaled v1 transport by using a packet.
     func handleIncomingRequest(callerIdentity: Participant.Identity,
@@ -110,6 +111,9 @@ actor RpcServerManager: Loggable {
         }
     }
 
+    // swiftlint:enable function_parameter_count
+
+    // swiftlint:disable function_body_length
     /// Handle an RPC request that arrived as a v2 data stream on the `lk.rpc_request` topic.
     /// Successful responses are sent back as a data stream on `lk.rpc_response`; errors are
     /// sent as v1 `RpcResponse` packets per the spec.
@@ -181,6 +185,8 @@ actor RpcServerManager: Loggable {
             log("[Rpc] Failed to publish RPC response for \(requestId)", .error)
         }
     }
+
+    // swiftlint:enable function_body_length
 
     // MARK: - Handler dispatch
 

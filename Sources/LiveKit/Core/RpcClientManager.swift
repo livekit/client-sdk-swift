@@ -50,6 +50,7 @@ actor RpcClientManager: Loggable {
 
     // MARK: - Public entry point
 
+    // swiftlint:disable function_body_length
     /// Initiate an RPC call to a remote participant. Transport selection is automatic and
     /// matches the SDK's documented behavior: peer's `clientProtocol >= .v1` → v2 data stream,
     /// otherwise v1 packet.
@@ -112,7 +113,7 @@ actor RpcClientManager: Loggable {
         Task { [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(maxRoundTripLatency * 1_000_000_000))
             guard let self else { return }
-            await self.fireAckTimeoutIfPending(requestId: requestId)
+            await fireAckTimeoutIfPending(requestId: requestId)
         }
 
         defer {
@@ -128,6 +129,8 @@ actor RpcClientManager: Loggable {
             throw error
         }
     }
+
+    // swiftlint:enable function_body_length
 
     /// Watchdog terminal action: if `requestId` is still awaiting an ack, clear pending
     /// state and resolve its completer with `connectionTimeout`. AsyncCompleter idempotency
@@ -257,6 +260,7 @@ actor RpcClientManager: Loggable {
 
     // MARK: - Outgoing wire
 
+    // swiftlint:disable:next function_parameter_count
     private func publishRequest(in room: Room,
                                 destinationIdentity: Participant.Identity,
                                 requestId: String,
@@ -283,6 +287,7 @@ actor RpcClientManager: Loggable {
         try await room.send(dataPacket: dataPacket)
     }
 
+    // swiftlint:disable:next function_parameter_count
     private func publishRequestStream(in room: Room,
                                       destinationIdentity: Participant.Identity,
                                       requestId: String,

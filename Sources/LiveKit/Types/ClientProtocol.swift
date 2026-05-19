@@ -42,10 +42,10 @@ extension ClientProtocol: Comparable {
 
 extension ClientProtocol: CustomStringConvertible {
     public var description: String {
-        switch (rawValue) {
-            case 0: return "v0"
-            case 1: return "v1"
-            default: return "unknown"
+        switch rawValue {
+        case 0: "v0"
+        case 1: "v1"
+        default: "unknown"
         }
     }
 }

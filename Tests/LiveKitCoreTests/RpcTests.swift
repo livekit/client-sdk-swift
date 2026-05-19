@@ -21,6 +21,8 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+// swiftlint:disable file_length type_body_length
+
 @Suite(.serialized, .tags(.e2e))
 struct RpcTests {
     // MARK: - v1 (legacy) tests
@@ -417,7 +419,7 @@ struct RpcTests {
             let caller = rooms[1]
             let responderIdentity = try #require(responder.localParticipant.identity)
 
-            let largePayload = String(repeating: "x", count: 20_000)
+            let largePayload = String(repeating: "x", count: 20000)
             try await responder.registerRpcMethod("echo") { data in data.payload }
 
             let response = try await caller.localParticipant.performRpc(
@@ -474,7 +476,7 @@ struct RpcTests {
             let caller = rooms[1]
             let responderIdentity = try #require(responder.localParticipant.identity)
 
-            let largePayload = String(repeating: "y", count: 20_000)
+            let largePayload = String(repeating: "y", count: 20000)
             try await responder.registerRpcMethod("echo") { _ in largePayload }
 
             let response = try await caller.localParticipant.performRpc(
@@ -552,7 +554,7 @@ struct RpcTests {
             let caller = rooms[1]
             let responderIdentity = try #require(responder.localParticipant.identity)
 
-            let largePayload = String(repeating: "x", count: 20_000)
+            let largePayload = String(repeating: "x", count: 20000)
 
             await #expect(throws: RpcError.self) {
                 _ = try await caller.localParticipant.performRpc(
@@ -566,6 +568,7 @@ struct RpcTests {
     }
 
     // MARK: - v2 unit tests (wire-format & state-machine internals)
+
     //
     // These tests assert behaviors that are invisible at the participant boundary
     // (wire-format choices, ack-timeout state machine, sender-identity validation)
@@ -646,15 +649,19 @@ struct RpcTests {
 
             room.publisherDataChannel = MockDataChannelPair { _ in }
 
-            let error = await #expect(throws: RpcError.self) {
+            do {
                 _ = try await room.localParticipant.performRpc(
                     destinationIdentity: destination,
                     method: "method",
                     payload: "x",
                     responseTimeout: 0.05
                 )
+                Issue.record("Expected RpcError to be thrown")
+            } catch let error as RpcError {
+                #expect(error.code == RpcError.BuiltInError.connectionTimeout.code)
+            } catch {
+                Issue.record("Unexpected error type: \(error)")
             }
-            #expect(error?.code == RpcError.BuiltInError.connectionTimeout.code)
 
             #expect(await room.rpcClient.pendingCount == 0)
         }
@@ -700,9 +707,11 @@ struct RpcTests {
     }
 }
 
+// swiftlint:enable type_body_length
+
 // MARK: - Test support
 
-private struct RpcTestSupport {
+private enum RpcTestSupport {
     /// Insert a remote participant into `room` whose `clientProtocol` advertises v2.
     static func installRemote(in room: Room, identity: Participant.Identity, clientProtocol: ClientProtocol) async throws {
         try install(in: room, identity: identity, clientProtocol: clientProtocol)
