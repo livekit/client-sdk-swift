@@ -184,10 +184,11 @@ struct RpcTests {
     }
 
     /// After a caller disconnects and reconnects, v2 RPC must still route correctly.
-    /// Exercises the `rpcSetupTask` memoization contract: the second `connect()`
-    /// reuses the cached `AnyTaskCancellable`, skipping re-registration, and the
-    /// already-registered stream handlers survive `cleanUp`. The responder is kept
-    /// connected throughout so its `rpcServer.handlers` remain intact.
+    /// Exercises `setupRpc` idempotency: the second `connect()` re-runs `setupRpc`, and
+    /// `IncomingStreamManager.registerTextStreamHandlerIfNeeded` no-ops when the v2 RPC
+    /// stream handlers are still registered, so routing stays intact across reconnects.
+    /// The responder is kept connected throughout so its `rpcServer.handlers` remain
+    /// intact too.
     @Test func v2RpcWorksAfterReconnect() async throws {
         try await TestEnvironment.withRooms([
             RoomTestingOptions(canPublishData: true),

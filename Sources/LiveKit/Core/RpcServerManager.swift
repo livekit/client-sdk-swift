@@ -116,7 +116,7 @@ actor RpcServerManager: Loggable {
 
     // swiftlint:enable function_parameter_count
 
-    // swiftlint:disable function_body_length
+    // swiftlint:disable function_body_length cyclomatic_complexity
     /// Handle an RPC request that arrived as a v2 data stream on the `lk.rpc_request` topic.
     /// Successful responses are sent back as a data stream on `lk.rpc_response`; errors are
     /// sent as v1 `RpcResponse` packets per the spec.
@@ -126,12 +126,28 @@ actor RpcServerManager: Loggable {
         guard let room = try? requireRoom() else { return }
 
         let attrs = reader.info.attributes
-        guard let requestId = attrs[RpcStreamAttribute.requestId],
-              let method = attrs[RpcStreamAttribute.method],
+        // requestId is the correlation key; without it we can't send a typed error back,
+        // so log and bail (the caller will hit its own response timeout).
+        guard let requestId = attrs[RpcStreamAttribute.requestId] else {
+            log("[Rpc] Incoming v2 RPC request stream is missing request id; cannot correlate", .error)
+            return
+        }
+        guard let method = attrs[RpcStreamAttribute.method],
               let timeoutMsString = attrs[RpcStreamAttribute.timeoutMs],
               let timeoutMs = UInt32(timeoutMsString)
         else {
-            log("[Rpc] Incoming v2 RPC request stream is missing required attributes", .error)
+            log("[Rpc] Incoming v2 RPC request stream for \(requestId) is missing required attributes", .error)
+            do {
+                try await publishResponse(in: room,
+                                          destinationIdentity: callerIdentity,
+                                          requestId: requestId,
+                                          payload: nil,
+                                          error: RpcError(code: RpcError.BuiltInError.applicationError.code,
+                                                          message: "RPC data stream malformed",
+                                                          data: ""))
+            } catch {
+                log("[Rpc] Failed to publish malformed-attrs error response for \(requestId)", .error)
+            }
             return
         }
         let version = attrs[RpcStreamAttribute.version] ?? ""
@@ -189,7 +205,7 @@ actor RpcServerManager: Loggable {
         }
     }
 
-    // swiftlint:enable function_body_length
+    // swiftlint:enable function_body_length cyclomatic_complexity
 
     // MARK: - Handler dispatch
 

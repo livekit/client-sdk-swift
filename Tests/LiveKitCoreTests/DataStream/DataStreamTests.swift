@@ -122,37 +122,32 @@ struct DataStreamTests {
         }
     }
 
-    enum ReservedTopicOp: CaseIterable, CustomTestStringConvertible {
-        case registerText
-        case registerByte
-        case unregisterText
-        case unregisterByte
+    enum ReservedRegisterOp: CaseIterable, CustomTestStringConvertible {
+        case text
+        case byte
 
         var testDescription: String {
             switch self {
-            case .registerText: "registerTextStreamHandler"
-            case .registerByte: "registerByteStreamHandler"
-            case .unregisterText: "unregisterTextStreamHandler"
-            case .unregisterByte: "unregisterByteStreamHandler"
+            case .text: "registerTextStreamHandler"
+            case .byte: "registerByteStreamHandler"
             }
         }
 
         func invoke(on room: Room, topic: String) async throws {
             switch self {
-            case .registerText: try await room.registerTextStreamHandler(for: topic) { _, _ in }
-            case .registerByte: try await room.registerByteStreamHandler(for: topic) { _, _ in }
-            case .unregisterText: try await room.unregisterTextStreamHandler(for: topic)
-            case .unregisterByte: try await room.unregisterByteStreamHandler(for: topic)
+            case .text: try await room.registerTextStreamHandler(for: topic) { _, _ in }
+            case .byte: try await room.registerByteStreamHandler(for: topic) { _, _ in }
             }
         }
     }
 
-    /// `lk.` is LiveKit's reserved namespace; `Room.{register,unregister}{Text,Byte}StreamHandler`
-    /// must reject user calls on any `lk.*` topic. Pre-fix, only the two RPC v2 topics were
-    /// rejected by name and the unregister methods didn't check at all — a user could
-    /// silently disable internal SDK dispatch by unregistering an `lk.*` topic.
-    @Test(arguments: ReservedTopicOp.allCases, ["lk.something", "lk.rpc_request", "lk.future_topic"])
-    func reservedPrefixRejected(_ op: ReservedTopicOp, _ topic: String) async throws {
+    /// `lk.` is LiveKit's reserved namespace; the public `Room.register*StreamHandler` APIs
+    /// must reject user calls on any `lk.*` topic so user code can't shadow or steal a
+    /// stream destined for an internal SDK handler (e.g. RPC v2's `lk.rpc_request`
+    /// / `lk.rpc_response`). The unregister APIs are non-throwing by signature and
+    /// silently no-op on `lk.*`, so they don't need a runtime assertion.
+    @Test(arguments: ReservedRegisterOp.allCases, ["lk.something", "lk.rpc_request", "lk.future_topic"])
+    func reservedPrefixRegisterRejected(_ op: ReservedRegisterOp, _ topic: String) async throws {
         try await TestEnvironment.withRoom { room in
             await #expect(throws: LiveKitError.self) {
                 try await op.invoke(on: room, topic: topic)

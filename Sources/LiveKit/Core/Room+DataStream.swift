@@ -28,7 +28,10 @@ public extension Room {
     ///     the remote participant who initiated the stream.
     ///
     func registerByteStreamHandler(for topic: String, onNewStream: @escaping ByteStreamHandler) async throws {
-        try Self.checkReserved(topic: topic)
+        guard !topic.hasPrefix(Room.reservedTopicPrefix) else {
+            throw LiveKitError(.invalidParameter,
+                               message: "Stream topic prefix '\(Room.reservedTopicPrefix)' is reserved for internal SDK use")
+        }
         try await incomingStreamManager.registerByteStreamHandler(for: topic, onNewStream)
     }
 
@@ -43,41 +46,38 @@ public extension Room {
     ///     the remote participant who initiated the stream.
     ///
     func registerTextStreamHandler(for topic: String, onNewStream: @escaping TextStreamHandler) async throws {
-        try Self.checkReserved(topic: topic)
+        guard !topic.hasPrefix(Room.reservedTopicPrefix) else {
+            throw LiveKitError(.invalidParameter,
+                               message: "Stream topic prefix '\(Room.reservedTopicPrefix)' is reserved for internal SDK use")
+        }
         try await incomingStreamManager.registerTextStreamHandler(for: topic, onNewStream)
     }
 
     /// Unregisters a byte stream handler that was previously registered for the given topic.
     ///
-    /// Throws if `topic` uses the reserved `lk.` prefix - the SDK uses this namespace for
-    /// internal functionality.
+    /// Calls on a reserved `lk.*` topic are a silent no-op so user code can't accidentally
+    /// disable internal SDK dispatch.
     @objc
-    func unregisterByteStreamHandler(for topic: String) async throws {
-        try Self.checkReserved(topic: topic)
+    func unregisterByteStreamHandler(for topic: String) async {
+        guard !topic.hasPrefix(Room.reservedTopicPrefix) else { return }
         await incomingStreamManager.unregisterByteStreamHandler(for: topic)
     }
 
     /// Unregisters a text stream handler that was previously registered for the given topic.
     ///
-    /// Throws if `topic` uses the reserved `lk.` prefix - the SDK uses this namespace for
-    /// internal functionality.
+    /// Calls on a reserved `lk.*` topic are a silent no-op so user code can't accidentally
+    /// disable internal SDK dispatch.
     @objc
-    func unregisterTextStreamHandler(for topic: String) async throws {
-        try Self.checkReserved(topic: topic)
+    func unregisterTextStreamHandler(for topic: String) async {
+        guard !topic.hasPrefix(Room.reservedTopicPrefix) else { return }
         await incomingStreamManager.unregisterTextStreamHandler(for: topic)
     }
 }
 
 extension Room {
-    /// `lk.` is LiveKit's reserved namespace per the server convention. User code may not
-    /// register or unregister stream handlers on any topic with this prefix; SDK-internal
-    /// call sites bypass this check by going through `incomingStreamManager` directly.
-    static func checkReserved(topic: String) throws {
-        guard !topic.hasPrefix("lk.") else {
-            throw LiveKitError(.invalidParameter,
-                               message: "Stream topic prefix 'lk.' is reserved for internal SDK use")
-        }
-    }
+    /// LiveKit's reserved namespace for internal data-stream topics, per the server convention.
+    /// SDK-internal call sites bypass this guard by going through `incomingStreamManager` directly.
+    static let reservedTopicPrefix = "lk."
 }
 
 // MARK: - Objective-C Compatibility

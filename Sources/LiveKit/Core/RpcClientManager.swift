@@ -55,7 +55,7 @@ actor RpcClientManager: Loggable {
         let room = try requireRoom()
 
         let remoteClientProtocol = room.remoteParticipants[destinationIdentity]?.clientProtocol ?? .v0
-        let useStreamTransport = remoteClientProtocol >= .v1
+        let useStreamTransport = remoteClientProtocol >= .v1 && Self.serverSupportsRpcV2(room.serverVersion)
 
         let requestId = UUID().uuidString
         let maxRoundTripLatency: TimeInterval = 7
@@ -112,11 +112,27 @@ actor RpcClientManager: Loggable {
         do {
             return try await completer.wait()
         } catch {
+            // AsyncCompleter signals its own `defaultTimeout` expiry with `LiveKitError(.timedOut)`.
+            // That path means "we got the ack (or the ack-watchdog hasn't fired yet) but the
+            // user-supplied `responseTimeout` elapsed without a response" → `responseTimeout`
+            // (1502). The ack-watchdog path resolves the completer directly with
+            // `connectionTimeout` (1501) and falls through the `throw error` branch.
             if let error = error as? LiveKitError, error.type == .timedOut {
-                throw RpcError.builtIn(.connectionTimeout)
+                throw RpcError.builtIn(.responseTimeout)
             }
             throw error
         }
+    }
+
+    // MARK: - Server-version compatibility
+
+    /// v2 data-stream RPC requires server ≥ 1.8.0. Returns `true` when the server version
+    /// is unknown (e.g. before signaling completes) so we don't downgrade unnecessarily.
+    /// Older servers silently fall back to the v1 packet path; a >15 KB payload then
+    /// surfaces as `requestPayloadTooLarge` (1402) on `publishRequest`.
+    static func serverSupportsRpcV2(_ serverVersion: String?) -> Bool {
+        guard let serverVersion else { return true }
+        return serverVersion.compare("1.8.0", options: .numeric) != .orderedAscending
     }
 
     /// Watchdog terminal action: if `requestId` is still awaiting an ack, clear pending

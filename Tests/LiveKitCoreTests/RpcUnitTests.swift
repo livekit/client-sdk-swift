@@ -405,7 +405,10 @@ struct RpcUnitTests {
         }
     }
 
-    /// Caller times out if no ack arrives.
+    /// Caller times out waiting for the response. With `responseTimeout < maxRoundTripLatency`,
+    /// the completer's `defaultTimeout` fires before the ack-watchdog and surfaces as
+    /// `responseTimeout` (1502) — `connectionTimeout` (1501) is reserved for the
+    /// ack-watchdog path.
     @Test func v2CallerResponseTimeout() async throws {
         try await TestEnvironment.withRoom { room in
             let destination = Participant.Identity(from: "v2-destination")
@@ -422,7 +425,7 @@ struct RpcUnitTests {
                 )
                 Issue.record("Expected RpcError to be thrown")
             } catch let error as RpcError {
-                #expect(error.code == RpcError.BuiltInError.connectionTimeout.code)
+                #expect(error.code == RpcError.BuiltInError.responseTimeout.code)
             } catch {
                 Issue.record("Unexpected error type: \(error)")
             }
@@ -462,7 +465,9 @@ struct RpcUnitTests {
                 )
                 Issue.record("Spoofed response from wrong sender should not have resolved the call (got \(response))")
             } catch let error as RpcError {
-                #expect(error.code == RpcError.BuiltInError.connectionTimeout.code)
+                // Ack arrived (legitimately) but the spoofed response was ignored, so the
+                // completer's user-supplied `responseTimeout` (1s) elapses → 1502.
+                #expect(error.code == RpcError.BuiltInError.responseTimeout.code)
             }
             #expect(await room.rpcClient.pendingCount == 0)
         }
