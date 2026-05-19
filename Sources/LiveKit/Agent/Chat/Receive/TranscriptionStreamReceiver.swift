@@ -91,7 +91,9 @@ actor TranscriptionStreamReceiver: MessageReceiver, Loggable {
 
         let topic = topic
 
-        try await room.registerTextStreamHandler(for: topic) { [weak self] reader, participantIdentity in
+        // SDK-internal receiver on an `lk.*` topic — bypass the public Room API's
+        // reserved-prefix guard by going through `incomingStreamManager` directly.
+        try await room.incomingStreamManager.registerTextStreamHandler(for: topic) { [weak self] reader, participantIdentity in
             var lastMessage: ReceivedMessage?
             for try await message in reader where !message.isEmpty {
                 guard let self else { return }
@@ -112,7 +114,7 @@ actor TranscriptionStreamReceiver: MessageReceiver, Loggable {
 
         continuation.onTermination = { [weak self] _ in
             Task { [weak self] in
-                try? await self?.room.unregisterTextStreamHandler(for: topic)
+                await self?.room.incomingStreamManager.unregisterTextStreamHandler(for: topic)
             }
         }
 
