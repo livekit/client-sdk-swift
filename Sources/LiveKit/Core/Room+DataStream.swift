@@ -55,7 +55,7 @@ public extension Room {
 
     /// Unregisters a byte stream handler that was previously registered for the given topic.
     ///
-    /// Calls on a reserved `lk.*` topic are a silent no-op so user code can't accidentally
+    /// Calls on a reserved `lk.rpc*` topic are a silent no-op so user code can't accidentally
     /// disable internal SDK dispatch.
     @objc
     func unregisterByteStreamHandler(for topic: String) async {
@@ -65,7 +65,7 @@ public extension Room {
 
     /// Unregisters a text stream handler that was previously registered for the given topic.
     ///
-    /// Calls on a reserved `lk.*` topic are a silent no-op so user code can't accidentally
+    /// Calls on a reserved `lk.rpc*` topic are a silent no-op so user code can't accidentally
     /// disable internal SDK dispatch.
     @objc
     func unregisterTextStreamHandler(for topic: String) async {
@@ -75,9 +75,11 @@ public extension Room {
 }
 
 extension Room {
-    /// LiveKit's reserved namespace for internal data-stream topics, per the server convention.
-    /// SDK-internal call sites bypass this guard by going through `incomingStreamManager` directly.
-    static let reservedTopicPrefix = "lk."
+    /// Reserved data-stream topic prefix for RPC v2 (`lk.rpc_request` / `lk.rpc_response`,
+    /// and any future `lk.rpc_*` topics). The broader `lk.*` namespace is convention-only
+    /// — other internal features (chat, transcription, etc.) bypass the public API by
+    /// going through `incomingStreamManager` directly and aren't enforced here.
+    static let reservedTopicPrefix = "lk.rpc"
 }
 
 // MARK: - Objective-C Compatibility
