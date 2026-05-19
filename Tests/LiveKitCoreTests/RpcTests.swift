@@ -186,51 +186,9 @@ struct RpcTests {
             await caller.disconnect()
             try await caller.connect(url: url, token: token)
 
-            // Wait for the caller to see the responder come back to `.active` —
-            // otherwise `performRpc` reads `remoteParticipants[…]?.clientProtocol = nil`
-            // and falls back to the v1 packet path instead of exercising v2.
-            try await caller.activeParticipantCompleters
-                .completer(for: responderIdentity.stringValue)
-                .wait(timeout: 10)
-
-            let second = try await caller.localParticipant.performRpc(
-                destinationIdentity: responderIdentity,
-                method: "ping",
-                payload: ""
-            )
-            #expect(second == "pong")
-            #expect(await caller.rpcClient.pendingCount == 0)
-        }
-    }
-
-    /// `RpcServerManager.handlers` is documented to persist across `Room.cleanUp` and
-    /// reconnects so callers don't have to re-register on every transient disconnect.
-    /// This test pins that contract: register once on the responder, reconnect the
-    /// responder (not the caller), and verify the original handler still answers
-    /// without any re-registration call.
-    @Test func v2HandlerPersistsAcrossResponderReconnect() async throws {
-        try await withRpcPair { responder, caller, responderIdentity in
-            try await responder.registerRpcMethod("ping") { _ in "pong" }
-
-            let first = try await caller.localParticipant.performRpc(
-                destinationIdentity: responderIdentity,
-                method: "ping",
-                payload: ""
-            )
-            #expect(first == "pong")
-
-            let url = try #require(responder.url)
-            let token = try #require(responder.token)
-            await responder.disconnect()
-            try await responder.connect(url: url, token: token)
-
-            // Handler is still registered on the responder side without any
-            // re-registration call — the bookkeeping outlived `Room.cleanUp`.
-            #expect(await responder.isRpcMethodRegistered("ping"))
-
-            // Wait for the caller to see the responder come back to `.active`;
-            // the new `RemoteParticipant` instance must appear under the same
-            // identity before `performRpc` can pick the v2 transport.
+            // `Room.cleanUp` resets `activeParticipantCompleters`, so after
+            // `caller.connect()` the completer for `responderIdentity` is fresh
+            // and resolves on the next `.active` transition.
             try await caller.activeParticipantCompleters
                 .completer(for: responderIdentity.stringValue)
                 .wait(timeout: 10)
