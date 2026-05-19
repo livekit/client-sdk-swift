@@ -134,7 +134,8 @@ actor RpcServerManager: Loggable {
         }
         guard let method = attrs[RpcStreamAttribute.method],
               let timeoutMsString = attrs[RpcStreamAttribute.timeoutMs],
-              let timeoutMs = UInt32(timeoutMsString)
+              let timeoutMs = UInt32(timeoutMsString),
+              let version = attrs[RpcStreamAttribute.version]
         else {
             log("[Rpc] Incoming v2 RPC request stream for \(requestId) is missing required attributes", .error)
             do {
@@ -150,7 +151,6 @@ actor RpcServerManager: Loggable {
             }
             return
         }
-        let version = attrs[RpcStreamAttribute.version] ?? ""
         let responseTimeout = TimeInterval(timeoutMs) / 1000
 
         do {
