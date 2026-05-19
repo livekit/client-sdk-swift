@@ -144,7 +144,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     let rpcClient = RpcClientManager()
     let rpcServer = RpcServerManager()
-    private var didWireRpcInternals = false
+
+    // swiftlint:disable:next no_manual_task_management
+    private var rpcInternalSetup: Task<Void, Error>?
 
     // MARK: - State
 
@@ -389,18 +391,22 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         try Task.checkCancellation()
 
         // Wire RPC internals before any engine activity so incoming v2 streams aren't
-        // dropped in the gap between init and connect. Idempotent across reconnects;
-        // `incomingStreamManager` handler state persists, so we register only once.
-        if !didWireRpcInternals {
+        // dropped in the gap between init and connect.
+        let setup = rpcInternalSetup ?? Task { [rpcClient, rpcServer, incomingStreamManager, weak self] in
+            guard let self else { return }
             await rpcClient.attach(to: self)
             await rpcServer.attach(to: self)
-            try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.request) { [weak self] reader, identity in
-                await self?.rpcServer.handleIncomingRequestStream(reader: reader, callerIdentity: identity)
+            try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.request) { [weak rpcServer] reader, identity in
+                await rpcServer?.handleIncomingRequestStream(reader: reader, callerIdentity: identity)
             }
-            try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.response) { [weak self] reader, identity in
-                await self?.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: identity)
+            try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.response) { [weak rpcClient] reader, identity in
+                await rpcClient?.handleIncomingResponseStream(reader: reader, senderIdentity: identity)
             }
-            didWireRpcInternals = true
+        }
+        rpcInternalSetup = setup
+        do { try await setup.value } catch {
+            rpcInternalSetup = nil
+            throw error
         }
 
         // enable E2EE

@@ -25,7 +25,8 @@ actor RpcClientManager: Loggable {
     private weak var room: Room?
 
     private var pendingAcks: Set<String> = Set()
-    private var pendingResponses: [String: PendingRpcResponse] = [:] // requestId to pending response
+    private var pendingResponses: [String: PendingRpcResponse] = [:]
+    private var ackWatchdogs: [String: AnyTaskCancellable] = [:]
 
     /// Hook fired once after the RPC request has been published but before the caller
     /// starts waiting on the completer. Receives the freshly-generated `requestId` so
@@ -43,7 +44,6 @@ actor RpcClientManager: Loggable {
 
     // MARK: - Public entry point
 
-    // swiftlint:disable function_body_length
     /// Initiate an RPC call to a remote participant. Transport selection is automatic and
     /// matches the SDK's documented behavior: peer's `clientProtocol >= .v1` → v2 data stream,
     /// otherwise v1 packet.
@@ -99,20 +99,16 @@ actor RpcClientManager: Loggable {
             await hook(requestId)
         }
 
-        // Ack watchdog: fail fast if no ack arrives within maxRoundTripLatency. Note that
-        // `completer.resume` is idempotent (AsyncCompleter), so a real response that lands
-        // mid-flight here cannot crash via double-resolve — the second resume is a silent
-        // no-op and the first resolution wins.
-        Task { [weak self] in
+        // Ack watchdog: fail fast if no ack arrives within maxRoundTripLatency.
+        // Stored as `AnyTaskCancellable` so the deferred cleanup cancels the sleep
+        // when the call resolves early.
+        ackWatchdogs[requestId] = Task { [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(maxRoundTripLatency * 1_000_000_000))
             guard let self else { return }
             await fireAckTimeoutIfPending(requestId: requestId)
-        }
+        }.cancellable()
 
-        defer {
-            pendingAcks.remove(requestId)
-            pendingResponses.removeValue(forKey: requestId)
-        }
+        defer { removeAllPending(requestId) }
         do {
             return try await completer.wait()
         } catch {
@@ -122,8 +118,6 @@ actor RpcClientManager: Loggable {
             throw error
         }
     }
-
-    // swiftlint:enable function_body_length
 
     /// Watchdog terminal action: if `requestId` is still awaiting an ack, clear pending
     /// state and resolve its completer with `connectionTimeout`. AsyncCompleter idempotency
@@ -202,6 +196,7 @@ actor RpcClientManager: Loggable {
         for (requestId, pending) in toReap {
             pendingResponses.removeValue(forKey: requestId)
             pendingAcks.remove(requestId)
+            ackWatchdogs.removeValue(forKey: requestId)
             pending.completer.resume(throwing: RpcError.builtIn(.recipientDisconnected))
         }
     }
@@ -215,6 +210,7 @@ actor RpcClientManager: Loggable {
         }
         pendingResponses.removeAll()
         pendingAcks.removeAll()
+        ackWatchdogs.removeAll()
     }
 
     // MARK: - State ops
@@ -249,6 +245,7 @@ actor RpcClientManager: Loggable {
     func removeAllPending(_ requestId: String) {
         pendingAcks.remove(requestId)
         pendingResponses.removeValue(forKey: requestId)
+        ackWatchdogs.removeValue(forKey: requestId)
     }
 
     // MARK: - Outgoing wire
