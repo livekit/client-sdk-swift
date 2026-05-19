@@ -27,6 +27,8 @@ extension Tag {
     @Tag static var dataStream: Self
     /// WebRTC data channel tests.
     @Tag static var dataChannel: Self
+    /// RPC v1 / v2 caller and handler tests.
+    @Tag static var rpc: Self
     /// Region management, token, and connection tests.
     @Tag static var networking: Self
     /// Async primitives and thread safety tests.

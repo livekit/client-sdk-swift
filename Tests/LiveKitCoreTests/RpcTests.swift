@@ -21,19 +21,33 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized, .tags(.e2e))
+@Suite(.serialized, .tags(.e2e, .rpc))
 struct RpcTests {
-    /// v2 caller happy path (short payload). Both peers advertise the current
-    /// `ClientProtocol`, so the request/response flow uses v2 data streams end-to-end.
-    @Test func v2CallerHappyPathShort() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canPublishData: true),
-        ]) { rooms in
+    /// Spin up a paired responder + caller for an e2e RPC test, exposing the
+    /// responder's identity (the most common pre-RPC dependency). Defaults
+    /// give both rooms `canPublishData: true` and the SDK-default
+    /// `ClientProtocol`; callers override for v0-fallback scenarios.
+    private func withRpcPair(
+        responder responderOptions: RoomTestingOptions = .init(canPublishData: true),
+        caller callerOptions: RoomTestingOptions = .init(canPublishData: true),
+        _ block: @escaping (
+            _ responder: Room,
+            _ caller: Room,
+            _ responderIdentity: Participant.Identity
+        ) async throws -> Void
+    ) async throws {
+        try await TestEnvironment.withRooms([responderOptions, callerOptions]) { rooms in
             let responder = rooms[0]
             let caller = rooms[1]
             let responderIdentity = try #require(responder.localParticipant.identity)
+            try await block(responder, caller, responderIdentity)
+        }
+    }
 
+    /// v2 caller happy path (short payload). Both peers advertise the current
+    /// `ClientProtocol`, so the request/response flow uses v2 data streams end-to-end.
+    @Test func v2CallerHappyPathShort() async throws {
+        try await withRpcPair { responder, caller, responderIdentity in
             try await responder.registerRpcMethod("v2-method") { _ in "v2-response" }
 
             let response = try await caller.localParticipant.performRpc(
@@ -50,14 +64,7 @@ struct RpcTests {
     /// WebRTC proves the v2 data-stream path was used — v1 packets would have been
     /// rejected with `REQUEST_PAYLOAD_TOO_LARGE`.
     @Test func v2CallerHappyPathLargePayload() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canPublishData: true),
-        ]) { rooms in
-            let responder = rooms[0]
-            let caller = rooms[1]
-            let responderIdentity = try #require(responder.localParticipant.identity)
-
+        try await withRpcPair { responder, caller, responderIdentity in
             let largePayload = String(repeating: "x", count: 20000)
             try await responder.registerRpcMethod("echo") { data in data.payload }
 
@@ -74,13 +81,7 @@ struct RpcTests {
     /// v2 handler happy path. The handler observes the real caller identity and payload
     /// from a connected peer, returns a value, and the caller receives it.
     @Test func v2HandlerHappyPath() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canPublishData: true),
-        ]) { rooms in
-            let responder = rooms[0]
-            let caller = rooms[1]
-            let responderIdentity = try #require(responder.localParticipant.identity)
+        try await withRpcPair { responder, caller, responderIdentity in
             let callerIdentity = try #require(caller.localParticipant.identity)
 
             try await confirmation("handler invoked with the caller's identity and payload") { handlerInvoked in
@@ -107,14 +108,7 @@ struct RpcTests {
     /// went over a v2 data stream rather than being silently mapped to
     /// `responsePayloadTooLarge`.
     @Test func v2HandlerCanReturnLargeResponse() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canPublishData: true),
-        ]) { rooms in
-            let responder = rooms[0]
-            let caller = rooms[1]
-            let responderIdentity = try #require(responder.localParticipant.identity)
-
+        try await withRpcPair { responder, caller, responderIdentity in
             let largePayload = String(repeating: "y", count: 20000)
             try await responder.registerRpcMethod("echo") { _ in largePayload }
 
@@ -130,14 +124,7 @@ struct RpcTests {
 
     /// v2 caller receives a typed error from a v2 handler that throws `RpcError`.
     @Test func v2CallerErrorResponse() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canPublishData: true),
-        ]) { rooms in
-            let responder = rooms[0]
-            let caller = rooms[1]
-            let responderIdentity = try #require(responder.localParticipant.identity)
-
+        try await withRpcPair { responder, caller, responderIdentity in
             try await responder.registerRpcMethod("fails") { _ in
                 throw RpcError(code: 101, message: "Test error message", data: "")
             }
@@ -163,14 +150,7 @@ struct RpcTests {
     /// the v0 responder wouldn't subscribe to that topic, and the call would time out — so
     /// response arrival is the proof.
     @Test func v2CallerV1FallbackUsesPacket() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(clientProtocol: .v0, canPublishData: true),
-            RoomTestingOptions(canPublishData: true),
-        ]) { rooms in
-            let responder = rooms[0]
-            let caller = rooms[1]
-            let responderIdentity = try #require(responder.localParticipant.identity)
-
+        try await withRpcPair(responder: .init(clientProtocol: .v0, canPublishData: true)) { responder, caller, responderIdentity in
             try await responder.registerRpcMethod("method") { _ in "v1-response" }
 
             let response = try await caller.localParticipant.performRpc(
@@ -190,14 +170,7 @@ struct RpcTests {
     /// The responder is kept connected throughout so its `rpcServer.handlers` remain
     /// intact too.
     @Test func v2RpcWorksAfterReconnect() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canPublishData: true),
-        ]) { rooms in
-            let responder = rooms[0]
-            let caller = rooms[1]
-            let responderIdentity = try #require(responder.localParticipant.identity)
-
+        try await withRpcPair { responder, caller, responderIdentity in
             try await responder.registerRpcMethod("ping") { _ in "pong" }
 
             let first = try await caller.localParticipant.performRpc(
@@ -213,18 +186,12 @@ struct RpcTests {
             await caller.disconnect()
             try await caller.connect(url: url, token: token)
 
-            // Wait for caller to rediscover responder after reconnect, otherwise
-            // `performRpc` reads `remoteParticipants[…]?.clientProtocol = nil` and
-            // falls back to the v1 packet path instead of exercising v2. The data
-            // channel doesn't need a separate poll: `DataChannelPair.processSendQueue`
-            // parks requests when the channels aren't `.open` and replays them on
-            // the next state-change `.wakeup`.
-            let deadline = Date().addingTimeInterval(10)
-            while Date() < deadline, caller.remoteParticipants[responderIdentity] == nil {
-                try await Task.sleep(nanoseconds: 100_000_000)
-            }
-            try #require(caller.remoteParticipants[responderIdentity] != nil,
-                         "responder did not reappear after caller reconnect")
+            // Wait for the caller to see the responder come back to `.active` —
+            // otherwise `performRpc` reads `remoteParticipants[…]?.clientProtocol = nil`
+            // and falls back to the v1 packet path instead of exercising v2.
+            try await caller.activeParticipantCompleters
+                .completer(for: responderIdentity.stringValue)
+                .wait(timeout: 10)
 
             let second = try await caller.localParticipant.performRpc(
                 destinationIdentity: responderIdentity,
@@ -242,14 +209,7 @@ struct RpcTests {
     /// responder (not the caller), and verify the original handler still answers
     /// without any re-registration call.
     @Test func v2HandlerPersistsAcrossResponderReconnect() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canPublishData: true),
-        ]) { rooms in
-            let responder = rooms[0]
-            let caller = rooms[1]
-            let responderIdentity = try #require(responder.localParticipant.identity)
-
+        try await withRpcPair { responder, caller, responderIdentity in
             try await responder.registerRpcMethod("ping") { _ in "pong" }
 
             let first = try await caller.localParticipant.performRpc(
@@ -268,15 +228,12 @@ struct RpcTests {
             // re-registration call — the bookkeeping outlived `Room.cleanUp`.
             #expect(await responder.isRpcMethodRegistered("ping"))
 
-            // Wait for the caller to rediscover the responder; the new
-            // `RemoteParticipant` instance must reappear under the same identity
-            // before `performRpc` can pick the v2 transport.
-            let deadline = Date().addingTimeInterval(10)
-            while Date() < deadline, caller.remoteParticipants[responderIdentity] == nil {
-                try await Task.sleep(nanoseconds: 100_000_000)
-            }
-            try #require(caller.remoteParticipants[responderIdentity] != nil,
-                         "responder did not reappear after responder reconnect")
+            // Wait for the caller to see the responder come back to `.active`;
+            // the new `RemoteParticipant` instance must appear under the same
+            // identity before `performRpc` can pick the v2 transport.
+            try await caller.activeParticipantCompleters
+                .completer(for: responderIdentity.stringValue)
+                .wait(timeout: 10)
 
             let second = try await caller.localParticipant.performRpc(
                 destinationIdentity: responderIdentity,
@@ -290,14 +247,7 @@ struct RpcTests {
 
     /// v2 caller falling back to the v1 path rejects payloads >15 KB before publishing.
     @Test func v2CallerV1FallbackRejectsLargePayload() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(clientProtocol: .v0, canPublishData: true),
-            RoomTestingOptions(canPublishData: true),
-        ]) { rooms in
-            let responder = rooms[0]
-            let caller = rooms[1]
-            let responderIdentity = try #require(responder.localParticipant.identity)
-
+        try await withRpcPair(responder: .init(clientProtocol: .v0, canPublishData: true)) { _, caller, responderIdentity in
             let largePayload = String(repeating: "x", count: 20000)
 
             await #expect(throws: RpcError.self) {

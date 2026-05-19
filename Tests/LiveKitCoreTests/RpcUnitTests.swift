@@ -23,6 +23,7 @@ import LiveKitTestSupport
 
 // swiftlint:disable file_length type_body_length
 
+@Suite(.tags(.rpc))
 struct RpcUnitTests {
     // MARK: - v1 caller-side state machine
 
