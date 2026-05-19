@@ -24,7 +24,10 @@ import Foundation
 actor RpcServerManager: Loggable {
     private weak var room: Room?
 
-    private var handlers: [String: RpcHandler] = [:] // methodName to handler
+    /// Method-name → handler map. Persists across `Room.cleanUp` and reconnects so callers
+    /// don't have to re-register on every transient disconnect; cleared only when this
+    /// actor deallocates with its owning `Room`.
+    private var handlers: [String: RpcHandler] = [:]
 
     func attach(to room: Room) {
         self.room = room

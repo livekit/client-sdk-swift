@@ -18,7 +18,9 @@ import Foundation
 
 public extension Room {
     /// Establishes the participant as a receiver for calls of the specified RPC method.
-    /// Will overwrite any existing callback for the same method.
+    /// Throws ``LiveKitError`` with type ``LiveKitErrorType/invalidState`` if a handler is
+    /// already registered for `method`; call ``unregisterRpcMethod(_:)`` first to replace it.
+    /// Registered handlers persist across reconnects.
     ///
     /// Example:
     /// ```swift
