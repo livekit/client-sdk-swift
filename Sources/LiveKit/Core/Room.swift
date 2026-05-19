@@ -144,7 +144,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     let rpcClient = RpcClientManager()
     let rpcServer = RpcServerManager()
-    private var rpcInternalSetup: AnyTaskCancellable?
+    private var rpcSetupTask: AnyTaskCancellable?
 
     // MARK: - State
 
@@ -390,13 +390,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         // Wire RPC internals before any engine activity so incoming v2 streams aren't
         // dropped in the gap between init and connect.
-        if rpcInternalSetup == nil {
+        if rpcSetupTask == nil {
             let task = Task { [weak self] in
                 try await self?.setupRpc()
             }
-            rpcInternalSetup = task.cancellable()
+            rpcSetupTask = task.cancellable()
             do { try await task.value } catch {
-                rpcInternalSetup = nil
+                rpcSetupTask = nil
                 throw error
             }
         }

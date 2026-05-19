@@ -184,7 +184,7 @@ struct RpcTests {
     }
 
     /// After a caller disconnects and reconnects, v2 RPC must still route correctly.
-    /// Exercises the `rpcInternalSetup` memoization contract: the second `connect()`
+    /// Exercises the `rpcSetupTask` memoization contract: the second `connect()`
     /// reuses the cached `AnyTaskCancellable`, skipping re-registration, and the
     /// already-registered stream handlers survive `cleanUp`. The responder is kept
     /// connected throughout so its `rpcServer.handlers` remain intact.
