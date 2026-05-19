@@ -44,18 +44,31 @@ import LiveKitWebRTC
         }
     }
 
-    @Test func encryptionWithSharedKey() async throws {
+    /// Builds a publisher/subscriber room pair, each with its own key provider.
+    private func encryptedRooms(sender: BaseKeyProvider, receiver: BaseKeyProvider) -> [RoomTestingOptions] {
+        [
+            RoomTestingOptions(encryptionOptions: EncryptionOptions(keyProvider: sender), canPublishData: true),
+            RoomTestingOptions(delegate: self, encryptionOptions: EncryptionOptions(keyProvider: receiver), canSubscribe: true),
+        ]
+    }
+
+    @Test(arguments: [KeyDerivationAlgorithm.pbkdf2, .hkdf])
+    func encryptionWithSharedKey(algorithm: KeyDerivationAlgorithm) async throws {
         let testMessage = "Hello, encrypted world!"
         let testData = try #require(testMessage.data(using: .utf8))
+
+        let sharedKey = "shared-key-\(UUID().uuidString)"
+        let options = KeyProviderOptions(sharedKey: true, keyDerivationAlgorithm: algorithm)
+        let senderKeyProvider = BaseKeyProvider(options: options)
+        let receiverKeyProvider = BaseKeyProvider(options: options)
+        senderKeyProvider.setKey(key: sharedKey)
+        receiverKeyProvider.setKey(key: sharedKey)
 
         try await confirmation("Encrypted data received") { confirm in
             self._receivedData.mutate { $0 = Data() }
             self._onDataReceived.mutate { $0 = { confirm() } }
 
-            try await TestEnvironment.withRooms([
-                RoomTestingOptions(canPublishData: true),
-                RoomTestingOptions(delegate: self, canSubscribe: true),
-            ]) { rooms in
+            try await TestEnvironment.withRooms(encryptedRooms(sender: senderKeyProvider, receiver: receiverKeyProvider)) { rooms in
                 let sender = rooms[0]
                 let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
 
@@ -74,12 +87,14 @@ import LiveKitWebRTC
         }
     }
 
-    @Test func encryptionWithPerParticipantKeys() async throws {
+    @Test(arguments: [KeyDerivationAlgorithm.pbkdf2, .hkdf])
+    func encryptionWithPerParticipantKeys(algorithm: KeyDerivationAlgorithm) async throws {
         let testMessage = "Hello, per-participant encrypted world!"
         let testData = try #require(testMessage.data(using: .utf8))
 
-        let senderKeyProvider = BaseKeyProvider(isSharedKey: false)
-        let receiverKeyProvider = BaseKeyProvider(isSharedKey: false)
+        let perParticipantOptions = KeyProviderOptions(sharedKey: false, keyDerivationAlgorithm: algorithm)
+        let senderKeyProvider = BaseKeyProvider(options: perParticipantOptions)
+        let receiverKeyProvider = BaseKeyProvider(options: perParticipantOptions)
 
         let senderKey = "sender-secret-key-123"
         let receiverKey = "receiver-secret-key-456"
@@ -88,15 +103,7 @@ import LiveKitWebRTC
             self._receivedData.mutate { $0 = Data() }
             self._onDataReceived.mutate { $0 = { confirm() } }
 
-            try await TestEnvironment.withRooms([
-                RoomTestingOptions(
-                    encryptionOptions: EncryptionOptions(keyProvider: senderKeyProvider), canPublishData: true
-                ),
-                RoomTestingOptions(
-                    delegate: self,
-                    encryptionOptions: EncryptionOptions(keyProvider: receiverKeyProvider), canSubscribe: true
-                ),
-            ]) { rooms in
+            try await TestEnvironment.withRooms(encryptedRooms(sender: senderKeyProvider, receiver: receiverKeyProvider)) { rooms in
                 let sender = rooms[0]
                 let receiver = rooms[1]
 
@@ -125,32 +132,26 @@ import LiveKitWebRTC
         }
     }
 
-    @Test func decryptionFailureWithSharedKey() async throws {
+    @Test(arguments: [KeyDerivationAlgorithm.pbkdf2, .hkdf])
+    func decryptionFailureWithSharedKey(algorithm: KeyDerivationAlgorithm) async throws {
         let testMessage = "This should fail to decrypt!"
         let testData = try #require(testMessage.data(using: .utf8))
 
         let senderKey = "sender-shared-key-123"
         let receiverKey = "receiver-shared-key-456"
 
-        let senderKeyProvider = BaseKeyProvider(isSharedKey: true, sharedKey: senderKey)
-        let receiverKeyProvider = BaseKeyProvider(isSharedKey: true, sharedKey: receiverKey)
+        let sharedOptions = KeyProviderOptions(sharedKey: true, keyDerivationAlgorithm: algorithm)
+        let senderKeyProvider = BaseKeyProvider(options: sharedOptions)
+        let receiverKeyProvider = BaseKeyProvider(options: sharedOptions)
+        senderKeyProvider.setKey(key: senderKey)
+        receiverKeyProvider.setKey(key: receiverKey)
 
         try await confirmation("Decryption error occurred") { confirm in
             self._receivedData.mutate { $0 = Data() }
             self._lastDecryptionError.mutate { $0 = nil }
             self._onDecryptionError.mutate { $0 = { confirm() } }
 
-            try await TestEnvironment.withRooms([
-                RoomTestingOptions(
-                    encryptionOptions: EncryptionOptions(keyProvider: senderKeyProvider),
-                    canPublishData: true
-                ),
-                RoomTestingOptions(
-                    delegate: self,
-                    encryptionOptions: EncryptionOptions(keyProvider: receiverKeyProvider),
-                    canSubscribe: true
-                ),
-            ]) { rooms in
+            try await TestEnvironment.withRooms(encryptedRooms(sender: senderKeyProvider, receiver: receiverKeyProvider)) { rooms in
                 let sender = rooms[0]
                 let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
 
@@ -169,12 +170,14 @@ import LiveKitWebRTC
         }
     }
 
-    @Test func decryptionFailureWithPerParticipantKeys() async throws {
+    @Test(arguments: [KeyDerivationAlgorithm.pbkdf2, .hkdf])
+    func decryptionFailureWithPerParticipantKeys(algorithm: KeyDerivationAlgorithm) async throws {
         let testMessage = "This should fail to decrypt with per-participant keys!"
         let testData = try #require(testMessage.data(using: .utf8))
 
-        let senderKeyProvider = BaseKeyProvider(isSharedKey: false)
-        let receiverKeyProvider = BaseKeyProvider(isSharedKey: false)
+        let perParticipantOptions = KeyProviderOptions(sharedKey: false, keyDerivationAlgorithm: algorithm)
+        let senderKeyProvider = BaseKeyProvider(options: perParticipantOptions)
+        let receiverKeyProvider = BaseKeyProvider(options: perParticipantOptions)
 
         let senderKey = "sender-secret-key-123"
         let wrongSenderKey = "wrong-secret-key-999"
@@ -185,17 +188,7 @@ import LiveKitWebRTC
             self._lastDecryptionError.mutate { $0 = nil }
             self._onDecryptionError.mutate { $0 = { confirm() } }
 
-            try await TestEnvironment.withRooms([
-                RoomTestingOptions(
-                    encryptionOptions: EncryptionOptions(keyProvider: senderKeyProvider),
-                    canPublishData: true
-                ),
-                RoomTestingOptions(
-                    delegate: self,
-                    encryptionOptions: EncryptionOptions(keyProvider: receiverKeyProvider),
-                    canSubscribe: true
-                ),
-            ]) { rooms in
+            try await TestEnvironment.withRooms(encryptedRooms(sender: senderKeyProvider, receiver: receiverKeyProvider)) { rooms in
                 let sender = rooms[0]
                 let receiver = rooms[1]
 
@@ -224,18 +217,18 @@ import LiveKitWebRTC
         }
     }
 
-    @Test func keyRatcheting() async throws {
+    @Test(arguments: [KeyDerivationAlgorithm.pbkdf2, .hkdf])
+    func keyRatcheting(algorithm: KeyDerivationAlgorithm) async throws {
         let testMessage = "Hello with automatic ratcheting!"
         let testData = try #require(testMessage.data(using: .utf8))
 
-        let senderKeyProvider = BaseKeyProvider(options: KeyProviderOptions(
+        let ratchetOptions = KeyProviderOptions(
             sharedKey: true,
-            ratchetWindowSize: 2
-        ))
-        let receiverKeyProvider = BaseKeyProvider(options: KeyProviderOptions(
-            sharedKey: true,
-            ratchetWindowSize: 2
-        ))
+            ratchetWindowSize: 2,
+            keyDerivationAlgorithm: algorithm
+        )
+        let senderKeyProvider = BaseKeyProvider(options: ratchetOptions)
+        let receiverKeyProvider = BaseKeyProvider(options: ratchetOptions)
 
         let initialKey = "initial-key-\(UUID().uuidString)"
         senderKeyProvider.setKey(key: initialKey)
@@ -245,17 +238,7 @@ import LiveKitWebRTC
             self._receivedData.mutate { $0 = Data() }
             self._onDataReceived.mutate { $0 = { confirm() } }
 
-            try await TestEnvironment.withRooms([
-                RoomTestingOptions(
-                    encryptionOptions: EncryptionOptions(keyProvider: senderKeyProvider),
-                    canPublishData: true
-                ),
-                RoomTestingOptions(
-                    delegate: self,
-                    encryptionOptions: EncryptionOptions(keyProvider: receiverKeyProvider),
-                    canSubscribe: true
-                ),
-            ]) { rooms in
+            try await TestEnvironment.withRooms(encryptedRooms(sender: senderKeyProvider, receiver: receiverKeyProvider)) { rooms in
                 let sender = rooms[0]
                 let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
 
@@ -281,18 +264,18 @@ import LiveKitWebRTC
         }
     }
 
-    @Test func multipleKeysInKeyRing() async throws {
+    @Test(arguments: [KeyDerivationAlgorithm.pbkdf2, .hkdf])
+    func multipleKeysInKeyRing(algorithm: KeyDerivationAlgorithm) async throws {
         let testMessage = "Hello with multiple keys in key ring!"
         let testData = try #require(testMessage.data(using: .utf8))
 
-        let senderKeyProvider = BaseKeyProvider(options: KeyProviderOptions(
+        let keyRingOptions = KeyProviderOptions(
             sharedKey: true,
-            keyRingSize: 2
-        ))
-        let receiverKeyProvider = BaseKeyProvider(options: KeyProviderOptions(
-            sharedKey: true,
-            keyRingSize: 2
-        ))
+            keyRingSize: 2,
+            keyDerivationAlgorithm: algorithm
+        )
+        let senderKeyProvider = BaseKeyProvider(options: keyRingOptions)
+        let receiverKeyProvider = BaseKeyProvider(options: keyRingOptions)
 
         let key1 = "secret-key-1"
         let key2 = "secret-key-2"
@@ -305,17 +288,7 @@ import LiveKitWebRTC
             self._receivedData.mutate { $0 = Data() }
             self._onDataReceived.mutate { $0 = { confirm() } }
 
-            try await TestEnvironment.withRooms([
-                RoomTestingOptions(
-                    encryptionOptions: EncryptionOptions(keyProvider: senderKeyProvider),
-                    canPublishData: true
-                ),
-                RoomTestingOptions(
-                    delegate: self,
-                    encryptionOptions: EncryptionOptions(keyProvider: receiverKeyProvider),
-                    canSubscribe: true
-                ),
-            ]) { rooms in
+            try await TestEnvironment.withRooms(encryptedRooms(sender: senderKeyProvider, receiver: receiverKeyProvider)) { rooms in
                 let sender = rooms[0]
                 let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
 

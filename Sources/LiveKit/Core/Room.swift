@@ -191,6 +191,35 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         // Agents
         var transcriptionReceivedTimes: [String: Date] = [:]
 
+        // Server can deliver `sid` / `name` in a later `RoomUpdate` (e.g. when the
+        // initial `JoinResponse.room.sid` is empty). Don't overwrite a known value
+        // with an empty one, otherwise `Room.sid()` resolves with an empty SID and
+        // never updates.
+        mutating func apply(roomInfo: Livekit_Room) {
+            if !roomInfo.sid.isEmpty {
+                sid = Room.Sid(from: roomInfo.sid)
+            }
+            if !roomInfo.name.isEmpty {
+                name = roomInfo.name
+            }
+
+            metadata = roomInfo.metadata
+            isRecording = roomInfo.activeRecording
+            numParticipants = Int(roomInfo.numParticipants)
+            numPublishers = Int(roomInfo.numPublishers)
+
+            if roomInfo.maxParticipants != 0 {
+                maxParticipants = Int(roomInfo.maxParticipants)
+            }
+
+            // Attempt to get millisecond precision.
+            if roomInfo.creationTimeMs != 0 {
+                creationTime = Date(timeIntervalSince1970: TimeInterval(Double(roomInfo.creationTimeMs) / 1000))
+            } else if roomInfo.creationTime != 0 {
+                creationTime = Date(timeIntervalSince1970: TimeInterval(roomInfo.creationTime))
+            }
+        }
+
         @discardableResult
         mutating func updateRemoteParticipant(info: Livekit_ParticipantInfo, room: Room) -> RemoteParticipant {
             let identity = Participant.Identity(from: info.identity)
@@ -567,15 +596,16 @@ extension Room {
         await rpcClient.handleAllPendingDisconnected()
 
         // Reset completers
-        _sidCompleter.reset()
-        primaryTransportConnectedCompleter.reset()
-        publisherTransportConnectedCompleter.reset()
+        _sidCompleter.reset(throwing: disconnectError)
+        primaryTransportConnectedCompleter.reset(throwing: disconnectError)
+        publisherTransportConnectedCompleter.reset(throwing: disconnectError)
+        await activeParticipantCompleters.reset(throwing: disconnectError)
 
         await signalClient.cleanUp(withError: disconnectError)
         // Cancel all track stats timers before closing transports to prevent
         // stats collection from accessing destroyed WebRTC channels.
         cancelTimers()
-        await cleanUpRTC()
+        await cleanUpRTC(withError: disconnectError)
         await cleanUpParticipants(isFullReconnect: isFullReconnect)
 
         // Cleanup for E2EE

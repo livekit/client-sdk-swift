@@ -98,9 +98,15 @@ actor Transport: NSObject, Loggable {
         _delegate.add(delegate: delegate)
     }
 
-    func negotiate() async {
-        await _debounce.schedule {
-            try await self.createAndSendOffer()
+    func negotiate(force: Bool = false) async throws {
+        if force {
+            // Cancel any pending debounced negotiation; this call supersedes it.
+            await _debounce.cancel()
+            try await createAndSendOffer()
+        } else {
+            await _debounce.schedule {
+                try await self.createAndSendOffer()
+            }
         }
     }
 

@@ -300,53 +300,6 @@ class Utils: Loggable {
 
         return wrappedData.base64EncodedString()
     }
-
-    static func computeVideoEncodings(
-        dimensions: Dimensions,
-        publishOptions: VideoPublishOptions?,
-        isScreenShare: Bool = false,
-        overrideVideoCodec: VideoCodec? = nil
-    ) -> [LKRTCRtpEncodingParameters] {
-        let publishOptions = publishOptions ?? VideoPublishOptions()
-        let preferredEncoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : publishOptions.encoding
-        let encoding = preferredEncoding ?? dimensions.computeSuggestedPreset(in: dimensions.computeSuggestedPresets(isScreenShare: isScreenShare))
-
-        let videoCodec = overrideVideoCodec ?? publishOptions.preferredCodec
-
-        if let videoCodec, videoCodec.isSVC {
-            // SVC mode
-            log("Using SVC mode")
-            // VP9/AV1 with screen sharing requires single spatial layer
-            return [RTC.createRtpEncodingParameters(encoding: encoding, scalabilityMode: isScreenShare ? .L1T3 : .L3T3_KEY)]
-        } else if !publishOptions.simulcast {
-            // Not-simulcast mode
-            log("Simulcast not enabled")
-            return [RTC.createRtpEncodingParameters(encoding: encoding)]
-        }
-
-        // Continue to simulcast encoding computation...
-
-        let baseParameters = VideoParameters(dimensions: dimensions,
-                                             encoding: encoding)
-
-        // get suggested presets for the dimensions
-        let preferredPresets = (isScreenShare ? publishOptions.screenShareSimulcastLayers : publishOptions.simulcastLayers)
-        let presets = (!preferredPresets.isEmpty ? preferredPresets : baseParameters.defaultSimulcastLayers(isScreenShare: isScreenShare)).sorted { $0 < $1 }
-
-        log("Using presets: \(presets), count: \(presets.count) isScreenShare: \(isScreenShare)")
-
-        let lowPreset = presets[0]
-        let midPreset = presets[safe: 1]
-
-        var resultPresets = [baseParameters]
-        if dimensions.max >= 960, let midPreset {
-            resultPresets = [lowPreset, midPreset, baseParameters]
-        } else if dimensions.max >= 480 {
-            resultPresets = [lowPreset, baseParameters]
-        }
-
-        return dimensions.encodings(from: resultPresets)
-    }
 }
 
 extension Collection {

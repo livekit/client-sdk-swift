@@ -28,7 +28,7 @@ final class AsyncSerialDelegate<T: Sendable>: Sendable {
         _state.mutate { $0.delegate = delegate as AnyObject }
     }
 
-    func notifyAsync(_ fnc: @Sendable @escaping (T) async -> Void) async throws {
+    func notifyAsync(_ fnc: sending @escaping (T) async -> Void) async throws {
         guard let delegate = _state.read({ $0.delegate }) as? T else { return }
         try await _serialRunner.run {
             await fnc(delegate)
@@ -36,7 +36,7 @@ final class AsyncSerialDelegate<T: Sendable>: Sendable {
     }
 
     func notifyDetached(_ fnc: @Sendable @escaping (T) async -> Void) {
-        Task.detached {
+        Task.detachedDiscarding {
             try await self.notifyAsync(fnc)
         }
     }

@@ -33,8 +33,8 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
         _ observer: O,
         priority: TaskPriority? = nil,
         state: State,
-        onElement: @escaping @Sendable (O, Element, inout State) async -> Void,
-        onFailure: (@Sendable (O, Error, inout State) async -> Void)? = nil
+        onElement: sending @escaping (O, Element, inout State) async -> Void,
+        onFailure: sending ((O, Error, inout State) async -> Void)? = nil
     ) -> AnyTaskCancellable {
         Task(priority: priority) { [weak observer] in
             var state = state
@@ -65,8 +65,8 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
     func subscribe<O: AnyObject & Sendable>(
         _ observer: O,
         priority: TaskPriority? = nil,
-        onElement: @escaping @Sendable (O, Element) async -> Void,
-        onFailure: (@Sendable (O, Error) async -> Void)? = nil
+        onElement: sending @escaping (O, Element) async -> Void,
+        onFailure: sending ((O, Error) async -> Void)? = nil
     ) -> AnyTaskCancellable {
         subscribe(
             observer,
