@@ -144,7 +144,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     let rpcClient = RpcClientManager()
     let rpcServer = RpcServerManager()
-    private var rpcSetupTask: AnyTaskCancellable?
 
     // MARK: - State
 
@@ -389,17 +388,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         try Task.checkCancellation()
 
         // Wire RPC internals before any engine activity so incoming v2 streams aren't
-        // dropped in the gap between init and connect.
-        if rpcSetupTask == nil {
-            let task = Task { [weak self] in
-                try await self?.setupRpc()
-            }
-            rpcSetupTask = task.cancellable()
-            do { try await task.value } catch {
-                rpcSetupTask = nil
-                throw error
-            }
-        }
+        // dropped in the gap between init and connect. Idempotent across reconnects.
+        await setupRpc()
 
         // enable E2EE
         if let e2eeOptions = state.roomOptions.e2eeOptions {
@@ -642,13 +632,13 @@ extension Room {
         }
     }
 
-    func setupRpc() async throws {
+    private func setupRpc() async {
         await rpcClient.attach(to: self)
         await rpcServer.attach(to: self)
-        try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.request) { [weak rpcServer] reader, identity in
+        await incomingStreamManager.registerTextStreamHandlerIfNeeded(for: RpcStreamTopic.request) { [weak rpcServer] reader, identity in
             await rpcServer?.handleIncomingRequestStream(reader: reader, callerIdentity: identity)
         }
-        try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.response) { [weak rpcClient] reader, identity in
+        await incomingStreamManager.registerTextStreamHandlerIfNeeded(for: RpcStreamTopic.response) { [weak rpcClient] reader, identity in
             await rpcClient?.handleIncomingResponseStream(reader: reader, senderIdentity: identity)
         }
     }
