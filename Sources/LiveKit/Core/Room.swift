@@ -144,7 +144,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     let rpcClient = RpcClientManager()
     let rpcServer = RpcServerManager()
-    private var rpcInternalSetup: MemoizedTask<Void>?
+    private var rpcInternalSetup: AnyTaskCancellable?
 
     // MARK: - State
 
@@ -390,13 +390,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         // Wire RPC internals before any engine activity so incoming v2 streams aren't
         // dropped in the gap between init and connect.
-        let setup = rpcInternalSetup ?? MemoizedTask { [weak self] in
-            try await self?.wireRpcInternals()
-        }
-        rpcInternalSetup = setup
-        do { try await setup.value } catch {
-            rpcInternalSetup = nil
-            throw error
+        if rpcInternalSetup == nil {
+            let task = Task { [weak self] in
+                try await self?.setupRpc()
+            }
+            rpcInternalSetup = task.cancellable()
+            do { try await task.value } catch {
+                rpcInternalSetup = nil
+                throw error
+            }
         }
 
         // enable E2EE
@@ -640,7 +642,7 @@ extension Room {
         }
     }
 
-    private func wireRpcInternals() async throws {
+    func setupRpc() async throws {
         await rpcClient.attach(to: self)
         await rpcServer.attach(to: self)
         try await incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.request) { [weak rpcServer] reader, identity in

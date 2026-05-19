@@ -183,6 +183,55 @@ struct RpcTests {
         }
     }
 
+    /// After a caller disconnects and reconnects, v2 RPC must still route correctly.
+    /// Exercises the `rpcInternalSetup` memoization contract: the second `connect()`
+    /// reuses the cached `AnyTaskCancellable`, skipping re-registration, and the
+    /// already-registered stream handlers survive `cleanUp`. The responder is kept
+    /// connected throughout so its `rpcServer.handlers` remain intact.
+    @Test func v2RpcWorksAfterReconnect() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canPublishData: true),
+        ]) { rooms in
+            let responder = rooms[0]
+            let caller = rooms[1]
+            let responderIdentity = try #require(responder.localParticipant.identity)
+
+            try await responder.registerRpcMethod("ping") { _ in "pong" }
+
+            let first = try await caller.localParticipant.performRpc(
+                destinationIdentity: responderIdentity,
+                method: "ping",
+                payload: ""
+            )
+            #expect(first == "pong")
+
+            // Save credentials before disconnect (cleanUp clears them on the non-reconnect path).
+            let url = try #require(caller.url)
+            let token = try #require(caller.token)
+            await caller.disconnect()
+            try await caller.connect(url: url, token: token)
+
+            // Wait for caller to rediscover responder after reconnect, otherwise
+            // `performRpc` reads `remoteParticipants[…]?.clientProtocol = nil` and
+            // falls back to the v1 packet path instead of exercising v2.
+            let deadline = Date().addingTimeInterval(10)
+            while Date() < deadline, caller.remoteParticipants[responderIdentity] == nil {
+                try await Task.sleep(nanoseconds: 100_000_000)
+            }
+            try #require(caller.remoteParticipants[responderIdentity] != nil,
+                         "responder did not reappear after caller reconnect")
+
+            let second = try await caller.localParticipant.performRpc(
+                destinationIdentity: responderIdentity,
+                method: "ping",
+                payload: ""
+            )
+            #expect(second == "pong")
+            #expect(await caller.rpcClient.pendingCount == 0)
+        }
+    }
+
     /// v2 caller falling back to the v1 path rejects payloads >15 KB before publishing.
     @Test func v2CallerV1FallbackRejectsLargePayload() async throws {
         try await TestEnvironment.withRooms([

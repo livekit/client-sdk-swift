@@ -430,6 +430,21 @@ struct RpcUnitTests {
         }
     }
 
+    /// If `setupRpc` throws on the first attempt (e.g. a stream-handler registration fails),
+    /// the next call must be able to retry from a clean slate — this is how `Room.connect()`
+    /// recovers from a failed wiring step via the `rpcInternalSetup = nil; throw` pattern.
+    @Test func setupRpcRetriesAfterRegistrationFailure() async throws {
+        let room = Room()
+        try await room.incomingStreamManager.registerTextStreamHandler(for: RpcStreamTopic.request) { _, _ in }
+
+        await #expect(throws: (any Error).self) {
+            try await room.setupRpc()
+        }
+
+        await room.incomingStreamManager.unregisterTextStreamHandler(for: RpcStreamTopic.request)
+        try await room.setupRpc()
+    }
+
     /// A v2 response stream from any peer other than the original RPC destination must
     /// NOT resolve the pending call — otherwise any participant could spoof responses
     /// for someone else's in-flight RPC. Pre-fix, `handleIncomingResponseStream` ignored
