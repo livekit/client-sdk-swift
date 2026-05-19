@@ -76,6 +76,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             queue.append(request)
         }
 
+        /// Put `request` back at the head of the buffer. Used when `processSendQueue`
+        /// dequeues a request but discovers the data channel transitioned out of
+        /// `.open` before it could be sent; the request must keep its FIFO position
+        /// so it's the next one a `.wakeup` retries.
+        mutating func enqueueFront(_ request: PublishDataRequest) {
+            queue.prepend(request)
+        }
+
         @discardableResult
         mutating func dequeue() -> PublishDataRequest? {
             guard !queue.isEmpty else { return nil }
@@ -137,6 +145,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             case publishedData(PublishDataRequest)
             case bufferedAmountChanged(UInt64)
             case retryRequested(UInt32)
+            /// A data channel transitioned into `.open`. `processSendQueue` is run
+            /// for both kinds so requests parked during a transient close window
+            /// (`channel(for:)` returning `nil`) can resume.
+            case wakeup
+            /// Fail every parked send-buffer request with the given error so callers
+            /// don't hang on continuations queued for now-discarded channels.
+            /// Yielded by `reset(throwing:)` on disconnect/full-reconnect teardown.
+            case drain(Error?)
         }
     }
 
@@ -168,22 +184,30 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             case .lossy: ()
             case .reliable: retry(buffer: &buffers.reliableRetryBuffer, from: lastSeq)
             }
+        case .wakeup:
+            // No buffer mutation; both `processSendQueue` calls below check
+            // `channel(for:)` and re-park requests they can't ship yet.
+            break
+        case let .drain(error):
+            let drainError = error ?? LiveKitError(.cancelled, message: "Data channel reset")
+            while let request = buffers.lossyBuffer.dequeue() {
+                request.continuation?.resume(throwing: drainError)
+            }
+            while let request = buffers.reliableBuffer.dequeue() {
+                request.continuation?.resume(throwing: drainError)
+            }
+            // RetryBuffer entries have nil continuations (asserted in `retry`),
+            // so no resumption is needed there.
+            return
         }
 
-        switch event.channelKind {
-        case .lossy:
-            processSendQueue(
-                threshold: Self.lossyLowThreshold,
-                buffer: &buffers.lossyBuffer,
-                kind: .lossy
-            )
-        case .reliable:
-            processSendQueue(
-                threshold: Self.reliableLowThreshold,
-                buffer: &buffers.reliableBuffer,
-                kind: .reliable
-            )
-        }
+        // Always flush both kinds. `processSendQueue` is a no-op when either
+        // `canSend(threshold:)` is false or `channel(for:)` returns nil, so this
+        // is cheap; the gain is that a `.wakeup` (which carries one channel's
+        // kind on the event but signals both-channel readiness) drains both
+        // queues in one go.
+        processSendQueue(threshold: Self.lossyLowThreshold, buffer: &buffers.lossyBuffer, kind: .lossy)
+        processSendQueue(threshold: Self.reliableLowThreshold, buffer: &buffers.reliableBuffer, kind: .reliable)
     }
 
     private func channel(for kind: ChannelKind) -> LKRTCDataChannel? {
@@ -199,14 +223,20 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         kind: ChannelKind
     ) {
         while buffer.canSend(threshold: threshold), let request = buffer.dequeue() {
-            buffer.rtcAmount += UInt64(request.data.data.count)
-
             guard let channel = channel(for: kind) else {
-                request.continuation?.resume(
-                    throwing: LiveKitError(.invalidState, message: "Data channel is not open")
-                )
+                // `openCompleter` is a sticky latch — it stays resolved after the
+                // first open transition, so `room.send(...)`'s `openCompleter.wait()`
+                // can return based on a stale "was open" signal while the live
+                // `_state.isOpen` is false (e.g. one channel briefly closed). Re-park
+                // the request at the head of the buffer; the next state transition
+                // back to open yields a `.wakeup` that retries the flush. Final
+                // disposition on permanent close happens via `.drain(...)` from
+                // `reset(throwing:)`.
+                buffer.enqueueFront(request)
                 return
             }
+            buffer.rtcAmount += UInt64(request.data.data.count)
+
             guard channel.sendData(request.data) else {
                 request.continuation?.resume(
                     throwing: LiveKitError(.invalidState, message: "sendData failed")
@@ -283,6 +313,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
         if isOpen {
             openCompleter.resume(returning: ())
+            eventContinuation.yield(ChannelEvent(channelKind: .reliable, detail: .wakeup))
         }
     }
 
@@ -296,6 +327,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
         if isOpen {
             openCompleter.resume(returning: ())
+            eventContinuation.yield(ChannelEvent(channelKind: .lossy, detail: .wakeup))
         }
     }
 
@@ -311,6 +343,11 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
         lossy?.close()
         reliable?.close()
+
+        // Drain any send-buffer requests that were parked waiting for the
+        // channels to (re-)open. Yielded as an event so it's serialized with
+        // any in-flight `publishData` enqueues on the same stream.
+        eventContinuation.yield(ChannelEvent(channelKind: .reliable, detail: .drain(error)))
 
         openCompleter.reset(throwing: error)
     }
@@ -415,9 +452,13 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
         eventContinuation.yield(event)
     }
 
-    func dataChannelDidChangeState(_: LKRTCDataChannel) {
+    func dataChannelDidChangeState(_ dataChannel: LKRTCDataChannel) {
         if isOpen {
             openCompleter.resume(returning: ())
+            // Drive `processSendQueue` for both kinds — requests parked during a
+            // transient close window (e.g. fast-reconnect re-arming channels)
+            // can now ship.
+            eventContinuation.yield(ChannelEvent(channelKind: dataChannel.kind, detail: .wakeup))
         }
     }
 
