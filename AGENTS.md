@@ -90,6 +90,7 @@ Threading:
 - `LiveKitTestSupport` - test utilities including `withRooms` helper for multi-participant E2E tests
 - E2E tests use `withRooms([...]) { rooms in ... }` to spawn multiple connected rooms/participants
 - E2E tests should cover reconnects, partial updates, edge cases, and stress scenarios
+- `@Test(.spec("https://..."))` cross-references a test to an upstream spec case via a pinned URL (commit + line anchor)
 
 ## Using Swift
 
