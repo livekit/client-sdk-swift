@@ -17,19 +17,24 @@
 import Foundation
 import Testing
 
-/// Cross-reference to a case in an external specification document.
+/// Cross-references a test to a case in an external specification document.
 ///
-/// Just a URL — encode the precise location with an anchor (e.g. GitHub's
-/// `?plain=1#L<n>`) so it scrolls to the relevant line when clicked. Test
-/// suites pass these directly to `@Test(...)`; the retroactive conformance
-/// below makes `URL` itself a `TestTrait`. Pair with the `.spec` tag for
-/// runtime filtering.
+/// Pure metadata: Swift Testing has no built-in renderer for custom-trait
+/// payloads, so the trait simply records the URL where the case lives for
+/// source review and any future coverage-mapping tooling that walks
+/// `Test.traits`. Spec namespaces live next to this file (e.g. `URL.rpc.*`
+/// in `RpcSpec.swift`) so a leading dot resolves them through `.spec(...)`:
 ///
-/// Usage:
 /// ```swift
-/// @Test(.tags(.spec), RpcSpec.V2V2.callerHappyShort)
-/// func someTest() async throws { … }
+/// @Test(.spec(.rpc.V2V2.callerHappyPathShort))
+/// func v2CallerHappyPathShort() async throws { … }
 /// ```
-typealias SpecCase = URL
+struct SpecCase: TestTrait, SuiteTrait {
+    /// Source URL for the case (typically pinned to a commit and with a line anchor).
+    let url: URL
+}
 
-extension URL: @retroactive TestTrait, @retroactive SuiteTrait {}
+extension Trait where Self == SpecCase {
+    /// Cross-reference this test to a case in an external specification document.
+    static func spec(_ url: URL) -> Self { SpecCase(url: url) }
+}

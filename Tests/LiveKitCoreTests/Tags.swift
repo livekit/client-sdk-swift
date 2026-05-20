@@ -37,7 +37,4 @@ extension Tag {
     @Tag static var networking: Self
     /// RPC v1 / v2 caller and handler tests.
     @Tag static var rpc: Self
-    /// Tests that pin a required case from an upstream LiveKit SDK
-    /// specification (see ``SpecCase`` trait for the per-test details).
-    @Tag static var spec: Self
 }
