@@ -177,13 +177,23 @@ actor RpcClientManager: Loggable {
             log("[Rpc] Incoming v2 RPC response stream is missing request id attribute", .error)
             return
         }
+
+        // Validate the sender BEFORE reading the stream — matches JS and avoids
+        // burning cycles (or worse, hitting `readAll` side effects) on a spoofed
+        // payload. After this check passes, both the success and read-failure
+        // paths trust the sender and resume the pending call directly.
+        if let pending = pendingResponses[requestId], pending.participantIdentity != senderIdentity {
+            log("[Rpc] Response stream for \(requestId) from wrong sender (expected \(pending.participantIdentity), got \(senderIdentity)); ignoring", .error)
+            return
+        }
+
         let payload: String
         do {
             payload = try await reader.readAll()
         } catch {
             log("[Rpc] Failed to read v2 RPC response payload for \(requestId): \(error)", .error)
             // Fail the pending call fast instead of letting it hang to responseTimeout.
-            if let pending = pendingResponses.removeValue(forKey: requestId), pending.participantIdentity == senderIdentity {
+            if let pending = pendingResponses.removeValue(forKey: requestId) {
                 pending.completer.resume(throwing: RpcError(code: RpcError.BuiltInError.applicationError.code,
                                                             message: "Error reading RPC response payload",
                                                             data: ""))
@@ -191,15 +201,10 @@ actor RpcClientManager: Loggable {
             return
         }
 
-        guard let pending = pendingResponses[requestId] else {
+        guard let pending = pendingResponses.removeValue(forKey: requestId) else {
             log("[Rpc] Response stream received for unexpected RPC request, id = \(requestId)", .error)
             return
         }
-        guard pending.participantIdentity == senderIdentity else {
-            log("[Rpc] Response stream for \(requestId) from wrong sender (expected \(pending.participantIdentity), got \(senderIdentity)); ignoring", .error)
-            return
-        }
-        pendingResponses.removeValue(forKey: requestId)
         pending.completer.resume(returning: payload)
     }
 

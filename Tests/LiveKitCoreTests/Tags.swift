@@ -17,24 +17,27 @@
 import Testing
 
 extension Tag {
-    /// End-to-end tests requiring a running LiveKit server.
-    @Tag static var e2e: Self
     /// Audio engine, processing, recording, and buffer tests.
     @Tag static var audio: Self
     /// Screen broadcast and sharing tests.
     @Tag static var broadcast: Self
-    /// Text and byte data stream tests.
-    @Tag static var dataStream: Self
-    /// WebRTC data channel tests.
-    @Tag static var dataChannel: Self
-    /// RPC v1 / v2 caller and handler tests.
-    @Tag static var rpc: Self
-    /// Region management, token, and connection tests.
-    @Tag static var networking: Self
     /// Async primitives and thread safety tests.
     @Tag static var concurrency: Self
-    /// Codec, track, publishing, and AVFoundation tests.
-    @Tag static var media: Self
+    /// WebRTC data channel tests.
+    @Tag static var dataChannel: Self
+    /// Text and byte data stream tests.
+    @Tag static var dataStream: Self
+    /// End-to-end tests requiring a running LiveKit server.
+    @Tag static var e2e: Self
     /// End-to-end encryption tests.
     @Tag static var e2ee: Self
+    /// Codec, track, publishing, and AVFoundation tests.
+    @Tag static var media: Self
+    /// Region management, token, and connection tests.
+    @Tag static var networking: Self
+    /// RPC v1 / v2 caller and handler tests.
+    @Tag static var rpc: Self
+    /// Tests that pin a required case from an upstream LiveKit SDK
+    /// specification (see ``SpecCase`` trait for the per-test details).
+    @Tag static var spec: Self
 }

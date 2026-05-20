@@ -55,8 +55,10 @@ actor RpcServerManager: Loggable {
     // MARK: - Incoming dispatch
 
     // swiftlint:disable function_parameter_count
-    /// Handle an RPC request that arrived as a v1 `RpcRequest` packet. Always responds via
-    /// a v1 `RpcResponse` packet, since the caller signaled v1 transport by using a packet.
+    /// Handle an RPC request that arrived as a v1 `RpcRequest` packet. Successful
+    /// responses follow the caller's advertised `clientProtocol`: v2-capable callers
+    /// get a v2 data-stream response (uncapped), legacy callers get a v1 packet.
+    /// Errors always use a v1 packet per spec.
     func handleIncomingRequest(callerIdentity: Participant.Identity,
                                requestId: String,
                                method: String,
@@ -91,20 +93,10 @@ actor RpcServerManager: Loggable {
                                              payload: payload,
                                              responseTimeout: responseTimeout)
         do {
-            switch result {
-            case let .success(payload):
-                try await publishResponse(in: room,
-                                          destinationIdentity: callerIdentity,
-                                          requestId: requestId,
-                                          payload: payload,
-                                          error: nil)
-            case let .failure(error):
-                try await publishResponse(in: room,
-                                          destinationIdentity: callerIdentity,
-                                          requestId: requestId,
-                                          payload: nil,
-                                          error: error)
-            }
+            try await publishResult(result,
+                                    in: room,
+                                    destinationIdentity: callerIdentity,
+                                    requestId: requestId)
         } catch {
             log("[Rpc] Failed to publish RPC response for \(requestId)", .error)
         }
@@ -193,20 +185,10 @@ actor RpcServerManager: Loggable {
                                              payload: payload,
                                              responseTimeout: responseTimeout)
         do {
-            switch result {
-            case let .success(responsePayload):
-                try await publishResponseStream(in: room,
-                                                destinationIdentity: callerIdentity,
-                                                requestId: requestId,
-                                                payload: responsePayload)
-            case let .failure(error):
-                // Per spec: error responses always use v1 packet, even when both sides are v2.
-                try await publishResponse(in: room,
-                                          destinationIdentity: callerIdentity,
-                                          requestId: requestId,
-                                          payload: nil,
-                                          error: error)
-            }
+            try await publishResult(result,
+                                    in: room,
+                                    destinationIdentity: callerIdentity,
+                                    requestId: requestId)
         } catch {
             log("[Rpc] Failed to publish RPC response for \(requestId)", .error)
         }
@@ -245,6 +227,39 @@ actor RpcServerManager: Loggable {
         } catch {
             log("[Rpc] Uncaught error returned by RPC handler for \(method): \(error). Returning APPLICATION_ERROR instead.", .warning)
             return .failure(RpcError.builtIn(.applicationError))
+        }
+    }
+
+    /// Publish a handler dispatch outcome. Successful responses follow the caller's
+    /// advertised `clientProtocol`: v2-capable peers receive a v2 stream (uncapped),
+    /// legacy peers receive a v1 packet (capped at `MAX_RPC_PAYLOAD_BYTES`). Error
+    /// responses always use a v1 packet per spec, regardless of caller transport.
+    private func publishResult(_ result: DispatchResult,
+                               in room: Room,
+                               destinationIdentity: Participant.Identity,
+                               requestId: String) async throws
+    {
+        switch result {
+        case let .success(payload):
+            let callerProtocol = room.remoteParticipants[destinationIdentity]?.clientProtocol ?? .v0
+            if callerProtocol >= .v1 {
+                try await publishResponseStream(in: room,
+                                                destinationIdentity: destinationIdentity,
+                                                requestId: requestId,
+                                                payload: payload)
+            } else {
+                try await publishResponse(in: room,
+                                          destinationIdentity: destinationIdentity,
+                                          requestId: requestId,
+                                          payload: payload,
+                                          error: nil)
+            }
+        case let .failure(error):
+            try await publishResponse(in: room,
+                                      destinationIdentity: destinationIdentity,
+                                      requestId: requestId,
+                                      payload: nil,
+                                      error: error)
         }
     }
 

@@ -137,7 +137,8 @@ struct RpcClientTests {
     /// Regression test: when the destination participant disconnects mid-call, the
     /// caller receives `recipientDisconnected` (1503) immediately rather than the
     /// generic `connectionTimeout` (1501) after the user-supplied `responseTimeout`.
-    @Test func performRpcRejectsOnRecipientDisconnect() async throws {
+    @Test(.tags(.spec), .spec("v2-v1-#15", "Participant disconnection", url: RpcSpec.url))
+    func performRpcRejectsOnRecipientDisconnect() async throws {
         try await TestEnvironment.withRoom { room in
             let destination = Participant.Identity(from: "test-destination")
             room.publisherDataChannel = MockDataChannelPair { _ in }
@@ -250,7 +251,8 @@ struct RpcClientTests {
     /// the completer's `defaultTimeout` fires before the ack-watchdog and surfaces as
     /// `responseTimeout` (1502) — `connectionTimeout` (1501) is reserved for the
     /// ack-watchdog path.
-    @Test func v2CallerResponseTimeout() async throws {
+    @Test(.tags(.spec), .spec("v2-v2-#6", "Response timeout", url: RpcSpec.url))
+    func v2CallerResponseTimeout() async throws {
         try await TestEnvironment.withRoom { room in
             let destination = Participant.Identity(from: "v2-destination")
             try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v1)
@@ -388,7 +390,8 @@ struct RpcClientTests {
 struct RpcServerTests {
     // MARK: - v1 server-side handler dispatch
 
-    @Test func handleIncomingRpcRequest() async throws {
+    @Test(.tags(.spec), .spec("v2-v1-#11", "Handler happy path (v1 request)", url: RpcSpec.url))
+    func handleIncomingRpcRequest() async throws {
         try await TestEnvironment.withRoom { room in
             try await confirmation("Should send RPC response packet") { confirm in
                 let mockDataChannel = MockDataChannelPair { packet in
@@ -424,7 +427,8 @@ struct RpcServerTests {
         }
     }
 
-    @Test func rpcErrorHandling() async throws {
+    @Test(.tags(.spec), .spec("v1-v2-#18", "RpcError passthrough (v1 caller)", url: RpcSpec.url))
+    func rpcErrorHandling() async throws {
         try await TestEnvironment.withRoom { room in
             try await confirmation("Should send error response packet") { confirm in
                 let mockDataChannel = MockDataChannelPair { packet in
@@ -507,6 +511,47 @@ struct RpcServerTests {
                     callerIdentity: Participant.Identity(from: "v1-caller"),
                     requestId: "v1-oversize",
                     method: "big",
+                    payload: "",
+                    responseTimeout: 8,
+                    version: 1
+                )
+            }
+        }
+    }
+
+    /// Spec test case #16 (v1 → v2 handler response fallback): a legacy v1 caller
+    /// (`clientProtocol = .v0`) sends a v1 `RpcRequest` packet to a v2-capable
+    /// handler. Even though the handler supports v2 streams, it must respond
+    /// with a v1 `RpcResponse` packet — not a stream — because the caller
+    /// doesn't subscribe to `lk.rpc_response`. Pins the per-caller transport
+    /// selection in `publishResult`.
+    @Test(.tags(.spec), .spec("v1-v2-#16", "Handler happy path (response fallback)", url: RpcSpec.url))
+    func v1CallerToV2HandlerResponseUsesV1Packet() async throws {
+        try await TestEnvironment.withRoom { room in
+            let v1Caller = Participant.Identity(from: "legacy-v1-caller")
+            try await RpcTestSupport.installRemote(in: room, identity: v1Caller, clientProtocol: .v0)
+
+            try await confirmation("Response arrives as v1 RpcResponse packet, not a stream") { confirm in
+                let mockDataChannel = MockDataChannelPair { packet in
+                    if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.response {
+                        Issue.record("v2 stream response opened for v1 caller (\(header.attributes))")
+                        return
+                    }
+                    guard case let .rpcResponse(response) = packet.value,
+                          response.requestID == "v1-to-v2",
+                          case let .payload(payload) = response.value,
+                          payload == "v1-response"
+                    else { return }
+                    confirm()
+                }
+                room.publisherDataChannel = mockDataChannel
+
+                try await room.registerRpcMethod("ping") { _ in "v1-response" }
+
+                await room.rpcServer.handleIncomingRequest(
+                    callerIdentity: v1Caller,
+                    requestId: "v1-to-v2",
+                    method: "ping",
                     payload: "",
                     responseTimeout: 8,
                     version: 1
@@ -680,7 +725,12 @@ struct RpcServerTests {
         }
     }
 
-    @Test(arguments: HandlerErrorScenario.allCases)
+    @Test(
+        .tags(.spec),
+        .spec("v2-v2-#4", "Unhandled error in handler", url: RpcSpec.url),
+        .spec("v2-v2-#5", "RpcError passthrough in handler", url: RpcSpec.url),
+        arguments: HandlerErrorScenario.allCases
+    )
     func v2HandlerErrorReturnsPacket(_ scenario: HandlerErrorScenario) async throws {
         try await TestEnvironment.withRoom { room in
             try await confirmation("Sends v1 RpcResponse error packet (\(scenario.testDescription))") { confirm in
