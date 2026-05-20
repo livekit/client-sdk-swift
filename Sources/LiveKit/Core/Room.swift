@@ -142,7 +142,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     // MARK: - RPC
 
-    let rpcState = RpcStateManager()
+    let rpcClient = RpcClientManager()
+    let rpcServer = RpcServerManager()
 
     // MARK: - State
 
@@ -386,6 +387,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         try Task.checkCancellation()
 
+        // Wire RPC internals before any engine activity so incoming v2 streams aren't
+        // dropped in the gap between init and connect. Idempotent across reconnects.
+        await setupRpc()
+
         // enable E2EE
         if let e2eeOptions = state.roomOptions.e2eeOptions {
             e2eeManager = E2EEManager(e2eeOptions: e2eeOptions)
@@ -573,6 +578,11 @@ extension Room {
     {
         log("withError: \(String(describing: disconnectError)), isFullReconnect: \(isFullReconnect)")
 
+        // Reap all in-flight RPCs with `recipientDisconnected` (1503). Runs before the
+        // participant-state wipe so callers don't hang on the response timeout during
+        // disconnect / full reconnect.
+        await rpcClient.handleAllPendingDisconnected()
+
         // Reset completers
         _sidCompleter.reset(throwing: disconnectError)
         primaryTransportConnectedCompleter.reset(throwing: disconnectError)
@@ -621,6 +631,17 @@ extension Room {
             }
         }
     }
+
+    private func setupRpc() async {
+        await rpcClient.attach(to: self)
+        await rpcServer.attach(to: self)
+        await incomingStreamManager.registerTextStreamHandlerIfNeeded(for: RpcStreamTopic.request) { [weak rpcServer] reader, identity in
+            await rpcServer?.handleIncomingRequestStream(reader: reader, callerIdentity: identity)
+        }
+        await incomingStreamManager.registerTextStreamHandlerIfNeeded(for: RpcStreamTopic.response) { [weak rpcClient] reader, identity in
+            await rpcClient?.handleIncomingResponseStream(reader: reader, senderIdentity: identity)
+        }
+    }
 }
 
 // MARK: - Internal
@@ -652,6 +673,11 @@ extension Room {
     }
 
     func _onParticipantDidDisconnect(identity: Participant.Identity) async throws {
+        // Reap any in-flight RPCs targeting this participant before tearing them down,
+        // so the caller sees `recipientDisconnected` (1503) immediately instead of
+        // hanging until the user-supplied `responseTimeout`.
+        await rpcClient.handleParticipantDisconnected(identity)
+
         guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: identity) }) else {
             throw LiveKitError(.invalidState, message: "Participant not found for \(identity)")
         }
