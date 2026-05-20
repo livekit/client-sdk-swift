@@ -597,94 +597,83 @@ struct RpcServerTests {
         }
     }
 
-    /// v2 stream with `requestId` but missing required attributes (method /
-    /// timeoutMs / version) must reply with `APPLICATION_ERROR` (1500,
-    /// "RPC data stream malformed") so the caller fails fast instead of
-    /// hanging to its own response timeout. Matches JS.
-    @Test func v2RequestStreamMissingAttrsReturnsApplicationError() async throws {
-        try await TestEnvironment.withRoom { room in
-            await confirmation("Sends APPLICATION_ERROR malformed packet") { confirm in
-                let mockDataChannel = MockDataChannelPair { packet in
-                    guard case let .rpcResponse(response) = packet.value,
-                          response.requestID == "v2-req-incomplete",
-                          case let .error(error) = response.value,
-                          error.code == RpcError.BuiltInError.applicationError.code,
-                          error.message == "RPC data stream malformed"
-                    else { return }
-                    confirm()
-                }
-                room.publisherDataChannel = mockDataChannel
+    enum V2RequestErrorScenario: CaseIterable, CustomTestStringConvertible {
+        case missingMethod
+        case wrongVersion
+        case readerFailure
 
-                let reader = RpcTestSupport.makeRequestReader(
-                    requestId: "v2-req-incomplete",
-                    method: nil, // missing
-                    payload: "",
-                    timeoutMs: 8000
+        var testDescription: String {
+            switch self {
+            case .missingMethod: "missing `method` attr → APPLICATION_ERROR/malformed"
+            case .wrongVersion: "version='3' → unsupportedVersion"
+            case .readerFailure: "reader.readAll() throws → APPLICATION_ERROR/read-failure"
+            }
+        }
+
+        var requestId: String {
+            switch self {
+            case .missingMethod: "v2-req-incomplete"
+            case .wrongVersion: "v2-req-badver"
+            case .readerFailure: "v2-req-readfail"
+            }
+        }
+
+        func makeReader() -> TextStreamReader {
+            switch self {
+            case .missingMethod:
+                RpcTestSupport.makeRequestReader(
+                    requestId: requestId, method: nil, payload: "", timeoutMs: 8000
                 )
-                await room.rpcServer.handleIncomingRequestStream(
-                    reader: reader,
-                    callerIdentity: Participant.Identity(from: "v2-caller")
+            case .wrongVersion:
+                RpcTestSupport.makeRequestReader(
+                    requestId: requestId, method: "anything", payload: "", timeoutMs: 8000, version: "3"
                 )
+            case .readerFailure:
+                RpcTestSupport.makeFailingRequestReader(
+                    requestId: requestId, method: "anything", timeoutMs: 8000
+                )
+            }
+        }
+
+        var expectedCode: Int {
+            switch self {
+            case .missingMethod, .readerFailure: RpcError.BuiltInError.applicationError.code
+            case .wrongVersion: RpcError.BuiltInError.unsupportedVersion.code
+            }
+        }
+
+        /// `nil` means "don't assert on message" — `wrongVersion` uses the
+        /// built-in default message, the others carry specific text.
+        var expectedMessage: String? {
+            switch self {
+            case .missingMethod: "RPC data stream malformed"
+            case .wrongVersion: nil
+            case .readerFailure: "Error reading RPC request payload"
             }
         }
     }
 
-    /// v2 stream with a `version` attribute that isn't `"2"` must reply with
-    /// `unsupportedVersion` (1404). Present-but-wrong is distinct from missing
-    /// (which is APPLICATION_ERROR) — matches JS.
-    @Test func v2RequestStreamUnsupportedVersion() async throws {
+    /// `RpcServerManager.handleIncomingRequestStream` error fan-out. For each
+    /// malformed-input shape the server must publish a matching error packet
+    /// on the v1 wire so the caller fails fast instead of hanging to its own
+    /// response timeout. Matches JS.
+    @Test(arguments: V2RequestErrorScenario.allCases)
+    func v2RequestStreamErrorReturnsPacket(_ scenario: V2RequestErrorScenario) async throws {
         try await TestEnvironment.withRoom { room in
-            await confirmation("Sends unsupportedVersion error packet") { confirm in
+            await confirmation("Sends matching error packet (\(scenario.testDescription))") { confirm in
                 let mockDataChannel = MockDataChannelPair { packet in
                     guard case let .rpcResponse(response) = packet.value,
-                          response.requestID == "v2-req-badver",
+                          response.requestID == scenario.requestId,
                           case let .error(error) = response.value,
-                          error.code == RpcError.BuiltInError.unsupportedVersion.code
+                          error.code == scenario.expectedCode
                     else { return }
+                    if let expected = scenario.expectedMessage, error.message != expected { return }
                     confirm()
                 }
                 room.publisherDataChannel = mockDataChannel
 
-                let reader = RpcTestSupport.makeRequestReader(
-                    requestId: "v2-req-badver",
-                    method: "anything",
-                    payload: "",
-                    timeoutMs: 8000,
-                    version: "3"
-                )
                 await room.rpcServer.handleIncomingRequestStream(
-                    reader: reader,
-                    callerIdentity: Participant.Identity(from: "v2-caller")
-                )
-            }
-        }
-    }
-
-    /// When the v2 request-stream reader fails partway through (peer-closed
-    /// transport mid-stream, encryption decrypt failure, etc.), the server
-    /// must reply with `APPLICATION_ERROR` carrying "Error reading RPC request
-    /// payload" rather than going silent. Matches JS.
-    @Test func v2RequestStreamReaderFailureReturnsApplicationError() async throws {
-        try await TestEnvironment.withRoom { room in
-            await confirmation("Sends APPLICATION_ERROR read-failure packet") { confirm in
-                let mockDataChannel = MockDataChannelPair { packet in
-                    guard case let .rpcResponse(response) = packet.value,
-                          response.requestID == "v2-req-readfail",
-                          case let .error(error) = response.value,
-                          error.code == RpcError.BuiltInError.applicationError.code,
-                          error.message == "Error reading RPC request payload"
-                    else { return }
-                    confirm()
-                }
-                room.publisherDataChannel = mockDataChannel
-
-                let reader = RpcTestSupport.makeFailingRequestReader(
-                    requestId: "v2-req-readfail",
-                    method: "anything",
-                    timeoutMs: 8000
-                )
-                await room.rpcServer.handleIncomingRequestStream(
-                    reader: reader,
+                    reader: scenario.makeReader(),
                     callerIdentity: Participant.Identity(from: "v2-caller")
                 )
             }
