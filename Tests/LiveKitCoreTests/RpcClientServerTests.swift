@@ -21,10 +21,14 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-// swiftlint:disable file_length type_body_length
+// swiftlint:disable file_length
 
+// MARK: - RpcClientTests
+
+/// Unit-level coverage of ``RpcClientManager``: caller-side state machine,
+/// pending bookkeeping, timeout codes, cancellation, and sender validation.
 @Suite(.tags(.rpc))
-struct RpcUnitTests {
+struct RpcClientTests {
     // MARK: - v1 caller-side state machine
 
     @Test func performRpc() async throws {
@@ -240,6 +244,83 @@ struct RpcUnitTests {
         }
     }
 
+    // MARK: - v2 caller-side wire-format & state-machine internals
+
+    /// Caller times out waiting for the response. With `responseTimeout < maxRoundTripLatency`,
+    /// the completer's `defaultTimeout` fires before the ack-watchdog and surfaces as
+    /// `responseTimeout` (1502) — `connectionTimeout` (1501) is reserved for the
+    /// ack-watchdog path.
+    @Test func v2CallerResponseTimeout() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "v2-destination")
+            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v1)
+
+            room.publisherDataChannel = MockDataChannelPair { _ in }
+
+            do {
+                _ = try await room.localParticipant.performRpc(
+                    destinationIdentity: destination,
+                    method: "method",
+                    payload: "x",
+                    responseTimeout: 0.05
+                )
+                Issue.record("Expected RpcError to be thrown")
+            } catch let error as RpcError {
+                #expect(error.code == RpcError.BuiltInError.responseTimeout.code)
+            } catch {
+                Issue.record("Unexpected error type: \(error)")
+            }
+            #expect(await room.rpcClient.pendingCount == 0)
+        }
+    }
+
+    /// A v2 response stream from any peer other than the original RPC destination must
+    /// NOT resolve the pending call — otherwise any participant could spoof responses
+    /// for someone else's in-flight RPC. Pre-fix, `handleIncomingResponseStream` ignored
+    /// the `senderIdentity` argument entirely and resolved on requestId match alone.
+    @Test func v2ResponseStreamFromWrongSenderIsIgnored() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "v2-destination")
+            let imposter = Participant.Identity(from: "v2-imposter")
+            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v1)
+
+            let mockDataChannel = MockDataChannelPair { packet in
+                if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
+                    Task {
+                        let requestId = try #require(header.attributes[RpcStreamAttribute.requestId])
+                        await room.rpcClient.handleIncomingAck(requestId: requestId)
+                        // Inject a response stream from the imposter — must be ignored.
+                        let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "spoofed")
+                        await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: imposter)
+                    }
+                }
+            }
+            room.publisherDataChannel = mockDataChannel
+
+            do {
+                let response = try await room.localParticipant.performRpc(
+                    destinationIdentity: destination,
+                    method: "method",
+                    payload: "x",
+                    responseTimeout: 1
+                )
+                Issue.record("Spoofed response from wrong sender should not have resolved the call (got \(response))")
+            } catch let error as RpcError {
+                // Ack arrived (legitimately) but the spoofed response was ignored, so the
+                // completer's user-supplied `responseTimeout` (1s) elapses → 1502.
+                #expect(error.code == RpcError.BuiltInError.responseTimeout.code)
+            }
+            #expect(await room.rpcClient.pendingCount == 0)
+        }
+    }
+}
+
+// MARK: - RpcServerTests
+
+/// Unit-level coverage of ``RpcServerManager``: handler registry, v1 dispatch,
+/// v2 stream dispatch error paths.
+@Suite(.tags(.rpc))
+struct RpcServerTests {
     // MARK: - v1 server-side handler dispatch
 
     @Test func handleIncomingRpcRequest() async throws {
@@ -337,7 +418,7 @@ struct RpcUnitTests {
         }
     }
 
-    // MARK: - v2 wire-format & state-machine internals
+    // MARK: - v2 server-side wire-format & state-machine internals
 
     enum HandlerErrorScenario: CaseIterable, CustomTestStringConvertible {
         case genericError
@@ -405,81 +486,11 @@ struct RpcUnitTests {
             }
         }
     }
-
-    /// Caller times out waiting for the response. With `responseTimeout < maxRoundTripLatency`,
-    /// the completer's `defaultTimeout` fires before the ack-watchdog and surfaces as
-    /// `responseTimeout` (1502) — `connectionTimeout` (1501) is reserved for the
-    /// ack-watchdog path.
-    @Test func v2CallerResponseTimeout() async throws {
-        try await TestEnvironment.withRoom { room in
-            let destination = Participant.Identity(from: "v2-destination")
-            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v1)
-
-            room.publisherDataChannel = MockDataChannelPair { _ in }
-
-            do {
-                _ = try await room.localParticipant.performRpc(
-                    destinationIdentity: destination,
-                    method: "method",
-                    payload: "x",
-                    responseTimeout: 0.05
-                )
-                Issue.record("Expected RpcError to be thrown")
-            } catch let error as RpcError {
-                #expect(error.code == RpcError.BuiltInError.responseTimeout.code)
-            } catch {
-                Issue.record("Unexpected error type: \(error)")
-            }
-            #expect(await room.rpcClient.pendingCount == 0)
-        }
-    }
-
-    /// A v2 response stream from any peer other than the original RPC destination must
-    /// NOT resolve the pending call — otherwise any participant could spoof responses
-    /// for someone else's in-flight RPC. Pre-fix, `handleIncomingResponseStream` ignored
-    /// the `senderIdentity` argument entirely and resolved on requestId match alone.
-    @Test func v2ResponseStreamFromWrongSenderIsIgnored() async throws {
-        try await TestEnvironment.withRoom { room in
-            let destination = Participant.Identity(from: "v2-destination")
-            let imposter = Participant.Identity(from: "v2-imposter")
-            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v1)
-
-            let mockDataChannel = MockDataChannelPair { packet in
-                if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
-                    Task {
-                        let requestId = try #require(header.attributes[RpcStreamAttribute.requestId])
-                        await room.rpcClient.handleIncomingAck(requestId: requestId)
-                        // Inject a response stream from the imposter — must be ignored.
-                        let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "spoofed")
-                        await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: imposter)
-                    }
-                }
-            }
-            room.publisherDataChannel = mockDataChannel
-
-            do {
-                let response = try await room.localParticipant.performRpc(
-                    destinationIdentity: destination,
-                    method: "method",
-                    payload: "x",
-                    responseTimeout: 1
-                )
-                Issue.record("Spoofed response from wrong sender should not have resolved the call (got \(response))")
-            } catch let error as RpcError {
-                // Ack arrived (legitimately) but the spoofed response was ignored, so the
-                // completer's user-supplied `responseTimeout` (1s) elapses → 1502.
-                #expect(error.code == RpcError.BuiltInError.responseTimeout.code)
-            }
-            #expect(await room.rpcClient.pendingCount == 0)
-        }
-    }
 }
 
-// swiftlint:enable type_body_length
+// MARK: - Shared test support
 
-// MARK: - Test support
-
-enum RpcTestSupport {
+private enum RpcTestSupport {
     /// Install a remote participant into `room` whose `clientProtocol` advertises the
     /// given version. Required for `performRpc` to read `remoteParticipants[...]?.clientProtocol`
     /// when there's no real signaling.
@@ -544,7 +555,7 @@ enum RpcTestSupport {
 }
 
 /// Async-safe append-only collector used to assert across concurrently-running tasks.
-actor TestStringCollector {
+private actor TestStringCollector {
     private(set) var values: [String] = []
     func append(_ value: String) { values.append(value) }
 }
