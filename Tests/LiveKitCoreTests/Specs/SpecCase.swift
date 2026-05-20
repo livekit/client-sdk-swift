@@ -22,12 +22,12 @@ import Testing
 /// Pure metadata: Swift Testing has no built-in renderer for custom-trait
 /// payloads, so the trait simply records the URL where the case lives for
 /// source review and any future coverage-mapping tooling that walks
-/// `Test.traits`. Spec namespaces live next to this file (e.g. `URL.rpc.*`
-/// in `RpcSpec.swift`) so a leading dot resolves them through `.spec(...)`:
+/// `Test.traits`. URL should be pinned to a specific upstream revision and
+/// include a fragment anchor that scrolls to the case.
 ///
 /// ```swift
-/// @Test(.spec(.rpc.V2V2.callerHappyPathShort))
-/// func v2CallerHappyPathShort() async throws { … }
+/// @Test(.spec("https://example.com/specs/some-spec.md?plain=1#L42"))
+/// func someTest() async throws { … }
 /// ```
 struct SpecCase: TestTrait, SuiteTrait {
     /// Source URL for the case (typically pinned to a commit and with a line anchor).
@@ -37,4 +37,10 @@ struct SpecCase: TestTrait, SuiteTrait {
 extension Trait where Self == SpecCase {
     /// Cross-reference this test to a case in an external specification document.
     static func spec(_ url: URL) -> Self { SpecCase(url: url) }
+
+    /// Convenience overload: parse a literal URL string. Force-unwrap is safe
+    /// here because call sites pass constants verified at the next test build.
+    static func spec(_ urlString: String) -> Self {
+        SpecCase(url: URL(string: urlString)!)
+    }
 }

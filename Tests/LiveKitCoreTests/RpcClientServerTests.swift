@@ -137,10 +137,42 @@ struct RpcClientTests {
     /// Regression test: when the destination participant disconnects mid-call, the
     /// caller receives `recipientDisconnected` (1503) immediately rather than the
     /// generic `connectionTimeout` (1501) after the user-supplied `responseTimeout`.
-    @Test(.spec(Rpc.V2V1.participantDisconnect))
+    /// This v2→v1 variant uses an uninstalled destination so the caller picks the
+    /// v1 packet transport.
+    @Test(.spec("https://github.com/livekit/client-sdk-js/blob/92c72f06/RPC_SPEC.md?plain=1#L302"))
     func performRpcRejectsOnRecipientDisconnect() async throws {
         try await TestEnvironment.withRoom { room in
             let destination = Participant.Identity(from: "test-destination")
+            room.publisherDataChannel = MockDataChannelPair { _ in }
+
+            await room.rpcClient.setAfterPublish { _ in
+                await room.rpcClient.handleParticipantDisconnected(destination)
+            }
+
+            do {
+                _ = try await room.localParticipant.performRpc(
+                    destinationIdentity: destination,
+                    method: "method",
+                    payload: "x",
+                    responseTimeout: 1
+                )
+                Issue.record("Expected RpcError, got success")
+            } catch let error as RpcError {
+                #expect(error.code == RpcError.BuiltInError.recipientDisconnected.code)
+            }
+            #expect(await room.rpcClient.pendingCount == 0)
+        }
+    }
+
+    /// v2→v2 variant of the disconnect-mid-call regression: with a v2-capable
+    /// destination installed the caller picks the v2 stream transport, but the
+    /// disconnect-reaping path is transport-agnostic so the result is still
+    /// `recipientDisconnected` (1503).
+    @Test(.spec("https://github.com/livekit/client-sdk-js/blob/92c72f06/RPC_SPEC.md?plain=1#L258"))
+    func performRpcRejectsOnV2RecipientDisconnect() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "v2-destination")
+            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v1)
             room.publisherDataChannel = MockDataChannelPair { _ in }
 
             await room.rpcClient.setAfterPublish { _ in
@@ -251,7 +283,7 @@ struct RpcClientTests {
     /// the completer's `defaultTimeout` fires before the ack-watchdog and surfaces as
     /// `responseTimeout` (1502) — `connectionTimeout` (1501) is reserved for the
     /// ack-watchdog path.
-    @Test(.spec(Rpc.V2V2.responseTimeout))
+    @Test(.spec("https://github.com/livekit/client-sdk-js/blob/92c72f06/RPC_SPEC.md?plain=1#L247"))
     func v2CallerResponseTimeout() async throws {
         try await TestEnvironment.withRoom { room in
             let destination = Participant.Identity(from: "v2-destination")
@@ -271,6 +303,71 @@ struct RpcClientTests {
                 #expect(error.code == RpcError.BuiltInError.responseTimeout.code)
             } catch {
                 Issue.record("Unexpected error type: \(error)")
+            }
+            #expect(await room.rpcClient.pendingCount == 0)
+        }
+    }
+
+    /// v2→v1 variant of response timeout: with a v0 destination installed the
+    /// caller picks the v1 packet transport. No ack/response arrives, completer
+    /// `defaultTimeout` expires → `responseTimeout` (1502).
+    @Test(.spec("https://github.com/livekit/client-sdk-js/blob/92c72f06/RPC_SPEC.md?plain=1#L289"))
+    func v2CallerV1FallbackResponseTimeout() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "v1-destination")
+            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v0)
+
+            room.publisherDataChannel = MockDataChannelPair { _ in }
+
+            do {
+                _ = try await room.localParticipant.performRpc(
+                    destinationIdentity: destination,
+                    method: "method",
+                    payload: "x",
+                    responseTimeout: 0.05
+                )
+                Issue.record("Expected RpcError to be thrown")
+            } catch let error as RpcError {
+                #expect(error.code == RpcError.BuiltInError.responseTimeout.code)
+            } catch {
+                Issue.record("Unexpected error type: \(error)")
+            }
+            #expect(await room.rpcClient.pendingCount == 0)
+        }
+    }
+
+    /// v2→v1 variant of the typed-error round-trip: v0 destination → v1 packet
+    /// transport, mocked channel injects ack + error `RpcResponse` packet. The
+    /// caller rejects with the original error code/message.
+    @Test(.spec("https://github.com/livekit/client-sdk-js/blob/92c72f06/RPC_SPEC.md?plain=1#L295"))
+    func v2CallerV1FallbackErrorResponse() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "v1-destination")
+            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v0)
+
+            let mockDataChannel = MockDataChannelPair { packet in
+                guard case let .rpcRequest(request) = packet.value else { return }
+                Task {
+                    await room.rpcClient.handleIncomingAck(requestId: request.id)
+                    await room.rpcClient.handleIncomingResponse(
+                        requestId: request.id,
+                        payload: nil,
+                        error: RpcError(code: 101, message: "Test error message", data: "")
+                    )
+                }
+            }
+            room.publisherDataChannel = mockDataChannel
+
+            do {
+                _ = try await room.localParticipant.performRpc(
+                    destinationIdentity: destination,
+                    method: "fails",
+                    payload: "x"
+                )
+                Issue.record("Expected error not thrown")
+            } catch let error as RpcError {
+                #expect(error.code == 101)
+                #expect(error.message == "Test error message")
             }
             #expect(await room.rpcClient.pendingCount == 0)
         }
@@ -390,7 +487,7 @@ struct RpcClientTests {
 struct RpcServerTests {
     // MARK: - v1 server-side handler dispatch
 
-    @Test(.spec(Rpc.V2V1.handlerHappyPath))
+    @Test(.spec("https://github.com/livekit/client-sdk-js/blob/92c72f06/RPC_SPEC.md?plain=1#L274"))
     func handleIncomingRpcRequest() async throws {
         try await TestEnvironment.withRoom { room in
             try await confirmation("Should send RPC response packet") { confirm in
@@ -427,7 +524,7 @@ struct RpcServerTests {
         }
     }
 
-    @Test(.spec(Rpc.V1V2.rpcErrorPassthrough))
+    @Test(.spec("https://github.com/livekit/client-sdk-js/blob/92c72f06/RPC_SPEC.md?plain=1#L324"))
     func rpcErrorHandling() async throws {
         try await TestEnvironment.withRoom { room in
             try await confirmation("Should send error response packet") { confirm in
@@ -451,6 +548,40 @@ struct RpcServerTests {
                     requestId: "test-request-1",
                     method: "failingMethod",
                     payload: "test",
+                    responseTimeout: 8,
+                    version: 1
+                )
+            }
+        }
+    }
+
+    /// v1 caller → v2 handler, unhandled error variant: a registered method throws
+    /// a non-`RpcError` exception. The handler wraps it as `APPLICATION_ERROR`
+    /// (1500) and publishes a v1 `RpcResponse` packet (caller is `clientProtocol = 0`
+    /// per the default, so `publishResult` picks the v1 packet response transport).
+    @Test(.spec("https://github.com/livekit/client-sdk-js/blob/92c72f06/RPC_SPEC.md?plain=1#L318"))
+    func v1HandlerUnhandledErrorReturnsPacket() async throws {
+        try await TestEnvironment.withRoom { room in
+            try await confirmation("Sends APPLICATION_ERROR packet") { confirm in
+                let mockDataChannel = MockDataChannelPair { packet in
+                    guard case let .rpcResponse(response) = packet.value,
+                          response.requestID == "v1-unhandled",
+                          case let .error(error) = response.value,
+                          error.code == RpcError.BuiltInError.applicationError.code
+                    else { return }
+                    confirm()
+                }
+                room.publisherDataChannel = mockDataChannel
+
+                try await room.registerRpcMethod("error-method") { _ in
+                    throw GenericTestError()
+                }
+
+                await room.rpcServer.handleIncomingRequest(
+                    callerIdentity: Participant.Identity(from: "v1-caller"),
+                    requestId: "v1-unhandled",
+                    method: "error-method",
+                    payload: "",
                     responseTimeout: 8,
                     version: 1
                 )
@@ -525,7 +656,7 @@ struct RpcServerTests {
     /// with a v1 `RpcResponse` packet — not a stream — because the caller
     /// doesn't subscribe to `lk.rpc_response`. Pins the per-caller transport
     /// selection in `publishResult`.
-    @Test(.spec(Rpc.V1V2.handlerResponseFallback))
+    @Test(.spec("https://github.com/livekit/client-sdk-js/blob/92c72f06/RPC_SPEC.md?plain=1#L310"))
     func v1CallerToV2HandlerResponseUsesV1Packet() async throws {
         try await TestEnvironment.withRoom { room in
             let v1Caller = Participant.Identity(from: "legacy-v1-caller")
@@ -726,8 +857,8 @@ struct RpcServerTests {
     }
 
     @Test(
-        .spec(Rpc.V2V2.unhandledError),
-        .spec(Rpc.V2V2.rpcErrorPassthrough),
+        .spec("https://github.com/livekit/client-sdk-js/blob/92c72f06/RPC_SPEC.md?plain=1#L232"),
+        .spec("https://github.com/livekit/client-sdk-js/blob/92c72f06/RPC_SPEC.md?plain=1#L240"),
         arguments: HandlerErrorScenario.allCases
     )
     func v2HandlerErrorReturnsPacket(_ scenario: HandlerErrorScenario) async throws {
