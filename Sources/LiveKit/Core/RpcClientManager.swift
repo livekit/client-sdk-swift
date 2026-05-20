@@ -237,31 +237,9 @@ actor RpcClientManager: Loggable {
 
     // MARK: - State ops
 
-    func addPendingAck(_ requestId: String) {
-        pendingAcks.insert(requestId)
-    }
-
-    @discardableResult
-    func removePendingAck(_ requestId: String) -> Bool {
-        pendingAcks.remove(requestId) != nil
-    }
-
-    func hasPendingAck(_ requestId: String) -> Bool {
-        pendingAcks.contains(requestId)
-    }
-
     /// Number of in-flight RPCs awaiting a response. Exposed for test-time leak checks.
     var pendingCount: Int {
         pendingResponses.count
-    }
-
-    func setPendingResponse(_ requestId: String, response: PendingRpcResponse) {
-        pendingResponses[requestId] = response
-    }
-
-    @discardableResult
-    func removePendingResponse(_ requestId: String) -> PendingRpcResponse? {
-        pendingResponses.removeValue(forKey: requestId)
     }
 
     func removeAllPending(_ requestId: String) {

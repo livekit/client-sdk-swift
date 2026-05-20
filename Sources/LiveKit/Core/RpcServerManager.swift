@@ -52,10 +52,6 @@ actor RpcServerManager: Loggable {
         handlers[method] != nil
     }
 
-    func getHandler(for method: String) -> RpcHandler? {
-        handlers[method]
-    }
-
     // MARK: - Incoming dispatch
 
     // swiftlint:disable function_parameter_count
