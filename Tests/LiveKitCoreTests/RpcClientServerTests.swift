@@ -27,7 +27,7 @@ import LiveKitTestSupport
 
 /// Unit-level coverage of ``RpcClientManager``: caller-side state machine,
 /// pending bookkeeping, timeout codes, cancellation, and sender validation.
-@Suite(.tags(.rpc))
+@Suite(.serialized, .tags(.e2e, .rpc))
 struct RpcClientTests {
     // MARK: - v1 caller-side state machine
 
@@ -384,7 +384,7 @@ struct RpcClientTests {
 
 /// Unit-level coverage of ``RpcServerManager``: handler registry, v1 dispatch,
 /// v2 stream dispatch error paths.
-@Suite(.tags(.rpc))
+@Suite(.serialized, .tags(.e2e, .rpc))
 struct RpcServerTests {
     // MARK: - v1 server-side handler dispatch
 
@@ -477,6 +477,38 @@ struct RpcServerTests {
                     method: "test",
                     payload: "test",
                     responseTimeout: 10,
+                    version: 1
+                )
+            }
+        }
+    }
+
+    /// A v1 handler returning a payload above `MAX_RPC_PAYLOAD_BYTES` (15 KB)
+    /// must publish a `responsePayloadTooLarge` (1504) error packet instead of
+    /// emitting an oversize payload over the v1 wire. The v2 stream path has
+    /// no such cap (`v2HandlerCanReturnLargeResponse` covers that side).
+    @Test func v1HandlerOversizeResponseReturnsTooLargePacket() async throws {
+        try await TestEnvironment.withRoom { room in
+            try await confirmation("Sends responsePayloadTooLarge error packet") { confirm in
+                let mockDataChannel = MockDataChannelPair { packet in
+                    guard case let .rpcResponse(response) = packet.value,
+                          response.requestID == "v1-oversize",
+                          case let .error(error) = response.value,
+                          error.code == RpcError.BuiltInError.responsePayloadTooLarge.code
+                    else { return }
+                    confirm()
+                }
+                room.publisherDataChannel = mockDataChannel
+
+                let oversize = String(repeating: "y", count: MAX_RPC_PAYLOAD_BYTES + 1)
+                try await room.registerRpcMethod("big") { _ in oversize }
+
+                await room.rpcServer.handleIncomingRequest(
+                    callerIdentity: Participant.Identity(from: "v1-caller"),
+                    requestId: "v1-oversize",
+                    method: "big",
+                    payload: "",
+                    responseTimeout: 8,
                     version: 1
                 )
             }
