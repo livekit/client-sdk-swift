@@ -104,7 +104,7 @@ actor RpcServerManager: Loggable {
 
     // swiftlint:enable function_parameter_count
 
-    // swiftlint:disable function_body_length cyclomatic_complexity
+    // swiftlint:disable function_body_length
     /// Handle an RPC request that arrived as a v2 data stream on the `lk.rpc_request` topic.
     /// Successful responses are sent back as a data stream on `lk.rpc_response`; errors are
     /// sent as v1 `RpcResponse` packets per the spec.
@@ -194,7 +194,7 @@ actor RpcServerManager: Loggable {
         }
     }
 
-    // swiftlint:enable function_body_length cyclomatic_complexity
+    // swiftlint:enable function_body_length
 
     // MARK: - Handler dispatch
 
