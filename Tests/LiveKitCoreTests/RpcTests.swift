@@ -46,7 +46,7 @@ struct RpcTests {
 
     /// v2 caller happy path (short payload). Both peers advertise the current
     /// `ClientProtocol`, so the request/response flow uses v2 data streams end-to-end.
-    @Test(.tags(.spec), .spec("v2-v2-#1", "Caller happy path (short payload)", url: RpcSpec.url))
+    @Test(.tags(.spec), RpcSpec.V2V2.callerHappyShort)
     func v2CallerHappyPathShort() async throws {
         try await withRpcPair { responder, caller, responderIdentity in
             try await responder.registerRpcMethod("v2-method") { _ in "v2-response" }
@@ -64,7 +64,7 @@ struct RpcTests {
     /// v2 caller happy path with a payload above the v1 15 KB cap. Success through real
     /// WebRTC proves the v2 data-stream path was used — v1 packets would have been
     /// rejected with `REQUEST_PAYLOAD_TOO_LARGE`.
-    @Test(.tags(.spec), .spec("v2-v2-#2", "Caller happy path (large payload > 15 KB)", url: RpcSpec.url))
+    @Test(.tags(.spec), RpcSpec.V2V2.callerHappyLarge)
     func v2CallerHappyPathLargePayload() async throws {
         try await withRpcPair { responder, caller, responderIdentity in
             let largePayload = String(repeating: "x", count: 20000)
@@ -82,7 +82,7 @@ struct RpcTests {
 
     /// v2 handler happy path. The handler observes the real caller identity and payload
     /// from a connected peer, returns a value, and the caller receives it.
-    @Test(.tags(.spec), .spec("v2-v2-#3", "Handler happy path", url: RpcSpec.url))
+    @Test(.tags(.spec), RpcSpec.V2V2.handlerHappy)
     func v2HandlerHappyPath() async throws {
         try await withRpcPair { responder, caller, responderIdentity in
             let callerIdentity = try #require(caller.localParticipant.identity)
@@ -126,7 +126,7 @@ struct RpcTests {
     }
 
     /// v2 caller receives a typed error from a v2 handler that throws `RpcError`.
-    @Test(.tags(.spec), .spec("v2-v2-#7", "Error response", url: RpcSpec.url))
+    @Test(.tags(.spec), RpcSpec.V2V2.errorResponse)
     func v2CallerErrorResponse() async throws {
         try await withRpcPair { responder, caller, responderIdentity in
             try await responder.registerRpcMethod("fails") { _ in
@@ -153,7 +153,7 @@ struct RpcTests {
     /// If fallback didn't trigger, the caller would publish a v2 stream on `lk.rpc_request`,
     /// the v0 responder wouldn't subscribe to that topic, and the call would time out — so
     /// response arrival is the proof.
-    @Test(.tags(.spec), .spec("v2-v1-#10", "Caller happy path (request fallback)", url: RpcSpec.url))
+    @Test(.tags(.spec), RpcSpec.V2V1.callerHappy)
     func v2CallerV1FallbackUsesPacket() async throws {
         try await withRpcPair(responder: .init(clientProtocol: .v0, canPublishData: true)) { responder, caller, responderIdentity in
             try await responder.registerRpcMethod("method") { _ in "v1-response" }
@@ -209,7 +209,7 @@ struct RpcTests {
     }
 
     /// v2 caller falling back to the v1 path rejects payloads >15 KB before publishing.
-    @Test(.tags(.spec), .spec("v2-v1-#12", "Payload too large", url: RpcSpec.url))
+    @Test(.tags(.spec), RpcSpec.V2V1.payloadTooLarge)
     func v2CallerV1FallbackRejectsLargePayload() async throws {
         try await withRpcPair(responder: .init(clientProtocol: .v0, canPublishData: true)) { _, caller, responderIdentity in
             let largePayload = String(repeating: "x", count: 20000)

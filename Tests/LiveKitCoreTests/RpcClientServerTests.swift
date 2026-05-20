@@ -137,7 +137,7 @@ struct RpcClientTests {
     /// Regression test: when the destination participant disconnects mid-call, the
     /// caller receives `recipientDisconnected` (1503) immediately rather than the
     /// generic `connectionTimeout` (1501) after the user-supplied `responseTimeout`.
-    @Test(.tags(.spec), .spec("v2-v1-#15", "Participant disconnection", url: RpcSpec.url))
+    @Test(.tags(.spec), RpcSpec.V2V1.participantDisconnect)
     func performRpcRejectsOnRecipientDisconnect() async throws {
         try await TestEnvironment.withRoom { room in
             let destination = Participant.Identity(from: "test-destination")
@@ -251,7 +251,7 @@ struct RpcClientTests {
     /// the completer's `defaultTimeout` fires before the ack-watchdog and surfaces as
     /// `responseTimeout` (1502) — `connectionTimeout` (1501) is reserved for the
     /// ack-watchdog path.
-    @Test(.tags(.spec), .spec("v2-v2-#6", "Response timeout", url: RpcSpec.url))
+    @Test(.tags(.spec), RpcSpec.V2V2.responseTimeout)
     func v2CallerResponseTimeout() async throws {
         try await TestEnvironment.withRoom { room in
             let destination = Participant.Identity(from: "v2-destination")
@@ -390,7 +390,7 @@ struct RpcClientTests {
 struct RpcServerTests {
     // MARK: - v1 server-side handler dispatch
 
-    @Test(.tags(.spec), .spec("v2-v1-#11", "Handler happy path (v1 request)", url: RpcSpec.url))
+    @Test(.tags(.spec), RpcSpec.V2V1.handlerHappy)
     func handleIncomingRpcRequest() async throws {
         try await TestEnvironment.withRoom { room in
             try await confirmation("Should send RPC response packet") { confirm in
@@ -427,7 +427,7 @@ struct RpcServerTests {
         }
     }
 
-    @Test(.tags(.spec), .spec("v1-v2-#18", "RpcError passthrough (v1 caller)", url: RpcSpec.url))
+    @Test(.tags(.spec), RpcSpec.V1V2.rpcErrorPassthrough)
     func rpcErrorHandling() async throws {
         try await TestEnvironment.withRoom { room in
             try await confirmation("Should send error response packet") { confirm in
@@ -525,7 +525,7 @@ struct RpcServerTests {
     /// with a v1 `RpcResponse` packet — not a stream — because the caller
     /// doesn't subscribe to `lk.rpc_response`. Pins the per-caller transport
     /// selection in `publishResult`.
-    @Test(.tags(.spec), .spec("v1-v2-#16", "Handler happy path (response fallback)", url: RpcSpec.url))
+    @Test(.tags(.spec), RpcSpec.V1V2.handlerResponseFallback)
     func v1CallerToV2HandlerResponseUsesV1Packet() async throws {
         try await TestEnvironment.withRoom { room in
             let v1Caller = Participant.Identity(from: "legacy-v1-caller")
@@ -727,8 +727,8 @@ struct RpcServerTests {
 
     @Test(
         .tags(.spec),
-        .spec("v2-v2-#4", "Unhandled error in handler", url: RpcSpec.url),
-        .spec("v2-v2-#5", "RpcError passthrough in handler", url: RpcSpec.url),
+        RpcSpec.V2V2.unhandledError,
+        RpcSpec.V2V2.rpcErrorPassthrough,
         arguments: HandlerErrorScenario.allCases
     )
     func v2HandlerErrorReturnsPacket(_ scenario: HandlerErrorScenario) async throws {
