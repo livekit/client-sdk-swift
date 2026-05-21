@@ -23,7 +23,7 @@ import LiveKitTestSupport
 
 @Suite(.serialized, .tags(.dataChannel, .e2e)) final class RealiableDataChannelTests: @unchecked Sendable {
     enum ReconnectMode: CustomStringConvertible {
-        case none, sender, receiver, both
+        case none, sender, receiver, both, simultaneous, bothLate
 
         var description: String {
             switch self {
@@ -31,23 +31,45 @@ import LiveKitTestSupport
             case .sender: "sender reconnect"
             case .receiver: "receiver reconnect"
             case .both: "dual reconnect"
+            case .simultaneous: "simultaneous reconnect"
+            case .bothLate: "dual reconnect (late)"
             }
         }
 
-        var reconnectsSender: Bool { self == .sender || self == .both }
-        var reconnectsReceiver: Bool { self == .receiver || self == .both }
+        /// When (if at all) the sender room should call `startReconnect`.
+        /// `nil` means no sender reconnect for this mode.
+        var senderReconnectDelay: TimeInterval? {
+            switch self {
+            case .none, .receiver: nil
+            case .sender, .both: 0.2
+            case .simultaneous: 0.3
+            // Mid-burst: 2s is ~40 sends in, so the retry buffer has a
+            // non-trivial replay set vs. early reconnects that only
+            // have to replay 4–8 entries.
+            case .bothLate: 2.0
+            }
+        }
+
+        var receiverReconnectDelay: TimeInterval? {
+            switch self {
+            case .none, .sender: nil
+            case .receiver, .both: 0.4
+            case .simultaneous: 0.3
+            case .bothLate: 3.0
+            }
+        }
     }
 
     private let _receivedIndices = StateSync<[UInt32]>([])
     var onDataReceived: (() -> Void)?
 
-    @Test(arguments: [ReconnectMode.none, .sender, .receiver, .both])
+    @Test(arguments: [ReconnectMode.none, .sender, .receiver, .both, .simultaneous, .bothLate])
     func reliableDelivery(mode: ReconnectMode) async throws {
         let iterations = 128
         let sendInterval: TimeInterval = 0.05
-        let senderReconnectDelay: TimeInterval = 0.2
-        let receiverReconnectDelay: TimeInterval = 0.4
-        let receiveDeadline: TimeInterval = 10
+        // 15s tolerates the .bothLate case, where the receiver reconnect
+        // doesn't kick in until 3s and replay then has to drain.
+        let receiveDeadline: TimeInterval = 15
 
         let bodyString = "abcdefghijklmnopqrstuvwxyz🔥"
         let bodyData = try #require(String(repeating: bodyString, count: 1024).data(using: .utf8))
@@ -65,15 +87,15 @@ import LiveKitTestSupport
                 let remoteIdentity = try #require(sending.remoteParticipants.keys.first)
 
                 var reconnectTasks: [AnyTaskCancellable] = []
-                if mode.reconnectsSender {
+                if let delay = mode.senderReconnectDelay {
                     reconnectTasks.append(Task {
-                        try await Task.sleep(nanoseconds: UInt64(senderReconnectDelay * 1_000_000_000))
+                        try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                         try await sending.startReconnect(reason: .debug)
                     }.cancellable())
                 }
-                if mode.reconnectsReceiver {
+                if let delay = mode.receiverReconnectDelay {
                     reconnectTasks.append(Task {
-                        try await Task.sleep(nanoseconds: UInt64(receiverReconnectDelay * 1_000_000_000))
+                        try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                         try await receiving.startReconnect(reason: .debug)
                     }.cancellable())
                 }
