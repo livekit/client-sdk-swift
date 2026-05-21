@@ -321,7 +321,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    // MARK: - Cache
+    // MARK: - Buffer helpers
 
     private func updateTarget(
         buffer: inout SendBuffer,
@@ -375,23 +375,19 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     func set(reliable channel: LKRTCDataChannel?) {
-        let isOpen = _state.mutate {
-            $0.reliable = channel
-            return $0.isOpen
-        }
-
-        channel?.delegate = self
-
-        if isOpen {
-            // Wake parked sends — pairs with `dataChannelDidChangeState`.
-            openCompleter.resume(returning: ())
-            eventContinuation.yield(ChannelEvent(channelKind: .reliable, detail: .wakeup))
-        }
+        setChannel(channel, kind: .reliable)
     }
 
     func set(lossy channel: LKRTCDataChannel?) {
+        setChannel(channel, kind: .lossy)
+    }
+
+    private func setChannel(_ channel: LKRTCDataChannel?, kind: ChannelKind) {
         let isOpen = _state.mutate {
-            $0.lossy = channel
+            switch kind {
+            case .reliable: $0.reliable = channel
+            case .lossy: $0.lossy = channel
+            }
             return $0.isOpen
         }
 
@@ -400,7 +396,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         if isOpen {
             // Wake parked sends — pairs with `dataChannelDidChangeState`.
             openCompleter.resume(returning: ())
-            eventContinuation.yield(ChannelEvent(channelKind: .lossy, detail: .wakeup))
+            eventContinuation.yield(ChannelEvent(channelKind: kind, detail: .wakeup))
         }
     }
 
@@ -488,9 +484,9 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Sync state
 
     func infos() -> [Livekit_DataChannelInfo] {
-        _state.read { [$0.lossy, $0.reliable] }
-            .compactMap(\.self)
-            .map { $0.toLKInfoType() }
+        _state.read { state in
+            [state.lossy, state.reliable].compactMap { $0?.toLKInfoType() }
+        }
     }
 
     func receiveStates() -> [Livekit_DataChannelReceiveState] {
