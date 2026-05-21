@@ -399,13 +399,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             e2eeManager = E2EEManager(options: encryptionOptions)
             e2eeManager!.setup(room: self)
 
-            subscriberDataChannel.e2eeManager = e2eeManager
-            publisherDataChannel.e2eeManager = e2eeManager
+            subscriberDataChannel.set(e2eeManager: e2eeManager)
+            publisherDataChannel.set(e2eeManager: e2eeManager)
         } else {
             e2eeManager = nil
 
-            subscriberDataChannel.e2eeManager = nil
-            publisherDataChannel.e2eeManager = nil
+            subscriberDataChannel.set(e2eeManager: nil)
+            publisherDataChannel.set(e2eeManager: nil)
         }
 
         _state.mutate {

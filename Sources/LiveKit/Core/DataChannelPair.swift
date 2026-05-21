@@ -93,8 +93,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     var isOpen: Bool { _state.isOpen }
 
-    var e2eeManager: E2EEManager?
-
     // MARK: - Private
 
     private struct State {
@@ -102,6 +100,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         var reliable: LKRTCDataChannel?
         var reliableDataSequence: UInt32 = 1
         var reliableReceivedState: TTLDictionary<String, UInt32> = TTLDictionary(ttl: reliableReceivedStateTTL)
+        var e2eeManager: E2EEManager?
 
         var isOpen: Bool {
             guard let lossy, let reliable else { return false }
@@ -403,6 +402,10 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
+    func set(e2eeManager: E2EEManager?) {
+        _state.mutate { $0.e2eeManager = e2eeManager }
+    }
+
     func reset(throwing error: Error? = nil) {
         let (lossy, reliable) = _state.mutate {
             let result = ($0.lossy, $0.reliable)
@@ -452,7 +455,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     private func withEncryption(_ packet: Livekit_DataPacket) throws -> Livekit_DataPacket {
-        guard let e2eeManager, e2eeManager.isDataChannelEncryptionEnabled,
+        guard let e2eeManager = _state.e2eeManager, e2eeManager.isDataChannelEncryptionEnabled,
               let payload = Livekit_EncryptedPacketPayload(dataPacket: packet) else { return packet }
         var packet = packet
         do {
@@ -551,7 +554,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
         }
 
         if let encryptedPacket = dataPacket.encryptedPacketOrNil,
-           let e2eeManager
+           let e2eeManager = _state.e2eeManager
         {
             do {
                 let decryptedData = try e2eeManager.handle(encryptedData: encryptedPacket.toRTCEncryptedPacket(), participantIdentity: dataPacket.participantIdentity)
