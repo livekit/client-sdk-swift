@@ -304,7 +304,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
                 buffer.enqueueFront(request)
                 return
             }
-            buffer.rtcAmount += UInt64(request.data.data.count)
 
             guard channel.sendData(request.data) else {
                 request.continuation?.resume(
@@ -312,6 +311,9 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
                 )
                 return
             }
+            // Bytes are now in WebRTC's SCTP queue; account for them so the
+            // backpressure check below kicks in for subsequent iterations.
+            buffer.rtcAmount += UInt64(request.data.data.count)
             request.continuation?.resume()
 
             let event = ChannelEvent(channelKind: kind, detail: .sendDispatched(request))
@@ -492,10 +494,12 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     func receiveStates() -> [Livekit_DataChannelReceiveState] {
-        _state.reliableReceivedState.map { sid, seq in
-            Livekit_DataChannelReceiveState.with {
-                $0.publisherSid = sid
-                $0.lastSeq = seq
+        _state.read { state in
+            state.reliableReceivedState.map { sid, seq in
+                Livekit_DataChannelReceiveState.with {
+                    $0.publisherSid = sid
+                    $0.lastSeq = seq
+                }
             }
         }
     }
@@ -544,12 +548,18 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
         }
 
         if dataChannel.kind == .reliable, dataPacket.sequence > 0, !dataPacket.participantSid.isEmpty {
-            if let lastSeq = _state.reliableReceivedState[dataPacket.participantSid], dataPacket.sequence <= lastSeq {
+            // Check and update in one locked step so two concurrent receives
+            // for the same sender can't both pass the dedup gate.
+            let isDuplicate = _state.mutate { state -> Bool in
+                if let lastSeq = state.reliableReceivedState[dataPacket.participantSid], dataPacket.sequence <= lastSeq {
+                    return true
+                }
+                state.reliableReceivedState[dataPacket.participantSid] = dataPacket.sequence
+                return false
+            }
+            if isDuplicate {
                 log("Ignoring duplicate/out-of-order reliable data message", .warning)
                 return
-            }
-            _state.mutate {
-                $0.reliableReceivedState[dataPacket.participantSid] = dataPacket.sequence
             }
         }
 
