@@ -23,7 +23,6 @@ actor IncomingStreamManager: Loggable {
         let info: StreamInfo
         let openTime: TimeInterval
         let continuation: StreamReaderSource.Continuation
-        var task: AnyTaskCancellable?
         var readLength = 0
     }
 
@@ -143,16 +142,17 @@ actor IncomingStreamManager: Loggable {
             continuation = $0
         }
 
-        let descriptor = Descriptor(
+        openStreams[info.id] = Descriptor(
             info: info,
             openTime: Date.timeIntervalSinceReferenceDate,
-            continuation: continuation,
-            task: Task {
-                try await handler(source, identity)
-            }.cancellable()
+            continuation: continuation
         )
 
-        openStreams[info.id] = descriptor
+        // Detached: handler lifetime is not tied to the descriptor — abnormal stream
+        // conditions are signalled through `source` throwing instead.
+        Task.detachedDiscarding {
+            try await handler(source, identity)
+        }
     }
 
     /// Close the stream with the given id.
