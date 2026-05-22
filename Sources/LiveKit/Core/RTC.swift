@@ -96,9 +96,6 @@ actor RTC {
 
         Room.log("Initializing PeerConnectionFactory...")
 
-        // Enable DTLS during ICE handshake for faster connection setup.
-        LKRTCPeerConnectionFactory.configureFieldTrials("WebRTC-IceHandshakeDtls/Enabled/")
-
         return LKRTCPeerConnectionFactory(audioDeviceModuleType: admType.toRTCType(),
                                           bypassVoiceProcessing: bypassVoiceProcessing,
                                           encoderFactory: encoderFactory,
