@@ -116,7 +116,9 @@ struct CompleterTests {
 
         completer.reset(throwing: LiveKitError(.network, message: "transport failed"))
 
-        await expectLiveKitError(.network, from: task)
+        await #expect {
+            try await task.value
+        } throws: { ($0 as? LiveKitError)?.type == .network }
     }
 
     @Test func taskCancellationStillProducesCancelled() async {
@@ -126,7 +128,9 @@ struct CompleterTests {
 
         task.cancel()
 
-        await expectLiveKitError(.cancelled, from: task)
+        await #expect {
+            try await task.value
+        } throws: { ($0 as? LiveKitError)?.type == .cancelled }
     }
 
     @Test func resetClearsResultForReuse() async throws {
@@ -150,17 +154,6 @@ private func waitForRegistration(of completer: AsyncCompleter<some Any>) async {
     }
 }
 
-private func expectLiveKitError(_ expected: LiveKitErrorType, from task: Task<some Sendable, Error>) async {
-    do {
-        _ = try await task.value
-        Issue.record("Expected LiveKitError(.\(expected)) to be thrown")
-    } catch let error as LiveKitError {
-        #expect(error.type == expected)
-    } catch {
-        Issue.record("Expected LiveKitError, got \(error)")
-    }
-}
-
 @Suite(.tags(.concurrency))
 struct CompleterMapActorTests {
     @Test func resetThrowingFanOutsTypedErrorToAllCompleters() async {
@@ -177,8 +170,12 @@ struct CompleterMapActorTests {
 
         await map.reset(throwing: LiveKitError(.network, message: "fan-out"))
 
-        await expectLiveKitError(.network, from: taskA)
-        await expectLiveKitError(.network, from: taskB)
+        await #expect {
+            try await taskA.value
+        } throws: { ($0 as? LiveKitError)?.type == .network }
+        await #expect {
+            try await taskB.value
+        } throws: { ($0 as? LiveKitError)?.type == .network }
     }
 
     @Test func resetWithoutErrorDefaultsToCancelled() async {
@@ -190,7 +187,9 @@ struct CompleterMapActorTests {
 
         await map.reset()
 
-        await expectLiveKitError(.cancelled, from: task)
+        await #expect {
+            try await task.value
+        } throws: { ($0 as? LiveKitError)?.type == .cancelled }
     }
 
     @Test func resumeThrowingForMissingKeyIsNoOp() async throws {
@@ -227,6 +226,8 @@ struct CompleterMapActorTests {
 
         await map.resume(throwing: LiveKitError(.network), for: "key")
 
-        await expectLiveKitError(.network, from: task)
+        await #expect {
+            try await task.value
+        } throws: { ($0 as? LiveKitError)?.type == .network }
     }
 }
