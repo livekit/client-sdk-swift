@@ -285,7 +285,17 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
 
         log("starting camera capturer device: \(device), format: \(selectedFormat), fps: \(selectedFps)(\(fpsRange))", .info)
 
-        try await capturer.startCapture(with: device, format: selectedFormat.format, fps: selectedFps)
+        // Call the completion-handler form directly: the compiler-synthesized
+        // async overload SIGBUSes on macOS 26 (see #1016).
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            capturer.startCapture(with: device, format: selectedFormat.format, fps: selectedFps) { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ())
+                }
+            }
+        }
 
         // Update internal vars
         _cameraCapturerState.mutate {
@@ -305,7 +315,12 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         // Already stopped
         guard didStop else { return false }
 
-        await capturer.stopCapture()
+        // See note in `startCapture()` above.
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            capturer.stopCapture {
+                continuation.resume()
+            }
+        }
 
         // Update internal vars
         set(dimensions: nil)
