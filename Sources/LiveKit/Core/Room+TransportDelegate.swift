@@ -32,12 +32,16 @@ extension Room: TransportDelegate {
     func transport(_ transport: Transport, didUpdateState pcState: LKRTCPeerConnectionState) {
         log("target: \(transport.target), connectionState: \(pcState.description)")
 
+        let pcError: LiveKitError? = _state.connectionState.isTearingDown ? nil : LiveKitError(
+            .network, message: "Transport \(transport.target) state changed to \(pcState.description)"
+        )
+
         // primary connected
         if transport.isPrimary {
             if pcState.isConnected {
                 primaryTransportConnectedCompleter.resume(returning: ())
             } else if pcState.isDisconnected {
-                primaryTransportConnectedCompleter.reset()
+                primaryTransportConnectedCompleter.reset(throwing: pcError)
             }
         }
 
@@ -46,7 +50,7 @@ extension Room: TransportDelegate {
             if pcState.isConnected {
                 publisherTransportConnectedCompleter.resume(returning: ())
             } else if pcState.isDisconnected {
-                publisherTransportConnectedCompleter.reset()
+                publisherTransportConnectedCompleter.reset(throwing: pcError)
             }
         }
 
@@ -112,10 +116,6 @@ extension Room: TransportDelegate {
         case LKRTCDataChannel.Labels.reliable: subscriberDataChannel.set(reliable: dataChannel)
         case LKRTCDataChannel.Labels.lossy: subscriberDataChannel.set(lossy: dataChannel)
         default: log("Unknown data channel label \(dataChannel.label)", .warning)
-        }
-
-        if subscriberDataChannel.isOpen {
-            connectSpan?.record("dc_open")
         }
     }
 

@@ -253,9 +253,9 @@ actor SignalClient: Loggable {
             $0.lastJoinResponse = nil
         }
 
-        _connectResponseCompleter.reset()
+        _connectResponseCompleter.reset(throwing: disconnectError)
 
-        await _addTrackCompleters.reset()
+        await _addTrackCompleters.reset(throwing: disconnectError)
         await _requestQueue.clear()
         await _responseQueue.clear()
 

@@ -25,6 +25,17 @@ public let defaultRatchetWindowSize: Int32 = 0
 public let defaultFailureTolerance: Int32 = -1
 public let defaultKeyRingSize: Int32 = 16
 
+/// Algorithm used to derive encryption keys from the input key material.
+///
+/// - SeeAlso: ``KeyProviderOptions``
+@objc
+public enum KeyDerivationAlgorithm: Int, Sendable {
+    /// PBKDF2 — matches the WebRTC default and prior SDK behavior.
+    case pbkdf2 = 0
+    /// HKDF — required for interop with peers that derive keys via HKDF.
+    case hkdf = 1
+}
+
 @objcMembers
 public final class KeyProviderOptions: NSObject, Sendable {
     public let sharedKey: Bool
@@ -39,12 +50,18 @@ public final class KeyProviderOptions: NSObject, Sendable {
 
     public let keyRingSize: Int32
 
+    public let discardFrameWhenCryptorNotReady: Bool
+
+    public let keyDerivationAlgorithm: KeyDerivationAlgorithm
+
     public init(sharedKey: Bool = true,
                 ratchetSalt: Data = defaultRatchetSalt.data(using: .utf8)!,
                 ratchetWindowSize: Int32 = defaultRatchetWindowSize,
                 uncryptedMagicBytes: Data = defaultMagicBytes.data(using: .utf8)!,
                 failureTolerance: Int32 = defaultFailureTolerance,
-                keyRingSize: Int32 = defaultKeyRingSize)
+                keyRingSize: Int32 = defaultKeyRingSize,
+                discardFrameWhenCryptorNotReady: Bool = false,
+                keyDerivationAlgorithm: KeyDerivationAlgorithm = .pbkdf2)
     {
         self.sharedKey = sharedKey
         self.ratchetSalt = ratchetSalt
@@ -52,6 +69,8 @@ public final class KeyProviderOptions: NSObject, Sendable {
         self.uncryptedMagicBytes = uncryptedMagicBytes
         self.failureTolerance = failureTolerance
         self.keyRingSize = keyRingSize
+        self.discardFrameWhenCryptorNotReady = discardFrameWhenCryptorNotReady
+        self.keyDerivationAlgorithm = keyDerivationAlgorithm
     }
 
     // MARK: - Equal
@@ -63,7 +82,9 @@ public final class KeyProviderOptions: NSObject, Sendable {
             ratchetWindowSize == other.ratchetWindowSize &&
             uncryptedMagicBytes == other.uncryptedMagicBytes &&
             failureTolerance == other.failureTolerance &&
-            keyRingSize == other.keyRingSize
+            keyRingSize == other.keyRingSize &&
+            discardFrameWhenCryptorNotReady == other.discardFrameWhenCryptorNotReady &&
+            keyDerivationAlgorithm == other.keyDerivationAlgorithm
     }
 
     override public var hash: Int {
@@ -74,6 +95,8 @@ public final class KeyProviderOptions: NSObject, Sendable {
         hasher.combine(uncryptedMagicBytes)
         hasher.combine(failureTolerance)
         hasher.combine(keyRingSize)
+        hasher.combine(discardFrameWhenCryptorNotReady)
+        hasher.combine(keyDerivationAlgorithm)
         return hasher.finalize()
     }
 }
@@ -103,7 +126,9 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
                                                       sharedKeyMode: isSharedKey,
                                                       uncryptedMagicBytes: options.uncryptedMagicBytes,
                                                       failureTolerance: options.failureTolerance,
-                                                      keyRingSize: options.keyRingSize)
+                                                      keyRingSize: options.keyRingSize,
+                                                      discardFrameWhenCryptorNotReady: options.discardFrameWhenCryptorNotReady,
+                                                      keyDerivationAlgorithm: options.keyDerivationAlgorithm.toRTCType())
         if isSharedKey, sharedKey != nil {
             let keyData = sharedKey!.data(using: .utf8)!
             rtcKeyProvider.setSharedKey(keyData, with: 0)
@@ -117,7 +142,9 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
                                                       sharedKeyMode: options.sharedKey,
                                                       uncryptedMagicBytes: options.uncryptedMagicBytes,
                                                       failureTolerance: options.failureTolerance,
-                                                      keyRingSize: options.keyRingSize)
+                                                      keyRingSize: options.keyRingSize,
+                                                      discardFrameWhenCryptorNotReady: options.discardFrameWhenCryptorNotReady,
+                                                      keyDerivationAlgorithm: options.keyDerivationAlgorithm.toRTCType())
     }
 
     // MARK: - Key management
@@ -196,5 +223,14 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
         hasher.combine(options)
         hasher.combine(rtcKeyProvider)
         return hasher.finalize()
+    }
+}
+
+extension KeyDerivationAlgorithm {
+    func toRTCType() -> LKRTCKeyDerivationAlgorithm {
+        switch self {
+        case .pbkdf2: LKRTCKeyDerivationAlgorithm(rawValue: 0)!
+        case .hkdf: LKRTCKeyDerivationAlgorithm(rawValue: 1)!
+        }
     }
 }

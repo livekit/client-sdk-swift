@@ -60,6 +60,12 @@ Key components:
 
 Dependencies: LiveKitWebRTC, LiveKitUniFFI, SwiftProtobuf.
 
+## Compile-Time Flags
+
+- `LK_XCFRAMEWORK` — set in the generated xcodeproj by `scripts/xcframework.swift`; switches `import SwiftProtobuf` to `internal import` in proto files so it doesn't leak into `.swiftinterface`
+- `LK_BENCHMARK` — set when building benchmarks (`Benchmarks/`); skips `DeviceManager`/`AudioManager` init in `Room.init` to allow headless benchmark runs
+- `LK_SIGNPOSTS` — enables `os.signpost` instrumentation in `StateSync` for profiling lock contention in Instruments
+
 ## WebRTC
 
 WebRTC handles the actual media transport (audio/video/data) between participants. The SDK abstracts WebRTC complexity behind `Room`, `Participant`, and `Track` APIs while LiveKit server coordinates signaling.
@@ -84,6 +90,7 @@ Threading:
 - `LiveKitTestSupport` - test utilities including `withRooms` helper for multi-participant E2E tests
 - E2E tests use `withRooms([...]) { rooms in ... }` to spawn multiple connected rooms/participants
 - E2E tests should cover reconnects, partial updates, edge cases, and stress scenarios
+- `@Test(.spec("https://..."))` cross-references a test to an upstream spec case via a pinned URL (commit + line anchor)
 
 ## Using Swift
 
@@ -119,6 +126,8 @@ private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixW
 - Avoid `@MainActor` for synchronization of static members in non-UI components
 - Long-running `Task` requires cooperative cancellation to avoid memory leaks (e.g., `AsyncSequence.subscribe`)
 - Use `AnyTaskCancellable` (via `task.cancellable()`) instead of manual `Task` management (enforced by SwiftLint)
+- Fire-and-forget unstructured tasks that may throw must use `Task.discarding` / `Task.detachedDiscarding`; bare `Task { try await ... }` silently drops errors and is flagged under Swift main-snapshot (`#NoUseUnstructuredThrowingTask`)
+- Only `Task.discarding` preserves caller actor isolation in its closure; other `Support/Async/` helpers (`Task.retrying`, `AsyncSerialDelegate.notifyAsync`, etc.) run their bodies nonisolated — hop explicitly with `await MainActor.run { ... }` when UI-bound work is needed
 - Use async primitives in `Support/Async` and `Support/Schedulers` when operation order matters
 - Prefer native Swift async/await over `Combine` for new code
 

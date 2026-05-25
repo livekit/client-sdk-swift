@@ -47,6 +47,16 @@ struct Deque<Element>: ExpressibleByArrayLiteral {
         count_ += 1
     }
 
+    /// O(1) amortized insert at the head.
+    mutating func prepend(_ element: Element) {
+        if count_ == buffer.count {
+            grow()
+        }
+        head = (head + buffer.count - 1) & (buffer.count - 1)
+        buffer[head] = element
+        count_ += 1
+    }
+
     @discardableResult
     mutating func removeFirst() -> Element {
         guard count_ > 0 else {

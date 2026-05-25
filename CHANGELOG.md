@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.14.1] - 2026-05-13
+
+### Fixed
+
+- Report transport-level disconnects as LiveKitError(.network) instead of LiveKitError(.cancelled) so consumers can distinguish network failures from user-initiated cancellation
+- Faster initial connect in single peer connection mode by skipping an unnecessary 20ms negotiate debounce
+- Fix RemoteAudioTrack volume range
+
+## [2.14.0] - 2026-04-29
+
+### Added
+
+- Configure end-to-end encryption directly through Session initialization
+
+### Changed
+
+- Drop Xcode 15 (Swift 5.x) support; minimum is now Xcode 16 / Swift 6.0
+- Skip AVAudioSession configuration in manual rendering mode
+
+### Fixed
+
+- Avoid Metal pipeline freeze on iPhone 11 family by defaulting to sample buffer renderer
+
 ## [2.13.0] - 2026-04-09
 
 ### Added

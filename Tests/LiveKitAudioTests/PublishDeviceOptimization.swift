@@ -27,20 +27,20 @@ import LiveKitTestSupport
 
     // Default publish flow
     @Test func defaultMicPublish() async throws {
-        var sw = Stopwatch(label: "Test: Normal publish sequence")
+        let span = Span(label: "Test: Normal publish sequence")
 
         let room1Opts = RoomTestingOptions(url: url, token: token, canPublish: true)
         try await TestEnvironment.withRooms([room1Opts]) { rooms in
-            sw.split(label: "Connected to room")
+            span.record("Connected to room")
             // Alias to Rooms
             let room1 = rooms[0]
             try await room1.localParticipant.setMicrophone(enabled: true)
-            sw.split(label: "Did publish mic")
+            span.record("Did publish mic")
         }
-        sw.split(label: "Sequence complete")
-        print(sw)
+        span.record("Sequence complete")
+        print(span)
 
-        print("Total time: \(sw.total())")
+        print("Total time: \(span.total())")
     }
 
     // No-VP publish flow
@@ -48,39 +48,39 @@ import LiveKitTestSupport
         // Turn off Apple's VP
         try AudioManager.shared.setVoiceProcessingEnabled(false)
 
-        var sw = Stopwatch(label: "Test: No-VP publish sequence")
+        let span = Span(label: "Test: No-VP publish sequence")
 
         let room1Opts = RoomTestingOptions(url: url, token: token, canPublish: true)
         try await TestEnvironment.withRooms([room1Opts]) { rooms in
-            sw.split(label: "Connected to room")
+            span.record("Connected to room")
             // Alias to Rooms
             let room1 = rooms[0]
             try await room1.localParticipant.setMicrophone(enabled: true)
-            sw.split(label: "Did publish mic")
+            span.record("Did publish mic")
         }
-        sw.split(label: "Sequence complete")
-        print(sw)
+        span.record("Sequence complete")
+        print(span)
 
-        print("Total time: \(sw.total())")
+        print("Total time: \(span.total())")
     }
 
     // Concurrent device acquisition publish flow
     @Test func concurrentMicPublish() async throws {
-        var sw = Stopwatch(label: "Test: Normal publish sequence")
+        let span = Span(label: "Test: Normal publish sequence")
 
         let room1Opts = RoomTestingOptions(url: url, token: token, enableMicrophone: true, canPublish: true)
         try await TestEnvironment.withRooms([room1Opts]) { rooms in
-            sw.split(label: "Connected to room")
+            span.record("Connected to room")
             // Alias to Rooms
             let room1 = rooms[0]
             // Mic should be already enabled at this point
             let isMicEnabled = room1.localParticipant.isMicrophoneEnabled()
             #expect(isMicEnabled, "Mic should be enabled at this point")
-            sw.split(label: "Did publish mic")
+            span.record("Did publish mic")
         }
-        sw.split(label: "Sequence complete")
-        print(sw)
+        span.record("Sequence complete")
+        print(span)
 
-        print("Total time: \(sw.total())")
+        print("Total time: \(span.total())")
     }
 }

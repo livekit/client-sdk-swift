@@ -86,7 +86,10 @@ public enum TestEnvironment {
         let sharedKey = UUID().uuidString
 
         let rooms = try options.enumerated().map {
-            let connectOptions = ConnectOptions(enableMicrophone: $0.element.enableMicrophone)
+            let connectOptions = ConnectOptions(
+                enableMicrophone: $0.element.enableMicrophone,
+                clientProtocol: $0.element.clientProtocol ?? ConnectOptions().clientProtocol
+            )
 
             let encryptionOptions = $0.element.encryptionOptions ?? EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
             let roomOptions = RoomOptions(encryptionOptions: encryptionOptions, reportRemoteTrackStatistics: true, singlePeerConnection: $0.element.singlePeerConnection)
