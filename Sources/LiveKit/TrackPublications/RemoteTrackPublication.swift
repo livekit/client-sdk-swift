@@ -355,7 +355,7 @@ extension RemoteTrackPublication {
 
         let newSettings = _state.trackSettings.copyWith(
             isEnabled: .value(isEnabled),
-            dimensions: .value(dimensions)
+            dimensions: .value(dimensions),
         )
 
         guard _state.trackSettings != newSettings else {

@@ -35,7 +35,7 @@ struct TextStreamInfoTests {
             version: 10,
             replyToStreamID: "replyID",
             attachedStreamIDs: ["attachedID"],
-            generated: true
+            generated: true,
         )
         let header = Livekit_DataStream.Header(info)
         #expect(header.streamID == info.id)

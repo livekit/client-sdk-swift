@@ -65,7 +65,7 @@ struct BroadcastImageCodecTests {
             height,
             kCVPixelFormatType_32BGRA,
             nil,
-            &pixelBuffer
+            &pixelBuffer,
         )
         return pixelBuffer
     }

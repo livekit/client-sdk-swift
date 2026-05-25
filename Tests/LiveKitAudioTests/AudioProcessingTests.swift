@@ -73,14 +73,14 @@ import LiveKitTestSupport
                 echoCancellation: true,
                 autoGainControl: true,
                 noiseSuppression: true,
-                highpassFilter: true
+                highpassFilter: true,
             )
 
             let allOffOptions = AudioCaptureOptions(
                 echoCancellation: false,
                 autoGainControl: false,
                 noiseSuppression: false,
-                highpassFilter: false
+                highpassFilter: false,
             )
 
             let pub1 = try #require(await room.localParticipant.setMicrophone(enabled: true, captureOptions: allOnOptions))

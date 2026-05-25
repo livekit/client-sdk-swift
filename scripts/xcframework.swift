@@ -46,7 +46,7 @@ func exec(_ args: [String]) async throws -> String {
         .name(name),
         arguments: .init(rest),
         output: .string(limit: 50 * 1024 * 1024),
-        error: .string(limit: 10 * 1024 * 1024)
+        error: .string(limit: 10 * 1024 * 1024),
     )
     guard case .exited(0) = result.terminationStatus else {
         let stdout = result.standardOutput ?? ""
@@ -132,7 +132,7 @@ struct PackageManifest {
 /// Recursively add source files from a directory to an Xcode group and build phase.
 func addSources(
     dir: Path, group: PBXGroup, sourcesBP: PBXSourcesBuildPhase, resourcesBP: PBXResourcesBuildPhase,
-    pbxProj: PBXProj, excludes: [String] = []
+    pbxProj: PBXProj, excludes: [String] = [],
 ) throws {
     for child in try dir.children().sorted(by: { $0.string < $1.string }) {
         let name = child.lastComponent
@@ -194,7 +194,7 @@ func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
     let project = PBXProject(
         name: "LiveKit", buildConfigurationList: projectConfigList,
         compatibilityVersion: "Xcode 26.0", preferredProjectObjectVersion: 77,
-        minimizedProjectReferenceProxies: 1, mainGroup: mainGroup
+        minimizedProjectReferenceProxies: 1, mainGroup: mainGroup,
     )
     pbxProj.add(object: project)
     pbxProj.rootObject = project
@@ -234,7 +234,7 @@ func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
     let target = PBXNativeTarget(
         name: "LiveKit", buildConfigurationList: targetConfigList,
         buildPhases: [headersBP, sourcesBP, frameworksBP, resourcesBP],
-        productType: .framework
+        productType: .framework,
     )
     pbxProj.add(object: target)
     target.packageProductDependencies = deps
@@ -258,7 +258,7 @@ func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
 // swiftlint:enable function_body_length
 
 private func addPackageDependencies(
-    pbxProj: PBXProj, project: PBXProject, manifest: PackageManifest
+    pbxProj: PBXProj, project: PBXProject, manifest: PackageManifest,
 ) throws -> [XCSwiftPackageProductDependency] {
     func addPkg(url: String, pattern: String) throws -> XCRemoteSwiftPackageReference {
         let version = try manifest.extractVersion(pattern: pattern)
@@ -289,7 +289,7 @@ private func addPackageDependencies(
 private func addSourceGroups(
     pbxProj: PBXProj, mainGroup: PBXGroup,
     sourcesBP: PBXSourcesBuildPhase, resourcesBP: PBXResourcesBuildPhase,
-    headersBP: PBXHeadersBuildPhase, repoRoot: Path
+    headersBP: PBXHeadersBuildPhase, repoRoot: Path,
 ) throws {
     let liveKitGroup = PBXGroup(sourceTree: .group, name: "LiveKit", path: "Sources/LiveKit")
     pbxProj.add(object: liveKitGroup)
@@ -322,7 +322,7 @@ func archiveAllPlatforms(projectPath: Path, buildDir: Path, spmDir: Path) async 
     step("Archiving \(platforms.count) platforms in parallel...")
     let results: [(Platform, Result<Path, Swift.Error>)] = await withTaskGroup(
         of: (Platform, Result<Path, Swift.Error>).self,
-        returning: [(Platform, Result<Path, Swift.Error>)].self
+        returning: [(Platform, Result<Path, Swift.Error>)].self,
     ) { group in
         for p in platforms {
             group.addTask {
@@ -373,7 +373,7 @@ struct BuildXCFramework: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "xcframework",
         abstract: "Build LiveKit.xcframework for all supported Apple platforms.",
-        discussion: "Usage: ./xcframework.swift [--version <version> | --local] [--output <dir>]"
+        discussion: "Usage: ./xcframework.swift [--version <version> | --local] [--output <dir>]",
     )
 
     @Option(help: "Version tag for release URLs (required unless --local).")

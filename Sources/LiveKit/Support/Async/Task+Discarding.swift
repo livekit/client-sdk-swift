@@ -34,7 +34,7 @@ extension Task where Success == Void, Failure == Never {
         file: StaticString = #fileID,
         line: UInt = #line,
         @_inheritActorContext @_implicitSelfCapture
-        operation: sending @escaping @isolated(any) () async throws -> some Sendable
+        operation: sending @escaping @isolated(any) () async throws -> some Sendable,
     ) {
         Task(priority: priority) {
             do {
@@ -60,7 +60,7 @@ extension Task where Success == Void, Failure == Never {
         function: StaticString = #function,
         file: StaticString = #fileID,
         line: UInt = #line,
-        operation: sending @escaping () async throws -> some Sendable
+        operation: sending @escaping () async throws -> some Sendable,
     ) {
         Task.detached(priority: priority) {
             do {

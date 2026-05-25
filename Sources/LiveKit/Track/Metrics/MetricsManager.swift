@@ -161,7 +161,7 @@ private extension Livekit_MetricsBatch {
         strings: inout OrderedSet<String>,
         identity: Participant.Identity? = nil,
         sid: String? = nil,
-        rid: String? = nil
+        rid: String? = nil,
     ) {
         guard let sample = createSample(timestampUs: timestampUs, value: value) else { return }
         let timeSeries = createTimeSeries(
@@ -170,7 +170,7 @@ private extension Livekit_MetricsBatch {
             samples: [sample],
             identity: identity,
             sid: sid,
-            rid: rid
+            rid: rid,
         )
         self.timeSeries.append(timeSeries)
     }
@@ -191,7 +191,7 @@ private extension Livekit_MetricsBatch {
         samples: [Livekit_MetricSample],
         identity: Participant.Identity? = nil,
         sid: String? = nil,
-        rid: String? = nil
+        rid: String? = nil,
     ) -> Livekit_TimeSeriesMetric {
         var timeSeries = Livekit_TimeSeriesMetric()
         timeSeries.label = UInt32(label.rawValue)

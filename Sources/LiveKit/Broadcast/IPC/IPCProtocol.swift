@@ -35,7 +35,7 @@ final class IPCProtocol: NWProtocolFramerImplementation, Loggable {
     func handleOutput(framer: NWProtocolFramer.Instance, message: NWProtocolFramer.Message, messageLength: Int, isComplete _: Bool) {
         let header = Header(
             totalSize: UInt32(messageLength),
-            payloadSize: UInt32(message.ipcMessagePayloadSize ?? 0)
+            payloadSize: UInt32(message.ipcMessagePayloadSize ?? 0),
         )
         framer.writeOutput(data: header.encodedData)
         do {
@@ -50,7 +50,7 @@ final class IPCProtocol: NWProtocolFramerImplementation, Loggable {
             var tempHeader: Header?
             let parsed = framer.parseInput(
                 minimumIncompleteLength: Header.encodedSize,
-                maximumLength: Header.encodedSize
+                maximumLength: Header.encodedSize,
             ) { buffer, _ -> Int in
                 guard let buffer else { return 0 }
                 if buffer.count < Header.encodedSize { return 0 }
@@ -85,7 +85,7 @@ extension NWConnection.ContentContext {
     static func ipcMessage(payloadSize: Int) -> NWConnection.ContentContext {
         NWConnection.ContentContext(
             identifier: IPCProtocol.label,
-            metadata: [NWProtocolFramer.Message(ipcMessagePayloadSize: payloadSize)]
+            metadata: [NWProtocolFramer.Message(ipcMessagePayloadSize: payloadSize)],
         )
     }
 }
@@ -112,16 +112,16 @@ extension IPCProtocol.Header {
             $0.copyMemory(
                 from: UnsafeRawBufferPointer(
                     start: buffer.baseAddress!.advanced(by: 0),
-                    count: MemoryLayout<UInt32>.size
-                )
+                    count: MemoryLayout<UInt32>.size,
+                ),
             )
         }
         withUnsafeMutableBytes(of: &tempPayloadSize) {
             $0.copyMemory(
                 from: UnsafeRawBufferPointer(
                     start: buffer.baseAddress!.advanced(by: MemoryLayout<UInt32>.size),
-                    count: MemoryLayout<UInt32>.size
-                )
+                    count: MemoryLayout<UInt32>.size,
+                ),
             )
         }
         totalSize = tempTotalSize

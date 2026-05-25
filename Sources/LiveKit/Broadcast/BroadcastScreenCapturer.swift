@@ -108,7 +108,7 @@ public extension LocalVideoTrack {
             source: source,
             capturer: capturer,
             videoSource: videoSource,
-            reportStatistics: reportStatistics
+            reportStatistics: reportStatistics,
         )
     }
 }

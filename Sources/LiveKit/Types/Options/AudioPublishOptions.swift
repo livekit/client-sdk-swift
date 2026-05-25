@@ -88,7 +88,7 @@ extension AudioPublishOptions {
             dtx: dtx,
             red: red,
             streamName: streamName,
-            preConnect: enabled
+            preConnect: enabled,
         )
     }
 }

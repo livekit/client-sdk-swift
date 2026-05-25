@@ -613,13 +613,13 @@ extension Room {
                 nextReconnectMode: $0.nextReconnectMode,
                 isReconnectingWithMode: $0.isReconnectingWithMode,
                 connectionState: $0.connectionState,
-                reconnectTask: $0.reconnectTask
+                reconnectTask: $0.reconnectTask,
             ) : State(
                 connectOptions: $0.connectOptions,
                 roomOptions: $0.roomOptions,
                 connectionState: .disconnected,
                 reconnectTask: $0.reconnectTask,
-                disconnectError: LiveKitError.from(error: disconnectError)
+                disconnectError: LiveKitError.from(error: disconnectError),
             )
         }
     }

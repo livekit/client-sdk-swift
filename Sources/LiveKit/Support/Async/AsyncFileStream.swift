@@ -53,7 +53,7 @@ struct AsyncFileStream<Mode>: Loggable {
             queue: queue,
             cleanupHandler: { [fileDescriptor] _ in
                 Darwin.close(fileDescriptor)
-            }
+            },
         )
     }
 

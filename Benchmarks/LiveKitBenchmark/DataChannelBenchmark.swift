@@ -48,7 +48,7 @@ let dataChannelBenchmarks: @Sendable () -> Void = {
 private func registerDataChannelBenchmark(
     name: String,
     payloadSize: Int,
-    reliable: Bool
+    reliable: Bool,
 ) {
     nonisolated(unsafe) var senderRoom: Room?
     nonisolated(unsafe) var echo: EchoParticipant?
@@ -67,7 +67,7 @@ private func registerDataChannelBenchmark(
                 benchmark.startMeasurement()
                 try await senderRoom.localParticipant.publish(
                     data: payload,
-                    options: .init(topic: "benchmark", reliable: reliable)
+                    options: .init(topic: "benchmark", reliable: reliable),
                 )
                 try await echoReceiver.waitForData(timeout: 5.0)
                 benchmark.stopMeasurement()
@@ -104,7 +104,7 @@ private func registerDataChannelBenchmark(
             senderRoom = nil
             echo = nil
             echoReceiver = nil
-        }
+        },
     )
 }
 

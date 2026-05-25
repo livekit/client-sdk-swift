@@ -29,7 +29,7 @@ struct PublishBufferCapturerTests {
             simulcast: false,
             preferredCodec: codec,
             preferredBackupCodec: .none,
-            degradationPreference: .maintainResolution
+            degradationPreference: .maintainResolution,
         )
 
         try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
@@ -39,7 +39,7 @@ struct PublishBufferCapturerTests {
             let targetDimensions: Dimensions = .h720_169
 
             let bufferTrack = LocalVideoTrack.createBufferTrack(
-                options: BufferCaptureOptions(dimensions: targetDimensions)
+                options: BufferCaptureOptions(dimensions: targetDimensions),
             )
 
             let bufferCapturer = try #require(bufferTrack.capturer as? BufferCapturer)

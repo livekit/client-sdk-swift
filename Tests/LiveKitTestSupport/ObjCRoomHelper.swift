@@ -35,7 +35,7 @@ public class LKObjCRoomHelper: NSObject {
         identity: String,
         canPublish: Bool,
         canPublishData: Bool,
-        canSubscribe: Bool
+        canSubscribe: Bool,
     ) throws -> String {
         let apiKey = readEnv("LIVEKIT_TESTING_API_KEY", defaultValue: "devkey")
         let apiSecret = readEnv("LIVEKIT_TESTING_API_SECRET", defaultValue: "secret")
@@ -59,7 +59,7 @@ public class LKObjCRoomHelper: NSObject {
             canUpdateOwnMetadata: false,
             ingressAdmin: false,
             hidden: false,
-            recorder: false
+            recorder: false,
         )
 
         return try tokenGenerator.sign()

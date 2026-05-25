@@ -68,7 +68,7 @@ struct TimeIntervalTests {
             baseDelay: c.baseDelay,
             maxDelay: c.maxDelay,
             totalAttempts: c.totalAttempts,
-            addJitter: false
+            addJitter: false,
         )
         let expected = Self.expectedDelay(for: c)
 
@@ -91,7 +91,7 @@ struct TimeIntervalTests {
             baseDelay: baseDelay,
             maxDelay: maxDelay,
             totalAttempts: totalAttempts,
-            addJitter: false
+            addJitter: false,
         )
 
         let withJitter = TimeInterval.computeReconnectDelay(
@@ -99,7 +99,7 @@ struct TimeIntervalTests {
             baseDelay: baseDelay,
             maxDelay: maxDelay,
             totalAttempts: totalAttempts,
-            addJitter: true
+            addJitter: true,
         )
 
         #expect(withJitter > withoutJitter, "Should have jitter applied")
@@ -118,7 +118,7 @@ struct TimeIntervalTests {
                 forAttempt: totalAttempts - 1,
                 baseDelay: baseDelay,
                 maxDelay: maxDelay,
-                totalAttempts: totalAttempts
+                totalAttempts: totalAttempts,
             )
             #expect(delay >= maxDelay, "Should be at least the max delay")
             #expect(delay <= maxDelay + maxJitter, "Should not exceed max delay plus 30% jitter")

@@ -307,7 +307,7 @@ actor RpcServerManager: Loggable {
         let options = StreamTextOptions(
             topic: RpcStreamTopic.response,
             attributes: [RpcStreamAttribute.requestId: requestId],
-            destinationIdentities: [destinationIdentity]
+            destinationIdentities: [destinationIdentity],
         )
         let writer = try await room.localParticipant.streamText(options: options)
         try await writer.write(payload)

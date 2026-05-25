@@ -269,7 +269,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     private func processSendQueue(
         threshold: UInt64,
         buffer: inout SendBuffer,
-        kind: ChannelKind
+        kind: ChannelKind,
     ) {
         while buffer.canSend(threshold: threshold), let request = buffer.dequeue() {
             guard let channel = channel(for: kind) else {
@@ -284,7 +284,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
             guard channel.sendData(request.data) else {
                 request.continuation?.resume(
-                    throwing: LiveKitError(.invalidState, message: "sendData failed")
+                    throwing: LiveKitError(.invalidState, message: "sendData failed"),
                 )
                 return
             }
@@ -299,7 +299,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     private func updateTarget(
         buffer: inout SendBuffer,
-        newAmount: UInt64
+        newAmount: UInt64,
     ) {
         guard buffer.rtcAmount >= newAmount else {
             log("Unexpected buffer size detected", .error)
@@ -311,7 +311,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     private func retry(
         buffer: inout RetryBuffer,
-        from lastSeq: UInt32
+        from lastSeq: UInt32,
     ) {
         if let first = buffer.peek(), first.sequence > lastSeq + 1 {
             log("Wrong packet sequence while retrying: \(first.sequence) > \(lastSeq + 1), \(first.sequence - lastSeq - 1) packets missing", .warning)
@@ -416,11 +416,11 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             let request = PublishDataRequest(
                 data: rtcData,
                 sequence: packet.sequence,
-                continuation: continuation
+                continuation: continuation,
             )
             let event = ChannelEvent(
                 channelKind: ChannelKind(packet.kind), // TODO: field is deprecated
-                detail: .publishData(request)
+                detail: .publishData(request),
             )
             eventContinuation.yield(event)
         }
@@ -495,7 +495,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
     func dataChannel(_ dataChannel: LKRTCDataChannel, didChangeBufferedAmount amount: UInt64) {
         let event = ChannelEvent(
             channelKind: dataChannel.kind,
-            detail: .bufferedAmountChanged(amount)
+            detail: .bufferedAmountChanged(amount),
         )
         eventContinuation.yield(event)
     }

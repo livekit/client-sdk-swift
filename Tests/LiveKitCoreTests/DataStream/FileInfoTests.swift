@@ -35,7 +35,7 @@ struct FileInfoTests {
         let expectedInfo = FileInfo(
             name: fileURL.lastPathComponent,
             size: contents.count,
-            mimeType: mimeType
+            mimeType: mimeType,
         )
         #expect(FileInfo(for: fileURL) == expectedInfo)
     }

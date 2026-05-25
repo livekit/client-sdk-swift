@@ -43,7 +43,7 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
         autoGainControl: false,
         noiseSuppression: false,
         highpassFilter: false,
-        typingNoiseDetection: false
+        typingNoiseDetection: false,
     )
 
     /// Whether to enable software (WebRTC's) echo cancellation.
@@ -72,7 +72,7 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
         autoGainControl: Bool = AudioCaptureOptions.defaultAutoGainControl,
         noiseSuppression: Bool = AudioCaptureOptions.defaultNoiseSuppression,
         highpassFilter: Bool = false,
-        typingNoiseDetection: Bool = false
+        typingNoiseDetection: Bool = false,
     ) {
         self.echoCancellation = echoCancellation
         self.noiseSuppression = noiseSuppression

@@ -61,7 +61,7 @@ final class IPCChannel: Sendable {
     init(connectingTo socketPath: SocketPath) async throws {
         connection = NWConnection(
             to: NWEndpoint(socketPath),
-            using: Self.defaultParameters
+            using: Self.defaultParameters,
         )
         try await connection.waitUntilReady()
     }
@@ -82,7 +82,7 @@ final class IPCChannel: Sendable {
     func send(header: some Encodable, payload: Data? = nil) async throws {
         try await send(
             encodedHeader: encoder.encode(header),
-            payload: payload
+            payload: payload,
         )
     }
 
@@ -96,7 +96,7 @@ final class IPCChannel: Sendable {
 
         try await connection.send(
             content: messageData,
-            contentContext: NWConnection.ContentContext.ipcMessage(payloadSize: payloadSize)
+            contentContext: NWConnection.ContentContext.ipcMessage(payloadSize: payloadSize),
         )
     }
 
@@ -148,7 +148,7 @@ extension Data {
         guard (0 ... count).contains(bytesInFirst) else { return nil }
         return (
             subdata(in: 0 ..< bytesInFirst),
-            subdata(in: bytesInFirst ..< count)
+            subdata(in: bytesInFirst ..< count),
         )
     }
 }
@@ -256,7 +256,7 @@ private extension NWConnection {
                         return
                     }
                     continuation.resume(throwing: error)
-                }
+                },
             )
         }
     }

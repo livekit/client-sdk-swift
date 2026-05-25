@@ -61,7 +61,7 @@ public enum TestEnvironment {
             canUpdateOwnMetadata: false,
             ingressAdmin: false,
             hidden: false,
-            recorder: false
+            recorder: false,
         )
 
         return try tokenGenerator.sign()
@@ -88,7 +88,7 @@ public enum TestEnvironment {
         let rooms = try options.enumerated().map {
             let connectOptions = ConnectOptions(
                 enableMicrophone: $0.element.enableMicrophone,
-                clientProtocol: $0.element.clientProtocol ?? ConnectOptions().clientProtocol
+                clientProtocol: $0.element.clientProtocol ?? ConnectOptions().clientProtocol,
             )
 
             let encryptionOptions = $0.element.encryptionOptions ?? EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))

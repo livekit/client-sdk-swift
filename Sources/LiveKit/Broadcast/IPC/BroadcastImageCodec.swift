@@ -46,7 +46,7 @@ struct BroadcastImageCodec {
 
         let metadata = Metadata(
             width: CVPixelBufferGetWidth(imageBuffer),
-            height: CVPixelBufferGetHeight(imageBuffer)
+            height: CVPixelBufferGetHeight(imageBuffer),
         )
         let jpegData = try jpegEncode(imageBuffer)
         return (metadata, jpegData)
@@ -85,7 +85,7 @@ struct BroadcastImageCodec {
         guard let jpegData = imageContext.jpegRepresentation(
             of: image,
             colorSpace: colorSpace,
-            options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: quality]
+            options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: quality],
         ) else {
             throw Error.encodingFailed
         }
@@ -100,7 +100,7 @@ struct BroadcastImageCodec {
             metadata.height,
             kCVPixelFormatType_32BGRA,
             nil,
-            &imageBuffer
+            &imageBuffer,
         )
         guard status == kCVReturnSuccess, let imageBuffer else {
             throw Error.decodingFailed

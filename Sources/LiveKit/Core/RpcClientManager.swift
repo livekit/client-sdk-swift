@@ -70,7 +70,7 @@ actor RpcClientManager: Loggable {
         pendingAcks.insert(requestId)
         pendingResponses[requestId] = PendingRpcResponse(
             participantIdentity: destinationIdentity,
-            completer: completer
+            completer: completer,
         )
 
         do {
@@ -298,7 +298,7 @@ actor RpcClientManager: Loggable {
                 RpcStreamAttribute.timeoutMs: String(UInt32(responseTimeout * 1000)),
                 RpcStreamAttribute.version: RPC_STREAM_VERSION,
             ],
-            destinationIdentities: [destinationIdentity]
+            destinationIdentities: [destinationIdentity],
         )
         let writer = try await room.localParticipant.streamText(options: options)
         try await writer.write(payload)

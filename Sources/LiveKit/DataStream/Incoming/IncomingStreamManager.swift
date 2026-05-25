@@ -149,7 +149,7 @@ actor IncomingStreamManager: Loggable {
             continuation: continuation,
             task: Task {
                 try await handler(source, identity)
-            }.cancellable()
+            }.cancellable(),
         )
 
         openStreams[info.id] = descriptor
@@ -167,7 +167,7 @@ actor IncomingStreamManager: Loggable {
         if descriptor.info.encryptionType != encryptionType {
             let error = StreamError.encryptionTypeMismatch(
                 expected: descriptor.info.encryptionType,
-                received: encryptionType
+                received: encryptionType,
             )
             descriptor.continuation.finish(throwing: error)
             return
@@ -194,7 +194,7 @@ actor IncomingStreamManager: Loggable {
         if descriptor.info.encryptionType != encryptionType {
             let error = StreamError.encryptionTypeMismatch(
                 expected: descriptor.info.encryptionType,
-                received: encryptionType
+                received: encryptionType,
             )
             descriptor.continuation.finish(throwing: error)
             return
@@ -270,7 +270,7 @@ extension ByteStreamInfo {
     convenience init(
         _ header: Livekit_DataStream.Header,
         _ byteHeader: Livekit_DataStream.ByteHeader,
-        _ encryptionType: EncryptionType
+        _ encryptionType: EncryptionType,
     ) {
         self.init(
             id: header.streamID,
@@ -281,7 +281,7 @@ extension ByteStreamInfo {
             encryptionType: encryptionType,
             // ---
             mimeType: header.mimeType,
-            name: byteHeader.name
+            name: byteHeader.name,
         )
     }
 }
@@ -290,7 +290,7 @@ extension TextStreamInfo {
     convenience init(
         _ header: Livekit_DataStream.Header,
         _ textHeader: Livekit_DataStream.TextHeader,
-        _ encryptionType: EncryptionType
+        _ encryptionType: EncryptionType,
     ) {
         self.init(
             id: header.streamID,
@@ -304,7 +304,7 @@ extension TextStreamInfo {
             version: Int(textHeader.version),
             replyToStreamID: !textHeader.replyToStreamID.isEmpty ? textHeader.replyToStreamID : nil,
             attachedStreamIDs: textHeader.attachedStreamIds,
-            generated: textHeader.generated
+            generated: textHeader.generated,
         )
     }
 }

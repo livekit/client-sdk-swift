@@ -61,7 +61,7 @@ actor MessageCollector {
             segmentID: segmentID,
             streamID: streamID,
             expectedContent: expectedContent,
-            expectedIsFinal: expectedIsFinal
+            expectedIsFinal: expectedIsFinal,
         )
     }
 
@@ -77,7 +77,7 @@ actor MessageCollector {
             segmentID: segmentID,
             streamID: nil,
             expectedContent: expectedContent,
-            expectedIsFinal: expectedIsFinal
+            expectedIsFinal: expectedIsFinal,
         )
     }
 
@@ -132,7 +132,7 @@ actor MessageCollector {
                 messages: messages,
                 segmentID: segmentID,
                 expectedContent: expectedContent,
-                expectedIsFinal: expectedIsFinal
+                expectedIsFinal: expectedIsFinal,
             )
         }
     }
@@ -184,7 +184,7 @@ actor MessageCollector {
                 messages: messages,
                 segmentID: segmentID,
                 expectedContent: expectedContent,
-                expectedIsFinal: expectedIsFinal
+                expectedIsFinal: expectedIsFinal,
             )
         }
     }
@@ -193,7 +193,7 @@ actor MessageCollector {
         chunks: [String],
         segmentID: String,
         streamID: String? = nil,
-        to room: Room
+        to room: Room,
     ) async throws {
         let topic = "lk.transcription"
 
@@ -212,7 +212,7 @@ actor MessageCollector {
             let options = StreamTextOptions(
                 topic: topic,
                 attributes: attributes,
-                id: streamID ?? UUID().uuidString
+                id: streamID ?? UUID().uuidString,
             )
 
             try await room.localParticipant.sendText(chunk, options: options)
@@ -225,7 +225,7 @@ actor MessageCollector {
         messages: OrderedDictionary<ReceivedMessage.ID, ReceivedMessage>,
         segmentID: String,
         expectedContent: [String],
-        expectedIsFinal: [Bool]
+        expectedIsFinal: [Bool],
     ) {
         // Validate updates
         #expect(updates.count == expectedContent.count)
@@ -260,7 +260,7 @@ actor MessageCollector {
         segmentID: String,
         streamID: String? = nil,
         expectedContent: [String],
-        expectedIsFinal: [Bool]
+        expectedIsFinal: [Bool],
     ) async throws {
         try await TestEnvironment.withRooms([
             RoomTestingOptions(canSubscribe: true),
@@ -283,7 +283,7 @@ actor MessageCollector {
                     chunks: chunks,
                     segmentID: segmentID,
                     streamID: streamID,
-                    to: senderRoom
+                    to: senderRoom,
                 )
             }
 
@@ -295,7 +295,7 @@ actor MessageCollector {
                 messages: messages,
                 segmentID: segmentID,
                 expectedContent: expectedContent,
-                expectedIsFinal: expectedIsFinal
+                expectedIsFinal: expectedIsFinal,
             )
         }
     }
