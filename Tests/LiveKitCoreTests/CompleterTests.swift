@@ -42,7 +42,7 @@ struct CompleterTests {
         let completer = AsyncCompleter<Void>(label: "cancel-test", defaultTimeout: 30)
         do {
             // Run Tasks in parallel
-            try await withThrowingTaskGroup(of: Void.self) { group in
+            try await withThrowingTaskGroup { group in
                 group.addTask {
                     print("Task 1: Waiting...")
                     try await completer.wait()
@@ -71,7 +71,7 @@ struct CompleterTests {
         let completer = AsyncCompleter<Void>(label: "cancel-test", defaultTimeout: 30)
         do {
             // Run Tasks in parallel
-            try await withThrowingTaskGroup(of: Void.self) { group in
+            try await withThrowingTaskGroup { group in
                 group.addTask {
                     print("Task 1: Waiting...")
                     try await completer.wait()

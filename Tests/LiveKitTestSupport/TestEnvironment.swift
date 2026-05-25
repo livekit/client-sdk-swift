@@ -117,7 +117,7 @@ public enum TestEnvironment {
 
         // Connect all Rooms concurrently (retry on transient failure)
         try await Task.retrying(totalAttempts: 3, retryDelay: 2) { _, _ in
-            try await withThrowingTaskGroup(of: Void.self) { group in
+            try await withThrowingTaskGroup { group in
                 for element in rooms {
                     group.addTask {
                         try await element.room.connect(url: element.url, token: element.token)
@@ -169,7 +169,7 @@ public enum TestEnvironment {
         try await block(allRooms)
 
         // Gracefully unpublish all tracks then disconnect.
-        try await withThrowingTaskGroup(of: Void.self) { group in
+        try await withThrowingTaskGroup { group in
             for element in rooms {
                 group.addTask {
                     await element.room.localParticipant.unpublishAll()

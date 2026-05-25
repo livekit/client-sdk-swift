@@ -657,7 +657,7 @@ extension Room {
         }
 
         // Clean up Participants concurrently
-        await withTaskGroup(of: Void.self) { group in
+        await withTaskGroup { group in
             for participant in allParticipants {
                 group.addTask {
                     await participant.cleanUp(notify: _notify)

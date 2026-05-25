@@ -252,7 +252,7 @@ struct RpcClientTests {
             }
             room.publisherDataChannel = mockDataChannel
 
-            let responses = try await withThrowingTaskGroup(of: String.self) { group in
+            let responses = try await withThrowingTaskGroup { group in
                 for _ in 0 ..< 5 {
                     group.addTask {
                         try await room.localParticipant.performRpc(

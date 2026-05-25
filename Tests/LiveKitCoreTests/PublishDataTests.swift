@@ -55,7 +55,7 @@ struct PublishDataTests {
             let room2Watcher: RoomWatcher<TestDataPayload> = room2.createWatcher()
 
             // Publish concurrently
-            try await withThrowingTaskGroup(of: Void.self) { group in
+            try await withThrowingTaskGroup { group in
                 for topic in topics {
                     group.addTask {
                         try await room1.localParticipant.publish(data: jsonData, options: DataPublishOptions(topic: topic))
@@ -66,7 +66,7 @@ struct PublishDataTests {
             }
 
             // Wait concurrently
-            let result = try await withThrowingTaskGroup(of: TestDataPayload.self, returning: [TestDataPayload].self) { group in
+            let result = try await withThrowingTaskGroup(returning: [TestDataPayload].self) { group in
                 for topic in topics {
                     group.addTask {
                         try await room2Watcher.didReceiveDataCompleters.completer(for: topic).wait()
