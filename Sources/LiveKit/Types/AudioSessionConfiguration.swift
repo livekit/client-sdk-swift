@@ -28,6 +28,10 @@ public extension AudioSessionConfiguration {
                                                        categoryOptions: [],
                                                        mode: .default)
 
+    static let ambient = AudioSessionConfiguration(category: .ambient,
+                                                   categoryOptions: [],
+                                                   mode: .default)
+
     static let playback = AudioSessionConfiguration(category: .playback,
                                                     categoryOptions: [.mixWithOthers],
                                                     mode: .spokenAudio)

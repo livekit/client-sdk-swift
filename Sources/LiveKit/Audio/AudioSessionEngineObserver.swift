@@ -167,7 +167,10 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         if (!newState.isPlayoutEnabled && !newState.isRecordingEnabled) && (oldState.isPlayoutEnabled || oldState.isRecordingEnabled) {
             if newState.isAutomaticDeactivationEnabled {
                 do {
-                    log("AudioSession deactivating...")
+                    log("AudioSession resetting to ambient and deactivating...")
+                    // Restore the media volume register; rocker stays on ringer/call otherwise.
+                    let idle = AudioSessionConfiguration.ambient
+                    try session.setCategory(idle.category, mode: idle.mode, options: idle.categoryOptions)
                     try session.setActive(false, options: .notifyOthersOnDeactivation)
                 } catch {
                     log("AudioSession failed to deactivate with error: \(error)", .error)
