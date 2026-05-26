@@ -36,7 +36,7 @@ changing it while the engine is in use.
 > Note: If `isAutomaticConfigurationEnabled` is `false`, the SDK does not touch the audio
 > session, so this setting has no effect.
 
-By default, the SDK deactivates the `AVAudioSession` when both playout and recording are disabled (e.g., after disconnecting from a room). This allows other apps' audio (like Music) to resume.
+By default, the SDK deactivates the `AVAudioSession` when both playout and recording are disabled (e.g., after disconnecting from a room). Before deactivating, the category is reset to `.ambient` so the iOS volume rocker returns to the media register, and other apps' audio (like Music) can resume.
 
 However, if your app has its own audio features that could be disrupted by deactivating the audio session, you can disable automatic deactivation:
 
@@ -45,6 +45,19 @@ AudioManager.shared.audioSession.isAutomaticDeactivationEnabled = false
 ```
 
 When set to `false`, the audio session remains active after the LiveKit call ends, preserving your app's audio state.
+
+## Audio session category selection
+
+When `isAutomaticConfigurationEnabled` is `true`, the SDK picks the audio session category from the participant's role:
+
+- **Listener** (subscribes to remote audio, never publishes a mic):
+  `.playback` for the entire session. The iOS volume rocker stays on the media register and no microphone permission prompt is required.
+- **Publisher** (mic enabled at any point during the session):
+  `.playAndRecord` from the first publish onward. Once engaged, the category stays `.playAndRecord` even when the mic is muted — the category doesn't churn on every mute toggle.
+- **Audience-only by token** (server-issued `canPublish: false`):
+  treated as listener for the whole session; never upgrades to `.playAndRecord` even if the app calls `setRecordingAlwaysPreparedMode`.
+
+The category is reset to `.ambient` when both playout and recording stop (typically after `Room.disconnect()`).
 
 ## Disabling Voice Processing
 
