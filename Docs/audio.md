@@ -57,6 +57,12 @@ When `isAutomaticConfigurationEnabled` is `true`, the SDK picks the audio sessio
 
 The category is reset to `.ambient` when both playout and recording stop (typically after `Room.disconnect()`).
 
+## Interruption recovery
+
+After a system interruption (incoming phone call, alarm, Siri, FaceTime), iOS re-activates your audio session but does not restore the category, mode, or options. When `isAutomaticConfigurationEnabled` is `true`, the SDK re-applies its configuration on interruption-end and externally-driven category-change events so audio resumes in a known state.
+
+If you manage `AVAudioSession` yourself (e.g., CallKit apps with `isAutomaticConfigurationEnabled = false`), the SDK does not re-apply on these events — handle interruption recovery in your `CXProviderDelegate` instead.
+
 ## Disabling Voice Processing
 
 Apple's voice processing is enabled by default, such as echo cancellation and auto-gain control.
