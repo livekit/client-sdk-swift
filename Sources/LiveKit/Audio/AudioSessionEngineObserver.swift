@@ -253,8 +253,11 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         // Purely permission-driven for now; intent gate disabled pending validation.
         let wantsToPublish = state.canPublishMicrophone // && AudioManager.shared.isRecordingAlwaysPreparedMode
         let needsRecord = state.isRecordingEnabled || state.hasEverRecorded || wantsToPublish
-        guard needsRecord else { return .playback }
-        return state.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver
+        let config: AudioSessionConfiguration = needsRecord
+            ? (state.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver)
+            : .playback
+        log("selectConfiguration: recording=\(state.isRecordingEnabled) hasEverRecorded=\(state.hasEverRecorded) canPublishMic=\(state.canPublishMicrophone) speaker=\(state.isSpeakerOutputPreferred) → \(config.category)")
+        return config
     }
 
     // MARK: - AudioEngineObserver
