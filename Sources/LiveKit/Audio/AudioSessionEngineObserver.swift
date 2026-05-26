@@ -250,7 +250,8 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     ///     `isRecordingAlwaysPreparedMode` AND the participant has permission
     ///     to publish a microphone (`canPublishMicrophone`).
     private func selectConfiguration(state: State) -> AudioSessionConfiguration {
-        let wantsToPublish = state.canPublishMicrophone && AudioManager.shared.isRecordingAlwaysPreparedMode
+        // Purely permission-driven for now; intent gate disabled pending validation.
+        let wantsToPublish = state.canPublishMicrophone // && AudioManager.shared.isRecordingAlwaysPreparedMode
         let needsRecord = state.isRecordingEnabled || state.hasEverRecorded || wantsToPublish
         guard needsRecord else { return .playback }
         return state.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver
