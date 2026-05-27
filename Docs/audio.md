@@ -48,14 +48,12 @@ When set to `false`, the audio session remains active after the LiveKit call end
 
 ## Audio session category selection
 
-When `isAutomaticConfigurationEnabled` is `true`, the SDK picks the audio session category from the participant's role:
+When `isAutomaticConfigurationEnabled` is `true`, the SDK picks the audio session category based on whether the local participant is — or might be — publishing audio:
 
-- **Listener** (subscribes to remote audio, never publishes a mic):
+- **Audience** (server-issued `canPublish: false`, and the app has not enabled `isRecordingAlwaysPreparedMode`):
   `.playback` for the entire session. The iOS volume rocker stays on the media register and no microphone permission prompt is required.
-- **Publisher** (mic enabled at any point during the session):
-  `.playAndRecord` from the first publish onward. Once engaged, the category stays `.playAndRecord` even when the mic is muted — the category doesn't churn on every mute toggle.
-- **Audience-only by token** (server-issued `canPublish: false`):
-  treated as listener for the whole session; never upgrades to `.playAndRecord` even if the app calls `setRecordingAlwaysPreparedMode`.
+- **Publisher** (server-issued mic-publish permission, the app enabled `isRecordingAlwaysPreparedMode`, or the mic has been enabled at any point during the session):
+  `.playAndRecord` from then on. Once engaged, the category stays `.playAndRecord` even when the mic is muted — the category doesn't churn on every mute toggle.
 
 The category is reset to `.ambient` when both playout and recording stop (typically after `Room.disconnect()`).
 
