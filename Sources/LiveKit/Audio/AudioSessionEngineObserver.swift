@@ -86,7 +86,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         // Sticky: true once recording engaged this session, cleared on the empty edge.
         // Keeps `.playAndRecord` across mute toggles instead of churning the category
         // on every requirement change.
-        var hasEverRecorded: Bool = false
+        var hasRecorded: Bool = false
 
         // Tracks the active local participant's mic publish permission. See accessor.
         var canPublishMicrophone: Bool = true
@@ -151,12 +151,12 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             block(&$0.sessionRequirements)
             guard $0.sessionRequirements != oldState.sessionRequirements else { return }
 
-            // Maintain the sticky `hasEverRecorded` bit.
+            // Maintain the sticky `hasRecorded` bit.
             if $0.isRecordingEnabled {
-                $0.hasEverRecorded = true
+                $0.hasRecorded = true
             } else if !$0.isPlayoutEnabled {
                 // Empty edge — reset for the next session.
-                $0.hasEverRecorded = false
+                $0.hasRecorded = false
             }
 
             do {
@@ -245,18 +245,18 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     /// `.playAndRecord` is selected when any signal indicates the user is or
     /// will be publishing; otherwise `.playback` (pure listener):
     ///   - `isRecordingEnabled`: a track or external acquirer needs recording now.
-    ///   - `hasEverRecorded`: sticky — keeps `.playAndRecord` across mute toggles.
+    ///   - `hasRecorded`: sticky — keeps `.playAndRecord` across mute toggles.
     ///   - `wantsToPublish`: the app declared publishing intent via
     ///     `isRecordingAlwaysPreparedMode` AND the participant has permission
     ///     to publish a microphone (`canPublishMicrophone`).
     private func selectConfiguration(state: State) -> AudioSessionConfiguration {
         // Purely permission-driven for now; intent gate disabled pending validation.
         let wantsToPublish = state.canPublishMicrophone // && AudioManager.shared.isRecordingAlwaysPreparedMode
-        let needsRecord = state.isRecordingEnabled || state.hasEverRecorded || wantsToPublish
+        let needsRecord = state.isRecordingEnabled || state.hasRecorded || wantsToPublish
         let config: AudioSessionConfiguration = needsRecord
             ? (state.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver)
             : .playback
-        log("selectConfiguration: recording=\(state.isRecordingEnabled) hasEverRecorded=\(state.hasEverRecorded) canPublishMic=\(state.canPublishMicrophone) speaker=\(state.isSpeakerOutputPreferred) → \(config.category)")
+        log("selectConfiguration: recording=\(state.isRecordingEnabled) hasRecorded=\(state.hasRecorded) canPublishMic=\(state.canPublishMicrophone) speaker=\(state.isSpeakerOutputPreferred) → \(config.category)")
         return config
     }
 
