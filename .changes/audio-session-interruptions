@@ -1,0 +1,1 @@
+patch type="fixed" "iOS: audio not resuming after a system interruption (incoming call, alarm, Siri)"

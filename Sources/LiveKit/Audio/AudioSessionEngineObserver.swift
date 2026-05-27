@@ -101,6 +101,12 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         set { _state.mutate { $0.next = newValue } }
     }
 
+    // Listens to iOS-driven session events (interruption-end, externally-driven
+    // category change) that may leave the session in a state different from
+    // what we configured. Held as a strong reference because `LKRTCAudioSession`
+    // stores its delegates weakly.
+    private let rtcDelegateAdapter = RTCAudioSessionDelegateAdapter()
+
     public init() {
         _state.onDidMutate = { [weak self] new, old in
             guard let self,
@@ -111,6 +117,9 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 log("Failed to configure audio session after speaker preference change: \(error)", .error)
             }
         }
+
+        rtcDelegateAdapter.owner = self
+        LKRTCAudioSession.sharedInstance().add(rtcDelegateAdapter)
     }
 
     /// Acquires an audio session requirement handle for external ownership.
@@ -259,6 +268,35 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         return config
     }
 
+    /// Re-applies the current category/mode/options after an external event
+    /// (interruption-end, category-change) that may have mutated the session.
+    /// WebRTC re-activates the session on these events but does not re-apply
+    /// our configuration; iOS can leave us in a state different from what we
+    /// configured.
+    ///
+    /// Also calls `overrideOutputAudioPort` as a workaround for a VPIO
+    /// low-volume regression where audio comes back inaudibly quiet after
+    /// resume (#1011); toggling the output port forces a fresh route
+    /// selection that picks up the correct gain.
+    fileprivate func reapplyConfiguration(reason: String) {
+        let snapshot = _state.copy()
+        guard snapshot.isAutomaticConfigurationEnabled else { return }
+        guard snapshot.isPlayoutEnabled || snapshot.isRecordingEnabled else { return }
+
+        let config = selectConfiguration(state: snapshot)
+        let session = AVAudioSession.sharedInstance()
+        do {
+            log("AudioSession re-applying configuration (\(reason)) to: \(config.category)")
+            try session.setCategory(config.category, mode: config.mode, options: config.categoryOptions)
+            try session.setPreferredIOBufferDuration(LKRTCAudioSessionConfiguration.webRTC().ioBufferDuration)
+            if config.category == .playAndRecord {
+                try session.overrideOutputAudioPort(snapshot.isSpeakerOutputPreferred ? .speaker : .none)
+            }
+        } catch {
+            log("AudioSession failed to re-apply configuration: \(error)", .error)
+        }
+    }
+
     // MARK: - AudioEngineObserver
 
     public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
@@ -296,6 +334,41 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 extension AudioSessionEngineObserver.State {
     var isPlayoutEnabled: Bool { sessionRequirements.values.contains(where: \.isPlayoutEnabled) }
     var isRecordingEnabled: Bool { sessionRequirements.values.contains(where: \.isRecordingEnabled) }
+}
+
+// MARK: - LKRTCAudioSessionDelegate
+
+/// Forwards iOS-driven session events to ``AudioSessionEngineObserver``
+/// so the configuration can be re-applied when needed.
+private final class RTCAudioSessionDelegateAdapter: NSObject, LKRTCAudioSessionDelegate, Loggable {
+    weak var owner: AudioSessionEngineObserver?
+
+    /// iOS finished an interruption (cellular call, alarm, Siri, FaceTime, …).
+    /// WebRTC re-activates the session here but does not re-apply our
+    /// category/mode/options.
+    func audioSessionDidEndInterruption(_: LKRTCAudioSession, shouldResumeSession: Bool) {
+        guard shouldResumeSession else {
+            log("AudioSession interruption ended (shouldResumeSession=false); skipping re-apply")
+            return
+        }
+        owner?.reapplyConfiguration(reason: "interruption-end")
+    }
+
+    /// iOS reported a route change. Only re-apply for reasons that suggest the
+    /// session configuration was mutated externally (CallKit activation, system
+    /// audio takeover); user/system port overrides and BT route connect/
+    /// disconnect manage themselves.
+    func audioSessionDidChangeRoute(_: LKRTCAudioSession,
+                                    reason: AVAudioSession.RouteChangeReason,
+                                    previousRoute _: AVAudioSessionRouteDescription)
+    {
+        switch reason {
+        case .categoryChange, .routeConfigurationChange:
+            owner?.reapplyConfiguration(reason: "route-change(\(reason))")
+        default:
+            log("AudioSession route changed (not handled): \(reason)")
+        }
+    }
 }
 
 #endif
