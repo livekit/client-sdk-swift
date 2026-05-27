@@ -246,12 +246,11 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     /// will be publishing; otherwise `.playback` (pure listener):
     ///   - `isRecordingEnabled`: a track or external acquirer needs recording now.
     ///   - `hasRecorded`: sticky — keeps `.playAndRecord` across mute toggles.
-    ///   - `wantsToPublish`: the app declared publishing intent via
-    ///     `isRecordingAlwaysPreparedMode` AND the participant has permission
-    ///     to publish a microphone (`canPublishMicrophone`).
+    ///   - `wantsToPublish`: either signal of publishing intent —
+    ///     server-issued mic permission (`canPublishMicrophone`) or the
+    ///     app-declared `isRecordingAlwaysPreparedMode`.
     private func selectConfiguration(state: State) -> AudioSessionConfiguration {
-        // Purely permission-driven for now; intent gate disabled pending validation.
-        let wantsToPublish = state.canPublishMicrophone // && AudioManager.shared.isRecordingAlwaysPreparedMode
+        let wantsToPublish = state.canPublishMicrophone || AudioManager.shared.isRecordingAlwaysPreparedMode
         let needsRecord = state.isRecordingEnabled || state.hasRecorded || wantsToPublish
         let config: AudioSessionConfiguration = needsRecord
             ? (state.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver)
