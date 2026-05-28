@@ -43,7 +43,7 @@ public extension LocalParticipant {
     func performRpc(destinationIdentity: Identity,
                     method: String,
                     payload: String,
-                    responseTimeout: TimeInterval = RpcClientManager.defaultResponseTimeout) async throws -> String
+                    responseTimeout: TimeInterval = 15) async throws -> String
     {
         try await requireRoom().rpcClient.performRpc(destinationIdentity: destinationIdentity,
                                                      method: method,
