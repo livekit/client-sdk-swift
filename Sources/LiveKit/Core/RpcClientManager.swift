@@ -27,6 +27,9 @@ actor RpcClientManager: Loggable {
     /// `LocalParticipant.performRpc` overloads can share the same default.
     static let defaultMaxRoundTripLatency: TimeInterval = 7
 
+    /// Default timeout for receiving a response after the initial connection, in seconds.
+    static let defaultResponseTimeout: TimeInterval = 15
+
     private weak var room: Room?
 
     private var pendingAcks: Set<String> = Set()
@@ -55,7 +58,7 @@ actor RpcClientManager: Loggable {
     func performRpc(destinationIdentity: Participant.Identity,
                     method: String,
                     payload: String,
-                    responseTimeout: TimeInterval = 15,
+                    responseTimeout: TimeInterval = RpcClientManager.defaultResponseTimeout,
                     maxRoundTripLatency: TimeInterval = RpcClientManager.defaultMaxRoundTripLatency) async throws -> String
     {
         let room = try requireRoom()
