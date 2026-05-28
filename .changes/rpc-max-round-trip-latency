@@ -1,0 +1,1 @@
+patch type="added" "Allow customizing `maxRoundTripLatency` on `LocalParticipant.performRpc` for high-latency networks
