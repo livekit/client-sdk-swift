@@ -33,11 +33,13 @@ public extension LocalParticipant {
     ///   - method: The method name to call
     ///   - payload: The payload to pass to the method
     ///   - responseTimeout: Timeout for receiving a response after the initial connection (in seconds).
-    ///     If a value less than 8s is provided, it will be automatically clamped to 8s
-    ///     to ensure sufficient time for round-trip latency buffering.
+    ///     If a value less than `maxRoundTripLatency + 1` is provided, it will be automatically
+    ///     clamped to that floor to ensure sufficient time for round-trip latency buffering.
     ///     Default: 15s.
     /// - Returns: The response payload
     /// - Throws: RpcError on failure. Details in RpcError.message
+    /// - SeeAlso: ``performRpc(destinationIdentity:method:payload:responseTimeout:maxRoundTripLatency:)``
+    ///   for an overload that lets callers customize the ack-watchdog deadline.
     func performRpc(destinationIdentity: Identity,
                     method: String,
                     payload: String,
@@ -47,6 +49,41 @@ public extension LocalParticipant {
                                                      method: method,
                                                      payload: payload,
                                                      responseTimeout: responseTimeout)
+    }
+
+    /// Initiate an RPC call to a remote participant, customizing the ack-watchdog deadline.
+    ///
+    /// Behaves identically to ``performRpc(destinationIdentity:method:payload:responseTimeout:)``
+    /// but exposes `maxRoundTripLatency`, the upper bound on round-trip latency before the call
+    /// is rejected with `RpcError.BuiltInError.connectionTimeout`. Increase this on high-latency
+    /// links where the default 7s ack budget is too tight.
+    ///
+    /// ObjC: auto-generated as
+    /// `performRpcWithDestinationIdentity:method:payload:responseTimeout:maxRoundTripLatency:completionHandler:`.
+    ///
+    /// - Parameters:
+    ///   - destinationIdentity: The identity of the destination participant
+    ///   - method: The method name to call
+    ///   - payload: The payload to pass to the method
+    ///   - responseTimeout: Timeout for receiving a response after the initial connection (in seconds).
+    ///     If a value less than `maxRoundTripLatency + 1` is provided, it will be automatically
+    ///     clamped to that floor to ensure sufficient time for round-trip latency buffering.
+    ///   - maxRoundTripLatency: Upper bound on round-trip latency to the destination, in seconds.
+    ///     If no ack arrives within this window the call is rejected with
+    ///     `RpcError.BuiltInError.connectionTimeout`.
+    /// - Returns: The response payload
+    /// - Throws: RpcError on failure. Details in RpcError.message
+    func performRpc(destinationIdentity: Identity,
+                    method: String,
+                    payload: String,
+                    responseTimeout: TimeInterval,
+                    maxRoundTripLatency: TimeInterval) async throws -> String
+    {
+        try await requireRoom().rpcClient.performRpc(destinationIdentity: destinationIdentity,
+                                                     method: method,
+                                                     payload: payload,
+                                                     responseTimeout: responseTimeout,
+                                                     maxRoundTripLatency: maxRoundTripLatency)
     }
 
     @available(*, deprecated, message: "registerRpcMethod(_:handler:) has been moved to room.")
