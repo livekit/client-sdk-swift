@@ -1,1 +1,1 @@
-patch type="fixed" "Crash when starting the camera on macOS 26 due to the auto-bridged LKRTCCameraVideoCapturer completion handler"
+patch type="fixed" "Crash when starting the camera or microphone on macOS 26 due to the auto-bridged ObjC completion handler"

@@ -317,7 +317,9 @@ extension LocalParticipant {
 // MARK: - Simplified API
 
 public extension LocalParticipant {
-    @objc
+    // @nonobjc on these async methods: the @objcMembers-synthesized completion
+    // handler bridge SIGBUSes on macOS 26 (see #1022).
+    @nonobjc
     @discardableResult
     func setCamera(enabled: Bool,
                    captureOptions: CameraCaptureOptions? = nil,
@@ -329,7 +331,7 @@ public extension LocalParticipant {
                       publishOptions: publishOptions)
     }
 
-    @objc
+    @nonobjc
     @discardableResult
     func setMicrophone(enabled: Bool,
                        captureOptions: AudioCaptureOptions? = nil,
@@ -350,13 +352,13 @@ public extension LocalParticipant {
     /// to capture other screens and windows. See ``MacOSScreenCapturer`` for details.
     ///
     /// For advanced usage, you can create a relevant ``LocalVideoTrack`` and call ``LocalParticipant/publishVideoTrack(track:publishOptions:)``.
-    @objc
+    @nonobjc
     @discardableResult
     func setScreenShare(enabled: Bool) async throws -> LocalTrackPublication? {
         try await set(source: .screenShareVideo, enabled: enabled)
     }
 
-    @objc
+    @nonobjc
     @discardableResult
     // swiftlint:disable:next cyclomatic_complexity function_body_length
     func set(source: Track.Source,
