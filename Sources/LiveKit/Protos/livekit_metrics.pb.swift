@@ -19,13 +19,13 @@ import SwiftProtobuf
 // incompatible with the version of SwiftProtobuf to which you are linking.
 // Please ensure that you are building against the same version of the API
 // that was used to generate this file.
-fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAPIVersionCheck {
+fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAPIVersionCheck {
   struct _2: SwiftProtobuf.ProtobufAPIVersion_2 {}
   typealias Version = _2
 }
 
 /// index from [0: MAX_LABEL_PREDEFINED_MAX_VALUE) are for predefined labels (`MetricLabel`)
-nonisolated enum Livekit_MetricLabel: SwiftProtobuf.Enum, Swift.CaseIterable {
+enum Livekit_MetricLabel: SwiftProtobuf.Enum, Swift.CaseIterable {
   typealias RawValue = Int
 
   /// time to first token from LLM
@@ -175,7 +175,7 @@ nonisolated enum Livekit_MetricLabel: SwiftProtobuf.Enum, Swift.CaseIterable {
 
 }
 
-nonisolated struct Livekit_MetricsBatch: Sendable {
+struct Livekit_MetricsBatch: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -211,7 +211,7 @@ nonisolated struct Livekit_MetricsBatch: Sendable {
   fileprivate var _normalizedTimestamp: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
 }
 
-nonisolated struct Livekit_TimeSeriesMetric: Sendable {
+struct Livekit_TimeSeriesMetric: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -236,7 +236,7 @@ nonisolated struct Livekit_TimeSeriesMetric: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_MetricSample: Sendable {
+struct Livekit_MetricSample: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -262,7 +262,7 @@ nonisolated struct Livekit_MetricSample: Sendable {
   fileprivate var _normalizedTimestamp: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
 }
 
-nonisolated struct Livekit_EventMetric: Sendable {
+struct Livekit_EventMetric: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -320,7 +320,7 @@ nonisolated struct Livekit_EventMetric: Sendable {
   fileprivate var _normalizedEndTimestamp: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
 }
 
-nonisolated struct Livekit_MetricsRecordingHeader: Sendable {
+struct Livekit_MetricsRecordingHeader: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -362,13 +362,13 @@ nonisolated struct Livekit_MetricsRecordingHeader: Sendable {
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
-fileprivate nonisolated let _protobuf_package = "livekit"
+fileprivate let _protobuf_package = "livekit"
 
-nonisolated extension Livekit_MetricLabel: SwiftProtobuf._ProtoNameProviding {
+extension Livekit_MetricLabel: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0AGENTS_LLM_TTFT\0\u{1}AGENTS_STT_TTFT\0\u{1}AGENTS_TTS_TTFB\0\u{1}CLIENT_VIDEO_SUBSCRIBER_FREEZE_COUNT\0\u{1}CLIENT_VIDEO_SUBSCRIBER_TOTAL_FREEZE_DURATION\0\u{1}CLIENT_VIDEO_SUBSCRIBER_PAUSE_COUNT\0\u{1}CLIENT_VIDEO_SUBSCRIBER_TOTAL_PAUSES_DURATION\0\u{1}CLIENT_AUDIO_SUBSCRIBER_CONCEALED_SAMPLES\0\u{1}CLIENT_AUDIO_SUBSCRIBER_SILENT_CONCEALED_SAMPLES\0\u{1}CLIENT_AUDIO_SUBSCRIBER_CONCEALMENT_EVENTS\0\u{1}CLIENT_AUDIO_SUBSCRIBER_INTERRUPTION_COUNT\0\u{1}CLIENT_AUDIO_SUBSCRIBER_TOTAL_INTERRUPTION_DURATION\0\u{1}CLIENT_SUBSCRIBER_JITTER_BUFFER_DELAY\0\u{1}CLIENT_SUBSCRIBER_JITTER_BUFFER_EMITTED_COUNT\0\u{1}CLIENT_VIDEO_PUBLISHER_QUALITY_LIMITATION_DURATION_BANDWIDTH\0\u{1}CLIENT_VIDEO_PUBLISHER_QUALITY_LIMITATION_DURATION_CPU\0\u{1}CLIENT_VIDEO_PUBLISHER_QUALITY_LIMITATION_DURATION_OTHER\0\u{1}PUBLISHER_RTT\0\u{1}SERVER_MESH_RTT\0\u{1}SUBSCRIBER_RTT\0\u{2}m?METRIC_LABEL_PREDEFINED_MAX_VALUE\0")
 }
 
-nonisolated extension Livekit_MetricsBatch: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_MetricsBatch: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".MetricsBatch"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}timestamp_ms\0\u{3}normalized_timestamp\0\u{3}str_data\0\u{3}time_series\0\u{1}events\0")
 
@@ -422,7 +422,7 @@ nonisolated extension Livekit_MetricsBatch: SwiftProtobuf.Message, SwiftProtobuf
   }
 }
 
-nonisolated extension Livekit_TimeSeriesMetric: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_TimeSeriesMetric: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".TimeSeriesMetric"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}label\0\u{3}participant_identity\0\u{3}track_sid\0\u{1}samples\0\u{1}rid\0")
 
@@ -472,7 +472,7 @@ nonisolated extension Livekit_TimeSeriesMetric: SwiftProtobuf.Message, SwiftProt
   }
 }
 
-nonisolated extension Livekit_MetricSample: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_MetricSample: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".MetricSample"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}timestamp_ms\0\u{3}normalized_timestamp\0\u{1}value\0")
 
@@ -516,7 +516,7 @@ nonisolated extension Livekit_MetricSample: SwiftProtobuf.Message, SwiftProtobuf
   }
 }
 
-nonisolated extension Livekit_EventMetric: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_EventMetric: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".EventMetric"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}label\0\u{3}participant_identity\0\u{3}track_sid\0\u{3}start_timestamp_ms\0\u{3}end_timestamp_ms\0\u{3}normalized_start_timestamp\0\u{3}normalized_end_timestamp\0\u{1}metadata\0\u{1}rid\0")
 
@@ -590,7 +590,7 @@ nonisolated extension Livekit_EventMetric: SwiftProtobuf.Message, SwiftProtobuf.
   }
 }
 
-nonisolated extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".MetricsRecordingHeader"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}room_id\0\u{2}\u{2}duration\0\u{3}start_time\0\u{3}room_tags\0\u{3}room_name\0\u{3}room_start_time\0")
 

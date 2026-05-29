@@ -38,12 +38,12 @@ import SwiftProtobuf
 // incompatible with the version of SwiftProtobuf to which you are linking.
 // Please ensure that you are building against the same version of the API
 // that was used to generate this file.
-fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAPIVersionCheck {
+fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAPIVersionCheck {
   struct _2: SwiftProtobuf.ProtobufAPIVersion_2 {}
   typealias Version = _2
 }
 
-nonisolated enum Livekit_SignalTarget: SwiftProtobuf.Enum, Swift.CaseIterable {
+enum Livekit_SignalTarget: SwiftProtobuf.Enum, Swift.CaseIterable {
   typealias RawValue = Int
   case publisher // = 0
   case subscriber // = 1
@@ -77,7 +77,7 @@ nonisolated enum Livekit_SignalTarget: SwiftProtobuf.Enum, Swift.CaseIterable {
 
 }
 
-nonisolated enum Livekit_StreamState: SwiftProtobuf.Enum, Swift.CaseIterable {
+enum Livekit_StreamState: SwiftProtobuf.Enum, Swift.CaseIterable {
   typealias RawValue = Int
   case active // = 0
   case paused // = 1
@@ -111,7 +111,7 @@ nonisolated enum Livekit_StreamState: SwiftProtobuf.Enum, Swift.CaseIterable {
 
 }
 
-nonisolated enum Livekit_CandidateProtocol: SwiftProtobuf.Enum, Swift.CaseIterable {
+enum Livekit_CandidateProtocol: SwiftProtobuf.Enum, Swift.CaseIterable {
   typealias RawValue = Int
   case udp // = 0
   case tcp // = 1
@@ -149,7 +149,7 @@ nonisolated enum Livekit_CandidateProtocol: SwiftProtobuf.Enum, Swift.CaseIterab
 
 }
 
-nonisolated struct Livekit_SignalRequest: Sendable {
+struct Livekit_SignalRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -338,7 +338,7 @@ nonisolated struct Livekit_SignalRequest: Sendable {
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  nonisolated enum OneOf_Message: Equatable, Sendable {
+  enum OneOf_Message: Equatable, Sendable {
     /// participant offer for publisher
     case offer(Livekit_SessionDescription)
     /// participant answering subscriber offer
@@ -385,7 +385,7 @@ nonisolated struct Livekit_SignalRequest: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_SignalResponse: Sendable {
+struct Livekit_SignalResponse: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -647,7 +647,7 @@ nonisolated struct Livekit_SignalResponse: Sendable {
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  nonisolated enum OneOf_Message: Equatable, Sendable {
+  enum OneOf_Message: Equatable, Sendable {
     /// sent when join is accepted
     case join(Livekit_JoinResponse)
     /// sent when server answers publisher
@@ -711,7 +711,7 @@ nonisolated struct Livekit_SignalResponse: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_SimulcastCodec: Sendable {
+struct Livekit_SimulcastCodec: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -729,7 +729,7 @@ nonisolated struct Livekit_SimulcastCodec: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_AddTrackRequest: @unchecked Sendable {
+struct Livekit_AddTrackRequest: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -843,7 +843,7 @@ nonisolated struct Livekit_AddTrackRequest: @unchecked Sendable {
   fileprivate var _storage = _StorageClass.defaultInstance
 }
 
-nonisolated struct Livekit_PublishDataTrackRequest: Sendable {
+struct Livekit_PublishDataTrackRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -864,7 +864,7 @@ nonisolated struct Livekit_PublishDataTrackRequest: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_PublishDataTrackResponse: Sendable {
+struct Livekit_PublishDataTrackResponse: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -886,7 +886,7 @@ nonisolated struct Livekit_PublishDataTrackResponse: Sendable {
   fileprivate var _info: Livekit_DataTrackInfo? = nil
 }
 
-nonisolated struct Livekit_UnpublishDataTrackRequest: Sendable {
+struct Livekit_UnpublishDataTrackRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -899,7 +899,7 @@ nonisolated struct Livekit_UnpublishDataTrackRequest: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_UnpublishDataTrackResponse: Sendable {
+struct Livekit_UnpublishDataTrackResponse: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -921,7 +921,7 @@ nonisolated struct Livekit_UnpublishDataTrackResponse: Sendable {
   fileprivate var _info: Livekit_DataTrackInfo? = nil
 }
 
-nonisolated struct Livekit_DataTrackSubscriberHandles: Sendable {
+struct Livekit_DataTrackSubscriberHandles: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -931,7 +931,7 @@ nonisolated struct Livekit_DataTrackSubscriberHandles: Sendable {
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  nonisolated struct PublishedDataTrack: Sendable {
+  struct PublishedDataTrack: Sendable {
     // SwiftProtobuf.Message conformance is added in an extension below. See the
     // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
     // methods supported on all messages.
@@ -950,7 +950,7 @@ nonisolated struct Livekit_DataTrackSubscriberHandles: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_TrickleRequest: Sendable {
+struct Livekit_TrickleRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -966,7 +966,7 @@ nonisolated struct Livekit_TrickleRequest: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_MuteTrackRequest: Sendable {
+struct Livekit_MuteTrackRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -980,7 +980,7 @@ nonisolated struct Livekit_MuteTrackRequest: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_JoinResponse: @unchecked Sendable {
+struct Livekit_JoinResponse: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1090,7 +1090,7 @@ nonisolated struct Livekit_JoinResponse: @unchecked Sendable {
   fileprivate var _storage = _StorageClass.defaultInstance
 }
 
-nonisolated struct Livekit_ReconnectResponse: Sendable {
+struct Livekit_ReconnectResponse: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1126,7 +1126,7 @@ nonisolated struct Livekit_ReconnectResponse: Sendable {
   fileprivate var _serverInfo: Livekit_ServerInfo? = nil
 }
 
-nonisolated struct Livekit_TrackPublishedResponse: Sendable {
+struct Livekit_TrackPublishedResponse: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1149,7 +1149,7 @@ nonisolated struct Livekit_TrackPublishedResponse: Sendable {
   fileprivate var _track: Livekit_TrackInfo? = nil
 }
 
-nonisolated struct Livekit_TrackUnpublishedResponse: Sendable {
+struct Livekit_TrackUnpublishedResponse: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1161,7 +1161,7 @@ nonisolated struct Livekit_TrackUnpublishedResponse: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_SessionDescription: Sendable {
+struct Livekit_SessionDescription: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1180,7 +1180,7 @@ nonisolated struct Livekit_SessionDescription: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_ParticipantUpdate: Sendable {
+struct Livekit_ParticipantUpdate: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1192,7 +1192,7 @@ nonisolated struct Livekit_ParticipantUpdate: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_UpdateSubscription: Sendable {
+struct Livekit_UpdateSubscription: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1208,7 +1208,7 @@ nonisolated struct Livekit_UpdateSubscription: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_UpdateDataSubscription: Sendable {
+struct Livekit_UpdateDataSubscription: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1217,7 +1217,7 @@ nonisolated struct Livekit_UpdateDataSubscription: Sendable {
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  nonisolated struct Update: Sendable {
+  struct Update: Sendable {
     // SwiftProtobuf.Message conformance is added in an extension below. See the
     // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
     // methods supported on all messages.
@@ -1247,7 +1247,7 @@ nonisolated struct Livekit_UpdateDataSubscription: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_UpdateTrackSettings: Sendable {
+struct Livekit_UpdateTrackSettings: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1282,7 +1282,7 @@ nonisolated struct Livekit_UpdateTrackSettings: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_UpdateLocalAudioTrack: Sendable {
+struct Livekit_UpdateLocalAudioTrack: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1296,7 +1296,7 @@ nonisolated struct Livekit_UpdateLocalAudioTrack: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_UpdateLocalVideoTrack: Sendable {
+struct Livekit_UpdateLocalVideoTrack: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1312,7 +1312,7 @@ nonisolated struct Livekit_UpdateLocalVideoTrack: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_LeaveRequest: Sendable {
+struct Livekit_LeaveRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1338,7 +1338,7 @@ nonisolated struct Livekit_LeaveRequest: Sendable {
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   /// indicates action clients should take on receiving this message
-  nonisolated enum Action: SwiftProtobuf.Enum, Swift.CaseIterable {
+  enum Action: SwiftProtobuf.Enum, Swift.CaseIterable {
     typealias RawValue = Int
 
     /// should disconnect
@@ -1390,7 +1390,7 @@ nonisolated struct Livekit_LeaveRequest: Sendable {
 /// message to indicate published video track dimensions are changing
 ///
 /// NOTE: This message was marked as deprecated in the .proto file.
-nonisolated struct Livekit_UpdateVideoLayers: Sendable {
+struct Livekit_UpdateVideoLayers: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1404,7 +1404,7 @@ nonisolated struct Livekit_UpdateVideoLayers: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_UpdateParticipantMetadata: Sendable {
+struct Livekit_UpdateParticipantMetadata: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1424,7 +1424,7 @@ nonisolated struct Livekit_UpdateParticipantMetadata: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_ICEServer: Sendable {
+struct Livekit_ICEServer: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1440,7 +1440,7 @@ nonisolated struct Livekit_ICEServer: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_SpeakersChanged: Sendable {
+struct Livekit_SpeakersChanged: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1452,7 +1452,7 @@ nonisolated struct Livekit_SpeakersChanged: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_RoomUpdate: Sendable {
+struct Livekit_RoomUpdate: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1473,7 +1473,7 @@ nonisolated struct Livekit_RoomUpdate: Sendable {
   fileprivate var _room: Livekit_Room? = nil
 }
 
-nonisolated struct Livekit_ConnectionQualityInfo: Sendable {
+struct Livekit_ConnectionQualityInfo: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1489,7 +1489,7 @@ nonisolated struct Livekit_ConnectionQualityInfo: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_ConnectionQualityUpdate: Sendable {
+struct Livekit_ConnectionQualityUpdate: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1501,7 +1501,7 @@ nonisolated struct Livekit_ConnectionQualityUpdate: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_StreamStateInfo: Sendable {
+struct Livekit_StreamStateInfo: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1517,7 +1517,7 @@ nonisolated struct Livekit_StreamStateInfo: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_StreamStateUpdate: Sendable {
+struct Livekit_StreamStateUpdate: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1529,7 +1529,7 @@ nonisolated struct Livekit_StreamStateUpdate: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_SubscribedQuality: Sendable {
+struct Livekit_SubscribedQuality: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1543,7 +1543,7 @@ nonisolated struct Livekit_SubscribedQuality: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_SubscribedCodec: Sendable {
+struct Livekit_SubscribedCodec: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1557,7 +1557,7 @@ nonisolated struct Livekit_SubscribedCodec: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_SubscribedQualityUpdate: Sendable {
+struct Livekit_SubscribedQualityUpdate: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1574,7 +1574,7 @@ nonisolated struct Livekit_SubscribedQualityUpdate: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_SubscribedAudioCodecUpdate: Sendable {
+struct Livekit_SubscribedAudioCodecUpdate: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1588,7 +1588,7 @@ nonisolated struct Livekit_SubscribedAudioCodecUpdate: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_TrackPermission: Sendable {
+struct Livekit_TrackPermission: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1607,7 +1607,7 @@ nonisolated struct Livekit_TrackPermission: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_SubscriptionPermission: Sendable {
+struct Livekit_SubscriptionPermission: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1621,7 +1621,7 @@ nonisolated struct Livekit_SubscriptionPermission: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_SubscriptionPermissionUpdate: Sendable {
+struct Livekit_SubscriptionPermissionUpdate: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1637,7 +1637,7 @@ nonisolated struct Livekit_SubscriptionPermissionUpdate: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_RoomMovedResponse: @unchecked Sendable {
+struct Livekit_RoomMovedResponse: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1679,7 +1679,7 @@ nonisolated struct Livekit_RoomMovedResponse: @unchecked Sendable {
   fileprivate var _storage = _StorageClass.defaultInstance
 }
 
-nonisolated struct Livekit_SyncState: Sendable {
+struct Livekit_SyncState: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1736,7 +1736,7 @@ nonisolated struct Livekit_SyncState: Sendable {
   fileprivate var _offer: Livekit_SessionDescription? = nil
 }
 
-nonisolated struct Livekit_DataChannelReceiveState: Sendable {
+struct Livekit_DataChannelReceiveState: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1750,7 +1750,7 @@ nonisolated struct Livekit_DataChannelReceiveState: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_DataChannelInfo: Sendable {
+struct Livekit_DataChannelInfo: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1766,7 +1766,7 @@ nonisolated struct Livekit_DataChannelInfo: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_SimulateScenario: Sendable {
+struct Livekit_SimulateScenario: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1857,7 +1857,7 @@ nonisolated struct Livekit_SimulateScenario: Sendable {
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  nonisolated enum OneOf_Scenario: Equatable, Sendable {
+  enum OneOf_Scenario: Equatable, Sendable {
     /// simulate N seconds of speaker activity
     case speakerUpdate(Int32)
     /// simulate local node failure
@@ -1883,7 +1883,7 @@ nonisolated struct Livekit_SimulateScenario: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_Ping: Sendable {
+struct Livekit_Ping: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1898,7 +1898,7 @@ nonisolated struct Livekit_Ping: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_Pong: Sendable {
+struct Livekit_Pong: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1913,7 +1913,7 @@ nonisolated struct Livekit_Pong: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_RegionSettings: Sendable {
+struct Livekit_RegionSettings: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1925,7 +1925,7 @@ nonisolated struct Livekit_RegionSettings: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_RegionInfo: Sendable {
+struct Livekit_RegionInfo: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1941,7 +1941,7 @@ nonisolated struct Livekit_RegionInfo: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_SubscriptionResponse: Sendable {
+struct Livekit_SubscriptionResponse: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1955,7 +1955,7 @@ nonisolated struct Livekit_SubscriptionResponse: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_RequestResponse: Sendable {
+struct Livekit_RequestResponse: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -2034,7 +2034,7 @@ nonisolated struct Livekit_RequestResponse: Sendable {
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  nonisolated enum OneOf_Request: Equatable, Sendable {
+  enum OneOf_Request: Equatable, Sendable {
     case trickle(Livekit_TrickleRequest)
     case addTrack(Livekit_AddTrackRequest)
     case mute(Livekit_MuteTrackRequest)
@@ -2046,7 +2046,7 @@ nonisolated struct Livekit_RequestResponse: Sendable {
 
   }
 
-  nonisolated enum Reason: SwiftProtobuf.Enum, Swift.CaseIterable {
+  enum Reason: SwiftProtobuf.Enum, Swift.CaseIterable {
     typealias RawValue = Int
     case ok // = 0
     case notFound // = 1
@@ -2119,7 +2119,7 @@ nonisolated struct Livekit_RequestResponse: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_TrackSubscribed: Sendable {
+struct Livekit_TrackSubscribed: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -2131,7 +2131,7 @@ nonisolated struct Livekit_TrackSubscribed: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_ConnectionSettings: Sendable {
+struct Livekit_ConnectionSettings: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -2168,7 +2168,7 @@ nonisolated struct Livekit_ConnectionSettings: Sendable {
   fileprivate var _autoSubscribeDataTrack: Bool? = nil
 }
 
-nonisolated struct Livekit_JoinRequest: @unchecked Sendable {
+struct Livekit_JoinRequest: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -2250,7 +2250,7 @@ nonisolated struct Livekit_JoinRequest: @unchecked Sendable {
   fileprivate var _storage = _StorageClass.defaultInstance
 }
 
-nonisolated struct Livekit_WrappedJoinRequest: Sendable {
+struct Livekit_WrappedJoinRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -2262,7 +2262,7 @@ nonisolated struct Livekit_WrappedJoinRequest: Sendable {
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  nonisolated enum Compression: SwiftProtobuf.Enum, Swift.CaseIterable {
+  enum Compression: SwiftProtobuf.Enum, Swift.CaseIterable {
     typealias RawValue = Int
     case none // = 0
     case gzip // = 1
@@ -2299,7 +2299,7 @@ nonisolated struct Livekit_WrappedJoinRequest: Sendable {
   init() {}
 }
 
-nonisolated struct Livekit_MediaSectionsRequirement: Sendable {
+struct Livekit_MediaSectionsRequirement: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -2315,21 +2315,21 @@ nonisolated struct Livekit_MediaSectionsRequirement: Sendable {
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
-fileprivate nonisolated let _protobuf_package = "livekit"
+fileprivate let _protobuf_package = "livekit"
 
-nonisolated extension Livekit_SignalTarget: SwiftProtobuf._ProtoNameProviding {
+extension Livekit_SignalTarget: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0PUBLISHER\0\u{1}SUBSCRIBER\0")
 }
 
-nonisolated extension Livekit_StreamState: SwiftProtobuf._ProtoNameProviding {
+extension Livekit_StreamState: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0ACTIVE\0\u{1}PAUSED\0")
 }
 
-nonisolated extension Livekit_CandidateProtocol: SwiftProtobuf._ProtoNameProviding {
+extension Livekit_CandidateProtocol: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0UDP\0\u{1}TCP\0\u{1}TLS\0")
 }
 
-nonisolated extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SignalRequest"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}offer\0\u{1}answer\0\u{1}trickle\0\u{3}add_track\0\u{1}mute\0\u{1}subscription\0\u{3}track_setting\0\u{1}leave\0\u{4}\u{2}update_layers\0\u{3}subscription_permission\0\u{3}sync_state\0\u{1}simulate\0\u{1}ping\0\u{3}update_metadata\0\u{3}ping_req\0\u{3}update_audio_track\0\u{3}update_video_track\0\u{3}publish_data_track_request\0\u{3}unpublish_data_track_request\0\u{3}update_data_subscription\0")
 
@@ -2697,7 +2697,7 @@ nonisolated extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobu
   }
 }
 
-nonisolated extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SignalResponse"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}join\0\u{1}answer\0\u{1}offer\0\u{1}trickle\0\u{1}update\0\u{3}track_published\0\u{2}\u{2}leave\0\u{1}mute\0\u{3}speakers_changed\0\u{3}room_update\0\u{3}connection_quality\0\u{3}stream_state_update\0\u{3}subscribed_quality_update\0\u{3}subscription_permission_update\0\u{3}refresh_token\0\u{3}track_unpublished\0\u{1}pong\0\u{1}reconnect\0\u{3}pong_resp\0\u{3}subscription_response\0\u{3}request_response\0\u{3}track_subscribed\0\u{3}room_moved\0\u{3}media_sections_requirement\0\u{3}subscribed_audio_codec_update\0\u{3}publish_data_track_response\0\u{3}unpublish_data_track_response\0\u{3}data_track_subscriber_handles\0")
 
@@ -3196,7 +3196,7 @@ nonisolated extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtob
   }
 }
 
-nonisolated extension Livekit_SimulcastCodec: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_SimulcastCodec: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SimulcastCodec"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}codec\0\u{1}cid\0\u{2}\u{2}layers\0\u{3}video_layer_mode\0")
 
@@ -3241,7 +3241,7 @@ nonisolated extension Livekit_SimulcastCodec: SwiftProtobuf.Message, SwiftProtob
   }
 }
 
-nonisolated extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".AddTrackRequest"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}cid\0\u{1}name\0\u{1}type\0\u{1}width\0\u{1}height\0\u{1}muted\0\u{3}disable_dtx\0\u{1}source\0\u{1}layers\0\u{3}simulcast_codecs\0\u{1}sid\0\u{1}stereo\0\u{3}disable_red\0\u{1}encryption\0\u{1}stream\0\u{3}backup_codec_policy\0\u{3}audio_features\0\u{3}packet_trailer_features\0")
 
@@ -3426,7 +3426,7 @@ nonisolated extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProto
   }
 }
 
-nonisolated extension Livekit_PublishDataTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_PublishDataTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PublishDataTrackRequest"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}pub_handle\0\u{1}name\0\u{1}encryption\0")
 
@@ -3466,7 +3466,7 @@ nonisolated extension Livekit_PublishDataTrackRequest: SwiftProtobuf.Message, Sw
   }
 }
 
-nonisolated extension Livekit_PublishDataTrackResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_PublishDataTrackResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PublishDataTrackResponse"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}info\0")
 
@@ -3500,7 +3500,7 @@ nonisolated extension Livekit_PublishDataTrackResponse: SwiftProtobuf.Message, S
   }
 }
 
-nonisolated extension Livekit_UnpublishDataTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_UnpublishDataTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UnpublishDataTrackRequest"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}pub_handle\0")
 
@@ -3530,7 +3530,7 @@ nonisolated extension Livekit_UnpublishDataTrackRequest: SwiftProtobuf.Message, 
   }
 }
 
-nonisolated extension Livekit_UnpublishDataTrackResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_UnpublishDataTrackResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UnpublishDataTrackResponse"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}info\0")
 
@@ -3564,7 +3564,7 @@ nonisolated extension Livekit_UnpublishDataTrackResponse: SwiftProtobuf.Message,
   }
 }
 
-nonisolated extension Livekit_DataTrackSubscriberHandles: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_DataTrackSubscriberHandles: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".DataTrackSubscriberHandles"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}sub_handles\0")
 
@@ -3594,7 +3594,7 @@ nonisolated extension Livekit_DataTrackSubscriberHandles: SwiftProtobuf.Message,
   }
 }
 
-nonisolated extension Livekit_DataTrackSubscriberHandles.PublishedDataTrack: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_DataTrackSubscriberHandles.PublishedDataTrack: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = Livekit_DataTrackSubscriberHandles.protoMessageName + ".PublishedDataTrack"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}publisher_identity\0\u{3}publisher_sid\0\u{3}track_sid\0")
 
@@ -3634,7 +3634,7 @@ nonisolated extension Livekit_DataTrackSubscriberHandles.PublishedDataTrack: Swi
   }
 }
 
-nonisolated extension Livekit_TrickleRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_TrickleRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".TrickleRequest"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}candidateInit\0\u{1}target\0\u{1}final\0")
 
@@ -3674,7 +3674,7 @@ nonisolated extension Livekit_TrickleRequest: SwiftProtobuf.Message, SwiftProtob
   }
 }
 
-nonisolated extension Livekit_MuteTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_MuteTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".MuteTrackRequest"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}sid\0\u{1}muted\0")
 
@@ -3709,7 +3709,7 @@ nonisolated extension Livekit_MuteTrackRequest: SwiftProtobuf.Message, SwiftProt
   }
 }
 
-nonisolated extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".JoinResponse"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}room\0\u{1}participant\0\u{3}other_participants\0\u{3}server_version\0\u{3}ice_servers\0\u{3}subscriber_primary\0\u{3}alternative_url\0\u{3}client_configuration\0\u{3}server_region\0\u{3}ping_timeout\0\u{3}ping_interval\0\u{3}server_info\0\u{3}sif_trailer\0\u{3}enabled_publish_codecs\0\u{3}fast_publish\0")
 
@@ -3877,7 +3877,7 @@ nonisolated extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf
   }
 }
 
-nonisolated extension Livekit_ReconnectResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_ReconnectResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ReconnectResponse"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}ice_servers\0\u{3}client_configuration\0\u{3}server_info\0\u{3}last_message_seq\0")
 
@@ -3926,7 +3926,7 @@ nonisolated extension Livekit_ReconnectResponse: SwiftProtobuf.Message, SwiftPro
   }
 }
 
-nonisolated extension Livekit_TrackPublishedResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_TrackPublishedResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".TrackPublishedResponse"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}cid\0\u{1}track\0")
 
@@ -3965,7 +3965,7 @@ nonisolated extension Livekit_TrackPublishedResponse: SwiftProtobuf.Message, Swi
   }
 }
 
-nonisolated extension Livekit_TrackUnpublishedResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_TrackUnpublishedResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".TrackUnpublishedResponse"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0")
 
@@ -3995,7 +3995,7 @@ nonisolated extension Livekit_TrackUnpublishedResponse: SwiftProtobuf.Message, S
   }
 }
 
-nonisolated extension Livekit_SessionDescription: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_SessionDescription: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SessionDescription"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}type\0\u{1}sdp\0\u{1}id\0\u{3}mid_to_track_id\0")
 
@@ -4040,7 +4040,7 @@ nonisolated extension Livekit_SessionDescription: SwiftProtobuf.Message, SwiftPr
   }
 }
 
-nonisolated extension Livekit_ParticipantUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_ParticipantUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ParticipantUpdate"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}participants\0")
 
@@ -4070,7 +4070,7 @@ nonisolated extension Livekit_ParticipantUpdate: SwiftProtobuf.Message, SwiftPro
   }
 }
 
-nonisolated extension Livekit_UpdateSubscription: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_UpdateSubscription: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UpdateSubscription"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sids\0\u{1}subscribe\0\u{3}participant_tracks\0")
 
@@ -4110,7 +4110,7 @@ nonisolated extension Livekit_UpdateSubscription: SwiftProtobuf.Message, SwiftPr
   }
 }
 
-nonisolated extension Livekit_UpdateDataSubscription: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_UpdateDataSubscription: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UpdateDataSubscription"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}updates\0")
 
@@ -4140,7 +4140,7 @@ nonisolated extension Livekit_UpdateDataSubscription: SwiftProtobuf.Message, Swi
   }
 }
 
-nonisolated extension Livekit_UpdateDataSubscription.Update: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_UpdateDataSubscription.Update: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = Livekit_UpdateDataSubscription.protoMessageName + ".Update"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0\u{1}subscribe\0\u{1}options\0")
 
@@ -4184,7 +4184,7 @@ nonisolated extension Livekit_UpdateDataSubscription.Update: SwiftProtobuf.Messa
   }
 }
 
-nonisolated extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UpdateTrackSettings"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sids\0\u{2}\u{2}disabled\0\u{1}quality\0\u{1}width\0\u{1}height\0\u{1}fps\0\u{1}priority\0")
 
@@ -4244,7 +4244,7 @@ nonisolated extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftP
   }
 }
 
-nonisolated extension Livekit_UpdateLocalAudioTrack: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_UpdateLocalAudioTrack: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UpdateLocalAudioTrack"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0\u{1}features\0")
 
@@ -4279,7 +4279,7 @@ nonisolated extension Livekit_UpdateLocalAudioTrack: SwiftProtobuf.Message, Swif
   }
 }
 
-nonisolated extension Livekit_UpdateLocalVideoTrack: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_UpdateLocalVideoTrack: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UpdateLocalVideoTrack"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0\u{1}width\0\u{1}height\0")
 
@@ -4319,7 +4319,7 @@ nonisolated extension Livekit_UpdateLocalVideoTrack: SwiftProtobuf.Message, Swif
   }
 }
 
-nonisolated extension Livekit_LeaveRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_LeaveRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".LeaveRequest"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}can_reconnect\0\u{1}reason\0\u{1}action\0\u{1}regions\0")
 
@@ -4368,11 +4368,11 @@ nonisolated extension Livekit_LeaveRequest: SwiftProtobuf.Message, SwiftProtobuf
   }
 }
 
-nonisolated extension Livekit_LeaveRequest.Action: SwiftProtobuf._ProtoNameProviding {
+extension Livekit_LeaveRequest.Action: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0DISCONNECT\0\u{1}RESUME\0\u{1}RECONNECT\0")
 }
 
-nonisolated extension Livekit_UpdateVideoLayers: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_UpdateVideoLayers: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UpdateVideoLayers"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0\u{1}layers\0")
 
@@ -4407,7 +4407,7 @@ nonisolated extension Livekit_UpdateVideoLayers: SwiftProtobuf.Message, SwiftPro
   }
 }
 
-nonisolated extension Livekit_UpdateParticipantMetadata: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_UpdateParticipantMetadata: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UpdateParticipantMetadata"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}metadata\0\u{1}name\0\u{1}attributes\0\u{3}request_id\0")
 
@@ -4452,7 +4452,7 @@ nonisolated extension Livekit_UpdateParticipantMetadata: SwiftProtobuf.Message, 
   }
 }
 
-nonisolated extension Livekit_ICEServer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_ICEServer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ICEServer"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}urls\0\u{1}username\0\u{1}credential\0")
 
@@ -4492,7 +4492,7 @@ nonisolated extension Livekit_ICEServer: SwiftProtobuf.Message, SwiftProtobuf._M
   }
 }
 
-nonisolated extension Livekit_SpeakersChanged: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_SpeakersChanged: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SpeakersChanged"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}speakers\0")
 
@@ -4522,7 +4522,7 @@ nonisolated extension Livekit_SpeakersChanged: SwiftProtobuf.Message, SwiftProto
   }
 }
 
-nonisolated extension Livekit_RoomUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_RoomUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RoomUpdate"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}room\0")
 
@@ -4556,7 +4556,7 @@ nonisolated extension Livekit_RoomUpdate: SwiftProtobuf.Message, SwiftProtobuf._
   }
 }
 
-nonisolated extension Livekit_ConnectionQualityInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_ConnectionQualityInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ConnectionQualityInfo"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}participant_sid\0\u{1}quality\0\u{1}score\0")
 
@@ -4596,7 +4596,7 @@ nonisolated extension Livekit_ConnectionQualityInfo: SwiftProtobuf.Message, Swif
   }
 }
 
-nonisolated extension Livekit_ConnectionQualityUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_ConnectionQualityUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ConnectionQualityUpdate"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}updates\0")
 
@@ -4626,7 +4626,7 @@ nonisolated extension Livekit_ConnectionQualityUpdate: SwiftProtobuf.Message, Sw
   }
 }
 
-nonisolated extension Livekit_StreamStateInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_StreamStateInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".StreamStateInfo"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}participant_sid\0\u{3}track_sid\0\u{1}state\0")
 
@@ -4666,7 +4666,7 @@ nonisolated extension Livekit_StreamStateInfo: SwiftProtobuf.Message, SwiftProto
   }
 }
 
-nonisolated extension Livekit_StreamStateUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_StreamStateUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".StreamStateUpdate"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}stream_states\0")
 
@@ -4696,7 +4696,7 @@ nonisolated extension Livekit_StreamStateUpdate: SwiftProtobuf.Message, SwiftPro
   }
 }
 
-nonisolated extension Livekit_SubscribedQuality: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_SubscribedQuality: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscribedQuality"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}quality\0\u{1}enabled\0")
 
@@ -4731,7 +4731,7 @@ nonisolated extension Livekit_SubscribedQuality: SwiftProtobuf.Message, SwiftPro
   }
 }
 
-nonisolated extension Livekit_SubscribedCodec: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_SubscribedCodec: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscribedCodec"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}codec\0\u{1}qualities\0")
 
@@ -4766,7 +4766,7 @@ nonisolated extension Livekit_SubscribedCodec: SwiftProtobuf.Message, SwiftProto
   }
 }
 
-nonisolated extension Livekit_SubscribedQualityUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_SubscribedQualityUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscribedQualityUpdate"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0\u{3}subscribed_qualities\0\u{3}subscribed_codecs\0")
 
@@ -4806,7 +4806,7 @@ nonisolated extension Livekit_SubscribedQualityUpdate: SwiftProtobuf.Message, Sw
   }
 }
 
-nonisolated extension Livekit_SubscribedAudioCodecUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_SubscribedAudioCodecUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscribedAudioCodecUpdate"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0\u{3}subscribed_audio_codecs\0")
 
@@ -4841,7 +4841,7 @@ nonisolated extension Livekit_SubscribedAudioCodecUpdate: SwiftProtobuf.Message,
   }
 }
 
-nonisolated extension Livekit_TrackPermission: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_TrackPermission: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".TrackPermission"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}participant_sid\0\u{3}all_tracks\0\u{3}track_sids\0\u{3}participant_identity\0")
 
@@ -4886,7 +4886,7 @@ nonisolated extension Livekit_TrackPermission: SwiftProtobuf.Message, SwiftProto
   }
 }
 
-nonisolated extension Livekit_SubscriptionPermission: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_SubscriptionPermission: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscriptionPermission"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}all_participants\0\u{3}track_permissions\0")
 
@@ -4921,7 +4921,7 @@ nonisolated extension Livekit_SubscriptionPermission: SwiftProtobuf.Message, Swi
   }
 }
 
-nonisolated extension Livekit_SubscriptionPermissionUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_SubscriptionPermissionUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscriptionPermissionUpdate"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}participant_sid\0\u{3}track_sid\0\u{1}allowed\0")
 
@@ -4961,7 +4961,7 @@ nonisolated extension Livekit_SubscriptionPermissionUpdate: SwiftProtobuf.Messag
   }
 }
 
-nonisolated extension Livekit_RoomMovedResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_RoomMovedResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RoomMovedResponse"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}room\0\u{1}token\0\u{1}participant\0\u{3}other_participants\0")
 
@@ -5052,7 +5052,7 @@ nonisolated extension Livekit_RoomMovedResponse: SwiftProtobuf.Message, SwiftPro
   }
 }
 
-nonisolated extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SyncState"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}answer\0\u{1}subscription\0\u{3}publish_tracks\0\u{3}data_channels\0\u{1}offer\0\u{3}track_sids_disabled\0\u{3}datachannel_receive_states\0\u{3}publish_data_tracks\0")
 
@@ -5121,7 +5121,7 @@ nonisolated extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._M
   }
 }
 
-nonisolated extension Livekit_DataChannelReceiveState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_DataChannelReceiveState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".DataChannelReceiveState"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}publisher_sid\0\u{3}last_seq\0")
 
@@ -5156,7 +5156,7 @@ nonisolated extension Livekit_DataChannelReceiveState: SwiftProtobuf.Message, Sw
   }
 }
 
-nonisolated extension Livekit_DataChannelInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_DataChannelInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".DataChannelInfo"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}label\0\u{1}id\0\u{1}target\0")
 
@@ -5196,7 +5196,7 @@ nonisolated extension Livekit_DataChannelInfo: SwiftProtobuf.Message, SwiftProto
   }
 }
 
-nonisolated extension Livekit_SimulateScenario: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_SimulateScenario: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SimulateScenario"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}speaker_update\0\u{3}node_failure\0\u{1}migration\0\u{3}server_leave\0\u{3}switch_candidate_protocol\0\u{3}subscriber_bandwidth\0\u{3}disconnect_signal_on_resume\0\u{3}disconnect_signal_on_resume_no_messages\0\u{3}leave_request_full_reconnect\0")
 
@@ -5337,7 +5337,7 @@ nonisolated extension Livekit_SimulateScenario: SwiftProtobuf.Message, SwiftProt
   }
 }
 
-nonisolated extension Livekit_Ping: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_Ping: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Ping"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}timestamp\0\u{1}rtt\0")
 
@@ -5372,7 +5372,7 @@ nonisolated extension Livekit_Ping: SwiftProtobuf.Message, SwiftProtobuf._Messag
   }
 }
 
-nonisolated extension Livekit_Pong: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_Pong: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Pong"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}last_ping_timestamp\0\u{1}timestamp\0")
 
@@ -5407,7 +5407,7 @@ nonisolated extension Livekit_Pong: SwiftProtobuf.Message, SwiftProtobuf._Messag
   }
 }
 
-nonisolated extension Livekit_RegionSettings: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_RegionSettings: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RegionSettings"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}regions\0")
 
@@ -5437,7 +5437,7 @@ nonisolated extension Livekit_RegionSettings: SwiftProtobuf.Message, SwiftProtob
   }
 }
 
-nonisolated extension Livekit_RegionInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_RegionInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RegionInfo"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}region\0\u{1}url\0\u{1}distance\0")
 
@@ -5477,7 +5477,7 @@ nonisolated extension Livekit_RegionInfo: SwiftProtobuf.Message, SwiftProtobuf._
   }
 }
 
-nonisolated extension Livekit_SubscriptionResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_SubscriptionResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscriptionResponse"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0\u{1}err\0")
 
@@ -5512,7 +5512,7 @@ nonisolated extension Livekit_SubscriptionResponse: SwiftProtobuf.Message, Swift
   }
 }
 
-nonisolated extension Livekit_RequestResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_RequestResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RequestResponse"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}request_id\0\u{1}reason\0\u{1}message\0\u{1}trickle\0\u{3}add_track\0\u{1}mute\0\u{3}update_metadata\0\u{3}update_audio_track\0\u{3}update_video_track\0\u{3}publish_data_track\0\u{3}unpublish_data_track\0")
 
@@ -5696,11 +5696,11 @@ nonisolated extension Livekit_RequestResponse: SwiftProtobuf.Message, SwiftProto
   }
 }
 
-nonisolated extension Livekit_RequestResponse.Reason: SwiftProtobuf._ProtoNameProviding {
+extension Livekit_RequestResponse.Reason: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0OK\0\u{1}NOT_FOUND\0\u{1}NOT_ALLOWED\0\u{1}LIMIT_EXCEEDED\0\u{1}QUEUED\0\u{1}UNSUPPORTED_TYPE\0\u{1}UNCLASSIFIED_ERROR\0\u{1}INVALID_HANDLE\0\u{1}INVALID_NAME\0\u{1}DUPLICATE_HANDLE\0\u{1}DUPLICATE_NAME\0")
 }
 
-nonisolated extension Livekit_TrackSubscribed: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_TrackSubscribed: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".TrackSubscribed"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sid\0")
 
@@ -5730,7 +5730,7 @@ nonisolated extension Livekit_TrackSubscribed: SwiftProtobuf.Message, SwiftProto
   }
 }
 
-nonisolated extension Livekit_ConnectionSettings: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_ConnectionSettings: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ConnectionSettings"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}auto_subscribe\0\u{3}adaptive_stream\0\u{3}subscriber_allow_pause\0\u{3}disable_ice_lite\0\u{3}auto_subscribe_data_track\0")
 
@@ -5784,7 +5784,7 @@ nonisolated extension Livekit_ConnectionSettings: SwiftProtobuf.Message, SwiftPr
   }
 }
 
-nonisolated extension Livekit_JoinRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_JoinRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".JoinRequest"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}client_info\0\u{3}connection_settings\0\u{1}metadata\0\u{3}participant_attributes\0\u{3}add_track_requests\0\u{3}publisher_offer\0\u{1}reconnect\0\u{3}reconnect_reason\0\u{3}participant_sid\0\u{3}sync_state\0")
 
@@ -5917,7 +5917,7 @@ nonisolated extension Livekit_JoinRequest: SwiftProtobuf.Message, SwiftProtobuf.
   }
 }
 
-nonisolated extension Livekit_WrappedJoinRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_WrappedJoinRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".WrappedJoinRequest"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}compression\0\u{3}join_request\0")
 
@@ -5952,11 +5952,11 @@ nonisolated extension Livekit_WrappedJoinRequest: SwiftProtobuf.Message, SwiftPr
   }
 }
 
-nonisolated extension Livekit_WrappedJoinRequest.Compression: SwiftProtobuf._ProtoNameProviding {
+extension Livekit_WrappedJoinRequest.Compression: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0NONE\0\u{1}GZIP\0")
 }
 
-nonisolated extension Livekit_MediaSectionsRequirement: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Livekit_MediaSectionsRequirement: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".MediaSectionsRequirement"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}num_audios\0\u{3}num_videos\0")
 
