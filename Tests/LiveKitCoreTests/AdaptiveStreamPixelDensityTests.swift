@@ -35,4 +35,13 @@ struct AdaptiveStreamPixelDensityTests {
         #expect(VideoView.AdaptiveStreamPixelDensity.fixed(5).resolve(screenScale: 1) == 3)
         #expect(VideoView.AdaptiveStreamPixelDensity.maxDensity == 3)
     }
+
+    @Test func invalidDensityFallsBackToOne() {
+        #expect(VideoView.AdaptiveStreamPixelDensity.auto.resolve(screenScale: 0) == 1)
+        #expect(VideoView.AdaptiveStreamPixelDensity.auto.resolve(screenScale: -2) == 1)
+        #expect(VideoView.AdaptiveStreamPixelDensity.auto.resolve(screenScale: .nan) == 1)
+        #expect(VideoView.AdaptiveStreamPixelDensity.fixed(0).resolve(screenScale: 2) == 1)
+        #expect(VideoView.AdaptiveStreamPixelDensity.fixed(-1).resolve(screenScale: 2) == 1)
+        #expect(VideoView.AdaptiveStreamPixelDensity.fixed(.nan).resolve(screenScale: 2) == 1)
+    }
 }

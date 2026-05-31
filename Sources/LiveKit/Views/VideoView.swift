@@ -89,6 +89,7 @@ public class VideoView: NativeView, Loggable {
             case .auto: screenScale
             case let .fixed(value): CGFloat(value)
             }
+            guard !density.isNaN, density > 0 else { return 1 }
             return Swift.min(density, CGFloat(Self.maxDensity))
         }
     }
