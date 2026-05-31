@@ -1,1 +1,1 @@
-patch type="improved" "Account for display pixel density (retina) in adaptive stream"
+patch type="fixed" "Fix adaptive stream dimensions on high-density displays"
