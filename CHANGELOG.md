@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.14.1] - 2026-05-13
+
+### Fixed
+
+- Report transport-level disconnects as LiveKitError(.network) instead of LiveKitError(.cancelled) so consumers can distinguish network failures from user-initiated cancellation
+- Faster initial connect in single peer connection mode by skipping an unnecessary 20ms negotiate debounce
+- Fix RemoteAudioTrack volume range
+
 ## [2.14.0] - 2026-04-29
 
 ### Added

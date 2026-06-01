@@ -91,6 +91,16 @@ actor IncomingStreamManager: Loggable {
         textStreamHandlers[topic] = onNewStream
     }
 
+    /// SDK-internal: register `onNewStream` for `topic` if no handler is registered yet,
+    /// otherwise no-op. Used by idempotent wiring paths (e.g. RPC v2 setup runs on every
+    /// connect) that don't want the duplicate-registration throw from the public API.
+    @discardableResult
+    func registerTextStreamHandlerIfNeeded(for topic: String, _ onNewStream: @escaping TextStreamHandler) -> Bool {
+        guard textStreamHandlers[topic] == nil else { return false }
+        textStreamHandlers[topic] = onNewStream
+        return true
+    }
+
     func unregisterByteStreamHandler(for topic: String) {
         byteStreamHandlers[topic] = nil
     }

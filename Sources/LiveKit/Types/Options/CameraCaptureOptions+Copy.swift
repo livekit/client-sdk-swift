@@ -17,6 +17,22 @@
 @preconcurrency import AVFoundation
 
 public extension CameraCaptureOptions {
+    #if !os(visionOS)
+    func copyWith(deviceType: ValueOrAbsent<AVCaptureDevice.DeviceType?> = .absent,
+                  device: ValueOrAbsent<AVCaptureDevice?> = .absent,
+                  position: ValueOrAbsent<AVCaptureDevice.Position> = .absent,
+                  preferredFormat: ValueOrAbsent<AVCaptureDevice.Format?> = .absent,
+                  dimensions: ValueOrAbsent<Dimensions> = .absent,
+                  fps: ValueOrAbsent<Int> = .absent) -> CameraCaptureOptions
+    {
+        CameraCaptureOptions(deviceType: deviceType.value(ifAbsent: self.deviceType),
+                             device: device.value(ifAbsent: self.device),
+                             position: position.value(ifAbsent: self.position),
+                             preferredFormat: preferredFormat.value(ifAbsent: self.preferredFormat),
+                             dimensions: dimensions.value(ifAbsent: self.dimensions),
+                             fps: fps.value(ifAbsent: self.fps))
+    }
+    #else
     func copyWith(device: ValueOrAbsent<AVCaptureDevice?> = .absent,
                   position: ValueOrAbsent<AVCaptureDevice.Position> = .absent,
                   preferredFormat: ValueOrAbsent<AVCaptureDevice.Format?> = .absent,
@@ -29,4 +45,5 @@ public extension CameraCaptureOptions {
                              dimensions: dimensions.value(ifAbsent: self.dimensions),
                              fps: fps.value(ifAbsent: self.fps))
     }
+    #endif
 }

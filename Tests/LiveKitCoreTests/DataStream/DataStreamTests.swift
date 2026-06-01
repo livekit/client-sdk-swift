@@ -121,4 +121,37 @@ struct DataStreamTests {
             }
         }
     }
+
+    enum ReservedRegisterOp: CaseIterable, CustomTestStringConvertible {
+        case text
+        case byte
+
+        var testDescription: String {
+            switch self {
+            case .text: "registerTextStreamHandler"
+            case .byte: "registerByteStreamHandler"
+            }
+        }
+
+        func invoke(on room: Room, topic: String) async throws {
+            switch self {
+            case .text: try await room.registerTextStreamHandler(for: topic) { _, _ in }
+            case .byte: try await room.registerByteStreamHandler(for: topic) { _, _ in }
+            }
+        }
+    }
+
+    /// The public `Room.register*StreamHandler` APIs reject user calls on the reserved
+    /// `lk.rpc*` topic family so user code can't shadow the SDK's RPC v2 stream handlers
+    /// (`lk.rpc_request` / `lk.rpc_response`). The unregister APIs are non-throwing by
+    /// signature and silently no-op on the same prefix, so they don't need a runtime
+    /// assertion.
+    @Test(arguments: ReservedRegisterOp.allCases, ["lk.rpc_request", "lk.rpc_response", "lk.rpc_future"])
+    func reservedPrefixRegisterRejected(_ op: ReservedRegisterOp, _ topic: String) async throws {
+        try await TestEnvironment.withRoom { room in
+            await #expect(throws: LiveKitError.self) {
+                try await op.invoke(on: room, topic: topic)
+            }
+        }
+    }
 }

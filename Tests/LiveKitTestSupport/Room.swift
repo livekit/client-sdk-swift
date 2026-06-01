@@ -26,6 +26,9 @@ public struct RoomTestingOptions {
     public let encryptionOptions: EncryptionOptions?
     public let singlePeerConnection: Bool
 
+    /// Override the client protocol version advertised to peers. When `nil`, uses the SDK default.
+    public let clientProtocol: ClientProtocol?
+
     // Perms
     public let canPublish: Bool
     public let canPublishData: Bool
@@ -38,6 +41,7 @@ public struct RoomTestingOptions {
                 enableMicrophone: Bool = false,
                 encryptionOptions: EncryptionOptions? = nil,
                 singlePeerConnection: Bool = false,
+                clientProtocol: ClientProtocol? = nil,
                 canPublish: Bool = false,
                 canPublishData: Bool = false,
                 canPublishSources: Set<Track.Source> = [],
@@ -49,6 +53,7 @@ public struct RoomTestingOptions {
         self.enableMicrophone = enableMicrophone
         self.encryptionOptions = encryptionOptions
         self.singlePeerConnection = singlePeerConnection
+        self.clientProtocol = clientProtocol
         self.canPublish = canPublish
         self.canPublishData = canPublishData
         self.canPublishSources = canPublishSources

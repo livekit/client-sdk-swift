@@ -74,6 +74,12 @@ public final class ConnectOptions: NSObject, Sendable {
     /// LiveKit server protocol version to use. Generally, it's not recommended to change this.
     public let protocolVersion: ProtocolVersion
 
+    /// Client-to-client protocol version advertised to other participants.
+    ///
+    /// Defaults to ``ClientProtocol/v1``, which enables RPC v2 (data-stream-based payloads
+    /// with no 15 KB size limit). Generally, it's not recommended to change this.
+    public let clientProtocol: ClientProtocol
+
     override public init() {
         autoSubscribe = true
         reconnectAttempts = 10
@@ -87,6 +93,7 @@ public final class ConnectOptions: NSObject, Sendable {
         isDscpEnabled = false
         enableMicrophone = false
         protocolVersion = .v16
+        clientProtocol = .v1
     }
 
     public init(autoSubscribe: Bool = true,
@@ -100,7 +107,8 @@ public final class ConnectOptions: NSObject, Sendable {
                 iceTransportPolicy: IceTransportPolicy = .all,
                 isDscpEnabled: Bool = false,
                 enableMicrophone: Bool = false,
-                protocolVersion: ProtocolVersion = .v16)
+                protocolVersion: ProtocolVersion = .v16,
+                clientProtocol: ClientProtocol = .v1)
     {
         self.autoSubscribe = autoSubscribe
         self.reconnectAttempts = reconnectAttempts
@@ -114,6 +122,7 @@ public final class ConnectOptions: NSObject, Sendable {
         self.isDscpEnabled = isDscpEnabled
         self.enableMicrophone = enableMicrophone
         self.protocolVersion = protocolVersion
+        self.clientProtocol = clientProtocol
     }
 
     // MARK: - Equal
@@ -131,7 +140,8 @@ public final class ConnectOptions: NSObject, Sendable {
             iceTransportPolicy == other.iceTransportPolicy &&
             isDscpEnabled == other.isDscpEnabled &&
             enableMicrophone == other.enableMicrophone &&
-            protocolVersion == other.protocolVersion
+            protocolVersion == other.protocolVersion &&
+            clientProtocol == other.clientProtocol
     }
 
     override public var hash: Int {
