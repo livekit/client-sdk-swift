@@ -45,17 +45,21 @@ struct CodecTests {
         #expect(decoderCodecs.contains(where: { $0.name == name }), "\(name) not found in decoder codecs")
     }
 
+    enum Factory: CaseIterable {
+        case encoder, decoder
+    }
+
     @Test(
         "H264 advertises both ConstrainedHigh and ConstrainedBaseline profiles",
         .bug("https://github.com/livekit/client-sdk-swift/issues/1002", "iOS 26 VideoToolbox SW fallback"),
         .bug("https://github.com/livekit/client-sdk-swift/issues/144", "iOS unable to publish 1080p simulcast"),
-        .bug("https://github.com/livekit/client-sdk-swift/pull/147", "PR that pinned profile-level-id=42e032 across all platforms"),
-        arguments: ["encoder", "decoder"]
+        arguments: Factory.allCases
     )
-    func h264ProfileLevelIds(factory: String) {
-        let codecs = factory == "encoder"
-            ? RTC.encoderFactory.supportedCodecs()
-            : RTC.decoderFactory.supportedCodecs()
+    func h264ProfileLevelIds(factory: Factory) throws {
+        let codecs = switch factory {
+        case .encoder: RTC.encoderFactory.supportedCodecs()
+        case .decoder: RTC.decoderFactory.supportedCodecs()
+        }
         let h264 = codecs.filter { $0.name == "H264" }
         let profiles = h264.compactMap { $0.parameters["profile-level-id"] }
 
@@ -89,8 +93,10 @@ struct CodecTests {
             // Guard against PR #147 regression: level must be at least 3.1 (0x1f), the
             // upstream fallback. Anything lower breaks resolutions ≥ 1280×720@30 (issue #144).
             // The byte is the H264 level_idc in decimal, hex-encoded (e.g. 34 = L5.2, 1f = L3.1).
-            let levelHex = pli.suffix(2)
-            let level = UInt8(levelHex, radix: 16) ?? 0
+            let level = try #require(
+                UInt8(pli.suffix(2), radix: 16),
+                "[\(factory)] H264 \(pli): unparseable level byte"
+            )
             #expect(
                 level >= 0x1F,
                 "[\(factory)] H264 \(pli): level \(String(format: "%02x", level)) below 1f (L3.1) floor"

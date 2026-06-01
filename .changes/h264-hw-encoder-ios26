@@ -1,1 +1,1 @@
-patch type="fixed" "Restore H264 hardware encoding by trusting upstream per-device profile detection; fixes high CPU with H264 simulcast on iOS 26"
+patch type="fixed" "Advertise both ConstrainedHigh and ConstrainedBaseline H264 profiles instead of collapsing to ConstrainedBaseline L5.0"
