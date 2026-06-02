@@ -24,20 +24,21 @@ extension LKRTCRtpTransceiver: Loggable {
         // Get list of supported codecs...
         let allVideoCodecs = RTC.videoSenderCapabilities.codecs
 
-        // Get the RTCRtpCodecCapability of the preferred codec
-        let preferredCodecCapability = allVideoCodecs.first { $0.name.lowercased() == codec.name }
+        // Keep every capability whose codec name matches the preferred codec (H264 exposes
+        // multiple profile-level-id entries; offering only one breaks server-side negotiation).
+        let preferredCapabilities = allVideoCodecs.filter { $0.name.lowercased() == codec.name }
 
         // Get list of capabilities other than the preferred one
         let otherCapabilities = allVideoCodecs.filter {
             $0.name.lowercased() != codec.name && $0.name.lowercased() != exceptCodec?.name
         }
 
-        // Bring preferredCodecCapability to the front and combine all capabilities
-        let combinedCapabilities = [preferredCodecCapability] + otherCapabilities
+        // Bring preferred capabilities to the front and combine
+        let combinedCapabilities = preferredCapabilities + otherCapabilities
 
         // Codecs not set in codecPreferences will not be negotiated in the offer
         do {
-            try setCodecPreferences(combinedCapabilities.compactMap(\.self), error: ())
+            try setCodecPreferences(combinedCapabilities, error: ())
         } catch {
             throw LiveKitError(.webRTC, message: "Failed to set codec preferences", internalError: error)
         }
