@@ -469,14 +469,15 @@ public class VideoView: NativeView, Loggable {
     /// on the main thread.
     func currentScreenScale() -> CGFloat {
         #if os(macOS)
-        return window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
+        var scale = window?.backingScaleFactor ?? 0
+        if scale <= 0 { scale = window?.screen?.backingScaleFactor ?? 0 }
+        return max(scale, 1.0)
         #elseif os(visionOS)
-        let scale = traitCollection.displayScale
-        return scale > 0 ? scale : 2.0
+        return max(traitCollection.displayScale, 1.0)
         #elseif os(iOS) || os(tvOS)
-        let scale = traitCollection.displayScale
-        if scale > 0 { return scale }
-        return window?.screen.scale ?? UIScreen.main.scale
+        var scale = traitCollection.displayScale
+        if scale <= 0 { scale = window?.windowScene?.screen.scale ?? 0 }
+        return max(scale, 1.0)
         #else
         return 1.0
         #endif
