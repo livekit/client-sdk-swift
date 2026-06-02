@@ -52,7 +52,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         id: String? = nil,
         version: Int = 0,
         attachedStreamIDs: [String] = [],
-        replyToStreamID: String? = nil
+        replyToStreamID: String? = nil,
     ) {
         self.topic = topic
         self.attributes = attributes
@@ -89,7 +89,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
         id: String? = nil,
         mimeType: String? = nil,
         name: String? = nil,
-        totalSize: Int? = nil
+        totalSize: Int? = nil,
     ) {
         self.topic = topic
         self.attributes = attributes
@@ -112,7 +112,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
         id: String?,
         mimeType: String?,
         name: String?,
-        totalSizeNumber: NSNumber?
+        totalSizeNumber: NSNumber?,
     ) {
         self.init(
             topic: topic,
@@ -121,7 +121,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
             id: id,
             mimeType: mimeType,
             name: name,
-            totalSize: totalSizeNumber?.intValue
+            totalSize: totalSizeNumber?.intValue,
         )
     }
 }

@@ -61,7 +61,7 @@ public actor CachingTokenSource: TokenSourceConfigurable, Loggable {
     public init(
         _ source: TokenSourceConfigurable,
         store: Store = InMemoryTokenStore(),
-        validator: @escaping Validator = { _, response in response.hasValidToken() }
+        validator: @escaping Validator = { _, response in response.hasValidToken() },
     ) {
         self.source = source
         self.store = store

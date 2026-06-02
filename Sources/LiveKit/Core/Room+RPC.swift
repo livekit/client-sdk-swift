@@ -87,7 +87,7 @@ public extension Room {
     func registerRpcMethod(
         _ method: String,
         handler: @Sendable @escaping (Participant.Identity, String) -> String,
-        onError: (@Sendable (Error) -> Void)?
+        onError: (@Sendable (Error) -> Void)?,
     ) {
         Task {
             do {

@@ -68,7 +68,7 @@ public struct TokenRequestOptions: Sendable, Equatable {
         participantMetadata: String? = nil,
         participantAttributes: [String: String]? = nil,
         agentName: String? = nil,
-        agentMetadata: String? = nil
+        agentMetadata: String? = nil,
     ) {
         self.roomName = roomName
         self.participantName = participantName
@@ -92,7 +92,7 @@ public struct TokenRequestOptions: Sendable, Equatable {
             participantIdentity: participantIdentity,
             participantMetadata: participantMetadata,
             participantAttributes: participantAttributes,
-            roomConfiguration: RoomConfiguration(agents: agents)
+            roomConfiguration: RoomConfiguration(agents: agents),
         )
     }
 }

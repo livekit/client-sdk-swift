@@ -21,7 +21,7 @@ extension Utils {
         dimensions: Dimensions,
         publishOptions: VideoPublishOptions?,
         isScreenShare: Bool = false,
-        overrideVideoCodec: VideoCodec? = nil
+        overrideVideoCodec: VideoCodec? = nil,
     ) -> [LKRTCRtpEncodingParameters] {
         let publishOptions = publishOptions ?? VideoPublishOptions()
         let preferredEncoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : publishOptions.encoding
@@ -66,7 +66,7 @@ extension Utils {
         dimensions: Dimensions,
         baseParameters: VideoParameters,
         requestedPresets: [VideoParameters],
-        isScreenShare: Bool
+        isScreenShare: Bool,
     ) -> [VideoParameters] {
         let presets = (!requestedPresets.isEmpty
             ? requestedPresets
@@ -114,8 +114,8 @@ extension Utils {
                 maxBitrate: clampedBitrate,
                 maxFps: clampedFps,
                 bitratePriority: presetEncoding.bitratePriority,
-                networkPriority: presetEncoding.networkPriority
-            )
+                networkPriority: presetEncoding.networkPriority,
+            ),
         )
     }
 }

@@ -90,7 +90,7 @@ public extension Room {
     func registerByteStreamHandler(
         for topic: String,
         onNewStream: @Sendable @escaping (ByteStreamReader, Participant.Identity) -> Void,
-        onError: (@Sendable (Error) -> Void)?
+        onError: (@Sendable (Error) -> Void)?,
     ) {
         Task {
             do { try await registerByteStreamHandler(for: topic, onNewStream: onNewStream) } catch { onError?(error) }
@@ -102,7 +102,7 @@ public extension Room {
     func registerTextStreamHandler(
         for topic: String,
         onNewStream: @Sendable @escaping (TextStreamReader, Participant.Identity) -> Void,
-        onError: (@Sendable (Error) -> Void)?
+        onError: (@Sendable (Error) -> Void)?,
     ) {
         Task {
             do { try await registerTextStreamHandler(for: topic, onNewStream: onNewStream) } catch { onError?(error) }

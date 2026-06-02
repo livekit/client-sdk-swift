@@ -43,7 +43,7 @@ struct BroadcastAudioCodecTests {
     @Test func decodeEmpty() throws {
         let metadata = BroadcastAudioCodec.Metadata(
             sampleCount: 1,
-            description: AudioStreamBasicDescription()
+            description: AudioStreamBasicDescription(),
         )
         #expect(throws: BroadcastAudioCodec.Error.decodingFailed) {
             try codec.decode(Data(), with: metadata)
@@ -68,7 +68,7 @@ struct BroadcastAudioCodecTests {
             mBytesPerFrame: bytesPerFrame,
             mChannelsPerFrame: channels,
             mBitsPerChannel: bitsPerChannel,
-            mReserved: 0
+            mReserved: 0,
         )
 
         var formatDescription: CMAudioFormatDescription?
@@ -80,7 +80,7 @@ struct BroadcastAudioCodecTests {
             magicCookieSize: 0,
             magicCookie: nil,
             extensions: nil,
-            formatDescriptionOut: &formatDescription
+            formatDescriptionOut: &formatDescription,
         ) == noErr,
             let audioFormatDesc = formatDescription else { return nil }
 
@@ -97,7 +97,7 @@ struct BroadcastAudioCodecTests {
             offsetToData: 0,
             dataLength: totalDataSize,
             flags: 0,
-            blockBufferOut: &blockBuffer
+            blockBufferOut: &blockBuffer,
         ) == kCMBlockBufferNoErr,
             let cmBlockBuffer = blockBuffer
         else {
@@ -108,7 +108,7 @@ struct BroadcastAudioCodecTests {
         var timingInfo = CMSampleTimingInfo(
             duration: CMTimeMake(value: 1, timescale: Int32(sampleRate)),
             presentationTimeStamp: .zero,
-            decodeTimeStamp: CMTime.invalid
+            decodeTimeStamp: CMTime.invalid,
         )
 
         var sampleBuffer: CMSampleBuffer?
@@ -124,7 +124,7 @@ struct BroadcastAudioCodecTests {
             sampleTimingArray: &timingInfo,
             sampleSizeEntryCount: 0,
             sampleSizeArray: nil,
-            sampleBufferOut: &sampleBuffer
+            sampleBufferOut: &sampleBuffer,
         ) == noErr else { return nil }
 
         return sampleBuffer

@@ -32,7 +32,7 @@ extension Livekit_EncryptedPacket {
         LKRTCEncryptedPacket(
             data: encryptedValue,
             iv: iv,
-            keyIndex: keyIndex
+            keyIndex: keyIndex,
         )
     }
 }

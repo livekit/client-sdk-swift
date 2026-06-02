@@ -97,13 +97,13 @@ private final class DataEchoDelegate: NSObject, RoomDelegate, @unchecked Sendabl
         Task {
             try? await room.localParticipant.publish(
                 data: data,
-                options: .init(topic: topic)
+                options: .init(topic: topic),
             )
             let sentTime = Int64(ProcessInfo.processInfo.systemUptime * 1_000_000)
             timestamps.mutate {
                 $0.append(EchoParticipant.ProcessingTimestamp(
                     receiveUs: recvTime,
-                    echoSentUs: sentTime
+                    echoSentUs: sentTime,
                 ))
             }
         }

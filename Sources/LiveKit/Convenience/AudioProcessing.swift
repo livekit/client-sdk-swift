@@ -185,7 +185,7 @@ public actor AudioVisualizeProcessor {
             minFrequency: minFrequency,
             maxFrequency: maxFrequency,
             bandsCount: bandsCount,
-            sampleRate: Float(pcmBuffer.format.sampleRate)
+            sampleRate: Float(pcmBuffer.format.sampleRate),
         )
 
         let headroom = maxDB - minDB

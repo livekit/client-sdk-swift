@@ -61,7 +61,7 @@ public enum TestEnvironment {
             canUpdateOwnMetadata: false,
             ingressAdmin: false,
             hidden: false,
-            recorder: false
+            recorder: false,
         )
 
         return try tokenGenerator.sign()
@@ -88,7 +88,7 @@ public enum TestEnvironment {
         let rooms = try options.enumerated().map {
             let connectOptions = ConnectOptions(
                 enableMicrophone: $0.element.enableMicrophone,
-                clientProtocol: $0.element.clientProtocol ?? ConnectOptions().clientProtocol
+                clientProtocol: $0.element.clientProtocol ?? ConnectOptions().clientProtocol,
             )
 
             let encryptionOptions = $0.element.encryptionOptions ?? EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
@@ -117,7 +117,7 @@ public enum TestEnvironment {
 
         // Connect all Rooms concurrently (retry on transient failure)
         try await Task.retrying(totalAttempts: 3, retryDelay: 2) { _, _ in
-            try await withThrowingTaskGroup(of: Void.self) { group in
+            try await withThrowingTaskGroup { group in
                 for element in rooms {
                     group.addTask {
                         try await element.room.connect(url: element.url, token: element.token)
@@ -169,7 +169,7 @@ public enum TestEnvironment {
         try await block(allRooms)
 
         // Gracefully unpublish all tracks then disconnect.
-        try await withThrowingTaskGroup(of: Void.self) { group in
+        try await withThrowingTaskGroup { group in
             for element in rooms {
                 group.addTask {
                     await element.room.localParticipant.unpublishAll()

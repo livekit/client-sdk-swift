@@ -15,7 +15,7 @@ let package = Package(
     products: [
         .library(
             name: "LiveKit",
-            targets: ["LiveKit"]
+            targets: ["LiveKit"],
         ),
     ],
     dependencies: [
@@ -29,7 +29,7 @@ let package = Package(
     targets: [
         .target(
             name: "LKObjCHelpers",
-            publicHeadersPath: "include"
+            publicHeadersPath: "include",
         ),
         .target(
             name: "LiveKit",
@@ -44,36 +44,36 @@ let package = Package(
             ],
             resources: [
                 .process("PrivacyInfo.xcprivacy"),
-            ]
+            ],
         ),
         .target(
             name: "LiveKitTestSupport",
             dependencies: [
                 "LiveKit",
             ],
-            path: "Tests/LiveKitTestSupport"
+            path: "Tests/LiveKitTestSupport",
         ),
         .testTarget(
             name: "LiveKitCoreTests",
             dependencies: [
                 "LiveKit",
                 "LiveKitTestSupport",
-            ]
+            ],
         ),
         .testTarget(
             name: "LiveKitAudioTests",
             dependencies: [
                 "LiveKit",
                 "LiveKitTestSupport",
-            ]
+            ],
         ),
         .testTarget(
             name: "LiveKitObjCTests",
             dependencies: [
                 "LiveKit",
                 "LiveKitTestSupport",
-            ]
+            ],
         ),
     ],
-    swiftLanguageModes: [.v5, .v6]
+    swiftLanguageModes: [.v5, .v6],
 )

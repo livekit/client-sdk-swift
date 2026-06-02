@@ -32,7 +32,7 @@ struct ByteStreamInfoTests {
             attributes: ["key": "value"],
             encryptionType: .gcm,
             mimeType: "image/jpeg",
-            name: "filename.bin"
+            name: "filename.bin",
         )
         let header = Livekit_DataStream.Header(info)
         #expect(header.streamID == info.id)

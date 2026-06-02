@@ -65,7 +65,7 @@ extension ByteStreamReader {
     ///
     public func writeToFile(
         in directory: URL = FileManager.default.temporaryDirectory,
-        name nameOverride: String? = nil
+        name nameOverride: String? = nil,
     ) async throws -> URL {
         guard directory.hasDirectoryPath else {
             throw StreamError.notDirectory
@@ -73,7 +73,7 @@ extension ByteStreamReader {
         let fileName = Self.resolveFileName(
             preferredName: nameOverride ?? info.name,
             fallbackName: info.id,
-            mimeType: info.mimeType
+            mimeType: info.mimeType,
         )
         let fileURL = directory.appendingPathComponent(fileName)
 
@@ -100,7 +100,7 @@ extension ByteStreamReader {
     static func resolveFileName(
         preferredName: String?,
         fallbackName: String,
-        mimeType: String
+        mimeType: String,
     ) -> String {
         var resolvedExtension: String {
             FileInfo.preferredExtension(for: mimeType) ?? Self.defaultFileExtension

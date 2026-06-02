@@ -34,7 +34,7 @@ final class ByteStreamReaderTests: @unchecked Sendable {
         attributes: [:],
         encryptionType: .none,
         mimeType: "application/octet-stream",
-        name: "filename.bin"
+        name: "filename.bin",
     )
 
     let testChunks = [
@@ -157,8 +157,8 @@ final class ByteStreamReaderTests: @unchecked Sendable {
             ByteStreamReader.resolveFileName(
                 preferredName: c.preferred,
                 fallbackName: c.fallback,
-                mimeType: c.mimeType
-            ) == c.expected
+                mimeType: c.mimeType,
+            ) == c.expected,
         )
     }
 }

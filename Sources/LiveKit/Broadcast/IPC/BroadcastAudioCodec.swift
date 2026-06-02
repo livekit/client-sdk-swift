@@ -46,7 +46,7 @@ struct BroadcastAudioCodec {
             atOffset: 0,
             lengthAtOffsetOut: nil,
             totalLengthOut: &count,
-            dataPointerOut: &dataPointer
+            dataPointerOut: &dataPointer,
         ) == kCMBlockBufferNoErr, let dataPointer else {
             throw Error.encodingFailed
         }
@@ -54,7 +54,7 @@ struct BroadcastAudioCodec {
         let data = Data(bytes: dataPointer, count: count)
         let metadata = Metadata(
             sampleCount: Int32(audioBuffer.numSamples),
-            description: basicDescription
+            description: basicDescription,
         )
         return (metadata, data)
     }
@@ -72,7 +72,7 @@ struct BroadcastAudioCodec {
         let sampleCount = AVAudioFrameCount(metadata.sampleCount)
         guard let pcmBuffer = AVAudioPCMBuffer(
             pcmFormat: format,
-            frameCapacity: sampleCount
+            frameCapacity: sampleCount,
         ) else {
             throw Error.decodingFailed
         }
@@ -87,7 +87,7 @@ struct BroadcastAudioCodec {
         }
         encodedData.copyBytes(
             to: mData.assumingMemoryBound(to: UInt8.self),
-            count: encodedData.count
+            count: encodedData.count,
         )
         return pcmBuffer
     }
@@ -117,7 +117,7 @@ extension AudioStreamBasicDescription: Codable {
             mBytesPerFrame: container.decode(UInt32.self),
             mChannelsPerFrame: container.decode(UInt32.self),
             mBitsPerChannel: container.decode(UInt32.self),
-            mReserved: 0 // as per documentation
+            mReserved: 0, // as per documentation
         )
     }
 }

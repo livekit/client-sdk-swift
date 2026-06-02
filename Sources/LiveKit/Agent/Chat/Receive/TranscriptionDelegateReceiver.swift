@@ -56,7 +56,7 @@ actor TranscriptionDelegateReceiver: MessageReceiver, RoomDelegate {
                     id: segment.id,
                     timestamp: segment.lastReceivedTime,
                     content: participant.isAgent ? .agentTranscript(segment.text) : .userTranscript(segment.text),
-                    isFinal: segment.isFinal
+                    isFinal: segment.isFinal,
                 )
                 Task {
                     await yield(message)

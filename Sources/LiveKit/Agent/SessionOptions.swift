@@ -32,7 +32,7 @@ public struct SessionOptions: Sendable {
     public init(
         room: Room = .init(),
         preConnectAudio: Bool = true,
-        agentConnectTimeout: TimeInterval = 20
+        agentConnectTimeout: TimeInterval = 20,
     ) {
         self.room = room
         self.preConnectAudio = preConnectAudio
@@ -55,12 +55,12 @@ public struct SessionOptions: Sendable {
     public init(
         encryption: EncryptionOptions,
         preConnectAudio: Bool = true,
-        agentConnectTimeout: TimeInterval = 20
+        agentConnectTimeout: TimeInterval = 20,
     ) {
         self.init(
             room: Room(roomOptions: RoomOptions(encryptionOptions: encryption)),
             preConnectAudio: preConnectAudio,
-            agentConnectTimeout: agentConnectTimeout
+            agentConnectTimeout: agentConnectTimeout,
         )
     }
 }

@@ -23,7 +23,7 @@ let package = Package(
             path: "LiveKitBenchmark",
             plugins: [
                 .plugin(name: "BenchmarkPlugin", package: "package-benchmark"),
-            ]
+            ],
         ),
-    ]
+    ],
 )

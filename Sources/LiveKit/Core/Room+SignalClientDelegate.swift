@@ -281,7 +281,7 @@ extension Room: SignalClientDelegate {
             }
         }
 
-        await withTaskGroup(of: Void.self) { group in
+        await withTaskGroup { group in
             for identity in disconnectedParticipantIdentities {
                 group.addTask {
                     do {

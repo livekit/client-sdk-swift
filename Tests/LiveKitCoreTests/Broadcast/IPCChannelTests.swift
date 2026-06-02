@@ -83,7 +83,7 @@ struct IPCChannelTests {
 
     private func assertInitCancellationThrows(
         _ initializer: @Sendable @escaping @autoclosure () async throws -> IPCChannel,
-        sourceLocation: SourceLocation = #_sourceLocation
+        sourceLocation: SourceLocation = #_sourceLocation,
     ) async throws {
         await confirmation("Throws error on cancellation") { cancelThrowsError in
             let channelTask = Task {
@@ -103,13 +103,13 @@ struct IPCChannelTests {
     // swiftformat:disable redundantSelf hoistAwait
     @Test func connectorCancelDuringInit() async throws {
         try await assertInitCancellationThrows(
-            await IPCChannel(connectingTo: self.socketPath)
+            await IPCChannel(connectingTo: self.socketPath),
         )
     }
 
     @Test func acceptorCancelDuringInit() async throws {
         try await assertInitCancellationThrows(
-            await IPCChannel(acceptingOn: self.socketPath)
+            await IPCChannel(acceptingOn: self.socketPath),
         )
     }
 

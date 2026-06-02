@@ -27,14 +27,9 @@ import Testing
 struct DataChannelPairTests {
     @Test func openCompleterTimesOutWhenChannelsNeverArrive() async {
         let pair = DataChannelPair()
-        do {
+        await #expect {
             try await pair.openCompleter.wait(timeout: 0.1)
-            Issue.record("Expected openCompleter to time out")
-        } catch let error as LiveKitError {
-            #expect(error.type == .timedOut)
-        } catch {
-            Issue.record("Expected LiveKitError, got \(error)")
-        }
+        } throws: { ($0 as? LiveKitError)?.type == .timedOut }
     }
 
     @Test func resetFailsParkedSendsWithProvidedError() async throws {
@@ -47,7 +42,9 @@ struct DataChannelPairTests {
         try await Task.sleep(nanoseconds: 50_000_000)
 
         pair.reset(throwing: LiveKitError(.invalidState, message: "custom"))
-        await expectLiveKitError(.invalidState, from: sendTask)
+        await #expect {
+            try await sendTask.value
+        } throws: { ($0 as? LiveKitError)?.type == .invalidState }
     }
 
     @Test func resetWithNilErrorFailsParkedSendsAsCancelled() async throws {
@@ -59,15 +56,19 @@ struct DataChannelPairTests {
         try await Task.sleep(nanoseconds: 50_000_000)
 
         pair.reset(throwing: nil)
-        await expectLiveKitError(.cancelled, from: sendTask)
+        await #expect {
+            try await sendTask.value
+        } throws: { ($0 as? LiveKitError)?.type == .cancelled }
     }
 
     @Test func openCompleterWaitHonorsTaskCancellation() async {
         let pair = DataChannelPair()
         let waitTask = Task { try await pair.openCompleter.wait() }
-        await waitForRegistration(of: pair.openCompleter)
+        await pair.openCompleter.waitForRegistration()
 
         waitTask.cancel()
-        await expectLiveKitError(.cancelled, from: waitTask)
+        await #expect {
+            try await waitTask.value
+        } throws: { ($0 as? LiveKitError)?.type == .cancelled }
     }
 }

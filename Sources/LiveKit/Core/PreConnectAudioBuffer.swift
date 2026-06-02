@@ -82,7 +82,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
                                                reportStatistics: roomOptions?.reportRemoteTrackStatistics ?? false),
             format: .pcmFormatInt16,
             sampleRate: Constants.sampleRate,
-            maxSize: Constants.maxSize
+            maxSize: Constants.maxSize,
         )
 
         let stream = try await newRecorder.start()
@@ -144,7 +144,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
                 "channels": "\(recorder.channels)",
                 "trackId": recorder.track.sid?.stringValue ?? "",
             ],
-            destinationIdentities: agents
+            destinationIdentities: agents,
         )
         let writer = try await room.localParticipant.streamBytes(options: streamOptions)
 

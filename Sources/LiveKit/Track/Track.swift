@@ -138,7 +138,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
             name: name,
             kind: kind,
             source: source,
-            reportStatistics: reportStatistics
+            reportStatistics: reportStatistics,
         ))
 
         mediaTrack = track

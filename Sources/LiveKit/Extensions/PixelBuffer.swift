@@ -75,7 +75,7 @@ public extension CMSampleBuffer {
             imageBuffer: pixelBuffer,
             formatDescription: formatDescription!,
             sampleTiming: &timimgInfo,
-            sampleBufferOut: &sampleBuffer
+            sampleBufferOut: &sampleBuffer,
         )
 
         // Print out errors

@@ -46,13 +46,13 @@ extension FileInfo {
             guard let uti = UTTypeCreatePreferredIdentifierForTag(
                 kUTTagClassFilenameExtension,
                 fileURL.pathExtension as CFString,
-                nil
+                nil,
             )?.takeRetainedValue() else {
                 return nil
             }
             mimeType = UTTypeCopyPreferredTagWithClass(
                 uti,
-                kUTTagClassMIMEType
+                kUTTagClassMIMEType,
             )?.takeRetainedValue() as? String
             return
         }
@@ -72,13 +72,13 @@ extension FileInfo {
             guard let uti = UTTypeCreatePreferredIdentifierForTag(
                 kUTTagClassMIMEType,
                 mimeType as CFString,
-                nil
+                nil,
             )?.takeRetainedValue() else {
                 return nil
             }
             guard let fileExtension = UTTypeCopyPreferredTagWithClass(
                 uti,
-                kUTTagClassFilenameExtension
+                kUTTagClassFilenameExtension,
             )?.takeRetainedValue() else {
                 return nil
             }

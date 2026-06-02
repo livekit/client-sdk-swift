@@ -52,7 +52,7 @@ struct TrackTests {
         let track1 = TestAudioTrack()
         let track2 = TestAudioTrack()
 
-        try await withThrowingTaskGroup(of: Void.self) { group in
+        try await withThrowingTaskGroup { group in
             for _ in 0 ..< 1000 {
                 group.addTask {
                     let track = Bool.random() ? track1 : track2

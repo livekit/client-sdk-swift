@@ -108,7 +108,7 @@ actor TranscriptionStreamReceiver: MessageReceiver, Loggable {
                     id: last.id,
                     timestamp: last.timestamp,
                     content: last.content,
-                    isFinal: true
+                    isFinal: true,
                 ))
             }
         }
@@ -158,7 +158,7 @@ actor TranscriptionStreamReceiver: MessageReceiver, Loggable {
             partialMessages[partialID] = PartialMessage(
                 content: updatedContent,
                 timestamp: timestamp,
-                streamID: currentStreamID
+                streamID: currentStreamID,
             )
             cleanupPreviousTurn(participantIdentity, exceptSegmentID: segmentID)
         }
@@ -172,7 +172,7 @@ actor TranscriptionStreamReceiver: MessageReceiver, Loggable {
             id: segmentID,
             timestamp: timestamp,
             content: participantIdentity == room.localParticipant.identity ? .userTranscript(updatedContent) : .agentTranscript(updatedContent),
-            isFinal: isFinal
+            isFinal: isFinal,
         )
     }
 
