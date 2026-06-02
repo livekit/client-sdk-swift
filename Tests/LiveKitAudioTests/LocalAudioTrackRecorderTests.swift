@@ -28,7 +28,7 @@ import LiveKitTestSupport
         let recorder = LocalAudioTrackRecorder(
             track: localTrack,
             format: .pcmFormatInt16,
-            sampleRate: 48000
+            sampleRate: 48000,
         )
 
         let stream = try await recorder.start()
@@ -60,7 +60,7 @@ import LiveKitTestSupport
             track: localTrack,
             format: .pcmFormatInt16,
             sampleRate: 48000,
-            maxSize: maxBufferSize
+            maxSize: maxBufferSize,
         )
 
         let stream = try await recorder.start()
@@ -89,13 +89,13 @@ import LiveKitTestSupport
         let recorder1 = LocalAudioTrackRecorder(
             track: localTrack,
             format: .pcmFormatInt16,
-            sampleRate: 48000
+            sampleRate: 48000,
         )
 
         let recorder2 = LocalAudioTrackRecorder(
             track: localTrack,
             format: .pcmFormatFloat32,
-            sampleRate: 16000
+            sampleRate: 16000,
         )
 
         let stream1 = try await recorder1.start()
@@ -139,7 +139,7 @@ import LiveKitTestSupport
         let recorder = LocalAudioTrackRecorder(
             track: localTrack,
             format: .pcmFormatInt16,
-            sampleRate: 48000
+            sampleRate: 48000,
         )
 
         await confirmation("Received audio data") { dataConfirm in

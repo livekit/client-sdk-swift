@@ -34,7 +34,7 @@ struct RpcTests {
             _ responder: Room,
             _ caller: Room,
             _ responderIdentity: Participant.Identity
-        ) async throws -> Void
+        ) async throws -> Void,
     ) async throws {
         try await TestEnvironment.withRooms([responderOptions, callerOptions]) { rooms in
             let responder = rooms[0]
@@ -54,7 +54,7 @@ struct RpcTests {
             let response = try await caller.localParticipant.performRpc(
                 destinationIdentity: responderIdentity,
                 method: "v2-method",
-                payload: "small payload"
+                payload: "small payload",
             )
             #expect(response == "v2-response")
             #expect(await caller.rpcClient.pendingCount == 0)
@@ -73,7 +73,7 @@ struct RpcTests {
             let response = try await caller.localParticipant.performRpc(
                 destinationIdentity: responderIdentity,
                 method: "echo",
-                payload: largePayload
+                payload: largePayload,
             )
             #expect(response == largePayload)
             #expect(await caller.rpcClient.pendingCount == 0)
@@ -98,7 +98,7 @@ struct RpcTests {
                 let response = try await caller.localParticipant.performRpc(
                     destinationIdentity: responderIdentity,
                     method: "greet",
-                    payload: "Hi!"
+                    payload: "Hi!",
                 )
                 #expect(response == "Hello, \(callerIdentity)!")
             }
@@ -118,7 +118,7 @@ struct RpcTests {
             let response = try await caller.localParticipant.performRpc(
                 destinationIdentity: responderIdentity,
                 method: "echo",
-                payload: "go"
+                payload: "go",
             )
             #expect(response == largePayload)
             #expect(await caller.rpcClient.pendingCount == 0)
@@ -137,7 +137,7 @@ struct RpcTests {
                 _ = try await caller.localParticipant.performRpc(
                     destinationIdentity: responderIdentity,
                     method: "fails",
-                    payload: "x"
+                    payload: "x",
                 )
                 Issue.record("Expected error not thrown")
             } catch let error as RpcError {
@@ -161,7 +161,7 @@ struct RpcTests {
             let response = try await caller.localParticipant.performRpc(
                 destinationIdentity: responderIdentity,
                 method: "method",
-                payload: "x"
+                payload: "x",
             )
             #expect(response == "v1-response")
             #expect(await caller.rpcClient.pendingCount == 0)
@@ -181,7 +181,7 @@ struct RpcTests {
             let first = try await caller.localParticipant.performRpc(
                 destinationIdentity: responderIdentity,
                 method: "ping",
-                payload: ""
+                payload: "",
             )
             #expect(first == "pong")
 
@@ -201,7 +201,7 @@ struct RpcTests {
             let second = try await caller.localParticipant.performRpc(
                 destinationIdentity: responderIdentity,
                 method: "ping",
-                payload: ""
+                payload: "",
             )
             #expect(second == "pong")
             #expect(await caller.rpcClient.pendingCount == 0)
@@ -218,7 +218,7 @@ struct RpcTests {
                 _ = try await caller.localParticipant.performRpc(
                     destinationIdentity: responderIdentity,
                     method: "method",
-                    payload: largePayload
+                    payload: largePayload,
                 )
             }
             #expect(await caller.rpcClient.pendingCount == 0)

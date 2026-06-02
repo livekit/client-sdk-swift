@@ -42,7 +42,7 @@ struct CompleterTests {
         let completer = AsyncCompleter<Void>(label: "cancel-test", defaultTimeout: 30)
         do {
             // Run Tasks in parallel
-            try await withThrowingTaskGroup(of: Void.self) { group in
+            try await withThrowingTaskGroup { group in
                 group.addTask {
                     print("Task 1: Waiting...")
                     try await completer.wait()
@@ -71,7 +71,7 @@ struct CompleterTests {
         let completer = AsyncCompleter<Void>(label: "cancel-test", defaultTimeout: 30)
         do {
             // Run Tasks in parallel
-            try await withThrowingTaskGroup(of: Void.self) { group in
+            try await withThrowingTaskGroup { group in
                 group.addTask {
                     print("Task 1: Waiting...")
                     try await completer.wait()
@@ -112,52 +112,39 @@ struct CompleterTests {
     @Test func resetThrowingPropagatesTypedError() async {
         let completer = AsyncCompleter<Void>(label: "reset-throwing", defaultTimeout: 30)
         let task = Task { try await completer.wait() }
-        await waitForRegistration(of: completer)
+        await completer.waitForRegistration()
 
         completer.reset(throwing: LiveKitError(.network, message: "transport failed"))
 
-        await expectLiveKitError(.network, from: task)
+        await #expect {
+            try await task.value
+        } throws: { ($0 as? LiveKitError)?.type == .network }
     }
 
     @Test func taskCancellationStillProducesCancelled() async {
         let completer = AsyncCompleter<Void>(label: "task-cancel", defaultTimeout: 30)
         let task = Task { try await completer.wait() }
-        await waitForRegistration(of: completer)
+        await completer.waitForRegistration()
 
         task.cancel()
 
-        await expectLiveKitError(.cancelled, from: task)
+        await #expect {
+            try await task.value
+        } throws: { ($0 as? LiveKitError)?.type == .cancelled }
     }
 
     @Test func resetClearsResultForReuse() async throws {
         let completer = AsyncCompleter<Void>(label: "reuse-after-throw", defaultTimeout: 30)
 
         let firstTask = Task { try await completer.wait() }
-        await waitForRegistration(of: completer)
+        await completer.waitForRegistration()
         completer.reset(throwing: LiveKitError(.network))
         _ = await firstTask.result
 
         let secondTask = Task { try await completer.wait() }
-        await waitForRegistration(of: completer)
+        await completer.waitForRegistration()
         completer.resume(returning: ())
         try await secondTask.value
-    }
-}
-
-private func waitForRegistration(of completer: AsyncCompleter<some Any>) async {
-    while completer.waiterCount == 0 {
-        await Task.yield()
-    }
-}
-
-private func expectLiveKitError(_ expected: LiveKitErrorType, from task: Task<some Sendable, Error>) async {
-    do {
-        _ = try await task.value
-        Issue.record("Expected LiveKitError(.\(expected)) to be thrown")
-    } catch let error as LiveKitError {
-        #expect(error.type == expected)
-    } catch {
-        Issue.record("Expected LiveKitError, got \(error)")
     }
 }
 
@@ -172,13 +159,17 @@ struct CompleterMapActorTests {
         let taskA = Task { try await completerA.wait() }
         let taskB = Task { try await completerB.wait() }
 
-        await waitForRegistration(of: completerA)
-        await waitForRegistration(of: completerB)
+        await completerA.waitForRegistration()
+        await completerB.waitForRegistration()
 
         await map.reset(throwing: LiveKitError(.network, message: "fan-out"))
 
-        await expectLiveKitError(.network, from: taskA)
-        await expectLiveKitError(.network, from: taskB)
+        await #expect {
+            try await taskA.value
+        } throws: { ($0 as? LiveKitError)?.type == .network }
+        await #expect {
+            try await taskB.value
+        } throws: { ($0 as? LiveKitError)?.type == .network }
     }
 
     @Test func resetWithoutErrorDefaultsToCancelled() async {
@@ -186,11 +177,13 @@ struct CompleterMapActorTests {
         let completer = await map.completer(for: "a")
         let task = Task { try await completer.wait() }
 
-        await waitForRegistration(of: completer)
+        await completer.waitForRegistration()
 
         await map.reset()
 
-        await expectLiveKitError(.cancelled, from: task)
+        await #expect {
+            try await task.value
+        } throws: { ($0 as? LiveKitError)?.type == .cancelled }
     }
 
     @Test func resumeThrowingForMissingKeyIsNoOp() async throws {
@@ -202,7 +195,7 @@ struct CompleterMapActorTests {
         // Subsequent wait on the same key must NOT see a stale "remembered" failure.
         let completer = await map.completer(for: "absent")
         let task = Task { try await completer.wait() }
-        await waitForRegistration(of: completer)
+        await completer.waitForRegistration()
         completer.resume(returning: ())
         try await task.value
     }
@@ -223,10 +216,12 @@ struct CompleterMapActorTests {
 
         let completer = await map.completer(for: "key")
         let task = Task { try await completer.wait() }
-        await waitForRegistration(of: completer)
+        await completer.waitForRegistration()
 
         await map.resume(throwing: LiveKitError(.network), for: "key")
 
-        await expectLiveKitError(.network, from: task)
+        await #expect {
+            try await task.value
+        } throws: { ($0 as? LiveKitError)?.type == .network }
     }
 }

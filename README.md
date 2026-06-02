@@ -169,7 +169,7 @@ Make sure any access to your app's UI elements are from the main thread, for exa
 
 ### Swift 6
 
-LiveKit is currently compiled using Swift 6.0 with full support for strict concurrency. Apps compiled in Swift 6 language mode will not need to use `@preconcurrency` or `@unchecked Sendable` to access LiveKit classes.
+LiveKit is currently compiled using Swift 6.1 with full support for strict concurrency. Apps compiled in Swift 6 language mode will not need to use `@preconcurrency` or `@unchecked Sendable` to access LiveKit classes.
 
 ### Memory management
 

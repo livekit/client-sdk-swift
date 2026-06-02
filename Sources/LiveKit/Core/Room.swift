@@ -399,13 +399,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             e2eeManager = E2EEManager(options: encryptionOptions)
             e2eeManager!.setup(room: self)
 
-            subscriberDataChannel.e2eeManager = e2eeManager
-            publisherDataChannel.e2eeManager = e2eeManager
+            subscriberDataChannel.set(e2eeManager: e2eeManager)
+            publisherDataChannel.set(e2eeManager: e2eeManager)
         } else {
             e2eeManager = nil
 
-            subscriberDataChannel.e2eeManager = nil
-            publisherDataChannel.e2eeManager = nil
+            subscriberDataChannel.set(e2eeManager: nil)
+            publisherDataChannel.set(e2eeManager: nil)
         }
 
         _state.mutate {
@@ -613,13 +613,13 @@ extension Room {
                 nextReconnectMode: $0.nextReconnectMode,
                 isReconnectingWithMode: $0.isReconnectingWithMode,
                 connectionState: $0.connectionState,
-                reconnectTask: $0.reconnectTask
+                reconnectTask: $0.reconnectTask,
             ) : State(
                 connectOptions: $0.connectOptions,
                 roomOptions: $0.roomOptions,
                 connectionState: .disconnected,
                 reconnectTask: $0.reconnectTask,
-                disconnectError: LiveKitError.from(error: disconnectError)
+                disconnectError: LiveKitError.from(error: disconnectError),
             )
         }
     }
@@ -657,7 +657,7 @@ extension Room {
         }
 
         // Clean up Participants concurrently
-        await withTaskGroup(of: Void.self) { group in
+        await withTaskGroup { group in
             for participant in allParticipants {
                 group.addTask {
                     await participant.cleanUp(notify: _notify)

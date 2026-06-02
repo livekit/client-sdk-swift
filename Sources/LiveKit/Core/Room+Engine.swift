@@ -82,8 +82,13 @@ extension Room {
                 try await publisherShouldNegotiate()
             }
 
-            try await publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
-            try await publisherDataChannel.openCompleter.wait()
+            // Single combined gate: wait for both the publisher PC to be ICE-
+            // connected *and* the data channels to reach `.open` concurrently.
+            // Mirrors the prevailing pattern in client-sdk-js / -rust, where a
+            // single poll loop checks both conditions before any send proceeds.
+            async let transportReady: Void = publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
+            async let dataChannelReady: Void = publisherDataChannel.openCompleter.wait()
+            _ = try await (transportReady, dataChannelReady)
         }
 
         try await ensurePublisherConnected()

@@ -122,7 +122,7 @@ extension Room {
         regionManager: RegionManager,
         initialUrl: URL,
         initialRegion: RegionInfo?,
-        token: String
+        token: String,
     ) async throws -> URL {
         var nextUrl = initialUrl
         var nextRegion = initialRegion

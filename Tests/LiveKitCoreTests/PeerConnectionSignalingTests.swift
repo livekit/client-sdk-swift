@@ -131,14 +131,14 @@ struct PeerConnectionSignalingTests {
         delegate: RoomDelegate? = nil,
         canPublish: Bool = false,
         canPublishData: Bool = false,
-        canSubscribe: Bool = false
+        canSubscribe: Bool = false,
     ) -> RoomTestingOptions {
         RoomTestingOptions(
             delegate: delegate,
             singlePeerConnection: mode.isSinglePeerConnection,
             canPublish: canPublish,
             canPublishData: canPublishData,
-            canSubscribe: canSubscribe
+            canSubscribe: canSubscribe,
         )
     }
 
@@ -169,7 +169,7 @@ struct PeerConnectionSignalingTests {
     private func waitForPublish<T: ObservableObject & Sendable>(
         on participant: T,
         timeout: TimeInterval = 30,
-        _ condition: @Sendable @escaping (T) -> Bool
+        _ condition: @Sendable @escaping (T) -> Bool,
     ) async throws {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
@@ -228,7 +228,7 @@ struct PeerConnectionSignalingTests {
             }
 
             let remoteAudioTrack = try #require(
-                remoteParticipant.firstAudioPublication?.track as? RemoteAudioTrack
+                remoteParticipant.firstAudioPublication?.track as? RemoteAudioTrack,
             )
 
             // Wait for actual audio frames via polling

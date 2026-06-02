@@ -14,9 +14,15 @@
  * limitations under the License.
  */
 
-import Foundation
+@testable import LiveKit
 
-func asyncSleep(for duration: TimeInterval) async {
-    let nanoseconds = UInt64(duration * Double(NSEC_PER_SEC))
-    try? await Task.sleep(nanoseconds: nanoseconds)
+extension AsyncCompleter {
+    /// Yields until at least one waiter has parked on this completer — used
+    /// when a Task awaits on a completer and the test needs to act only after
+    /// the wait has parked.
+    func waitForRegistration() async {
+        while waiterCount == 0 {
+            await Task.yield()
+        }
+    }
 }

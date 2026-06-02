@@ -26,27 +26,33 @@ public extension LocalParticipant {
     ///   15 KB payload size limit (otherwise rejected with `REQUEST_PAYLOAD_TOO_LARGE`).
     ///
     /// ObjC: auto-generated as
-    /// `performRpcWithDestinationIdentity:method:payload:responseTimeout:completionHandler:`.
+    /// `performRpcWithDestinationIdentity:method:payload:responseTimeout:maxRoundTripLatency:completionHandler:`.
     ///
     /// - Parameters:
     ///   - destinationIdentity: The identity of the destination participant
     ///   - method: The method name to call
     ///   - payload: The payload to pass to the method
     ///   - responseTimeout: Timeout for receiving a response after the initial connection (in seconds).
-    ///     If a value less than 8s is provided, it will be automatically clamped to 8s
-    ///     to ensure sufficient time for round-trip latency buffering.
+    ///     If a value less than `maxRoundTripLatency + 1` is provided, it will be automatically
+    ///     clamped to that floor to ensure sufficient time for round-trip latency buffering.
     ///     Default: 15s.
+    ///   - maxRoundTripLatency: Upper bound on round-trip latency to the destination, in seconds.
+    ///     If no ack arrives within this window the call is rejected with
+    ///     `RpcError.BuiltInError.connectionTimeout`. Increase this on high-latency links where
+    ///     the default is too tight. Default: 7s.
     /// - Returns: The response payload
     /// - Throws: RpcError on failure. Details in RpcError.message
     func performRpc(destinationIdentity: Identity,
                     method: String,
                     payload: String,
-                    responseTimeout: TimeInterval = 15) async throws -> String
+                    responseTimeout: TimeInterval = 15,
+                    maxRoundTripLatency: TimeInterval = 7) async throws -> String
     {
         try await requireRoom().rpcClient.performRpc(destinationIdentity: destinationIdentity,
                                                      method: method,
                                                      payload: payload,
-                                                     responseTimeout: responseTimeout)
+                                                     responseTimeout: responseTimeout,
+                                                     maxRoundTripLatency: maxRoundTripLatency)
     }
 
     @available(*, deprecated, message: "registerRpcMethod(_:handler:) has been moved to room.")

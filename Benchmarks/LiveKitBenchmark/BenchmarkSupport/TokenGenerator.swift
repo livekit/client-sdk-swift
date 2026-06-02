@@ -38,7 +38,7 @@ struct TokenGenerator {
         identity: String,
         canPublish: Bool = true,
         canSubscribe: Bool = true,
-        ttl: TimeInterval = 300
+        ttl: TimeInterval = 300,
     ) -> String {
         let grants = VideoGrants(
             roomCreate: false,
@@ -55,19 +55,19 @@ struct TokenGenerator {
             canUpdateOwnMetadata: false,
             ingressAdmin: false,
             hidden: false,
-            recorder: false
+            recorder: false,
         )
 
         let options = TokenOptions(
             ttl: ttl,
             videoGrants: grants,
             identity: identity,
-            name: identity
+            name: identity,
         )
 
         let credentials = ApiCredentials(
             key: apiKey,
-            secret: apiSecret
+            secret: apiSecret,
         )
 
         do {

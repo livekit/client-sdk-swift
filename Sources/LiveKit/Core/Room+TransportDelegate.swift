@@ -33,7 +33,7 @@ extension Room: TransportDelegate {
         log("target: \(transport.target), connectionState: \(pcState.description)")
 
         let pcError: LiveKitError? = _state.connectionState.isTearingDown ? nil : LiveKitError(
-            .network, message: "Transport \(transport.target) state changed to \(pcState.description)"
+            .network, message: "Transport \(transport.target) state changed to \(pcState.description)",
         )
 
         // primary connected

@@ -72,7 +72,7 @@ public final class TextStreamInfo: NSObject, StreamInfo {
         version: Int,
         replyToStreamID: String?,
         attachedStreamIDs: [String],
-        generated: Bool
+        generated: Bool,
     ) {
         self.id = id
         self.topic = topic
@@ -112,7 +112,7 @@ public final class ByteStreamInfo: NSObject, StreamInfo {
         attributes: [String: String],
         encryptionType: EncryptionType,
         mimeType: String,
-        name: String?
+        name: String?,
     ) {
         self.id = id
         self.mimeType = mimeType

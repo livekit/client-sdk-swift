@@ -25,13 +25,13 @@ struct AsyncFileStreamTests {
     private let testBuffer = generateTestBuffer(
         chunkSize: 4096,
         chunkCount: 10,
-        extraBytes: 100
+        extraBytes: 100,
     )
 
     @Test func nonExistentFile() throws {
         #expect(throws: AsyncFileStream<ReadMode>.Error.self) {
             _ = try AsyncFileStream(
-                readingFrom: URL(fileURLWithPath: "/non/existent/file")
+                readingFrom: URL(fileURLWithPath: "/non/existent/file"),
             )
         }
     }

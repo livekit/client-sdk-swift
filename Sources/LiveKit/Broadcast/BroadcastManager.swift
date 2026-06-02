@@ -71,7 +71,7 @@ public final class BroadcastManager: Sendable {
     public func requestActivation() {
         Task {
             await RPSystemBroadcastPickerView.showPicker(
-                for: BroadcastBundleInfo.screenSharingExtension
+                for: BroadcastBundleInfo.screenSharingExtension,
             )
         }
     }
@@ -93,7 +93,7 @@ public final class BroadcastManager: Sendable {
 
         Publishers.Merge(
             DarwinNotificationCenter.shared.publisher(for: .broadcastStarted).map { _ in true },
-            DarwinNotificationCenter.shared.publisher(for: .broadcastStopped).map { _ in false }
+            DarwinNotificationCenter.shared.publisher(for: .broadcastStopped).map { _ in false },
         )
         .subscribe(subject)
         .store(in: &cancellable)

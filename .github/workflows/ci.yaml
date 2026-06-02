@@ -26,20 +26,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-arm64-Readme.md
-          - os: macos-14
-            xcode: 16.2
-            platform: "iOS Simulator,name=iPhone 16 Pro,OS=18.2"
-          - os: macos-14
-            xcode: 16.2
-            platform: "macOS"
-          - os: macos-14
-            xcode: 16.2
-            platform: "macOS,variant=Mac Catalyst"
-          - os: macos-14
-            xcode: 16.2
-            platform: "tvOS Simulator,name=Apple TV,OS=18.2"
-
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md
           - os: macos-15
             xcode: 16.4
@@ -56,38 +42,38 @@ jobs:
 
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md
           - os: macos-26
-            xcode: 26.4
-            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.4.1"
+            xcode: 26.5
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.5"
             symbol-graph: true
           - os: macos-26
-            xcode: 26.4
-            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.4.1"
+            xcode: 26.5
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.5"
             extension-api-only: true
           - os: macos-26
-            xcode: 26.4
+            xcode: 26.5
             platform: "macOS"
             symbol-graph: true
           - os: macos-26
-            xcode: 26.4
+            xcode: 26.5
             platform: "macOS"
             asan: true
           - os: macos-26
-            xcode: 26.4
+            xcode: 26.5
             platform: "macOS"
             tsan: true
           - os: macos-26
-            xcode: 26.4
+            xcode: 26.5
             platform: "macOS"
             strict-concurrency-env: true
           - os: macos-26
-            xcode: 26.4
+            xcode: 26.5
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-26
-            xcode: 26.4
-            platform: "visionOS Simulator,name=Apple Vision Pro,OS=26.4.1"
+            xcode: 26.5
+            platform: "visionOS Simulator,name=Apple Vision Pro,OS=26.5"
           - os: macos-26
-            xcode: 26.4
-            platform: "tvOS Simulator,name=Apple TV,OS=26.4"
+            xcode: 26.5
+            platform: "tvOS Simulator,name=Apple TV,OS=26.5"
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60

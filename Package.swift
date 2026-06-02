@@ -1,5 +1,5 @@
-// swift-tools-version:6.0
-// (Xcode16.0+)
+// swift-tools-version:6.1
+// (Xcode16.3+)
 
 import PackageDescription
 
@@ -14,12 +14,12 @@ let package = Package(
     products: [
         .library(
             name: "LiveKit",
-            targets: ["LiveKit"]
+            targets: ["LiveKit"],
         ),
     ],
     dependencies: [
         // LK-Prefixed Dynamic WebRTC XCFramework
-        .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "144.7559.06"),
+        .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "144.7559.07"),
         .package(url: "https://github.com/livekit/livekit-uniffi-xcframework.git", exact: "0.0.6"),
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.31.0"),
         // Only used for DocC generation
@@ -28,7 +28,7 @@ let package = Package(
     targets: [
         .target(
             name: "LKObjCHelpers",
-            publicHeadersPath: "include"
+            publicHeadersPath: "include",
         ),
         .target(
             name: "LiveKit",
@@ -43,36 +43,36 @@ let package = Package(
             ],
             resources: [
                 .process("PrivacyInfo.xcprivacy"),
-            ]
+            ],
         ),
         .target(
             name: "LiveKitTestSupport",
             dependencies: [
                 "LiveKit",
             ],
-            path: "Tests/LiveKitTestSupport"
+            path: "Tests/LiveKitTestSupport",
         ),
         .testTarget(
             name: "LiveKitCoreTests",
             dependencies: [
                 "LiveKit",
                 "LiveKitTestSupport",
-            ]
+            ],
         ),
         .testTarget(
             name: "LiveKitAudioTests",
             dependencies: [
                 "LiveKit",
                 "LiveKitTestSupport",
-            ]
+            ],
         ),
         .testTarget(
             name: "LiveKitObjCTests",
             dependencies: [
                 "LiveKit",
                 "LiveKitTestSupport",
-            ]
+            ],
         ),
     ],
-    swiftLanguageModes: [.v5, .v6]
+    swiftLanguageModes: [.v5, .v6],
 )

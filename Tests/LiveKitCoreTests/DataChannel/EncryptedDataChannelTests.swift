@@ -225,7 +225,7 @@ import LiveKitWebRTC
         let ratchetOptions = KeyProviderOptions(
             sharedKey: true,
             ratchetWindowSize: 2,
-            keyDerivationAlgorithm: algorithm
+            keyDerivationAlgorithm: algorithm,
         )
         let senderKeyProvider = BaseKeyProvider(options: ratchetOptions)
         let receiverKeyProvider = BaseKeyProvider(options: ratchetOptions)
@@ -272,7 +272,7 @@ import LiveKitWebRTC
         let keyRingOptions = KeyProviderOptions(
             sharedKey: true,
             keyRingSize: 2,
-            keyDerivationAlgorithm: algorithm
+            keyDerivationAlgorithm: algorithm,
         )
         let senderKeyProvider = BaseKeyProvider(options: keyRingOptions)
         let receiverKeyProvider = BaseKeyProvider(options: keyRingOptions)

@@ -27,7 +27,7 @@ func merge<T: Comparable>(range range1: ClosedRange<T>, with range2: ClosedRange
 func withThrowingTimeout<T: Sendable>(timeout: TimeInterval,
                                       operation: @Sendable @escaping () async throws -> T) async throws -> T
 {
-    try await withThrowingTaskGroup(of: T.self) { group in
+    try await withThrowingTaskGroup { group in
         group.addTask {
             try await operation()
         }

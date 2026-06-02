@@ -22,6 +22,14 @@ import Foundation
 /// publishing of v1 RPC packets / v2 RPC request streams. `LocalParticipant.performRpc`
 /// is a one-line proxy that forwards into this actor.
 actor RpcClientManager: Loggable {
+    /// Default upper bound on round-trip latency to the destination, in seconds. Used by the
+    /// ack watchdog and to clamp the effective response timeout. Exposed so the public
+    /// `LocalParticipant.performRpc` overloads can share the same default.
+    static let defaultMaxRoundTripLatency: TimeInterval = 7
+
+    /// Default timeout for receiving a response after the initial connection, in seconds.
+    static let defaultResponseTimeout: TimeInterval = 15
+
     private weak var room: Room?
 
     private var pendingAcks: Set<String> = Set()
@@ -50,7 +58,8 @@ actor RpcClientManager: Loggable {
     func performRpc(destinationIdentity: Participant.Identity,
                     method: String,
                     payload: String,
-                    responseTimeout: TimeInterval = 15) async throws -> String
+                    responseTimeout: TimeInterval = RpcClientManager.defaultResponseTimeout,
+                    maxRoundTripLatency: TimeInterval = RpcClientManager.defaultMaxRoundTripLatency) async throws -> String
     {
         let room = try requireRoom()
 
@@ -58,7 +67,6 @@ actor RpcClientManager: Loggable {
         let useStreamTransport = remoteClientProtocol >= .v1 && Self.serverSupportsRpcV2(room.serverVersion)
 
         let requestId = UUID().uuidString
-        let maxRoundTripLatency: TimeInterval = 7
         let minEffectiveTimeout: TimeInterval = maxRoundTripLatency + 1
         let effectiveTimeout = max(responseTimeout, minEffectiveTimeout)
 
@@ -70,7 +78,7 @@ actor RpcClientManager: Loggable {
         pendingAcks.insert(requestId)
         pendingResponses[requestId] = PendingRpcResponse(
             participantIdentity: destinationIdentity,
-            completer: completer
+            completer: completer,
         )
 
         do {
@@ -298,7 +306,7 @@ actor RpcClientManager: Loggable {
                 RpcStreamAttribute.timeoutMs: String(UInt32(responseTimeout * 1000)),
                 RpcStreamAttribute.version: RPC_STREAM_VERSION,
             ],
-            destinationIdentities: [destinationIdentity]
+            destinationIdentities: [destinationIdentity],
         )
         let writer = try await room.localParticipant.streamText(options: options)
         try await writer.write(payload)

@@ -26,14 +26,14 @@ struct SimulcastPresetsTests {
         let dimensions = Dimensions(width: 1280, height: 720)
         let base = VideoParameters(
             dimensions: dimensions,
-            encoding: VideoEncoding(maxBitrate: 1_500_000, maxFps: 24)
+            encoding: VideoEncoding(maxBitrate: 1_500_000, maxFps: 24),
         )
 
         let result = Utils.computeSimulcastPresets(
             dimensions: dimensions,
             baseParameters: base,
             requestedPresets: [.presetH720_169, .presetH360_169],
-            isScreenShare: false
+            isScreenShare: false,
         )
 
         try #require(result.count == 3)
@@ -57,14 +57,14 @@ struct SimulcastPresetsTests {
     func ladderLength(dimensions: Dimensions, expectedCount: Int) {
         let base = VideoParameters(
             dimensions: dimensions,
-            encoding: VideoEncoding(maxBitrate: 1_000_000, maxFps: 30)
+            encoding: VideoEncoding(maxBitrate: 1_000_000, maxFps: 30),
         )
 
         let result = Utils.computeSimulcastPresets(
             dimensions: dimensions,
             baseParameters: base,
             requestedPresets: [],
-            isScreenShare: false
+            isScreenShare: false,
         )
 
         #expect(result.count == expectedCount)
@@ -75,14 +75,14 @@ struct SimulcastPresetsTests {
         let dimensions = Dimensions(width: 1280, height: 720)
         let base = VideoParameters(
             dimensions: dimensions,
-            encoding: VideoEncoding(maxBitrate: 500_000, maxFps: 15)
+            encoding: VideoEncoding(maxBitrate: 500_000, maxFps: 15),
         )
 
         let result = Utils.computeSimulcastPresets(
             dimensions: dimensions,
             baseParameters: base,
             requestedPresets: [],
-            isScreenShare: false
+            isScreenShare: false,
         )
 
         try #require(result.count == 3)
@@ -98,18 +98,18 @@ struct SimulcastPresetsTests {
         let dimensions = Dimensions(width: 854, height: 480)
         let base = VideoParameters(
             dimensions: dimensions,
-            encoding: VideoEncoding(maxBitrate: 600_000, maxFps: 15)
+            encoding: VideoEncoding(maxBitrate: 600_000, maxFps: 15),
         )
         let aggressive = VideoParameters(
             dimensions: dimensions,
-            encoding: VideoEncoding(maxBitrate: 2_000_000, maxFps: 30)
+            encoding: VideoEncoding(maxBitrate: 2_000_000, maxFps: 30),
         )
 
         let result = Utils.computeSimulcastPresets(
             dimensions: dimensions,
             baseParameters: base,
             requestedPresets: [aggressive],
-            isScreenShare: false
+            isScreenShare: false,
         )
 
         try #require(result.count == 2)
@@ -123,14 +123,14 @@ struct SimulcastPresetsTests {
         let dimensions = Dimensions(width: 1920, height: 1080)
         let base = VideoParameters(
             dimensions: dimensions,
-            encoding: VideoEncoding(maxBitrate: 5_000_000, maxFps: 30)
+            encoding: VideoEncoding(maxBitrate: 5_000_000, maxFps: 30),
         )
 
         let result = Utils.computeSimulcastPresets(
             dimensions: dimensions,
             baseParameters: base,
             requestedPresets: [.presetH360_169, .presetH720_169],
-            isScreenShare: false
+            isScreenShare: false,
         )
 
         try #require(result.count == 3)
@@ -144,7 +144,7 @@ struct SimulcastPresetsTests {
         let dimensions = Dimensions(width: 1280, height: 720)
         let base = VideoParameters(
             dimensions: dimensions,
-            encoding: VideoEncoding(maxBitrate: 1_500_000, maxFps: 24)
+            encoding: VideoEncoding(maxBitrate: 1_500_000, maxFps: 24),
         )
         let prioritized = VideoParameters(
             dimensions: dimensions,
@@ -152,15 +152,15 @@ struct SimulcastPresetsTests {
                 maxBitrate: 1_700_000,
                 maxFps: 30,
                 bitratePriority: .high,
-                networkPriority: .high
-            )
+                networkPriority: .high,
+            ),
         )
 
         let result = Utils.computeSimulcastPresets(
             dimensions: dimensions,
             baseParameters: base,
             requestedPresets: [.presetH360_169, prioritized],
-            isScreenShare: false
+            isScreenShare: false,
         )
 
         try #require(result.count == 3)

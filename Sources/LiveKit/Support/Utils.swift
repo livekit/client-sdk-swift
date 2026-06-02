@@ -134,7 +134,7 @@ class Utils: Loggable {
         connectOptions: ConnectOptions? = nil,
         reconnectMode: ReconnectMode? = nil,
         participantSid: Participant.Sid? = nil,
-        adaptiveStream: Bool
+        adaptiveStream: Bool,
     ) throws -> URL {
         // use default options if nil
         let connectOptions = connectOptions ?? ConnectOptions()
@@ -208,7 +208,7 @@ class Utils: Loggable {
         connectOptions: ConnectOptions? = nil,
         reconnectMode: ReconnectMode? = nil,
         participantSid: Participant.Sid? = nil,
-        adaptiveStream: Bool
+        adaptiveStream: Bool,
     ) throws -> URL {
         let connectOptions = connectOptions ?? ConnectOptions()
 
@@ -266,7 +266,7 @@ class Utils: Loggable {
         connectOptions: ConnectOptions,
         reconnectMode: ReconnectMode?,
         participantSid: Participant.Sid?,
-        adaptiveStream: Bool
+        adaptiveStream: Bool,
     ) throws -> String {
         var joinRequest = Livekit_JoinRequest()
         joinRequest.clientInfo = Livekit_ClientInfo.with {

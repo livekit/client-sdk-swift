@@ -33,7 +33,7 @@ struct SerialRunnerActorTests {
         let serialRunner = SerialRunnerActor<Void>()
         let counter = StateSync(0)
 
-        try await withThrowingTaskGroup(of: Void.self) { group in
+        try await withThrowingTaskGroup { group in
             for i in 1 ... 1000 {
                 group.addTask {
                     try await serialRunner.run {
@@ -57,7 +57,7 @@ struct SerialRunnerActorTests {
         let serialRunner = SerialRunnerActor<Void>()
         let counter = StateSync(0)
 
-        await withTaskGroup(of: Void.self) { group in
+        await withTaskGroup { group in
             for i in 1 ... 1000 {
                 group.addTask {
                     let subTask = Task {
@@ -96,7 +96,7 @@ struct SerialRunnerActorTests {
         let serialRunner = SerialRunnerActor<Void>()
         let results = StateSync<[String]>([])
 
-        try await withThrowingTaskGroup(of: Void.self) { group in
+        try await withThrowingTaskGroup { group in
             // Schedule task 1 (will be cancelled after 1.5s)
             group.addTask {
                 let subTask = Task {

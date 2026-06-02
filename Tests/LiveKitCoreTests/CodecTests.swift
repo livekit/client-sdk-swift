@@ -44,4 +44,71 @@ struct CodecTests {
         #expect(encoderCodecs.contains(where: { $0.name == name }), "\(name) not found in encoder codecs")
         #expect(decoderCodecs.contains(where: { $0.name == name }), "\(name) not found in decoder codecs")
     }
+
+    enum Factory: CaseIterable {
+        case encoder, decoder
+    }
+
+    @Test(
+        "H264 advertises both ConstrainedHigh and ConstrainedBaseline profiles",
+        .bug("https://github.com/livekit/client-sdk-swift/issues/1002", "iOS 26 VideoToolbox SW fallback"),
+        .bug("https://github.com/livekit/client-sdk-swift/issues/144", "iOS unable to publish 1080p simulcast"),
+        arguments: Factory.allCases,
+    )
+    func h264ProfileLevelIds(factory: Factory) throws {
+        let codecs = switch factory {
+        case .encoder: RTC.encoderFactory.supportedCodecs()
+        case .decoder: RTC.decoderFactory.supportedCodecs()
+        }
+        let h264 = codecs.filter { $0.name == "H264" }
+        let profiles = h264.compactMap { $0.parameters["profile-level-id"] }
+
+        // Guard against the SDK collapsing the upstream pair (ConstrainedHigh + ConstrainedBaseline)
+        // into a single profile. The simulcast encoder factory wraps primary+fallback so the raw
+        // count can be doubled — dedup by profile-level-id before asserting.
+        #expect(
+            Set(profiles).count == 2,
+            "[\(factory)] expected 2 distinct H264 profile-level-ids, got: \(profiles)",
+        )
+        #expect(
+            profiles.contains { $0.hasPrefix("640c") },
+            "[\(factory)] ConstrainedHigh (640c…) missing from H264 codecs: \(profiles)",
+        )
+        #expect(
+            profiles.contains { $0.hasPrefix("42e0") },
+            "[\(factory)] ConstrainedBaseline (42e0…) missing from H264 codecs: \(profiles)",
+        )
+
+        for codec in h264 {
+            let pli = codec.parameters["profile-level-id"] ?? "?"
+            #expect(
+                codec.parameters["level-asymmetry-allowed"] == "1",
+                "[\(factory)] H264 \(pli): level-asymmetry-allowed != 1",
+            )
+            #expect(
+                codec.parameters["packetization-mode"] == "1",
+                "[\(factory)] H264 \(pli): packetization-mode != 1",
+            )
+
+            // Guard against PR #147 regression: level must be at least 3.1 (0x1f), the
+            // upstream fallback. Anything lower breaks resolutions ≥ 1280×720@30 (issue #144).
+            // The byte is the H264 level_idc in decimal, hex-encoded (e.g. 34 = L5.2, 1f = L3.1).
+            let level = try #require(
+                UInt8(pli.suffix(2), radix: 16),
+                "[\(factory)] H264 \(pli): unparseable level byte",
+            )
+            #expect(
+                level >= 0x1F,
+                "[\(factory)] H264 \(pli): level \(String(format: "%02x", level)) below 1f (L3.1) floor",
+            )
+        }
+    }
+
+    @Test("H264 sender capabilities expose both ConstrainedHigh and ConstrainedBaseline")
+    func h264SenderCapabilitiesExposeBothProfiles() {
+        let plis = Set(RTC.videoSenderCapabilities.codecs
+            .filter { $0.name == "H264" }
+            .compactMap { $0.parameters["profile-level-id"] })
+        #expect(plis.count == 2, "expected ConstrainedHigh + ConstrainedBaseline in videoSenderCapabilities, got: \(plis)")
+    }
 }

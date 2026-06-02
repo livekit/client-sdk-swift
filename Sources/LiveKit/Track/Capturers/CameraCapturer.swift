@@ -133,7 +133,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         log("set(cameraPosition:) \(position)")
         let newOptions = options.copyWith(
             device: .value(nil),
-            position: .value(position)
+            position: .value(position),
         )
         return try await set(options: newOptions)
     }
@@ -403,7 +403,7 @@ extension AVCaptureDevice.Format {
 extension LKRTCVideoFrame {
     func cropAndScaleFromCenter(
         targetWidth: Int32,
-        targetHeight: Int32
+        targetHeight: Int32,
     ) -> LKRTCVideoFrame? {
         // Ensure target dimensions don't exceed source dimensions
         let scaleWidth: Int32
@@ -451,7 +451,7 @@ extension LKRTCVideoFrame {
             cropWidth: cropWidth,
             cropHeight: cropHeight,
             scaleWidth: scaleWidth,
-            scaleHeight: scaleHeight
+            scaleHeight: scaleHeight,
         ) else { return nil }
 
         return LKRTCVideoFrame(buffer: newBuffer, rotation: rotation, timeStampNs: timeStampNs)

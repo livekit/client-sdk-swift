@@ -94,6 +94,7 @@
                                                        method:@"greet"
                                                       payload:@"World"
                                               responseTimeout:15.0
+                                          maxRoundTripLatency:7.0
                                             completionHandler:^(NSString *response, NSError *err) {
         XCTAssertNil(err);
         rpcResponse = response;
