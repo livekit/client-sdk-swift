@@ -148,12 +148,6 @@ struct CompleterTests {
     }
 }
 
-private func waitForRegistration(of completer: AsyncCompleter<some Any>) async {
-    while completer.waiterCount == 0 {
-        await Task.yield()
-    }
-}
-
 @Suite(.tags(.concurrency))
 struct CompleterMapActorTests {
     @Test func resetThrowingFanOutsTypedErrorToAllCompleters() async {

@@ -1,0 +1,1 @@
+patch type="fixed" "Advertise both ConstrainedHigh and ConstrainedBaseline H264 profiles instead of collapsing to ConstrainedBaseline L5.0"
