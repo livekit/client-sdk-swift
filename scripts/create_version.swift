@@ -292,19 +292,19 @@ func updateVersionFiles(version: SemanticVersion) {
         replaceVersionInFile(
             Path.podspec,
             pattern: VersionPattern.podspecVersion,
-            replacement: "spec.version = \"\(version)\""
+            replacement: "spec.version = \"\(version)\"",
         )
 
         replaceVersionInFile(
             Path.readme,
             pattern: VersionPattern.readmeVersion,
-            replacement: "upToNextMajor(\"\(version)\""
+            replacement: "upToNextMajor(\"\(version)\"",
         )
 
         replaceVersionInFile(
             Path.livekitVersion,
             pattern: VersionPattern.livekitVersion,
-            replacement: "static let version = \"\(version)\""
+            replacement: "static let version = \"\(version)\"",
         )
     } catch {
         fatalError("Failed to update version files: \(error)")

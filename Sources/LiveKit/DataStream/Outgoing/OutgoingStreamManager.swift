@@ -43,11 +43,11 @@ actor OutgoingStreamManager: Loggable {
             version: options.version,
             replyToStreamID: options.replyToStreamID,
             attachedStreamIDs: options.attachedStreamIDs,
-            generated: false
+            generated: false,
         )
         let writer = try await openTextStream(
             with: info,
-            sendingTo: options.destinationIdentities
+            sendingTo: options.destinationIdentities,
         )
         try await writer.write(text)
         try await writer.close()
@@ -67,11 +67,11 @@ actor OutgoingStreamManager: Loggable {
             attributes: options.attributes,
             encryptionType: encryptionProvider(),
             mimeType: options.mimeType ?? fileInfo.mimeType ?? Self.byteMimeType,
-            name: options.name ?? fileInfo.name
+            name: options.name ?? fileInfo.name,
         )
         let writer = try await openByteStream(
             with: info,
-            sendingTo: options.destinationIdentities
+            sendingTo: options.destinationIdentities,
         )
         try await writer.write(contentsOf: fileURL)
         try await writer.close()
@@ -91,11 +91,11 @@ actor OutgoingStreamManager: Loggable {
             version: options.version,
             replyToStreamID: options.replyToStreamID,
             attachedStreamIDs: options.attachedStreamIDs,
-            generated: false
+            generated: false,
         )
         return try await openTextStream(
             with: info,
-            sendingTo: options.destinationIdentities
+            sendingTo: options.destinationIdentities,
         )
     }
 
@@ -108,33 +108,33 @@ actor OutgoingStreamManager: Loggable {
             attributes: options.attributes,
             encryptionType: encryptionProvider(),
             mimeType: options.mimeType ?? Self.byteMimeType,
-            name: options.name
+            name: options.name,
         )
         return try await openByteStream(
             with: info,
-            sendingTo: options.destinationIdentities
+            sendingTo: options.destinationIdentities,
         )
     }
 
     private func openTextStream(
         with info: TextStreamInfo,
-        sendingTo recipients: [Participant.Identity]
+        sendingTo recipients: [Participant.Identity],
     ) async throws -> TextStreamWriter {
         try await openStream(with: info, sendingTo: recipients)
         return TextStreamWriter(
             info: info,
-            destination: Destination(streamID: info.id, manager: self)
+            destination: Destination(streamID: info.id, manager: self),
         )
     }
 
     private func openByteStream(
         with info: ByteStreamInfo,
-        sendingTo recipients: [Participant.Identity]
+        sendingTo recipients: [Participant.Identity],
     ) async throws -> ByteStreamWriter {
         try await openStream(with: info, sendingTo: recipients)
         return ByteStreamWriter(
             info: info,
-            destination: Destination(streamID: info.id, manager: self)
+            destination: Destination(streamID: info.id, manager: self),
         )
     }
 
@@ -158,7 +158,7 @@ actor OutgoingStreamManager: Loggable {
 
     private func openStream(
         with info: StreamInfo,
-        sendingTo recipients: [Participant.Identity]
+        sendingTo recipients: [Participant.Identity],
     ) async throws {
         guard openStreams[info.id] == nil else {
             throw StreamError.alreadyOpened

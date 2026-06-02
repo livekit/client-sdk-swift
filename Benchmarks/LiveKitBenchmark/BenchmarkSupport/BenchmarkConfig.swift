@@ -61,7 +61,7 @@ struct BenchmarkConfig {
             url: url,
             apiKey: apiKey,
             apiSecret: apiSecret,
-            mode: mode
+            mode: mode,
         )
     }
 }

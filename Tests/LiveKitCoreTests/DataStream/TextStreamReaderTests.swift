@@ -37,7 +37,7 @@ final class TextStreamReaderTests: @unchecked Sendable {
         version: 1,
         replyToStreamID: nil,
         attachedStreamIDs: [],
-        generated: false
+        generated: false,
     )
 
     let testChunks = [

@@ -97,7 +97,7 @@ public class TrackPublication: NSObject, @unchecked Sendable, ObservableObject, 
             isMetadataMuted: info.muted,
             encryptionType: info.encryption.toLKType(),
             latestInfo: info,
-            audioTrackFeatures: Set(info.audioFeatures)
+            audioTrackFeatures: Set(info.audioFeatures),
         ))
 
         self.participant = participant

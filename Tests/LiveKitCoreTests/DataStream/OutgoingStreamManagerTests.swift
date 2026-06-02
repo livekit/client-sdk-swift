@@ -73,7 +73,7 @@ struct OutgoingStreamManagerTests {
                     }
 
                     let writer = try await manager.streamBytes(
-                        options: StreamByteOptions(topic: topic, id: streamID)
+                        options: StreamByteOptions(topic: topic, id: streamID),
                     )
 
                     for chunk in testChunks {
@@ -135,7 +135,7 @@ struct OutgoingStreamManagerTests {
                     }
 
                     let writer = try await manager.streamText(
-                        options: StreamTextOptions(topic: topic, id: streamID)
+                        options: StreamTextOptions(topic: topic, id: streamID),
                     )
 
                     for chunk in testChunks {
@@ -163,7 +163,7 @@ struct OutgoingStreamManagerTests {
             }
 
             let writer = try await manager.streamText(
-                options: StreamTextOptions(topic: "some-topic")
+                options: StreamTextOptions(topic: "some-topic"),
             )
             do {
                 try await writer.write("Hello, world!")

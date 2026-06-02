@@ -56,7 +56,7 @@ extension DarwinNotificationCenter {
         }
 
         func receive<S: Subscriber>(
-            subscriber: S
+            subscriber: S,
         ) where Never == S.Failure, DarwinNotification == S.Input {
             subscriber.receive(subscription: Subscription(subscriber, center, name))
         }

@@ -39,7 +39,7 @@ struct TokenSourceTests {
             let tokenGenerator = TokenGenerator(
                 apiKey: "test-api-key",
                 apiSecret: "test-api-secret",
-                identity: options.participantIdentity ?? "test-identity"
+                identity: options.participantIdentity ?? "test-identity",
             )
             tokenGenerator.name = options.participantName ?? participantName
             tokenGenerator.roomConfiguration = RoomConfiguration(
@@ -51,14 +51,14 @@ struct TokenSourceTests {
                 minPlayoutDelay: 0,
                 maxPlayoutDelay: 0,
                 syncStreams: false,
-                agents: []
+                agents: [],
             )
 
             let token = try tokenGenerator.sign()
 
             return TokenSourceResponse(
                 serverURL: serverURL,
-                participantToken: token
+                participantToken: token,
             )
         }
     }
@@ -72,7 +72,7 @@ struct TokenSourceTests {
 
             return TokenSourceResponse(
                 serverURL: serverURL,
-                participantToken: "invalid.jwt.token"
+                participantToken: "invalid.jwt.token",
             )
         }
     }
@@ -88,7 +88,7 @@ struct TokenSourceTests {
                 apiKey: "test-api-key",
                 apiSecret: "test-api-secret",
                 identity: options.participantIdentity ?? "test-identity",
-                ttl: 0
+                ttl: 0,
             )
             tokenGenerator.name = options.participantName ?? "test-participant"
             tokenGenerator.roomConfiguration = RoomConfiguration(
@@ -100,14 +100,14 @@ struct TokenSourceTests {
                 minPlayoutDelay: 0,
                 maxPlayoutDelay: 0,
                 syncStreams: false,
-                agents: []
+                agents: [],
             )
 
             let token = try tokenGenerator.sign()
 
             return TokenSourceResponse(
                 serverURL: serverURL,
-                participantToken: token
+                participantToken: token,
             )
         }
     }
@@ -119,7 +119,7 @@ struct TokenSourceTests {
         let request = TokenRequestOptions(
             roomName: "test-room",
             participantName: "alice",
-            participantIdentity: "alice-id"
+            participantIdentity: "alice-id",
         )
 
         let response1 = try await cachingSource.fetch(request)
@@ -137,7 +137,7 @@ struct TokenSourceTests {
         let differentRequest = TokenRequestOptions(
             roomName: "different-room",
             participantName: "alice",
-            participantIdentity: "alice-id"
+            participantIdentity: "alice-id",
         )
         let response3 = try await cachingSource.fetch(differentRequest)
         let callCount3 = await mockSource.callCount
@@ -157,7 +157,7 @@ struct TokenSourceTests {
         let request = TokenRequestOptions(
             roomName: "test-room",
             participantName: "bob",
-            participantIdentity: "bob-id"
+            participantIdentity: "bob-id",
         )
 
         let response1 = try await cachingSource.fetch(request)
@@ -196,7 +196,7 @@ struct TokenSourceTests {
         let charlieRequest = TokenRequestOptions(
             roomName: "test-room",
             participantName: "charlie",
-            participantIdentity: "charlie-id"
+            participantIdentity: "charlie-id",
         )
 
         let response1 = try await cachingSource.fetch(charlieRequest)
@@ -212,7 +212,7 @@ struct TokenSourceTests {
         let aliceRequest = TokenRequestOptions(
             roomName: "test-room",
             participantName: "alice",
-            participantIdentity: "alice-id"
+            participantIdentity: "alice-id",
         )
 
         _ = try await cachingSource.fetch(aliceRequest)
@@ -233,7 +233,7 @@ struct TokenSourceTests {
         let roomRequest = TokenRequestOptions(
             roomName: "test-room",
             participantName: "dave",
-            participantIdentity: "dave-id"
+            participantIdentity: "dave-id",
         )
 
         _ = try await tokenCachingSource.fetch(roomRequest)
@@ -247,7 +247,7 @@ struct TokenSourceTests {
         let differentRoomRequest = TokenRequestOptions(
             roomName: "different-room",
             participantName: "dave",
-            participantIdentity: "dave-id"
+            participantIdentity: "dave-id",
         )
 
         _ = try await tokenCachingSource.fetch(differentRoomRequest)
@@ -266,7 +266,7 @@ struct TokenSourceTests {
         let request = TokenRequestOptions(
             roomName: "concurrent-room",
             participantName: "concurrent-user",
-            participantIdentity: "concurrent-id"
+            participantIdentity: "concurrent-id",
         )
 
         let initialResponse = try await cachingSource.fetch(request)

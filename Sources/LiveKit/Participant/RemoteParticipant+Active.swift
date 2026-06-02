@@ -39,7 +39,7 @@ public extension Collection<RemoteParticipant> {
     /// - Throws: `LiveKitError` if the participants are not active within the timeout.
     @discardableResult
     func waitUntilAllActive(timeout: TimeInterval = .defaultParticipantActiveTimeout) async throws -> Self {
-        try await withThrowingTaskGroup(of: Void.self) { group in
+        try await withThrowingTaskGroup { group in
             for participant in self {
                 group.addTask {
                     try await participant.waitUntilActive(timeout: timeout)
@@ -57,7 +57,7 @@ public extension Collection<RemoteParticipant> {
     /// - Throws: `LiveKitError` if no participant is active within the timeout.
     @discardableResult
     func waitUntilAnyActive(timeout: TimeInterval = .defaultParticipantActiveTimeout) async throws -> Self {
-        try await withThrowingTaskGroup(of: Void.self) { group in
+        try await withThrowingTaskGroup { group in
             for participant in self {
                 group.addTask {
                     try await participant.waitUntilActive(timeout: timeout)

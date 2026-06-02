@@ -120,7 +120,7 @@ private extension CMSampleBuffer {
         guard let rawOrientation = CMGetAttachment(
             self,
             key: RPVideoSampleOrientationKey as CFString,
-            attachmentModeOut: nil
+            attachmentModeOut: nil,
         )?.uint32Value else { return nil }
         return CGImagePropertyOrientation(rawValue: rawOrientation)
     }

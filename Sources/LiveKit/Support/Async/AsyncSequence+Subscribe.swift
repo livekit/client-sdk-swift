@@ -34,7 +34,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
         priority: TaskPriority? = nil,
         state: State,
         onElement: sending @escaping (O, Element, inout State) async -> Void,
-        onFailure: sending ((O, Error, inout State) async -> Void)? = nil
+        onFailure: sending ((O, Error, inout State) async -> Void)? = nil,
     ) -> AnyTaskCancellable {
         Task(priority: priority) { [weak observer] in
             var state = state
@@ -66,7 +66,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
         _ observer: O,
         priority: TaskPriority? = nil,
         onElement: sending @escaping (O, Element) async -> Void,
-        onFailure: sending ((O, Error) async -> Void)? = nil
+        onFailure: sending ((O, Error) async -> Void)? = nil,
     ) -> AnyTaskCancellable {
         subscribe(
             observer,
@@ -75,7 +75,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
             onElement: { observer, element, _ in await onElement(observer, element) },
             onFailure: { observer, error, _ in
                 if let onFailure { await onFailure(observer, error) }
-            }
+            },
         )
     }
 
@@ -94,7 +94,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
         _ observer: O,
         priority: TaskPriority? = nil,
         onElement: @escaping @MainActor (O, Element) async -> Void,
-        onFailure: (@MainActor (O, Error) async -> Void)? = nil
+        onFailure: (@MainActor (O, Error) async -> Void)? = nil,
     ) -> AnyTaskCancellable {
         // Swift 6.2 emits `#IsolatedConformances` when `for try await` runs on `@MainActor` (SE-0470);
         // iterate on `@concurrent` and hop per element. Older toolchains keep the `@MainActor` body.

@@ -95,7 +95,7 @@ public struct RpcError: Error {
         RpcError(
             code: Int(proto.code),
             message: (proto.message).truncate(maxBytes: MAX_MESSAGE_BYTES),
-            data: proto.data.truncate(maxBytes: MAX_DATA_BYTES)
+            data: proto.data.truncate(maxBytes: MAX_DATA_BYTES),
         )
     }
 

@@ -33,7 +33,7 @@ public protocol Logger: Sendable {
         type: Any.Type,
         function: StaticString,
         line: UInt,
-        metaData: ScopedMetadataContainer
+        metaData: ScopedMetadataContainer,
     )
 }
 
@@ -47,7 +47,7 @@ public extension Logger {
         type: Any.Type,
         function: StaticString = #function,
         line: UInt = #line,
-        metaData: ScopedMetadataContainer = ScopedMetadataContainer()
+        metaData: ScopedMetadataContainer = ScopedMetadataContainer(),
     ) {
         log(message(), level, source: source(), file: file, type: type, function: function, line: line, metaData: metaData)
     }
@@ -65,7 +65,7 @@ public struct DisabledLogger: Logger {
         type _: Any.Type,
         function _: StaticString,
         line _: UInt,
-        metaData _: ScopedMetadataContainer
+        metaData _: ScopedMetadataContainer,
     ) {}
 }
 
@@ -88,7 +88,7 @@ public struct PrintLogger: Logger {
         type: Any.Type,
         function: StaticString,
         line _: UInt,
-        metaData _: ScopedMetadataContainer
+        metaData _: ScopedMetadataContainer,
     ) {
         guard level >= minLevel else { return }
         print("[\(colorCode(level))\(level)\(resetCode)] \(type).\(function) \(message())")
@@ -149,7 +149,7 @@ open class OSLogger: Logger, @unchecked Sendable {
         type: Any.Type,
         function: StaticString,
         line _: UInt,
-        metaData: ScopedMetadataContainer
+        metaData: ScopedMetadataContainer,
     ) {
         guard level >= minLevel else { return }
 

@@ -60,7 +60,7 @@ struct SessionOptionsTests {
         let options = SessionOptions(
             encryption: .sharedKey("k"),
             preConnectAudio: false,
-            agentConnectTimeout: 5
+            agentConnectTimeout: 5,
         )
 
         #expect(!options.preConnectAudio)

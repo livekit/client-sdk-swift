@@ -56,7 +56,7 @@ let rpcBenchmarks: @Sendable () -> Void = {
 private func registerRpcBenchmark(
     name: String,
     payloadSize: Int,
-    delay: UInt64
+    delay: UInt64,
 ) {
     nonisolated(unsafe) var senderRoom: Room?
     nonisolated(unsafe) var echo: EchoParticipant?
@@ -75,7 +75,7 @@ private func registerRpcBenchmark(
                 let response = try await senderRoom.localParticipant.performRpc(
                     destinationIdentity: Participant.Identity(from: "bench-echo"),
                     method: "echo",
-                    payload: payload
+                    payload: payload,
                 )
                 benchmark.stopMeasurement()
 
@@ -108,6 +108,6 @@ private func registerRpcBenchmark(
             if let e = echo { await e.disconnect() }
             senderRoom = nil
             echo = nil
-        }
+        },
     )
 }

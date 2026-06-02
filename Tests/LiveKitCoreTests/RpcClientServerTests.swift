@@ -47,7 +47,7 @@ struct RpcClientTests {
                     await room.rpcClient.handleIncomingResponse(
                         requestId: request.id,
                         payload: "response-payload",
-                        error: nil
+                        error: nil,
                     )
                 }
             }
@@ -56,7 +56,7 @@ struct RpcClientTests {
             let response = try await room.localParticipant.performRpc(
                 destinationIdentity: Participant.Identity(from: "test-destination"),
                 method: "test-method",
-                payload: "test-payload"
+                payload: "test-payload",
             )
             #expect(response == "response-payload")
             #expect(await room.rpcClient.pendingCount == 0)
@@ -79,7 +79,7 @@ struct RpcClientTests {
                 await room.rpcClient.handleIncomingResponse(
                     requestId: requestId,
                     payload: "fast-response",
-                    error: nil
+                    error: nil,
                 )
             }
 
@@ -87,7 +87,7 @@ struct RpcClientTests {
                 destinationIdentity: Participant.Identity(from: "test-destination"),
                 method: "test-method",
                 payload: "test-payload",
-                responseTimeout: 1
+                responseTimeout: 1,
             )
             #expect(response == "fast-response")
             #expect(await room.rpcClient.pendingCount == 0)
@@ -114,7 +114,7 @@ struct RpcClientTests {
                 await room.rpcClient.handleIncomingResponse(
                     requestId: requestId,
                     payload: "real-response",
-                    error: nil
+                    error: nil,
                 )
                 // Step 2: force the ack-timeout watchdog. `pendingAcks` still contains
                 // `requestId` (handleIncomingResponse intentionally leaves it set), so the
@@ -127,7 +127,7 @@ struct RpcClientTests {
                 destinationIdentity: Participant.Identity(from: "test-destination"),
                 method: "test-method",
                 payload: "test-payload",
-                responseTimeout: 1
+                responseTimeout: 1,
             )
             #expect(response == "real-response")
             #expect(await room.rpcClient.pendingCount == 0)
@@ -154,7 +154,7 @@ struct RpcClientTests {
                     destinationIdentity: destination,
                     method: "method",
                     payload: "x",
-                    responseTimeout: 1
+                    responseTimeout: 1,
                 )
                 Issue.record("Expected RpcError, got success")
             } catch let error as RpcError {
@@ -184,7 +184,7 @@ struct RpcClientTests {
                     destinationIdentity: destination,
                     method: "method",
                     payload: "x",
-                    responseTimeout: 1
+                    responseTimeout: 1,
                 )
                 Issue.record("Expected RpcError, got success")
             } catch let error as RpcError {
@@ -213,7 +213,7 @@ struct RpcClientTests {
                     destinationIdentity: Participant.Identity(from: "test-destination"),
                     method: "method",
                     payload: "x",
-                    responseTimeout: 30
+                    responseTimeout: 30,
                 )
             }
 
@@ -246,19 +246,19 @@ struct RpcClientTests {
                     await room.rpcClient.handleIncomingResponse(
                         requestId: request.id,
                         payload: "response-\(request.id)",
-                        error: nil
+                        error: nil,
                     )
                 }
             }
             room.publisherDataChannel = mockDataChannel
 
-            let responses = try await withThrowingTaskGroup(of: String.self) { group in
+            let responses = try await withThrowingTaskGroup { group in
                 for _ in 0 ..< 5 {
                     group.addTask {
                         try await room.localParticipant.performRpc(
                             destinationIdentity: destination,
                             method: "method",
-                            payload: "x"
+                            payload: "x",
                         )
                     }
                 }
@@ -296,7 +296,7 @@ struct RpcClientTests {
                     destinationIdentity: destination,
                     method: "method",
                     payload: "x",
-                    responseTimeout: 0.05
+                    responseTimeout: 0.05,
                 )
                 Issue.record("Expected RpcError to be thrown")
             } catch let error as RpcError {
@@ -324,7 +324,7 @@ struct RpcClientTests {
                     destinationIdentity: destination,
                     method: "method",
                     payload: "x",
-                    responseTimeout: 0.05
+                    responseTimeout: 0.05,
                 )
                 Issue.record("Expected RpcError to be thrown")
             } catch let error as RpcError {
@@ -352,7 +352,7 @@ struct RpcClientTests {
                     await room.rpcClient.handleIncomingResponse(
                         requestId: request.id,
                         payload: nil,
-                        error: RpcError(code: 101, message: "Test error message", data: "")
+                        error: RpcError(code: 101, message: "Test error message", data: ""),
                     )
                 }
             }
@@ -362,7 +362,7 @@ struct RpcClientTests {
                 _ = try await room.localParticipant.performRpc(
                     destinationIdentity: destination,
                     method: "fails",
-                    payload: "x"
+                    payload: "x",
                 )
                 Issue.record("Expected error not thrown")
             } catch let error as RpcError {
@@ -381,7 +381,7 @@ struct RpcClientTests {
             await room.rpcClient.handleIncomingResponse(
                 requestId: "no-such-request",
                 payload: "ignored",
-                error: nil
+                error: nil,
             )
             #expect(await room.rpcClient.pendingCount == 0)
         }
@@ -395,7 +395,7 @@ struct RpcClientTests {
             let reader = RpcTestSupport.makeResponseReader(requestId: nil, payload: "ignored")
             await room.rpcClient.handleIncomingResponseStream(
                 reader: reader,
-                senderIdentity: Participant.Identity(from: "anyone")
+                senderIdentity: Participant.Identity(from: "anyone"),
             )
             #expect(await room.rpcClient.pendingCount == 0)
         }
@@ -427,7 +427,7 @@ struct RpcClientTests {
                     destinationIdentity: destination,
                     method: "method",
                     payload: "x",
-                    responseTimeout: 10
+                    responseTimeout: 10,
                 )
                 Issue.record("Expected APPLICATION_ERROR from failed response reader")
             } catch let error as RpcError {
@@ -466,7 +466,7 @@ struct RpcClientTests {
                     destinationIdentity: destination,
                     method: "method",
                     payload: "x",
-                    responseTimeout: 1
+                    responseTimeout: 1,
                 )
                 Issue.record("Spoofed response from wrong sender should not have resolved the call (got \(response))")
             } catch let error as RpcError {
@@ -518,7 +518,7 @@ struct RpcServerTests {
                     method: "greet",
                     payload: "Hi there!",
                     responseTimeout: 8,
-                    version: 1
+                    version: 1,
                 )
             }
         }
@@ -549,7 +549,7 @@ struct RpcServerTests {
                     method: "failingMethod",
                     payload: "test",
                     responseTimeout: 8,
-                    version: 1
+                    version: 1,
                 )
             }
         }
@@ -583,7 +583,7 @@ struct RpcServerTests {
                     method: "error-method",
                     payload: "",
                     responseTimeout: 8,
-                    version: 1
+                    version: 1,
                 )
             }
         }
@@ -612,7 +612,7 @@ struct RpcServerTests {
                     method: "test",
                     payload: "test",
                     responseTimeout: 10,
-                    version: 1
+                    version: 1,
                 )
             }
         }
@@ -644,7 +644,7 @@ struct RpcServerTests {
                     method: "big",
                     payload: "",
                     responseTimeout: 8,
-                    version: 1
+                    version: 1,
                 )
             }
         }
@@ -685,7 +685,7 @@ struct RpcServerTests {
                     method: "ping",
                     payload: "",
                     responseTimeout: 8,
-                    version: 1
+                    version: 1,
                 )
             }
         }
@@ -712,7 +712,7 @@ struct RpcServerTests {
                     method: "anything",
                     payload: "",
                     responseTimeout: 8,
-                    version: 2
+                    version: 2,
                 )
             }
         }
@@ -763,11 +763,11 @@ struct RpcServerTests {
                     requestId: nil,
                     method: "anything",
                     payload: "",
-                    timeoutMs: 8000
+                    timeoutMs: 8000,
                 )
                 await room.rpcServer.handleIncomingRequestStream(
                     reader: reader,
-                    callerIdentity: Participant.Identity(from: "v2-caller")
+                    callerIdentity: Participant.Identity(from: "v2-caller"),
                 )
             }
         }
@@ -798,15 +798,15 @@ struct RpcServerTests {
             switch self {
             case .missingMethod:
                 RpcTestSupport.makeRequestReader(
-                    requestId: requestId, method: nil, payload: "", timeoutMs: 8000
+                    requestId: requestId, method: nil, payload: "", timeoutMs: 8000,
                 )
             case .wrongVersion:
                 RpcTestSupport.makeRequestReader(
-                    requestId: requestId, method: "anything", payload: "", timeoutMs: 8000, version: "3"
+                    requestId: requestId, method: "anything", payload: "", timeoutMs: 8000, version: "3",
                 )
             case .readerFailure:
                 RpcTestSupport.makeFailingRequestReader(
-                    requestId: requestId, method: "anything", timeoutMs: 8000
+                    requestId: requestId, method: "anything", timeoutMs: 8000,
                 )
             }
         }
@@ -850,7 +850,7 @@ struct RpcServerTests {
 
                 await room.rpcServer.handleIncomingRequestStream(
                     reader: scenario.makeReader(),
-                    callerIdentity: Participant.Identity(from: "v2-caller")
+                    callerIdentity: Participant.Identity(from: "v2-caller"),
                 )
             }
         }
@@ -859,7 +859,7 @@ struct RpcServerTests {
     @Test(
         .spec("https://github.com/livekit/client-sdk-js/blob/92c72f06/RPC_SPEC.md?plain=1#L232"),
         .spec("https://github.com/livekit/client-sdk-js/blob/92c72f06/RPC_SPEC.md?plain=1#L240"),
-        arguments: HandlerErrorScenario.allCases
+        arguments: HandlerErrorScenario.allCases,
     )
     func v2HandlerErrorReturnsPacket(_ scenario: HandlerErrorScenario) async throws {
         try await TestEnvironment.withRoom { room in
@@ -885,11 +885,11 @@ struct RpcServerTests {
                     requestId: "v2-req-error",
                     method: "error-method",
                     payload: "",
-                    timeoutMs: 8000
+                    timeoutMs: 8000,
                 )
                 await room.rpcServer.handleIncomingRequestStream(
                     reader: reader,
-                    callerIdentity: Participant.Identity(from: "v2-caller")
+                    callerIdentity: Participant.Identity(from: "v2-caller"),
                 )
             }
         }
@@ -924,7 +924,7 @@ private enum RpcTestSupport {
         method: String?,
         payload: String,
         timeoutMs: UInt32?,
-        version: String? = RPC_STREAM_VERSION
+        version: String? = RPC_STREAM_VERSION,
     ) -> TextStreamReader {
         var attributes: [String: String] = [:]
         if let requestId { attributes[RpcStreamAttribute.requestId] = requestId }
@@ -942,7 +942,7 @@ private enum RpcTestSupport {
             version: 0,
             replyToStreamID: nil,
             attachedStreamIDs: [],
-            generated: false
+            generated: false,
         )
         let source = StreamReaderSource { continuation in
             if let data = payload.data(using: .utf8) { continuation.yield(data) }
@@ -968,7 +968,7 @@ private enum RpcTestSupport {
             version: 0,
             replyToStreamID: nil,
             attachedStreamIDs: [],
-            generated: false
+            generated: false,
         )
         let source = StreamReaderSource { continuation in
             if let data = payload.data(using: .utf8) { continuation.yield(data) }
@@ -984,7 +984,7 @@ private enum RpcTestSupport {
         requestId: String,
         method: String,
         timeoutMs: UInt32,
-        error: Error = StreamError.terminated
+        error: Error = StreamError.terminated,
     ) -> TextStreamReader {
         let info = TextStreamInfo(
             id: UUID().uuidString,
@@ -1002,7 +1002,7 @@ private enum RpcTestSupport {
             version: 0,
             replyToStreamID: nil,
             attachedStreamIDs: [],
-            generated: false
+            generated: false,
         )
         let source = StreamReaderSource { continuation in
             continuation.finish(throwing: error)
@@ -1014,7 +1014,7 @@ private enum RpcTestSupport {
     /// exercise the caller-side `APPLICATION_ERROR` fast-fail branch.
     static func makeFailingResponseReader(
         requestId: String,
-        error: Error = StreamError.terminated
+        error: Error = StreamError.terminated,
     ) -> TextStreamReader {
         let info = TextStreamInfo(
             id: UUID().uuidString,
@@ -1027,7 +1027,7 @@ private enum RpcTestSupport {
             version: 0,
             replyToStreamID: nil,
             attachedStreamIDs: [],
-            generated: false
+            generated: false,
         )
         let source = StreamReaderSource { continuation in
             continuation.finish(throwing: error)

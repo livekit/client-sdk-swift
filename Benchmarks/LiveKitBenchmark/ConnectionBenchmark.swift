@@ -48,8 +48,8 @@ let connectionBenchmarks: @Sendable () -> Void = {
             warmupIterations: 5,
             scalingFactor: .one,
             maxDuration: .seconds(300),
-            maxIterations: 25
-        )
+            maxIterations: 25,
+        ),
     ) { benchmark in
         let config = BenchmarkConfig.fromEnvironment()
         let tokenGen = TokenGenerator(apiKey: config.apiKey, apiSecret: config.apiSecret)
@@ -101,8 +101,8 @@ let connectionBenchmarks: @Sendable () -> Void = {
             warmupIterations: 5,
             scalingFactor: .one,
             maxDuration: .seconds(300),
-            maxIterations: 25
-        )
+            maxIterations: 25,
+        ),
     ) { benchmark in
         let config = BenchmarkConfig.fromEnvironment()
         let tokenGen = TokenGenerator(apiKey: config.apiKey, apiSecret: config.apiSecret)

@@ -68,7 +68,7 @@ public struct RoomConfiguration: Encodable, Sendable, Equatable {
         minPlayoutDelay: UInt32? = nil,
         maxPlayoutDelay: UInt32? = nil,
         syncStreams: Bool? = nil,
-        agents: [RoomAgentDispatch]? = nil
+        agents: [RoomAgentDispatch]? = nil,
     ) {
         self.name = name
         self.emptyTimeout = emptyTimeout
@@ -96,7 +96,7 @@ public struct RoomAgentDispatch: Encodable, Sendable, Equatable {
 
     public init(
         agentName: String? = nil,
-        metadata: String? = nil
+        metadata: String? = nil,
     ) {
         self.agentName = agentName
         self.metadata = metadata

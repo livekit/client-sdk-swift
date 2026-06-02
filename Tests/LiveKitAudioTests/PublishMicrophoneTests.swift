@@ -32,7 +32,7 @@ import LiveKitTestSupport
             let _state = StateSync(State())
 
             // Run Tasks concurrently
-            try await withThrowingTaskGroup(of: Void.self) { group in
+            try await withThrowingTaskGroup { group in
                 for _ in 1 ... 100 {
                     group.addTask {
                         let result = try await room.localParticipant.setMicrophone(enabled: true)

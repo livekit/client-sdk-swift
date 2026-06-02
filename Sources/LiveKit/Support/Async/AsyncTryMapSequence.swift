@@ -16,7 +16,7 @@
 
 extension AsyncSequence {
     func tryMap<T>(
-        _ transform: @escaping (Element) async throws -> T
+        _ transform: @escaping (Element) async throws -> T,
     ) -> AsyncTryMapSequence<Self, T> {
         AsyncTryMapSequence(base: self, transform: transform)
     }
