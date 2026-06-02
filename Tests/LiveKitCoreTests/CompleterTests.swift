@@ -144,23 +144,6 @@ struct CompleterTests {
     }
 }
 
-private func waitForRegistration(of completer: AsyncCompleter<some Any>) async {
-    while completer.waiterCount == 0 {
-        await Task.yield()
-    }
-}
-
-private func expectLiveKitError(_ expected: LiveKitErrorType, from task: Task<some Sendable, Error>) async {
-    do {
-        _ = try await task.value
-        Issue.record("Expected LiveKitError(.\(expected)) to be thrown")
-    } catch let error as LiveKitError {
-        #expect(error.type == expected)
-    } catch {
-        Issue.record("Expected LiveKitError, got \(error)")
-    }
-}
-
 @Suite(.tags(.concurrency))
 struct CompleterMapActorTests {
     @Test func resetThrowingFanOutsTypedErrorToAllCompleters() async {

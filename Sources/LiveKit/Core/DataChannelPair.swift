@@ -33,7 +33,7 @@ protocol DataChannelDelegate: AnyObject, Sendable {
 /// and serializes all outgoing sends through a private FIFO event loop.
 ///
 /// ## Send flow
-/// `send(dataPacket:)` builds a `PublishDataRequest` and yields a `.publishData`
+/// `send(dataPacket:)` builds a `PublishDataRequest` and yields a `.sendRequested`
 /// event onto the internal `AsyncStream`. The event loop's single observer is the
 /// only mutator of `Buffers` (lossy / reliable send buffers + reliable retry
 /// buffer), so all bookkeeping is race-free without locks.
@@ -66,7 +66,7 @@ protocol DataChannelDelegate: AnyObject, Sendable {
 /// ## Permanent teardown
 /// `reset(throwing:)` clears channel references, yields a `.drain(error)`
 /// event, then resets the completer. The drain runs through the same FIFO
-/// stream, so it's ordered after any `.publishData` enqueues already in
+/// stream, so it's ordered after any `.sendRequested` enqueues already in
 /// flight from concurrent callers. Every parked request's continuation is
 /// resumed with `error` (or `LiveKitError(.cancelled)` if `nil`), so no
 /// continuation leaks across a disconnect / full reconnect.
@@ -93,8 +93,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     var isOpen: Bool { _state.isOpen }
 
-    var e2eeManager: E2EEManager?
-
     // MARK: - Private
 
     private struct State {
@@ -102,6 +100,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         var reliable: LKRTCDataChannel?
         var reliableDataSequence: UInt32 = 1
         var reliableReceivedState: TTLDictionary<String, UInt32> = TTLDictionary(ttl: reliableReceivedStateTTL)
+        var e2eeManager: E2EEManager?
 
         var isOpen: Bool {
             guard let lossy, let reliable else { return false }
@@ -195,16 +194,41 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         let detail: Detail
 
         enum Detail {
-            case publishData(PublishDataRequest)
-            case publishedData(PublishDataRequest)
+            /// Yielded by `send(dataPacket:)`. Consumer enqueues the request
+            /// into the matching `SendBuffer` and tries to flush.
+            case sendRequested(PublishDataRequest)
+
+            /// Yielded by `processSendQueue` after a successful
+            /// `channel.sendData`. Consumer copies reliable requests into the
+            /// retry buffer for potential SCTP-level replay on resume;
+            /// lossy requests are a no-op (they aren't replayed).
+            case sendDispatched(PublishDataRequest)
+
+            /// Yielded by `LKRTCDataChannelDelegate.didChangeBufferedAmount`
+            /// when WebRTC reports its outbound buffer has drained. Consumer
+            /// updates `SendBuffer.rtcAmount` (the backpressure target) and,
+            /// on the reliable channel, trims the retry buffer down to the
+            /// new bound so only un-acked bytes are retained.
             case bufferedAmountChanged(UInt64)
+
+            /// Yielded by `retryReliable(lastSequence:)` when the server
+            /// asks the client to replay packets after a reconnect resume.
+            /// Consumer re-enqueues every retry-buffer entry whose sequence
+            /// is greater than `lastSeq` as a fresh `.sendRequested`.
             case retryRequested(UInt32)
-            /// A data channel transitioned into `.open`; flush both send buffers
-            /// so requests parked while `channel(for:)` returned `nil` can ship.
+
+            /// Yielded when channel readiness *may* have improved
+            /// (`set(reliable:)`, `set(lossy:)`, `dataChannelDidChangeState`).
+            /// The case itself is a no-op; the common flush at the end of
+            /// `processEvent` re-runs `processSendQueue` to ship anything
+            /// that was parked while `channel(for:)` returned `nil`.
             case wakeup
-            /// Fail every parked send-buffer request with `error`; yielded by
-            /// `reset(throwing:)` so callers don't hang on continuations queued
-            /// for now-discarded channels.
+
+            /// Yielded by `reset(throwing:)` to permanently fail every
+            /// parked send-buffer request with `error` (or
+            /// `LiveKitError(.cancelled)` when `nil`). Routed through the
+            /// stream so it's ordered after any in-flight `.sendRequested`
+            /// enqueues from concurrent callers.
             case drain(Error?)
         }
     }
@@ -214,12 +238,12 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     // swiftlint:disable:next cyclomatic_complexity
     private func processEvent(_ event: ChannelEvent, buffers: inout Buffers) {
         switch event.detail {
-        case let .publishData(request):
+        case let .sendRequested(request):
             switch event.channelKind {
             case .lossy: buffers.lossyBuffer.enqueue(request)
             case .reliable: buffers.reliableBuffer.enqueue(request)
             }
-        case let .publishedData(request):
+        case let .sendDispatched(request):
             switch event.channelKind {
             case .lossy: ()
             case .reliable: buffers.reliableRetryBuffer.enqueue(request)
@@ -280,7 +304,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
                 buffer.enqueueFront(request)
                 return
             }
-            buffer.rtcAmount += UInt64(request.data.data.count)
 
             guard channel.sendData(request.data) else {
                 request.continuation?.resume(
@@ -288,14 +311,17 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
                 )
                 return
             }
+            // Bytes are now in WebRTC's SCTP queue; account for them so the
+            // backpressure check below kicks in for subsequent iterations.
+            buffer.rtcAmount += UInt64(request.data.data.count)
             request.continuation?.resume()
 
-            let event = ChannelEvent(channelKind: kind, detail: .publishedData(request))
+            let event = ChannelEvent(channelKind: kind, detail: .sendDispatched(request))
             eventContinuation.yield(event)
         }
     }
 
-    // MARK: - Cache
+    // MARK: - Buffer helpers
 
     private func updateTarget(
         buffer: inout SendBuffer,
@@ -319,7 +345,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         while let request = buffer.dequeue() {
             assert(request.continuation == nil, "Continuation may fire multiple times while retrying causing crash")
             if request.sequence > lastSeq {
-                let event = ChannelEvent(channelKind: .reliable, detail: .publishData(request))
+                let event = ChannelEvent(channelKind: .reliable, detail: .sendRequested(request))
                 eventContinuation.yield(event)
             }
         }
@@ -349,23 +375,19 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     func set(reliable channel: LKRTCDataChannel?) {
-        let isOpen = _state.mutate {
-            $0.reliable = channel
-            return $0.isOpen
-        }
-
-        channel?.delegate = self
-
-        if isOpen {
-            // Wake parked sends — pairs with `dataChannelDidChangeState`.
-            openCompleter.resume(returning: ())
-            eventContinuation.yield(ChannelEvent(channelKind: .reliable, detail: .wakeup))
-        }
+        setChannel(channel, kind: .reliable)
     }
 
     func set(lossy channel: LKRTCDataChannel?) {
+        setChannel(channel, kind: .lossy)
+    }
+
+    private func setChannel(_ channel: LKRTCDataChannel?, kind: ChannelKind) {
         let isOpen = _state.mutate {
-            $0.lossy = channel
+            switch kind {
+            case .reliable: $0.reliable = channel
+            case .lossy: $0.lossy = channel
+            }
             return $0.isOpen
         }
 
@@ -374,8 +396,12 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         if isOpen {
             // Wake parked sends — pairs with `dataChannelDidChangeState`.
             openCompleter.resume(returning: ())
-            eventContinuation.yield(ChannelEvent(channelKind: .lossy, detail: .wakeup))
+            eventContinuation.yield(ChannelEvent(channelKind: kind, detail: .wakeup))
         }
+    }
+
+    func set(e2eeManager: E2EEManager?) {
+        _state.mutate { $0.e2eeManager = e2eeManager }
     }
 
     func reset(throwing error: Error? = nil) {
@@ -392,7 +418,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         reliable?.close()
 
         // Drain parked sends through the same event stream so they're ordered
-        // after any in-flight `publishData` enqueues from concurrent callers.
+        // after any in-flight `.sendRequested` enqueues from concurrent callers.
         eventContinuation.yield(ChannelEvent(channelKind: .reliable, detail: .drain(error)))
 
         openCompleter.reset(throwing: error)
@@ -420,14 +446,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             )
             let event = ChannelEvent(
                 channelKind: ChannelKind(packet.kind), // TODO: field is deprecated
-                detail: .publishData(request)
+                detail: .sendRequested(request)
             )
             eventContinuation.yield(event)
         }
     }
 
     private func withEncryption(_ packet: Livekit_DataPacket) throws -> Livekit_DataPacket {
-        guard let e2eeManager, e2eeManager.isDataChannelEncryptionEnabled,
+        guard let e2eeManager = _state.e2eeManager, e2eeManager.isDataChannelEncryptionEnabled,
               let payload = Livekit_EncryptedPacketPayload(dataPacket: packet) else { return packet }
         var packet = packet
         do {
@@ -458,16 +484,18 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Sync state
 
     func infos() -> [Livekit_DataChannelInfo] {
-        _state.read { [$0.lossy, $0.reliable] }
-            .compactMap(\.self)
-            .map { $0.toLKInfoType() }
+        _state.read { state in
+            [state.lossy, state.reliable].compactMap { $0?.toLKInfoType() }
+        }
     }
 
     func receiveStates() -> [Livekit_DataChannelReceiveState] {
-        _state.reliableReceivedState.map { sid, seq in
-            Livekit_DataChannelReceiveState.with {
-                $0.publisherSid = sid
-                $0.lastSeq = seq
+        _state.read { state in
+            state.reliableReceivedState.map { sid, seq in
+                Livekit_DataChannelReceiveState.with {
+                    $0.publisherSid = sid
+                    $0.lastSeq = seq
+                }
             }
         }
     }
@@ -516,17 +544,23 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
         }
 
         if dataChannel.kind == .reliable, dataPacket.sequence > 0, !dataPacket.participantSid.isEmpty {
-            if let lastSeq = _state.reliableReceivedState[dataPacket.participantSid], dataPacket.sequence <= lastSeq {
+            // Check and update in one locked step so two concurrent receives
+            // for the same sender can't both pass the dedup gate.
+            let isDuplicate = _state.mutate { state -> Bool in
+                if let lastSeq = state.reliableReceivedState[dataPacket.participantSid], dataPacket.sequence <= lastSeq {
+                    return true
+                }
+                state.reliableReceivedState[dataPacket.participantSid] = dataPacket.sequence
+                return false
+            }
+            if isDuplicate {
                 log("Ignoring duplicate/out-of-order reliable data message", .warning)
                 return
-            }
-            _state.mutate {
-                $0.reliableReceivedState[dataPacket.participantSid] = dataPacket.sequence
             }
         }
 
         if let encryptedPacket = dataPacket.encryptedPacketOrNil,
-           let e2eeManager
+           let e2eeManager = _state.e2eeManager
         {
             do {
                 let decryptedData = try e2eeManager.handle(encryptedData: encryptedPacket.toRTCEncryptedPacket(), participantIdentity: dataPacket.participantIdentity)
