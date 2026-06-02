@@ -112,7 +112,7 @@ struct CompleterTests {
     @Test func resetThrowingPropagatesTypedError() async {
         let completer = AsyncCompleter<Void>(label: "reset-throwing", defaultTimeout: 30)
         let task = Task { try await completer.wait() }
-        await waitForRegistration(of: completer)
+        await completer.waitForRegistration()
 
         completer.reset(throwing: LiveKitError(.network, message: "transport failed"))
 
@@ -124,7 +124,7 @@ struct CompleterTests {
     @Test func taskCancellationStillProducesCancelled() async {
         let completer = AsyncCompleter<Void>(label: "task-cancel", defaultTimeout: 30)
         let task = Task { try await completer.wait() }
-        await waitForRegistration(of: completer)
+        await completer.waitForRegistration()
 
         task.cancel()
 
@@ -137,12 +137,12 @@ struct CompleterTests {
         let completer = AsyncCompleter<Void>(label: "reuse-after-throw", defaultTimeout: 30)
 
         let firstTask = Task { try await completer.wait() }
-        await waitForRegistration(of: completer)
+        await completer.waitForRegistration()
         completer.reset(throwing: LiveKitError(.network))
         _ = await firstTask.result
 
         let secondTask = Task { try await completer.wait() }
-        await waitForRegistration(of: completer)
+        await completer.waitForRegistration()
         completer.resume(returning: ())
         try await secondTask.value
     }
@@ -159,8 +159,8 @@ struct CompleterMapActorTests {
         let taskA = Task { try await completerA.wait() }
         let taskB = Task { try await completerB.wait() }
 
-        await waitForRegistration(of: completerA)
-        await waitForRegistration(of: completerB)
+        await completerA.waitForRegistration()
+        await completerB.waitForRegistration()
 
         await map.reset(throwing: LiveKitError(.network, message: "fan-out"))
 
@@ -177,7 +177,7 @@ struct CompleterMapActorTests {
         let completer = await map.completer(for: "a")
         let task = Task { try await completer.wait() }
 
-        await waitForRegistration(of: completer)
+        await completer.waitForRegistration()
 
         await map.reset()
 
@@ -195,7 +195,7 @@ struct CompleterMapActorTests {
         // Subsequent wait on the same key must NOT see a stale "remembered" failure.
         let completer = await map.completer(for: "absent")
         let task = Task { try await completer.wait() }
-        await waitForRegistration(of: completer)
+        await completer.waitForRegistration()
         completer.resume(returning: ())
         try await task.value
     }
@@ -216,7 +216,7 @@ struct CompleterMapActorTests {
 
         let completer = await map.completer(for: "key")
         let task = Task { try await completer.wait() }
-        await waitForRegistration(of: completer)
+        await completer.waitForRegistration()
 
         await map.resume(throwing: LiveKitError(.network), for: "key")
 

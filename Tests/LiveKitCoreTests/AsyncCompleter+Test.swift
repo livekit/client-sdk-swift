@@ -16,11 +16,13 @@
 
 @testable import LiveKit
 
-/// Yields until `completer` reports at least one registered waiter — used
-/// when a Task awaits on a completer and the test needs to act only after
-/// the wait has parked.
-func waitForRegistration(of completer: AsyncCompleter<some Any>) async {
-    while completer.waiterCount == 0 {
-        await Task.yield()
+extension AsyncCompleter {
+    /// Yields until at least one waiter has parked on this completer — used
+    /// when a Task awaits on a completer and the test needs to act only after
+    /// the wait has parked.
+    func waitForRegistration() async {
+        while waiterCount == 0 {
+            await Task.yield()
+        }
     }
 }

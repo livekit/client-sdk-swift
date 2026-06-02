@@ -64,7 +64,7 @@ struct DataChannelPairTests {
     @Test func openCompleterWaitHonorsTaskCancellation() async {
         let pair = DataChannelPair()
         let waitTask = Task { try await pair.openCompleter.wait() }
-        await waitForRegistration(of: pair.openCompleter)
+        await pair.openCompleter.waitForRegistration()
 
         waitTask.cancel()
         await #expect {
