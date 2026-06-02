@@ -15,27 +15,6 @@
  */
 
 @testable import LiveKit
-import Testing
-
-/// Awaits `task` and asserts it threw a `LiveKitError` with the expected
-/// `type`. Records a test issue if it succeeded or threw a different error.
-///
-/// The `sourceLocation` default forwards the caller's location so failures
-/// point at the test, not this helper.
-func expectLiveKitError(
-    _ expected: LiveKitErrorType,
-    from task: Task<some Sendable, Error>,
-    sourceLocation: SourceLocation = #_sourceLocation,
-) async {
-    do {
-        _ = try await task.value
-        Issue.record("Expected LiveKitError(.\(expected)) to be thrown", sourceLocation: sourceLocation)
-    } catch let error as LiveKitError {
-        #expect(error.type == expected, sourceLocation: sourceLocation)
-    } catch {
-        Issue.record("Expected LiveKitError, got \(error)", sourceLocation: sourceLocation)
-    }
-}
 
 /// Yields until `completer` reports at least one registered waiter — used
 /// when a Task awaits on a completer and the test needs to act only after
