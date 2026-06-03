@@ -67,6 +67,33 @@ public class VideoView: NativeView, Loggable {
         case flip
     }
 
+    /// Controls how the view's logical (point) size is scaled to physical pixels
+    /// when reporting the adaptive-stream size to the server. Server simulcast/SVC
+    /// layers are sized in physical pixels, so this avoids under-requesting (and
+    /// thus a soft/upscaled layer) on retina / high-density displays.
+    public enum AdaptiveStreamPixelDensity: Sendable, Equatable {
+        /// Use the view's own screen scale (`UIScreen.scale` on iOS/tvOS,
+        /// `NSScreen.backingScaleFactor` on macOS, `traitCollection.displayScale`
+        /// on visionOS). This is the default.
+        case auto
+        /// A fixed multiplier (e.g. `1.0`, `1.5`, `2.0`). Capped at ``maxDensity``.
+        case fixed(Double)
+
+        /// Upper bound applied to the resolved density to keep bandwidth in check.
+        public static let maxDensity: Double = 3.0
+
+        /// Resolves the effective multiplier, capped at ``maxDensity``. For
+        /// ``auto``, falls back to the supplied screen scale.
+        func resolve(screenScale: CGFloat) -> CGFloat {
+            let density: CGFloat = switch self {
+            case .auto: screenScale
+            case let .fixed(value): CGFloat(value)
+            }
+            guard !density.isNaN, density > 0 else { return 1 }
+            return Swift.min(density, CGFloat(Self.maxDensity))
+        }
+    }
+
     /// ``LayoutMode-swift.enum`` of the ``VideoView``.
     @objc
     public nonisolated var layoutMode: LayoutMode {
@@ -91,6 +118,16 @@ public class VideoView: NativeView, Loggable {
     public nonisolated var rotationOverride: VideoRotation? {
         get { _state.rotationOverride }
         set { _state.mutate { $0.rotationOverride = newValue } }
+    }
+
+    /// Controls how this view's logical (point) size is converted to the
+    /// physical-pixel dimensions requested from the server when adaptive stream
+    /// is enabled. Defaults to ``AdaptiveStreamPixelDensity/auto`` (the view's
+    /// own screen scale), which avoids requesting an under-sized layer on
+    /// retina / high-density displays.
+    public nonisolated var adaptiveStreamPixelDensity: AdaptiveStreamPixelDensity {
+        get { _state.adaptiveStreamPixelDensity }
+        set { _state.mutate { $0.adaptiveStreamPixelDensity = newValue } }
     }
 
     /// Calls addRenderer and/or removeRenderer internally for convenience.
@@ -215,6 +252,10 @@ public class VideoView: NativeView, Loggable {
         var mirrorMode: MirrorMode = .auto
         var renderMode: RenderMode = .auto
         var rotationOverride: VideoRotation?
+        var adaptiveStreamPixelDensity: AdaptiveStreamPixelDensity = .auto
+        // Screen scale captured at layout time (main thread), so adaptiveStreamSize
+        // can resolve `.auto` density without touching main-actor view APIs.
+        var screenScale: CGFloat = 1
 
         var isDebugMode: Bool = false
 
@@ -423,6 +464,25 @@ public class VideoView: NativeView, Loggable {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// The pixel scale of the screen this view is currently on, used to convert
+    /// logical point sizes to physical pixels for adaptive stream. Must be called
+    /// on the main thread.
+    func currentScreenScale() -> CGFloat {
+        #if os(macOS)
+        var scale = window?.backingScaleFactor ?? 0
+        if scale <= 0 { scale = window?.screen?.backingScaleFactor ?? 0 }
+        return max(scale, 1.0)
+        #elseif os(visionOS)
+        return max(traitCollection.displayScale, 1.0)
+        #elseif os(iOS) || os(tvOS)
+        var scale = traitCollection.displayScale
+        if scale <= 0 { scale = window?.windowScene?.screen.scale ?? 0 }
+        return max(scale, 1.0)
+        #else
+        return 1.0
+        #endif
+    }
+
     // swiftlint:disable:next cyclomatic_complexity function_body_length
     override public func performLayout() {
         super.performLayout()
@@ -498,9 +558,13 @@ public class VideoView: NativeView, Loggable {
                                    width: size.width,
                                    height: size.height)
 
-        if state.rendererSize != rendererFrame.size {
+        let screenScale = currentScreenScale()
+        if state.rendererSize != rendererFrame.size || state.screenScale != screenScale {
             // mutate if required
-            _state.mutate { $0.rendererSize = rendererFrame.size }
+            _state.mutate {
+                $0.rendererSize = rendererFrame.size
+                $0.screenScale = screenScale
+            }
         }
 
         if let _primaryRenderer {
@@ -602,7 +666,13 @@ extension VideoView: VideoRenderer {
     }
 
     public var adaptiveStreamSize: CGSize {
-        _state.rendererSize ?? .zero
+        _state.read { state in
+            guard let size = state.rendererSize else { return .zero }
+            // Scale the logical (point) size to physical pixels so the server is
+            // asked for the resolution actually displayed on retina/HiDPI screens.
+            let density = state.adaptiveStreamPixelDensity.resolve(screenScale: state.screenScale)
+            return CGSize(width: size.width * density, height: size.height * density)
+        }
     }
 
     public func set(size: CGSize) {
