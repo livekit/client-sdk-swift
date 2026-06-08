@@ -131,6 +131,60 @@ import LiveKitTestSupport
         #expect(received == Array(0 ..< UInt32(iterations)),
                 "Reliable delivery should be exact and in send order, with no dupes or drops")
     }
+
+    @Test
+    func concurrentReliableSendsDeliverExactlyOnce() async throws {
+        let iterations = 256
+        let receiveDeadline: TimeInterval = 15
+        let bodyData = Data(repeating: 0xAB, count: 64)
+
+        try await confirmation("Data received", expectedCount: iterations) { confirm in
+            _receivedIndices.mutate { $0 = [] }
+            onDataReceived = { confirm() }
+
+            try await TestEnvironment.withRooms([
+                RoomTestingOptions(canPublishData: true),
+                RoomTestingOptions(delegate: self, canSubscribe: true),
+            ]) { rooms in
+                let sending = rooms[0]
+                let remoteIdentity = try #require(sending.remoteParticipants.keys.first)
+
+                // Fire every send into the task group at once. Without the
+                // event-loop-side sequence assignment, the AsyncStream yields
+                // would land in a different order than `withSequence` picked
+                // numbers, the SFU would drop the laggards, and the receiver
+                // would surface gaps in `_receivedIndices`.
+                try await withThrowingTaskGroup { group in
+                    for i in 0 ..< iterations {
+                        group.addTask {
+                            var seq = UInt32(i)
+                            let packetData = Data(bytes: &seq, count: 4) + bodyData
+                            let userPacket = Livekit_UserPacket.with {
+                                $0.payload = packetData
+                                $0.destinationIdentities = [remoteIdentity.stringValue]
+                            }
+                            try await sending.send(userPacket: userPacket, kind: .reliable)
+                        }
+                    }
+                    try await group.waitForAll()
+                }
+
+                // Wait for the receiver inside `withRooms` so the data channel
+                // stays open until every packet has been delivered. Polling
+                // outside `withRooms` would race the room teardown, and
+                // any still-in-flight packets would be lost when the
+                // underlying SCTP connection closes.
+                let deadline = Date().addingTimeInterval(receiveDeadline)
+                while Date() < deadline, self._receivedIndices.copy().count < iterations {
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                }
+            }
+        }
+
+        let received = _receivedIndices.copy()
+        #expect(received.sorted() == Array(0 ..< UInt32(iterations)),
+                "Reliable delivery must cover every sequence exactly once, with no drops or dupes")
+    }
 }
 
 extension RealiableDataChannelTests: RoomDelegate {
