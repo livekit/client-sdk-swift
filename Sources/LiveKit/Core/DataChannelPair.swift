@@ -107,6 +107,18 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         var reliableReceivedState: TTLDictionary<String, UInt32> = TTLDictionary(ttl: reliableReceivedStateTTL)
         var e2eeManager: E2EEManager?
 
+        /// Negotiated SCTP max message size (bytes), parsed from the publisher
+        /// answer SDP (`a=max-message-size`, RFC 8841). `0` means "no limit".
+        /// Defaults to ``DataChannelPair/defaultMaxMessageSize`` until the
+        /// first SDP answer is received.
+        var maxMessageSize: UInt64 = DataChannelPair.defaultMaxMessageSize
+
+        /// Set by ``DataChannelPair/reset(throwing:)``; cleared when a new
+        /// channel is assigned via ``DataChannelPair/setChannel(_:kind:)``.
+        /// Distinguishes SDK-initiated teardown from an unexpected close
+        /// (e.g. libwebrtc tearing the channel down after an oversized send).
+        var wasReset: Bool = false
+
         var isOpen: Bool {
             guard let lossy, let reliable else { return false }
             return reliable.readyState == .open && lossy.readyState == .open
@@ -318,22 +330,38 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     /// Promote a `PendingSend` to a fully-prepared `PublishDataRequest`: assigns
     /// the reliable sequence number (under the same lock that tracks the
     /// per-publisher counter), then serializes and wraps in a `LKRTCDataBuffer`.
-    /// Returns `nil` (after failing the continuation) when serialization throws,
-    /// which keeps the event loop loop-invariant intact: every yielded
-    /// `.sendPending` resolves its continuation exactly once.
+    /// Returns `nil` (after failing the continuation) when serialization throws
+    /// or the encoded packet exceeds the negotiated SCTP max-message-size —
+    /// either way the loop invariant holds: every yielded `.sendPending`
+    /// resolves its continuation exactly once.
     private func makeRequest(from pending: PendingSend) -> PublishDataRequest? {
         let sequencedPacket = withSequence(pending.packet)
+        let bytes: Data
         do {
-            let bytes = try sequencedPacket.serializedData()
-            return PublishDataRequest(
-                data: RTC.createDataBuffer(data: bytes),
-                sequence: sequencedPacket.sequence,
-                continuation: pending.continuation,
-            )
+            bytes = try sequencedPacket.serializedData()
         } catch {
             pending.continuation.resume(throwing: error)
             return nil
         }
+
+        // Encoded size is what actually goes on the wire — sending more than
+        // the negotiated max-message-size makes libwebrtc abruptly tear the
+        // data channel down (returns success from `sendData`, then closes),
+        // breaking every subsequent publish. Reject here instead.
+        let maxMessageSize = _state.maxMessageSize
+        if maxMessageSize != 0, UInt64(bytes.count) > maxMessageSize {
+            pending.continuation.resume(throwing: LiveKitError(
+                .invalidParameter,
+                message: "data packet size (\(bytes.count) bytes) exceeds the negotiated max-message-size (\(maxMessageSize) bytes)",
+            ))
+            return nil
+        }
+
+        return PublishDataRequest(
+            data: RTC.createDataBuffer(data: bytes),
+            sequence: sequencedPacket.sequence,
+            continuation: pending.continuation,
+        )
     }
 
     private func channel(for kind: ChannelKind) -> LKRTCDataChannel? {
@@ -441,6 +469,9 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             case .reliable: $0.reliable = channel
             case .lossy: $0.lossy = channel
             }
+            // Re-arming a channel (e.g. on fast reconnect) returns the pair
+            // to a live state, so future closes are once again "unexpected".
+            if channel != nil { $0.wasReset = false }
             return $0.isOpen
         }
 
@@ -451,6 +482,13 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             openCompleter.resume(returning: ())
             eventContinuation.yield(ChannelEvent(channelKind: kind, detail: .wakeup))
         }
+    }
+
+    /// Update the negotiated SCTP max-message-size cap. Called by the room
+    /// after parsing `a=max-message-size` from the publisher answer SDP.
+    /// `0` is honored as "no limit".
+    func set(maxMessageSize: UInt64) {
+        _state.mutate { $0.maxMessageSize = maxMessageSize }
     }
 
     func set(e2eeManager: E2EEManager?) {
@@ -464,6 +502,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             $0.reliableDataSequence = 1
             $0.reliableReceivedState.removeAll()
             $0.lossy = nil
+            $0.wasReset = true
             return result
         }
 
@@ -564,6 +603,11 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     private static let reliableRetryAmount: UInt64 = .init(Double(reliableLowThreshold) * 1.25)
     private static let reliableReceivedStateTTL: TimeInterval = 30
 
+    /// Default max-message-size assumed before SDP negotiation completes, and
+    /// the upper bound clamp applied to any value parsed from the SDP answer.
+    /// LiveKit/pion advertises ~64 KiB; libwebrtc's internal default is 256 KiB.
+    static let defaultMaxMessageSize: UInt64 = 64000
+
     deinit {
         eventContinuation.finish()
     }
@@ -583,6 +627,19 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
     }
 
     func dataChannelDidChangeState(_ dataChannel: LKRTCDataChannel) {
+        // Single locked read so the unexpected-close check and the open-wakeup
+        // gate observe a consistent `State` snapshot.
+        let (wasReset, isOpen) = _state.read { ($0.wasReset, $0.isOpen) }
+
+        if dataChannel.readyState == .closed, !wasReset {
+            // libwebrtc closes the publisher data channel on its own when an
+            // SCTP send violates the negotiated max-message-size (and a few
+            // other conditions). `sendData` still returns true in that case,
+            // so this is the only signal we get. The send guard in
+            // `makeRequest` is the primary defense; this log surfaces any
+            // remaining cases for diagnosis.
+            log("data channel '\(dataChannel.label)' closed unexpectedly", .error)
+        }
         if isOpen {
             // Wake parked sends after the channel transitioned to `.open`
             // (e.g. on a fast-reconnect re-arming channels mid-flight).
@@ -659,4 +716,26 @@ private extension LKRTCDataChannel {
         }
         return .lossy
     }
+}
+
+// MARK: - SDP parsing
+
+/// Parses the `a=max-message-size` attribute (RFC 8841) from an SDP string,
+/// returning the value in bytes. Returns `nil` when the attribute is absent
+/// or malformed.
+///
+/// Per RFC 8841, a value of `0` indicates "no limit"; callers downstream
+/// honor that by skipping the send-side size check.
+func parseSDPMaxMessageSize(_ sdp: String) -> UInt64? {
+    // `components(separatedBy: .newlines)` splits on Unicode scalars, which is
+    // what we want here — `String.split` treats CRLF as a single grapheme and
+    // would leave a stray `\r` on every line of a typical SDP.
+    for line in sdp.components(separatedBy: .newlines) {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        let prefix = "a=max-message-size:"
+        guard trimmed.hasPrefix(prefix) else { continue }
+        let value = trimmed.dropFirst(prefix.count).trimmingCharacters(in: .whitespaces)
+        return UInt64(value)
+    }
+    return nil
 }
