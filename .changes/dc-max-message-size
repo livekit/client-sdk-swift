@@ -1,1 +1,0 @@
-patch type="fixed" "Reject oversized data messages before they break the publisher data channel"

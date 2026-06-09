@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.15.0] - 2026-06-09
+
+### Added
+
+- Expose `keyDerivationAlgorithm` (PBKDF2/HKDF) and `discardFrameWhenCryptorNotReady` on `KeyProviderOptions` for parity with Android
+- RPC v2: transport payloads larger than 15 KB over data streams when both peers support it
+- Allow customizing `maxRoundTripLatency` on `LocalParticipant.performRpc` for high-latency networks
+
+### Changed
+
+- Bumped minimum Swift toolchain to 6.1 (Xcode 16.3+)
+
+### Fixed
+
+- `Room.sid()` no longer resolves with an empty SID
+- Reliable data-channel sequence stays monotonic under concurrent sends
+- Crashes during track teardown in WebRTC m144
+- Crash on PeerConnection teardown caused by DTLS-in-STUN piggyback field trial
+- Fix adaptive stream dimensions on high-density displays
+- Camera position lost after full reconnect
+- Advertise both ConstrainedHigh and ConstrainedBaseline H264 profiles instead of collapsing to ConstrainedBaseline L5.0
+- Reject oversized data messages before they break the publisher data channel
+- Clamp simulcast lower-layer maxFps to the top layer, and clamp maxBitrate for layers that don't scale resolution down, so the user-configured top layer is always the highest-quality tier
+
 ## [2.14.1] - 2026-05-13
 
 ### Fixed

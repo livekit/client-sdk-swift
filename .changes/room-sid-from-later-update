@@ -1,1 +1,0 @@
-patch type="fixed" "`Room.sid()` no longer resolves with an empty SID"
