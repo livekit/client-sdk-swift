@@ -64,12 +64,25 @@ struct BaseKeyProviderTests {
 
     @Test(
         .bug("https://github.com/livekit/client-sdk-swift/issues/1030"),
+        arguments: [
+            Int32(16), // upper boundary
+            100, // far positive
+            -2, // negative non-sentinel
+        ],
     )
-    func exportKeyOutOfRangeReturnsNoKey() {
+    func exportKeyOutOfRangeReturnsNoKey(index: Int32) {
         let provider = BaseKeyProvider(options: KeyProviderOptions(sharedKey: true, keyRingSize: 16))
         provider.setKey(key: "k", index: 0)
         // ObjC bridge wraps the C++ empty vector as empty Data, matching JS where
         // `cryptoKeyRing[oob]` yields `undefined`.
-        #expect(provider.exportKey(index: 100)?.isEmpty == true)
+        #expect(provider.exportKey(index: index)?.isEmpty == true)
+    }
+
+    @Test
+    func exportKeyAtMinusOneUsesCurrentKeyIndex() throws {
+        let provider = BaseKeyProvider(options: KeyProviderOptions(sharedKey: true, keyRingSize: 16))
+        provider.setKey(key: "k", index: 5)
+        let exported = try #require(provider.exportKey(index: -1))
+        #expect(exported == Data("k".utf8))
     }
 }
