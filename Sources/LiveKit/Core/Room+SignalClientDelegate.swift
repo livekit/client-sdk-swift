@@ -338,6 +338,14 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription, offerId: UInt32) async {
         log("Received answer for offerId: \(offerId)")
 
+        // Clamp to the SDK default — libwebrtc advertises larger (~256 KiB)
+        // than LiveKit/pion can deliver end-to-end (~64 KiB), so we trust
+        // the answer no more than our compiled-in ceiling.
+        let parsed = parseSDPMaxMessageSize(answer.sdp) ?? DataChannelPair.defaultMaxMessageSize
+        let maxMessageSize = min(parsed, DataChannelPair.defaultMaxMessageSize)
+        publisherDataChannel.set(maxMessageSize: maxMessageSize)
+        log("Negotiated data channel max-message-size: \(maxMessageSize) bytes", .debug)
+
         do {
             let publisher = try requirePublisher()
             try await publisher.set(remoteDescription: answer, offerId: offerId)
