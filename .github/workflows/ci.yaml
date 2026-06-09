@@ -86,12 +86,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install LiveKit Server
-        run: brew install livekit
-
       - name: Run LiveKit Server
-        run: |
-          livekit-server --dev --config-body '{"room":{"departure_timeout":1}}' &
+        uses: livekit/dev-server-action@61e2b4dcb170dd3591e0c9b0db3c3fe5db93b500
+        with:
+          github-token: ${{ github.token }}
+          config: 'room: { departure_timeout: 1 }'
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -213,10 +212,10 @@ jobs:
 
       - name: Install swift-protobuf
         run: brew install protobuf swift-protobuf
-        
+
       - name: Generate Swift protobuf files
         run: make proto
-        
+
       - name: Check working tree
         run: |
           if ! git diff --quiet; then
