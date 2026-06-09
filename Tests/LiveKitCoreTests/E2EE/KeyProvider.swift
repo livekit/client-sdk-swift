@@ -51,20 +51,9 @@ struct BaseKeyProviderTests {
         #expect(exported == Data("next".utf8))
     }
 
-    @Test("keyRingSize=256 with index 254 round-trips")
-    func sharedKeyAtMaxSafeIndex() throws {
-        let provider = BaseKeyProvider(options: KeyProviderOptions(sharedKey: true, keyRingSize: 256))
-        // 254 is the last reachable index: upstream ParticipantKeyHandler clamps the
-        // requested 256 to MAX_KEYRING_SIZE = 255, so the vector ends at index 254.
-        provider.setKey(key: "test-key", index: 254)
-        let exported = try #require(provider.exportKey(index: 254))
-        #expect(exported == Data("test-key".utf8))
-    }
-
     @Test(
         "keyRingSize=256 with index 255 round-trips",
         .bug("https://github.com/livekit/client-sdk-swift/issues/1030"),
-        .disabled("Crashes the test process via libc++ hardening assertion — see issue #1030"),
     )
     func sharedKeyAtKeyRingBoundary() throws {
         let provider = BaseKeyProvider(options: KeyProviderOptions(sharedKey: true, keyRingSize: 256))
@@ -75,13 +64,12 @@ struct BaseKeyProviderTests {
 
     @Test(
         .bug("https://github.com/livekit/client-sdk-swift/issues/1030"),
-        .disabled("Crashes the test process via libc++ hardening assertion — see issue #1030"),
     )
     func exportKeyOutOfRangeReturnsNoKey() {
         let provider = BaseKeyProvider(options: KeyProviderOptions(sharedKey: true, keyRingSize: 16))
         provider.setKey(key: "k", index: 0)
-        // Post-patch the bridge maps an empty std::vector to an empty NSData,
-        // mirroring JS where `cryptoKeyRing[oob]` yields `undefined`.
+        // ObjC bridge wraps the C++ empty vector as empty Data, matching JS where
+        // `cryptoKeyRing[oob]` yields `undefined`.
         #expect(provider.exportKey(index: 100)?.isEmpty == true)
     }
 }
