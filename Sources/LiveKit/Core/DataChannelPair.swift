@@ -33,10 +33,15 @@ protocol DataChannelDelegate: AnyObject, Sendable {
 /// and serializes all outgoing sends through a private FIFO event loop.
 ///
 /// ## Send flow
-/// `send(dataPacket:)` builds a `PublishDataRequest` and yields a `.sendRequested`
-/// event onto the internal `AsyncStream`. The event loop's single observer is the
-/// only mutator of `Buffers` (lossy / reliable send buffers + reliable retry
-/// buffer), so all bookkeeping is race-free without locks.
+/// `send(dataPacket:)` encrypts the packet and yields a `.sendPending` event onto
+/// the internal `AsyncStream` together with its waiting continuation. The event
+/// loop's single observer is the only mutator of `Buffers` (lossy / reliable
+/// send buffers + reliable retry buffer) **and** the only assigner of reliable
+/// sequence numbers — co-locating sequence assignment with the enqueue is what
+/// guarantees the sequence carried on the wire matches the FIFO order in which
+/// packets reach `channel.sendData(...)`. The retry-buffer replay path bypasses
+/// re-processing by yielding pre-serialized `PublishDataRequest`s as
+/// `.sendRequested` events.
 ///
 /// ## Live readiness vs. the open-completer
 /// `openCompleter` is a *sticky latch* that resolves the first time both channels
@@ -189,13 +194,34 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
+    /// Carries a not-yet-serialized data packet plus its waiting continuation from
+    /// `send(dataPacket:)` into the event loop. The event loop assigns the reliable
+    /// sequence number, encrypts (already done), serializes, and builds the
+    /// `PublishDataRequest` — so the on-the-wire sequence matches the FIFO order in
+    /// which packets reach `channel.sendData(...)`.
+    private struct PendingSend {
+        let packet: Livekit_DataPacket
+        let continuation: CheckedContinuation<Void, any Error>
+    }
+
     private struct ChannelEvent {
         let channelKind: ChannelKind
         let detail: Detail
 
         enum Detail {
-            /// Yielded by `send(dataPacket:)`. Consumer enqueues the request
-            /// into the matching `SendBuffer` and tries to flush.
+            /// Yielded by `send(dataPacket:)`. The event loop assigns the reliable
+            /// sequence number, serializes the packet, and enqueues the resulting
+            /// `PublishDataRequest` into the matching send buffer. Co-locating
+            /// sequence assignment and enqueue inside the single consumer of the
+            /// stream guarantees the sequence carried on the wire matches the
+            /// FIFO order in which `channel.sendData(...)` is invoked, which the
+            /// LiveKit SFU's per-publisher dedup gate requires.
+            case sendPending(PendingSend)
+
+            /// Yielded by the retry-buffer replay path in `retry(buffer:from:)`,
+            /// where the request is already encrypted, serialized, and stamped
+            /// with its (now-stale) sequence number. Consumer enqueues directly
+            /// into the matching send buffer with no re-processing.
             case sendRequested(PublishDataRequest)
 
             /// Yielded by `processSendQueue` after a successful
@@ -238,6 +264,12 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     // swiftlint:disable:next cyclomatic_complexity
     private func processEvent(_ event: ChannelEvent, buffers: inout Buffers) {
         switch event.detail {
+        case let .sendPending(pending):
+            guard let request = makeRequest(from: pending) else { return }
+            switch event.channelKind {
+            case .lossy: buffers.lossyBuffer.enqueue(request)
+            case .reliable: buffers.reliableBuffer.enqueue(request)
+            }
         case let .sendRequested(request):
             switch event.channelKind {
             case .lossy: buffers.lossyBuffer.enqueue(request)
@@ -281,6 +313,27 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         // one channel's kind drains both queues without extra plumbing.
         processSendQueue(threshold: Self.lossyLowThreshold, buffer: &buffers.lossyBuffer, kind: .lossy)
         processSendQueue(threshold: Self.reliableLowThreshold, buffer: &buffers.reliableBuffer, kind: .reliable)
+    }
+
+    /// Promote a `PendingSend` to a fully-prepared `PublishDataRequest`: assigns
+    /// the reliable sequence number (under the same lock that tracks the
+    /// per-publisher counter), then serializes and wraps in a `LKRTCDataBuffer`.
+    /// Returns `nil` (after failing the continuation) when serialization throws,
+    /// which keeps the event loop loop-invariant intact: every yielded
+    /// `.sendPending` resolves its continuation exactly once.
+    private func makeRequest(from pending: PendingSend) -> PublishDataRequest? {
+        let sequencedPacket = withSequence(pending.packet)
+        do {
+            let bytes = try sequencedPacket.serializedData()
+            return PublishDataRequest(
+                data: RTC.createDataBuffer(data: bytes),
+                sequence: sequencedPacket.sequence,
+                continuation: pending.continuation,
+            )
+        } catch {
+            pending.continuation.resume(throwing: error)
+            return nil
+        }
     }
 
     private func channel(for kind: ChannelKind) -> LKRTCDataChannel? {
@@ -434,19 +487,20 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     func send(dataPacket packet: Livekit_DataPacket) async throws {
-        let packet = try withEncryption(withSequence(packet))
-        let serializedData = try packet.serializedData()
-        let rtcData = RTC.createDataBuffer(data: serializedData)
+        // Encrypt outside the event loop (CPU work that doesn't touch ordering).
+        let encryptedPacket = try withEncryption(packet)
 
         try await withCheckedThrowingContinuation { continuation in
-            let request = PublishDataRequest(
-                data: rtcData,
-                sequence: packet.sequence,
-                continuation: continuation,
-            )
+            // Sequence assignment + serialization are deferred to the event loop's
+            // `.sendPending` handler so that the reliable sequence carried on the
+            // wire matches the FIFO order in which packets reach `channel.sendData`.
+            // Doing the assignment here would race with the AsyncStream yield: two
+            // concurrent callers could pick (seq=N, seq=N+1) but yield in the reverse
+            // order, causing the LiveKit SFU's strict per-publisher dedup gate to
+            // silently drop the lower-seq packet.
             let event = ChannelEvent(
-                channelKind: ChannelKind(packet.kind), // TODO: field is deprecated
-                detail: .sendRequested(request),
+                channelKind: ChannelKind(encryptedPacket.kind), // TODO: field is deprecated
+                detail: .sendPending(.init(packet: encryptedPacket, continuation: continuation)),
             )
             eventContinuation.yield(event)
         }
