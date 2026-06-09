@@ -105,6 +105,7 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
             ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode, $0.soundPlayerNodes)
         }
 
+        #if os(iOS) || os(visionOS) || os(tvOS)
         // Match the outputNode's maximumFramesToRender so our nodes can handle the same
         // buffer sizes the engine expects, preventing kAudioUnitErr_TooManyFramesToProcess (-10874).
         // Must be set before render resources are allocated (i.e. before attach/connect/start).
@@ -139,7 +140,6 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
             "micMixerNode=\(micMixerNode.auAudioUnit.maximumFramesToRender), " +
             "soundPlayerMixerNode=\(soundPlayerNodes.mixerNode.auAudioUnit.maximumFramesToRender)", .debug)
 
-        #if os(iOS) || os(visionOS) || os(tvOS)
         let config = LKRTCAudioSessionConfiguration.webRTC()
         log("webRTCPreferredFrames=\(AVAudioFrameCount(config.sampleRate * config.ioBufferDuration))", .debug)
         #endif
