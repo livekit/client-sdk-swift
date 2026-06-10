@@ -407,8 +407,9 @@ public extension LocalParticipant {
 
     /// Enable or disable screen sharing. This has different behavior depending on the platform.
     ///
-    /// For iOS, this will use ``InAppScreenCapturer`` to capture in-app screen only due to Apple's limitation.
-    /// If you would like to capture the screen when the app is in the background, you will need to create a "Broadcast Upload Extension".
+    /// On iOS 27 and later, this uses ``ScreenCaptureKitCapturer`` to capture content in-process via ScreenCaptureKit, without a Broadcast Upload Extension.
+    /// On earlier iOS versions, this uses ``InAppScreenCapturer`` to capture in-app screen only due to Apple's limitation;
+    /// to capture the screen while the app is in the background, you will need to create a "Broadcast Upload Extension".
     ///
     /// For macOS, this will use ``MacOSScreenCapturer`` to capture the main screen. ``MacOSScreenCapturer`` has the ability
     /// to capture other screens and windows. See ``MacOSScreenCapturer`` for details.
@@ -456,6 +457,15 @@ public extension LocalParticipant {
                     return try await self._publish(track: localTrack, options: publishOptions)
                 } else if source == .screenShareVideo {
                     #if os(iOS)
+
+                    #if !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
+                    if #available(iOS 27.0, *) {
+                        let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions
+                        let localTrack = LocalVideoTrack.createScreenCaptureKitTrack(options: options,
+                                                                                     reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+                        return try await self._publish(track: localTrack, options: publishOptions)
+                    }
+                    #endif
 
                     let localTrack: LocalVideoTrack
                     let defaultOptions = room._state.roomOptions.defaultScreenShareCaptureOptions

@@ -38,7 +38,7 @@ NS_ASSUME_NONNULL_BEGIN
     node.AUAudioUnit.maximumFramesToRender = maximumFramesToRender;
 }
 
-#if TARGET_OS_OSX
+#ifdef LK_SUPPORTS_SCSTREAM_SIZE
 + (void)setWidth:(size_t)width height:(size_t)height onConfiguration:(SCStreamConfiguration *)configuration {
     #pragma clang diagnostic push
     #pragma clang diagnostic ignored "-Wunguarded-availability-new"

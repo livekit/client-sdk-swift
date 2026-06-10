@@ -3,8 +3,11 @@
 #import <AVFAudio/AVFAudio.h>
 #import <AudioToolbox/AudioToolbox.h>
 
-#if TARGET_OS_OSX
+// ScreenCaptureKit ships on macOS, and on iOS/tvOS as of the 27.0 SDK. `width`/`height` are
+// unavailable on visionOS, so the size setter below is not offered there.
+#if __has_include(<ScreenCaptureKit/ScreenCaptureKit.h>) && !TARGET_OS_VISION
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
+#define LK_SUPPORTS_SCSTREAM_SIZE 1
 #endif
 
 @interface LKObjCHelpers : NSObject
@@ -25,8 +28,8 @@
 
 + (void)setMaximumFramesToRender:(AUAudioFrameCount)maximumFramesToRender forNode:(AVAudioNode *)node;
 
-#if TARGET_OS_OSX
-+ (void)setWidth:(size_t)width height:(size_t)height onConfiguration:(SCStreamConfiguration *)configuration API_AVAILABLE(macos(12.3));
+#ifdef LK_SUPPORTS_SCSTREAM_SIZE
++ (void)setWidth:(size_t)width height:(size_t)height onConfiguration:(SCStreamConfiguration *)configuration API_AVAILABLE(macos(12.3), macCatalyst(18.2), ios(27.0), tvos(27.0));
 #endif
 
 @end
