@@ -172,7 +172,7 @@ extension SoundPlayer {
         playerNodePool.stop()
         engine.stop()
         engine.disconnect(playerNodePool)
-        playerNodePool.setMaximumFramesToRender(engine.outputNode.auAudioUnit.maximumFramesToRender)
+        playerNodePool.setMaximumFramesToRender(engine.outputNode.maximumFramesToRender)
         engine.connect(playerNodePool, to: engine.mainMixerNode,
                        format: outputFormat, playerNodeFormat: playerNodeFormat)
         try engine.start()
