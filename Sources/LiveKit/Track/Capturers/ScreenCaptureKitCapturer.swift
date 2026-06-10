@@ -17,7 +17,6 @@
 #if os(iOS) && !targetEnvironment(macCatalyst)
 
 import AVFoundation
-import CoreMedia
 import Foundation
 
 #if canImport(ScreenCaptureKit)
@@ -25,10 +24,6 @@ import ScreenCaptureKit
 #endif
 
 internal import LiveKitWebRTC
-
-#if compiler(>=6.4) && !COCOAPODS
-internal import LKObjCHelpers
-#endif
 
 #if canImport(ScreenCaptureKit)
 
@@ -44,30 +39,17 @@ internal import LKObjCHelpers
 ///   `SCStreamError.Code.missingBackgroundMode`.
 /// - Warning: Experimental prototype for evaluating a ReplayKit-free screen-share path on iOS 27+.
 @available(iOS 27.0, *)
-public final class ScreenCaptureKitCapturer: VideoCapturer, @unchecked Sendable {
-    private let capturer = RTC.createVideoCapturer()
-
-    /// The ``ScreenShareCaptureOptions`` used for this capturer.
-    public let options: ScreenShareCaptureOptions
-
+public final class ScreenCaptureKitCapturer: SCStreamVideoCapturer, @unchecked Sendable {
     /// When `true`, only the current application is captured (in-app capture). When `false`, the
     /// user may select system-wide content, including other apps.
     public let captureCurrentApplicationOnly: Bool
-
-    private struct State {
-        var stream: SCStream?
-        var startTask: AnyTaskCancellable?
-    }
-
-    private let _scState = StateSync(State())
 
     init(delegate: LKRTCVideoCapturerDelegate,
          options: ScreenShareCaptureOptions,
          captureCurrentApplicationOnly: Bool)
     {
-        self.options = options
         self.captureCurrentApplicationOnly = captureCurrentApplicationOnly
-        super.init(delegate: delegate)
+        super.init(delegate: delegate, options: options)
     }
 
     override public func startCapture() async throws -> Bool {
@@ -113,61 +95,9 @@ public final class ScreenCaptureKitCapturer: VideoCapturer, @unchecked Sendable 
             picker.remove(self)
         }
 
-        if let stream = _scState.read({ $0.stream }) {
-            try await stream.stopCapture()
-            try? stream.removeStreamOutput(self, type: .screen)
-            if options.appAudio {
-                try? stream.removeStreamOutput(self, type: .audio)
-            }
-        }
-
-        _scState.mutate {
-            $0.stream = nil
-            $0.startTask = nil
-        }
+        try await teardownStream()
 
         return true
-    }
-
-    private func startStream(with filter: SCContentFilter) {
-        let configuration = SCStreamConfiguration()
-        configuration.capturesAudio = options.appAudio
-
-        // `pixelFormat` is unavailable on iOS; the default format is forwarded as-is and filtered
-        // against `VideoCapturer.supportedPixelFormats` before reaching WebRTC.
-        let target = options.dimensions.toEncodeSafeDimensions()
-        #if compiler(>=6.4) && !COCOAPODS
-        // `SCStreamConfiguration.width`/`.height` are `size_t`, whose Swift setter is rejected by
-        // the Xcode 27 importer; reach them from Obj-C instead (mirrors ``MacOSScreenCapturer``).
-        LKObjCHelpers.setWidth(Int(target.width), height: Int(target.height), on: configuration)
-        #else
-        configuration.width = Int(target.width)
-        configuration.height = Int(target.height)
-        #endif
-
-        let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
-        do {
-            try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: nil)
-            if options.appAudio {
-                try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: nil)
-            }
-        } catch {
-            log("Failed to add SCStream output: \(error)", .error)
-            return
-        }
-
-        _scState.mutate { $0.stream = stream }
-
-        let task = Task.detached { [weak self] in
-            guard let self, let stream = _scState.read({ $0.stream }) else { return }
-            do {
-                try await stream.startCapture()
-            } catch {
-                log("Failed to start SCStream: \(error)", .error)
-            }
-        }.cancellable()
-
-        _scState.mutate { $0.startTask = task }
     }
 }
 
@@ -176,11 +106,33 @@ public final class ScreenCaptureKitCapturer: VideoCapturer, @unchecked Sendable 
 @available(iOS 27.0, *)
 extension ScreenCaptureKitCapturer: SCContentSharingPickerObserver {
     public func contentSharingPicker(_: SCContentSharingPicker, didUpdateWith filter: SCContentFilter, for _: SCStream?) {
-        guard _scState.read({ $0.stream == nil }) else {
+        guard scStream == nil else {
             log("Ignoring content picker re-selection; a stream is already running", .debug)
             return
         }
-        startStream(with: filter)
+
+        let configuration = SCStreamConfiguration()
+        configuration.capturesAudio = options.appAudio
+        let target = options.dimensions.toEncodeSafeDimensions()
+        setSize(width: Int(target.width), height: Int(target.height), on: configuration)
+
+        do {
+            _ = try makeStream(filter: filter, configuration: configuration)
+        } catch {
+            log("Failed to create SCStream: \(error)", .error)
+            return
+        }
+
+        let task = Task.detached { [weak self] in
+            guard let self, let stream = scStream else { return }
+            do {
+                try await stream.startCapture()
+            } catch {
+                log("Failed to start SCStream: \(error)", .error)
+            }
+        }.cancellable()
+
+        _screenCapturerState.mutate { $0.startTask = task }
     }
 
     public func contentSharingPicker(_: SCContentSharingPicker, didCancelFor _: SCStream?) {
@@ -192,46 +144,6 @@ extension ScreenCaptureKitCapturer: SCContentSharingPickerObserver {
 
     public func contentSharingPickerStartDidFailWithError(_ error: any Error) {
         log("Content sharing picker failed to start: \(error)", .error)
-    }
-}
-
-// MARK: - SCStreamDelegate
-
-@available(iOS 27.0, *)
-extension ScreenCaptureKitCapturer: SCStreamDelegate {
-    public func stream(_: SCStream, didStopWithError error: any Error) {
-        log("SCStream stopped with error: \(error)", .error)
-        Task.discarding { [weak self] in
-            try await self?.stopCapture()
-        }
-    }
-}
-
-// MARK: - SCStreamOutput
-
-@available(iOS 27.0, *)
-extension ScreenCaptureKitCapturer: SCStreamOutput {
-    public func stream(_: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of outputType: SCStreamOutputType) {
-        guard case .started = captureState else { return }
-        guard sampleBuffer.isValid else { return }
-
-        switch outputType {
-        case .audio:
-            guard options.appAudio, let pcm = sampleBuffer.toAVAudioPCMBuffer() else { return }
-            AudioManager.shared.mixer.capture(appAudio: pcm)
-        case .screen:
-            // Forward only fully rendered frames; idle/blank/suspended frames carry no new content.
-            if let attachments = (CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]])?.first,
-               let statusRawValue = attachments[.status] as? Int,
-               let status = SCFrameStatus(rawValue: statusRawValue),
-               status != .complete
-            {
-                return
-            }
-            capture(sampleBuffer: sampleBuffer, capturer: capturer, options: options)
-        default:
-            break
-        }
     }
 }
 
