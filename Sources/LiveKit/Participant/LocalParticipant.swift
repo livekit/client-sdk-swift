@@ -407,7 +407,7 @@ public extension LocalParticipant {
 
     /// Enable or disable screen sharing. This has different behavior depending on the platform.
     ///
-    /// On iOS 27 and later, this uses ``ScreenCaptureKitCapturer`` to capture content in-process via ScreenCaptureKit, without a Broadcast Upload Extension.
+    /// On iOS 27 and later, this uses ``IOSScreenCapturer`` to capture content in-process via ScreenCaptureKit, without a Broadcast Upload Extension.
     /// On earlier iOS versions, this uses ``InAppScreenCapturer`` to capture in-app screen only due to Apple's limitation;
     /// to capture the screen while the app is in the background, you will need to create a "Broadcast Upload Extension".
     ///
@@ -461,8 +461,8 @@ public extension LocalParticipant {
                     #if !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
                     if #available(iOS 27.0, *) {
                         let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions
-                        let localTrack = LocalVideoTrack.createScreenCaptureKitTrack(options: options,
-                                                                                     reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+                        let localTrack = LocalVideoTrack.createIOSScreenShareTrack(options: options,
+                                                                                   reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
                         return try await self._publish(track: localTrack, options: publishOptions)
                     }
                     #endif

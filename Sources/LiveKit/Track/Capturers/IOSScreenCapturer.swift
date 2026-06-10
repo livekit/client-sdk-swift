@@ -39,7 +39,7 @@ internal import LiveKitWebRTC
 ///   `SCStreamError.Code.missingBackgroundMode`.
 /// - Warning: Experimental prototype for evaluating a ReplayKit-free screen-share path on iOS 27+.
 @available(iOS 27.0, *)
-public final class ScreenCaptureKitCapturer: SCStreamVideoCapturer, @unchecked Sendable {
+public final class IOSScreenCapturer: SCStreamVideoCapturer, @unchecked Sendable {
     /// When `true`, only the current application is captured (in-app capture). When `false`, the
     /// user may select system-wide content, including other apps.
     public let captureCurrentApplicationOnly: Bool
@@ -104,7 +104,7 @@ public final class ScreenCaptureKitCapturer: SCStreamVideoCapturer, @unchecked S
 // MARK: - SCContentSharingPickerObserver
 
 @available(iOS 27.0, *)
-extension ScreenCaptureKitCapturer: SCContentSharingPickerObserver {
+extension IOSScreenCapturer: SCContentSharingPickerObserver {
     public func contentSharingPicker(_: SCContentSharingPicker, didUpdateWith filter: SCContentFilter, for _: SCStream?) {
         guard scStream == nil else {
             log("Ignoring content picker re-selection; a stream is already running", .debug)
@@ -153,15 +153,15 @@ public extension LocalVideoTrack {
     /// - Parameter captureCurrentApplicationOnly: When `true`, restricts capture to the current
     ///   application. When `false`, the system picker allows selecting system-wide content.
     @available(iOS 27.0, *)
-    static func createScreenCaptureKitTrack(name: String = Track.screenShareVideoName,
-                                            options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
-                                            captureCurrentApplicationOnly: Bool = false,
-                                            reportStatistics: Bool = false) -> LocalVideoTrack
+    static func createIOSScreenShareTrack(name: String = Track.screenShareVideoName,
+                                          options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
+                                          captureCurrentApplicationOnly: Bool = false,
+                                          reportStatistics: Bool = false) -> LocalVideoTrack
     {
         let videoSource = RTC.createVideoSource(forScreenShare: true)
-        let capturer = ScreenCaptureKitCapturer(delegate: videoSource,
-                                                options: options,
-                                                captureCurrentApplicationOnly: captureCurrentApplicationOnly)
+        let capturer = IOSScreenCapturer(delegate: videoSource,
+                                         options: options,
+                                         captureCurrentApplicationOnly: captureCurrentApplicationOnly)
         return LocalVideoTrack(name: name,
                                source: .screenShareVideo,
                                capturer: capturer,

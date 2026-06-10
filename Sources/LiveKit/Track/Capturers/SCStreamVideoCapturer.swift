@@ -32,7 +32,7 @@ internal import LKObjCHelpers
 /// Owns the `SCStream` lifecycle, sample-buffer delivery (``ScreenCaptureKit/SCStreamOutput``),
 /// the stream delegate, frame capture, and the static-screen resend timer. Subclasses supply the
 /// `SCContentFilter` and `SCStreamConfiguration` for their platform — see ``MacOSScreenCapturer``
-/// (enumerated sources) and `ScreenCaptureKitCapturer` (system picker, iOS 27+).
+/// (enumerated sources) and ``IOSScreenCapturer`` (system picker, iOS 27+).
 @available(macOS 12.3, iOS 27.0, *)
 public class SCStreamVideoCapturer: VideoCapturer, @unchecked Sendable {
     let capturer = RTC.createVideoCapturer()
