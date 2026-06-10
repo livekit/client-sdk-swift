@@ -25,6 +25,10 @@ import ScreenCaptureKit
 
 internal import LiveKitWebRTC
 
+#if compiler(>=6.4) && !COCOAPODS
+internal import LKObjCHelpers
+#endif
+
 #if os(macOS)
 
 @available(macOS 12.3, *)
@@ -89,8 +93,14 @@ public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
 
         let mainDisplay = CGMainDisplayID()
         // try to capture in max resolution
+        #if compiler(>=6.4)
+        LKObjCHelpers.setWidth(CGDisplayPixelsWide(mainDisplay) * 2,
+                               height: CGDisplayPixelsHigh(mainDisplay) * 2,
+                               on: configuration)
+        #else
         configuration.width = CGDisplayPixelsWide(mainDisplay) * 2
         configuration.height = CGDisplayPixelsHigh(mainDisplay) * 2
+        #endif
 
         configuration.scalesToFit = false
         configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(options.fps))

@@ -122,9 +122,9 @@ class AVAudioPlayerNodePool: @unchecked Sendable, Loggable {
 
     func setMaximumFramesToRender(_ maxFrames: AUAudioFrameCount) {
         executionQueue.sync {
-            mixerNode.auAudioUnit.maximumFramesToRender = maxFrames
+            mixerNode.maximumFramesToRender = maxFrames
             for item in items {
-                item.node.auAudioUnit.maximumFramesToRender = maxFrames
+                item.node.maximumFramesToRender = maxFrames
             }
         }
     }

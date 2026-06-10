@@ -4,6 +4,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 + (void)finishBroadcastWithoutError:(RPBroadcastSampleHandler *)handler API_AVAILABLE(ios(10.0), macCatalyst(13.1), macos(11.0), tvos(10.0)) {
     // Call finishBroadcastWithError with nil error, which ends the broadcast without an error popup
     // This is unsupported/undocumented but appears to work and is preferable to an error dialog with a cryptic default message
@@ -13,6 +15,7 @@ NS_ASSUME_NONNULL_BEGIN
     [handler finishBroadcastWithError:nil];
     #pragma clang diagnostic pop
 }
+#pragma clang diagnostic pop
 
 + (BOOL)catchException:(void(^)(void))tryBlock error:(__autoreleasing NSError **)error {
     @try {
@@ -24,6 +27,26 @@ NS_ASSUME_NONNULL_BEGIN
         return NO;
     }
 }
+
+// MARK: - Xcode 27 availability workarounds
+
++ (AUAudioFrameCount)maximumFramesToRenderForNode:(AVAudioNode *)node {
+    return node.AUAudioUnit.maximumFramesToRender;
+}
+
++ (void)setMaximumFramesToRender:(AUAudioFrameCount)maximumFramesToRender forNode:(AVAudioNode *)node {
+    node.AUAudioUnit.maximumFramesToRender = maximumFramesToRender;
+}
+
+#if TARGET_OS_OSX
++ (void)setWidth:(size_t)width height:(size_t)height onConfiguration:(SCStreamConfiguration *)configuration {
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wunguarded-availability-new"
+    configuration.width = width;
+    configuration.height = height;
+    #pragma clang diagnostic pop
+}
+#endif
 
 NS_ASSUME_NONNULL_END
 
