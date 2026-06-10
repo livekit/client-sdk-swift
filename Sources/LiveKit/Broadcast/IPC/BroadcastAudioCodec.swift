@@ -93,7 +93,7 @@ struct BroadcastAudioCodec {
     }
 }
 
-extension AudioStreamBasicDescription: Codable {
+extension AudioStreamBasicDescription: Swift.Codable {
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(mSampleRate)

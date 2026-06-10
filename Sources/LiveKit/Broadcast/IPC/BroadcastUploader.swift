@@ -83,7 +83,7 @@ final class BroadcastUploader: Sendable, Loggable {
             let rotation = VideoRotation(sampleBuffer.replayKitOrientation ?? .up)
             do {
                 let (metadata, imageData) = try imageCodec.encode(sampleBuffer)
-                Task {
+                Task.discarding {
                     let header = BroadcastIPCHeader.image(metadata, rotation)
                     try await channel.send(header: header, payload: imageData)
                     state.mutate { $0.isUploadingImage = false }
@@ -95,7 +95,7 @@ final class BroadcastUploader: Sendable, Loggable {
         case .audioApp:
             guard state.shouldUploadAudio else { return }
             let (metadata, audioData) = try audioCodec.encode(sampleBuffer)
-            Task {
+            Task.discarding {
                 let header = BroadcastIPCHeader.audio(metadata)
                 try await channel.send(header: header, payload: audioData)
             }

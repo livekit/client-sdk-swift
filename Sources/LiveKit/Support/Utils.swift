@@ -96,7 +96,12 @@ class Utils: Loggable {
         }
         return identifier
         #elseif os(macOS)
-        let service = IOServiceGetMatchingService(kIOMasterPortDefault,
+        let mainPort: mach_port_t = if #available(macOS 12.0, *) {
+            kIOMainPortDefault
+        } else {
+            0 // kIOMainPortDefault (macOS 12+) is a synonym for the NULL default port
+        }
+        let service = IOServiceGetMatchingService(mainPort,
                                                   IOServiceMatching("IOPlatformExpertDevice"))
         defer { IOObjectRelease(service) }
 
