@@ -235,6 +235,13 @@ public class LocalParticipant: Participant, @unchecked Sendable {
             }
         }
 
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        // Mirror the mic-publish permission to the audio session so it can pick
+        // `.playback` for audience-only participants without waiting for a publish
+        // attempt to fail.
+        AudioManager.shared.audioSession.canPublishMicrophone = canPublish(source: .microphone)
+        #endif
+
         return didUpdate
     }
 
@@ -748,14 +755,21 @@ extension LocalParticipant {
         }
     }
 
-    private func checkPermissions(toPublish track: LocalTrack) throws {
-        guard permissions.canPublish else {
-            throw LiveKitError(.insufficientPermissions, message: "Participant does not have permission to publish")
-        }
-
+    /// Whether the participant currently has permission to publish a track from
+    /// the given source. Combines the top-level `canPublish` grant with the
+    /// per-source restriction in `canPublishSources` (empty = no restriction).
+    private func canPublish(source: Track.Source) -> Bool {
+        guard permissions.canPublish else { return false }
         let sources = permissions.canPublishSources
-        if !sources.isEmpty, !sources.contains(track.source.rawValue) {
-            throw LiveKitError(.insufficientPermissions, message: "Participant does not have permission to publish tracks from this source")
+        return sources.isEmpty || sources.contains(source.rawValue)
+    }
+
+    private func checkPermissions(toPublish track: LocalTrack) throws {
+        guard canPublish(source: track.source) else {
+            let message = permissions.canPublish
+                ? "Participant does not have permission to publish tracks from this source"
+                : "Participant does not have permission to publish"
+            throw LiveKitError(.insufficientPermissions, message: message)
         }
     }
 }

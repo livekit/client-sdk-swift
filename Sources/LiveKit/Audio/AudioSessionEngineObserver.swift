@@ -64,6 +64,16 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
     }
 
+    /// Whether the active local participant has permission to publish microphone
+    /// audio. Defaults to `true` (optimistic) until permissions arrive from the
+    /// server. Gates the pre-emptive `.playAndRecord` upgrade when the app sets
+    /// `isRecordingAlwaysPreparedMode`; once recording actually engages on any
+    /// path the sticky bit and `isRecordingEnabled` take over and override.
+    var canPublishMicrophone: Bool {
+        get { _state.canPublishMicrophone }
+        set { _state.mutate { $0.canPublishMicrophone = newValue } }
+    }
+
     struct State {
         var next: (any AudioEngineObserver)?
 
@@ -72,6 +82,14 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         var isSpeakerOutputPreferred: Bool = true
 
         var sessionRequirements: [UUID: SessionRequirement] = [:]
+
+        // Sticky: true once recording engaged this session, cleared on the empty edge.
+        // Keeps `.playAndRecord` across mute toggles instead of churning the category
+        // on every requirement change.
+        var hasRecorded: Bool = false
+
+        // Tracks the active local participant's mic publish permission. See accessor.
+        var canPublishMicrophone: Bool = true
     }
 
     let _state = StateSync(State())
@@ -132,6 +150,15 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             let oldState = $0
             block(&$0.sessionRequirements)
             guard $0.sessionRequirements != oldState.sessionRequirements else { return }
+
+            // Maintain the sticky `hasRecorded` bit.
+            if $0.isRecordingEnabled {
+                $0.hasRecorded = true
+            } else if !$0.isPlayoutEnabled {
+                // Empty edge — reset for the next session.
+                $0.hasRecorded = false
+            }
+
             do {
                 try configureIfNeeded(oldState: oldState, newState: $0)
             } catch {
@@ -167,7 +194,10 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         if (!newState.isPlayoutEnabled && !newState.isRecordingEnabled) && (oldState.isPlayoutEnabled || oldState.isRecordingEnabled) {
             if newState.isAutomaticDeactivationEnabled {
                 do {
-                    log("AudioSession deactivating...")
+                    log("AudioSession resetting to ambient and deactivating...")
+                    // Restore the media volume register; rocker stays on ringer/call otherwise.
+                    let idle = AudioSessionConfiguration.ambient
+                    try session.setCategory(idle.category, mode: idle.mode, options: idle.categoryOptions)
                     try session.setActive(false, options: .notifyOthersOnDeactivation)
                 } catch {
                     log("AudioSession failed to deactivate with error: \(error)", .error)
@@ -177,9 +207,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 log("AudioSession deactivation skipped...")
             }
         } else if newState.isRecordingEnabled || newState.isPlayoutEnabled {
-            // Configure and activate the session with the appropriate category
-            let playAndRecord: AudioSessionConfiguration = newState.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver
-            let config: AudioSessionConfiguration = newState.isRecordingEnabled ? playAndRecord : .playback
+            let config = selectConfiguration(state: newState)
 
             do {
                 log("AudioSession configuring category to: \(config.category)")
@@ -210,6 +238,25 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 }
             }
         }
+    }
+
+    /// Picks the audio session configuration for the current state.
+    ///
+    /// `.playAndRecord` is selected when any signal indicates the user is or
+    /// will be publishing; otherwise `.playback` (pure listener):
+    ///   - `isRecordingEnabled`: a track or external acquirer needs recording now.
+    ///   - `hasRecorded`: sticky — keeps `.playAndRecord` across mute toggles.
+    ///   - `wantsToPublish`: either signal of publishing intent —
+    ///     server-issued mic permission (`canPublishMicrophone`) or the
+    ///     app-declared `isRecordingAlwaysPreparedMode`.
+    private func selectConfiguration(state: State) -> AudioSessionConfiguration {
+        let wantsToPublish = state.canPublishMicrophone || AudioManager.shared.isRecordingAlwaysPreparedMode
+        let needsRecord = state.isRecordingEnabled || state.hasRecorded || wantsToPublish
+        let config: AudioSessionConfiguration = needsRecord
+            ? (state.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver)
+            : .playback
+        log("selectConfiguration: recording=\(state.isRecordingEnabled) hasRecorded=\(state.hasRecorded) canPublishMic=\(state.canPublishMicrophone) speaker=\(state.isSpeakerOutputPreferred) → \(config.category)")
+        return config
     }
 
     // MARK: - AudioEngineObserver
