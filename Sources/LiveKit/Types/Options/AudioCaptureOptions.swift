@@ -20,20 +20,23 @@ internal import LiveKitWebRTC
 
 @objcMembers
 public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
-    // Defaults are `true` on all platforms. In practice these options only affect
-    // software (WebRTC) APM on iOS Simulator. On iOS device or macOS, Apple's VPIO
-    // handles AEC/AGC/NS and software APM is always off regardless of these flags.
+    // Defaults are `true` on all platforms. These options affect WebRTC's
+    // software APM. In the default audio processing mode, platform processing
+    // handles AEC/AGC/NS on iOS device and macOS, so software APM is off. Use
+    // `AudioManager.shared.setAudioProcessingMode(.software)` to explicitly
+    // select WebRTC software processing on supported WebRTC builds.
     //
     // Platform behavior:
-    // - iOS device or macOS: VPIO is active. Software APM is always off. These
-    //   flags are effectively ignored for runtime processing, but still reported
-    //   to the server as audio track features for telemetry.
+    // - iOS device or macOS with `.automatic`: platform processing is active.
+    //   Software APM is off. These flags are still reported to the server as
+    //   audio track features for telemetry.
+    // - iOS device or macOS with `.software`: Software APM is active and these
+    //   flags are respected.
     // - iOS Simulator: VPIO is not reliably available. Software APM is used and
     //   these flags are respected.
     //
-    // To control VPIO on device, see ``AudioManager/isVoiceProcessingEnabled``,
-    // ``AudioManager/isVoiceProcessingBypassed``, and
-    // ``AudioManager/isVoiceProcessingAGCEnabled``.
+    // To control the processing backend, see
+    // ``AudioManager/setAudioProcessingMode(_:)``.
     public static let defaultEchoCancellation = true
     public static let defaultAutoGainControl = true
     public static let defaultNoiseSuppression = true
@@ -47,20 +50,17 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
     )
 
     /// Whether to enable software (WebRTC's) echo cancellation.
-    /// Only takes effect on iOS Simulator. On iOS device or macOS, Apple's VPIO
-    /// handles AEC and this flag is ignored for runtime processing.
-    /// See ``AudioManager/isVoiceProcessingBypassed`` for device-side VPIO controls.
+    /// Takes effect when WebRTC software processing is active.
+    /// See ``AudioManager/setAudioProcessingMode(_:)`` for backend selection.
     public let echoCancellation: Bool
 
     /// Whether to enable software (WebRTC's) gain control.
-    /// Only takes effect on iOS Simulator. On iOS device or macOS, Apple's VPIO
-    /// handles AGC and this flag is ignored for runtime processing.
-    /// See ``AudioManager/isVoiceProcessingAGCEnabled`` for device-side VPIO controls.
+    /// Takes effect when WebRTC software processing is active.
+    /// See ``AudioManager/setAudioProcessingMode(_:)`` for backend selection.
     public let autoGainControl: Bool
 
     /// Whether to enable software (WebRTC's) noise suppression.
-    /// Only takes effect on iOS Simulator. On iOS device or macOS, Apple's VPIO
-    /// handles NS and this flag is ignored for runtime processing.
+    /// Takes effect when WebRTC software processing is active.
     public let noiseSuppression: Bool
 
     public let highpassFilter: Bool

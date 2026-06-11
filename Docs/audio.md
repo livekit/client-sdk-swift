@@ -48,23 +48,38 @@ When set to `false`, the audio session remains active after the LiveKit call end
 
 ## Disabling Voice Processing
 
-Apple's voice processing is enabled by default, such as echo cancellation and auto-gain control.
+Platform voice processing is enabled by default, such as echo cancellation and auto-gain control.
+On Apple platforms this is Apple's Voice-Processing I/O.
 
-If your app doesn't require voice processing at all, you can disable it entirely:
+Use `AudioProcessingMode` to choose the processing backend before publishing or starting local recording:
+
+```swift
+try AudioManager.shared.setAudioProcessingMode(.automatic) // default
+try AudioManager.shared.setAudioProcessingMode(.platform)  // require platform processing
+try AudioManager.shared.setAudioProcessingMode(.software)  // use WebRTC APM
+try AudioManager.shared.setAudioProcessingMode(.disabled)  // no voice processing
+```
+
+Mode changes are only supported by audio device modules that implement this API, and only
+while audio is idle. To switch during a call, unpublish or stop local recording first, set
+the mode, then publish or start recording again.
+
+If your app doesn't require voice processing at all, you can also use the compatibility API:
 
 ```swift
 try AudioManager.shared.setVoiceProcessingEnabled(false)
 ```
 
-This restarts the internal `AVAudioEngine` to apply the change. It can cause a short audio glitch, so it is recommended to set it once before connecting to a Room. Disabling voice processing also disables muted speaker detection.
+This is equivalent to `try AudioManager.shared.setAudioProcessingMode(.disabled)`.
+Disabling platform voice processing also disables muted speaker detection.
 
-If your app requires toggling voice processing at run-time, it is recommended to use:
+If your app only needs to bypass Apple's platform processing at run-time, use:
 
 ```swift
 AudioManager.shared.isVoiceProcessingBypassed = true
 ```
 
-Set it back to `false` to re-enable processing. This uses `AVAudioEngine`'s [isVoiceProcessingBypassed](https://developer.apple.com/documentation/avfaudio/avaudioinputnode/isvoiceprocessingbypassed) and works seamlessly at run-time.
+Set it back to `false` to re-enable Apple's processing. This uses `AVAudioEngine`'s [isVoiceProcessingBypassed](https://developer.apple.com/documentation/avfaudio/avaudioinputnode/isvoiceprocessingbypassed) and works seamlessly at run-time, but it does not switch to WebRTC software processing.
 
 ## Other audio ducking
 
