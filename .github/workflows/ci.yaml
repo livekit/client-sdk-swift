@@ -198,6 +198,37 @@ jobs:
           name: docs
           path: docs.zip
           retention-days: 1
+  app-size:
+    name: App Size
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      # Budget for the SDK's uncompressed .app delta, in MB. Bump deliberately
+      # when a size increase is intended (see the job summary for the measured value).
+      SIZE_BASELINE_MB: "17.5"
+      SIZE_TOLERANCE_PCT: "5"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install tools
+        run: |
+          brew install xcodegen swiftly swift-sh
+          swiftly init --quiet-shell-followup --skip-install -y
+
+      # Archives an empty app + a LiveKit app (unsigned, arm64 device slice) and
+      # writes the size breakdown to the job summary, failing if over budget.
+      - name: Measure app size
+        run: |
+          swiftly run +xcode swift-sh .github/size-check/size-check.swift \
+            --baseline "$SIZE_BASELINE_MB" \
+            --tolerance "$SIZE_TOLERANCE_PCT"
+
   check-protocol:
     name: Check Protocol
     runs-on: macos-26
@@ -228,6 +259,7 @@ jobs:
           else
             echo "Working tree is clean - all Swift protobuf files are up to date"
           fi
+
   check-changes:
     name: Check Changes
     if: github.event_name == 'pull_request'

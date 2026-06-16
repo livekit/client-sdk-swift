@@ -1,0 +1,64 @@
+name: SizeCheck
+options:
+  bundleIdPrefix: io.livekit.sizecheck
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+
+# Local SDK under test = the repo root (this PR's checkout), two levels up.
+packages:
+  LiveKit:
+    path: ../..
+
+settings:
+  base:
+    CODE_SIGNING_ALLOWED: "NO"
+    CODE_SIGNING_REQUIRED: "NO"
+    CODE_SIGN_IDENTITY: ""
+    ENABLE_BITCODE: "NO"
+    SWIFT_OPTIMIZATION_LEVEL: "-O"
+    DEAD_CODE_STRIPPING: "YES"
+
+targets:
+  EmptyApp:
+    type: application
+    platform: iOS
+    sources: [EmptyApp]
+    # xcodegen generates this Info.plist during `generate` (gitignored, not committed).
+    info:
+      path: EmptyApp/Info.plist
+      properties:
+        UILaunchScreen: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.livekit.sizecheck.empty
+
+  LiveKitApp:
+    type: application
+    platform: iOS
+    sources: [LiveKitApp]
+    dependencies:
+      - package: LiveKit
+        product: LiveKit
+    info:
+      path: LiveKitApp/Info.plist
+      properties:
+        UILaunchScreen: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.livekit.sizecheck.livekit
+        # Per-target link map (unique path) for per-library executable attribution.
+        LD_GENERATE_MAP_FILE: "YES"
+        LD_MAP_FILE_PATH: "$(TARGET_TEMP_DIR)/LiveKitApp-LinkMap.txt"
+
+schemes:
+  EmptyApp:
+    build:
+      targets: { EmptyApp: all }
+    archive:
+      config: Release
+  LiveKitApp:
+    build:
+      targets: { LiveKitApp: all }
+    archive:
+      config: Release
