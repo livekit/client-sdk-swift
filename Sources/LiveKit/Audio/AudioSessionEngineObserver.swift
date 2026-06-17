@@ -83,6 +83,11 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         set { _state.mutate { $0.next = newValue } }
     }
 
+    // WORKAROUND (#886): listens for interruption-end so we can retry session
+    // activation + restart the engine. Held strongly because `LKRTCAudioSession`
+    // keeps its delegates weak.
+    private let rtcDelegateAdapter = RTCAudioSessionDelegateAdapter()
+
     public init() {
         _state.onDidMutate = { [weak self] new, old in
             guard let self,
@@ -93,6 +98,9 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 log("Failed to configure audio session after speaker preference change: \(error)", .error)
             }
         }
+
+        rtcDelegateAdapter.owner = self
+        LKRTCAudioSession.sharedInstance().add(rtcDelegateAdapter)
     }
 
     /// Acquires an audio session requirement handle for external ownership.
@@ -212,6 +220,58 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         }
     }
 
+    // MARK: - Interruption recovery (workaround #886)
+
+    /// Resume audio after a system interruption (incoming call, alarm, Siri, …).
+    ///
+    /// At interruption-end, WebRTC's `updateAudioSessionAfterEvent` attempts a
+    /// single `setActive(true)`, which can fail transiently because the
+    /// interrupting app's deactivation is asynchronous. WebRTC then retries the
+    /// *engine start* (not the activation), so the engine never recovers and
+    /// audio stays dead. Here we retry the *activation* with backoff, then force
+    /// the engine to restart by toggling its availability.
+    fileprivate func resumeAfterInterruption(attempt: Int) {
+        let maxAttempts = 8
+        let retryDelay: TimeInterval = 0.25
+
+        let snapshot = _state.copy()
+        guard snapshot.isAutomaticConfigurationEnabled else {
+            log("[#886] resume skipped: automatic configuration disabled", .info)
+            return
+        }
+        guard snapshot.isPlayoutEnabled || snapshot.isRecordingEnabled else {
+            log("[#886] resume skipped: no playout/recording requirement", .info)
+            return
+        }
+
+        let playAndRecord: AudioSessionConfiguration = snapshot.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver
+        let config: AudioSessionConfiguration = snapshot.isRecordingEnabled ? playAndRecord : .playback
+        let session = AVAudioSession.sharedInstance()
+
+        do {
+            log("[#886] resume attempt \(attempt + 1)/\(maxAttempts): re-applying \(config.category), activating session", .info)
+            try session.setCategory(config.category, mode: config.mode, options: config.categoryOptions)
+            try session.setActive(true)
+
+            log("[#886] resume attempt \(attempt + 1): session active; restarting engine via availability toggle", .info)
+            // Re-kick the ADM state machine so the engine restarts against the
+            // now-active session (off→on is a real state delta; setting the same
+            // value would be a no-op).
+            try AudioManager.shared.setEngineAvailability(.none)
+            try AudioManager.shared.setEngineAvailability(.default)
+            log("[#886] resume succeeded on attempt \(attempt + 1)", .info)
+        } catch {
+            log("[#886] resume attempt \(attempt + 1) failed: \(error)", .info)
+            guard attempt + 1 < maxAttempts else {
+                log("[#886] resume gave up after \(maxAttempts) attempts", .error)
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + retryDelay) { [weak self] in
+                self?.resumeAfterInterruption(attempt: attempt + 1)
+            }
+        }
+    }
+
     // MARK: - AudioEngineObserver
 
     public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
@@ -249,6 +309,36 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 extension AudioSessionEngineObserver.State {
     var isPlayoutEnabled: Bool { sessionRequirements.values.contains(where: \.isPlayoutEnabled) }
     var isRecordingEnabled: Bool { sessionRequirements.values.contains(where: \.isRecordingEnabled) }
+}
+
+// MARK: - LKRTCAudioSessionDelegate (workaround #886)
+
+/// Forwards interruption events to ``AudioSessionEngineObserver`` so audio can
+/// be resumed after a system interruption.
+private final class RTCAudioSessionDelegateAdapter: NSObject, LKRTCAudioSessionDelegate, Loggable {
+    weak var owner: AudioSessionEngineObserver?
+
+    // Only resume when a real interruption preceded the end event. WebRTC also
+    // re-fires `didEndInterruption` on `UIApplicationDidBecomeActive` (its built-in
+    // fallback for a missing `.ended`), so this guard both enables that fallback
+    // and prevents a spurious resume on every unrelated app foreground.
+    private let didBegin = StateSync(false)
+
+    func audioSessionDidBeginInterruption(_: LKRTCAudioSession) {
+        log("[#886] interruption began", .info)
+        didBegin.mutate { $0 = true }
+    }
+
+    func audioSessionDidEndInterruption(_: LKRTCAudioSession, shouldResumeSession: Bool) {
+        let wasInterrupted = didBegin.mutate { value -> Bool in
+            let previous = value
+            value = false
+            return previous
+        }
+        log("[#886] interruption ended, shouldResumeSession=\(shouldResumeSession), wasInterrupted=\(wasInterrupted)", .info)
+        guard shouldResumeSession, wasInterrupted else { return }
+        owner?.resumeAfterInterruption(attempt: 0)
+    }
 }
 
 #endif
