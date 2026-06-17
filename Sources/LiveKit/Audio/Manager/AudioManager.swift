@@ -324,10 +324,10 @@ public class AudioManager: Loggable {
     /// Setting this to `false` prevents any voice-processing-related initialization, and muted talker detection will not work.
     /// Typically, it is recommended to keep this set to `true` and toggle ``isVoiceProcessingBypassed`` when possible.
     /// Defaults to `true`.
-    public var isVoiceProcessingEnabled: Bool { RTC.audioDeviceModule.isVoiceProcessingEnabled }
+    public var isVoiceProcessingEnabled: Bool { RTC.audioDeviceModule.isPlatformVoiceProcessingAllowed }
 
     public func setVoiceProcessingEnabled(_ enabled: Bool) throws {
-        let result = RTC.audioDeviceModule.setVoiceProcessingEnabled(enabled)
+        let result = RTC.audioDeviceModule.setPlatformVoiceProcessingAllowed(enabled)
         try checkAdmResult(code: result)
     }
 
