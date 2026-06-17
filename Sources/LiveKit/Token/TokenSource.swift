@@ -60,6 +60,8 @@ public struct TokenRequestOptions: Sendable, Equatable {
     public let agentName: String?
     /// Metadata passed to the agent job
     public let agentMetadata: String?
+    /// Optional deployment to target. Leave empty to target the production deployment.
+    public let agentDeployment: String?
 
     public init(
         roomName: String? = nil,
@@ -69,6 +71,7 @@ public struct TokenRequestOptions: Sendable, Equatable {
         participantAttributes: [String: String]? = nil,
         agentName: String? = nil,
         agentMetadata: String? = nil,
+        agentDeployment: String? = nil
     ) {
         self.roomName = roomName
         self.participantName = participantName
@@ -77,11 +80,12 @@ public struct TokenRequestOptions: Sendable, Equatable {
         self.participantAttributes = participantAttributes
         self.agentName = agentName
         self.agentMetadata = agentMetadata
+        self.agentDeployment = agentDeployment
     }
 
     func toRequest() -> TokenSourceRequest {
-        let agents: [RoomAgentDispatch]? = if agentName != nil || agentMetadata != nil {
-            [RoomAgentDispatch(agentName: agentName, metadata: agentMetadata)]
+        let agents: [RoomAgentDispatch]? = if agentName != nil || agentMetadata != nil || agentDeployment != nil {
+            [RoomAgentDispatch(agentName: agentName, metadata: agentMetadata, deployment: agentDeployment)]
         } else {
             nil
         }
