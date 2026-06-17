@@ -71,7 +71,7 @@ public struct TokenRequestOptions: Sendable, Equatable {
         participantAttributes: [String: String]? = nil,
         agentName: String? = nil,
         agentMetadata: String? = nil,
-        agentDeployment: String? = nil
+        agentDeployment: String? = nil,
     ) {
         self.roomName = roomName
         self.participantName = participantName

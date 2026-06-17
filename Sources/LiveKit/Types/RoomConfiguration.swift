@@ -101,7 +101,7 @@ public struct RoomAgentDispatch: Encodable, Sendable, Equatable {
     public init(
         agentName: String? = nil,
         metadata: String? = nil,
-        deployment: String? = nil
+        deployment: String? = nil,
     ) {
         self.agentName = agentName
         self.metadata = metadata
