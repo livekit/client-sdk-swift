@@ -118,11 +118,7 @@ public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
         if #available(macOS 13.0, *) {
             try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: nil)
         }
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            stream.startCapture { error in
-                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
-            }
-        }
+        try await stream.startCapture()
 
         _screenCapturerState.mutate { $0.scStream = stream }
 
@@ -144,11 +140,7 @@ public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
             $0.resendTimer = nil
         }
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            stream.stopCapture { error in
-                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
-            }
-        }
+        try await stream.stopCapture()
         try stream.removeStreamOutput(self, type: .screen)
 
         _screenCapturerState.mutate {
