@@ -39,11 +39,15 @@ public class InAppScreenCapturer: VideoCapturer, @unchecked Sendable {
         guard didStart else { return false }
 
         // TODO: force pixel format kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
-        try await RPScreenRecorder.shared().startCapture { [weak self] sampleBuffer, type, _ in
-            guard let self else { return }
-            // Only process .video
-            if type == .video {
-                capture(sampleBuffer: sampleBuffer, capturer: capturer, options: options)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            RPScreenRecorder.shared().startCapture { [weak self] sampleBuffer, type, _ in
+                guard let self else { return }
+                // Only process .video
+                if type == .video {
+                    capture(sampleBuffer: sampleBuffer, capturer: capturer, options: options)
+                }
+            } completionHandler: { error in
+                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
             }
         }
 

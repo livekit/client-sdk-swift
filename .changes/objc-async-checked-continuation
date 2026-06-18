@@ -1,0 +1,1 @@
+patch type="fixed" "Wrap ObjC completion-handler async calls in explicit checked continuations (fixes mixed Swift 5/6 continuation-bridge EXC_BAD_ACCESS)"

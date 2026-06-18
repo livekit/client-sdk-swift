@@ -130,6 +130,7 @@ private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixW
 - Only `Task.discarding` preserves caller actor isolation in its closure; other `Support/Async/` helpers (`Task.retrying`, `AsyncSerialDelegate.notifyAsync`, etc.) run their bodies nonisolated — hop explicitly with `await MainActor.run { ... }` when UI-bound work is needed
 - Use async primitives in `Support/Async` and `Support/Schedulers` when operation order matters
 - Prefer native Swift async/await over `Combine` for new code
+- Until the minimum supported compiler is Swift 6.3, wrap calls to imported Objective-C completion-handler methods made via their synthesized `async` overload in an explicit `withCheckedThrowingContinuation`, since the bare auto-bridge hits a mixed Swift 5/6 thunk-coalescing crash (swiftlang/swift#81846) fixed in 6.3
 
 ### Error Handling
 

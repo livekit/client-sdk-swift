@@ -309,7 +309,11 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         // Already stopped
         guard didStop else { return false }
 
-        await capturer.stopCapture()
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            capturer.stopCapture {
+                continuation.resume()
+            }
+        }
 
         // Update internal vars
         set(dimensions: nil)
