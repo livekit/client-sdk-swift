@@ -457,17 +457,7 @@ public extension MacOSScreenCapturer {
     /// Enumerate ``MacOSDisplay`` or ``MacOSWindow`` sources.
     @objc
     static func sources(for type: MacOSScreenShareSourceType, includeCurrentApplication: Bool = false) async throws -> [MacOSScreenCaptureSource] {
-        let content = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<SCShareableContent, Error>) in
-            SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: true) { content, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else if let content {
-                    continuation.resume(returning: content)
-                } else {
-                    continuation.resume(throwing: LiveKitError(.invalidState, message: "SCShareableContent unavailable"))
-                }
-            }
-        }
+        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
         let displays = content.displays.map { MacOSDisplay(from: $0, content: content) }
         let windows = content.windows
             // remove windows from this app
