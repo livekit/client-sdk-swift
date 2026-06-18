@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.15.1] - 2026-06-18
+
+### Fixed
+
+- Fixed Xcode 27 beta build errors
+- Fixed WebRTC use-after-free buffer crash
+- Wrap ObjC completion-handler async calls in explicit checked continuations (fixes mixed Swift 5/6 continuation-bridge EXC_BAD_ACCESS)
+
 ## [2.15.0] - 2026-06-09
 
 ### Added
