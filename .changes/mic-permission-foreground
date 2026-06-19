@@ -1,0 +1,1 @@
+patch type="fixed" "Request microphone permission in foreground before enabling recording (#815)"
