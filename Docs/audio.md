@@ -46,25 +46,25 @@ AudioManager.shared.audioSession.isAutomaticDeactivationEnabled = false
 
 When set to `false`, the audio session remains active after the LiveKit call ends, preserving your app's audio state.
 
-## Disabling Voice Processing
+## Disallowing Platform Voice Processing
 
-Apple's voice processing is enabled by default, such as echo cancellation and auto-gain control.
+Apple's platform voice processing is allowed by default, such as echo cancellation and auto-gain control.
 
-If your app doesn't require voice processing at all, you can disable it entirely:
+If your app must not use Apple Voice Processing I/O, disable voice processing:
 
 ```swift
 try AudioManager.shared.setVoiceProcessingEnabled(false)
 ```
 
-This restarts the internal `AVAudioEngine` to apply the change. It can cause a short audio glitch, so it is recommended to set it once before connecting to a Room. Disabling voice processing also disables muted speaker detection.
+This restarts the internal `AVAudioEngine` when an Apple VPIO path is active. It is recommended to set it once before connecting to a Room. Runtime `AudioProcessingOptions` with `automatic` mode will fall back to WebRTC software processing while platform voice processing is disallowed.
 
-If your app requires toggling voice processing at run-time, it is recommended to use:
+For per-track or per-capture software processing, use `AudioProcessingOptions` with `.software` modes. The lower-level bypass API remains available when you need to directly control Apple VPIO:
 
 ```swift
 AudioManager.shared.isVoiceProcessingBypassed = true
 ```
 
-Set it back to `false` to re-enable processing. This uses `AVAudioEngine`'s [isVoiceProcessingBypassed](https://developer.apple.com/documentation/avfaudio/avaudioinputnode/isvoiceprocessingbypassed) and works seamlessly at run-time.
+Set it back to `false` to re-enable the Apple path. This uses `AVAudioEngine`'s [isVoiceProcessingBypassed](https://developer.apple.com/documentation/avfaudio/avaudioinputnode/isvoiceprocessingbypassed). Runtime `AudioProcessingOptions` can overwrite this Apple-specific state when capture starts or options are reapplied.
 
 ## Other audio ducking
 

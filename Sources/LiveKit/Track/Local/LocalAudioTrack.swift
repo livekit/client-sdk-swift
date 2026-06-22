@@ -66,6 +66,10 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
             "googNoiseSuppression": options.noiseSuppression.toString(),
             "googTypingNoiseDetection": options.typingNoiseDetection.toString(),
             "googHighpassFilter": options.highpassFilter.toString(),
+            "echoCancellationMode": options.echoCancellationMode.toConstraintValue(),
+            "autoGainControlMode": options.autoGainControlMode.toConstraintValue(),
+            "noiseSuppressionMode": options.noiseSuppressionMode.toConstraintValue(),
+            "highPassFilterMode": options.highPassFilterMode.toConstraintValue(),
         ]
 
         let audioConstraints = DispatchQueue.liveKitWebRTC.sync { LKRTCMediaConstraints(mandatoryConstraints: nil,
@@ -90,12 +94,32 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
         try await super._unmute()
     }
 
+    /// Updates this local track's voice processing options without restarting capture.
+    ///
+    /// If this track is already published, WebRTC reapplies the updated options through
+    /// the active sender. Effective APM configuration is shared by the WebRTC voice engine,
+    /// so conflicting updates from multiple local audio tracks are last-writer-wins.
+    @discardableResult
+    public func setAudioProcessingOptions(_ options: AudioProcessingOptions) throws -> AudioProcessingOptionsResult {
+        guard let audioTrack = mediaTrack as? LKRTCAudioTrack else {
+            throw LiveKitError(.invalidState, message: "Media track is not an audio track")
+        }
+        let result = audioTrack.setAudioProcessingOptions(options.toRTCType()).toLKType()
+        guard result.isSuccess else {
+            let reason = result.message.isEmpty ? "\(result.code)" : "\(result.code): \(result.message)"
+            throw LiveKitError(.webRTC, message: "Failed to set audio processing options: \(reason)")
+        }
+        return result
+    }
+
     // MARK: - Internal
 
     override func startCapture() async throws {
         // AudioDeviceModule's InitRecording() and StartRecording() automatically get called by WebRTC, but
         // explicitly init & start it early to detect audio engine failures (mic not accessible for some reason, etc.).
-        try AudioManager.shared.startLocalRecording()
+        try AudioManager.shared.startLocalRecording(
+            audioProcessingOptions: captureOptions.audioProcessingOptions,
+        )
     }
 
     override func stopCapture() async throws {

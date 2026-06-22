@@ -83,6 +83,10 @@ actor RTC {
                                                                                 delegate: nil) }
     }
 
+    static func audioProcessingState() -> LKRTCAudioProcessingState {
+        DispatchQueue.liveKitWebRTC.sync { peerConnectionFactory.audioProcessingState }
+    }
+
     static func createVideoSource(forScreenShare: Bool) -> LKRTCVideoSource {
         DispatchQueue.liveKitWebRTC.sync { peerConnectionFactory.videoSource(forScreenCast: forScreenShare) }
     }

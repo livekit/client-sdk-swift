@@ -20,20 +20,9 @@ internal import LiveKitWebRTC
 
 @objcMembers
 public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
-    // Defaults are `true` on all platforms. In practice these options only affect
-    // software (WebRTC) APM on iOS Simulator. On iOS device or macOS, Apple's VPIO
-    // handles AEC/AGC/NS and software APM is always off regardless of these flags.
-    //
-    // Platform behavior:
-    // - iOS device or macOS: VPIO is active. Software APM is always off. These
-    //   flags are effectively ignored for runtime processing, but still reported
-    //   to the server as audio track features for telemetry.
-    // - iOS Simulator: VPIO is not reliably available. Software APM is used and
-    //   these flags are respected.
-    //
-    // To control VPIO on device, see ``AudioManager/isVoiceProcessingEnabled``,
-    // ``AudioManager/isVoiceProcessingBypassed``, and
-    // ``AudioManager/isVoiceProcessingAGCEnabled``.
+    // Defaults preserve the historical communication profile. Each component is
+    // enabled with `.automatic` mode, which prefers platform processing when
+    // available and falls back to WebRTC software processing otherwise.
     public static let defaultEchoCancellation = true
     public static let defaultAutoGainControl = true
     public static let defaultNoiseSuppression = true
@@ -46,26 +35,31 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
         typingNoiseDetection: false,
     )
 
-    /// Whether to enable software (WebRTC's) echo cancellation.
-    /// Only takes effect on iOS Simulator. On iOS device or macOS, Apple's VPIO
-    /// handles AEC and this flag is ignored for runtime processing.
-    /// See ``AudioManager/isVoiceProcessingBypassed`` for device-side VPIO controls.
+    /// Whether to enable echo cancellation.
     public let echoCancellation: Bool
 
-    /// Whether to enable software (WebRTC's) gain control.
-    /// Only takes effect on iOS Simulator. On iOS device or macOS, Apple's VPIO
-    /// handles AGC and this flag is ignored for runtime processing.
-    /// See ``AudioManager/isVoiceProcessingAGCEnabled`` for device-side VPIO controls.
+    /// Whether to enable gain control.
     public let autoGainControl: Bool
 
-    /// Whether to enable software (WebRTC's) noise suppression.
-    /// Only takes effect on iOS Simulator. On iOS device or macOS, Apple's VPIO
-    /// handles NS and this flag is ignored for runtime processing.
+    /// Whether to enable noise suppression.
     public let noiseSuppression: Bool
 
     public let highpassFilter: Bool
 
     public let typingNoiseDetection: Bool
+
+    /// Selects platform versus WebRTC software echo cancellation.
+    public let echoCancellationMode: AudioProcessingMode
+
+    /// Selects platform versus WebRTC software gain control.
+    public let autoGainControlMode: AudioProcessingMode
+
+    /// Selects platform versus WebRTC software noise suppression.
+    public let noiseSuppressionMode: AudioProcessingMode
+
+    /// Selects platform versus WebRTC software high-pass filtering.
+    /// No platform HPF exists today, so `platform` is rejected.
+    public let highPassFilterMode: AudioProcessingMode
 
     public init(
         echoCancellation: Bool = AudioCaptureOptions.defaultEchoCancellation,
@@ -73,12 +67,49 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
         noiseSuppression: Bool = AudioCaptureOptions.defaultNoiseSuppression,
         highpassFilter: Bool = false,
         typingNoiseDetection: Bool = false,
+        echoCancellationMode: AudioProcessingMode = .automatic,
+        autoGainControlMode: AudioProcessingMode = .automatic,
+        noiseSuppressionMode: AudioProcessingMode = .automatic,
+        highPassFilterMode: AudioProcessingMode = .automatic,
     ) {
         self.echoCancellation = echoCancellation
         self.noiseSuppression = noiseSuppression
         self.autoGainControl = autoGainControl
         self.typingNoiseDetection = typingNoiseDetection
         self.highpassFilter = highpassFilter
+        self.echoCancellationMode = echoCancellationMode
+        self.autoGainControlMode = autoGainControlMode
+        self.noiseSuppressionMode = noiseSuppressionMode
+        self.highPassFilterMode = highPassFilterMode
+    }
+
+    public convenience init(audioProcessingOptions: AudioProcessingOptions,
+                            typingNoiseDetection: Bool = false)
+    {
+        self.init(
+            echoCancellation: audioProcessingOptions.echoCancellation,
+            autoGainControl: audioProcessingOptions.autoGainControl,
+            noiseSuppression: audioProcessingOptions.noiseSuppression,
+            highpassFilter: audioProcessingOptions.highPassFilter,
+            typingNoiseDetection: typingNoiseDetection,
+            echoCancellationMode: audioProcessingOptions.echoCancellationMode,
+            autoGainControlMode: audioProcessingOptions.autoGainControlMode,
+            noiseSuppressionMode: audioProcessingOptions.noiseSuppressionMode,
+            highPassFilterMode: audioProcessingOptions.highPassFilterMode,
+        )
+    }
+
+    public var audioProcessingOptions: AudioProcessingOptions {
+        AudioProcessingOptions(
+            echoCancellation: echoCancellation,
+            autoGainControl: autoGainControl,
+            noiseSuppression: noiseSuppression,
+            highPassFilter: highpassFilter,
+            echoCancellationMode: echoCancellationMode,
+            autoGainControlMode: autoGainControlMode,
+            noiseSuppressionMode: noiseSuppressionMode,
+            highPassFilterMode: highPassFilterMode,
+        )
     }
 
     // MARK: - Equatable
@@ -89,7 +120,11 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
             noiseSuppression == other.noiseSuppression &&
             autoGainControl == other.autoGainControl &&
             typingNoiseDetection == other.typingNoiseDetection &&
-            highpassFilter == other.highpassFilter
+            highpassFilter == other.highpassFilter &&
+            echoCancellationMode == other.echoCancellationMode &&
+            autoGainControlMode == other.autoGainControlMode &&
+            noiseSuppressionMode == other.noiseSuppressionMode &&
+            highPassFilterMode == other.highPassFilterMode
     }
 
     override public var hash: Int {
@@ -99,6 +134,10 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
         hasher.combine(autoGainControl)
         hasher.combine(typingNoiseDetection)
         hasher.combine(highpassFilter)
+        hasher.combine(echoCancellationMode)
+        hasher.combine(autoGainControlMode)
+        hasher.combine(noiseSuppressionMode)
+        hasher.combine(highPassFilterMode)
         return hasher.finalize()
     }
 }
