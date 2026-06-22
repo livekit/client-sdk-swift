@@ -1,0 +1,68 @@
+name: Publish XCFramework
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to build (defaults to .version, e.g. 2.15.1)
+        type: string
+      dry_run:
+        description: Build only, skip draft release / PR
+        default: true
+        type: boolean
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+env:
+  HOSTING_REPO: livekit/client-sdk-swift-xcframework
+
+jobs:
+  build-and-publish:
+    name: Build & publish XCFramework
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.version || 'main' }}
+          submodules: recursive
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Resolve version
+        id: ver
+        run: |
+          VERSION="${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.version }}"
+          [ -z "$VERSION" ] && VERSION="$(cat .version)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Install swiftly
+        run: |
+          brew install swiftly swift-sh
+          swiftly init --quiet-shell-followup --skip-install -y
+
+      - name: Build XCFramework
+        run: swiftly run +xcode swift-sh scripts/xcframework.swift --version "${{ steps.ver.outputs.version }}"
+
+      - name: Publish to hosting repo
+        if: ${{ github.event_name == 'release' || github.event.inputs.dry_run != 'true' }}
+        uses: livekit/publish-xcframework-action@200ee4984ef1b68068c0b3c4e87e798988730c90 # main
+        with:
+          xcframework-zip: .build/xcframework/LiveKit.xcframework.zip
+          version: ${{ steps.ver.outputs.version }}
+          hosting-repo: ${{ env.HOSTING_REPO }}
+          files: |
+            .build/xcframework/Package.swift:Package.swift
+            CHANGELOG.md:CHANGELOG.md
+            README.md:README.md
+            LICENSE:LICENSE
+          token: ${{ secrets.XCFRAMEWORK_PAT }}
+          pr-body: |
+            Source release: https://github.com/livekit/client-sdk-swift/releases/tag/${{ steps.ver.outputs.version }}
