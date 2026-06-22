@@ -50,10 +50,10 @@ When set to `false`, the audio session remains active after the LiveKit call end
 
 Apple's platform voice processing is allowed by default, such as echo cancellation and auto-gain control.
 
-If your app must not use Apple Voice Processing I/O, disable voice processing:
+If your app must not use Apple Voice Processing I/O, disallow platform voice processing:
 
 ```swift
-try AudioManager.shared.setVoiceProcessingEnabled(false)
+try AudioManager.shared.setPlatformVoiceProcessingAllowed(false)
 ```
 
 This restarts the internal `AVAudioEngine` when an Apple VPIO path is active. It is recommended to set it once before connecting to a Room. Runtime `AudioProcessingOptions` with `automatic` mode will fall back to WebRTC software processing while platform voice processing is disallowed.

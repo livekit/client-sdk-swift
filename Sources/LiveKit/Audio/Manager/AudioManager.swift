@@ -329,11 +329,19 @@ public class AudioManager: Loggable {
     /// Use ``AudioProcessingOptions`` with `.software` modes for per-track or
     /// per-capture software voice processing. Use this policy when the app must
     /// guarantee Apple Voice Processing I/O is not used.
-    public var isVoiceProcessingEnabled: Bool { RTC.audioDeviceModule.isPlatformVoiceProcessingAllowed }
+    public var isPlatformVoiceProcessingAllowed: Bool { RTC.audioDeviceModule.isPlatformVoiceProcessingAllowed }
 
-    public func setVoiceProcessingEnabled(_ enabled: Bool) throws {
-        let result = RTC.audioDeviceModule.setPlatformVoiceProcessingAllowed(enabled)
+    public func setPlatformVoiceProcessingAllowed(_ allowed: Bool) throws {
+        let result = RTC.audioDeviceModule.setPlatformVoiceProcessingAllowed(allowed)
         try checkAdmResult(code: result)
+    }
+
+    @available(*, deprecated, renamed: "isPlatformVoiceProcessingAllowed")
+    public var isVoiceProcessingEnabled: Bool { isPlatformVoiceProcessingAllowed }
+
+    @available(*, deprecated, renamed: "setPlatformVoiceProcessingAllowed(_:)")
+    public func setVoiceProcessingEnabled(_ enabled: Bool) throws {
+        try setPlatformVoiceProcessingAllowed(enabled)
     }
 
     /// Bypass Voice-Processing I/O of internal AVAudioEngine.

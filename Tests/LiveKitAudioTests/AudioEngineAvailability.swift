@@ -26,7 +26,7 @@ import LiveKitTestSupport
     // then resume (restart) when availability is set back to .default.
     @Test func recording() throws {
         // Test without enabling VP
-        try AudioManager.shared.setVoiceProcessingEnabled(false)
+        try AudioManager.shared.setPlatformVoiceProcessingAllowed(false)
 
         // First check
         #expect(!AudioManager.shared.isEngineRunning)

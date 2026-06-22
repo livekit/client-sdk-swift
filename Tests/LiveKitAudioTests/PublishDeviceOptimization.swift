@@ -46,7 +46,7 @@ import LiveKitTestSupport
     // No-VP publish flow
     @Test func noVpMicPublish() async throws {
         // Turn off Apple's VP
-        try AudioManager.shared.setVoiceProcessingEnabled(false)
+        try AudioManager.shared.setPlatformVoiceProcessingAllowed(false)
 
         let span = Span(label: "Test: No-VP publish sequence")
 
