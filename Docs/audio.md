@@ -46,6 +46,68 @@ AudioManager.shared.audioSession.isAutomaticDeactivationEnabled = false
 
 When set to `false`, the audio session remains active after the LiveKit call ends, preserving your app's audio state.
 
+## Audio Processing Modes (software, platform, automatic)
+
+Each audio processing effect (echo cancellation, noise suppression, auto gain control, and high-pass filter) can run in one of two ways. It can use Apple's platform Voice Processing I/O on the device, or WebRTC's software processing. You choose per effect with an `AudioProcessingMode`:
+
+- `.automatic` (default): prefer platform voice processing when available, and fall back to WebRTC software processing otherwise.
+- `.platform`: use platform voice processing only. If the platform implementation is unavailable, the request is rejected.
+- `.software`: force WebRTC software processing and disable the matching platform effect when possible.
+
+Configure the modes when you publish the microphone:
+
+```swift
+let options = AudioCaptureOptions(
+    echoCancellation: true,
+    autoGainControl: true,
+    noiseSuppression: true,
+    highpassFilter: true,
+    echoCancellationMode: .software,
+    autoGainControlMode: .software,
+    noiseSuppressionMode: .software,
+    highPassFilterMode: .software
+)
+try await room.localParticipant.setMicrophone(enabled: true, captureOptions: options)
+```
+
+You can also set them as the room default, so they apply whenever the mic is published:
+
+```swift
+let room = Room()
+try await room.connect(url: url, token: token,
+                       roomOptions: RoomOptions(defaultAudioCaptureOptions: options))
+```
+
+To change the modes at runtime on an already-published track, use `setAudioProcessingOptions`:
+
+```swift
+let result = try localAudioTrack.setAudioProcessingOptions(
+    AudioProcessingOptions(
+        echoCancellation: true,
+        autoGainControl: true,
+        noiseSuppression: true,
+        highPassFilter: true,
+        echoCancellationMode: .software,
+        autoGainControlMode: .software,
+        noiseSuppressionMode: .software,
+        highPassFilterMode: .software
+    )
+)
+print(result.code) // .applied or .stored on success
+```
+
+To confirm which implementation each effect resolved to, read the engine-wide state:
+
+```swift
+let state = AudioManager.shared.audioProcessingState
+print(state.echoCancellation.effective) // Software
+print(state.noiseSuppression.effective)  // Software
+```
+
+> **NOTE**: There is no platform high-pass filter, so `.platform` is rejected for `highPassFilterMode`. Use `.software` instead.
+
+To guarantee Apple Voice Processing I/O is never used at all, for example to keep hardware volume consistent or to allow screen recording with audio, also disallow platform voice processing as described below.
+
 ## Disallowing Platform Voice Processing
 
 Apple's platform voice processing is allowed by default, such as echo cancellation and auto-gain control.
