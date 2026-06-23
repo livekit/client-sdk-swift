@@ -324,7 +324,11 @@ extension LocalParticipant {
         for mediaTrack in mediaTracks {
             // Don't re-publish muted tracks
             if mediaTrack.isMuted { continue }
-            try await _publish(track: mediaTrack, options: mediaTrack.publishOptions)
+            do {
+                try await _publish(track: mediaTrack, options: mediaTrack.publishOptions)
+            } catch {
+                log("Failed to re-publish \(mediaTrack.source) track, error: \(error)", .error)
+            }
         }
     }
 }
