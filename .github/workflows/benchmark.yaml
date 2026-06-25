@@ -27,7 +27,7 @@ jobs:
       LIVEKIT_API_KEY: ${{ inputs.target != 'local' && secrets.BENCHMARK_API_KEY || '' }}
       LIVEKIT_API_SECRET: ${{ inputs.target != 'local' && secrets.BENCHMARK_API_SECRET || '' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install dependencies
         run: brew install jemalloc swiftly && swiftly init --quiet-shell-followup --skip-install -y
