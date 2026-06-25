@@ -65,15 +65,16 @@ extension LocalDataTrack {
     /// Sends frames from the source until it ends or the track is unpublished.
     func send<S: AsyncSequence>(
         contentsOf source: S,
-        onQueueFull: FrameDropPolicy = .drop
+        onQueueFull: FrameDropPolicy = .drop,
     ) async throws where S.Element == DataTrackFrame {
         for try await frame in source {
             guard isPublished() else { break }
             do {
                 try tryPush(frame: frame)
-            } catch PushFrameErrorReason.QueueFull {
+            } catch let error as PushFrameErrorReason {
+                guard case .QueueFull = error else { throw error }
                 switch onQueueFull {
-                case .throw: throw PushFrameErrorReason.QueueFull
+                case .throw: throw error
                 case .drop: continue
                 }
             }
