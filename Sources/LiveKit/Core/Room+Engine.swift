@@ -44,10 +44,7 @@ extension Room {
         publisherDataChannel.reset(throwing: disconnectError)
         subscriberDataChannel.reset(throwing: disconnectError)
 
-        // Clean up data track channels and managers
-        publisherDataTrackChannel = nil
-        subscriberDataTrackChannel = nil
-        cleanUpDataTrackManagers()
+        cleanUpDataTrack()
 
         await _state.transport?.close()
 
@@ -398,6 +395,9 @@ extension Room {
                     throw error
                 }
             }
+
+            // Resend data track subscription state
+            remoteDataTrackManager?.resendSubscriptionUpdates()
         }
 
         // "full" re-connection sequence
@@ -434,6 +434,10 @@ extension Room {
             }
 
             _state.mutate { $0.connectedUrl = finalUrl }
+
+            // Republish data tracks and resend subscription state
+            localDataTrackManager?.republishTracks()
+            remoteDataTrackManager?.resendSubscriptionUpdates()
         }
 
         do {
@@ -474,14 +478,9 @@ extension Room {
                     if case .quick = mode {
                         try await quickReconnectSequence()
                         self.log("[Connect] Quick reconnect succeeded for attempt \(currentAttempt)")
-                        // Resend data track subscription state after quick reconnect
-                        self.remoteDataTrackManager?.resendSubscriptionUpdates()
                     } else if case .full = mode {
                         try await fullReconnectSequence()
                         self.log("[Connect] Full reconnect succeeded for attempt \(currentAttempt)")
-                        // Republish data tracks after full reconnect
-                        self.localDataTrackManager?.republishTracks()
-                        self.remoteDataTrackManager?.resendSubscriptionUpdates()
                     }
                 } catch {
                     self.log("[Connect] Reconnect mode: \(mode) failed with error: \(error)", .error)

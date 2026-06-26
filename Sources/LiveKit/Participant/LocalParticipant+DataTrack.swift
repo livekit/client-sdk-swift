@@ -50,18 +50,17 @@ extension LocalParticipant {
     }
 }
 
-// MARK: - Frame Drop Policy
-
-enum FrameDropPolicy {
-    /// Propagate the error to the caller.
-    case `throw`
-    /// Silently skip the frame.
-    case drop
-}
-
 // MARK: - Sending AsyncSequence to a Track
 
 extension LocalDataTrack {
+    /// Policy for when the send queue is full.
+    enum FrameDropPolicy {
+        /// Propagate the error to the caller.
+        case `throw`
+        /// Silently skip the frame.
+        case drop
+    }
+
     /// Sends frames from the source until it ends or the track is unpublished.
     func send<S: AsyncSequence>(
         contentsOf source: S,

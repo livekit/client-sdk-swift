@@ -23,20 +23,20 @@ internal import LiveKitWebRTC
 
 extension Room {
     func setupDataTrackManagers() {
-        let localBridge = LocalDataTrackBridge(room: self)
+        let bridge = DataTrackBridge(room: self)
         localDataTrackManager = LocalDataTrackManager(
-            delegate: localBridge,
-            encryptionProvider: nil // TODO: E2EE bridge in Phase 1f
+            delegate: bridge,
+            encryptionProvider: nil, // TODO: E2EE bridge in Phase 1f
         )
-
-        let remoteBridge = RemoteDataTrackBridge(room: self)
         remoteDataTrackManager = RemoteDataTrackManager(
-            delegate: remoteBridge,
-            decryptionProvider: nil // TODO: E2EE bridge in Phase 1f
+            delegate: bridge,
+            decryptionProvider: nil, // TODO: E2EE bridge in Phase 1f
         )
     }
 
-    func cleanUpDataTrackManagers() {
+    func cleanUpDataTrack() {
+        publisherDataTrackChannel = nil
+        subscriberDataTrackChannel = nil
         localDataTrackManager = nil
         remoteDataTrackManager = nil
     }
@@ -52,9 +52,14 @@ extension Room {
     }
 }
 
-// MARK: - Local Data Track Bridge
+// MARK: - Data Track Bridge
 
-final class LocalDataTrackBridge: LocalDataTrackManagerDelegate, @unchecked Sendable {
+/// Forwards data track manager callbacks to the ``Room``.
+///
+/// A standalone object rather than ``Room`` itself: the UniFFI managers retain their delegate
+/// strongly, so holding ``Room`` weakly here breaks what would otherwise be a retain cycle. One
+/// instance serves both managers.
+final class DataTrackBridge: LocalDataTrackManagerDelegate, RemoteDataTrackManagerDelegate, @unchecked Sendable {
     private weak var room: Room?
 
     init(room: Room) {
@@ -79,27 +84,6 @@ final class LocalDataTrackBridge: LocalDataTrackManagerDelegate, @unchecked Send
             DispatchQueue.liveKitWebRTC.sync {
                 channel.sendData(buffer)
             }
-        }
-    }
-}
-
-// MARK: - Remote Data Track Bridge
-
-final class RemoteDataTrackBridge: RemoteDataTrackManagerDelegate, @unchecked Sendable {
-    private weak var room: Room?
-
-    init(room: Room) {
-        self.room = room
-    }
-
-    func onSignalRequest(request: Data) {
-        guard let room else { return }
-        guard let signalRequest = try? Livekit_SignalRequest(serializedBytes: request) else {
-            room.log("Failed to decode data track signal request", .warning)
-            return
-        }
-        Task {
-            try? await room.signalClient.sendRequest(signalRequest)
         }
     }
 

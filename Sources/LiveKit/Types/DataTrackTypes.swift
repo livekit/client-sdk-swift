@@ -30,6 +30,4 @@ typealias DataTrackSubscribeError = LiveKitUniFFI.DataTrackSubscribeError
 
 // MARK: - AsyncPolling Conformance
 
-extension LiveKitUniFFI.DataTrackStream: AsyncPolling {
-    typealias Element = LiveKitUniFFI.DataTrackFrame
-}
+extension LiveKitUniFFI.DataTrackStream: AsyncPolling {}
