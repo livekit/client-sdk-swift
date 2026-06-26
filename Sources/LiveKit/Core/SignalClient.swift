@@ -677,7 +677,8 @@ private extension SignalClient {
             await cleanUp(withError: LiveKitError(.serverPingTimedOut))
         }
 
-        _pingTimeoutTimer.restart()
+        // Arm without resetting a running countdown, else every ping pushes the deadline out and it never fires.
+        _pingTimeoutTimer.startIfStopped()
     }
 
     func _onReceivedPong(_: Int64) async {

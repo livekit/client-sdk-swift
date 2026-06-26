@@ -89,4 +89,10 @@ final class AsyncTimer: Sendable, Loggable {
 
         Task { await scheduleNextInvocation() }
     }
+
+    /// Starts the timer only if not already running, leaving an in-flight countdown untouched.
+    func startIfStopped() {
+        if _state.read({ $0.isStarted }) { return }
+        restart()
+    }
 }
