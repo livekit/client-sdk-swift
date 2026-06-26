@@ -14,13 +14,27 @@
  * limitations under the License.
  */
 
+internal import LiveKitUniFFI
 internal import LiveKitWebRTC
 
 @objcMembers
 public class RemoteParticipant: Participant, @unchecked Sendable {
+    /// Data tracks published by this participant, keyed by SID.
+    var dataTracks: [String: RemoteDataTrack] { _dataTracks.copy() }
+    private let _dataTracks = StateSync<[String: RemoteDataTrack]>([:])
+
     init(info: Livekit_ParticipantInfo, room: Room, connectionState: ConnectionState) {
         super.init(room: room, sid: Participant.Sid(from: info.sid), identity: Participant.Identity(from: info.identity))
         set(info: info, connectionState: connectionState)
+    }
+
+    func addDataTrack(_ track: RemoteDataTrack) {
+        _dataTracks.mutate { $0[track.info().sid] = track }
+    }
+
+    @discardableResult
+    func removeDataTrack(sid: String) -> RemoteDataTrack? {
+        _dataTracks.mutate { $0.removeValue(forKey: sid) }
     }
 
     override func set(info: Livekit_ParticipantInfo, connectionState: ConnectionState) {

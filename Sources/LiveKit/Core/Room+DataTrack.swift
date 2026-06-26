@@ -24,13 +24,17 @@ internal import LiveKitWebRTC
 extension Room {
     func setupDataTrackManagers() {
         let bridge = DataTrackBridge(room: self)
+        // Provide E2EE adapters only when E2EE is configured — their presence is what marks tracks
+        // as encrypted (usesE2ee), so they must be nil otherwise.
+        let encryptionProvider: EncryptionProvider? = e2eeManager.map(DataTrackEncryptionProvider.init)
+        let decryptionProvider: DecryptionProvider? = e2eeManager.map(DataTrackDecryptionProvider.init)
         localDataTrackManager = LocalDataTrackManager(
             delegate: bridge,
-            encryptionProvider: nil, // TODO: E2EE bridge in Phase 1f
+            encryptionProvider: encryptionProvider,
         )
         remoteDataTrackManager = RemoteDataTrackManager(
             delegate: bridge,
-            decryptionProvider: nil, // TODO: E2EE bridge in Phase 1f
+            decryptionProvider: decryptionProvider,
         )
     }
 
@@ -79,9 +83,16 @@ final class DataTrackBridge: LocalDataTrackManagerDelegate, RemoteDataTrackManag
 
     func onPacketsAvailable(packets: [Data]) {
         guard let room, let channel = room.publisherDataTrackChannel else { return }
-        for packet in packets {
-            let buffer = RTC.createDataBuffer(data: packet)
-            DispatchQueue.liveKitWebRTC.sync {
+        let buffers = packets.map { RTC.createDataBuffer(data: $0) }
+        DispatchQueue.liveKitWebRTC.sync {
+            // ponytail: drop the whole frame when the channel is congested. The DTP channel is
+            // unreliable, so dropping beats unbounded buffering; switch to drop-oldest if the
+            // newest-frame loss becomes a problem.
+            guard channel.bufferedAmount < Self.maxBufferedAmount else {
+                room.log("Data track channel congested (\(channel.bufferedAmount) bytes buffered), dropping frame", .warning)
+                return
+            }
+            for buffer in buffers {
                 channel.sendData(buffer)
             }
         }
@@ -89,6 +100,8 @@ final class DataTrackBridge: LocalDataTrackManagerDelegate, RemoteDataTrackManag
 
     func onTrackPublished(track: RemoteDataTrack) {
         guard let room else { return }
+        let identity = Participant.Identity(from: track.publisherIdentity())
+        room.remoteParticipants[identity]?.addDataTrack(track)
         room.dataTrackDelegates.notify(label: { "room.didPublishDataTrack" }) {
             $0.room(room, didPublishDataTrack: track)
         }
@@ -96,10 +109,16 @@ final class DataTrackBridge: LocalDataTrackManagerDelegate, RemoteDataTrackManag
 
     func onTrackUnpublished(sid: String) {
         guard let room else { return }
+        for participant in room.remoteParticipants.values where participant.removeDataTrack(sid: sid) != nil {
+            break
+        }
         room.dataTrackDelegates.notify(label: { "room.didUnpublishDataTrack" }) {
             $0.room(room, didUnpublishDataTrack: sid)
         }
     }
+
+    // Bound the publisher data track channel buffer; parity with the lossy data channel threshold.
+    private static let maxBufferedAmount: UInt64 = 2 * 1024 * 1024
 }
 
 // MARK: - Subscriber Data Track Channel Delegate
