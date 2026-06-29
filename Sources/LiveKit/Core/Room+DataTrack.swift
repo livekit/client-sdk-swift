@@ -24,17 +24,16 @@ internal import LiveKitWebRTC
 extension Room {
     func setupDataTrackManagers() {
         let bridge = DataTrackBridge(room: self)
-        // Provide E2EE adapters only when E2EE is configured — their presence is what marks tracks
-        // as encrypted (usesE2ee), so they must be nil otherwise.
-        let encryptionProvider: EncryptionProvider? = e2eeManager.map(DataTrackEncryptionProvider.init)
-        let decryptionProvider: DecryptionProvider? = e2eeManager.map(DataTrackDecryptionProvider.init)
+        // Provide the cryptor only when E2EE is configured — its presence is what marks tracks as
+        // encrypted (usesE2ee), so it must be nil otherwise.
+        let cryptor: DataTrackCryptor? = e2eeManager.map(DataTrackCryptor.init)
         localDataTrackManager = LocalDataTrackManager(
             delegate: bridge,
-            encryptionProvider: encryptionProvider,
+            encryptionProvider: cryptor,
         )
         remoteDataTrackManager = RemoteDataTrackManager(
             delegate: bridge,
-            decryptionProvider: decryptionProvider,
+            decryptionProvider: cryptor,
         )
     }
 
@@ -119,6 +118,23 @@ final class DataTrackBridge: LocalDataTrackManagerDelegate, RemoteDataTrackManag
 
     // Bound the publisher data track channel buffer; parity with the lossy data channel threshold.
     private static let maxBufferedAmount: UInt64 = 2 * 1024 * 1024
+}
+
+// MARK: - Reconnect
+
+extension LocalDataTrackManager {
+    /// Restores local publications after a reconnect. Quick reconnect preserves them via sync
+    /// state, so only a full reconnect needs to republish.
+    func handleReconnect(fullReconnect: Bool) {
+        if fullReconnect { republishTracks() }
+    }
+}
+
+extension RemoteDataTrackManager {
+    /// Re-asserts subscriptions after a reconnect so the SFU re-issues subscriber handles.
+    func handleReconnect(fullReconnect _: Bool) {
+        resendSubscriptionUpdates()
+    }
 }
 
 // MARK: - Subscriber Data Track Channel Delegate

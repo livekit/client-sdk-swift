@@ -23,15 +23,7 @@ extension DataTrackFrame {
     static func now(payload: Data) -> DataTrackFrame {
         DataTrackFrame(
             payload: payload,
-            userTimestamp: UInt64(Date().timeIntervalSince1970 * 1000)
+            userTimestamp: UInt64(Date().timeIntervalSince1970 * 1000),
         )
-    }
-
-    /// Time elapsed since the frame's timestamp, if present.
-    var latency: TimeInterval? {
-        guard let ts = userTimestamp else { return nil }
-        let now = UInt64(Date().timeIntervalSince1970 * 1000)
-        guard now >= ts else { return nil }
-        return TimeInterval(now - ts) / 1000.0
     }
 }

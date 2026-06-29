@@ -19,16 +19,14 @@ import Foundation
 internal import LiveKitUniFFI
 internal import LiveKitWebRTC
 
-// MARK: - Data Track E2EE Providers
+// MARK: - Data Track Cryptor
 
-// Internal adapters bridging the UniFFI data track providers to `E2EEManager`. The public
-// `E2EEManager` can't conform directly — a public type may not adopt a protocol from an
-// `internal import`ed module — so these internal wrappers carry the conformance instead. They add
-// no key handling of their own: encryption rides E2EEManager's existing AES-GCM data path
-// (LKRTCDataPacketCryptor over the shared BaseKeyProvider), the same path as legacy data channel
-// payloads.
-
-final class DataTrackEncryptionProvider: EncryptionProvider, @unchecked Sendable {
+// Internal cryptor bridging the UniFFI data track providers to E2EEManager. The public
+// E2EEManager can't adopt an internally-imported protocol directly, so this internal type carries
+// both conformances. It adds no key handling of its own — encryption rides E2EEManager's existing
+// AES-GCM data path (LKRTCDataPacketCryptor over the shared BaseKeyProvider), the same path as
+// legacy data channel payloads.
+final class DataTrackCryptor: EncryptionProvider, DecryptionProvider, @unchecked Sendable {
     private let e2eeManager: E2EEManager
 
     init(e2eeManager: E2EEManager) {
@@ -46,14 +44,6 @@ final class DataTrackEncryptionProvider: EncryptionProvider, @unchecked Sendable
         } catch {
             throw EncryptionError.Failed(message: String(describing: error))
         }
-    }
-}
-
-final class DataTrackDecryptionProvider: DecryptionProvider, @unchecked Sendable {
-    private let e2eeManager: E2EEManager
-
-    init(e2eeManager: E2EEManager) {
-        self.e2eeManager = e2eeManager
     }
 
     func decrypt(payload: EncryptedPayload, senderIdentity: String) throws -> Data {

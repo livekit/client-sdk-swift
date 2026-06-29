@@ -143,8 +143,10 @@ struct DataTrackTests {
             }
 
             #expect(frame.userTimestamp != nil)
-            if let latency = frame.latency {
-                #expect(latency < 5.0, "Latency should be under 5 seconds, was \(latency)")
+            if let ts = frame.userTimestamp {
+                let nowMs = UInt64(Date().timeIntervalSince1970 * 1000)
+                let elapsedMs = nowMs > ts ? nowMs - ts : 0
+                #expect(elapsedMs < 5000, "Latency should be under 5 seconds, was \(elapsedMs)ms")
             }
         }
     }

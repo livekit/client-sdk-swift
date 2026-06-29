@@ -396,8 +396,8 @@ extension Room {
                 }
             }
 
-            // Resend data track subscription state
-            remoteDataTrackManager?.resendSubscriptionUpdates()
+            localDataTrackManager?.handleReconnect(fullReconnect: false)
+            remoteDataTrackManager?.handleReconnect(fullReconnect: false)
         }
 
         // "full" re-connection sequence
@@ -435,9 +435,8 @@ extension Room {
 
             _state.mutate { $0.connectedUrl = finalUrl }
 
-            // Republish data tracks and resend subscription state
-            localDataTrackManager?.republishTracks()
-            remoteDataTrackManager?.resendSubscriptionUpdates()
+            localDataTrackManager?.handleReconnect(fullReconnect: true)
+            remoteDataTrackManager?.handleReconnect(fullReconnect: true)
         }
 
         do {
