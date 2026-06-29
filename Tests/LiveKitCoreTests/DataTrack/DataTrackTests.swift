@@ -25,8 +25,23 @@ import LiveKitTestSupport
 struct DataTrackTests {
     // MARK: - Publish and Receive
 
-    @Test
-    func publishAndReceive() async throws {
+    /// A publish → subscribe → push → receive scenario.
+    struct ReceiveScenario: CustomTestStringConvertible {
+        let name: String
+        let payloadSize: Int
+        let frameCount: Int
+        /// Delay between pushes; large multi-packet frames need spacing.
+        let interFrameDelayMs: UInt64
+        var testDescription: String { name }
+
+        /// Many small single-packet frames.
+        static let smallFrames = ReceiveScenario(name: "smallFrames", payloadSize: 1024, frameCount: 10, interFrameDelayMs: 0)
+        /// A few large frames that require DTP packetization across multiple packets.
+        static let largeFrames = ReceiveScenario(name: "largeFrames", payloadSize: 196 * 1024, frameCount: 3, interFrameDelayMs: 100)
+    }
+
+    @Test(arguments: [ReceiveScenario.smallFrames, .largeFrames])
+    func publishAndReceive(_ scenario: ReceiveScenario) async throws {
         try await TestEnvironment.withRooms([
             RoomTestingOptions(canPublishData: true),
             RoomTestingOptions(canSubscribe: true),
@@ -34,7 +49,7 @@ struct DataTrackTests {
             let publisherRoom = rooms[0]
             let subscriberRoom = rooms[1]
 
-            // Start watching before publishing to avoid race condition
+            // Start watching before publishing to avoid a race.
             let watcher = DataTrackWatcher(expectedName: "test")
             subscriberRoom.delegates.add(delegate: watcher)
 
@@ -43,22 +58,28 @@ struct DataTrackTests {
 
             let remoteTrack = try await watcher.waitForTrack()
             #expect(remoteTrack.info.name == "test")
+            // withRooms enables E2EE by default, so the track should be encrypted.
+            #expect(remoteTrack.info.usesE2ee)
 
             let stream = try await remoteTrack.subscribe()
 
-            let payload = Data(repeating: 0xAB, count: 1024)
-            let frameCount = 10
-            for _ in 0 ..< frameCount {
+            let payload = Data(repeating: 0xAB, count: scenario.payloadSize)
+            for _ in 0 ..< scenario.frameCount {
                 try track.tryPush(frame: .now(payload: payload))
+                if scenario.interFrameDelayMs > 0 {
+                    try? await Task.sleep(nanoseconds: scenario.interFrameDelayMs * 1_000_000)
+                }
             }
 
+            // The channel is unreliable, so tolerate a single dropped frame.
+            let expected = scenario.frameCount - 1
             var received = 0
             for await frame in stream.values {
-                #expect(frame.payload == payload)
+                #expect(frame.payload == payload, "Payload mismatch on frame \(received)")
                 received += 1
-                if received >= frameCount - 1 { break }
+                if received >= expected { break }
             }
-            #expect(received >= frameCount - 1, "Expected at least \(frameCount - 1) frames, got \(received)")
+            #expect(received >= expected, "Expected at least \(expected) frames, got \(received)")
         }
     }
 
@@ -72,11 +93,8 @@ struct DataTrackTests {
             let room = rooms[0]
             let first = try await room.localParticipant.publishDataTrack(name: "dup")
             #expect(first.isPublished)
-            do {
+            await #expect(throws: DataTrackPublishError.self) {
                 _ = try await room.localParticipant.publishDataTrack(name: "dup")
-                Issue.record("Expected duplicate name error")
-            } catch {
-                // Any error is acceptable — DuplicateName or similar
             }
         }
     }
@@ -89,11 +107,8 @@ struct DataTrackTests {
             RoomTestingOptions(canPublishData: false),
         ]) { rooms in
             let room = rooms[0]
-            do {
+            await #expect(throws: DataTrackPublishError.self) {
                 _ = try await room.localParticipant.publishDataTrack(name: "unauth")
-                Issue.record("Expected DataTrackPublishError.notAllowed")
-            } catch is DataTrackPublishError {
-                // Expected
             }
         }
     }
@@ -136,53 +151,11 @@ struct DataTrackTests {
             let payload = Data([1, 2, 3])
             try track.tryPush(frame: .now(payload: payload))
 
-            guard let frame = await stream.next() else {
-                Issue.record("Expected a frame")
-                return
-            }
-
-            #expect(frame.userTimestamp != nil)
-            if let ts = frame.userTimestamp {
-                let nowMs = UInt64(Date().timeIntervalSince1970 * 1000)
-                let elapsedMs = nowMs > ts ? nowMs - ts : 0
-                #expect(elapsedMs < 5000, "Latency should be under 5 seconds, was \(elapsedMs)ms")
-            }
-        }
-    }
-
-    // MARK: - Large Frames (Multi-Packet)
-
-    @Test
-    func publishLargeFrames() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canSubscribe: true),
-        ]) { rooms in
-            let publisherRoom = rooms[0]
-            let subscriberRoom = rooms[1]
-
-            let watcher = DataTrackWatcher(expectedName: "large")
-            subscriberRoom.delegates.add(delegate: watcher)
-
-            let track = try await publisherRoom.localParticipant.publishDataTrack(name: "large")
-            let remoteTrack = try await watcher.waitForTrack()
-            let stream = try await remoteTrack.subscribe()
-
-            // 196KB payload — requires DTP packetization across multiple packets
-            let payload = Data((0 ..< 196 * 1024).map { UInt8($0 % 256) })
-            let frameCount = 3
-            for _ in 0 ..< frameCount {
-                try track.tryPush(frame: DataTrackFrame(payload: payload, userTimestamp: nil))
-                try? await Task.sleep(nanoseconds: 100_000_000) // 100ms between large frames
-            }
-
-            var received = 0
-            for await frame in stream.values {
-                #expect(frame.payload == payload, "Payload mismatch on frame \(received)")
-                received += 1
-                if received >= frameCount { break }
-            }
-            #expect(received >= frameCount)
+            let frame = try #require(await stream.next())
+            let ts = try #require(frame.userTimestamp)
+            let nowMs = UInt64(Date().timeIntervalSince1970 * 1000)
+            let elapsedMs = nowMs > ts ? nowMs - ts : 0
+            #expect(elapsedMs < 5000, "Latency should be under 5 seconds, was \(elapsedMs)ms")
         }
     }
 
@@ -205,31 +178,23 @@ struct DataTrackTests {
 
             let payload = Data([0xDE, 0xAD])
 
-            // First subscription
+            // First subscription.
             do {
                 let stream = try await remoteTrack.subscribe()
-                try track.tryPush(frame: DataTrackFrame(payload: payload, userTimestamp: nil))
-
-                guard let frame = await stream.next() else {
-                    Issue.record("No frame on first subscription")
-                    return
-                }
+                try track.tryPush(frame: DataTrackFrame(payload: payload))
+                let frame = try #require(await stream.next(), "No frame on first subscription")
                 #expect(frame.payload == payload)
             }
-            // Stream dropped — unsubscribes
+            // Stream dropped — unsubscribes.
 
-            // Small delay to let unsubscribe propagate
+            // Small delay to let unsubscribe propagate.
             try await Task.sleep(nanoseconds: 500_000_000)
 
-            // Second subscription
+            // Second subscription.
             do {
                 let stream = try await remoteTrack.subscribe()
-                try track.tryPush(frame: DataTrackFrame(payload: payload, userTimestamp: nil))
-
-                guard let frame = await stream.next() else {
-                    Issue.record("No frame on second subscription")
-                    return
-                }
+                try track.tryPush(frame: DataTrackFrame(payload: payload))
+                let frame = try #require(await stream.next(), "No frame on second subscription")
                 #expect(frame.payload == payload)
             }
         }
@@ -243,7 +208,7 @@ struct DataTrackTests {
             RoomTestingOptions(canPublishData: true),
         ]) { rooms in
             let room = rooms[0]
-            let count = 64 // Conservative vs Rust's 256 — faster CI
+            let count = 64 // Conservative vs Rust's 256 — faster CI.
 
             var tracks: [LocalDataTrack] = []
             for i in 0 ..< count {
