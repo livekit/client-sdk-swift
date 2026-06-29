@@ -142,7 +142,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     var publisherDataTrackChannel: LKRTCDataChannel? { _dataTracks.publisherChannel }
     var subscriberDataTrackChannel: LKRTCDataChannel? { _dataTracks.subscriberChannel }
     lazy var subscriberDataTrackChannelDelegate = SubscriberDataTrackChannelDelegate(room: self)
-    let dataTrackDelegates = MulticastDelegate<DataTrackDelegate>(label: "DataTrackDelegate")
 
     // MARK: - PreConnect
 

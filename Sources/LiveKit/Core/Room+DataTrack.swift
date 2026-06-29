@@ -101,12 +101,13 @@ final class DataTrackBridge: LocalDataTrackManagerDelegate, RemoteDataTrackManag
         }
     }
 
-    func onTrackPublished(track: RemoteDataTrack) {
+    func onTrackPublished(track: LiveKitUniFFI.RemoteDataTrack) {
         guard let room else { return }
-        let identity = Participant.Identity(from: track.publisherIdentity())
-        room.remoteParticipants[identity]?.addDataTrack(track)
-        room.dataTrackDelegates.notify(label: { "room.didPublishDataTrack" }) {
-            $0.room(room, didPublishDataTrack: track)
+        let dataTrack = RemoteDataTrack(track)
+        let identity = Participant.Identity(from: dataTrack.publisherIdentity)
+        room.remoteParticipants[identity]?.addDataTrack(dataTrack)
+        room.delegates.notify(label: { "room.didPublishDataTrack" }) {
+            $0.room?(room, didPublishDataTrack: dataTrack)
         }
     }
 
@@ -115,8 +116,8 @@ final class DataTrackBridge: LocalDataTrackManagerDelegate, RemoteDataTrackManag
         for participant in room.remoteParticipants.values where participant.removeDataTrack(sid: sid) != nil {
             break
         }
-        room.dataTrackDelegates.notify(label: { "room.didUnpublishDataTrack" }) {
-            $0.room(room, didUnpublishDataTrack: sid)
+        room.delegates.notify(label: { "room.didUnpublishDataTrack" }) {
+            $0.room?(room, didUnpublishDataTrack: sid)
         }
     }
 

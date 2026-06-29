@@ -18,12 +18,20 @@ import Foundation
 
 internal import LiveKitUniFFI
 
-extension DataTrackFrame {
-    /// Creates a frame with the current Unix timestamp in milliseconds.
-    static func now(payload: Data) -> DataTrackFrame {
-        DataTrackFrame(
-            payload: payload,
-            userTimestamp: UInt64(Date().timeIntervalSince1970 * 1000),
-        )
+/// Metadata describing a published data track.
+@objcMembers
+public final class DataTrackInfo: NSObject, Sendable {
+    /// Server-assigned unique identifier for the track.
+    public let sid: String
+    /// Name chosen by the publisher; unique per participant.
+    public let name: String
+    /// Whether the track's frames are end-to-end encrypted.
+    public let usesE2ee: Bool
+
+    init(_ info: LiveKitUniFFI.DataTrackInfo) {
+        sid = info.sid
+        name = info.name
+        usesE2ee = info.usesE2ee
+        super.init()
     }
 }

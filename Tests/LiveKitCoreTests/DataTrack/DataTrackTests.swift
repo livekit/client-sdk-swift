@@ -16,7 +16,6 @@
 
 import Foundation
 @testable import LiveKit
-import LiveKitUniFFI
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -37,13 +36,13 @@ struct DataTrackTests {
 
             // Start watching before publishing to avoid race condition
             let watcher = DataTrackWatcher(expectedName: "test")
-            subscriberRoom.dataTrackDelegates.add(delegate: watcher)
+            subscriberRoom.delegates.add(delegate: watcher)
 
             let track = try await publisherRoom.localParticipant.publishDataTrack(name: "test")
-            #expect(track.isPublished())
+            #expect(track.isPublished)
 
             let remoteTrack = try await watcher.waitForTrack()
-            #expect(remoteTrack.info().name == "test")
+            #expect(remoteTrack.info.name == "test")
 
             let stream = try await remoteTrack.subscribe()
 
@@ -72,7 +71,7 @@ struct DataTrackTests {
         ]) { rooms in
             let room = rooms[0]
             let first = try await room.localParticipant.publishDataTrack(name: "dup")
-            #expect(first.isPublished())
+            #expect(first.isPublished)
             do {
                 _ = try await room.localParticipant.publishDataTrack(name: "dup")
                 Issue.record("Expected duplicate name error")
@@ -92,8 +91,8 @@ struct DataTrackTests {
             let room = rooms[0]
             do {
                 _ = try await room.localParticipant.publishDataTrack(name: "unauth")
-                Issue.record("Expected PublishError.NotAllowed")
-            } catch is PublishError {
+                Issue.record("Expected DataTrackPublishError.notAllowed")
+            } catch is DataTrackPublishError {
                 // Expected
             }
         }
@@ -108,11 +107,11 @@ struct DataTrackTests {
         ]) { rooms in
             let room = rooms[0]
             let track = try await room.localParticipant.publishDataTrack(name: "state-test")
-            #expect(track.isPublished())
+            #expect(track.isPublished)
 
             track.unpublish()
             await track.waitForUnpublish()
-            #expect(!track.isPublished())
+            #expect(!track.isPublished)
         }
     }
 
@@ -128,7 +127,7 @@ struct DataTrackTests {
             let subscriberRoom = rooms[1]
 
             let watcher = DataTrackWatcher(expectedName: "ts-test")
-            subscriberRoom.dataTrackDelegates.add(delegate: watcher)
+            subscriberRoom.delegates.add(delegate: watcher)
 
             let track = try await publisherRoom.localParticipant.publishDataTrack(name: "ts-test")
             let remoteTrack = try await watcher.waitForTrack()
@@ -163,7 +162,7 @@ struct DataTrackTests {
             let subscriberRoom = rooms[1]
 
             let watcher = DataTrackWatcher(expectedName: "large")
-            subscriberRoom.dataTrackDelegates.add(delegate: watcher)
+            subscriberRoom.delegates.add(delegate: watcher)
 
             let track = try await publisherRoom.localParticipant.publishDataTrack(name: "large")
             let remoteTrack = try await watcher.waitForTrack()
@@ -199,7 +198,7 @@ struct DataTrackTests {
             let subscriberRoom = rooms[1]
 
             let watcher = DataTrackWatcher(expectedName: "resub")
-            subscriberRoom.dataTrackDelegates.add(delegate: watcher)
+            subscriberRoom.delegates.add(delegate: watcher)
 
             let track = try await publisherRoom.localParticipant.publishDataTrack(name: "resub")
             let remoteTrack = try await watcher.waitForTrack()
@@ -254,8 +253,8 @@ struct DataTrackTests {
 
             #expect(tracks.count == count)
             for (i, track) in tracks.enumerated() {
-                #expect(track.info().name == "track-\(i)")
-                #expect(track.isPublished())
+                #expect(track.info.name == "track-\(i)")
+                #expect(track.isPublished)
             }
         }
     }

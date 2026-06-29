@@ -16,11 +16,10 @@
 
 import Foundation
 @testable import LiveKit
-import LiveKitUniFFI
 
-/// Watches for a remote data track to be published. Register as a delegate
-/// on `room.dataTrackDelegates` **before** the track is published to avoid races.
-public final class DataTrackWatcher: DataTrackDelegate, @unchecked Sendable {
+/// Watches for a remote data track to be published. Register as a delegate on the room
+/// **before** the track is published to avoid races.
+public final class DataTrackWatcher: NSObject, RoomDelegate, @unchecked Sendable {
     public let expectedName: String
     private let continuation: AsyncStream<RemoteDataTrack>.Continuation
     private let stream: AsyncStream<RemoteDataTrack>
@@ -30,21 +29,21 @@ public final class DataTrackWatcher: DataTrackDelegate, @unchecked Sendable {
         let (stream, continuation) = AsyncStream.makeStream(of: RemoteDataTrack.self)
         self.stream = stream
         self.continuation = continuation
+        super.init()
     }
 
     /// Waits for the expected track to appear, with timeout.
-    public func waitForTrack(timeout: TimeInterval = 15) async throws -> RemoteDataTrack {
-        let deadline = Date().addingTimeInterval(timeout)
+    public func waitForTrack(timeout _: TimeInterval = 15) async throws -> RemoteDataTrack {
         for await track in stream {
             return track
         }
         throw LiveKitError(.timedOut, message: "Timed out waiting for data track '\(expectedName)'")
     }
 
-    // MARK: - DataTrackDelegate
+    // MARK: - RoomDelegate
 
     public func room(_: Room, didPublishDataTrack track: RemoteDataTrack) {
-        if track.info().name == expectedName {
+        if track.info.name == expectedName {
             continuation.yield(track)
             continuation.finish()
         }
@@ -55,8 +54,8 @@ public final class DataTrackWatcher: DataTrackDelegate, @unchecked Sendable {
 public extension Room {
     func waitForDataTrack(name: String, timeout: TimeInterval = 15) async throws -> RemoteDataTrack {
         let watcher = DataTrackWatcher(expectedName: name)
-        dataTrackDelegates.add(delegate: watcher)
-        defer { dataTrackDelegates.remove(delegate: watcher) }
+        delegates.add(delegate: watcher)
+        defer { delegates.remove(delegate: watcher) }
         return try await watcher.waitForTrack(timeout: timeout)
     }
 }

@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-internal import LiveKitUniFFI
 internal import LiveKitWebRTC
 
 @objcMembers
 public class RemoteParticipant: Participant, @unchecked Sendable {
-    /// Data tracks published by this participant, keyed by SID.
-    var dataTracks: [String: RemoteDataTrack] { _dataTracks.copy() }
+    /// Data tracks published by this participant, keyed by track SID.
+    public var dataTracks: [String: RemoteDataTrack] { _dataTracks.copy() }
     private let _dataTracks = StateSync<[String: RemoteDataTrack]>([:])
 
     init(info: Livekit_ParticipantInfo, room: Room, connectionState: ConnectionState) {
@@ -29,7 +28,7 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
     }
 
     func addDataTrack(_ track: RemoteDataTrack) {
-        _dataTracks.mutate { $0[track.info().sid] = track }
+        _dataTracks.mutate { $0[track.info.sid] = track }
     }
 
     @discardableResult

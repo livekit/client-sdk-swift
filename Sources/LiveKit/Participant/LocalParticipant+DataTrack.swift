@@ -20,24 +20,29 @@ internal import LiveKitUniFFI
 
 // MARK: - Data Track Publishing
 
-extension LocalParticipant {
-    /// Publishes a data track with the given name.
+public extension LocalParticipant {
+    /// Publishes a data track, allowing this participant to send frames to subscribers.
     ///
     /// - Parameter name: Track name visible to other participants. Must be unique per publisher.
-    /// - Returns: A ``LocalDataTrack`` that can be used to push frames to subscribers.
-    /// - Throws: ``PublishError`` if the track cannot be published.
+    /// - Returns: A ``LocalDataTrack`` used to push frames via ``LocalDataTrack/tryPush(frame:)``.
+    /// - Throws: ``DataTrackPublishError`` if the track cannot be published.
     func publishDataTrack(name: String) async throws -> LocalDataTrack {
         guard let manager = _room?.localDataTrackManager else {
             throw LiveKitError(.invalidState, message: "Not connected to a room")
         }
-        return try await manager.publishTrack(options: DataTrackOptions(name: name))
+        do {
+            let track = try await manager.publishTrack(options: DataTrackOptions(name: name))
+            return LocalDataTrack(track)
+        } catch let error as PublishError {
+            throw DataTrackPublishError(error)
+        }
     }
 
-    /// Publishes a data track for the duration of the given closure, then unpublishes automatically.
+    /// Publishes a data track for the duration of `body`, then unpublishes it automatically.
     ///
     /// - Parameters:
-    ///   - name: Track name visible to other participants.
-    ///   - body: Closure that receives the published track. The track is unpublished when the closure returns or throws.
+    ///   - name: Track name visible to other participants. Must be unique per publisher.
+    ///   - body: Receives the published track; the track is unpublished when it returns or throws.
     /// - Returns: The value returned by `body`.
     func withDataTrack<T>(name: String, body: (LocalDataTrack) async throws -> T) async throws -> T {
         let track = try await publishDataTrack(name: name)
@@ -48,35 +53,10 @@ extension LocalParticipant {
             track.unpublish()
         }
     }
-}
 
-// MARK: - Sending AsyncSequence to a Track
-
-extension LocalDataTrack {
-    /// Policy for when the send queue is full.
-    enum FrameDropPolicy {
-        /// Propagate the error to the caller.
-        case `throw`
-        /// Silently skip the frame.
-        case drop
-    }
-
-    /// Sends frames from the source until it ends or the track is unpublished.
-    func send<S: AsyncSequence>(
-        contentsOf source: S,
-        onQueueFull: FrameDropPolicy = .drop,
-    ) async throws where S.Element == DataTrackFrame {
-        for try await frame in source {
-            guard isPublished() else { break }
-            do {
-                try tryPush(frame: frame)
-            } catch let error as PushFrameErrorReason {
-                guard case .QueueFull = error else { throw error }
-                switch onQueueFull {
-                case .throw: throw error
-                case .drop: continue
-                }
-            }
-        }
+    /// Returns metadata for the data tracks currently published by this participant.
+    func queryDataTracks() async -> [DataTrackInfo] {
+        guard let manager = _room?.localDataTrackManager else { return [] }
+        return await manager.queryTracks().map(DataTrackInfo.init)
     }
 }
