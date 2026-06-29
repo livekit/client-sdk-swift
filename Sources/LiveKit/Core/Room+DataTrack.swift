@@ -68,18 +68,21 @@ extension Room {
 /// instance serves both managers.
 final class DataTrackBridge: LocalDataTrackManagerDelegate, RemoteDataTrackManagerDelegate, @unchecked Sendable {
     private weak var room: Room?
+    // Serializes outbound signal requests so they reach the SFU in the order the manager emits
+    // them — a bare Task per callback could reorder e.g. a publish/unpublish pair.
+    private let signalSender = AsyncSerialDelegate<Room>()
 
     init(room: Room) {
         self.room = room
+        signalSender.set(delegate: room)
     }
 
     func onSignalRequest(request: Data) {
-        guard let room else { return }
-        guard let signalRequest = try? Livekit_SignalRequest(serializedBytes: request) else {
-            room.log("Failed to decode data track signal request", .warning)
-            return
-        }
-        Task {
+        signalSender.notifyDetached { room in
+            guard let signalRequest = try? Livekit_SignalRequest(serializedBytes: request) else {
+                room.log("Failed to decode data track signal request", .warning)
+                return
+            }
             try? await room.signalClient.sendRequest(signalRequest)
         }
     }
@@ -87,7 +90,7 @@ final class DataTrackBridge: LocalDataTrackManagerDelegate, RemoteDataTrackManag
     func onPacketsAvailable(packets: [Data]) {
         guard let room, let channel = room.publisherDataTrackChannel else { return }
         let buffers = packets.map { RTC.createDataBuffer(data: $0) }
-        DispatchQueue.liveKitWebRTC.sync {
+        DispatchQueue.liveKitWebRTC.async {
             // ponytail: drop the whole frame when the channel is congested. The DTP channel is
             // unreliable, so dropping beats unbounded buffering; switch to drop-oldest if the
             // newest-frame loss becomes a problem.
