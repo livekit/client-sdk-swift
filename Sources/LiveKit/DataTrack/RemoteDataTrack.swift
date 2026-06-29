@@ -21,7 +21,7 @@ internal import LiveKitUniFFI
 /// A data track published by a remote participant. Delivered via
 /// ``RoomDelegate/room(_:didPublishDataTrack:)`` and available on ``RemoteParticipant/dataTracks``.
 /// Call ``subscribe()`` to start receiving frames.
-public final class RemoteDataTrack: NSObject, Sendable {
+public final class RemoteDataTrack: NSObject, Sendable, FFIBridged {
     private let track: LiveKitUniFFI.RemoteDataTrack
 
     init(_ track: LiveKitUniFFI.RemoteDataTrack) {

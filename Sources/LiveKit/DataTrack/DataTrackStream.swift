@@ -22,7 +22,7 @@ internal import LiveKitUniFFI
 ///
 /// Swift callers can iterate with `for await frame in stream.values`; Objective-C callers use
 /// ``read(onFrame:)``.
-public final class DataTrackStream: NSObject, Sendable {
+public final class DataTrackStream: NSObject, Sendable, FFIBridged {
     private let stream: LiveKitUniFFI.DataTrackStream
 
     init(_ stream: LiveKitUniFFI.DataTrackStream) {

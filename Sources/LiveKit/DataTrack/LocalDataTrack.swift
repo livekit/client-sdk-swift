@@ -20,7 +20,7 @@ internal import LiveKitUniFFI
 
 /// A data track published by the local participant. Obtain one from
 /// ``LocalParticipant/publishDataTrack(name:)``, then push frames with ``tryPush(frame:)``.
-public final class LocalDataTrack: NSObject, Sendable {
+public final class LocalDataTrack: NSObject, Sendable, FFIBridged {
     private let track: LiveKitUniFFI.LocalDataTrack
 
     init(_ track: LiveKitUniFFI.LocalDataTrack) {

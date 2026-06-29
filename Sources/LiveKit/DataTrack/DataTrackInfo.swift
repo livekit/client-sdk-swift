@@ -20,7 +20,7 @@ internal import LiveKitUniFFI
 
 /// Metadata describing a published data track.
 @objcMembers
-public final class DataTrackInfo: NSObject, Sendable {
+public final class DataTrackInfo: NSObject, Sendable, FFIBridged {
     /// Server-assigned unique identifier for the track.
     public let sid: String
     /// Name chosen by the publisher; unique per participant.
