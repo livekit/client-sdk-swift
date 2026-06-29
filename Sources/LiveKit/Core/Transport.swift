@@ -61,6 +61,14 @@ actor Transport: NSObject, Loggable {
     private var _isRestartingIce: Bool = false
     private var _latestOfferId: UInt32 = 0
 
+    // Track bitrate info for x-google-start-bitrate SDP munging
+    private var _trackBitrates: [String: TrackBitrateInfo] = [:]
+
+    struct TrackBitrateInfo {
+        let codec: String
+        let maxBitrateKbps: Int
+    }
+
     // forbid direct access to PeerConnection
     private let _pc: LKRTCPeerConnection
 
@@ -116,6 +124,11 @@ actor Transport: NSObject, Loggable {
 
     func setIsRestartingIce() {
         _isRestartingIce = true
+    }
+
+    /// Register bitrate info for a track to enable x-google-start-bitrate SDP munging
+    func setTrackBitrateInfo(cid: String, codec: String, maxBitrateKbps: Int) {
+        _trackBitrates[cid] = TrackBitrateInfo(codec: codec, maxBitrateKbps: maxBitrateKbps)
     }
 
     func add(iceCandidate candidate: IceCandidate) async throws {
@@ -185,12 +198,21 @@ actor Transport: NSObject, Loggable {
         func _negotiateSequence() async throws {
             _latestOfferId += 1
             var offer = try await createOffer(for: constraints)
+            var sdp = offer.sdp
+
             if singlePCMode {
-                let mungedSDP = Self.mungeInactiveToRecvOnlyForMedia(offer.sdp)
-                if mungedSDP != offer.sdp {
-                    offer = RTC.createSessionDescription(type: offer.type, sdp: mungedSDP)
-                }
+                sdp = Self.mungeInactiveToRecvOnlyForMedia(sdp)
             }
+
+            // Apply x-google-start-bitrate for video codecs to prevent initial blurriness
+            if !_trackBitrates.isEmpty {
+                sdp = mungeStartBitrate(sdp, trackBitrates: _trackBitrates)
+            }
+
+            if sdp != offer.sdp {
+                offer = RTC.createSessionDescription(type: offer.type, sdp: sdp)
+            }
+
             try await set(localDescription: offer)
             try await _onOffer(offer, _latestOfferId)
         }
@@ -248,6 +270,88 @@ extension Transport {
         }
 
         var result = out.joined(separator: eol)
+        if sdp.hasSuffix(eol), !result.hasSuffix(eol) {
+            result.append(eol)
+        }
+        return result
+    }
+
+    /// Start bitrate multiplier for x-google-start-bitrate SDP hint.
+    /// Why 90%: Gives ~10% headroom for bandwidth estimation while starting close to target.
+    /// Why same for all codecs: Target bitrate already accounts for codec efficiency
+    /// (e.g., users set lower targets for VP9/AV1 knowing they're more efficient).
+    private static let startBitrateMultiplier = 0.9
+
+    private static let videoCodecs = ["vp8", "vp9", "av1", "h264", "h265"]
+
+    /// Munge SDP to add x-google-start-bitrate for video codecs.
+    /// This helps prevent initial video blurriness by starting at a higher bitrate.
+    func mungeStartBitrate(_ sdp: String, trackBitrates: [String: TrackBitrateInfo]) -> String {
+        guard !trackBitrates.isEmpty else { return sdp }
+
+        let usesCRLF = sdp.contains("\r\n")
+        let eol = usesCRLF ? "\r\n" : "\n"
+        var lines = sdp.components(separatedBy: usesCRLF ? "\r\n" : "\n")
+
+        // Find video codecs and their payload types from a=rtpmap lines
+        var codecPayloads: [String: Int] = [:]
+        for line in lines {
+            let l = line.trimmingCharacters(in: .whitespaces)
+            // a=rtpmap:96 VP8/90000
+            if l.hasPrefix("a=rtpmap:") {
+                let parts = l.dropFirst("a=rtpmap:".count).split(separator: " ", maxSplits: 1)
+                if parts.count == 2,
+                   let payload = Int(parts[0])
+                {
+                    let codecName = String(parts[1]).split(separator: "/").first.map(String.init) ?? ""
+                    if Self.videoCodecs.contains(codecName.lowercased()) {
+                        codecPayloads[codecName.lowercased()] = payload
+                    }
+                }
+            }
+        }
+
+        // Get max bitrate from track bitrates for video codecs
+        var maxBitrateKbps: Int = 0
+        for (_, info) in trackBitrates {
+            if Self.videoCodecs.contains(info.codec.lowercased()) {
+                maxBitrateKbps = max(maxBitrateKbps, info.maxBitrateKbps)
+            }
+        }
+
+        guard maxBitrateKbps > 0 else { return sdp }
+
+        let startBitrateKbps = Int(Double(maxBitrateKbps) * Self.startBitrateMultiplier)
+
+        // Update or add fmtp lines for video codecs
+        for (codec, payload) in codecPayloads {
+            var fmtpFound = false
+            for (idx, line) in lines.enumerated() {
+                let l = line.trimmingCharacters(in: .whitespaces)
+                // a=fmtp:96 profile-id=0
+                if l.hasPrefix("a=fmtp:\(payload) ") || l == "a=fmtp:\(payload)" {
+                    fmtpFound = true
+                    if !l.contains("x-google-start-bitrate") {
+                        lines[idx] = "\(line);x-google-start-bitrate=\(startBitrateKbps)"
+                    }
+                    break
+                }
+            }
+
+            // If no fmtp line exists for this codec, add one
+            if !fmtpFound {
+                // Find the rtpmap line for this codec and insert fmtp after it
+                for (idx, line) in lines.enumerated() {
+                    let l = line.trimmingCharacters(in: .whitespaces)
+                    if l.hasPrefix("a=rtpmap:\(payload) "), l.lowercased().contains(codec) {
+                        lines.insert("a=fmtp:\(payload) x-google-start-bitrate=\(startBitrateKbps)", at: idx + 1)
+                        break
+                    }
+                }
+            }
+        }
+
+        var result = lines.joined(separator: eol)
         if sdp.hasSuffix(eol), !result.hasSuffix(eol) {
             result.append(eol)
         }

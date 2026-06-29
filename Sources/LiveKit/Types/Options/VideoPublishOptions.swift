@@ -49,7 +49,7 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
                 screenShareSimulcastLayers: [VideoParameters] = [],
                 preferredCodec: VideoCodec? = nil,
                 preferredBackupCodec: VideoCodec? = nil,
-                degradationPreference: DegradationPreference = .auto,
+                degradationPreference: DegradationPreference = .maintainResolution,
                 streamName: String? = nil)
     {
         self.name = name
