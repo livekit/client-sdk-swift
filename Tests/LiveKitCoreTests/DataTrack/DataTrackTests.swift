@@ -223,4 +223,79 @@ struct DataTrackTests {
             }
         }
     }
+
+    // MARK: - Send AsyncSequence
+
+    @Test
+    func sendContentsOfSequence() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let watcher = DataTrackWatcher(expectedName: "seq")
+            rooms[1].delegates.add(delegate: watcher)
+
+            let track = try await rooms[0].localParticipant.publishDataTrack(name: "seq")
+            let remoteTrack = try await watcher.waitForTrack()
+            let stream = try await remoteTrack.subscribe()
+
+            let frameCount = 5
+            let payload = Data([0x01, 0x02])
+            let (source, continuation) = AsyncStream.makeStream(of: DataTrackFrame.self)
+            for _ in 0 ..< frameCount {
+                continuation.yield(DataTrackFrame(payload: payload))
+            }
+            continuation.finish()
+
+            try await track.send(contentsOf: source)
+
+            var received = 0
+            for await frame in stream.values {
+                #expect(frame.payload == payload)
+                received += 1
+                if received >= frameCount - 1 { break }
+            }
+            #expect(received >= frameCount - 1)
+        }
+    }
+
+    // MARK: - Attached to Remote Participant
+
+    @Test
+    func attachedToRemoteParticipant() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let watcher = DataTrackWatcher(expectedName: "attached")
+            rooms[1].delegates.add(delegate: watcher)
+
+            _ = try await rooms[0].localParticipant.publishDataTrack(name: "attached")
+            let remoteTrack = try await watcher.waitForTrack()
+
+            let publisherIdentity = try #require(rooms[0].localParticipant.identity)
+            let publisher = try #require(rooms[1].remoteParticipants[publisherIdentity])
+            #expect(publisher.dataTracks[remoteTrack.info.sid] != nil)
+        }
+    }
+
+    // MARK: - Unpublish Delegate
+
+    @Test
+    func unpublishNotifiesDelegate() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let watcher = DataTrackWatcher(expectedName: "to-unpublish")
+            rooms[1].delegates.add(delegate: watcher)
+
+            let track = try await rooms[0].localParticipant.publishDataTrack(name: "to-unpublish")
+            let remoteTrack = try await watcher.waitForTrack()
+
+            track.unpublish()
+            let unpublishedSid = try await watcher.waitForUnpublish()
+            #expect(unpublishedSid == remoteTrack.info.sid)
+        }
+    }
 }

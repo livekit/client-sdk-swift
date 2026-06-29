@@ -17,36 +17,51 @@
 import Foundation
 @testable import LiveKit
 
-/// Watches for a remote data track to be published. Register as a delegate on the room
-/// **before** the track is published to avoid races.
+/// Watches for a remote data track to be published/unpublished. Register as a delegate on the
+/// room **before** publishing to avoid races.
 public final class DataTrackWatcher: NSObject, RoomDelegate, @unchecked Sendable {
     public let expectedName: String
-    private let continuation: AsyncStream<RemoteDataTrack>.Continuation
-    private let stream: AsyncStream<RemoteDataTrack>
+
+    private let publishStream: AsyncStream<RemoteDataTrack>
+    private let publishContinuation: AsyncStream<RemoteDataTrack>.Continuation
+    private let unpublishStream: AsyncStream<DataTrack.Sid>
+    private let unpublishContinuation: AsyncStream<DataTrack.Sid>.Continuation
 
     public init(expectedName: String) {
         self.expectedName = expectedName
-        let (stream, continuation) = AsyncStream.makeStream(of: RemoteDataTrack.self)
-        self.stream = stream
-        self.continuation = continuation
+        (publishStream, publishContinuation) = AsyncStream.makeStream(of: RemoteDataTrack.self)
+        (unpublishStream, unpublishContinuation) = AsyncStream.makeStream(of: DataTrack.Sid.self)
         super.init()
     }
 
-    /// Waits for the expected track to appear, with timeout.
+    /// Waits for the expected track to be published.
     public func waitForTrack(timeout _: TimeInterval = 15) async throws -> RemoteDataTrack {
-        for await track in stream {
+        for await track in publishStream {
             return track
         }
         throw LiveKitError(.timedOut, message: "Timed out waiting for data track '\(expectedName)'")
+    }
+
+    /// Waits for a data track to be unpublished, returning its SID.
+    public func waitForUnpublish(timeout _: TimeInterval = 15) async throws -> DataTrack.Sid {
+        for await sid in unpublishStream {
+            return sid
+        }
+        throw LiveKitError(.timedOut, message: "Timed out waiting for data track unpublish")
     }
 
     // MARK: - RoomDelegate
 
     public func room(_: Room, participant _: RemoteParticipant, didPublishDataTrack track: RemoteDataTrack) {
         if track.info.name == expectedName {
-            continuation.yield(track)
-            continuation.finish()
+            publishContinuation.yield(track)
+            publishContinuation.finish()
         }
+    }
+
+    public func room(_: Room, participant _: RemoteParticipant, didUnpublishDataTrack sid: DataTrack.Sid) {
+        unpublishContinuation.yield(sid)
+        unpublishContinuation.finish()
     }
 }
 
