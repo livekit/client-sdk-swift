@@ -134,10 +134,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     // MARK: - Data Tracks
 
-    var localDataTrackManager: LocalDataTrackManager?
-    var remoteDataTrackManager: RemoteDataTrackManager?
-    var publisherDataTrackChannel: LKRTCDataChannel?
-    var subscriberDataTrackChannel: LKRTCDataChannel?
+    // Session-scoped managers and channels in one StateSync: synchronized across the
+    // connect/cleanup and Rust callback threads, and reset atomically on teardown.
+    let _dataTracks = StateSync(DataTracksState())
+    var localDataTrackManager: LocalDataTrackManager? { _dataTracks.localManager }
+    var remoteDataTrackManager: RemoteDataTrackManager? { _dataTracks.remoteManager }
+    var publisherDataTrackChannel: LKRTCDataChannel? { _dataTracks.publisherChannel }
+    var subscriberDataTrackChannel: LKRTCDataChannel? { _dataTracks.subscriberChannel }
     lazy var subscriberDataTrackChannelDelegate = SubscriberDataTrackChannelDelegate(room: self)
     let dataTrackDelegates = MulticastDelegate<DataTrackDelegate>(label: "DataTrackDelegate")
 

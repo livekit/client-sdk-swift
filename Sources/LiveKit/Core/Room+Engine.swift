@@ -187,12 +187,13 @@ extension Room {
             publisherDataChannel.set(lossy: lossyDataChannel)
 
             // Data track channel (unordered, unreliable — DTP handles its own sequencing)
-            publisherDataTrackChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.dataTrack,
-                                                                    configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
+            let dataTrackChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.dataTrack,
+                                                               configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
+            _dataTracks.mutate { $0.publisherChannel = dataTrackChannel }
 
             log("dataChannel.\(String(describing: reliableDataChannel?.label)) : \(String(describing: reliableDataChannel?.channelId))")
             log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
-            log("dataChannel.\(String(describing: publisherDataTrackChannel?.label)) : \(String(describing: publisherDataTrackChannel?.channelId))")
+            log("dataChannel.\(String(describing: dataTrackChannel?.label)) : \(String(describing: dataTrackChannel?.channelId))")
 
             let subscriber = isSinglePC ? nil : try Transport(config: rtcConfiguration,
                                                               target: .subscriber,

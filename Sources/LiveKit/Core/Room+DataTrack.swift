@@ -19,6 +19,17 @@ import Foundation
 internal import LiveKitUniFFI
 internal import LiveKitWebRTC
 
+// MARK: - Data Tracks State
+
+/// Session-scoped data track managers and channels, held together so they reset atomically on
+/// teardown and stay synchronized across the connect/cleanup and Rust callback threads.
+struct DataTracksState: @unchecked Sendable {
+    var localManager: LocalDataTrackManager?
+    var remoteManager: RemoteDataTrackManager?
+    var publisherChannel: LKRTCDataChannel?
+    var subscriberChannel: LKRTCDataChannel?
+}
+
 // MARK: - Data Track Manager Properties
 
 extension Room {
@@ -27,21 +38,14 @@ extension Room {
         // Provide the cryptor only when E2EE is configured — its presence is what marks tracks as
         // encrypted (usesE2ee), so it must be nil otherwise.
         let cryptor: DataTrackCryptor? = e2eeManager.map(DataTrackCryptor.init)
-        localDataTrackManager = LocalDataTrackManager(
-            delegate: bridge,
-            encryptionProvider: cryptor,
-        )
-        remoteDataTrackManager = RemoteDataTrackManager(
-            delegate: bridge,
-            decryptionProvider: cryptor,
-        )
+        _dataTracks.mutate {
+            $0.localManager = LocalDataTrackManager(delegate: bridge, encryptionProvider: cryptor)
+            $0.remoteManager = RemoteDataTrackManager(delegate: bridge, decryptionProvider: cryptor)
+        }
     }
 
     func cleanUpDataTrack() {
-        publisherDataTrackChannel = nil
-        subscriberDataTrackChannel = nil
-        localDataTrackManager = nil
-        remoteDataTrackManager = nil
+        _dataTracks.mutate { $0 = DataTracksState() }
     }
 }
 
@@ -50,7 +54,7 @@ extension Room {
 extension Room {
     func configureSubscriberDataTrackChannel(_ dataChannel: LKRTCDataChannel) {
         log("Setting subscriber data track channel")
-        subscriberDataTrackChannel = dataChannel
+        _dataTracks.mutate { $0.subscriberChannel = dataChannel }
         dataChannel.delegate = subscriberDataTrackChannelDelegate
     }
 }
