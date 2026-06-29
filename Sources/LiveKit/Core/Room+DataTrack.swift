@@ -108,19 +108,23 @@ final class DataTrackBridge: LocalDataTrackManagerDelegate, RemoteDataTrackManag
         guard let room else { return }
         let dataTrack = RemoteDataTrack(track)
         let identity = Participant.Identity(from: dataTrack.publisherIdentity)
-        room.remoteParticipants[identity]?.addDataTrack(dataTrack)
+        guard let participant = room.remoteParticipants[identity] else {
+            room.log("Data track published by unknown participant \(identity)", .warning)
+            return
+        }
+        participant.addDataTrack(dataTrack)
         room.delegates.notify(label: { "room.didPublishDataTrack" }) {
-            $0.room?(room, didPublishDataTrack: dataTrack)
+            $0.room?(room, participant: participant, didPublishDataTrack: dataTrack)
         }
     }
 
-    func onTrackUnpublished(sid: String) {
+    func onTrackUnpublished(sid: DataTrack.Sid) {
         guard let room else { return }
         for participant in room.remoteParticipants.values where participant.removeDataTrack(sid: sid) != nil {
-            break
-        }
-        room.delegates.notify(label: { "room.didUnpublishDataTrack" }) {
-            $0.room?(room, didUnpublishDataTrack: sid)
+            room.delegates.notify(label: { "room.didUnpublishDataTrack" }) {
+                $0.room?(room, participant: participant, didUnpublishDataTrack: sid)
+            }
+            return
         }
     }
 

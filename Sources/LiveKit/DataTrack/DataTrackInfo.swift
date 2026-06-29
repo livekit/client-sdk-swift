@@ -22,7 +22,7 @@ internal import LiveKitUniFFI
 @objcMembers
 public final class DataTrackInfo: NSObject, Sendable, FFIBridged {
     /// Server-assigned unique identifier for the track.
-    public let sid: String
+    public let sid: DataTrack.Sid
     /// Name chosen by the publisher; unique per participant.
     public let name: String
     /// Whether the track's frames are end-to-end encrypted.

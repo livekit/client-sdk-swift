@@ -281,6 +281,18 @@ extension Room: SignalClientDelegate {
             }
         }
 
+        // Feed the remote data track manager now that the participants are in place, so
+        // onTrackPublished can resolve the publisher. The FFI takes raw bytes, so rebuild the
+        // response from the parsed participants.
+        if let identity = localParticipant.identity?.stringValue {
+            let response = Livekit_SignalResponse.with {
+                $0.update = Livekit_ParticipantUpdate.with { $0.participants = participants }
+            }
+            if let data = try? response.serializedData() {
+                try? remoteDataTrackManager?.handleSfuParticipantUpdate(res: data, localParticipantIdentity: identity)
+            }
+        }
+
         await withTaskGroup { group in
             for identity in disconnectedParticipantIdentities {
                 group.addTask {
@@ -402,12 +414,8 @@ extension Room: SignalClientDelegate {
         try? localDataTrackManager?.handleSfuRequestResponse(res: data)
         try? localDataTrackManager?.handleSfuPublishResponse(res: data)
         try? remoteDataTrackManager?.handleSubscriberHandles(res: data)
-        if let identity = localParticipant.identity?.stringValue {
-            try? remoteDataTrackManager?.handleSfuParticipantUpdate(
-                res: data,
-                localParticipantIdentity: identity
-            )
-        }
+        // Participant updates are fed from didUpdateParticipants instead, after the remote
+        // participant is added — so onTrackPublished can resolve the publisher.
     }
 
     func signalClient(_: SignalClient, didReceiveMediaSectionsRequirement requirement: Livekit_MediaSectionsRequirement) async {

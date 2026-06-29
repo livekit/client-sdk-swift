@@ -42,7 +42,7 @@ public final class DataTrackWatcher: NSObject, RoomDelegate, @unchecked Sendable
 
     // MARK: - RoomDelegate
 
-    public func room(_: Room, didPublishDataTrack track: RemoteDataTrack) {
+    public func room(_: Room, participant _: RemoteParticipant, didPublishDataTrack track: RemoteDataTrack) {
         if track.info.name == expectedName {
             continuation.yield(track)
             continuation.finish()

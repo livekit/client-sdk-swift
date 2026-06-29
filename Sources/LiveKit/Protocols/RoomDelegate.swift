@@ -324,10 +324,10 @@ public protocol RoomDelegate: AnyObject, Sendable {
 
     /// A remote participant published a data track. Subscribe to it via
     /// ``RemoteDataTrack/subscribe()`` to start receiving frames.
-    @objc optional
-    func room(_ room: Room, didPublishDataTrack track: RemoteDataTrack)
+    @objc(room:remoteParticipant:didPublishDataTrack:) optional
+    func room(_ room: Room, participant: RemoteParticipant, didPublishDataTrack track: RemoteDataTrack)
 
     /// A remote participant unpublished the data track with the given SID.
-    @objc optional
-    func room(_ room: Room, didUnpublishDataTrack sid: String)
+    @objc(room:remoteParticipant:didUnpublishDataTrack:) optional
+    func room(_ room: Room, participant: RemoteParticipant, didUnpublishDataTrack sid: DataTrack.Sid)
 }

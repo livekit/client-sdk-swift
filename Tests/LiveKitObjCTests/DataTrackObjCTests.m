@@ -29,7 +29,7 @@
 
 @implementation DataTrackObjCTests
 
-- (void)room:(Room *)room didPublishDataTrack:(RemoteDataTrack *)track {
+- (void)room:(Room *)room remoteParticipant:(RemoteParticipant *)participant didPublishDataTrack:(RemoteDataTrack *)track {
     self.receivedTrack = track;
     [self.trackPublishedExp fulfill];
 }

@@ -19,8 +19,8 @@ internal import LiveKitWebRTC
 @objcMembers
 public class RemoteParticipant: Participant, @unchecked Sendable {
     /// Data tracks published by this participant, keyed by track SID.
-    public var dataTracks: [String: RemoteDataTrack] { _dataTracks.copy() }
-    private let _dataTracks = StateSync<[String: RemoteDataTrack]>([:])
+    public var dataTracks: [DataTrack.Sid: RemoteDataTrack] { _dataTracks.copy() }
+    private let _dataTracks = StateSync<[DataTrack.Sid: RemoteDataTrack]>([:])
 
     init(info: Livekit_ParticipantInfo, room: Room, connectionState: ConnectionState) {
         super.init(room: room, sid: Participant.Sid(from: info.sid), identity: Participant.Identity(from: info.identity))
@@ -32,7 +32,7 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
     }
 
     @discardableResult
-    func removeDataTrack(sid: String) -> RemoteDataTrack? {
+    func removeDataTrack(sid: DataTrack.Sid) -> RemoteDataTrack? {
         _dataTracks.mutate { $0.removeValue(forKey: sid) }
     }
 
