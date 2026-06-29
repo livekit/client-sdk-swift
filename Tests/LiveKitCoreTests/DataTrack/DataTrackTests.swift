@@ -298,4 +298,112 @@ struct DataTrackTests {
             #expect(unpublishedSid == remoteTrack.info.sid)
         }
     }
+
+    // MARK: - Concurrency
+
+    /// A multi-track concurrent-push stress scenario.
+    struct PushScenario: CustomTestStringConvertible {
+        let name: String
+        let trackCount: Int
+        let framesPerTrack: Int
+        let payloadSize: Int
+        var testDescription: String { name }
+
+        /// Many small frames across several tracks.
+        static let manySmall = PushScenario(name: "manySmall", trackCount: 8, framesPerTrack: 32, payloadSize: 8)
+        /// Fewer large multi-packet frames across several tracks.
+        static let largeFrames = PushScenario(name: "largeFrames", trackCount: 4, framesPerTrack: 8, payloadSize: 64 * 1024)
+    }
+
+    /// A received frame: the stream it arrived on, plus its tagged (track, sequence) header.
+    struct ReceivedFrame {
+        let stream: Int
+        let track: UInt32
+        let seq: UInt32
+    }
+
+    /// Builds a frame payload tagged with (trackIndex, sequence), padded to `size` bytes.
+    private static func makePayload(track: Int, seq: Int, size: Int) -> Data {
+        var trackIndex32 = UInt32(track)
+        var seq32 = UInt32(seq)
+        var data = Data(bytes: &trackIndex32, count: 4)
+        data.append(Data(bytes: &seq32, count: 4))
+        if size > 8 { data.append(Data(count: size - 8)) }
+        return data
+    }
+
+    /// Reads the tagged (track, sequence) header from a payload received on `stream`.
+    private static func parseFrame(_ payload: Data, stream: Int) -> ReceivedFrame {
+        let track = payload.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: 0, as: UInt32.self) }
+        let seq = payload.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: 4, as: UInt32.self) }
+        return ReceivedFrame(stream: stream, track: track, seq: seq)
+    }
+
+    /// Publishes several tracks, then pushes every frame on every track at once. Exercises the
+    /// Rust manager's per-track send queues and the bridge's packet dispatch under contention.
+    /// Each frame is tagged with (trackIndex, sequence); the unreliable channel may drop frames,
+    /// but whatever arrives must reach the right track with no duplicates or corruption.
+    @Test(arguments: [PushScenario.manySmall, .largeFrames])
+    func concurrentPush(_ scenario: PushScenario) async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let framesPerTrack = scenario.framesPerTrack
+
+            // Publish each track and subscribe to it on the remote side.
+            var locals: [LocalDataTrack] = []
+            var streams: [DataTrackStream] = []
+            for i in 0 ..< scenario.trackCount {
+                let watcher = DataTrackWatcher(expectedName: "multi-\(i)")
+                rooms[1].delegates.add(delegate: watcher)
+                try await locals.append(rooms[0].localParticipant.publishDataTrack(name: "multi-\(i)"))
+                try await streams.append(watcher.waitForTrack().subscribe())
+            }
+
+            // All received frames (flat), drained concurrently with the burst.
+            let received = StateSync<[ReceivedFrame]>([])
+            var consumers: [Task<Void, Never>] = []
+            for (idx, stream) in streams.enumerated() {
+                consumers.append(Task {
+                    for await frame in stream.values {
+                        guard frame.payload.count >= 8 else { continue }
+                        let parsed = Self.parseFrame(frame.payload, stream: idx)
+                        received.mutate { $0.append(parsed) }
+                    }
+                })
+            }
+
+            // Push every frame on every track concurrently.
+            await withTaskGroup(of: Void.self) { group in
+                for (trackIndex, track) in locals.enumerated() {
+                    for seq in 0 ..< framesPerTrack {
+                        let payload = Self.makePayload(track: trackIndex, seq: seq, size: scenario.payloadSize)
+                        // try? — a full send queue under the burst is expected, not a failure.
+                        group.addTask { try? track.tryPush(frame: DataTrackFrame(payload: payload)) }
+                    }
+                }
+                await group.waitForAll()
+            }
+
+            // Let in-flight frames settle, then stop consuming.
+            try await Task.sleep(nanoseconds: 3_000_000_000)
+            for consumer in consumers {
+                consumer.cancel()
+            }
+
+            let all = received.copy()
+            #expect(!all.isEmpty, "Expected some frames to arrive")
+            for streamIndex in 0 ..< scenario.trackCount {
+                let frames = all.filter { $0.stream == streamIndex }
+                let routedCorrectly = frames.allSatisfy { $0.track == UInt32(streamIndex) }
+                let seqs = frames.map(\.seq)
+                let noDuplicates = Set(seqs).count == seqs.count
+                let inRange = seqs.allSatisfy { $0 < UInt32(framesPerTrack) }
+                #expect(routedCorrectly, "Stream \(streamIndex) received a frame from another track")
+                #expect(noDuplicates, "Stream \(streamIndex) received a duplicate frame")
+                #expect(inRange, "Stream \(streamIndex) received a corrupted sequence")
+            }
+        }
+    }
 }
