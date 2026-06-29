@@ -41,6 +41,8 @@ public final class RemoteDataTrack: NSObject, Sendable, FFIBridged {
     /// Subscribes to the track and returns a ``DataTrackStream`` of incoming frames.
     ///
     /// Throws ``DataTrackSubscribeError`` if the subscription cannot be established.
+    // TODO: expose subscription options (e.g. buffer size) once the UniFFI layer exposes
+    // `subscribe_with_options` — JS's `subscribe()` already takes them.
     @objc public func subscribe() async throws -> DataTrackStream {
         do {
             let stream = try await track.subscribe()

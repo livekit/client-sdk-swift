@@ -37,13 +37,13 @@ public final class LocalDataTrack: NSObject, Sendable, FFIBridged {
 
     /// Pushes a frame to subscribers.
     ///
-    /// Non-blocking. Throws ``DataTrackPushError/trackUnpublished(_:)`` if the track is no longer
-    /// published, or ``DataTrackPushError/queueFull(_:)`` if the send queue is saturated.
+    /// Non-blocking. Throws ``DataTrackPushFrameError/trackUnpublished(_:)`` if the track is no longer
+    /// published, or ``DataTrackPushFrameError/queueFull(_:)`` if the send queue is saturated.
     @objc public func tryPush(frame: DataTrackFrame) throws {
         do {
             try track.tryPush(frame: frame.ffi)
         } catch let error as PushFrameErrorReason {
-            throw DataTrackPushError(error)
+            throw DataTrackPushFrameError(error)
         }
     }
 
@@ -80,7 +80,7 @@ public extension LocalDataTrack {
             guard isPublished else { break }
             do {
                 try tryPush(frame: frame)
-            } catch let error as DataTrackPushError {
+            } catch let error as DataTrackPushFrameError {
                 guard case .queueFull = error else { throw error }
                 switch onQueueFull {
                 case .throw: throw error

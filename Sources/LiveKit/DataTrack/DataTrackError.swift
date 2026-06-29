@@ -49,7 +49,7 @@ public enum DataTrackPublishError: Error, Sendable {
 }
 
 /// The reason a frame could not be pushed via ``LocalDataTrack/tryPush(frame:)``.
-public enum DataTrackPushError: Error, Sendable {
+public enum DataTrackPushFrameError: Error, Sendable {
     /// The track has been unpublished, by either the local participant or the SFU.
     case trackUnpublished(String)
     /// The send queue is full; the frame was not enqueued.
