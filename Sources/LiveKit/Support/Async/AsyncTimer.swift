@@ -47,6 +47,7 @@ final class AsyncTimer: Sendable, Loggable {
         _state.mutate {
             $0.isStarted = false
             $0.task?.cancel()
+            $0.task = nil
         }
     }
 
@@ -64,35 +65,37 @@ final class AsyncTimer: Sendable, Loggable {
         }
     }
 
-    private func scheduleNextInvocation() async {
-        let state = _state.copy()
-        guard state.isStarted else { return }
-        let task = Task.detached(priority: .utility) { [weak self] in
-            guard let self else { return }
-            try? await Task.sleep(nanoseconds: UInt64(state.interval * 1_000_000_000))
-            if !state.isStarted || Task.isCancelled { return }
-            do {
-                try await state.block?()
-            } catch {
-                log("Error in timer block: \(error)", .error)
+    private func makeLoopTask() -> AnyTaskCancellable {
+        Task.detached(priority: .utility) { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                let (interval, block) = _state.read { ($0.interval, $0.block) }
+                try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+                if Task.isCancelled { break }
+                do {
+                    try await block?()
+                } catch {
+                    log("Error in timer block: \(error)", .error)
+                }
             }
-            await scheduleNextInvocation()
         }.cancellable()
-        _state.mutate { $0.task = task }
     }
 
     func restart() {
         _state.mutate {
             $0.task?.cancel()
             $0.isStarted = true
+            $0.task = makeLoopTask()
         }
-
-        Task { await scheduleNextInvocation() }
     }
 
     /// Starts the timer only if not already running, leaving an in-flight countdown untouched.
     func startIfStopped() {
-        if _state.read({ $0.isStarted }) { return }
-        restart()
+        _state.mutate {
+            guard !$0.isStarted else { return }
+            $0.isStarted = true
+            $0.task?.cancel()
+            $0.task = makeLoopTask()
+        }
     }
 }
