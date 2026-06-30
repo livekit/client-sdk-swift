@@ -44,7 +44,7 @@ extension Room {
         publisherDataChannel.reset(throwing: disconnectError)
         subscriberDataChannel.reset(throwing: disconnectError)
 
-        cleanUpDataTrack()
+        cleanUpDataTracks()
 
         await _state.transport?.close()
 
@@ -186,10 +186,14 @@ extension Room {
             publisherDataChannel.set(reliable: reliableDataChannel)
             publisherDataChannel.set(lossy: lossyDataChannel)
 
+            // Create the data track subsystem before the publisher channel so it can take ownership
+            // of it (E2EE is already configured by now). Runs here so reconnects re-create it too.
+            setupDataTracks()
+
             // Data track channel (unordered, unreliable — DTP handles its own sequencing)
             let dataTrackChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.dataTrack,
                                                                configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
-            _dataTracks.mutate { $0.publisherChannel = dataTrackChannel }
+            if let dataTrackChannel { dataTracks?.setPublisherChannel(dataTrackChannel) }
 
             log("dataChannel.\(String(describing: reliableDataChannel?.label)) : \(String(describing: reliableDataChannel?.channelId))")
             log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
@@ -397,8 +401,7 @@ extension Room {
                 }
             }
 
-            localDataTrackManager?.handleReconnect(fullReconnect: false)
-            remoteDataTrackManager?.handleReconnect(fullReconnect: false)
+            dataTracks?.handleReconnect(fullReconnect: false)
         }
 
         // "full" re-connection sequence
@@ -436,8 +439,7 @@ extension Room {
 
             _state.mutate { $0.connectedUrl = finalUrl }
 
-            localDataTrackManager?.handleReconnect(fullReconnect: true)
-            remoteDataTrackManager?.handleReconnect(fullReconnect: true)
+            dataTracks?.handleReconnect(fullReconnect: true)
         }
 
         do {

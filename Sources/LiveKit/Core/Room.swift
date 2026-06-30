@@ -134,14 +134,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     // MARK: - Data Tracks
 
-    // Session-scoped managers and channels in one StateSync: synchronized across the
-    // connect/cleanup and Rust callback threads, and reset atomically on teardown.
-    let _dataTracks = StateSync(DataTracksState())
-    var localDataTrackManager: LocalDataTrackManager? { _dataTracks.localManager }
-    var remoteDataTrackManager: RemoteDataTrackManager? { _dataTracks.remoteManager }
-    var publisherDataTrackChannel: LKRTCDataChannel? { _dataTracks.publisherChannel }
-    var subscriberDataTrackChannel: LKRTCDataChannel? { _dataTracks.subscriberChannel }
-    lazy var subscriberDataTrackChannelDelegate = SubscriberDataTrackChannelDelegate(room: self)
+    // The data track subsystem (managers, channels, signal/packet routing) behind one reference,
+    // created on connect and reset atomically on teardown — keeps it off the Room's surface.
+    let _dataTracks = StateSync<DataTracks?>(nil)
+    var dataTracks: DataTracks? { _dataTracks.copy() }
 
     // MARK: - PreConnect
 
@@ -488,8 +484,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             try Task.checkCancellation()
 
             connectSpan?.record("room_connected")
-
-            setupDataTrackManagers()
 
             _state.mutate {
                 $0.connectedUrl = finalUrl

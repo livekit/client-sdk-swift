@@ -16,8 +16,6 @@
 
 import Foundation
 
-internal import LiveKitUniFFI
-
 // MARK: - Data Track Publishing
 
 public extension LocalParticipant {
@@ -27,15 +25,10 @@ public extension LocalParticipant {
     /// - Returns: A ``LocalDataTrack`` used to push frames via ``LocalDataTrack/tryPush(frame:)``.
     /// - Throws: ``DataTrackPublishError`` if the track cannot be published.
     func publishDataTrack(name: String) async throws -> LocalDataTrack {
-        guard let manager = _room?.localDataTrackManager else {
+        guard let dataTracks = _room?.dataTracks else {
             throw LiveKitError(.invalidState, message: "Not connected to a room")
         }
-        do {
-            let track = try await manager.publishTrack(options: DataTrackOptions(name: name))
-            return LocalDataTrack(track)
-        } catch let error as PublishError {
-            throw DataTrackPublishError(error)
-        }
+        return try await dataTracks.publish(name: name)
     }
 
     /// Publishes a data track for the duration of `body`, then unpublishes it automatically.
@@ -56,7 +49,6 @@ public extension LocalParticipant {
 
     /// Returns metadata for the data tracks currently published by this participant.
     func queryDataTracks() async -> [DataTrackInfo] {
-        guard let manager = _room?.localDataTrackManager else { return [] }
-        return await manager.queryTracks().map(DataTrackInfo.init)
+        await _room?.dataTracks?.queryPublished() ?? []
     }
 }
