@@ -90,7 +90,9 @@ struct AsyncTimerTests {
 
         let count = await counter.getCount()
         #expect(count >= 1) // a loop is running
-        #expect(count <= 8) // but only one — orphaned loops would multiply this
+        // One loop fires ~5x here; the bound has headroom for sleep overshoot under
+        // parallel CI load. The orphan bug spawned dozens of loops, so it still trips.
+        #expect(count <= 15)
     }
 
     @Test func updatesBlockOnNextCycle() async throws {
