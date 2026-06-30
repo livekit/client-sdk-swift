@@ -95,6 +95,47 @@ struct AsyncTimerTests {
         #expect(count <= 15)
     }
 
+    @Test func blockCancellingOwnTimerFiresOnce() async throws {
+        // Mirrors the ping-timeout path: the block cancels its own timer (via cleanUp).
+        // Must fire exactly once and not deadlock on the state lock.
+        let counter = ConcurrentCounter()
+        let timer = AsyncTimer(interval: 0.05)
+        timer.setTimerBlock { [weak timer] in
+            _ = await counter.increment()
+            timer?.cancel()
+        }
+        timer.restart()
+
+        try await Task.sleep(nanoseconds: 250_000_000) // ~5 intervals if it didn't stop
+        #expect(await counter.getCount() == 1)
+    }
+
+    @Test func concurrentRestartAndCancelLeaveNoOrphan() async throws {
+        let counter = ConcurrentCounter()
+        let timer = AsyncTimer(interval: 0.05)
+        timer.setTimerBlock { _ = await counter.increment() }
+
+        // Interleave restart / startIfStopped / cancel concurrently.
+        await withTaskGroup(of: Void.self) { group in
+            for i in 0 ..< 60 {
+                group.addTask {
+                    switch i % 3 {
+                    case 0: timer.restart()
+                    case 1: timer.startIfStopped()
+                    default: timer.cancel()
+                    }
+                }
+            }
+        }
+
+        // Whatever the interleaving, a final cancel must stop every loop — no orphan survives.
+        timer.cancel()
+        try await Task.sleep(nanoseconds: 100_000_000)
+        let afterCancel = await counter.getCount()
+        try await Task.sleep(nanoseconds: 250_000_000) // 5 intervals
+        #expect(await counter.getCount() == afterCancel)
+    }
+
     @Test func updatesBlockOnNextCycle() async throws {
         let first = ConcurrentCounter()
         let second = ConcurrentCounter()
@@ -128,6 +169,23 @@ struct AsyncTimerTests {
 
         try await Task.sleep(nanoseconds: 200_000_000)
         #expect(await counter.getCount() == afterRelease) // deinit stopped it
+    }
+
+    @Test func continuesFiringAfterBlockThrows() async throws {
+        struct BlockError: Error {}
+        let counter = ConcurrentCounter()
+        let timer = AsyncTimer(interval: 0.05)
+        timer.setTimerBlock {
+            // First invocation throws; the loop must catch, log, and keep going.
+            if await counter.increment() == 0 { throw BlockError() }
+        }
+        timer.restart()
+
+        try await Task.sleep(nanoseconds: 300_000_000) // ~6 intervals
+        timer.cancel()
+        try await Task.sleep(nanoseconds: 80_000_000)
+
+        #expect(await counter.getCount() >= 2) // fired again after the throw
     }
 
     @Test func startIfStoppedReArmsAfterCancel() async throws {
