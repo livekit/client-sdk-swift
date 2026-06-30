@@ -24,8 +24,9 @@ final class AsyncTimer: Sendable, Loggable {
     // MARK: - Private
 
     struct State {
-        var isStarted: Bool = false
         var interval: TimeInterval
+        // Non-nil means running. Reassigning or clearing cancels the previous task:
+        // AnyTaskCancellable cancels its Task on deinit (like Combine's AnyCancellable).
         var task: AnyTaskCancellable?
         var block: TimerBlock?
     }
@@ -37,32 +38,21 @@ final class AsyncTimer: Sendable, Loggable {
     }
 
     deinit {
-        _state.mutate {
-            $0.isStarted = false
-            $0.task?.cancel()
-        }
+        _state.mutate { $0.task = nil }
     }
 
     func cancel() {
-        _state.mutate {
-            $0.isStarted = false
-            $0.task?.cancel()
-            $0.task = nil
-        }
+        _state.mutate { $0.task = nil }
     }
 
     /// Block must not retain self
     func setTimerBlock(block: @escaping TimerBlock) {
-        _state.mutate {
-            $0.block = block
-        }
+        _state.mutate { $0.block = block }
     }
 
     /// Update timer interval
     func setTimerInterval(_ timerInterval: TimeInterval) {
-        _state.mutate {
-            $0.interval = timerInterval
-        }
+        _state.mutate { $0.interval = timerInterval }
     }
 
     private func makeLoopTask() -> AnyTaskCancellable {
@@ -82,19 +72,13 @@ final class AsyncTimer: Sendable, Loggable {
     }
 
     func restart() {
-        _state.mutate {
-            $0.task?.cancel()
-            $0.isStarted = true
-            $0.task = makeLoopTask()
-        }
+        _state.mutate { $0.task = makeLoopTask() }
     }
 
     /// Starts the timer only if not already running, leaving an in-flight countdown untouched.
     func startIfStopped() {
         _state.mutate {
-            guard !$0.isStarted else { return }
-            $0.isStarted = true
-            $0.task?.cancel()
+            guard $0.task == nil else { return }
             $0.task = makeLoopTask()
         }
     }
