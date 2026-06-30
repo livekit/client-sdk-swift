@@ -23,7 +23,6 @@ import LiveKitTestSupport
 
 @Suite(.tags(.concurrency))
 struct AsyncTimerTests {
-
     @Test func startIfStoppedFiresWhileRepeatedlyArmed() async throws {
         let counter = ConcurrentCounter()
         let timer = AsyncTimer(interval: 0.2)
