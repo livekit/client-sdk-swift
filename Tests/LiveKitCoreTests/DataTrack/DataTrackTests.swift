@@ -315,6 +315,37 @@ struct DataTrackTests {
         }
     }
 
+    // MARK: - Reconnect
+
+    /// A published data track survives a full reconnect: the data track subsystem is session-scoped,
+    /// so its manager persists and republishes the track rather than being recreated empty.
+    @Test
+    func republishesTrackAfterFullReconnect() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+        ]) { rooms in
+            let room = rooms[0]
+            let track = try await room.localParticipant.publishDataTrack(name: "survives-reconnect")
+            let before = await room.localParticipant.queryDataTracks()
+            #expect(before.count == 1)
+
+            // Force a full reconnect (not a quick resume), which tears down the transports.
+            try await room.startReconnect(reason: .debug, nextReconnectMode: .full)
+
+            let deadline = Date().addingTimeInterval(15)
+            while Date() < deadline, room.connectionState != .connected {
+                try await Task.sleep(nanoseconds: 200_000_000)
+            }
+            #expect(room.connectionState == .connected)
+
+            // The publication persisted across the reconnect and was republished.
+            let after = await room.localParticipant.queryDataTracks()
+            #expect(after.count == 1)
+            #expect(after.first?.name == "survives-reconnect")
+            _ = track.isPublished // keep `track` alive across the reconnect (dropping it unpublishes)
+        }
+    }
+
     // MARK: - Concurrency
 
     /// A multi-track concurrent-push stress scenario.

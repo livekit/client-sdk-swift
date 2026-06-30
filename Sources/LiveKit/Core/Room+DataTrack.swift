@@ -21,10 +21,11 @@ internal import LiveKitWebRTC
 
 // MARK: - DataTracks
 
-/// Owns the local/remote data track managers, the publisher channel, and the delegate shim, and
-/// routes Room/participant calls to the right manager. The ``Room`` holds a single reference to
-/// this (created once connected, released on teardown) so the subsystem stays off the Room's
-/// surface and resets atomically.
+/// Owns the local/remote data track managers, the data channels, and the manager-delegate shim,
+/// and routes Room/participant calls to the right manager. The ``Room`` holds a single reference,
+/// keeping the subsystem off the Room's surface. Session-scoped: created at connect and kept across
+/// reconnects (its channels are swapped, but the managers persist so publications can be
+/// republished), released only on a real disconnect.
 ///
 /// `@unchecked Sendable`: the only mutable state is `_publisherChannel` (StateSync-guarded); the
 /// managers and delegate are immutable after init. Not an actor — the UniFFI delegate callbacks
@@ -204,7 +205,10 @@ extension Room {
         _dataTracks.mutate { $0 = DataTracks(room: self) }
     }
 
-    func cleanUpDataTracks() {
+    func cleanUpDataTracks(isFullReconnect: Bool = false) {
+        // Session-scoped: keep the subsystem across a full reconnect so its managers can republish;
+        // tear it down only on a real disconnect.
+        guard !isFullReconnect else { return }
         _dataTracks.mutate { $0 = nil }
     }
 }

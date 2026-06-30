@@ -44,8 +44,6 @@ extension Room {
         publisherDataChannel.reset(throwing: disconnectError)
         subscriberDataChannel.reset(throwing: disconnectError)
 
-        cleanUpDataTracks()
-
         await _state.transport?.close()
 
         // Reset publish state
@@ -186,11 +184,8 @@ extension Room {
             publisherDataChannel.set(reliable: reliableDataChannel)
             publisherDataChannel.set(lossy: lossyDataChannel)
 
-            // Create the data track subsystem before the publisher channel so it can take ownership
-            // of it (E2EE is already configured by now). Runs here so reconnects re-create it too.
-            setupDataTracks()
-
-            // Data track channel (unordered, unreliable — DTP handles its own sequencing)
+            // Data track channel (unordered, unreliable — DTP handles its own sequencing). Hand it
+            // to the session-scoped data track subsystem (created at connect; persists reconnects).
             let dataTrackChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.dataTrack,
                                                                configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
             if let dataTrackChannel { dataTracks?.setPublisherChannel(dataTrackChannel) }

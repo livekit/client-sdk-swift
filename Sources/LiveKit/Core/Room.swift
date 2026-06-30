@@ -418,6 +418,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             publisherDataChannel.set(e2eeManager: nil)
         }
 
+        // Create the data track subsystem once per session, before transports. It's session-scoped
+        // — kept across reconnects (only its channels are swapped) so published tracks can be
+        // republished — and torn down on real disconnect (see cleanUp).
+        setupDataTracks()
+
         _state.mutate {
             $0.connectSpan = sharedTracing.beginSpan("connect")
             $0.providedUrl = providedUrl
@@ -604,6 +609,7 @@ extension Room {
         // stats collection from accessing destroyed WebRTC channels.
         cancelTimers()
         await cleanUpRTC(withError: disconnectError)
+        cleanUpDataTracks(isFullReconnect: isFullReconnect)
         await cleanUpParticipants(isFullReconnect: isFullReconnect)
 
         // Cleanup for E2EE
