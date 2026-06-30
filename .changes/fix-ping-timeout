@@ -1,0 +1,1 @@
+patch type="fixed" "Ping/pong timeout was re-armed on every ping and never fired, leaving a lost signaling connection stuck at .connected"
