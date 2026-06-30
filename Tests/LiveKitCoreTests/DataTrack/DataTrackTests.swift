@@ -299,6 +299,22 @@ struct DataTrackTests {
         }
     }
 
+    // MARK: - Query
+
+    /// `queryDataTracks` returns the local participant's confirmed publications.
+    @Test
+    func queryReturnsPublishedTrack() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+        ]) { rooms in
+            let track = try await rooms[0].localParticipant.publishDataTrack(name: "queried")
+            let infos = await rooms[0].localParticipant.queryDataTracks()
+            #expect(infos.count == 1)
+            #expect(infos.first?.name == "queried")
+            _ = track.isPublished // keep `track` alive across the query (dropping it unpublishes)
+        }
+    }
+
     // MARK: - Concurrency
 
     /// A multi-track concurrent-push stress scenario.
