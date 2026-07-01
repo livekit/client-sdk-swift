@@ -354,6 +354,12 @@ struct DataTrackTests {
         }
     }
 
+    // TODO: add a quick-reconnect (resume) test covering the SyncState.publishDataTracks path.
+    // A naive version (subscribe, quick-reconnect the publisher, expect frames on the same stream)
+    // is flaky: startReconnect can escalate quick → full, which republishes with a new SID and
+    // breaks the existing subscription. Needs a way to pin the reconnect to resume-only (or assert
+    // the publication survived without depending on the same SID).
+
     // MARK: - Concurrency
 
     /// A multi-track concurrent-push stress scenario.
