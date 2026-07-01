@@ -299,49 +299,57 @@ struct DataTrackTests {
         }
     }
 
-    // MARK: - Query
+    // MARK: - Join-Time Tracks
 
-    /// `queryDataTracks` returns the local participant's confirmed publications.
+    /// A track published before a participant joins surfaces via the JoinResponse.
     @Test
-    func queryReturnsPublishedTrack() async throws {
+    func receivesTrackPublishedBeforeJoin() async throws {
+        let roomName = UUID().uuidString
         try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-        ]) { rooms in
-            let track = try await rooms[0].localParticipant.publishDataTrack(name: "queried")
-            let infos = await rooms[0].localParticipant.queryDataTracks()
-            #expect(infos.count == 1)
-            #expect(infos.first?.name == "queried")
-            _ = track.isPublished // keep `track` alive across the query (dropping it unpublishes)
+            RoomTestingOptions(roomName: roomName, canPublishData: true),
+        ]) { pubRooms in
+            let track = try await pubRooms[0].localParticipant.publishDataTrack(name: "pre-join")
+
+            // The subscriber joins *after* the publish; its watcher is the delegate from creation,
+            // so it catches the publish delivered during connect (via the JoinResponse). A distinct
+            // identity avoids colliding with the publisher in the same room.
+            let watcher = DataTrackWatcher(expectedName: "pre-join")
+            try await TestEnvironment.withRooms([
+                RoomTestingOptions(delegate: watcher, roomName: roomName, identity: "subscriber", canSubscribe: true),
+            ]) { _ in
+                let remoteTrack = try await watcher.waitForTrack()
+                #expect(remoteTrack.info.name == "pre-join")
+            }
+            _ = track.isPublished // keep `track` alive across the subscriber's join
         }
     }
 
     // MARK: - Reconnect
 
     /// A published data track survives a full reconnect: the data track subsystem is session-scoped,
-    /// so its manager persists and republishes the track rather than being recreated empty.
+    /// so its manager persists and republishes the track (a recreated manager would lose it). The
+    /// subscriber sees the republished track re-announced.
     @Test
     func republishesTrackAfterFullReconnect() async throws {
         try await TestEnvironment.withRooms([
             RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
         ]) { rooms in
-            let room = rooms[0]
-            let track = try await room.localParticipant.publishDataTrack(name: "survives-reconnect")
-            let before = await room.localParticipant.queryDataTracks()
-            #expect(before.count == 1)
+            let publisher = rooms[0]
+            let subscriber = rooms[1]
 
-            // Force a full reconnect (not a quick resume), which tears down the transports.
-            try await room.startReconnect(reason: .debug, nextReconnectMode: .full)
+            let track = try await publisher.localParticipant.publishDataTrack(name: "survives-reconnect")
+            // Confirm the subscriber sees the initial publication.
+            _ = try await subscriber.waitForDataTrack(name: "survives-reconnect")
 
-            let deadline = Date().addingTimeInterval(15)
-            while Date() < deadline, room.connectionState != .connected {
-                try await Task.sleep(nanoseconds: 200_000_000)
-            }
-            #expect(room.connectionState == .connected)
+            // Watch for the re-announcement, then force a full reconnect of the publisher.
+            let republishWatcher = DataTrackWatcher(expectedName: "survives-reconnect")
+            subscriber.delegates.add(delegate: republishWatcher)
+            try await publisher.startReconnect(reason: .debug, nextReconnectMode: .full)
 
-            // The publication persisted across the reconnect and was republished.
-            let after = await room.localParticipant.queryDataTracks()
-            #expect(after.count == 1)
-            #expect(after.first?.name == "survives-reconnect")
+            // The session-scoped manager republishes the track; the subscriber sees it again.
+            let republished = try await republishWatcher.waitForTrack()
+            #expect(republished.info.name == "survives-reconnect")
             _ = track.isPublished // keep `track` alive across the reconnect (dropping it unpublishes)
         }
     }

@@ -46,9 +46,4 @@ public extension LocalParticipant {
             track.unpublish()
         }
     }
-
-    /// Returns metadata for the data tracks currently published by this participant.
-    func queryDataTracks() async -> [DataTrackInfo] {
-        await _room?.dataTracks?.queryPublished() ?? []
-    }
 }

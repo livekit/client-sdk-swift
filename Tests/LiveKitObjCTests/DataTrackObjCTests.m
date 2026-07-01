@@ -120,15 +120,6 @@
     }
     [self waitForExpectations:@[receivedFrameExp] timeout:30];
 
-    // Query published data tracks.
-    XCTestExpectation *queryExp = [self expectationWithDescription:@"query"];
-    [pubRoom.localParticipant queryDataTracksWithCompletionHandler:^(NSArray<DataTrackInfo *> *infos) {
-        XCTAssertEqual(infos.count, 1);
-        XCTAssertEqualObjects(infos.firstObject.name, @"objc-dt");
-        [queryExp fulfill];
-    }];
-    [self waitForExpectationsWithTimeout:10 handler:nil];
-
     // Unpublish.
     [localTrack unpublish];
     XCTestExpectation *unpublishExp = [self expectationWithDescription:@"unpublish"];

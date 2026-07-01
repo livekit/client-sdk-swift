@@ -82,7 +82,8 @@ public enum TestEnvironment {
     public static func withRooms(_ options: [RoomTestingOptions] = [],
                                  _ block: @escaping ([Room]) async throws -> Void) async throws
     {
-        let roomName = UUID().uuidString
+        // Rooms without an explicit name share this one, so they meet in the same room.
+        let sharedRoomName = UUID().uuidString
         let sharedKey = UUID().uuidString
 
         let rooms = try options.enumerated().map {
@@ -95,7 +96,8 @@ public enum TestEnvironment {
             let roomOptions = RoomOptions(encryptionOptions: encryptionOptions, reportRemoteTrackStatistics: true, singlePeerConnection: $0.element.singlePeerConnection)
 
             let room = Room(delegate: $0.element.delegate, connectOptions: connectOptions, roomOptions: roomOptions)
-            let identity = "identity-\($0.offset)"
+            let roomName = $0.element.roomName ?? sharedRoomName
+            let identity = $0.element.identity ?? "identity-\($0.offset)"
 
             let url = $0.element.url ?? liveKitServerUrl()
 
@@ -131,14 +133,14 @@ public enum TestEnvironment {
             }
         }.value
 
-        let observerToken = try liveKitServerToken(for: roomName,
+        let observerToken = try liveKitServerToken(for: sharedRoomName,
                                                    identity: "observer",
                                                    canPublish: true,
                                                    canPublishData: true,
                                                    canPublishSources: [],
                                                    canSubscribe: true)
 
-        print("Observer token: \(observerToken) for room: \(roomName)")
+        print("Observer token: \(observerToken) for room: \(sharedRoomName)")
 
         // Wait for all participants to discover each other using async polling
         if rooms.count >= 2 {

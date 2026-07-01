@@ -551,10 +551,13 @@ extension Room {
             $0.subscribe = !autoSubscribe
         }
 
+        let publishDataTracks = await dataTracks?.syncStatePublishResponses() ?? []
+
         try await signalClient.sendSyncState(answer: previousAnswer?.toPBType(offerId: 0),
                                              offer: previousOffer?.toPBType(offerId: 0),
                                              subscription: subscription,
                                              publishTracks: localParticipant.publishedTracksInfo(),
+                                             publishDataTracks: publishDataTracks,
                                              dataChannels: publisherDataChannel.infos(),
                                              dataChannelReceiveStates: subscriberDataChannel.receiveStates())
     }

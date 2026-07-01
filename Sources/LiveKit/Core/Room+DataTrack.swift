@@ -65,11 +65,15 @@ final class DataTracks: NSObject, @unchecked Sendable {
         }
     }
 
-    func queryPublished() async -> [DataTrackInfo] {
-        await local.queryTracks().map(DataTrackInfo.init)
-    }
-
     // MARK: - Signaling
+
+    func handleJoinResponse(_ joinResponse: Livekit_JoinResponse) {
+        // Surfaces data tracks published by participants already in the room when we joined. The
+        // FFI takes raw bytes, so wrap the join back into a SignalResponse.
+        let response = Livekit_SignalResponse.with { $0.join = joinResponse }
+        guard let data = try? response.serializedData() else { return }
+        try? remote.handleSfuJoinResponse(res: data)
+    }
 
     func handleSignalResponse(_ data: Data) {
         // Each manager handles specific message types and returns UnsupportedType otherwise, so
@@ -94,6 +98,12 @@ final class DataTracks: NSObject, @unchecked Sendable {
         // republishes. Either way, re-assert subscriptions so the SFU re-issues subscriber handles.
         if fullReconnect { local.republishTracks() }
         remote.resendSubscriptionUpdates()
+    }
+
+    /// Publish responses for the local data tracks, for `SyncState.publishDataTracks` on quick
+    /// reconnect (so the SFU keeps the publications without a full republish).
+    func syncStatePublishResponses() async -> [Livekit_PublishDataTrackResponse] {
+        await local.publishResponsesForSyncState().compactMap { try? Livekit_PublishDataTrackResponse(serializedBytes: $0) }
     }
 
     func handlePacket(_ data: Data) {

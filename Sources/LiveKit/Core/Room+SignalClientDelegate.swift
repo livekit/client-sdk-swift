@@ -124,6 +124,9 @@ extension Room: SignalClientDelegate {
                     }
                 }
             }
+
+            // Surface data tracks already published by the participants we just added.
+            dataTracks?.handleJoinResponse(joinResponse)
         }
     }
 

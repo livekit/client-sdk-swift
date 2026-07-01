@@ -586,6 +586,7 @@ extension SignalClient {
                        offer: Livekit_SessionDescription?,
                        subscription: Livekit_UpdateSubscription,
                        publishTracks: [Livekit_TrackPublishedResponse]? = nil,
+                       publishDataTracks: [Livekit_PublishDataTrackResponse]? = nil,
                        dataChannels: [Livekit_DataChannelInfo]? = nil,
                        dataChannelReceiveStates: [Livekit_DataChannelReceiveState]? = nil) async throws
     {
@@ -599,6 +600,7 @@ extension SignalClient {
                 }
                 $0.subscription = subscription
                 $0.publishTracks = publishTracks ?? []
+                $0.publishDataTracks = publishDataTracks ?? []
                 $0.dataChannels = dataChannels ?? []
                 $0.datachannelReceiveStates = dataChannelReceiveStates ?? []
             }
