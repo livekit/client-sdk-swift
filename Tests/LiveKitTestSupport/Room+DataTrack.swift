@@ -65,6 +65,54 @@ public final class DataTrackWatcher: NSObject, RoomDelegate, @unchecked Sendable
     }
 }
 
+/// The eight data-track delegate callbacks, across both delegate protocols and both directions.
+public enum DataTrackDelegateEvent: String, Sendable {
+    case roomLocalPublish, roomLocalUnpublish
+    case roomRemotePublish, roomRemoteUnpublish
+    case participantLocalPublish, participantLocalUnpublish
+    case participantRemotePublish, participantRemoteUnpublish
+}
+
+/// Records data-track delegate events from both ``RoomDelegate`` and ``ParticipantDelegate``.
+/// Register on a room and/or a participant before publishing to avoid races.
+public final class DataTrackDelegateRecorder: NSObject, RoomDelegate, ParticipantDelegate, @unchecked Sendable {
+    private let lock = NSLock()
+    private var events: [(DataTrackDelegateEvent, DataTrack.Sid)] = []
+
+    private func record(_ kind: DataTrackDelegateEvent, _ sid: DataTrack.Sid) {
+        lock.lock(); events.append((kind, sid)); lock.unlock()
+    }
+
+    private func firstSid(_ kind: DataTrackDelegateEvent) -> DataTrack.Sid? {
+        lock.lock(); defer { lock.unlock() }
+        return events.first { $0.0 == kind }?.1
+    }
+
+    /// Waits for the given event, returning the SID it carried.
+    public func waitFor(_ kind: DataTrackDelegateEvent, timeout: TimeInterval = 15) async throws -> DataTrack.Sid {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let sid = firstSid(kind) { return sid }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        throw LiveKitError(.timedOut, message: "Timed out waiting for delegate event \(kind.rawValue)")
+    }
+
+    // MARK: - RoomDelegate
+
+    public func room(_: Room, participant _: LocalParticipant, didPublishDataTrack track: LocalDataTrack) { record(.roomLocalPublish, track.info.sid) }
+    public func room(_: Room, participant _: LocalParticipant, didUnpublishDataTrack sid: DataTrack.Sid) { record(.roomLocalUnpublish, sid) }
+    public func room(_: Room, participant _: RemoteParticipant, didPublishDataTrack track: RemoteDataTrack) { record(.roomRemotePublish, track.info.sid) }
+    public func room(_: Room, participant _: RemoteParticipant, didUnpublishDataTrack sid: DataTrack.Sid) { record(.roomRemoteUnpublish, sid) }
+
+    // MARK: - ParticipantDelegate
+
+    public func participant(_: LocalParticipant, didPublishDataTrack track: LocalDataTrack) { record(.participantLocalPublish, track.info.sid) }
+    public func participant(_: LocalParticipant, didUnpublishDataTrack sid: DataTrack.Sid) { record(.participantLocalUnpublish, sid) }
+    public func participant(_: RemoteParticipant, didPublishDataTrack track: RemoteDataTrack) { record(.participantRemotePublish, track.info.sid) }
+    public func participant(_: RemoteParticipant, didUnpublishDataTrack sid: DataTrack.Sid) { record(.participantRemoteUnpublish, sid) }
+}
+
 /// Convenience for simple cases — registers watcher, returns track.
 public extension Room {
     func waitForDataTrack(name: String, timeout: TimeInterval = 15) async throws -> RemoteDataTrack {

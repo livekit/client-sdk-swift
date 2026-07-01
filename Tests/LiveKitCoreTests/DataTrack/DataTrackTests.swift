@@ -299,6 +299,46 @@ struct DataTrackTests {
         }
     }
 
+    /// Publish/unpublish fires on both delegates (Room + Participant), for the local publisher and
+    /// the remote subscriber — parity with media tracks.
+    @Test
+    func publishAndUnpublishNotifyAllDelegates() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let publisher = rooms[0]
+            let subscriber = rooms[1]
+
+            let pubRecorder = DataTrackDelegateRecorder()
+            publisher.delegates.add(delegate: pubRecorder) // local room events
+            publisher.localParticipant.delegates.add(delegate: pubRecorder) // local participant events
+
+            // The subscriber already discovered the publisher (withRooms waits), so its
+            // RemoteParticipant exists; register before publishing to catch the publish event.
+            let publisherIdentity = try #require(publisher.localParticipant.identity)
+            let remotePublisher = try #require(subscriber.remoteParticipants[publisherIdentity])
+            let subRecorder = DataTrackDelegateRecorder()
+            subscriber.delegates.add(delegate: subRecorder) // remote room events
+            remotePublisher.delegates.add(delegate: subRecorder) // remote participant events
+
+            let track = try await publisher.localParticipant.publishDataTrack(name: "delegated")
+            let localSid = track.info.sid
+
+            #expect(try await pubRecorder.waitFor(.roomLocalPublish) == localSid)
+            #expect(try await pubRecorder.waitFor(.participantLocalPublish) == localSid)
+            let remoteSid = try await subRecorder.waitFor(.roomRemotePublish)
+            #expect(try await subRecorder.waitFor(.participantRemotePublish) == remoteSid)
+
+            track.unpublish()
+
+            #expect(try await pubRecorder.waitFor(.roomLocalUnpublish) == localSid)
+            #expect(try await pubRecorder.waitFor(.participantLocalUnpublish) == localSid)
+            #expect(try await subRecorder.waitFor(.roomRemoteUnpublish) == remoteSid)
+            #expect(try await subRecorder.waitFor(.participantRemoteUnpublish) == remoteSid)
+        }
+    }
+
     // MARK: - Join-Time Tracks
 
     /// A track published before a participant joins surfaces via the JoinResponse.
