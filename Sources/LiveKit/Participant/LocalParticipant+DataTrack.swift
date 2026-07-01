@@ -28,7 +28,14 @@ public extension LocalParticipant {
         guard let dataTracks = _room?.dataTracks else {
             throw LiveKitError(.invalidState, message: "Not connected to a room")
         }
-        return try await dataTracks.publish(name: name)
+        let track = try await dataTracks.publish(name: name)
+        // Retain the publication until it's unpublished, so callers aren't forced to hold the
+        // returned track to keep it published (the underlying handle unpublishes on drop). Matches
+        // JS, where the manager owns the publication. The wait ends on an explicit/SFU unpublish or
+        // teardown, and does NOT fire during a reconnect's republish — so session-scoped republish
+        // still works.
+        Task { await track.waitForUnpublish() }
+        return track
     }
 
     /// Publishes a data track for the duration of `body`, then unpublishes it automatically.
