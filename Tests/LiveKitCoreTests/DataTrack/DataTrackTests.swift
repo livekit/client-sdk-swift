@@ -377,11 +377,55 @@ struct DataTrackTests {
         }
     }
 
-    // TODO: add a quick-reconnect (resume) test covering the SyncState.publishDataTracks path.
-    // A naive version (subscribe, quick-reconnect the publisher, expect frames on the same stream)
-    // is flaky: startReconnect can escalate quick → full, which republishes with a new SID and
-    // breaks the existing subscription. Needs a way to pin the reconnect to resume-only (or assert
-    // the publication survived without depending on the same SID).
+    /// Frames keep flowing across a quick reconnect: `SyncState.publishDataTracks` preserves the
+    /// publication and the resumed transports keep the subscription, so the same stream delivers.
+    @Test
+    func dataTrackSurvivesQuickReconnect() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let publisher = rooms[0]
+            let subscriber = rooms[1]
+
+            let watcher = DataTrackWatcher(expectedName: "sync-state")
+            subscriber.delegates.add(delegate: watcher)
+            let track = try await publisher.localParticipant.publishDataTrack(name: "sync-state")
+            let stream = try await watcher.waitForTrack().subscribe()
+
+            // Quick reconnect (resume). nextReconnectMode: .quick keeps the first attempt on the
+            // resume path, which sends SyncState (incl. publishDataTracks) and preserves transports.
+            try await publisher.startReconnect(reason: .debug, nextReconnectMode: .quick)
+
+            // Push in the background; assert at least one post-reconnect frame arrives (bounded, so
+            // a broken publication fails cleanly instead of hanging).
+            let payload = Data("after-quick-reconnect".utf8)
+            let pusher = Task {
+                while !Task.isCancelled {
+                    try? track.tryPush(frame: .now(payload: payload))
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                }
+            }
+            defer { pusher.cancel() }
+
+            let received = await withTaskGroup(of: Bool.self) { group in
+                group.addTask {
+                    for await frame in stream.values where frame.payload == payload {
+                        return true
+                    }
+                    return false
+                }
+                group.addTask {
+                    try? await Task.sleep(nanoseconds: 15_000_000_000)
+                    return false
+                }
+                let first = await group.next() ?? false
+                group.cancelAll()
+                return first
+            }
+            #expect(received, "Frames should keep flowing after a quick reconnect")
+        }
+    }
 
     // MARK: - Concurrency
 
