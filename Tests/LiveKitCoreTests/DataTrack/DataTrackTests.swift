@@ -299,6 +299,40 @@ struct DataTrackTests {
         }
     }
 
+    /// A publisher disconnecting (without an explicit unpublish) should still surface as an
+    /// unpublish to the subscriber.
+    @Test
+    func remoteTrackUnpublishedOnPublisherDisconnect() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let publisher = rooms[0]
+            let subscriber = rooms[1]
+
+            let watcher = DataTrackWatcher(expectedName: "on-disconnect")
+            subscriber.delegates.add(delegate: watcher)
+
+            // Discarding the handle is safe — the SDK retains the publication until unpublish.
+            _ = try await publisher.localParticipant.publishDataTrack(name: "on-disconnect")
+            let remoteTrack = try await watcher.waitForTrack()
+
+            // Full disconnect, not an explicit unpublish.
+            await publisher.disconnect()
+
+            // Bounded wait: cancel the (otherwise unbounded) watcher if nothing arrives in time.
+            let unpublishTask = Task { try await watcher.waitForUnpublish() }
+            let deadline = Task {
+                try await Task.sleep(nanoseconds: 15_000_000_000)
+                unpublishTask.cancel()
+            }
+            let unpublishedSid = try? await unpublishTask.value
+            deadline.cancel()
+
+            #expect(unpublishedSid == remoteTrack.info.sid)
+        }
+    }
+
     /// Publish/unpublish fires on both delegates (Room + Participant), for the local publisher and
     /// the remote subscriber — parity with media tracks.
     @Test

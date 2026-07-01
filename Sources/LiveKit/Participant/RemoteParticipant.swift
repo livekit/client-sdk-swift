@@ -155,6 +155,20 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
                 log("Failed to unpublish track \(publication.sid) with error \(error)", .error)
             }
         }
+
+        // Data tracks: on disconnect the participant is removed before the async manager callback
+        // arrives, so it can't route the unpublish — clear them here, mirroring the media path.
+        let dataTrackSids = Array(_dataTracks.copy().keys)
+        _dataTracks.mutate { $0 = [:] }
+        guard _notify, let room = _room else { return }
+        for sid in dataTrackSids {
+            delegates.notify(label: { "participant.didUnpublishDataTrack \(sid)" }) {
+                $0.participant?(self, didUnpublishDataTrack: sid)
+            }
+            room.delegates.notify(label: { "room.didUnpublishDataTrack \(sid)" }) {
+                $0.room?(room, participant: self, didUnpublishDataTrack: sid)
+            }
+        }
     }
 
     func unpublish(publication: RemoteTrackPublication, notify _notify: Bool = true) async throws {
