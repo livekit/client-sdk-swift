@@ -92,7 +92,7 @@
     // Subscribe and receive frames.
     XCTestExpectation *subscribeExp = [self expectationWithDescription:@"subscribe"];
     __block DataTrackStream *stream = nil;
-    [self.receivedTrack subscribeWithCompletionHandler:^(DataTrackStream *s, NSError *err) {
+    [self.receivedTrack subscribeWithBufferSize:16 completionHandler:^(DataTrackStream *s, NSError *err) {
         XCTAssertNil(err);
         XCTAssertNotNil(s);
         stream = s;
