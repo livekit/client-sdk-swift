@@ -136,6 +136,25 @@ public protocol ParticipantDelegate: AnyObject, Sendable {
     @objc optional
     func participant(_ participant: RemoteParticipant, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType)
 
+    // MARK: - Data Track Events
+
+    /// The ``LocalParticipant`` published a data track.
+    @objc(localParticipant:didPublishDataTrack:) optional
+    func participant(_ participant: LocalParticipant, didPublishDataTrack track: LocalDataTrack)
+
+    /// The ``LocalParticipant`` unpublished the data track with the given SID.
+    @objc(localParticipant:didUnpublishDataTrack:) optional
+    func participant(_ participant: LocalParticipant, didUnpublishDataTrack sid: DataTrack.Sid)
+
+    /// A ``RemoteParticipant`` published a data track. Subscribe to it via
+    /// ``RemoteDataTrack/subscribe()`` to start receiving frames.
+    @objc(remoteParticipant:didPublishDataTrack:) optional
+    func participant(_ participant: RemoteParticipant, didPublishDataTrack track: RemoteDataTrack)
+
+    /// A ``RemoteParticipant`` unpublished the data track with the given SID.
+    @objc(remoteParticipant:didUnpublishDataTrack:) optional
+    func participant(_ participant: RemoteParticipant, didUnpublishDataTrack sid: DataTrack.Sid)
+
     // MARK: - Deprecated
 
     /// Renamed to ``ParticipantDelegate/participant(_:didReceiveData:forTopic:encryptionType:)``.

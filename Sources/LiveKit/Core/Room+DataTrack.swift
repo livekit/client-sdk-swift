@@ -178,6 +178,9 @@ final class DataTracks: NSObject, @unchecked Sendable {
                 return
             }
             participant.addDataTrack(dataTrack)
+            participant.delegates.notify(label: { "participant.didPublishDataTrack" }) {
+                $0.participant?(participant, didPublishDataTrack: dataTrack)
+            }
             room.delegates.notify(label: { "room.didPublishDataTrack" }) {
                 $0.room?(room, participant: participant, didPublishDataTrack: dataTrack)
             }
@@ -186,6 +189,9 @@ final class DataTracks: NSObject, @unchecked Sendable {
         func onTrackUnpublished(sid: DataTrack.Sid) {
             guard let room else { return }
             for participant in room.remoteParticipants.values where participant.removeDataTrack(sid: sid) != nil {
+                participant.delegates.notify(label: { "participant.didUnpublishDataTrack" }) {
+                    $0.participant?(participant, didUnpublishDataTrack: sid)
+                }
                 room.delegates.notify(label: { "room.didUnpublishDataTrack" }) {
                     $0.room?(room, participant: participant, didUnpublishDataTrack: sid)
                 }

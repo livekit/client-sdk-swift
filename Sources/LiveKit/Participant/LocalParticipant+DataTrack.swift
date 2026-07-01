@@ -25,16 +25,34 @@ public extension LocalParticipant {
     /// - Returns: A ``LocalDataTrack`` used to push frames via ``LocalDataTrack/tryPush(frame:)``.
     /// - Throws: ``DataTrackPublishError`` if the track cannot be published.
     func publishDataTrack(name: String) async throws -> LocalDataTrack {
-        guard let dataTracks = _room?.dataTracks else {
+        guard let room = _room, let dataTracks = room.dataTracks else {
             throw LiveKitError(.invalidState, message: "Not connected to a room")
         }
         let track = try await dataTracks.publish(name: name)
+
+        delegates.notify(label: { "localParticipant.didPublishDataTrack" }) {
+            $0.participant?(self, didPublishDataTrack: track)
+        }
+        room.delegates.notify(label: { "room.didPublishDataTrack" }) {
+            $0.room?(room, participant: self, didPublishDataTrack: track)
+        }
+
         // Retain the publication until it's unpublished, so callers aren't forced to hold the
         // returned track to keep it published (the underlying handle unpublishes on drop). Matches
         // JS, where the manager owns the publication. The wait ends on an explicit/SFU unpublish or
         // teardown, and does NOT fire during a reconnect's republish — so session-scoped republish
-        // still works.
-        Task { await track.waitForUnpublish() }
+        // still works, and the unpublish delegate fires once when the publication really ends.
+        Task { [weak self, weak room] in
+            await track.waitForUnpublish()
+            guard let self, let room else { return }
+            let sid = track.info.sid
+            delegates.notify(label: { "localParticipant.didUnpublishDataTrack" }) {
+                $0.participant?(self, didUnpublishDataTrack: sid)
+            }
+            room.delegates.notify(label: { "room.didUnpublishDataTrack" }) {
+                $0.room?(room, participant: self, didUnpublishDataTrack: sid)
+            }
+        }
         return track
     }
 
