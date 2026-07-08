@@ -1,0 +1,1 @@
+patch type="fixed" "WebRTC crashes during track teardown"
