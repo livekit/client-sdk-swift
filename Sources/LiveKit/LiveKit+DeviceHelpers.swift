@@ -41,10 +41,15 @@ public extension LiveKitSDK {
         return true
     }
 
-    /// Blocking version of ensureDeviceAccess that uses DispatchGroup to wait for permissions.
+    /// Blocking version of ``ensureDeviceAccess(for:)`` that uses a `DispatchGroup` to wait for permissions.
+    ///
+    /// - Warning: Requesting `.notDetermined` permission blocks the calling thread until the user responds.
+    ///   When the app is backgrounded (for example, woken by a CallKit call) the system dialog never appears
+    ///   and the call blocks indefinitely. Prefer the async ``ensureDeviceAccess(for:)`` instead.
+    @available(*, deprecated, message: "Blocking permission requests can hang the calling thread. Use the async ensureDeviceAccess(for:) instead.")
     static func ensureDeviceAccessSync(for types: Set<AVMediaType>) -> Bool {
         let group = DispatchGroup()
-        nonisolated(unsafe) var result = false
+        nonisolated(unsafe) var granted = true
 
         for type in types {
             if ![.video, .audio].contains(type) {
@@ -55,25 +60,25 @@ public extension LiveKitSDK {
             switch status {
             case .notDetermined:
                 group.enter()
-                AVCaptureDevice.requestAccess(for: type) { granted in
-                    if !granted {
-                        result = false
+                AVCaptureDevice.requestAccess(for: type) { result in
+                    if !result {
+                        granted = false
                     }
                     group.leave()
                 }
             case .restricted, .denied:
                 return false
             case .authorized:
-                continue // No action needed for authorized status
+                continue // No action needed for authorized status.
             @unknown default:
                 log("Unknown AVAuthorizationStatus", .error)
                 return false
             }
         }
 
-        // Wait for all permission requests to complete
+        // Wait for all permission requests to complete.
         group.wait()
 
-        return result
+        return granted
     }
 }
