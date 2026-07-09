@@ -1,0 +1,1 @@
+patch type="fixed" "Report microphone permission and audio session errors with the correct error type"
