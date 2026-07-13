@@ -1,0 +1,1 @@
+patch type="added" "Add `LocalParticipant.publishDtmf(code:digit:)` for sending SIP DTMF tones"
