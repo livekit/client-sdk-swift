@@ -25,6 +25,9 @@ import UIKit
 internal import LiveKitWebRTC
 
 class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
+    /// Destination for captured app audio; falls back to the mic mixer.
+    weak var appAudioSink: AppAudioSink?
+
     private let appAudio: Bool
     private var receiver: BroadcastReceiver?
 
@@ -67,7 +70,7 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
                 for try await sample in receiver.incomingSamples {
                     switch sample {
                     case let .image(buffer, rotation): capture(buffer, rotation: rotation)
-                    case let .audio(buffer): AudioManager.shared.mixer.capture(appAudio: buffer)
+                    case let .audio(buffer): (appAudioSink ?? AudioManager.shared.mixer).capture(appAudio: buffer)
                     }
                 }
                 log("Broadcast receiver closed", .debug)

@@ -41,6 +41,9 @@ public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
     /// The ``ScreenShareCaptureOptions`` used for this capturer.
     public let options: ScreenShareCaptureOptions
 
+    /// Destination for captured app audio; falls back to the mic mixer.
+    weak var appAudioSink: AppAudioSink?
+
     struct State {
         // SCStream
         var scStream: SCStream?
@@ -239,7 +242,7 @@ extension MacOSScreenCapturer: SCStreamOutput {
 
         if case .audio = outputType {
             guard let pcm = sampleBuffer.toAVAudioPCMBuffer() else { return }
-            AudioManager.shared.mixer.capture(appAudio: pcm)
+            (appAudioSink ?? AudioManager.shared.mixer).capture(appAudio: pcm)
         } else if case .screen = outputType {
             // Retrieve the array of metadata attachments from the sample buffer.
             guard let attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer,
@@ -261,7 +264,9 @@ extension MacOSScreenCapturer: SCStreamOutput {
             let newTimer = Task.detached(priority: .utility) { [weak self] in
                 while true {
                     try? await Task.sleep(nanoseconds: UInt64(1 * 1_000_000_000))
-                    if Task.isCancelled { break }
+                    if Task.isCancelled {
+                        break
+                    }
                     guard let self else { break }
                     try await _capturePreviousFrame()
                 }

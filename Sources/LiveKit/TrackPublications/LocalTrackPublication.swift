@@ -113,6 +113,7 @@ extension LocalTrackPublication: VideoCapturerDelegate {
                 }
 
                 try await participant.unpublish(publication: self)
+                try await participant.unpublishAppAudioTrackIfNeeded()
             }
         }
         // A similar check for macOS may be triggered e.g. when the display is powered off.
@@ -124,6 +125,7 @@ extension LocalTrackPublication: VideoCapturerDelegate {
                 }
 
                 try await participant.unpublish(publication: self)
+                try await participant.unpublishAppAudioTrackIfNeeded()
             }
         }
         #endif
