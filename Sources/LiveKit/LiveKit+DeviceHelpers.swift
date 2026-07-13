@@ -16,6 +16,10 @@
 
 import AVFoundation
 
+#if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS))
+import UIKit
+#endif
+
 public extension LiveKitSDK {
     /// Helper method to ensure authorization for video(camera) / audio(microphone) permissions in a single call.
     static func ensureDeviceAccess(for types: Set<AVMediaType>) async -> Bool {
@@ -39,6 +43,19 @@ public extension LiveKitSDK {
         }
 
         return true
+    }
+
+    /// Requests authorization for the given media types, but only while the app is foregrounded so
+    /// the system permission dialog can actually appear. A no-op returning `false` on non-active or
+    /// non-UIKit (extension/background) contexts. Suitable for paths that must never block, where
+    /// prompting only makes sense when the app can present UI.
+    static func ensureDeviceAccessIfForegrounded(for types: Set<AVMediaType>) async -> Bool {
+        #if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS))
+        guard await UIApplication.shared.applicationState == .active else { return false }
+        return await ensureDeviceAccess(for: types)
+        #else
+        return false
+        #endif
     }
 
     /// Blocking version of ensureDeviceAccess that uses DispatchGroup to wait for permissions.

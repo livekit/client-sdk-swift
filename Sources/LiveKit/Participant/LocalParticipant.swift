@@ -16,6 +16,7 @@
 
 // swiftlint:disable file_length
 
+import AVFoundation
 import Combine
 import Foundation
 
@@ -415,6 +416,10 @@ public extension LocalParticipant {
                                                                        reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
                     return try await self._publish(track: localTrack, options: publishOptions)
                 } else if source == .microphone {
+                    // Replace the WebRTC ADM's removed implicit prompt: request mic access while foregrounded (#815).
+                    if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
+                        _ = await LiveKitSDK.ensureDeviceAccessIfForegrounded(for: [.audio])
+                    }
                     let localTrack = LocalAudioTrack.createTrack(options: (captureOptions as? AudioCaptureOptions) ?? room._state.roomOptions.defaultAudioCaptureOptions,
                                                                  reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
                     return try await self._publish(track: localTrack, options: publishOptions)
