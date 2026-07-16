@@ -375,7 +375,7 @@ public class AudioManager: Loggable {
     }
 
     /// Device-level platform voice-processing capability and requested/active state.
-    public var platformAudioProcessingState: PlatformAudioProcessingState {
+    public var platformVoiceProcessingState: PlatformVoiceProcessingState {
         RTC.audioDeviceModule.platformAudioProcessingState.toLKType()
     }
 

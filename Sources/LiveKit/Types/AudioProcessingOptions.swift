@@ -14,30 +14,7 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
-
-@objc
-public enum AudioProcessingMode: Int, CaseIterable, Hashable, Sendable {
-    /// Prefer platform voice processing when available and fall back to WebRTC software processing.
-    case automatic
-    /// Use platform voice processing only. If platform processing is unavailable, the request is rejected.
-    case platform
-    /// Force WebRTC software processing and disable the matching platform effect when possible.
-    case software
-}
-
-public enum AudioProcessingOptionsResultCode: Int, Sendable {
-    /// Options were applied immediately by the component handling the request.
-    case applied
-    /// Options were accepted and stored. Active senders reapply them separately.
-    case stored
-    case rejectedRemoteTrack
-    case rejectedInvalidCombination
-    case rejectedPlatformUnavailable
-    case applyFailed
-}
 
 public enum AudioProcessingImplementation: Int, Sendable {
     case unknown
@@ -47,19 +24,20 @@ public enum AudioProcessingImplementation: Int, Sendable {
     case softwareAndPlatform
 }
 
-public struct AudioProcessingOptionsResult: Sendable {
-    public let code: AudioProcessingOptionsResultCode
-    public let message: String
-
-    public var isSuccess: Bool {
-        code == .applied || code == .stored
-    }
+/// A successful outcome of applying ``AudioProcessingOptions``.
+public enum AudioProcessingOptionsResult: Sendable {
+    /// Options were applied immediately by the component handling the request.
+    case applied
+    /// Options were accepted and stored. Active senders reapply them separately.
+    case stored
 }
 
-@objcMembers
-public final class AudioProcessingOptions: NSObject, Sendable {
-    public static let communication = AudioProcessingOptions()
-
+/// Immutable runtime voice-processing settings.
+///
+/// The default initializer produces the SDK's communication profile: echo
+/// cancellation, gain control and noise suppression enabled in `.automatic`
+/// mode, high-pass filter disabled.
+public struct AudioProcessingOptions: Hashable, Sendable {
     public static let noProcessing = AudioProcessingOptions(
         echoCancellation: false,
         autoGainControl: false,
@@ -72,20 +50,20 @@ public final class AudioProcessingOptions: NSObject, Sendable {
     public let noiseSuppression: Bool
     public let highpassFilter: Bool
 
-    public let echoCancellationMode: AudioProcessingMode
-    public let autoGainControlMode: AudioProcessingMode
-    public let noiseSuppressionMode: AudioProcessingMode
-    public let highpassFilterMode: AudioProcessingMode
+    public let echoCancellationMode: EchoCancellationMode
+    public let autoGainControlMode: AutoGainControlMode
+    public let noiseSuppressionMode: NoiseSuppressionMode
+    public let highpassFilterMode: HighpassFilterMode
 
     public init(
         echoCancellation: Bool = true,
         autoGainControl: Bool = true,
         noiseSuppression: Bool = true,
         highpassFilter: Bool = false,
-        echoCancellationMode: AudioProcessingMode = .automatic,
-        autoGainControlMode: AudioProcessingMode = .automatic,
-        noiseSuppressionMode: AudioProcessingMode = .automatic,
-        highpassFilterMode: AudioProcessingMode = .automatic,
+        echoCancellationMode: EchoCancellationMode = .automatic,
+        autoGainControlMode: AutoGainControlMode = .automatic,
+        noiseSuppressionMode: NoiseSuppressionMode = .automatic,
+        highpassFilterMode: HighpassFilterMode = .automatic,
     ) {
         self.echoCancellation = echoCancellation
         self.autoGainControl = autoGainControl
@@ -96,38 +74,27 @@ public final class AudioProcessingOptions: NSObject, Sendable {
         self.noiseSuppressionMode = noiseSuppressionMode
         self.highpassFilterMode = highpassFilterMode
     }
-
-    override public func isEqual(_ object: Any?) -> Bool {
-        guard let other = object as? Self else { return false }
-        return echoCancellation == other.echoCancellation &&
-            autoGainControl == other.autoGainControl &&
-            noiseSuppression == other.noiseSuppression &&
-            highpassFilter == other.highpassFilter &&
-            echoCancellationMode == other.echoCancellationMode &&
-            autoGainControlMode == other.autoGainControlMode &&
-            noiseSuppressionMode == other.noiseSuppressionMode &&
-            highpassFilterMode == other.highpassFilterMode
-    }
-
-    override public var hash: Int {
-        var hasher = Hasher()
-        hasher.combine(echoCancellation)
-        hasher.combine(autoGainControl)
-        hasher.combine(noiseSuppression)
-        hasher.combine(highpassFilter)
-        hasher.combine(echoCancellationMode)
-        hasher.combine(autoGainControlMode)
-        hasher.combine(noiseSuppressionMode)
-        hasher.combine(highpassFilterMode)
-        return hasher.finalize()
-    }
 }
 
 /// The caller's request for one audio processing component: enabled flag plus
 /// implementation mode.
-public struct AudioProcessingComponentRequest: Sendable {
+public struct AudioProcessingComponentRequest<Mode: Sendable>: Sendable {
+    /// Whether the component was requested to be enabled.
     public let isEnabled: Bool
-    public let mode: AudioProcessingMode
+
+    /// The requested implementation mode.
+    public let mode: Mode
+}
+
+/// Resolved and live state of one processing path (WebRTC software APM or the
+/// platform implementation) for an audio processing component.
+public struct AudioProcessingPathState: Sendable {
+    /// Whether the resolver decided this path should run, after weighing the
+    /// requested mode against platform availability, coupling, and policy.
+    public let isResolved: Bool
+
+    /// Whether this path reports the component as currently running.
+    public let isActive: Bool
 }
 
 /// Diagnostic state of one audio processing component (echo cancellation,
@@ -135,28 +102,18 @@ public struct AudioProcessingComponentRequest: Sendable {
 /// three stages of one pipeline: requested (caller intent) -> resolved (the
 /// engine's per-path decision) -> active (live truth), with ``effective`` as
 /// the merged verdict.
-public struct AudioProcessingComponentState: Sendable {
+public struct AudioProcessingComponentState<Mode: Sendable>: Sendable {
     /// What the caller most recently requested for this component. `nil` when
     /// no audio processing options have ever been applied — "nobody asked".
-    public let requested: AudioProcessingComponentRequest?
+    public let requested: AudioProcessingComponentRequest<Mode>?
 
-    /// Whether the resolver decided the WebRTC software (APM) implementation
-    /// should run, after weighing the requested mode against platform
-    /// availability, coupling, and policy.
-    public let isSoftwareResolved: Bool
+    /// The WebRTC software (APM) path.
+    public let software: AudioProcessingPathState
 
-    /// Whether APM's live configuration currently has this component enabled.
-    public let isSoftwareActive: Bool
-
-    /// Whether this device/OS offers a built-in implementation at all.
-    public let isPlatformAvailable: Bool
-
-    /// Whether the engine asked the OS to run the platform implementation.
-    /// The OS owns the outcome: it can decline, defer, or couple components.
-    public let isPlatformResolved: Bool
-
-    /// Whether the device reports the platform implementation actually running.
-    public let isPlatformActive: Bool
+    /// The platform path, or `nil` when this device/OS offers no built-in
+    /// implementation. The OS owns this path's outcome: it can decline, defer,
+    /// or couple components even after the engine requests it.
+    public let platform: AudioProcessingPathState?
 
     /// The verdict: which implementation is in effect right now.
     public let effective: AudioProcessingImplementation
@@ -169,21 +126,30 @@ public struct AudioProcessingComponentState: Sendable {
 /// so this reflects what is actually applied (per-component
 /// ``AudioProcessingComponentState/effective``) versus what was requested —
 /// for the whole engine, not a single track. Device-level platform processing
-/// detail lives on ``PlatformAudioProcessingState`` instead.
+/// detail lives on ``PlatformVoiceProcessingState`` instead.
 public struct AudioProcessingState: Sendable {
+    /// Whether the shared engine includes a WebRTC audio processing module.
     public let hasAudioProcessingModule: Bool
-    public let echoCancellation: AudioProcessingComponentState
-    public let noiseSuppression: AudioProcessingComponentState
-    public let autoGainControl: AudioProcessingComponentState
-    public let highpassFilter: AudioProcessingComponentState
+
+    /// Echo-cancellation state and its most recent typed request.
+    public let echoCancellation: AudioProcessingComponentState<EchoCancellationMode>
+
+    /// Noise-suppression state and its most recent typed request.
+    public let noiseSuppression: AudioProcessingComponentState<NoiseSuppressionMode>
+
+    /// Automatic-gain-control state and its most recent typed request.
+    public let autoGainControl: AudioProcessingComponentState<AutoGainControlMode>
+
+    /// High-pass-filter state and its most recent typed request.
+    public let highpassFilter: AudioProcessingComponentState<HighpassFilterMode>
 }
 
-public enum PlatformAudioProcessingTopology: Int, Sendable {
+public enum PlatformVoiceProcessingTopology: Int, Sendable {
     case independent
     case echoCancellationAndNoiseSuppressionCoupled
 }
 
-public struct PlatformAudioProcessingComponentState: Sendable {
+public struct PlatformVoiceProcessingComponentState: Sendable {
     /// Whether the device offers this effect at all.
     public let isAvailable: Bool
     /// The last state requested from the audio device module.
@@ -192,33 +158,27 @@ public struct PlatformAudioProcessingComponentState: Sendable {
     public let isActive: Bool
 }
 
-/// Device-level snapshot of platform audio processing.
-///
-/// The `isVoiceProcessing*` properties reflect the Apple Voice Processing I/O
-/// unit: requested values are the state stored by the audio device module;
-/// active values are live readback from the platform input node and read
-/// `false` before input is configured or where the value is not observable.
-public struct PlatformAudioProcessingState: Sendable {
-    public let topology: PlatformAudioProcessingTopology
-    public let echoCancellation: PlatformAudioProcessingComponentState
-    public let noiseSuppression: PlatformAudioProcessingComponentState
-    public let autoGainControl: PlatformAudioProcessingComponentState
-    public let isVoiceProcessingEnabledRequested: Bool
-    public let isVoiceProcessingBypassedRequested: Bool
-    public let isVoiceProcessingAGCEnabledRequested: Bool
-    public let isVoiceProcessingEnabledActive: Bool
-    public let isVoiceProcessingBypassedActive: Bool
-    public let isVoiceProcessingAGCEnabledActive: Bool
+/// Requested and live state of one Apple Voice Processing I/O unit flag.
+public struct PlatformVoiceProcessingFlagState: Sendable {
+    /// The last state requested from the audio device module.
+    public let isRequested: Bool
+    /// Live readback from the platform input node. Reads `false` before input
+    /// is configured or where the value is not observable.
+    public let isActive: Bool
 }
 
-extension AudioProcessingMode: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .automatic: "Automatic"
-        case .platform: "Platform"
-        case .software: "Software"
-        }
-    }
+/// Device-level snapshot of Apple's platform Voice Processing I/O.
+public struct PlatformVoiceProcessingState: Sendable {
+    public let topology: PlatformVoiceProcessingTopology
+    public let echoCancellation: PlatformVoiceProcessingComponentState
+    public let noiseSuppression: PlatformVoiceProcessingComponentState
+    public let autoGainControl: PlatformVoiceProcessingComponentState
+    /// Whether the Voice Processing I/O unit is enabled.
+    public let voiceProcessingEnabled: PlatformVoiceProcessingFlagState
+    /// Whether the Voice Processing I/O unit is bypassed.
+    public let voiceProcessingBypassed: PlatformVoiceProcessingFlagState
+    /// Whether the Voice Processing I/O unit's automatic gain control is enabled.
+    public let voiceProcessingAGCEnabled: PlatformVoiceProcessingFlagState
 }
 
 extension AudioProcessingImplementation: CustomStringConvertible {
@@ -229,35 +189,6 @@ extension AudioProcessingImplementation: CustomStringConvertible {
         case .software: "Software"
         case .platform: "Platform"
         case .softwareAndPlatform: "Software + Platform"
-        }
-    }
-}
-
-extension AudioProcessingMode {
-    func toRTCType() -> LKRTCAudioProcessingMode {
-        switch self {
-        case .automatic: .automatic
-        case .platform: .platform
-        case .software: .software
-        }
-    }
-
-    func toConstraintValue() -> String {
-        switch self {
-        case .automatic: "auto"
-        case .platform: "platform"
-        case .software: "software"
-        }
-    }
-}
-
-extension LKRTCAudioProcessingMode {
-    func toLKType() -> AudioProcessingMode {
-        switch self {
-        case .automatic: .automatic
-        case .platform: .platform
-        case .software: .software
-        @unknown default: .automatic
         }
     }
 }
@@ -275,26 +206,18 @@ extension LKRTCAudioProcessingImplementation {
     }
 }
 
-extension AudioProcessingOptionsResultCode {
-    init(_ code: LKRTCAudioProcessingOptionsResultCode) {
-        switch code {
-        case .applied: self = .applied
-        case .stored: self = .stored
-        case .rejectedRemoteTrack: self = .rejectedRemoteTrack
-        case .rejectedInvalidCombination: self = .rejectedInvalidCombination
-        case .rejectedPlatformUnavailable: self = .rejectedPlatformUnavailable
-        case .applyFailed: self = .applyFailed
-        @unknown default: self = .applyFailed
-        }
-    }
-}
-
 extension LKRTCAudioProcessingOptionsResult {
-    func toLKType() -> AudioProcessingOptionsResult {
-        AudioProcessingOptionsResult(
-            code: AudioProcessingOptionsResultCode(code),
-            message: message,
-        )
+    /// Partitions the upstream result: successes are returned, rejections are thrown.
+    func toLKType() throws -> AudioProcessingOptionsResult {
+        switch code {
+        case .applied: return .applied
+        case .stored: return .stored
+        case .rejectedRemoteTrack: throw AudioProcessingOptionsError(code: .remoteTrack, message: message)
+        case .rejectedInvalidCombination: throw AudioProcessingOptionsError(code: .invalidCombination, message: message)
+        case .rejectedPlatformUnavailable: throw AudioProcessingOptionsError(code: .platformUnavailable, message: message)
+        case .applyFailed: throw AudioProcessingOptionsError(code: .applyFailed, message: message)
+        @unknown default: throw AudioProcessingOptionsError(code: .applyFailed, message: message)
+        }
     }
 }
 
@@ -322,16 +245,19 @@ extension AudioProcessingOptions {
 }
 
 extension LKRTCAudioProcessingComponentState {
-    func toLKType() -> AudioProcessingComponentState {
+    func toLKType<Mode: AudioProcessingModeConvertible>(modeType _: Mode.Type) -> AudioProcessingComponentState<Mode> {
         AudioProcessingComponentState(
             requested: requested.map {
-                AudioProcessingComponentRequest(isEnabled: $0.isEnabled, mode: $0.mode.toLKType())
+                AudioProcessingComponentRequest(isEnabled: $0.isEnabled, mode: Mode.fromRTCType($0.mode))
             },
-            isSoftwareResolved: isSoftwareResolved,
-            isSoftwareActive: isSoftwareActive,
-            isPlatformAvailable: isPlatformAvailable,
-            isPlatformResolved: isPlatformResolved,
-            isPlatformActive: isPlatformActive,
+            software: AudioProcessingPathState(
+                isResolved: isSoftwareResolved,
+                isActive: isSoftwareActive,
+            ),
+            platform: isPlatformAvailable ? AudioProcessingPathState(
+                isResolved: isPlatformResolved,
+                isActive: isPlatformActive,
+            ) : nil,
             effective: effective.toLKType(),
         )
     }
@@ -341,16 +267,16 @@ extension LKRTCAudioProcessingState {
     func toLKType() -> AudioProcessingState {
         AudioProcessingState(
             hasAudioProcessingModule: hasAudioProcessingModule,
-            echoCancellation: echoCancellation.toLKType(),
-            noiseSuppression: noiseSuppression.toLKType(),
-            autoGainControl: autoGainControl.toLKType(),
-            highpassFilter: highPassFilter.toLKType(),
+            echoCancellation: echoCancellation.toLKType(modeType: EchoCancellationMode.self),
+            noiseSuppression: noiseSuppression.toLKType(modeType: NoiseSuppressionMode.self),
+            autoGainControl: autoGainControl.toLKType(modeType: AutoGainControlMode.self),
+            highpassFilter: highPassFilter.toLKType(modeType: HighpassFilterMode.self),
         )
     }
 }
 
 extension LKRTCPlatformAudioProcessingTopology {
-    func toLKType() -> PlatformAudioProcessingTopology {
+    func toLKType() -> PlatformVoiceProcessingTopology {
         switch self {
         case .independent: .independent
         case .echoCancellationAndNoiseSuppressionCoupled: .echoCancellationAndNoiseSuppressionCoupled
@@ -360,8 +286,8 @@ extension LKRTCPlatformAudioProcessingTopology {
 }
 
 extension LKRTCPlatformAudioProcessingComponentState {
-    func toLKType() -> PlatformAudioProcessingComponentState {
-        PlatformAudioProcessingComponentState(
+    func toLKType() -> PlatformVoiceProcessingComponentState {
+        PlatformVoiceProcessingComponentState(
             isAvailable: isAvailable,
             isRequested: isRequested,
             isActive: isActive,
@@ -370,18 +296,24 @@ extension LKRTCPlatformAudioProcessingComponentState {
 }
 
 extension LKRTCPlatformAudioProcessingState {
-    func toLKType() -> PlatformAudioProcessingState {
-        PlatformAudioProcessingState(
+    func toLKType() -> PlatformVoiceProcessingState {
+        PlatformVoiceProcessingState(
             topology: topology.toLKType(),
             echoCancellation: echoCancellation.toLKType(),
             noiseSuppression: noiseSuppression.toLKType(),
             autoGainControl: autoGainControl.toLKType(),
-            isVoiceProcessingEnabledRequested: isVoiceProcessingEnabledRequested,
-            isVoiceProcessingBypassedRequested: isVoiceProcessingBypassedRequested,
-            isVoiceProcessingAGCEnabledRequested: isVoiceProcessingAGCEnabledRequested,
-            isVoiceProcessingEnabledActive: isVoiceProcessingEnabledActive,
-            isVoiceProcessingBypassedActive: isVoiceProcessingBypassedActive,
-            isVoiceProcessingAGCEnabledActive: isVoiceProcessingAGCEnabledActive,
+            voiceProcessingEnabled: PlatformVoiceProcessingFlagState(
+                isRequested: isVoiceProcessingEnabledRequested,
+                isActive: isVoiceProcessingEnabledActive,
+            ),
+            voiceProcessingBypassed: PlatformVoiceProcessingFlagState(
+                isRequested: isVoiceProcessingBypassedRequested,
+                isActive: isVoiceProcessingBypassedActive,
+            ),
+            voiceProcessingAGCEnabled: PlatformVoiceProcessingFlagState(
+                isRequested: isVoiceProcessingAGCEnabledRequested,
+                isActive: isVoiceProcessingAGCEnabledActive,
+            ),
         )
     }
 }

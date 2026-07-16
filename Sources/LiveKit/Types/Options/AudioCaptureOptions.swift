@@ -44,22 +44,22 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
     /// Whether to enable noise suppression.
     public let noiseSuppression: Bool
 
+    /// Whether to enable the high-pass filter.
     public let highpassFilter: Bool
 
     public let typingNoiseDetection: Bool
 
     /// Selects platform versus WebRTC software echo cancellation.
-    public let echoCancellationMode: AudioProcessingMode
+    public let echoCancellationMode: EchoCancellationMode
 
     /// Selects platform versus WebRTC software gain control.
-    public let autoGainControlMode: AudioProcessingMode
+    public let autoGainControlMode: AutoGainControlMode
 
     /// Selects platform versus WebRTC software noise suppression.
-    public let noiseSuppressionMode: AudioProcessingMode
+    public let noiseSuppressionMode: NoiseSuppressionMode
 
-    /// Selects platform versus WebRTC software high-pass filtering.
-    /// No platform HPF exists today, so `platform` is rejected.
-    public let highpassFilterMode: AudioProcessingMode
+    /// Selects WebRTC software high-pass filtering behavior.
+    public let highpassFilterMode: HighpassFilterMode
 
     public init(
         echoCancellation: Bool = AudioCaptureOptions.defaultEchoCancellation,
@@ -67,39 +67,64 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
         noiseSuppression: Bool = AudioCaptureOptions.defaultNoiseSuppression,
         highpassFilter: Bool = false,
         typingNoiseDetection: Bool = false,
-        echoCancellationMode: AudioProcessingMode = .automatic,
-        autoGainControlMode: AudioProcessingMode = .automatic,
-        noiseSuppressionMode: AudioProcessingMode = .automatic,
-        highpassFilterMode: AudioProcessingMode = .automatic,
+        echoCancellationMode: EchoCancellationMode = .automatic,
+        autoGainControlMode: AutoGainControlMode = .automatic,
+        noiseSuppressionMode: NoiseSuppressionMode = .automatic,
+        highpassFilterMode: HighpassFilterMode = .automatic,
     ) {
         self.echoCancellation = echoCancellation
-        self.noiseSuppression = noiseSuppression
         self.autoGainControl = autoGainControl
-        self.typingNoiseDetection = typingNoiseDetection
+        self.noiseSuppression = noiseSuppression
         self.highpassFilter = highpassFilter
+        self.typingNoiseDetection = typingNoiseDetection
         self.echoCancellationMode = echoCancellationMode
         self.autoGainControlMode = autoGainControlMode
         self.noiseSuppressionMode = noiseSuppressionMode
         self.highpassFilterMode = highpassFilterMode
     }
 
-    public convenience init(audioProcessingOptions: AudioProcessingOptions,
-                            typingNoiseDetection: Bool = false)
-    {
+    /// Preserves the Objective-C initializer available before per-effect modes were added.
+    @objc(initWithEchoCancellation:autoGainControl:noiseSuppression:highpassFilter:typingNoiseDetection:)
+    public convenience init(
+        echoCancellation: Bool,
+        autoGainControl: Bool,
+        noiseSuppression: Bool,
+        highpassFilter: Bool,
+        typingNoiseDetection: Bool,
+    ) {
         self.init(
-            echoCancellation: audioProcessingOptions.echoCancellation,
-            autoGainControl: audioProcessingOptions.autoGainControl,
-            noiseSuppression: audioProcessingOptions.noiseSuppression,
-            highpassFilter: audioProcessingOptions.highpassFilter,
+            echoCancellation: echoCancellation,
+            autoGainControl: autoGainControl,
+            noiseSuppression: noiseSuppression,
+            highpassFilter: highpassFilter,
             typingNoiseDetection: typingNoiseDetection,
-            echoCancellationMode: audioProcessingOptions.echoCancellationMode,
-            autoGainControlMode: audioProcessingOptions.autoGainControlMode,
-            noiseSuppressionMode: audioProcessingOptions.noiseSuppressionMode,
-            highpassFilterMode: audioProcessingOptions.highpassFilterMode,
+            echoCancellationMode: .automatic,
+            autoGainControlMode: .automatic,
+            noiseSuppressionMode: .automatic,
+            highpassFilterMode: .automatic,
         )
     }
 
-    public var audioProcessingOptions: AudioProcessingOptions {
+    // MARK: - Equatable
+
+    override public func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return audioProcessing == other.audioProcessing &&
+            typingNoiseDetection == other.typingNoiseDetection
+    }
+
+    override public var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(audioProcessing)
+        hasher.combine(typingNoiseDetection)
+        return hasher.finalize()
+    }
+}
+
+// Internal
+extension AudioCaptureOptions {
+    /// The per-effect voice-processing configuration as runtime options.
+    var audioProcessing: AudioProcessingOptions {
         AudioProcessingOptions(
             echoCancellation: echoCancellation,
             autoGainControl: autoGainControl,
@@ -112,38 +137,6 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
         )
     }
 
-    // MARK: - Equatable
-
-    override public func isEqual(_ object: Any?) -> Bool {
-        guard let other = object as? Self else { return false }
-        return echoCancellation == other.echoCancellation &&
-            noiseSuppression == other.noiseSuppression &&
-            autoGainControl == other.autoGainControl &&
-            typingNoiseDetection == other.typingNoiseDetection &&
-            highpassFilter == other.highpassFilter &&
-            echoCancellationMode == other.echoCancellationMode &&
-            autoGainControlMode == other.autoGainControlMode &&
-            noiseSuppressionMode == other.noiseSuppressionMode &&
-            highpassFilterMode == other.highpassFilterMode
-    }
-
-    override public var hash: Int {
-        var hasher = Hasher()
-        hasher.combine(echoCancellation)
-        hasher.combine(noiseSuppression)
-        hasher.combine(autoGainControl)
-        hasher.combine(typingNoiseDetection)
-        hasher.combine(highpassFilter)
-        hasher.combine(echoCancellationMode)
-        hasher.combine(autoGainControlMode)
-        hasher.combine(noiseSuppressionMode)
-        hasher.combine(highpassFilterMode)
-        return hasher.finalize()
-    }
-}
-
-// Internal
-extension AudioCaptureOptions {
     func toFeatures() -> Set<Livekit_AudioTrackFeature> {
         Set([
             echoCancellation ? .tfEchoCancellation : nil,

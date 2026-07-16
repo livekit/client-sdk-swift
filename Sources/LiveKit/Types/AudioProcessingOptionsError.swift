@@ -16,10 +16,24 @@
 
 import Foundation
 
-/// An error returned when audio processing options cannot be applied.
+/// An error thrown when audio processing options cannot be applied.
 public struct AudioProcessingOptionsError: LocalizedError, Sendable {
     /// The machine-readable reason the request failed.
-    public let code: AudioProcessingOptionsResultCode
+    public enum Code: Sendable {
+        /// The receiving track is not in a state that accepts processing options.
+        case invalidState
+        /// Processing options cannot be applied to a remote track.
+        case remoteTrack
+        /// The requested per-effect combination is not supported.
+        case invalidCombination
+        /// A platform implementation was required but is unavailable.
+        case platformUnavailable
+        /// The engine failed to apply the options.
+        case applyFailed
+    }
+
+    /// The machine-readable reason the request failed.
+    public let code: Code
 
     /// Details supplied by the audio processing implementation, if available.
     public let message: String
@@ -28,15 +42,5 @@ public struct AudioProcessingOptionsError: LocalizedError, Sendable {
     public var errorDescription: String? {
         let reason = message.isEmpty ? "\(code)" : "\(code): \(message)"
         return "Failed to set audio processing options: \(reason)"
-    }
-
-    init(_ result: AudioProcessingOptionsResult) {
-        code = result.code
-        message = result.message
-    }
-
-    init(code: AudioProcessingOptionsResultCode, message: String) {
-        self.code = code
-        self.message = message
     }
 }

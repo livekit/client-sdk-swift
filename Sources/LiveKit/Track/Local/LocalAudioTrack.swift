@@ -100,21 +100,17 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     /// the active sender. Effective APM configuration is shared by the WebRTC voice engine,
     /// so conflicting updates from multiple local audio tracks are last-writer-wins.
     ///
-    /// - Returns: The result of applying or storing the options.
+    /// - Returns: Whether the options were applied immediately or stored for reapplication.
     /// - Throws: ``AudioProcessingOptionsError`` when the options cannot be applied.
     @discardableResult
     public func setAudioProcessingOptions(_ options: AudioProcessingOptions) throws -> AudioProcessingOptionsResult {
         guard let audioTrack = mediaTrack as? LKRTCAudioTrack else {
             throw AudioProcessingOptionsError(
-                code: .applyFailed,
+                code: .invalidState,
                 message: "Media track is not an audio track",
             )
         }
-        let result = audioTrack.setAudioProcessingOptions(options.toRTCType()).toLKType()
-        guard result.isSuccess else {
-            throw AudioProcessingOptionsError(result)
-        }
-        return result
+        return try audioTrack.setAudioProcessingOptions(options.toRTCType()).toLKType()
     }
 
     // MARK: - Internal
@@ -123,7 +119,7 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
         // AudioDeviceModule's InitRecording() and StartRecording() automatically get called by WebRTC, but
         // explicitly init & start it early to detect audio engine failures (mic not accessible for some reason, etc.).
         try AudioManager.shared.startLocalRecording(
-            audioProcessingOptions: captureOptions.audioProcessingOptions,
+            audioProcessingOptions: captureOptions.audioProcessing,
         )
     }
 
