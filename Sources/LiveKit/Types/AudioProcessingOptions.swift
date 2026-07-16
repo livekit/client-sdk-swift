@@ -212,7 +212,7 @@ extension LKRTCAudioProcessingOptionsResult {
         switch code {
         case .applied: return .applied
         case .stored: return .stored
-        case .rejectedRemoteTrack: throw AudioProcessingOptionsError(code: .remoteTrack, message: message)
+        case .rejectedRemoteTrack: throw AudioProcessingOptionsError(code: .invalidState, message: message)
         case .rejectedInvalidCombination: throw AudioProcessingOptionsError(code: .invalidCombination, message: message)
         case .rejectedPlatformUnavailable: throw AudioProcessingOptionsError(code: .platformUnavailable, message: message)
         case .applyFailed: throw AudioProcessingOptionsError(code: .applyFailed, message: message)

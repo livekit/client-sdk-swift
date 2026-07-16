@@ -22,8 +22,6 @@ public struct AudioProcessingOptionsError: LocalizedError, Sendable {
     public enum Code: Sendable {
         /// The receiving track is not in a state that accepts processing options.
         case invalidState
-        /// Processing options cannot be applied to a remote track.
-        case remoteTrack
         /// The requested per-effect combination is not supported.
         case invalidCombination
         /// A platform implementation was required but is unavailable.
