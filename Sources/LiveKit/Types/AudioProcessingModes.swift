@@ -17,7 +17,7 @@
 internal import LiveKitWebRTC
 
 /// Selects the echo-cancellation implementation.
-public enum EchoCancellationMode: Hashable, Sendable {
+public enum EchoCancellationMode: CaseIterable, Hashable, Sendable {
     /// Prefer platform voice processing when available and fall back to WebRTC software processing.
     case automatic
     /// Use platform voice processing only. If platform processing is unavailable, the request is rejected.
@@ -27,7 +27,7 @@ public enum EchoCancellationMode: Hashable, Sendable {
 }
 
 /// Selects the automatic-gain-control implementation.
-public enum AutoGainControlMode: Hashable, Sendable {
+public enum AutoGainControlMode: CaseIterable, Hashable, Sendable {
     /// Prefer platform voice processing when available and fall back to WebRTC software processing.
     case automatic
     /// Use platform voice processing only. If platform processing is unavailable, the request is rejected.
@@ -37,7 +37,7 @@ public enum AutoGainControlMode: Hashable, Sendable {
 }
 
 /// Selects the noise-suppression implementation.
-public enum NoiseSuppressionMode: Hashable, Sendable {
+public enum NoiseSuppressionMode: CaseIterable, Hashable, Sendable {
     /// Prefer platform voice processing when available and fall back to WebRTC software processing.
     case automatic
     /// Use platform voice processing only. If platform processing is unavailable, the request is rejected.
@@ -47,7 +47,7 @@ public enum NoiseSuppressionMode: Hashable, Sendable {
 }
 
 /// Selects the high-pass-filter implementation.
-public enum HighpassFilterMode: Hashable, Sendable {
+public enum HighpassFilterMode: CaseIterable, Hashable, Sendable {
     /// Use WebRTC software processing when the filter is enabled.
     case automatic
     /// Force WebRTC software processing.
