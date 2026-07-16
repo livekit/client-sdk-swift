@@ -65,7 +65,7 @@ let options = AudioCaptureOptions(
     echoCancellationMode: .software,
     autoGainControlMode: .software,
     noiseSuppressionMode: .software,
-    highPassFilterMode: .software
+    highpassFilterMode: .software
 )
 try await room.localParticipant.setMicrophone(enabled: true, captureOptions: options)
 ```
@@ -86,11 +86,11 @@ let result = try localAudioTrack.setAudioProcessingOptions(
         echoCancellation: true,
         autoGainControl: true,
         noiseSuppression: true,
-        highPassFilter: true,
+        highpassFilter: true,
         echoCancellationMode: .software,
         autoGainControlMode: .software,
         noiseSuppressionMode: .software,
-        highPassFilterMode: .software
+        highpassFilterMode: .software
     )
 )
 print(result.code) // .applied or .stored on success
@@ -104,7 +104,7 @@ print(state.echoCancellation.effective) // Software
 print(state.noiseSuppression.effective)  // Software
 ```
 
-> **NOTE**: There is no platform high-pass filter, so `.platform` is rejected for `highPassFilterMode`. Use `.software` instead.
+> **NOTE**: There is no platform high-pass filter, so `.platform` is rejected for `highpassFilterMode`. Use `.software` instead.
 
 To guarantee Apple Voice Processing I/O is never used at all, for example to keep hardware volume consistent or to allow screen recording with audio, also disallow platform voice processing as described below.
 

@@ -69,7 +69,7 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
             "echoCancellationMode": options.echoCancellationMode.toConstraintValue(),
             "autoGainControlMode": options.autoGainControlMode.toConstraintValue(),
             "noiseSuppressionMode": options.noiseSuppressionMode.toConstraintValue(),
-            "highPassFilterMode": options.highPassFilterMode.toConstraintValue(),
+            "highPassFilterMode": options.highpassFilterMode.toConstraintValue(),
         ]
 
         let audioConstraints = DispatchQueue.liveKitWebRTC.sync { LKRTCMediaConstraints(mandatoryConstraints: nil,

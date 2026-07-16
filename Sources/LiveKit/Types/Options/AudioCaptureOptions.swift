@@ -59,7 +59,7 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
 
     /// Selects platform versus WebRTC software high-pass filtering.
     /// No platform HPF exists today, so `platform` is rejected.
-    public let highPassFilterMode: AudioProcessingMode
+    public let highpassFilterMode: AudioProcessingMode
 
     public init(
         echoCancellation: Bool = AudioCaptureOptions.defaultEchoCancellation,
@@ -70,7 +70,7 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
         echoCancellationMode: AudioProcessingMode = .automatic,
         autoGainControlMode: AudioProcessingMode = .automatic,
         noiseSuppressionMode: AudioProcessingMode = .automatic,
-        highPassFilterMode: AudioProcessingMode = .automatic,
+        highpassFilterMode: AudioProcessingMode = .automatic,
     ) {
         self.echoCancellation = echoCancellation
         self.noiseSuppression = noiseSuppression
@@ -80,7 +80,7 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
         self.echoCancellationMode = echoCancellationMode
         self.autoGainControlMode = autoGainControlMode
         self.noiseSuppressionMode = noiseSuppressionMode
-        self.highPassFilterMode = highPassFilterMode
+        self.highpassFilterMode = highpassFilterMode
     }
 
     public convenience init(audioProcessingOptions: AudioProcessingOptions,
@@ -90,12 +90,12 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
             echoCancellation: audioProcessingOptions.echoCancellation,
             autoGainControl: audioProcessingOptions.autoGainControl,
             noiseSuppression: audioProcessingOptions.noiseSuppression,
-            highpassFilter: audioProcessingOptions.highPassFilter,
+            highpassFilter: audioProcessingOptions.highpassFilter,
             typingNoiseDetection: typingNoiseDetection,
             echoCancellationMode: audioProcessingOptions.echoCancellationMode,
             autoGainControlMode: audioProcessingOptions.autoGainControlMode,
             noiseSuppressionMode: audioProcessingOptions.noiseSuppressionMode,
-            highPassFilterMode: audioProcessingOptions.highPassFilterMode,
+            highpassFilterMode: audioProcessingOptions.highpassFilterMode,
         )
     }
 
@@ -104,11 +104,11 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
             echoCancellation: echoCancellation,
             autoGainControl: autoGainControl,
             noiseSuppression: noiseSuppression,
-            highPassFilter: highpassFilter,
+            highpassFilter: highpassFilter,
             echoCancellationMode: echoCancellationMode,
             autoGainControlMode: autoGainControlMode,
             noiseSuppressionMode: noiseSuppressionMode,
-            highPassFilterMode: highPassFilterMode,
+            highpassFilterMode: highpassFilterMode,
         )
     }
 
@@ -124,7 +124,7 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
             echoCancellationMode == other.echoCancellationMode &&
             autoGainControlMode == other.autoGainControlMode &&
             noiseSuppressionMode == other.noiseSuppressionMode &&
-            highPassFilterMode == other.highPassFilterMode
+            highpassFilterMode == other.highpassFilterMode
     }
 
     override public var hash: Int {
@@ -137,7 +137,7 @@ public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
         hasher.combine(echoCancellationMode)
         hasher.combine(autoGainControlMode)
         hasher.combine(noiseSuppressionMode)
-        hasher.combine(highPassFilterMode)
+        hasher.combine(highpassFilterMode)
         return hasher.finalize()
     }
 }

@@ -64,37 +64,37 @@ public final class AudioProcessingOptions: NSObject, Sendable {
         echoCancellation: false,
         autoGainControl: false,
         noiseSuppression: false,
-        highPassFilter: false,
+        highpassFilter: false,
     )
 
     public let echoCancellation: Bool
     public let autoGainControl: Bool
     public let noiseSuppression: Bool
-    public let highPassFilter: Bool
+    public let highpassFilter: Bool
 
     public let echoCancellationMode: AudioProcessingMode
     public let autoGainControlMode: AudioProcessingMode
     public let noiseSuppressionMode: AudioProcessingMode
-    public let highPassFilterMode: AudioProcessingMode
+    public let highpassFilterMode: AudioProcessingMode
 
     public init(
         echoCancellation: Bool = true,
         autoGainControl: Bool = true,
         noiseSuppression: Bool = true,
-        highPassFilter: Bool = false,
+        highpassFilter: Bool = false,
         echoCancellationMode: AudioProcessingMode = .automatic,
         autoGainControlMode: AudioProcessingMode = .automatic,
         noiseSuppressionMode: AudioProcessingMode = .automatic,
-        highPassFilterMode: AudioProcessingMode = .automatic,
+        highpassFilterMode: AudioProcessingMode = .automatic,
     ) {
         self.echoCancellation = echoCancellation
         self.autoGainControl = autoGainControl
         self.noiseSuppression = noiseSuppression
-        self.highPassFilter = highPassFilter
+        self.highpassFilter = highpassFilter
         self.echoCancellationMode = echoCancellationMode
         self.autoGainControlMode = autoGainControlMode
         self.noiseSuppressionMode = noiseSuppressionMode
-        self.highPassFilterMode = highPassFilterMode
+        self.highpassFilterMode = highpassFilterMode
     }
 
     override public func isEqual(_ object: Any?) -> Bool {
@@ -102,11 +102,11 @@ public final class AudioProcessingOptions: NSObject, Sendable {
         return echoCancellation == other.echoCancellation &&
             autoGainControl == other.autoGainControl &&
             noiseSuppression == other.noiseSuppression &&
-            highPassFilter == other.highPassFilter &&
+            highpassFilter == other.highpassFilter &&
             echoCancellationMode == other.echoCancellationMode &&
             autoGainControlMode == other.autoGainControlMode &&
             noiseSuppressionMode == other.noiseSuppressionMode &&
-            highPassFilterMode == other.highPassFilterMode
+            highpassFilterMode == other.highpassFilterMode
     }
 
     override public var hash: Int {
@@ -114,11 +114,11 @@ public final class AudioProcessingOptions: NSObject, Sendable {
         hasher.combine(echoCancellation)
         hasher.combine(autoGainControl)
         hasher.combine(noiseSuppression)
-        hasher.combine(highPassFilter)
+        hasher.combine(highpassFilter)
         hasher.combine(echoCancellationMode)
         hasher.combine(autoGainControlMode)
         hasher.combine(noiseSuppressionMode)
-        hasher.combine(highPassFilterMode)
+        hasher.combine(highpassFilterMode)
         return hasher.finalize()
     }
 }
@@ -175,7 +175,7 @@ public struct AudioProcessingState: Sendable {
     public let echoCancellation: AudioProcessingComponentState
     public let noiseSuppression: AudioProcessingComponentState
     public let autoGainControl: AudioProcessingComponentState
-    public let highPassFilter: AudioProcessingComponentState
+    public let highpassFilter: AudioProcessingComponentState
 }
 
 public enum PlatformAudioProcessingTopology: Int, Sendable {
@@ -306,8 +306,8 @@ extension AudioProcessingOptions {
                 mode: autoGainControlMode.toRTCType(),
             ),
             highPassFilterOptions: LKRTCAudioProcessingComponentOptions(
-                enabled: highPassFilter,
-                mode: highPassFilterMode.toRTCType(),
+                enabled: highpassFilter,
+                mode: highpassFilterMode.toRTCType(),
             ),
         )
     }
@@ -336,7 +336,7 @@ extension LKRTCAudioProcessingState {
             echoCancellation: echoCancellation.toLKType(),
             noiseSuppression: noiseSuppression.toLKType(),
             autoGainControl: autoGainControl.toLKType(),
-            highPassFilter: highPassFilter.toLKType(),
+            highpassFilter: highPassFilter.toLKType(),
         )
     }
 }
