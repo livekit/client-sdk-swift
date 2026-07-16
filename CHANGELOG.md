@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.15.2] - 2026-07-17
+
+### Added
+
+- Add `LocalParticipant.publishDtmf(code:digit:)` for sending SIP DTMF tones
+- Add AudioProcessingOptions
+
+### Fixed
+
+- Ping/pong timeout was re-armed on every ping and never fired, leaving a lost signaling connection stuck at .connected
+- WebRTC crashes during track teardown
+- Report microphone permission and audio session errors with the correct error type
+
 ## [2.15.1] - 2026-06-18
 
 ### Fixed
