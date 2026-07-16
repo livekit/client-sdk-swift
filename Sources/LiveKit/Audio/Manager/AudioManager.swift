@@ -320,19 +320,34 @@ public class AudioManager: Loggable {
         set { RTC.audioDeviceModule.duckingLevel = newValue.toRTCType() }
     }
 
-    /// The main flag that determines whether to enable Voice-Processing I/O of the internal AVAudioEngine. Toggling this requires restarting the AudioEngine.
-    /// Setting this to `false` prevents any voice-processing-related initialization, and muted talker detection will not work.
-    /// Typically, it is recommended to keep this set to `true` and toggle ``isVoiceProcessingBypassed`` when possible.
-    /// Defaults to `true`.
-    public var isVoiceProcessingEnabled: Bool { RTC.audioDeviceModule.isPlatformVoiceProcessingAllowed }
+    /// Whether Apple's platform voice processing is allowed.
+    ///
+    /// Defaults to `true`. When set to `false`, runtime ``AudioProcessingOptions``
+    /// treat Apple Voice Processing I/O as unavailable. `automatic` mode falls
+    /// back to WebRTC software processing and `platform` mode is rejected.
+    ///
+    /// Use ``AudioProcessingOptions`` with `.software` modes for per-track or
+    /// per-capture software voice processing. Use this policy when the app must
+    /// guarantee Apple Voice Processing I/O is not used.
+    public var isPlatformVoiceProcessingAllowed: Bool { RTC.audioDeviceModule.isPlatformVoiceProcessingAllowed }
 
-    public func setVoiceProcessingEnabled(_ enabled: Bool) throws {
-        let result = RTC.audioDeviceModule.setPlatformVoiceProcessingAllowed(enabled)
+    public func setPlatformVoiceProcessingAllowed(_ allowed: Bool) throws {
+        let result = RTC.audioDeviceModule.setPlatformVoiceProcessingAllowed(allowed)
         try checkAdmResult(code: result)
+    }
+
+    @available(*, deprecated, renamed: "isPlatformVoiceProcessingAllowed")
+    public var isVoiceProcessingEnabled: Bool { isPlatformVoiceProcessingAllowed }
+
+    @available(*, deprecated, renamed: "setPlatformVoiceProcessingAllowed(_:)")
+    public func setVoiceProcessingEnabled(_ enabled: Bool) throws {
+        try setPlatformVoiceProcessingAllowed(enabled)
     }
 
     /// Bypass Voice-Processing I/O of internal AVAudioEngine.
     /// It is valid to toggle this at runtime and AudioEngine doesn't require restart.
+    /// Runtime ``AudioProcessingOptions`` may overwrite this Apple-specific state
+    /// when capture starts or when local audio track options are reapplied.
     /// Defaults to `false`.
     public var isVoiceProcessingBypassed: Bool {
         get {
@@ -359,6 +374,21 @@ public class AudioManager: Loggable {
         set { RTC.audioDeviceModule.isVoiceProcessingAGCEnabled = newValue }
     }
 
+    /// Device-level platform voice-processing capability and requested/active state.
+    public var platformVoiceProcessingState: PlatformVoiceProcessingState {
+        RTC.audioDeviceModule.platformAudioProcessingState.toLKType()
+    }
+
+    /// Diagnostic snapshot of the resolved audio processing state.
+    ///
+    /// The audio processing module is owned by the peer connection factory and
+    /// shared engine-wide, so this reflects what is actually applied across the
+    /// engine rather than any single track or connection — use it to verify what
+    /// a ``LocalAudioTrack/setAudioProcessingOptions(_:)`` request resolved to.
+    public var audioProcessingState: AudioProcessingState {
+        RTC.audioProcessingState().toLKType()
+    }
+
     /// Enables manual rendering (no-device) mode of AVAudioEngine.
     /// In this mode, you can provide audio buffers by calling `AudioManager.shared.mixer.capture(appAudio:)` continuously.
     /// Remote audio will not play out automatically. Get remote mixed audio buffers with `AudioManager.shared.add(localAudioRenderer:)` or individual tracks with ``RemoteAudioTrack/add(audioRenderer:)``.
@@ -383,22 +413,31 @@ public class AudioManager: Loggable {
     /// which keeps recording initialized and pre-warms voice processing.
     ///
     /// - Parameter enabled: Pass `true` to enable always-prepared recording, or `false` to disable it.
+    /// - Parameter audioProcessingOptions: Optional voice-processing options used when prewarming mic input.
     /// - Note: If `audioSession.isAutomaticConfigurationEnabled` is `true`, the session category is configured to `.playAndRecord`.
     /// - Note: Microphone permission is required. iOS may prompt if not already granted.
     /// - Note: This persists across ``Room`` lifecycles and connections until disabled.
     /// - Throws: An error if the underlying audio device module fails to apply the setting.
-    public func setRecordingAlwaysPreparedMode(_ enabled: Bool) async throws {
-        let result = RTC.audioDeviceModule.setRecordingAlwaysPreparedMode(enabled)
+    public func setRecordingAlwaysPreparedMode(
+        _ enabled: Bool,
+        audioProcessingOptions: AudioProcessingOptions? = nil,
+    ) async throws {
+        let result = RTC.audioDeviceModule.setRecordingAlwaysPreparedMode(
+            enabled,
+            audioProcessingOptions: audioProcessingOptions?.toRTCType(),
+        )
         try checkAdmResult(code: result)
     }
 
     /// Starts mic input to the SDK even without any ``Room`` or a connection.
     /// Audio buffers will flow into ``LocalAudioTrack/add(audioRenderer:)`` and ``capturePostProcessingDelegate``.
-    public func startLocalRecording() throws {
+    public func startLocalRecording(audioProcessingOptions: AudioProcessingOptions? = nil) throws {
         // Always unmute APM if muted by last session.
         RTC.audioProcessingModule.isMuted = false // TODO: Possibly not required anymore with new libs
         // Start recording on the ADM.
-        let result = RTC.audioDeviceModule.initAndStartRecording()
+        let result = RTC.audioDeviceModule.initAndStartRecording(
+            audioProcessingOptions: audioProcessingOptions?.toRTCType(),
+        )
         try checkAdmResult(code: result)
     }
 
