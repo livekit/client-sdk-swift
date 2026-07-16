@@ -1,0 +1,1 @@
+patch type="fixed" "iOS audio session: refined `.playAndRecord` selection; dropped `.mixWithOthers` and `.allowAirPlay`"

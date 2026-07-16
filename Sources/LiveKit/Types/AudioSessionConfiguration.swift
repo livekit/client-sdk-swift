@@ -28,14 +28,27 @@ public extension AudioSessionConfiguration {
                                                        categoryOptions: [],
                                                        mode: .default)
 
+    static let ambient = AudioSessionConfiguration(category: .ambient,
+                                                   categoryOptions: [],
+                                                   mode: .default)
+
     static let playback = AudioSessionConfiguration(category: .playback,
                                                     categoryOptions: [.mixWithOthers],
                                                     mode: .spokenAudio)
 
+    // `.mixWithOthers` is removed from `.playAndRecord`:
+    //   - it is a known cause of echo when other apps share the audio device
+    //     during a real-time call;
+    //   - our WebRTC ADM has a retry loop working around -66637
+    //     (kAudioUnitErr_Initialized) on interruption-end recovery when this
+    //     option is active (related symptom: #1011).
+    // Intentionally kept on `.playback` (listener) where mixing is correct.
+    // `.allowAirPlay` is redundant under `.voiceChat`/`.videoChat` per QA1803:
+    // https://developer.apple.com/library/archive/qa/qa1803/_index.html
     #if swift(>=6.2)
-    private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetoothHFP, .allowBluetoothA2DP, .allowAirPlay]
+    private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.allowBluetoothHFP, .allowBluetoothA2DP]
     #else
-    private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
+    private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
     #endif
 
     static let playAndRecordSpeaker = AudioSessionConfiguration(category: .playAndRecord,
