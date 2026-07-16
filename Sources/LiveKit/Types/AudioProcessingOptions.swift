@@ -277,7 +277,15 @@ extension LKRTCAudioProcessingImplementation {
 
 extension AudioProcessingOptionsResultCode {
     init(_ code: LKRTCAudioProcessingOptionsResultCode) {
-        self = Self(rawValue: code.rawValue) ?? .applyFailed
+        switch code {
+        case .applied: self = .applied
+        case .stored: self = .stored
+        case .rejectedRemoteTrack: self = .rejectedRemoteTrack
+        case .rejectedInvalidCombination: self = .rejectedInvalidCombination
+        case .rejectedPlatformUnavailable: self = .rejectedPlatformUnavailable
+        case .applyFailed: self = .applyFailed
+        @unknown default: self = .applyFailed
+        }
     }
 }
 
