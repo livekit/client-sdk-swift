@@ -89,9 +89,9 @@ import LiveKitTestSupport
         }
     }
 
-    /// After the timeout flushes the buffer, a late agent cannot receive it and
-    /// the error is reported instead of silently sending an unusable stream.
-    @Test func flushDiscardsBufferAndFailsSend() async throws {
+    /// After the timeout flushes the buffer, a late send is a silent no-op,
+    /// so a flush racing the publish trigger never surfaces an error.
+    @Test func flushDiscardsBufferSilently() async throws {
         let room = Room()
         let buffer = room.preConnectBuffer
         let recorder = LocalAudioTrackRecorder(track: TestAudioTrack(),
@@ -108,9 +108,8 @@ import LiveKitTestSupport
         }
         #expect(!recorder.isRecording)
 
-        await #expect(throws: LiveKitError.self) {
-            try await buffer.sendAudioData(to: room, trackSid: Track.Sid(from: "TR_test"), agents: [Participant.Identity(from: "agent")])
-        }
+        // Flushed sessions tear down silently: no throw, nothing sent...
+        try await buffer.sendAudioData(to: room, trackSid: Track.Sid(from: "TR_test"), agents: [Participant.Identity(from: "agent")])
     }
 
     /// Sending without an active recorder fails, and an empty agent list is a no-op.

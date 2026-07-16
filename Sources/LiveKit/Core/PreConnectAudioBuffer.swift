@@ -157,16 +157,19 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     func sendAudioData(to room: Room, trackSid: Track.Sid, agents: [Participant.Identity]? = nil, on topic: String = dataTopic) async throws {
         if let agents, agents.isEmpty { return }
 
-        // Take ownership of the stream; it can be consumed only once
-        let (recorder, audioStream) = try state.mutate { state -> (LocalAudioTrackRecorder, LocalAudioTrackRecorder.Stream) in
+        // Take ownership of the stream; it can be consumed only once.
+        // A nil stream means it was already sent or flushed — expected teardown, not an error
+        let claim = try state.mutate { state -> (recorder: LocalAudioTrackRecorder, audioStream: LocalAudioTrackRecorder.Stream)? in
             guard let recorder = state.recorder else {
                 throw LiveKitError(.invalidState, message: "Recorder is nil")
             }
-            guard let audioStream = state.audioStream else {
-                throw LiveKitError(.invalidState, message: "Audio stream is already consumed")
-            }
+            guard let audioStream = state.audioStream else { return nil }
             state.audioStream = nil
             return (recorder, audioStream)
+        }
+        guard let (recorder, audioStream) = claim else {
+            log("Audio stream already consumed or flushed, nothing to send")
+            return
         }
 
         let destinations: [Participant.Identity]
