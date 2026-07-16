@@ -128,9 +128,6 @@ public struct AudioProcessingComponentState<Mode: Sendable>: Sendable {
 /// for the whole engine, not a single track. Device-level platform processing
 /// detail lives on ``PlatformVoiceProcessingState`` instead.
 public struct AudioProcessingState: Sendable {
-    /// Whether the shared engine includes a WebRTC audio processing module.
-    public let hasAudioProcessingModule: Bool
-
     /// Echo-cancellation state and its most recent typed request.
     public let echoCancellation: AudioProcessingComponentState<EchoCancellationMode>
 
@@ -266,7 +263,6 @@ extension LKRTCAudioProcessingComponentState {
 extension LKRTCAudioProcessingState {
     func toLKType() -> AudioProcessingState {
         AudioProcessingState(
-            hasAudioProcessingModule: hasAudioProcessingModule,
             echoCancellation: echoCancellation.toLKType(modeType: EchoCancellationMode.self),
             noiseSuppression: noiseSuppression.toLKType(modeType: NoiseSuppressionMode.self),
             autoGainControl: autoGainControl.toLKType(modeType: AutoGainControlMode.self),
