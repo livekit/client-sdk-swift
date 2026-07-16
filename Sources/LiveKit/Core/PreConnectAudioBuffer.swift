@@ -18,6 +18,9 @@ import AVFAudio
 import Foundation
 
 /// A buffer that captures audio before connecting to the server.
+///
+/// The captured audio is sent automatically to the first active agent participant
+/// once the microphone track is published and its server-assigned id is known.
 @objcMembers
 public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     public typealias OnError = @Sendable (Error) -> Void
@@ -43,9 +46,11 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         var recorder: LocalAudioTrackRecorder?
         var audioStream: LocalAudioTrackRecorder.Stream?
         var timeoutTask: AnyTaskCancellable?
-        var sent: Bool = false
         var onError: OnError?
     }
+
+    /// Resolves with the first agent participant that becomes active.
+    private let agentCompleter = AsyncCompleter<Participant.Identity>(label: "PreConnectAudioBuffer.agent", defaultTimeout: Constants.timeout)
 
     /// Initialize the audio buffer with a room instance.
     /// - Parameters:
@@ -74,8 +79,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     /// before the timeout is reached. Otherwise, the audio stream will be flushed without sending.
     ///   - recorder: Optional custom recorder instance. If not provided, a new one will be created.
     public func startRecording(timeout: TimeInterval = Constants.timeout, recorder: LocalAudioTrackRecorder? = nil) async throws {
-        room?.add(delegate: self)
-
+        let timeout = timeout.isFinite ? min(max(timeout, 0), 86400) : Constants.timeout
         let roomOptions = room?._state.roomOptions
         let newRecorder = recorder ?? LocalAudioTrackRecorder(
             track: LocalAudioTrack.createTrack(options: roomOptions?.defaultAudioCaptureOptions,
@@ -88,16 +92,20 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         let stream = try await newRecorder.start()
         log("Started capturing audio", .info)
 
+        agentCompleter.reset()
+        agentCompleter.set(defaultTimeout: timeout)
+
         state.mutate { state in
             state.recorder = newRecorder
             state.audioStream = stream
             state.timeoutTask = Task { [weak self] in
-                try await Task.sleep(nanoseconds: UInt64(timeout) * NSEC_PER_SEC)
+                try await Task.sleep(nanoseconds: UInt64(timeout * TimeInterval(NSEC_PER_SEC)))
                 try Task.checkCancellation()
                 self?.stopRecording(flush: true)
             }.cancellable()
-            state.sent = false
         }
+
+        room?.add(delegate: self)
     }
 
     /// Stop capturing audio.
@@ -109,11 +117,20 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         recorder.stop()
         log("Stopped capturing audio", .info)
 
-        if flush, let stream = state.audioStream {
-            log("Flushing audio stream", .info)
-            Task {
-                for await _ in stream {}
+        if flush {
+            // Take ownership of the stream so it cannot race with an in-flight send
+            let stream = state.mutate { state in
+                let stream = state.audioStream
+                state.audioStream = nil
+                return stream
             }
+            if let stream {
+                log("Flushing audio stream", .info)
+                Task {
+                    for await _ in stream {}
+                }
+            }
+            agentCompleter.reset()
             room?.remove(delegate: self)
         }
     }
@@ -124,17 +141,42 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     ///   - agents: The agents to send the audio data to.
     ///   - topic: The topic to send the audio data.
     public func sendAudioData(to room: Room, agents: [Participant.Identity], on topic: String = dataTopic) async throws {
-        guard !agents.isEmpty else { return }
+        guard !agents.isEmpty, state.audioStream != nil else { return }
+        guard let trackSid = state.recorder?.track.sid else {
+            throw LiveKitError(.invalidState, message: "Track is not published")
+        }
+        try await sendAudioData(to: room, trackSid: trackSid, agents: agents, on: topic)
+    }
 
-        guard !state.sent else { return }
-        state.mutate { $0.sent = true }
+    /// Send the audio data to the given agents, or to the first active agent if none are given.
+    /// - Parameters:
+    ///   - room: The room instance to send the audio data.
+    ///   - trackSid: The server-assigned id of the published microphone track the agent binds the buffer to.
+    ///   - agents: The agents to send the audio data to. If `nil`, waits for the first active agent.
+    ///   - topic: The topic to send the audio data.
+    func sendAudioData(to room: Room, trackSid: Track.Sid, agents: [Participant.Identity]? = nil, on topic: String = dataTopic) async throws {
+        if let agents, agents.isEmpty { return }
 
-        guard let recorder else {
-            throw LiveKitError(.invalidState, message: "Recorder is nil")
+        // Take ownership of the stream; it can be consumed only once
+        let (recorder, audioStream) = try state.mutate { state -> (LocalAudioTrackRecorder, LocalAudioTrackRecorder.Stream) in
+            guard let recorder = state.recorder else {
+                throw LiveKitError(.invalidState, message: "Recorder is nil")
+            }
+            guard let audioStream = state.audioStream else {
+                throw LiveKitError(.invalidState, message: "Audio stream is already consumed")
+            }
+            state.audioStream = nil
+            return (recorder, audioStream)
         }
 
-        guard let audioStream = state.audioStream else {
-            throw LiveKitError(.invalidState, message: "Audio stream is nil")
+        let destinations: [Participant.Identity]
+        if let agents {
+            destinations = agents
+        } else if let activeAgent = room.agentParticipants.values.first(where: { $0.state == .active })?.identity {
+            destinations = [activeAgent]
+        } else {
+            log("Waiting for an active agent to send audio to", .info)
+            destinations = try await [agentCompleter.wait()]
         }
 
         let streamOptions = StreamByteOptions(
@@ -142,9 +184,9 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
             attributes: [
                 "sampleRate": "\(recorder.sampleRate)",
                 "channels": "\(recorder.channels)",
-                "trackId": recorder.track.sid?.stringValue ?? "",
+                "trackId": trackSid.stringValue,
             ],
-            destinationIdentities: agents,
+            destinationIdentities: destinations,
         )
         let writer = try await room.localParticipant.streamBytes(options: streamOptions)
 
@@ -160,27 +202,41 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         }
         try await writer.close()
 
-        log("Sent \(recorder.duration(sentSize))s = \(sentSize / 1024)KB of audio data to \(agents.count) agent(s) \(agents)", .info)
+        log("Sent \(recorder.duration(sentSize))s = \(sentSize / 1024)KB of audio data to \(destinations.count) agent(s) \(destinations)", .info)
     }
 }
 
 extension PreConnectAudioBuffer: RoomDelegate {
+    public func room(_ room: Room, participant _: LocalParticipant, didPublishTrack publication: LocalTrackPublication) {
+        // Only the first publish of the recorded track sends the buffer; a republish
+        // (e.g. after a full reconnect) finds the stream already consumed
+        guard publication.track === state.recorder?.track, state.audioStream != nil else { return }
+        log("Microphone track published, sending audio to the first active agent", .info)
+
+        Task {
+            do {
+                try await sendAudioData(to: room, trackSid: publication.sid)
+                room.remove(delegate: self)
+            } catch let error as LiveKitError where error.type == .cancelled || error.type == .timedOut {
+                // Recording was flushed or no agent became active in time; nothing to send
+                log("Preconnect audio not sent: \(error)")
+            } catch {
+                log("Unable to send preconnect audio: \(error)", .error)
+                state.onError?(error)
+            }
+        }
+    }
+
     public func room(_: Room, participant _: LocalParticipant, remoteDidSubscribeTrack _: LocalTrackPublication) {
         log("Subscribed by remote participant, stopping audio", .info)
         stopRecording()
     }
 
-    public func room(_ room: Room, participant: Participant, didUpdateState state: ParticipantState) {
-        guard participant.kind == .agent, state == .active, let agent = participant.identity else { return }
-        log("Detected active agent participant: \(agent), sending audio", .info)
-
-        Task {
-            do {
-                try await sendAudioData(to: room, agents: [agent])
-            } catch {
-                log("Unable to send preconnect audio: \(error)", .error)
-                self.state.onError?(error)
-            }
-        }
+    public func room(_: Room, participant: Participant, didUpdateState state: ParticipantState) {
+        guard participant.kind == .agent,
+              participant._state.agentAttributes?.lkPublishOnBehalf == nil, // exclude avatar workers
+              state == .active, let agent = participant.identity else { return }
+        log("Detected active agent participant: \(agent)", .info)
+        agentCompleter.resume(returning: agent)
     }
 }
