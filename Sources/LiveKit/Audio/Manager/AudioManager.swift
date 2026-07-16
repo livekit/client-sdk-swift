@@ -539,20 +539,22 @@ extension AudioManager {
     }
 }
 
-// SDK side AudioEngine error codes
+// Error code originating from the SDK's own AudioEngineObserver chain.
 let kAudioEngineErrorFailedToConfigureAudioSession = -4100
-let kAudioEngineErrorAudioSessionCategoryRecordingRequired = -4102
 
-let kAudioEngineErrorInsufficientDevicePermission = -4101
+// Error codes originating from the WebRTC AudioEngineDevice.
+// Keep these values in sync with `audio_engine_device.h` in the webrtc-sdk fork.
+let kAudioEngineErrorInsufficientDevicePermission = -9000
+let kAudioEngineErrorAudioSessionInvalidCategory = -9001
 
 extension AudioManager {
     func checkAdmResult(code: Int) throws {
         if code == kAudioEngineErrorFailedToConfigureAudioSession {
             throw LiveKitError(.audioSession, message: "Failed to configure audio session")
         } else if code == kAudioEngineErrorInsufficientDevicePermission {
-            throw LiveKitError(.deviceAccessDenied, message: "Device permissions are not granted")
-        } else if code == kAudioEngineErrorAudioSessionCategoryRecordingRequired {
-            throw LiveKitError(.audioSession, message: "Recording category required for audio session")
+            throw LiveKitError(.deviceAccessDenied, message: "Microphone permission is not granted")
+        } else if code == kAudioEngineErrorAudioSessionInvalidCategory {
+            throw LiveKitError(.audioSession, message: "Audio session category does not support recording")
         } else if code != 0 {
             throw LiveKitError(.audioEngine, message: "Audio engine returned error code: \(code)")
         }
