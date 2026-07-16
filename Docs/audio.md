@@ -48,7 +48,7 @@ When set to `false`, the audio session remains active after the LiveKit call end
 
 ## Audio Processing Modes (software, platform, automatic)
 
-Each audio processing effect (echo cancellation, noise suppression, auto gain control, and high-pass filter) can run in one of two ways. It can use Apple's platform Voice Processing I/O on the device, or WebRTC's software processing. You choose per effect with an `AudioProcessingMode`:
+Each audio processing effect has its own mode type: `EchoCancellationMode`, `NoiseSuppressionMode`, `AutoGainControlMode`, and `HighpassFilterMode`. Echo cancellation, noise suppression, and auto gain control can use Apple's platform Voice Processing I/O or WebRTC's software processing:
 
 - `.automatic` (default): prefer platform voice processing when available, and fall back to WebRTC software processing otherwise.
 - `.platform`: use platform voice processing only. If the platform implementation is unavailable, the request is rejected.
@@ -93,8 +93,10 @@ let result = try localAudioTrack.setAudioProcessingOptions(
         highpassFilterMode: .software
     )
 )
-print(result.code) // .applied or .stored on success
+print(result) // .applied, or .stored when no sender is active yet
 ```
+
+On failure this throws `AudioProcessingOptionsError`, whose `code` describes the reason — for example `.platformUnavailable` when a `.platform` mode was requested but Apple Voice Processing I/O is unavailable.
 
 To confirm which implementation each effect resolved to, read the engine-wide state:
 
@@ -104,7 +106,9 @@ print(state.echoCancellation.effective) // Software
 print(state.noiseSuppression.effective)  // Software
 ```
 
-> **NOTE**: There is no platform high-pass filter, so `.platform` is rejected for `highpassFilterMode`. Use `.software` instead.
+Each component also exposes the most recent `requested` options and per-path detail: `software` and `platform` carry resolved/active flags, with `platform` being `nil` on devices without a built-in implementation. Device-level Apple Voice Processing I/O state is available separately through `AudioManager.shared.platformVoiceProcessingState`.
+
+> **NOTE**: There is no platform high-pass filter, so `HighpassFilterMode` only provides `.automatic` and `.software`.
 
 To guarantee Apple Voice Processing I/O is never used at all, for example to keep hardware volume consistent or to allow screen recording with audio, also disallow platform voice processing as described below.
 
