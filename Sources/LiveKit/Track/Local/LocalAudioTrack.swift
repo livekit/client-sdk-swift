@@ -99,15 +99,20 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     /// If this track is already published, WebRTC reapplies the updated options through
     /// the active sender. Effective APM configuration is shared by the WebRTC voice engine,
     /// so conflicting updates from multiple local audio tracks are last-writer-wins.
+    ///
+    /// - Returns: The result of applying or storing the options.
+    /// - Throws: ``AudioProcessingOptionsError`` when the options cannot be applied.
     @discardableResult
     public func setAudioProcessingOptions(_ options: AudioProcessingOptions) throws -> AudioProcessingOptionsResult {
         guard let audioTrack = mediaTrack as? LKRTCAudioTrack else {
-            throw LiveKitError(.invalidState, message: "Media track is not an audio track")
+            throw AudioProcessingOptionsError(
+                code: .applyFailed,
+                message: "Media track is not an audio track",
+            )
         }
         let result = audioTrack.setAudioProcessingOptions(options.toRTCType()).toLKType()
         guard result.isSuccess else {
-            let reason = result.message.isEmpty ? "\(result.code)" : "\(result.code): \(result.message)"
-            throw LiveKitError(.webRTC, message: "Failed to set audio processing options: \(reason)")
+            throw AudioProcessingOptionsError(result)
         }
         return result
     }
