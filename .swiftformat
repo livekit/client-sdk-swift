@@ -5,5 +5,4 @@
 --disable modifiersOnSameLine
 --disable wrapPropertyBodies
 --disable wrapFunctionBodies
---disable wrapIfStatementBodies
 --disable docComments
