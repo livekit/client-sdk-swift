@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.15.3] - 2026-07-27
+
+### Fixed
+
+- Remove non-public buttonPressed: selector from broadcast picker activation
+
 ## [2.15.2] - 2026-07-17
 
 ### Added
