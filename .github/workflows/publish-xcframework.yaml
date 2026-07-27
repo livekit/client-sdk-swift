@@ -53,7 +53,7 @@ jobs:
 
       - name: Publish to hosting repo
         if: ${{ github.event_name == 'release' || github.event.inputs.dry_run != 'true' }}
-        uses: livekit/publish-xcframework-action@200ee4984ef1b68068c0b3c4e87e798988730c90 # main
+        uses: livekit/publish-xcframework-action@3b8645334fb62b0fd1d7067067819bcd111db157 # main
         with:
           xcframework-zip: .build/xcframework/LiveKit.xcframework.zip
           version: ${{ steps.ver.outputs.version }}
