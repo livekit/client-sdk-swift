@@ -23,6 +23,8 @@ import Foundation
 import ReplayKit
 #endif
 
+import UIKit
+
 /// Manages the broadcast state and track publication for screen sharing on iOS.
 public final class BroadcastManager: Sendable {
     /// Shared broadcast manager instance.
@@ -115,16 +117,22 @@ public protocol BroadcastManagerDelegate: Sendable {
     func broadcastManager(didChangeState isBroadcasting: Bool)
 }
 
-private extension RPSystemBroadcastPickerView {
+extension RPSystemBroadcastPickerView {
     /// Convenience function to show broadcast picker.
     static func showPicker(for preferredExtension: String?) {
         let view = RPSystemBroadcastPickerView()
         view.preferredExtension = preferredExtension
         view.showsMicrophoneButton = false
+        view.triggerPicker()
+    }
 
-        let selector = NSSelectorFromString("buttonPressed:")
-        guard view.responds(to: selector) else { return }
-        view.perform(selector, with: nil)
+    /// Simulates a tap on the picker's button using only public API.
+    func triggerPicker() {
+        guard let button = subviews.compactMap({ $0 as? UIButton }).first else {
+            sharedLogger.log("Unable to find button in RPSystemBroadcastPickerView", .warning, type: RPSystemBroadcastPickerView.self)
+            return
+        }
+        button.sendActions(for: .touchUpInside)
     }
 }
 

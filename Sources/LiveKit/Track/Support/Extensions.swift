@@ -111,10 +111,7 @@ public extension RPSystemBroadcastPickerView {
         let view = RPSystemBroadcastPickerView()
         view.preferredExtension = preferredExtension
         view.showsMicrophoneButton = showsMicrophoneButton
-        let selector = NSSelectorFromString("buttonPressed:")
-        if view.responds(to: selector) {
-            view.perform(selector, with: nil)
-        }
+        view.triggerPicker()
     }
 }
 #endif
