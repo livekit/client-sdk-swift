@@ -257,6 +257,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 connectOptions: ConnectOptions? = nil,
                 roomOptions: RoomOptions? = nil)
     {
+        _ = LKNet.bootstrap
         // Ensure manager shared objects are instantiated
         #if !LK_BENCHMARK
         DeviceManager.prepare()
