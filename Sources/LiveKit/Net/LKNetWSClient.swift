@@ -56,6 +56,11 @@ final class LKNetWSConnection: WsConnection, @unchecked Sendable {
         }
     }
 
+    deinit {
+        task.cancel(with: .normalClosure, reason: nil)
+        session.invalidateAndCancel()
+    }
+
     func send(frame: Data) async throws {
         do {
             try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
