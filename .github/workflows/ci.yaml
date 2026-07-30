@@ -87,6 +87,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Run LiveKit Server
+        id: livekit-server
         uses: livekit/dev-server-action@61e2b4dcb170dd3591e0c9b0db3c3fe5db93b500
         with:
           github-token: ${{ github.token }}
@@ -130,6 +131,17 @@ jobs:
         with:
           name: test-log-${{ strategy.job-index }}
           path: ${{ runner.temp }}/xcodebuild.log
+          retention-days: 5
+
+      # Client-side logs can't distinguish "we gave up" from "the SFU hung up on
+      # us": a failed e2e test just shows `Connection reset by peer`. The server's
+      # JSONL log records the participant close reason, so capture both sides.
+      - name: Upload Server Log
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: server-log-${{ strategy.job-index }}
+          path: ${{ steps.livekit-server.outputs.log-path }}
           retention-days: 5
 
       - name: Build for Release
