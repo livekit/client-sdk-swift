@@ -422,6 +422,9 @@ public class AudioManager: Loggable {
         _ enabled: Bool,
         audioProcessingOptions: AudioProcessingOptions? = nil,
     ) async throws {
+        if enabled {
+            updateExpectedPlatformVoiceProcessing(for: audioProcessingOptions)
+        }
         let result = RTC.audioDeviceModule.setRecordingAlwaysPreparedMode(
             enabled,
             audioProcessingOptions: audioProcessingOptions?.toRTCType(),
@@ -432,6 +435,7 @@ public class AudioManager: Loggable {
     /// Starts mic input to the SDK even without any ``Room`` or a connection.
     /// Audio buffers will flow into ``LocalAudioTrack/add(audioRenderer:)`` and ``capturePostProcessingDelegate``.
     public func startLocalRecording(audioProcessingOptions: AudioProcessingOptions? = nil) throws {
+        updateExpectedPlatformVoiceProcessing(for: audioProcessingOptions)
         // Always unmute APM if muted by last session.
         RTC.audioProcessingModule.isMuted = false // TODO: Possibly not required anymore with new libs
         // Start recording on the ADM.
@@ -439,6 +443,22 @@ public class AudioManager: Loggable {
             audioProcessingOptions: audioProcessingOptions?.toRTCType(),
         )
         try checkAdmResult(code: result)
+    }
+
+    /// Tells the session observer which voice processing implementation the
+    /// next capture resolves to, before the ADM engine transition starts. The
+    /// session category and mode are configured during that transition, so the
+    /// expectation must be known up front.
+    private func updateExpectedPlatformVoiceProcessing(for options: AudioProcessingOptions?) {
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        #if targetEnvironment(simulator)
+        let expected = false
+        #else
+        let requested = (options ?? AudioProcessingOptions()).requestsPlatformEchoNoisePath
+        let expected = requested && isPlatformVoiceProcessingAllowed
+        #endif
+        audioSession.setPlatformVoiceProcessingExpected(expected)
+        #endif
     }
 
     /// Stops mic input after it was started with ``startLocalRecording()``

@@ -45,6 +45,23 @@ public extension AudioSessionConfiguration {
     static let playAndRecordReceiver = AudioSessionConfiguration(category: .playAndRecord,
                                                                  categoryOptions: playAndRecordOptions,
                                                                  mode: .voiceChat)
+
+    /// Media-tuned variants for recording without Apple voice processing.
+    ///
+    /// iOS applies a reduced, call-tuned speaker gain when the session mode is
+    /// `.videoChat` or `.voiceChat` while capture is active. Apple's Voice
+    /// Processing I/O adds its own loudness stage that compensates for this,
+    /// but with WebRTC software processing there is no VPIO and playback stays
+    /// noticeably quieter. Using `.default` mode keeps the media gain. The
+    /// speaker variant needs an explicit `.defaultToSpeaker` since `.default`
+    /// mode routes to the receiver otherwise.
+    static let playAndRecordSpeakerMedia = AudioSessionConfiguration(category: .playAndRecord,
+                                                                     categoryOptions: playAndRecordOptions.union(.defaultToSpeaker),
+                                                                     mode: .default)
+
+    static let playAndRecordReceiverMedia = AudioSessionConfiguration(category: .playAndRecord,
+                                                                      categoryOptions: playAndRecordOptions,
+                                                                      mode: .default)
 }
 
 @objcMembers

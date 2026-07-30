@@ -88,4 +88,47 @@ struct AudioProcessingOptionsTests {
         #expect(echoCancellation.mode == .platform)
         #expect(highpassFilter.mode == .software)
     }
+
+    @Test func defaultOptionsRequestPlatformEchoNoisePath() {
+        #expect(AudioProcessingOptions().requestsPlatformEchoNoisePath == true)
+    }
+
+    @Test func softwareModesDoNotRequestPlatformEchoNoisePath() {
+        let options = AudioProcessingOptions(
+            echoCancellationMode: .software,
+            autoGainControlMode: .software,
+            noiseSuppressionMode: .software,
+        )
+        #expect(options.requestsPlatformEchoNoisePath == false)
+    }
+
+    @Test func singleNonSoftwareComponentRequestsPlatformEchoNoisePath() {
+        let options = AudioProcessingOptions(
+            echoCancellationMode: .software,
+            noiseSuppressionMode: .automatic,
+        )
+        #expect(options.requestsPlatformEchoNoisePath == true)
+    }
+
+    @Test func disabledComponentsDoNotRequestPlatformEchoNoisePath() {
+        #expect(AudioProcessingOptions.noProcessing.requestsPlatformEchoNoisePath == false)
+
+        let disabledButPlatformMode = AudioProcessingOptions(
+            echoCancellation: false,
+            noiseSuppression: false,
+            echoCancellationMode: .platform,
+            noiseSuppressionMode: .platform,
+        )
+        #expect(disabledButPlatformMode.requestsPlatformEchoNoisePath == false)
+    }
+
+    @Test func agcAloneDoesNotRequestPlatformEchoNoisePath() {
+        let options = AudioProcessingOptions(
+            echoCancellation: false,
+            autoGainControl: true,
+            noiseSuppression: false,
+            autoGainControlMode: .platform,
+        )
+        #expect(options.requestsPlatformEchoNoisePath == false)
+    }
 }

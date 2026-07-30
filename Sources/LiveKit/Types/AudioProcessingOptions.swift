@@ -76,6 +76,18 @@ public struct AudioProcessingOptions: Hashable, Sendable {
     }
 }
 
+extension AudioProcessingOptions {
+    /// Whether these options request Apple's coupled voice processing path.
+    ///
+    /// Mirrors the coupled AEC/NS resolution: any enabled echo cancellation or
+    /// noise suppression component that is not forced to software prefers the
+    /// platform path when it is available.
+    var requestsPlatformEchoNoisePath: Bool {
+        (echoCancellation && echoCancellationMode != .software) ||
+            (noiseSuppression && noiseSuppressionMode != .software)
+    }
+}
+
 /// The caller's request for one audio processing component: enabled flag plus
 /// implementation mode.
 public struct AudioProcessingComponentRequest<Mode: Sendable>: Sendable {
