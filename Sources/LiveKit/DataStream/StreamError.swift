@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+internal import LiveKitUniFFI
+
 public enum StreamError: Error, Equatable {
     /// Unable to open a stream with the same ID more than once.
     case alreadyOpened
@@ -47,4 +49,24 @@ public enum StreamError: Error, Equatable {
 
     /// Encryption type mismatch between stream header and chunk/trailer.
     case encryptionTypeMismatch(expected: EncryptionType, received: EncryptionType)
+}
+
+// MARK: - FFI bridging
+
+extension StreamError {
+    /// Best-effort mapping from the UniFFI error onto the public case set. The public enum predates
+    /// the FFI core and doesn't cover every Rust case, so several map onto the closest public case
+    /// (message-carrying cases preserve the underlying message via `abnormalEnd`).
+    init(_ ffi: LiveKitUniFFI.DataStreamError) {
+        switch ffi {
+        case let .AbnormalEnd(message): self = .abnormalEnd(reason: message)
+        case let .Io(message): self = .abnormalEnd(reason: message)
+        case .Utf8, .Decompression: self = .decodeFailed
+        case .LengthExceeded, .HeaderTooLarge, .PayloadTooLarge: self = .lengthExceeded
+        case .Incomplete: self = .incomplete
+        case .EncryptionTypeMismatch: self = .encryptionTypeMismatch(expected: .none, received: .none)
+        case .AlreadyClosed, .InvalidHeader, .MissedChunk, .SendFailed, .Internal, .InvalidFileName:
+            self = .terminated
+        }
+    }
 }
