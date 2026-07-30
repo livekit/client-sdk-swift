@@ -453,11 +453,13 @@ public class AudioManager: Loggable {
     /// requests reach the ADM through the sender, bypassing this manager.
     func updateExpectedPlatformVoiceProcessing(for options: AudioProcessingOptions?) {
         #if os(iOS) || os(visionOS) || os(tvOS)
+        // nil requests no processing change and the ADM keeps its current
+        // voice processing state, so the expectation must stay unchanged too.
+        guard let options else { return }
         #if targetEnvironment(simulator)
         let expected = false
         #else
-        let requested = (options ?? AudioProcessingOptions()).requestsPlatformEchoNoisePath
-        let expected = requested && isPlatformVoiceProcessingAllowed
+        let expected = options.requestsPlatformEchoNoisePath && isPlatformVoiceProcessingAllowed
         #endif
         audioSession.setPlatformVoiceProcessingExpected(expected)
         #endif
