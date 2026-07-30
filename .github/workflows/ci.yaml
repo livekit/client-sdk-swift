@@ -27,51 +27,51 @@ jobs:
       matrix:
         include:
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md
-          - os: macos-15-xlarge
+          - os: macos-15
             xcode: 16.4
             platform: "iOS Simulator,name=iPhone 16 Pro,OS=18.5"
-          - os: macos-15-xlarge
+          - os: macos-15
             xcode: 16.4
             platform: "macOS"
-          - os: macos-15-xlarge
+          - os: macos-15
             xcode: 16.4
             platform: "macOS,variant=Mac Catalyst"
-          - os: macos-15-xlarge
+          - os: macos-15
             xcode: 16.4
             platform: "tvOS Simulator,name=Apple TV,OS=18.5"
 
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md
-          - os: macos-26-xlarge
+          - os: macos-26
             xcode: 26.5
             platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.5"
             symbol-graph: true
-          - os: macos-26-xlarge
+          - os: macos-26
             xcode: 26.5
             platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.5"
             extension-api-only: true
-          - os: macos-26-xlarge
+          - os: macos-26
             xcode: 26.5
             platform: "macOS"
             symbol-graph: true
-          - os: macos-26-xlarge
+          - os: macos-26
             xcode: 26.5
             platform: "macOS"
             asan: true
-          - os: macos-26-xlarge
+          - os: macos-26
             xcode: 26.5
             platform: "macOS"
             tsan: true
-          - os: macos-26-xlarge
+          - os: macos-26
             xcode: 26.5
             platform: "macOS"
             strict-concurrency-env: true
-          - os: macos-26-xlarge
+          - os: macos-26
             xcode: 26.5
             platform: "macOS,variant=Mac Catalyst"
-          - os: macos-26-xlarge
+          - os: macos-26
             xcode: 26.5
             platform: "visionOS Simulator,name=Apple Vision Pro,OS=26.5"
-          - os: macos-26-xlarge
+          - os: macos-26
             xcode: 26.5
             platform: "tvOS Simulator,name=Apple TV,OS=26.5"
 
