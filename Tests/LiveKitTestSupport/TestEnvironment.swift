@@ -78,7 +78,6 @@ public enum TestEnvironment {
 
     // Set up variable number of Rooms, connect them, wait for participants to discover each other,
     // execute the block, then disconnect. Framework-agnostic (no XCTest/Testing dependency).
-    // swiftlint:disable:next function_body_length
     public static func withRooms(_ options: [RoomTestingOptions] = [],
                                  _ block: @escaping ([Room]) async throws -> Void) async throws
     {
@@ -109,10 +108,10 @@ public enum TestEnvironment {
 
             print("Token: \(token) for room: \(roomName)")
 
-            return (room: room,
-                    identity: identity,
-                    url: url,
-                    token: token)
+            return RoomFixture(room: room,
+                               identity: identity,
+                               url: url,
+                               token: token)
         }
 
         let allRooms = rooms.map(\.room)
@@ -137,7 +136,12 @@ public enum TestEnvironment {
         try await Task.sleep(nanoseconds: 1_000_000_000)
     }
 
-    private typealias RoomFixture = (room: Room, identity: String, url: String, token: String)
+    private struct RoomFixture {
+        let room: Room
+        let identity: String
+        let url: String
+        let token: String
+    }
 
     private static func connectAndDiscover(_ rooms: [RoomFixture], roomName: String) async throws {
         // Connect all Rooms concurrently (retry on transient failure)
@@ -169,7 +173,8 @@ public enum TestEnvironment {
         if rooms.count >= 2 {
             let allIdentities = rooms.map(\.identity)
 
-            for (room, identity, _, _) in rooms {
+            for fixture in rooms {
+                let (room, identity) = (fixture.room, fixture.identity)
                 let exceptSelfIdentity = allIdentities.filter { $0 != identity }
                 print("Will wait for remote participants: \(exceptSelfIdentity)")
 
