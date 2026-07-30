@@ -74,6 +74,14 @@ public extension Room {
     }
 }
 
+// MARK: - Handler type aliases
+
+/// Handler for incoming byte data streams.
+public typealias ByteStreamHandler = @Sendable (ByteStreamReader, Participant.Identity) async throws -> Void
+
+/// Handler for incoming text data streams.
+public typealias TextStreamHandler = @Sendable (TextStreamReader, Participant.Identity) async throws -> Void
+
 extension Room {
     /// Reserved data-stream topic prefix for RPC v2 (`lk.rpc_request` / `lk.rpc_response`,
     /// and any future `lk.rpc_*` topics). The broader `lk.*` namespace is convention-only

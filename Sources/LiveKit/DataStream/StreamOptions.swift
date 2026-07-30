@@ -16,6 +16,8 @@
 
 import Foundation
 
+internal import LiveKitUniFFI
+
 /// Options used when opening an outgoing data stream.
 public protocol StreamOptions: Sendable {
     /// Topic name used to route the stream to the appropriate handler.
@@ -61,6 +63,30 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         self.version = version
         self.attachedStreamIDs = attachedStreamIDs
         self.replyToStreamID = replyToStreamID
+    }
+
+    /// Creates options with the default compression behavior. Preserved as the Objective-C entry
+    /// point and for source compatibility with callers that predate `compress`.
+    public convenience init(
+        topic: String,
+        attributes: [String: String] = [:],
+        destinationIdentities: [Participant.Identity] = [],
+        id: String? = nil,
+        version: Int = 0,
+        attachedStreamIDs: [String] = [],
+        replyToStreamID: String? = nil,
+    ) {
+        self.init(
+            topic: topic,
+            attributes: attributes,
+            destinationIdentities: destinationIdentities,
+            id: id,
+            version: version,
+            attachedStreamIDs: attachedStreamIDs,
+            replyToStreamID: replyToStreamID,
+            compress: nil,
+        )
+    }
     }
 }
 

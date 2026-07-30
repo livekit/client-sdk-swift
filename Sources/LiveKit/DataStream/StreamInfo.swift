@@ -16,6 +16,8 @@
 
 import Foundation
 
+internal import LiveKitUniFFI
+
 /// Information about a data stream.
 public protocol StreamInfo: Sendable {
     /// Unique identifier of the stream.
@@ -86,6 +88,33 @@ public final class TextStreamInfo: NSObject, StreamInfo {
         self.attachedStreamIDs = attachedStreamIDs
         self.generated = generated
     }
+
+    convenience init(_ ffi: LiveKitUniFFI.TextStreamInfo, encryptionType: EncryptionType) {
+        self.init(
+            id: ffi.id,
+            topic: ffi.topic,
+            timestamp: Date(timeIntervalSince1970: TimeInterval(ffi.timestampMs) / 1000),
+            totalLength: ffi.totalLength.map { Int($0) },
+            attributes: ffi.attributes,
+            encryptionType: encryptionType,
+            operationType: OperationType(ffi.operationType),
+            version: Int(ffi.version),
+            replyToStreamID: ffi.replyToStreamId,
+            attachedStreamIDs: ffi.attachedStreamIds,
+            generated: ffi.generated,
+        )
+    }
+}
+
+extension TextStreamInfo.OperationType {
+    init(_ ffi: LiveKitUniFFI.OperationType) {
+        switch ffi {
+        case .create: self = .create
+        case .update: self = .update
+        case .delete: self = .delete
+        case .reaction: self = .reaction
+        }
+    }
 }
 
 /// Information about a byte data stream.
@@ -122,5 +151,18 @@ public final class ByteStreamInfo: NSObject, StreamInfo {
         self.attributes = attributes
         self.encryptionType = encryptionType
         self.name = name
+    }
+
+    convenience init(_ ffi: LiveKitUniFFI.ByteStreamInfo, encryptionType: EncryptionType) {
+        self.init(
+            id: ffi.id,
+            topic: ffi.topic,
+            timestamp: Date(timeIntervalSince1970: TimeInterval(ffi.timestampMs) / 1000),
+            totalLength: ffi.totalLength.map { Int($0) },
+            attributes: ffi.attributes,
+            encryptionType: encryptionType,
+            mimeType: ffi.mimeType,
+            name: ffi.name.isEmpty ? nil : ffi.name,
+        )
     }
 }
