@@ -227,15 +227,20 @@ actor MessageCollector {
         expectedContent: [String],
         expectedIsFinal: [Bool],
     ) {
-        // Validate updates
-        #expect(updates.count == expectedContent.count)
+        // Validate updates. Bail on a count mismatch instead of indexing past the
+        // end: a soft `#expect` doesn't stop execution, so the subsequent
+        // subscripts used to trap and abort the whole test *process*, taking every
+        // later suite (and the ObjC bundle) down with it.
+        guard updates.count == expectedContent.count, updates.count == expectedIsFinal.count else {
+            Issue.record("Expected \(expectedContent.count) updates, got \(updates.count): \(updates.map(\.content))")
+            return
+        }
         for (index, expected) in expectedContent.enumerated() {
             #expect(updates[index].content == .agentTranscript(expected))
             #expect(updates[index].id == segmentID)
         }
 
         // Validate isFinal
-        #expect(updates.count == expectedIsFinal.count)
         for (index, expected) in expectedIsFinal.enumerated() {
             #expect(updates[index].isFinal == expected, "isFinal mismatch at index \(index)")
         }
@@ -247,9 +252,12 @@ actor MessageCollector {
         }
 
         // Validate final message
-        #expect(messages.count == 1)
+        guard messages.count == 1, let expectedFinal = expectedContent.last else {
+            Issue.record("Expected exactly 1 final message, got \(messages.count)")
+            return
+        }
         #expect(messages.keys[0] == segmentID)
-        #expect(messages.values[0].content == .agentTranscript(expectedContent.last!))
+        #expect(messages.values[0].content == .agentTranscript(expectedFinal))
         #expect(messages.values[0].id == segmentID)
         #expect(messages.values[0].timestamp == firstTimestamp)
         #expect(messages.values[0].isFinal)
