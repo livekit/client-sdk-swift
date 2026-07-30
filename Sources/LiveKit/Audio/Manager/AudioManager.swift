@@ -448,8 +448,10 @@ public class AudioManager: Loggable {
     /// Tells the session observer which voice processing implementation the
     /// next capture resolves to, before the ADM engine transition starts. The
     /// session category and mode are configured during that transition, so the
-    /// expectation must be known up front.
-    private func updateExpectedPlatformVoiceProcessing(for options: AudioProcessingOptions?) {
+    /// expectation must be known up front. Also called from
+    /// ``LocalAudioTrack/setAudioProcessingOptions(_:)`` since track-level
+    /// requests reach the ADM through the sender, bypassing this manager.
+    func updateExpectedPlatformVoiceProcessing(for options: AudioProcessingOptions?) {
         #if os(iOS) || os(visionOS) || os(tvOS)
         #if targetEnvironment(simulator)
         let expected = false
