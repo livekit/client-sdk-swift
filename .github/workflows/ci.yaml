@@ -117,7 +117,20 @@ jobs:
               -only-testing:LiveKitCoreTests \
               -only-testing:LiveKitObjCTests \
               -parallel-testing-enabled NO \
+              | tee -a "$RUNNER_TEMP/xcodebuild.log" \
               | xcbeautify --renderer github-actions
+
+      # xcbeautify's github-actions renderer collapses a parameterized Swift Testing
+      # failure to "Recorded an issue (1) argument(s)" — no message, no failing
+      # argument. xcodebuild's own output has both, so keep it for post-mortems
+      # instead of re-running CI blind. Appended across retry attempts.
+      - name: Upload Test Log
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-log-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/xcodebuild.log
+          retention-days: 5
 
       - name: Build for Release
         if: ${{ matrix.symbol-graph }}
