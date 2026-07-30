@@ -37,6 +37,16 @@ actor MessageCollector {
     func getMessages() -> OrderedDictionary<ReceivedMessage.ID, ReceivedMessage> {
         messages
     }
+
+    /// Waits until `count` updates have arrived, or `timeout` elapses. Trailing
+    /// stream-close finalizations land after the last `sendText` returns, so a
+    /// fixed sleep either flakes on a loaded host or slows every run down.
+    func waitForUpdates(count: Int, timeout: TimeInterval = 10) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while updates.count < count, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+    }
 }
 
 @Suite(.serialized, .tags(.e2e)) final class TranscriptionTests: @unchecked Sendable {
@@ -118,8 +128,7 @@ actor MessageCollector {
                     try await Task.sleep(nanoseconds: 10_000_000)
                 }
                 try await writer.close()
-                // Wait for the stream-close finalization message to propagate
-                try await Task.sleep(nanoseconds: 500_000_000)
+                await self.messageCollector.waitForUpdates(count: expectedContent.count)
             }
 
             self.collectionTask.cancel()
@@ -167,8 +176,7 @@ actor MessageCollector {
                 ]
                 let options = StreamTextOptions(topic: topic, attributes: attributes)
                 try await self.senderRoom.localParticipant.sendText("Hello!", options: options)
-                // Wait for message delivery
-                try await Task.sleep(nanoseconds: 500_000_000)
+                await self.messageCollector.waitForUpdates(count: 1)
             }
 
             // Brief wait to ensure no extra messages arrive
@@ -291,6 +299,7 @@ actor MessageCollector {
                     streamID: streamID,
                     to: senderRoom,
                 )
+                await messageCollector.waitForUpdates(count: expectedContent.count)
             }
 
             let updates = await messageCollector.getUpdates()
