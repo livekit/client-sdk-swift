@@ -115,6 +115,31 @@ public enum TestEnvironment {
                     token: token)
         }
 
+        let allRooms = rooms.map(\.room)
+
+        // Tear down on *every* exit path, including a failed connect or a thrown
+        // body. A `Room` keeps itself alive through its signaling read loop and
+        // transport tasks, so an early exit that skipped `disconnect()` used to
+        // leak a fully-live Room — WebSocket, both peer connections and timers —
+        // into every test that ran after it, in the same host process. That is
+        // what turned a single flaky failure into a whole run of unrelated
+        // timeouts, including the ObjC suites that run last.
+        do {
+            try await connectAndDiscover(rooms, roomName: roomName)
+            try await block(allRooms)
+        } catch {
+            await teardown(allRooms)
+            throw error
+        }
+        await teardown(allRooms)
+
+        // Allow the server to fully tear down resources before the next test.
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+    }
+
+    private typealias RoomFixture = (room: Room, identity: String, url: String, token: String)
+
+    private static func connectAndDiscover(_ rooms: [RoomFixture], roomName: String) async throws {
         // Connect all Rooms concurrently (retry on transient failure)
         try await Task.retrying(totalAttempts: 3, retryDelay: 2) { _, _ in
             try await withThrowingTaskGroup { group in
@@ -163,23 +188,17 @@ public enum TestEnvironment {
                 }
             }
         }
+    }
 
-        let allRooms = rooms.map(\.room)
-        // Execute block
-        try await block(allRooms)
-
-        // Gracefully unpublish all tracks then disconnect.
-        try await withThrowingTaskGroup { group in
-            for element in rooms {
+    /// Gracefully unpublish all tracks then disconnect, best-effort.
+    private static func teardown(_ rooms: [Room]) async {
+        await withTaskGroup(of: Void.self) { group in
+            for room in rooms {
                 group.addTask {
-                    await element.room.localParticipant.unpublishAll()
-                    await element.room.disconnect()
+                    await room.localParticipant.unpublishAll()
+                    await room.disconnect()
                 }
             }
-            try await group.waitForAll()
         }
-
-        // Allow the server to fully tear down resources before the next test.
-        try await Task.sleep(nanoseconds: 1_000_000_000)
     }
 }
