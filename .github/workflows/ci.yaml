@@ -17,7 +17,9 @@ concurrency:
 
 env:
   TEST_TIMEOUT_MINUTES: 30
-  TEST_RETRY_ATTEMPTS: 3
+  # TEMPORARY: 1 so any flake fails the job and the log artifacts actually
+  # upload. Restore to 3 before merging.
+  TEST_RETRY_ATTEMPTS: 1
 
 jobs:
   build-and-test:
