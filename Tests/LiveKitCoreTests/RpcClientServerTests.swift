@@ -33,25 +33,25 @@ struct RpcClientTests {
 
     @Test func performRpc() async throws {
         try await TestEnvironment.withRoom { room in
-            let mockDataChannel = MockDataChannelPair { packet in
+            // Assert the wire format from the mock, but inject the ack/response from
+            // the `afterPublish` hook, which `performRpc` *awaits*. Spawning an
+            // unstructured `Task` here instead made the test depend on that task
+            // being scheduled before the 15s response timeout — the top cause of
+            // this suite's CI flakes.
+            let observed = StateSync<Livekit_RpcRequest?>(nil)
+            room.publisherDataChannel = MockDataChannelPair { packet in
                 guard case let .rpcRequest(request) = packet.value else { return }
-                guard request.method == "test-method",
-                      request.payload == "test-payload",
-                      request.responseTimeoutMs == 15000
-                else { return }
-
-                // Pre-registration in performRpc is synchronous on the actor before
-                // publish, so the ack/response can fire immediately without a sleep.
-                Task {
-                    await room.rpcClient.handleIncomingAck(requestId: request.id)
-                    await room.rpcClient.handleIncomingResponse(
-                        requestId: request.id,
-                        payload: "response-payload",
-                        error: nil,
-                    )
-                }
+                observed.mutate { $0 = request }
             }
-            room.publisherDataChannel = mockDataChannel
+
+            await room.rpcClient.setAfterPublish { requestId in
+                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                await room.rpcClient.handleIncomingResponse(
+                    requestId: requestId,
+                    payload: "response-payload",
+                    error: nil,
+                )
+            }
 
             let response = try await room.localParticipant.performRpc(
                 destinationIdentity: Participant.Identity(from: "test-destination"),
@@ -60,6 +60,13 @@ struct RpcClientTests {
             )
             #expect(response == "response-payload")
             #expect(await room.rpcClient.pendingCount == 0)
+
+            // Wire format, previously gated behind an early `return` in the mock —
+            // which silently turned a format regression into a timeout.
+            let request = try #require(observed.copy())
+            #expect(request.method == "test-method")
+            #expect(request.payload == "test-payload")
+            #expect(request.responseTimeoutMs == 15000)
         }
     }
 
@@ -238,19 +245,20 @@ struct RpcClientTests {
             let destination = Participant.Identity(from: "test-destination")
             let collector = TestStringCollector()
 
-            let mockDataChannel = MockDataChannelPair { packet in
-                guard case let .rpcRequest(request) = packet.value else { return }
-                Task {
-                    await collector.append(request.id)
-                    await room.rpcClient.handleIncomingAck(requestId: request.id)
-                    await room.rpcClient.handleIncomingResponse(
-                        requestId: request.id,
-                        payload: "response-\(request.id)",
-                        error: nil,
-                    )
-                }
+            room.publisherDataChannel = MockDataChannelPair { _ in }
+
+            // Injected from the awaited `afterPublish` hook rather than an
+            // unstructured `Task`, so five concurrent calls can't be starved past
+            // their response timeout on a loaded host.
+            await room.rpcClient.setAfterPublish { requestId in
+                await collector.append(requestId)
+                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                await room.rpcClient.handleIncomingResponse(
+                    requestId: requestId,
+                    payload: "response-\(requestId)",
+                    error: nil,
+                )
             }
-            room.publisherDataChannel = mockDataChannel
 
             let responses = try await withThrowingTaskGroup { group in
                 for _ in 0 ..< 5 {
@@ -448,18 +456,18 @@ struct RpcClientTests {
             let imposter = Participant.Identity(from: "v2-imposter")
             try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v1)
 
-            let mockDataChannel = MockDataChannelPair { packet in
-                if case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request {
-                    Task {
-                        let requestId = try #require(header.attributes[RpcStreamAttribute.requestId])
-                        await room.rpcClient.handleIncomingAck(requestId: requestId)
-                        // Inject a response stream from the imposter — must be ignored.
-                        let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "spoofed")
-                        await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: imposter)
-                    }
-                }
+            room.publisherDataChannel = MockDataChannelPair { _ in }
+
+            // Awaited hook, not an unstructured `Task`: the legitimate ack has to
+            // land before the 2s ack-watchdog, otherwise this fails with
+            // `connectionTimeout` (1501) instead of the `responseTimeout` (1502)
+            // the test is actually about.
+            await room.rpcClient.setAfterPublish { requestId in
+                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                // Inject a response stream from the imposter — must be ignored.
+                let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "spoofed")
+                await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: imposter)
             }
-            room.publisherDataChannel = mockDataChannel
 
             do {
                 let response = try await room.localParticipant.performRpc(
