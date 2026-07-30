@@ -29,4 +29,20 @@ public actor ConcurrentCounter {
     public func getCount() -> Int {
         count
     }
+
+    /// Polls until `count >= target` (or `timeout` elapses) and returns the observed count.
+    ///
+    /// Timing-sensitive tests must not assert "it fired by now" after a fixed
+    /// `Task.sleep`: CI hosts — simulators especially, where `AsyncTimer` runs its
+    /// loop at `.utility` QoS and is subject to timer coalescing — routinely defer a
+    /// 50 ms sleep by hundreds of milliseconds. Waiting for the event with a
+    /// generous deadline keeps the assertion meaningful without encoding a
+    /// scheduling guarantee the platform doesn't make.
+    public func wait(untilAtLeast target: Int, timeout: TimeInterval = 10) async -> Int {
+        let deadline = Date().addingTimeInterval(timeout)
+        while count < target, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        return count
+    }
 }

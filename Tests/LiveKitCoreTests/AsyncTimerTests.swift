@@ -21,30 +21,44 @@ import Testing
 import LiveKitTestSupport
 #endif
 
+/// `AsyncTimer` drives its loop from `Task.detached(priority: .utility)`, so the
+/// only guarantee it offers is "fires no *earlier* than the interval". Every
+/// "did fire" assertion here therefore waits for the event with a generous
+/// deadline (`ConcurrentCounter.wait(untilAtLeast:)`) instead of sleeping a fixed
+/// multiple of the interval, and every "did not fire" assertion is bounded so
+/// sleep overshoot can't manufacture a fire.
 @Suite(.tags(.concurrency))
 struct AsyncTimerTests {
+    /// Short enough to keep the suite fast, long enough that one deferred wake-up
+    /// doesn't change the outcome.
+    private static let interval: TimeInterval = 0.05
+
     @Test func startIfStoppedFiresWhileRepeatedlyArmed() async throws {
         let counter = ConcurrentCounter()
         let timer = AsyncTimer(interval: 0.2)
         timer.setTimerBlock { _ = await counter.increment() }
 
-        // Arm every 20ms for ~500ms — ~25 arms across the 200ms timeout window.
-        for _ in 0 ..< 25 {
+        // Keep re-arming every 20ms until it fires: `startIfStopped` must leave the
+        // in-flight countdown alone, so the first arm's timeout still elapses.
+        let deadline = Date().addingTimeInterval(10)
+        while await counter.getCount() == 0, Date() < deadline {
             timer.startIfStopped()
             try await Task.sleep(nanoseconds: 20_000_000)
         }
         timer.cancel()
 
-        // The first arm's countdown was never reset, so it fired at ~200ms.
         #expect(await counter.getCount() >= 1)
     }
 
     @Test func restartNeverFiresWhileRepeatedlyArmed() async throws {
         let counter = ConcurrentCounter()
-        let timer = AsyncTimer(interval: 0.2)
+        // Interval far larger than the arming window below, so a fire would mean the
+        // countdown genuinely wasn't reset — not that a sleep overshot.
+        let timer = AsyncTimer(interval: 5)
         timer.setTimerBlock { _ = await counter.increment() }
 
-        for _ in 0 ..< 25 {
+        let armingEnd = Date().addingTimeInterval(0.5)
+        while Date() < armingEnd {
             timer.restart()
             try await Task.sleep(nanoseconds: 20_000_000)
         }
@@ -56,25 +70,24 @@ struct AsyncTimerTests {
 
     @Test func cancelStopsFiring() async throws {
         let counter = ConcurrentCounter()
-        let timer = AsyncTimer(interval: 0.05)
+        let timer = AsyncTimer(interval: Self.interval)
         timer.setTimerBlock { _ = await counter.increment() }
         timer.restart()
 
-        try await Task.sleep(nanoseconds: 175_000_000) // ~3 intervals
+        #expect(await counter.wait(untilAtLeast: 1) >= 1) // it actually ran
         timer.cancel()
 
         // Let any in-flight invocation settle before sampling.
         try await Task.sleep(nanoseconds: 100_000_000)
         let afterCancel = await counter.getCount()
-        #expect(afterCancel >= 1) // it actually ran
 
-        try await Task.sleep(nanoseconds: 200_000_000) // 4 more intervals
+        try await Task.sleep(nanoseconds: 500_000_000) // 10 intervals
         #expect(await counter.getCount() == afterCancel) // nothing fired after cancel
     }
 
     @Test func concurrentArmingLeavesSingleLoop() async throws {
         let counter = ConcurrentCounter()
-        let timer = AsyncTimer(interval: 0.05)
+        let timer = AsyncTimer(interval: Self.interval)
         timer.setTimerBlock { _ = await counter.increment() }
 
         // Hammer with concurrent restart()/startIfStopped(): the previous design
@@ -85,34 +98,41 @@ struct AsyncTimerTests {
             }
         }
 
-        try await Task.sleep(nanoseconds: 275_000_000) // ~5 intervals for one loop
+        let start = Date()
+        #expect(await counter.wait(untilAtLeast: 1) >= 1) // a loop is running
+        try await Task.sleep(nanoseconds: 275_000_000)
         timer.cancel()
-
+        let elapsed = Date().timeIntervalSince(start)
         let count = await counter.getCount()
-        #expect(count >= 1) // a loop is running
-        // One loop fires ~5x here; the bound has headroom for sleep overshoot under
-        // parallel CI load. The orphan bug spawned dozens of loops, so it still trips.
-        #expect(count <= 15)
+
+        // A single loop can fire at most `elapsed / interval` times. Normalizing by
+        // the *measured* elapsed time rather than the requested sleep keeps this
+        // bound valid when the host defers wake-ups; the orphan bug spawned dozens
+        // of concurrent loops, so a 3x allowance still trips on it.
+        let singleLoopBound = elapsed / Self.interval + 1
+        #expect(Double(count) <= singleLoopBound * 3,
+                "\(count) fires in \(elapsed)s exceeds what a single loop can produce")
     }
 
     @Test func blockCancellingOwnTimerFiresOnce() async throws {
         // Mirrors the ping-timeout path: the block cancels its own timer (via cleanUp).
         // Must fire exactly once and not deadlock on the state lock.
         let counter = ConcurrentCounter()
-        let timer = AsyncTimer(interval: 0.05)
+        let timer = AsyncTimer(interval: Self.interval)
         timer.setTimerBlock { [weak timer] in
             _ = await counter.increment()
             timer?.cancel()
         }
         timer.restart()
 
-        try await Task.sleep(nanoseconds: 250_000_000) // ~5 intervals if it didn't stop
+        #expect(await counter.wait(untilAtLeast: 1) >= 1)
+        try await Task.sleep(nanoseconds: 500_000_000) // 10 intervals if it didn't stop
         #expect(await counter.getCount() == 1)
     }
 
     @Test func concurrentRestartAndCancelLeaveNoOrphan() async throws {
         let counter = ConcurrentCounter()
-        let timer = AsyncTimer(interval: 0.05)
+        let timer = AsyncTimer(interval: Self.interval)
         timer.setTimerBlock { _ = await counter.increment() }
 
         // Interleave restart / startIfStopped / cancel concurrently.
@@ -130,80 +150,71 @@ struct AsyncTimerTests {
 
         // Whatever the interleaving, a final cancel must stop every loop — no orphan survives.
         timer.cancel()
-        try await Task.sleep(nanoseconds: 100_000_000)
+        try await Task.sleep(nanoseconds: 200_000_000)
         let afterCancel = await counter.getCount()
-        try await Task.sleep(nanoseconds: 250_000_000) // 5 intervals
+        try await Task.sleep(nanoseconds: 500_000_000) // 10 intervals
         #expect(await counter.getCount() == afterCancel)
     }
 
-    @Test func updatesBlockOnNextCycle() async throws {
+    @Test func updatesBlockOnNextCycle() async {
         let first = ConcurrentCounter()
         let second = ConcurrentCounter()
-        let timer = AsyncTimer(interval: 0.05)
+        let timer = AsyncTimer(interval: Self.interval)
         timer.setTimerBlock { _ = await first.increment() }
         timer.restart()
 
-        try await Task.sleep(nanoseconds: 120_000_000) // first block fires
+        #expect(await first.wait(untilAtLeast: 1) >= 1) // first block fires
         timer.setTimerBlock { _ = await second.increment() }
-        try await Task.sleep(nanoseconds: 150_000_000) // swapped block fires
+        #expect(await second.wait(untilAtLeast: 1) >= 1) // the updated block took effect
         timer.cancel()
-        try await Task.sleep(nanoseconds: 80_000_000)
-
-        #expect(await first.getCount() >= 1)
-        #expect(await second.getCount() >= 1) // the updated block took effect
     }
 
     @Test func deinitStopsTimer() async throws {
         let counter = ConcurrentCounter()
         do {
-            let timer = AsyncTimer(interval: 0.05)
+            let timer = AsyncTimer(interval: Self.interval)
             timer.setTimerBlock { _ = await counter.increment() }
             timer.restart()
-            try await Task.sleep(nanoseconds: 120_000_000)
+            // Wait for a fire *before* releasing, so the assertion below doesn't
+            // depend on the timer having been scheduled within a fixed window.
+            #expect(await counter.wait(untilAtLeast: 1) >= 1)
         } // timer released here
 
         // Let the in-flight invocation finish and deinit cancel the loop.
-        try await Task.sleep(nanoseconds: 150_000_000)
-        let afterRelease = await counter.getCount()
-        #expect(afterRelease >= 1)
-
         try await Task.sleep(nanoseconds: 200_000_000)
+        let afterRelease = await counter.getCount()
+
+        try await Task.sleep(nanoseconds: 500_000_000) // 10 intervals
         #expect(await counter.getCount() == afterRelease) // deinit stopped it
     }
 
-    @Test func continuesFiringAfterBlockThrows() async throws {
+    @Test func continuesFiringAfterBlockThrows() async {
         struct BlockError: Error {}
         let counter = ConcurrentCounter()
-        let timer = AsyncTimer(interval: 0.05)
+        let timer = AsyncTimer(interval: Self.interval)
         timer.setTimerBlock {
             // First invocation throws; the loop must catch, log, and keep going.
             if await counter.increment() == 0 { throw BlockError() }
         }
         timer.restart()
 
-        try await Task.sleep(nanoseconds: 300_000_000) // ~6 intervals
+        #expect(await counter.wait(untilAtLeast: 2) >= 2) // fired again after the throw
         timer.cancel()
-        try await Task.sleep(nanoseconds: 80_000_000)
-
-        #expect(await counter.getCount() >= 2) // fired again after the throw
     }
 
     @Test func startIfStoppedReArmsAfterCancel() async throws {
         let counter = ConcurrentCounter()
-        let timer = AsyncTimer(interval: 0.05)
+        let timer = AsyncTimer(interval: Self.interval)
         timer.setTimerBlock { _ = await counter.increment() }
 
         timer.startIfStopped()
-        try await Task.sleep(nanoseconds: 120_000_000)
+        #expect(await counter.wait(untilAtLeast: 1) >= 1)
         timer.cancel()
-        try await Task.sleep(nanoseconds: 80_000_000)
+        try await Task.sleep(nanoseconds: 100_000_000)
         let afterCancel = await counter.getCount()
 
-        timer.startIfStopped() // cancel cleared isStarted, so this re-arms
-        try await Task.sleep(nanoseconds: 150_000_000)
+        timer.startIfStopped() // cancel cleared the task, so this re-arms
+        #expect(await counter.wait(untilAtLeast: afterCancel + 1) > afterCancel) // fired again after re-arm
         timer.cancel()
-        try await Task.sleep(nanoseconds: 80_000_000)
-
-        #expect(await counter.getCount() > afterCancel) // fired again after re-arm
     }
 }
