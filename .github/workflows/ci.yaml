@@ -75,6 +75,24 @@ jobs:
             xcode: 26.6
             platform: "tvOS Simulator,name=Apple TV,OS=26.5"
 
+          # https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-Readme.md
+          - os: xcode-27
+            xcode: latest
+            platform: "macOS"
+          - os: xcode-27
+            xcode: latest
+            platform: "macOS,variant=Mac Catalyst"
+          - os: xcode-27
+            xcode: latest
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=27.0"
+          - os: xcode-27
+            xcode: latest
+            platform: "visionOS Simulator,name=Apple Vision Pro,OS=27.0"
+          # This image has no plain "Apple TV" device, unlike macos-15/macos-26.
+          - os: xcode-27
+            xcode: latest
+            platform: "tvOS Simulator,name=Apple TV 4K (3rd generation),OS=27.0"
+
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     env:
