@@ -116,13 +116,9 @@ public enum TestEnvironment {
 
         let allRooms = rooms.map(\.room)
 
-        // Tear down on *every* exit path, including a failed connect or a thrown
-        // body. A `Room` keeps itself alive through its signaling read loop and
-        // transport tasks, so an early exit that skipped `disconnect()` used to
-        // leak a fully-live Room — WebSocket, both peer connections and timers —
-        // into every test that ran after it, in the same host process. That is
-        // what turned a single flaky failure into a whole run of unrelated
-        // timeouts, including the ObjC suites that run last.
+        // Tear down on every exit path: a `Room` keeps itself alive through its
+        // signaling and transport tasks, so an early exit without `disconnect()`
+        // leaks a live Room into the rest of the test process.
         do {
             try await connectAndDiscover(rooms, roomName: roomName)
             try await block(allRooms)

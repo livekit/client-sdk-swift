@@ -227,10 +227,8 @@ actor MessageCollector {
         expectedContent: [String],
         expectedIsFinal: [Bool],
     ) {
-        // Validate updates. Bail on a count mismatch instead of indexing past the
-        // end: a soft `#expect` doesn't stop execution, so the subsequent
-        // subscripts used to trap and abort the whole test *process*, taking every
-        // later suite (and the ObjC bundle) down with it.
+        // Bail on a count mismatch rather than indexing past the end: `#expect` is
+        // soft, so the subscripts below would trap and abort the test process.
         guard updates.count == expectedContent.count, updates.count == expectedIsFinal.count else {
             Issue.record("Expected \(expectedContent.count) updates, got \(updates.count): \(updates.map(\.content))")
             return
