@@ -21,6 +21,39 @@ import LiveKitUniFFI
 /// ObjC-compatible helper for generating tokens and reading server configuration.
 @objcMembers
 public class LKObjCRoomHelper: NSObject {
+    private static let connectAttempts = 3
+    private static let connectRetryDelay: UInt64 = 2_000_000_000
+
+    /// Connects with retries, matching `TestEnvironment.withRooms`. The first `Room`
+    /// in a process pays one-time WebRTC and audio-stack initialization that can
+    /// exceed the connect timeout on a simulator.
+    @objc(connectWithRoom:url:token:completionHandler:)
+    public static func connect(room: Room,
+                               url: String,
+                               token: String,
+                               completionHandler: @escaping @Sendable (Error?) -> Void)
+    {
+        Task {
+            var lastError: Error?
+            for attempt in 1 ... connectAttempts {
+                do {
+                    try await room.connect(url: url, token: token)
+                    completionHandler(nil)
+                    return
+                } catch {
+                    lastError = error
+                    // A timed-out connect can leave the signal connection live, so
+                    // reset before retrying instead of leaking a participant.
+                    await room.disconnect()
+                    if attempt < connectAttempts {
+                        try? await Task.sleep(nanoseconds: connectRetryDelay)
+                    }
+                }
+            }
+            completionHandler(lastError)
+        }
+    }
+
     public static func serverURL() -> String {
         if let string = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_URL"]?.trimmingCharacters(in: .whitespacesAndNewlines),
            !string.isEmpty
