@@ -348,13 +348,19 @@ struct PeerConnectionSignalingTests {
 
             for i in 0 ..< videoCount {
                 let track = LocalVideoTrack.createBufferTrack(name: "video-\(i)")
-                guard let capturer = track.capturer as? BufferCapturer else {
-                    Issue.record("Expected BufferCapturer")
-                    return
+                let capturer = try #require(track.capturer as? BufferCapturer)
+
+                // `BufferCapturer` resolves dimensions only from captured frames and
+                // is documented to be fed repeatedly, so keep frames flowing until
+                // publish returns rather than relying on a single one landing in time.
+                let frames = Task.detached {
+                    while !Task.isCancelled {
+                        if let buffer = Self.makeTestPixelBuffer() { capturer.capture(buffer) }
+                        try? await Task.sleep(nanoseconds: 50_000_000)
+                    }
                 }
-                var pixelBuffer: CVPixelBuffer?
-                CVPixelBufferCreate(kCFAllocatorDefault, 320, 240, kCVPixelFormatType_32BGRA, nil, &pixelBuffer)
-                if let pixelBuffer { capturer.capture(pixelBuffer) }
+                defer { frames.cancel() }
+
                 try await room1.localParticipant.publish(videoTrack: track)
                 try await Task.sleep(nanoseconds: 500_000_000)
             }
@@ -390,6 +396,16 @@ struct PeerConnectionSignalingTests {
                 #expect(room.connectionState == .connected, "Room should be connected after reconnect #\(attempt)")
             }
         }
+    }
+
+    /// A fresh blank frame. Created per capture so nothing non-Sendable crosses
+    /// into the feeding task.
+    private static func makeTestPixelBuffer() -> CVPixelBuffer? {
+        var pixelBuffer: CVPixelBuffer?
+        guard CVPixelBufferCreate(kCFAllocatorDefault, 320, 240, kCVPixelFormatType_32BGRA, nil, &pixelBuffer) == kCVReturnSuccess else {
+            return nil
+        }
+        return pixelBuffer
     }
 
     private static var isLocalhost: Bool {
