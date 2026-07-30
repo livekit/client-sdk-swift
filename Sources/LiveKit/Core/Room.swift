@@ -130,12 +130,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     lazy var subscriberDataChannel = DataChannelPair(delegate: self)
     lazy var publisherDataChannel = DataChannelPair(delegate: self)
 
-    let incomingStreamManager = IncomingStreamManager()
-    lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
-        try await self?.send(dataPacket: packet)
-    } encryptionProvider: { [weak self] in
-        self?.e2eeManager?.dataChannelEncryptionType ?? .none
-    }
+    // The data stream subsystem (incoming/outgoing UniFFI managers, the topic→handler registry, and
+    // packet routing) behind one reference. Kept for the Room's lifetime — not session-scoped like
+    // ``DataTracks`` — so stream handlers survive reconnects and can be registered before connect.
+    lazy var dataStreams = DataStreams(room: self)
 
     // MARK: - Data Tracks
 
@@ -610,7 +608,7 @@ extension Room {
         await activeParticipantCompleters.reset(throwing: disconnectError)
         // Fail open data streams so their handlers return; a handler blocked on a
         // reader that will never finish would stall its topic's ordered queue.
-        await incomingStreamManager.reset()
+        dataStreams.reset()
 
         await signalClient.cleanUp(withError: disconnectError)
         // Cancel all track stats timers before closing transports to prevent
@@ -659,10 +657,10 @@ extension Room {
     private func setupRpc() async {
         await rpcClient.attach(to: self)
         await rpcServer.attach(to: self)
-        await incomingStreamManager.registerTextStreamHandlerIfNeeded(for: RpcStreamTopic.request) { [weak rpcServer] reader, identity in
+        dataStreams.registerTextStreamHandlerIfNeeded(for: RpcStreamTopic.request) { [weak rpcServer] reader, identity in
             await rpcServer?.handleIncomingRequestStream(reader: reader, callerIdentity: identity)
         }
-        await incomingStreamManager.registerTextStreamHandlerIfNeeded(for: RpcStreamTopic.response) { [weak rpcClient] reader, identity in
+        dataStreams.registerTextStreamHandlerIfNeeded(for: RpcStreamTopic.response) { [weak rpcClient] reader, identity in
             await rpcClient?.handleIncomingResponseStream(reader: reader, senderIdentity: identity)
         }
     }
@@ -701,7 +699,7 @@ extension Room {
         // so the caller sees `recipientDisconnected` (1503) immediately instead of
         // hanging until the user-supplied `responseTimeout`.
         await rpcClient.handleParticipantDisconnected(identity)
-        await incomingStreamManager.closeStreams(from: identity)
+        dataStreams.closeStreams(from: identity)
 
         guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: identity) }) else {
             throw LiveKitError(.invalidState, message: "Participant not found for \(identity)")
