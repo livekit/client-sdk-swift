@@ -134,8 +134,7 @@ private struct WeakRoomRefs: @unchecked Sendable {
     weak var subscriber: Transport?
     weak var publisherDataChannel: DataChannelPair?
     weak var subscriberDataChannel: DataChannelPair?
-    weak var incomingStreamManager: IncomingStreamManager?
-    weak var outgoingStreamManager: OutgoingStreamManager?
+    weak var dataStreams: DataStreams?
     weak var e2eeManager: E2EEManager?
     weak var preConnectBuffer: PreConnectAudioBuffer?
     weak var rpcClient: RpcClientManager?
@@ -161,8 +160,7 @@ private struct WeakRoomRefs: @unchecked Sendable {
 
         publisherDataChannel = room.publisherDataChannel
         subscriberDataChannel = room.subscriberDataChannel
-        incomingStreamManager = room.incomingStreamManager
-        outgoingStreamManager = room.outgoingStreamManager
+        dataStreams = room.dataStreams
         if let mgr = room.e2eeManager { e2eeManager = mgr }
         preConnectBuffer = room.preConnectBuffer
         rpcClient = room.rpcClient
@@ -189,8 +187,7 @@ private struct WeakRoomRefs: @unchecked Sendable {
         #expect(subscriber == nil, "Leaked object: Subscriber Transport")
         #expect(publisherDataChannel == nil, "Leaked object: Publisher DataChannel")
         #expect(subscriberDataChannel == nil, "Leaked object: Subscriber DataChannel")
-        #expect(incomingStreamManager == nil, "Leaked object: IncomingStreamManager")
-        #expect(outgoingStreamManager == nil, "Leaked object: OutgoingStreamManager")
+        #expect(dataStreams == nil, "Leaked object: DataStreams")
         #expect(e2eeManager == nil, "Leaked object: E2EEManager")
         #expect(preConnectBuffer == nil, "Leaked object: PreConnectBuffer")
         #expect(rpcClient == nil, "Leaked object: RpcClientManager")

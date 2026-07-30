@@ -105,7 +105,7 @@ public final class RoomWatcher<T: Decodable & Sendable>: RoomDelegate, Sendable 
 
     // MARK: - Delegates
 
-    public func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String, encryptionType _: EncryptionType) {
+    public func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String, encryptionType _: LiveKit.EncryptionType) {
         // print("didReceiveData: \(data) for topic: \(topic)")
         Task {
             do {
