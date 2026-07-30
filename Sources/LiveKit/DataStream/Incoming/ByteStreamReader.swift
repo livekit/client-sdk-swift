@@ -16,17 +16,19 @@
 
 import Foundation
 
+internal import LiveKitUniFFI
+
 /// An asynchronous sequence of chunks read from a byte data stream.
 @objcMembers
 public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     /// Information about the incoming byte stream.
     public let info: ByteStreamInfo
 
-    let source: StreamReaderSource
+    private let reader: LiveKitUniFFI.ByteStreamReader
 
-    init(info: ByteStreamInfo, source: StreamReaderSource) {
+    init(_ reader: LiveKitUniFFI.ByteStreamReader, info: ByteStreamInfo) {
+        self.reader = reader
         self.info = info
-        self.source = source
     }
 
     /// Reads incoming chunks from the byte stream, concatenating them into a single data object which is returned
@@ -36,20 +38,28 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     /// - Throws: ``StreamError`` if an error occurs while reading the stream.
     ///
     public func readAll() async throws -> Data {
-        try await source.collect()
+        do {
+            return try await reader.readAll()
+        } catch let error as LiveKitUniFFI.DataStreamError {
+            throw StreamError(error)
+        }
     }
 
     /// An asynchronous iterator of incoming chunks.
     public struct AsyncChunks: AsyncIteratorProtocol {
-        fileprivate var source: StreamReaderSource.Iterator
+        fileprivate let reader: LiveKitUniFFI.ByteStreamReader
 
         public mutating func next() async throws -> Data? {
-            try await source.next()
+            do {
+                return try await reader.next()
+            } catch let error as LiveKitUniFFI.DataStreamError {
+                throw StreamError(error)
+            }
         }
     }
 
     public func makeAsyncIterator() -> AsyncChunks {
-        AsyncChunks(source: source.makeAsyncIterator())
+        AsyncChunks(reader: reader)
     }
 }
 

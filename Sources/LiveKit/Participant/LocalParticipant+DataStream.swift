@@ -39,7 +39,7 @@ public extension LocalParticipant {
     @discardableResult
     func sendText(_ text: String, options: StreamTextOptions) async throws -> TextStreamInfo {
         let room = try requireRoom()
-        return try await room.outgoingStreamManager.sendText(text, options: options)
+        return try await room.dataStreams.sendText(text, options: options)
     }
 
     /// Send a file on disk to participants in the room.
@@ -62,7 +62,7 @@ public extension LocalParticipant {
     @discardableResult
     func sendFile(_ fileURL: URL, options: StreamByteOptions) async throws -> ByteStreamInfo {
         let room = try requireRoom()
-        return try await room.outgoingStreamManager.sendFile(fileURL, options: options)
+        return try await room.dataStreams.sendFile(fileURL, options: options)
     }
 
     // MARK: - Stream
@@ -86,7 +86,7 @@ public extension LocalParticipant {
     @discardableResult
     func streamText(options: StreamTextOptions) async throws -> TextStreamWriter {
         let room = try requireRoom()
-        return try await room.outgoingStreamManager.streamText(options: options)
+        return try await room.dataStreams.streamText(options: options)
     }
 
     /// Stream bytes incrementally to participants in the room.
@@ -109,6 +109,6 @@ public extension LocalParticipant {
     ///
     func streamBytes(options: StreamByteOptions) async throws -> ByteStreamWriter {
         let room = try requireRoom()
-        return try await room.outgoingStreamManager.streamBytes(options: options)
+        return try await room.dataStreams.streamBytes(options: options)
     }
 }

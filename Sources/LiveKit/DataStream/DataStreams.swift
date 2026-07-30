@@ -47,17 +47,21 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     private let textStreamHandlers = StateSync<[String: TextStreamHandler]>([:])
     // Topics we've already logged a missing-handler warning for, to avoid log spam.
     private let failedTopics = StateSync<Set<String>>([])
+    // Topics whose text handlers run in wire order. Successive (non-overlapping) streams on such a
+    // topic have their handlers serialized so they process in arrival order. Used by internal
+    // consumers like transcription; off by default so concurrent consumers (e.g. RPC) aren't slowed.
+    private let orderedTopics = StateSync<Set<String>>([])
+    private let orderedTails = StateSync<[String: Task<Void, Never>]>([:])
 
     init(room: Room) {
         self.room = room
         let incomingDelegate = IncomingDelegate()
         let outgoingDelegate = OutgoingDelegate(room: room)
         let registry = Registry(room: room)
-        // No reserved topics and no payload cap: topic routing (incl. the `lk.rpc` guard) is handled
-        // Swift-side in `Room+DataStream`, matching the previous pure-Swift implementation.
+        // No payload cap; topic routing (incl. the `lk.rpc` guard) is handled Swift-side in
+        // `Room+DataStream`, matching the previous pure-Swift implementation.
         incoming = LiveKitUniFFI.IncomingDataStreamManager(
             delegate: incomingDelegate,
-            reservedTopics: [],
             maxPayloadByteLength: nil,
         )
         outgoing = LiveKitUniFFI.OutgoingDataStreamManager(delegate: outgoingDelegate, registry: registry)
@@ -83,11 +87,15 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    func registerTextStreamHandler(for topic: String, _ onNewStream: @escaping TextStreamHandler) throws {
+    /// When `ordered` is true, successive streams on `topic` have their handlers run in wire order:
+    /// a handler for a stream that opened after another finishes only once the earlier handler
+    /// returns. Off by default — it would serialize consumers that want strict concurrency (e.g. RPC).
+    func registerTextStreamHandler(for topic: String, ordered: Bool = false, _ onNewStream: @escaping TextStreamHandler) throws {
         try textStreamHandlers.mutate {
             guard $0[topic] == nil else { throw StreamError.handlerAlreadyRegistered }
             $0[topic] = onNewStream
         }
+        if ordered { orderedTopics.mutate { $0.insert(topic) } }
     }
 
     /// SDK-internal: register `onNewStream` for `topic` if no handler is registered yet, otherwise
@@ -108,6 +116,8 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
 
     func unregisterTextStreamHandler(for topic: String) {
         textStreamHandlers.mutate { $0[topic] = nil }
+        orderedTopics.mutate { $0.remove(topic) }
+        orderedTails.mutate { $0[topic] = nil }
     }
 
     // MARK: - Sending
@@ -165,6 +175,21 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         incoming.handlePacketReceived(packet: data)
     }
 
+    // MARK: - Stream lifecycle
+
+    /// Fails all open incoming streams so their handlers return (e.g. on cleanup). A handler blocked
+    /// on a reader that will never finish would otherwise stall its topic's ordered queue. Handler
+    /// registrations survive, so streams arriving after a reconnect are still handled.
+    func reset() {
+        incoming.abortAllStreams()
+    }
+
+    /// Fails open incoming streams sent by `identity` (they disconnected mid-send), so their readers
+    /// throw and their handlers return instead of hanging.
+    func closeStreams(from identity: Participant.Identity) {
+        incoming.abortStreamsFrom(identity: identity.stringValue)
+    }
+
     // MARK: - Stream open dispatch (called from the incoming delegate)
 
     fileprivate func handleByteStreamOpened(_ ffiReader: LiveKitUniFFI.ByteStreamReader, identity: String) {
@@ -186,7 +211,24 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         }
         let reader = TextStreamReader(ffiReader, info: info)
         let participantIdentity = Participant.Identity(from: identity)
-        Task.detachedDiscarding { try await handler(reader, participantIdentity) }
+        guard orderedTopics.copy().contains(info.topic) else {
+            Task.detachedDiscarding { try await handler(reader, participantIdentity) }
+            return
+        }
+        // Ordered topic: chain this handler after the previous one on the same topic so successive
+        // streams process in arrival order.
+        let topic = info.topic
+        orderedTails.mutate { tails in
+            let predecessor = tails[topic]
+            tails[topic] = Task.detached { [weak self] in
+                await predecessor?.value
+                do {
+                    try await handler(reader, participantIdentity)
+                } catch {
+                    self?.log("Ordered text stream handler for topic '\(topic)' threw: \(error)", .warning)
+                }
+            }
+        }
     }
 
     private func logMissingHandler(topic: String, id: String, identity: String) {
