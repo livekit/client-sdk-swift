@@ -153,6 +153,12 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
         setKey(keyData: Data(key.utf8), participantId: participantId, index: index)
     }
 
+    /// Sets a raw binary key without any string conversion.
+    ///
+    /// - Parameters:
+    ///   - keyData: The key bytes, stored as provided.
+    ///   - participantId: Required in non-shared key mode; the call is a no-op when `nil`.
+    ///   - index: The key index to set. Defaults to the current key index.
     public func setKey(keyData: Data, participantId: String? = nil, index: Int32? = nil) {
         let targetIndex = index ?? getCurrentKeyIndex()
 
