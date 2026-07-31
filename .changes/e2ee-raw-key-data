@@ -1,0 +1,1 @@
+patch type="added" "Add `BaseKeyProvider.setKey(keyData:participantId:index:)` for installing raw binary E2EE key material without String conversion"
