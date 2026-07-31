@@ -20,6 +20,9 @@ import Foundation
 actor IncomingStreamManager: Loggable {
     /// Information about an open data stream.
     private struct Descriptor {
+        /// Distinguishes this descriptor from others that reuse the same stream
+        /// ID, so a stale cleanup can't remove a successor.
+        let generation = UUID()
         let info: StreamInfo
         let openTime: TimeInterval
         let continuation: StreamReaderSource.Continuation
@@ -153,18 +156,23 @@ actor IncomingStreamManager: Loggable {
 
         var continuation: StreamReaderSource.Continuation!
         let source = StreamReaderSource {
-            $0.onTermination = { @Sendable [weak self] _ in
-                guard let self else { return }
-                Task { await self.closeStream(with: info.id) }
-            }
             continuation = $0
         }
 
-        openStreams[info.id] = Descriptor(
+        let descriptor = Descriptor(
             info: info,
             openTime: Date.timeIntervalSinceReferenceDate,
             continuation: continuation,
         )
+        openStreams[info.id] = descriptor
+
+        // Set after the descriptor is stored: this task runs at an arbitrary
+        // later point, and a sender may have reused the stream ID by then, so
+        // it must only remove its own generation.
+        continuation.onTermination = { @Sendable [weak self, generation = descriptor.generation] _ in
+            guard let self else { return }
+            Task { await self.closeStream(with: info.id, generation: generation) }
+        }
 
         // Detached: handler lifetime is not tied to the descriptor — abnormal stream
         // conditions are signalled through `source` throwing instead.
@@ -193,8 +201,10 @@ actor IncomingStreamManager: Loggable {
         return continuation
     }
 
-    /// Close the stream with the given id.
-    private func closeStream(with id: String) {
+    /// Close the stream with the given id, unless it has been superseded by a
+    /// newer stream reusing the same id.
+    private func closeStream(with id: String, generation: UUID) {
+        guard openStreams[id]?.generation == generation else { return }
         openStreams[id] = nil
     }
 
