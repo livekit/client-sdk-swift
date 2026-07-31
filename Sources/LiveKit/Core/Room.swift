@@ -588,6 +588,9 @@ extension Room {
         primaryTransportConnectedCompleter.reset(throwing: disconnectError)
         publisherTransportConnectedCompleter.reset(throwing: disconnectError)
         await activeParticipantCompleters.reset(throwing: disconnectError)
+        // Fail open data streams so their handlers return; a handler blocked on a
+        // reader that will never finish would stall its topic's ordered queue.
+        await incomingStreamManager.reset()
 
         await signalClient.cleanUp(withError: disconnectError)
         // Cancel all track stats timers before closing transports to prevent
@@ -677,6 +680,7 @@ extension Room {
         // so the caller sees `recipientDisconnected` (1503) immediately instead of
         // hanging until the user-supplied `responseTimeout`.
         await rpcClient.handleParticipantDisconnected(identity)
+        await incomingStreamManager.closeStreams(from: identity)
 
         guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: identity) }) else {
             throw LiveKitError(.invalidState, message: "Participant not found for \(identity)")

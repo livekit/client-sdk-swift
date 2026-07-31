@@ -24,6 +24,7 @@ actor IncomingStreamManager: Loggable {
         /// ID, so a stale cleanup can't remove a successor.
         let generation = UUID()
         let info: StreamInfo
+        let identity: Participant.Identity
         let openTime: TimeInterval
         let continuation: StreamReaderSource.Continuation
         var readLength = 0
@@ -31,6 +32,8 @@ actor IncomingStreamManager: Loggable {
 
     /// Mapping between stream ID and descriptor for open streams.
     private var openStreams: [String: Descriptor] = [:]
+
+    var openStreamCount: Int { openStreams.count }
     /// Stream topics without a registered handler.
     private var failedToOpenStreams: Set<String> = []
 
@@ -161,6 +164,7 @@ actor IncomingStreamManager: Loggable {
 
         let descriptor = Descriptor(
             info: info,
+            identity: identity,
             openTime: Date.timeIntervalSinceReferenceDate,
             continuation: continuation,
         )
@@ -194,15 +198,37 @@ actor IncomingStreamManager: Loggable {
         openStreams[id] = nil
     }
 
+    /// Fails all open streams from the given participant. Without this, a stream
+    /// whose sender disconnects before its trailer stays open forever — and on an
+    /// ordered topic its handler blocks every stream behind it.
+    func closeStreams(from identity: Participant.Identity) {
+        for (id, descriptor) in openStreams where descriptor.identity == identity {
+            openStreams[id] = nil
+            descriptor.continuation.finish(throwing: StreamError.terminated)
+        }
+    }
+
+    /// Fails all open streams. Registered handlers and their ordered queues
+    /// survive so streams arriving after a reconnect are still handled.
+    func reset() {
+        for descriptor in openStreams.values {
+            descriptor.continuation.finish(throwing: StreamError.terminated)
+        }
+        openStreams.removeAll()
+    }
+
     /// Handles a data stream chunk.
     private func handle(chunk: Livekit_DataStream.Chunk, encryptionType: EncryptionType) {
         guard !chunk.content.isEmpty, let descriptor = openStreams[chunk.streamID] else { return }
 
+        // Error paths remove the descriptor synchronously for the same reason as
+        // the trailer path: a header reusing this stream ID may be the next event.
         if descriptor.info.encryptionType != encryptionType {
             let error = StreamError.encryptionTypeMismatch(
                 expected: descriptor.info.encryptionType,
                 received: encryptionType,
             )
+            openStreams[chunk.streamID] = nil
             descriptor.continuation.finish(throwing: error)
             return
         }
@@ -211,6 +237,7 @@ actor IncomingStreamManager: Loggable {
 
         if let totalLength = descriptor.info.totalLength {
             guard readLength <= totalLength else {
+                openStreams[chunk.streamID] = nil
                 descriptor.continuation.finish(throwing: StreamError.lengthExceeded)
                 return
             }

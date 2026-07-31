@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// swiftlint:disable file_length
+
 import Foundation
 @testable import LiveKit
 import Testing
@@ -317,6 +319,23 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
 }
 
 extension IncomingStreamManagerTests {
+    /// `handle(_:)` only enqueues onto the manager's event loop, so tests that
+    /// call cleanup APIs directly must first wait for the events to be processed.
+    private func waitForOpenStreams(_ count: Int) async {
+        let deadline = Date().addingTimeInterval(10)
+        while await manager.openStreamCount < count, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+    }
+
+    private func sendTextHeader(streamID: String) async {
+        var header = Livekit_DataStream.Header()
+        header.streamID = streamID
+        header.topic = topicName
+        header.contentHeader = .textHeader(Livekit_DataStream.TextHeader())
+        manager.handle(.header(header, participant.stringValue, .none))
+    }
+
     /// Senders may reuse one stream ID for consecutive streams (each `sendText`
     /// in a transcription segment does). Descriptor cleanup used to run in the
     /// reader's `onTermination` task, which raced the reopening header and made
@@ -344,6 +363,89 @@ extension IncomingStreamManagerTests {
         }
 
         #expect(received.copy().sorted() == payloads.sorted())
+        await manager.unregisterTextStreamHandler(for: topicName)
+    }
+
+    /// A stream failing mid-flight (here: exceeding its declared length) must not
+    /// block a new stream that immediately reuses the same stream ID.
+    @Test func reusedStreamIDAfterChunkErrorDeliversNextStream() async throws {
+        let received = StateSync<[String]>([])
+
+        try await manager.registerTextStreamHandler(for: topicName) { reader, _ in
+            let payload = try await reader.readAll()
+            received.mutate { $0.append(payload) }
+        }
+
+        let streamID = UUID().uuidString
+        // 8-byte chunk against a declared total of 4 → lengthExceeded.
+        await sendTextStream(rawPayload: Data("ABCDEFGH".utf8), totalLength: 4, streamID: streamID, settle: false)
+        await sendTextStream(chunks: ["ok"], streamID: streamID, settle: false)
+
+        let deadline = Date().addingTimeInterval(10)
+        while received.copy().isEmpty, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+
+        #expect(received.copy() == ["ok"])
+        await manager.unregisterTextStreamHandler(for: topicName)
+    }
+
+    /// A sender disconnecting before its trailer leaves the stream open forever;
+    /// `closeStreams(from:)` must fail it so an ordered topic's queue drains.
+    @Test func closeStreamsUnblocksOrderedTopic() async throws {
+        let received = StateSync<[String]>([])
+        let errors = StateSync<[StreamError]>([])
+
+        try await manager.registerTextStreamHandler(for: topicName, ordered: true) { reader, _ in
+            do {
+                let payload = try await reader.readAll()
+                received.mutate { $0.append(payload) }
+            } catch let error as StreamError {
+                errors.mutate { $0.append(error) }
+                throw error
+            }
+        }
+
+        // Header only — no trailer ever arrives, so the handler blocks in readAll
+        // and, at the head of the ordered queue, would block every later stream.
+        await sendTextHeader(streamID: "orphan")
+        await waitForOpenStreams(1)
+
+        await manager.closeStreams(from: participant)
+        await sendTextStream(chunks: ["after"], settle: false)
+
+        let deadline = Date().addingTimeInterval(10)
+        while received.copy().isEmpty, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+
+        #expect(received.copy() == ["after"])
+        #expect(errors.copy() == [.terminated])
+        await manager.unregisterTextStreamHandler(for: topicName)
+    }
+
+    /// Same shape as above via the room-lifecycle path: `reset()` fails all open
+    /// streams but keeps handlers registered for after a reconnect.
+    @Test func resetUnblocksOrderedTopicAndKeepsHandler() async throws {
+        let received = StateSync<[String]>([])
+
+        try await manager.registerTextStreamHandler(for: topicName, ordered: true) { reader, _ in
+            let payload = try await reader.readAll()
+            received.mutate { $0.append(payload) }
+        }
+
+        await sendTextHeader(streamID: "orphan")
+        await waitForOpenStreams(1)
+
+        await manager.reset()
+        await sendTextStream(chunks: ["after-reset"], settle: false)
+
+        let deadline = Date().addingTimeInterval(10)
+        while received.copy().isEmpty, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+
+        #expect(received.copy() == ["after-reset"])
         await manager.unregisterTextStreamHandler(for: topicName)
     }
 
