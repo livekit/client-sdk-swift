@@ -346,16 +346,22 @@ struct PeerConnectionSignalingTests {
                 try await Task.sleep(nanoseconds: 500_000_000)
             }
 
+            // One buffer, allocated once and asserted: a discarded allocation failure
+            // used to surface as an opaque 10s publish timeout.
+            let frame = try #require(TestFrame())
+
             for i in 0 ..< videoCount {
                 let track = LocalVideoTrack.createBufferTrack(name: "video-\(i)")
                 let capturer = try #require(track.capturer as? BufferCapturer)
 
-                // `BufferCapturer` resolves dimensions only from captured frames and
-                // is documented to be fed repeatedly, so keep frames flowing until
-                // publish returns rather than relying on a single one landing in time.
+                // `BufferCapturer` resolves dimensions only from a captured frame, and
+                // publish waits for them. Capture synchronously so that wait can't
+                // depend on a background task being scheduled, then keep feeding the
+                // same frame the way the capturer is documented to be driven.
+                capturer.capture(frame.buffer)
                 let frames = Task.detached {
                     while !Task.isCancelled {
-                        if let buffer = Self.makeTestPixelBuffer() { capturer.capture(buffer) }
+                        capturer.capture(frame.buffer)
                         try? await Task.sleep(nanoseconds: 50_000_000)
                     }
                 }
@@ -398,14 +404,18 @@ struct PeerConnectionSignalingTests {
         }
     }
 
-    /// A fresh blank frame. Created per capture so nothing non-Sendable crosses
-    /// into the feeding task.
-    private static func makeTestPixelBuffer() -> CVPixelBuffer? {
-        var pixelBuffer: CVPixelBuffer?
-        guard CVPixelBufferCreate(kCFAllocatorDefault, 320, 240, kCVPixelFormatType_32BGRA, nil, &pixelBuffer) == kCVReturnSuccess else {
-            return nil
+    /// A blank frame, boxed so it can be fed from a background task. The buffer is
+    /// only ever read, never written.
+    private final class TestFrame: @unchecked Sendable {
+        let buffer: CVPixelBuffer
+
+        init?() {
+            var pixelBuffer: CVPixelBuffer?
+            guard CVPixelBufferCreate(kCFAllocatorDefault, 320, 240, kCVPixelFormatType_32BGRA, nil, &pixelBuffer) == kCVReturnSuccess,
+                  let pixelBuffer
+            else { return nil }
+            buffer = pixelBuffer
         }
-        return pixelBuffer
     }
 
     private static var isLocalhost: Bool {
