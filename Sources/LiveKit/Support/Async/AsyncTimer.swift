@@ -22,6 +22,8 @@ final class AsyncTimer: Sendable, Loggable {
     typealias TimerBlock = @Sendable () async throws -> Void
     typealias SleepFunction = @Sendable (TimeInterval) async throws -> Void
 
+    static let taskSleep: SleepFunction = { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) }
+
     // MARK: - Private
 
     struct State {
@@ -35,9 +37,7 @@ final class AsyncTimer: Sendable, Loggable {
     let _state: StateSync<State>
     private let _sleep: SleepFunction
 
-    init(interval: TimeInterval,
-         sleep: @escaping SleepFunction = { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) })
-    {
+    init(interval: TimeInterval, sleep: @escaping SleepFunction = AsyncTimer.taskSleep) {
         _sleep = sleep
         _state = StateSync(State(interval: interval))
     }
