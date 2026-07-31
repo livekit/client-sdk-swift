@@ -1,0 +1,1 @@
+patch type="fixed" "Pre-connect audio buffer could be sent before the microphone publish resolved its track sid, arriving at the agent without a trackId and being dropped"

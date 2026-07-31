@@ -45,6 +45,7 @@ public final class LocalAudioTrackRecorder: NSObject, Sendable, AudioRenderer {
     private let state = StateSync<State>(State())
     private struct State {
         var continuation: Stream.Continuation?
+        var didLogConversionError: Bool = false
     }
 
     /// Initialize the audio recorder with a local audio track.
@@ -74,6 +75,7 @@ public final class LocalAudioTrackRecorder: NSObject, Sendable, AudioRenderer {
         let stream = Stream(bufferingPolicy: buffer) { continuation in
             self.state.mutate {
                 $0.continuation = continuation
+                $0.didLogConversionError = false
             }
         }
 
@@ -110,7 +112,15 @@ public extension LocalAudioTrackRecorder {
         {
             state.continuation?.yield(data)
         } else {
-            assertionFailure("Failed to convert PCM buffer to data")
+            // render() runs per audio buffer; log the failure only once per recording
+            let shouldLog = state.mutate { state in
+                let isFirst = !state.didLogConversionError
+                state.didLogConversionError = true
+                return isFirst
+            }
+            if shouldLog {
+                sharedLogger.log("Failed to convert PCM buffer to data", .error, type: LocalAudioTrackRecorder.self)
+            }
         }
     }
 }
