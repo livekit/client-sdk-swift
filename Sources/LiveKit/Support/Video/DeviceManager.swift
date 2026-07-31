@@ -100,7 +100,7 @@ class DeviceManager: @unchecked Sendable, Loggable {
         log()
 
         #if os(iOS) || os(macOS) || os(tvOS)
-        DispatchQueue.global(qos: .background).async { [weak self] in
+        DispatchQueue.global(qos: .default).async { [weak self] in
             guard let self else { return }
             _devicesObservation = discoverySession.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
                 guard let self else { return }
@@ -122,7 +122,7 @@ class DeviceManager: @unchecked Sendable, Loggable {
         #endif
 
         #if os(iOS) || os(tvOS)
-        DispatchQueue.global(qos: .background).async { [weak self] in
+        DispatchQueue.global(qos: .default).async { [weak self] in
             guard let self else { return }
             _multiCamDeviceSetsObservation = discoverySession.observe(\.supportedMultiCamDeviceSets, options: [.initial, .new]) { [weak self] _, value in
                 guard let self else { return }
