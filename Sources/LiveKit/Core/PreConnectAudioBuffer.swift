@@ -119,11 +119,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
 
         if flush {
             // Take ownership of the stream so it cannot race with an in-flight send
-            let stream = state.mutate { state in
-                let stream = state.audioStream
-                state.audioStream = nil
-                return stream
-            }
+            let stream = state.mutate { $0.audioStream.take() }
             if let stream {
                 log("Flushing audio stream", .info)
                 Task {
@@ -155,7 +151,9 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     ///   - agents: The agents to send the audio data to. If `nil`, waits for the first active agent.
     ///   - topic: The topic to send the audio data.
     func sendAudioData(to room: Room, trackSid: Track.Sid, agents: [Participant.Identity]? = nil, on topic: String = dataTopic) async throws {
-        if let agents, agents.isEmpty { return }
+        if let agents, agents.isEmpty {
+            return
+        }
 
         // Take ownership of the stream; it can be consumed only once.
         // A nil stream means it was already sent or flushed — expected teardown, not an error
@@ -163,8 +161,7 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
             guard let recorder = state.recorder else {
                 throw LiveKitError(.invalidState, message: "Recorder is nil")
             }
-            guard let audioStream = state.audioStream else { return nil }
-            state.audioStream = nil
+            guard let audioStream = state.audioStream.take() else { return nil }
             return (recorder, audioStream)
         }
         guard let (recorder, audioStream) = claim else {
