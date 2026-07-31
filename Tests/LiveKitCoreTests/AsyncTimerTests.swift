@@ -27,27 +27,67 @@ import LiveKitTestSupport
 /// deadline (`ConcurrentCounter.wait(untilAtLeast:)`) instead of sleeping a fixed
 /// multiple of the interval, and every "did not fire" assertion is bounded so
 /// sleep overshoot can't manufacture a fire.
+/// Drives `AsyncTimer` ticks from the test rather than the scheduler, so liveness
+/// assertions don't depend on a 50ms deadline the platform may miss by 200x.
+private actor ManualSleeper {
+    private var parked: [CheckedContinuation<Void, Never>] = []
+
+    nonisolated var sleep: AsyncTimer.SleepFunction {
+        { [weak self] _ in await self?.park() }
+    }
+
+    private func park() async {
+        await withCheckedContinuation { parked.append($0) }
+    }
+
+    /// How many countdowns are currently waiting — one per live loop.
+    var parkedCount: Int { parked.count }
+
+    /// Releases every parked countdown. Also required before a test ends, so no
+    /// checked continuation is left unresumed.
+    func tickAll() {
+        let waiters = parked
+        parked = []
+        for waiter in waiters {
+            waiter.resume()
+        }
+    }
+
+    func waitForParked(_ count: Int, timeout: TimeInterval = 30) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while parked.count < count, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+    }
+}
+
 @Suite(.tags(.concurrency))
 struct AsyncTimerTests {
     /// Short enough to keep the suite fast, long enough that one deferred wake-up
     /// doesn't change the outcome.
     private static let interval: TimeInterval = 0.05
 
-    @Test func startIfStoppedFiresWhileRepeatedlyArmed() async throws {
+    @Test func startIfStoppedFiresWhileRepeatedlyArmed() async {
         let counter = ConcurrentCounter()
-        let timer = AsyncTimer(interval: 0.2)
+        let sleeper = ManualSleeper()
+        let timer = AsyncTimer(interval: 0.2, sleep: sleeper.sleep)
         timer.setTimerBlock { _ = await counter.increment() }
 
-        // Keep re-arming every 20ms until it fires: `startIfStopped` must leave the
-        // in-flight countdown alone, so the first arm's timeout still elapses.
-        let deadline = Date().addingTimeInterval(10)
-        while await counter.getCount() == 0, Date() < deadline {
-            timer.startIfStopped()
-            try await Task.sleep(nanoseconds: 20_000_000)
-        }
-        timer.cancel()
+        timer.startIfStopped()
+        await sleeper.waitForParked(1)
 
-        #expect(await counter.getCount() >= 1)
+        // Re-arming must leave the in-flight countdown alone rather than starting
+        // another one, so exactly one stays parked.
+        for _ in 0 ..< 25 {
+            timer.startIfStopped()
+        }
+        #expect(await sleeper.parkedCount == 1)
+
+        await sleeper.tickAll() // the original countdown elapses
+        #expect(await counter.wait(untilAtLeast: 1) >= 1)
+
+        timer.cancel()
+        await sleeper.tickAll()
     }
 
     @Test func restartNeverFiresWhileRepeatedlyArmed() async throws {
@@ -68,26 +108,32 @@ struct AsyncTimerTests {
         #expect(firedWhileArming == 0)
     }
 
-    @Test func cancelStopsFiring() async throws {
+    @Test func cancelStopsFiring() async {
         let counter = ConcurrentCounter()
-        let timer = AsyncTimer(interval: Self.interval)
+        let sleeper = ManualSleeper()
+        let timer = AsyncTimer(interval: Self.interval, sleep: sleeper.sleep)
         timer.setTimerBlock { _ = await counter.increment() }
         timer.restart()
 
+        await sleeper.waitForParked(1)
+        await sleeper.tickAll()
         #expect(await counter.wait(untilAtLeast: 1) >= 1) // it actually ran
-        timer.cancel()
 
-        // Let any in-flight invocation settle before sampling.
-        try await Task.sleep(nanoseconds: 100_000_000)
+        await sleeper.waitForParked(1) // parked again for the next cycle
+        timer.cancel()
         let afterCancel = await counter.getCount()
 
-        try await Task.sleep(nanoseconds: 500_000_000) // 10 intervals
-        #expect(await counter.getCount() == afterCancel) // nothing fired after cancel
+        // Releasing further countdowns must not produce another invocation.
+        await sleeper.tickAll()
+        #expect(await counter.getCount() == afterCancel)
     }
 
     @Test func concurrentArmingLeavesSingleLoop() async throws {
         let counter = ConcurrentCounter()
-        let timer = AsyncTimer(interval: Self.interval)
+        // 5ms rather than 50ms: the loop still races real time here, but fires often
+        // enough that the liveness check below can't be starved out.
+        let interval: TimeInterval = 0.005
+        let timer = AsyncTimer(interval: interval, sleep: { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) })
         timer.setTimerBlock { _ = await counter.increment() }
 
         // Hammer with concurrent restart()/startIfStopped(): the previous design
@@ -100,16 +146,16 @@ struct AsyncTimerTests {
 
         let start = Date()
         #expect(await counter.wait(untilAtLeast: 1) >= 1) // a loop is running
-        try await Task.sleep(nanoseconds: 275_000_000)
+        try await Task.sleep(nanoseconds: 100_000_000)
         timer.cancel()
         let elapsed = Date().timeIntervalSince(start)
         let count = await counter.getCount()
 
         // A single loop can fire at most `elapsed / interval` times. Normalizing by
-        // the *measured* elapsed time rather than the requested sleep keeps this
-        // bound valid when the host defers wake-ups; the orphan bug spawned dozens
-        // of concurrent loops, so a 3x allowance still trips on it.
-        let singleLoopBound = elapsed / Self.interval + 1
+        // the measured elapsed time keeps this valid when the host defers wake-ups;
+        // the orphan bug spawned dozens of concurrent loops, so a 3x allowance
+        // still trips on it.
+        let singleLoopBound = elapsed / interval + 1
         #expect(Double(count) <= singleLoopBound * 3,
                 "\(count) fires in \(elapsed)s exceeds what a single loop can produce")
     }
