@@ -276,9 +276,7 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
         }
     }
 
-    private func sendTextStream(chunks: [String]? = nil, rawPayload: Data? = nil, totalLength: UInt64? = nil) async {
-        let streamID = UUID().uuidString
-
+    private func sendTextStream(chunks: [String]? = nil, rawPayload: Data? = nil, totalLength: UInt64? = nil, streamID: String = UUID().uuidString, settle: Bool = true) async {
         var header = Livekit_DataStream.Header()
         header.streamID = streamID
         header.topic = topicName
@@ -307,11 +305,69 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
         trailer.reason = ""
         manager.handle(.trailer(trailer, .none))
 
+        guard settle else { return }
+        // Handler processes asynchronously — give it time to complete
         await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
             Task {
                 try? await Task.sleep(nanoseconds: 100_000_000)
                 c.resume()
             }
         }
+    }
+}
+
+extension IncomingStreamManagerTests {
+    /// Senders may reuse one stream ID for consecutive streams (each `sendText`
+    /// in a transcription segment does). Descriptor cleanup used to run in the
+    /// reader's `onTermination` task, which raced the reopening header and made
+    /// `openStream` silently drop the new stream.
+    @Test func reusedStreamIDDeliversEveryStream() async throws {
+        let payloads = ["one", "two", "three"]
+        let received = StateSync<[String]>([])
+
+        try await manager.registerTextStreamHandler(for: topicName) { reader, _ in
+            let payload = try await reader.readAll()
+            received.mutate { $0.append(payload) }
+        }
+
+        // Back-to-back, no settling between streams: the reopening header must
+        // hit the event loop while the previous stream's cleanup could still be
+        // pending.
+        let streamID = UUID().uuidString
+        for payload in payloads {
+            await sendTextStream(chunks: [payload], streamID: streamID, settle: false)
+        }
+
+        let deadline = Date().addingTimeInterval(10)
+        while received.copy().count < payloads.count, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+
+        #expect(received.copy().sorted() == payloads.sorted())
+        await manager.unregisterTextStreamHandler(for: topicName)
+    }
+
+    /// Handlers for an `ordered` topic must observe streams in wire order, not
+    /// the scheduling order of independently spawned handler tasks.
+    @Test func orderedTopicDeliversStreamsInOrder() async throws {
+        let count = 16
+        let received = StateSync<[String]>([])
+
+        try await manager.registerTextStreamHandler(for: topicName, ordered: true) { reader, _ in
+            let payload = try await reader.readAll()
+            received.mutate { $0.append(payload) }
+        }
+
+        for index in 0 ..< count {
+            await sendTextStream(chunks: ["payload-\(index)"], settle: false)
+        }
+
+        let deadline = Date().addingTimeInterval(10)
+        while received.copy().count < count, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+
+        #expect(received.copy() == (0 ..< count).map { "payload-\($0)" })
+        await manager.unregisterTextStreamHandler(for: topicName)
     }
 }

@@ -94,7 +94,7 @@ actor TranscriptionStreamReceiver: MessageReceiver, Loggable {
         // SDK-internal receiver — register via `incomingStreamManager` directly
         // so the receiver works even if the `Room.reservedTopicPrefix` guard is
         // later widened to cover non-RPC `lk.*` topics like this one.
-        try await room.incomingStreamManager.registerTextStreamHandler(for: topic) { [weak self] reader, participantIdentity in
+        try await room.incomingStreamManager.registerTextStreamHandler(for: topic, ordered: true) { [weak self] reader, participantIdentity in
             var lastMessage: ReceivedMessage?
             for try await message in reader where !message.isEmpty {
                 guard let self else { return }

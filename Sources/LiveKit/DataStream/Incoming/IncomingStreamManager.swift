@@ -34,6 +34,11 @@ actor IncomingStreamManager: Loggable {
     private var byteStreamHandlers: [String: ByteStreamHandler] = [:]
     private var textStreamHandlers: [String: TextStreamHandler] = [:]
 
+    /// Topics whose handlers run one at a time, in wire order.
+    private var orderedTopics: Set<String> = []
+    /// Per-topic FIFO of pending handler invocations, consumed by a single task.
+    private var orderedQueues: [String: AsyncStream<@Sendable () async -> Void>.Continuation] = [:]
+
     /// Events are processed in a serial (FIFO) order
     enum StreamEvent {
         case header(Livekit_DataStream.Header, String, EncryptionType)
@@ -83,11 +88,16 @@ actor IncomingStreamManager: Loggable {
         byteStreamHandlers[topic] = onNewStream
     }
 
-    func registerTextStreamHandler(for topic: String, _ onNewStream: @escaping TextStreamHandler) throws {
+    /// When `ordered` is true, handlers for this topic run sequentially in wire
+    /// order instead of concurrently. Off by default: it would serialize
+    /// consumers that want concurrency (e.g. RPC request handling), and a
+    /// stream that never closes would block all later ones behind it.
+    func registerTextStreamHandler(for topic: String, ordered: Bool = false, _ onNewStream: @escaping TextStreamHandler) throws {
         guard textStreamHandlers[topic] == nil else {
             throw StreamError.handlerAlreadyRegistered
         }
         textStreamHandlers[topic] = onNewStream
+        if ordered { orderedTopics.insert(topic) }
     }
 
     /// SDK-internal: register `onNewStream` for `topic` if no handler is registered yet,
@@ -106,6 +116,8 @@ actor IncomingStreamManager: Loggable {
 
     func unregisterTextStreamHandler(for topic: String) {
         textStreamHandlers[topic] = nil
+        orderedTopics.remove(topic)
+        orderedQueues.removeValue(forKey: topic)?.finish()
     }
 
     // MARK: - Packet processing
@@ -150,9 +162,29 @@ actor IncomingStreamManager: Loggable {
 
         // Detached: handler lifetime is not tied to the descriptor — abnormal stream
         // conditions are signalled through `source` throwing instead.
-        Task.detachedDiscarding {
-            try await handler(source, identity)
+        if orderedTopics.contains(info.topic) {
+            orderedQueue(for: info.topic).yield {
+                try? await handler(source, identity)
+            }
+        } else {
+            Task.detachedDiscarding {
+                try await handler(source, identity)
+            }
         }
+    }
+
+    /// FIFO work queue for an ordered topic, created on first use. The consumer
+    /// task ends when the continuation is finished (unregister or deinit).
+    private func orderedQueue(for topic: String) -> AsyncStream<@Sendable () async -> Void>.Continuation {
+        if let existing = orderedQueues[topic] { return existing }
+        let (stream, continuation) = AsyncStream.makeStream(of: (@Sendable () async -> Void).self)
+        Task.detachedDiscarding {
+            for await work in stream {
+                await work()
+            }
+        }
+        orderedQueues[topic] = continuation
+        return continuation
     }
 
     /// Close the stream with the given id.
@@ -190,6 +222,12 @@ actor IncomingStreamManager: Loggable {
         guard let descriptor = openStreams[trailer.streamID] else {
             return
         }
+
+        // Remove synchronously: senders may reuse a stream ID, and the reopening
+        // header is processed by this same event loop right after the trailer.
+        // The reader's `onTermination` cleanup runs in its own task and can lose
+        // that race, making `openStream` silently drop the new stream.
+        openStreams[trailer.streamID] = nil
 
         if descriptor.info.encryptionType != encryptionType {
             let error = StreamError.encryptionTypeMismatch(
@@ -239,6 +277,9 @@ actor IncomingStreamManager: Loggable {
 
     deinit {
         eventContinuation.finish()
+        for continuation in orderedQueues.values {
+            continuation.finish()
+        }
         guard !openStreams.isEmpty else { return }
         for descriptor in openStreams.values {
             descriptor.continuation.finish(throwing: StreamError.terminated)
