@@ -187,20 +187,6 @@ actor IncomingStreamManager: Loggable {
         }
     }
 
-    /// FIFO work queue for an ordered topic, created on first use. The consumer
-    /// task ends when the continuation is finished (unregister or deinit).
-    private func orderedQueue(for topic: String) -> AsyncStream<@Sendable () async -> Void>.Continuation {
-        if let existing = orderedQueues[topic] { return existing }
-        let (stream, continuation) = AsyncStream.makeStream(of: (@Sendable () async -> Void).self)
-        Task.detachedDiscarding {
-            for await work in stream {
-                await work()
-            }
-        }
-        orderedQueues[topic] = continuation
-        return continuation
-    }
-
     /// Close the stream with the given id, unless it has been superseded by a
     /// newer stream reusing the same id.
     private func closeStream(with id: String, generation: UUID) {

@@ -346,19 +346,15 @@ struct PeerConnectionSignalingTests {
                 try await Task.sleep(nanoseconds: 500_000_000)
             }
 
-            // One buffer, allocated once and asserted: a discarded allocation failure
-            // used to surface as an opaque 10s publish timeout.
             let frame = try #require(TestFrame())
 
             for i in 0 ..< videoCount {
                 let track = LocalVideoTrack.createBufferTrack(name: "video-\(i)")
                 let capturer = try #require(track.capturer as? BufferCapturer)
 
-                // Publish gates on resolved dimensions, but captured frames resolve
-                // them on the capture processing queue, which a loaded host can defer
-                // past the publish timeout. This test is about signaling, not the
-                // capture pipeline, so resolve them directly; the feeding task
-                // supplies media so the subscriber sees the tracks.
+                // Resolve dimensions directly (captured frames resolve them on the
+                // capture queue, which can lag past the publish timeout); the feeding
+                // task supplies media so the subscriber sees the tracks.
                 capturer.set(dimensions: Dimensions(width: 320, height: 240))
                 let frames = Task.detached {
                     while !Task.isCancelled {
@@ -405,8 +401,7 @@ struct PeerConnectionSignalingTests {
         }
     }
 
-    /// A blank frame, boxed so it can be fed from a background task. The buffer is
-    /// only ever read, never written.
+    /// A blank frame, boxed for feeding from a task. Only ever read.
     private final class TestFrame: @unchecked Sendable {
         let buffer: CVPixelBuffer
 

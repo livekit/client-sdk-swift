@@ -15,12 +15,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  TEST_TIMEOUT_MINUTES: 30
-  # TEMPORARY: 1 so any flake fails the job and the log artifacts actually
-  # upload. Restore to 3 before merging.
-  TEST_RETRY_ATTEMPTS: 1
-
 jobs:
   build-and-test:
     name: Build & Test
@@ -124,27 +118,23 @@ jobs:
         run: xcrun swift --version
 
       - name: Build & Test
-        uses: nick-fields/retry@v4
-        with:
-          timeout_minutes: ${{ env.TEST_TIMEOUT_MINUTES }}
-          max_attempts: ${{ env.TEST_RETRY_ATTEMPTS }}
-          command: |
-            set -o pipefail && xcodebuild test \
-              -scheme LiveKit \
-              -destination 'platform=${{ matrix.platform }}' \
-              -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
-              -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
-              APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
-              -only-testing:LiveKitCoreTests \
-              -only-testing:LiveKitObjCTests \
-              -parallel-testing-enabled NO \
-              | tee -a "$RUNNER_TEMP/xcodebuild.log" \
-              | xcbeautify --renderer github-actions
+        timeout-minutes: 30
+        run: |
+          set -o pipefail && xcodebuild test \
+            -scheme LiveKit \
+            -destination 'platform=${{ matrix.platform }}' \
+            -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
+            -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
+            APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
+            -only-testing:LiveKitCoreTests \
+            -only-testing:LiveKitObjCTests \
+            -parallel-testing-enabled NO \
+            | tee "$RUNNER_TEMP/xcodebuild.log" \
+            | xcbeautify --renderer github-actions
 
       # xcbeautify's github-actions renderer collapses a parameterized Swift Testing
       # failure to "Recorded an issue (1) argument(s)" — no message, no failing
-      # argument. xcodebuild's own output has both, so keep it for post-mortems
-      # instead of re-running CI blind. Appended across retry attempts.
+      # argument. xcodebuild's own output has both, so keep it for post-mortems.
       - name: Upload Test Log
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7

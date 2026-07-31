@@ -42,8 +42,7 @@ public class LKObjCRoomHelper: NSObject {
                     return
                 } catch {
                     lastError = error
-                    // A timed-out connect can leave the signal connection live, so
-                    // reset before retrying instead of leaking a participant.
+                    // Reset so a half-established connect doesn't leak a participant.
                     await room.disconnect()
                     if attempt < connectAttempts {
                         try? await Task.sleep(nanoseconds: connectRetryDelay)

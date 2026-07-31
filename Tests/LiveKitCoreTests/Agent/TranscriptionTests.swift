@@ -38,9 +38,7 @@ actor MessageCollector {
         messages
     }
 
-    /// Waits until `count` updates have arrived, or `timeout` elapses. Trailing
-    /// stream-close finalizations land after the last `sendText` returns, so a
-    /// fixed sleep either flakes on a loaded host or slows every run down.
+    /// Waits until `count` updates have arrived, or `timeout` elapses.
     func waitForUpdates(count: Int, timeout: TimeInterval = 10) async {
         let deadline = Date().addingTimeInterval(timeout)
         while updates.count < count, Date() < deadline {

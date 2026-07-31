@@ -21,14 +21,10 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-/// `AsyncTimer` drives its loop from `Task.detached(priority: .utility)`, so the
-/// only guarantee it offers is "fires no *earlier* than the interval". Every
-/// "did fire" assertion here therefore waits for the event with a generous
-/// deadline (`ConcurrentCounter.wait(untilAtLeast:)`) instead of sleeping a fixed
-/// multiple of the interval, and every "did not fire" assertion is bounded so
-/// sleep overshoot can't manufacture a fire.
-/// Drives `AsyncTimer` ticks from the test rather than the scheduler, so liveness
-/// assertions don't depend on a 50ms deadline the platform may miss by 200x.
+/// `AsyncTimer` only guarantees "fires no earlier than the interval", so "did
+/// fire" assertions wait for the event and "did not fire" assertions are bounded
+/// so sleep overshoot can't manufacture a fire.
+/// Drives `AsyncTimer` ticks from the test instead of the scheduler.
 private actor ManualSleeper {
     private var parked: [CheckedContinuation<Void, Never>] = []
 
@@ -63,8 +59,6 @@ private actor ManualSleeper {
 
 @Suite(.tags(.concurrency))
 struct AsyncTimerTests {
-    /// Short enough to keep the suite fast, long enough that one deferred wake-up
-    /// doesn't change the outcome.
     private static let interval: TimeInterval = 0.05
 
     @Test func startIfStoppedFiresWhileRepeatedlyArmed() async {
@@ -133,7 +127,7 @@ struct AsyncTimerTests {
         // 5ms rather than 50ms: the loop still races real time here, but fires often
         // enough that the liveness check below can't be starved out.
         let interval: TimeInterval = 0.005
-        let timer = AsyncTimer(interval: interval, sleep: { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) })
+        let timer = AsyncTimer(interval: interval)
         timer.setTimerBlock { _ = await counter.increment() }
 
         // Hammer with concurrent restart()/startIfStopped(): the previous design
