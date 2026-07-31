@@ -87,7 +87,12 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
 
     let label: String
 
-    private let _timerQueue = DispatchQueue(label: "LiveKitSDK.AsyncCompleter", qos: .background)
+    // Timeout blocks resume waiters that nothing else will resume, so they must
+    // run even when the host is busy. At `.background` QoS the system may defer
+    // them indefinitely under CPU pressure, leaving a default-priority waiter
+    // suspended on a continuation only this queue can resume (QoS inversion
+    // with no donation edge).
+    private let _timerQueue = DispatchQueue(label: "LiveKitSDK.AsyncCompleter", qos: .default)
 
     // Internal states
     private var _defaultTimeout: DispatchTimeInterval
