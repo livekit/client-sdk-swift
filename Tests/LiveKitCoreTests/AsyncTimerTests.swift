@@ -160,19 +160,24 @@ struct AsyncTimerTests {
                 "\(count) fires in \(elapsed)s exceeds what a single loop can produce")
     }
 
-    @Test func blockCancellingOwnTimerFiresOnce() async throws {
+    @Test func blockCancellingOwnTimerFiresOnce() async {
         // Mirrors the ping-timeout path: the block cancels its own timer (via cleanUp).
         // Must fire exactly once and not deadlock on the state lock.
         let counter = ConcurrentCounter()
-        let timer = AsyncTimer(interval: Self.interval)
+        let sleeper = ManualSleeper()
+        let timer = AsyncTimer(interval: Self.interval, sleep: sleeper.sleep)
         timer.setTimerBlock { [weak timer] in
             _ = await counter.increment()
             timer?.cancel()
         }
         timer.restart()
 
+        await sleeper.waitForParked(1)
+        await sleeper.tickAll()
         #expect(await counter.wait(untilAtLeast: 1) >= 1)
-        try await Task.sleep(nanoseconds: 500_000_000) // 10 intervals if it didn't stop
+
+        // Self-cancelling means the loop exits, so nothing parks for another cycle.
+        await sleeper.tickAll()
         #expect(await counter.getCount() == 1)
     }
 
@@ -205,61 +210,89 @@ struct AsyncTimerTests {
     @Test func updatesBlockOnNextCycle() async {
         let first = ConcurrentCounter()
         let second = ConcurrentCounter()
-        let timer = AsyncTimer(interval: Self.interval)
+        let sleeper = ManualSleeper()
+        let timer = AsyncTimer(interval: Self.interval, sleep: sleeper.sleep)
         timer.setTimerBlock { _ = await first.increment() }
         timer.restart()
 
-        #expect(await first.wait(untilAtLeast: 1) >= 1) // first block fires
+        // The loop reads the block before sleeping, so swapping it now must not
+        // affect the countdown already in flight.
+        await sleeper.waitForParked(1)
         timer.setTimerBlock { _ = await second.increment() }
-        #expect(await second.wait(untilAtLeast: 1) >= 1) // the updated block took effect
+        await sleeper.tickAll()
+        #expect(await first.wait(untilAtLeast: 1) >= 1)
+        #expect(await second.getCount() == 0)
+
+        // The next cycle picks it up.
+        await sleeper.waitForParked(1)
+        await sleeper.tickAll()
+        #expect(await second.wait(untilAtLeast: 1) >= 1)
+
         timer.cancel()
+        await sleeper.tickAll()
     }
 
-    @Test func deinitStopsTimer() async throws {
+    @Test func deinitStopsTimer() async {
         let counter = ConcurrentCounter()
+        let sleeper = ManualSleeper()
         do {
-            let timer = AsyncTimer(interval: Self.interval)
+            let timer = AsyncTimer(interval: Self.interval, sleep: sleeper.sleep)
             timer.setTimerBlock { _ = await counter.increment() }
             timer.restart()
-            // Wait for a fire *before* releasing, so the assertion below doesn't
-            // depend on the timer having been scheduled within a fixed window.
+            await sleeper.waitForParked(1)
+            await sleeper.tickAll()
             #expect(await counter.wait(untilAtLeast: 1) >= 1)
-        } // timer released here
+            await sleeper.waitForParked(1) // parked for the next cycle
+        } // timer released here — deinit cancels the loop
 
-        // Let the in-flight invocation finish and deinit cancel the loop.
-        try await Task.sleep(nanoseconds: 200_000_000)
         let afterRelease = await counter.getCount()
-
-        try await Task.sleep(nanoseconds: 500_000_000) // 10 intervals
-        #expect(await counter.getCount() == afterRelease) // deinit stopped it
+        // Releasing the parked countdown must find the loop cancelled.
+        await sleeper.tickAll()
+        #expect(await counter.getCount() == afterRelease)
     }
 
     @Test func continuesFiringAfterBlockThrows() async {
         struct BlockError: Error {}
         let counter = ConcurrentCounter()
-        let timer = AsyncTimer(interval: Self.interval)
+        let sleeper = ManualSleeper()
+        let timer = AsyncTimer(interval: Self.interval, sleep: sleeper.sleep)
         timer.setTimerBlock {
             // First invocation throws; the loop must catch, log, and keep going.
             if await counter.increment() == 0 { throw BlockError() }
         }
         timer.restart()
 
+        await sleeper.waitForParked(1)
+        await sleeper.tickAll()
+        #expect(await counter.wait(untilAtLeast: 1) >= 1) // threw
+
+        await sleeper.waitForParked(1) // the loop survived and parked again
+        await sleeper.tickAll()
         #expect(await counter.wait(untilAtLeast: 2) >= 2) // fired again after the throw
+
         timer.cancel()
+        await sleeper.tickAll()
     }
 
-    @Test func startIfStoppedReArmsAfterCancel() async throws {
+    @Test func startIfStoppedReArmsAfterCancel() async {
         let counter = ConcurrentCounter()
-        let timer = AsyncTimer(interval: Self.interval)
+        let sleeper = ManualSleeper()
+        let timer = AsyncTimer(interval: Self.interval, sleep: sleeper.sleep)
         timer.setTimerBlock { _ = await counter.increment() }
 
         timer.startIfStopped()
+        await sleeper.waitForParked(1)
+        await sleeper.tickAll()
         #expect(await counter.wait(untilAtLeast: 1) >= 1)
+
+        await sleeper.waitForParked(1)
         timer.cancel()
-        try await Task.sleep(nanoseconds: 100_000_000)
+        await sleeper.tickAll() // loop observes the cancel and exits
         let afterCancel = await counter.getCount()
 
         timer.startIfStopped() // cancel cleared the task, so this re-arms
+        await sleeper.waitForParked(1)
+        await sleeper.tickAll()
         #expect(await counter.wait(untilAtLeast: afterCancel + 1) > afterCancel) // fired again after re-arm
         timer.cancel()
     }
