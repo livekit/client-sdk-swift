@@ -182,7 +182,11 @@ actor IncomingStreamManager: Loggable {
         // conditions are signalled through `source` throwing instead.
         if let orderedQueue = orderedQueues[info.topic] {
             orderedQueue.yield {
-                try? await handler(source, identity)
+                do {
+                    try await handler(source, identity)
+                } catch {
+                    Self.log("Stream handler error: \(error)", .error)
+                }
             }
         } else {
             Task.detachedDiscarding {
