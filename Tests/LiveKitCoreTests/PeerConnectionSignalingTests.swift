@@ -354,11 +354,12 @@ struct PeerConnectionSignalingTests {
                 let track = LocalVideoTrack.createBufferTrack(name: "video-\(i)")
                 let capturer = try #require(track.capturer as? BufferCapturer)
 
-                // `BufferCapturer` resolves dimensions only from a captured frame, and
-                // publish waits for them. Capture synchronously so that wait can't
-                // depend on a background task being scheduled, then keep feeding the
-                // same frame the way the capturer is documented to be driven.
-                capturer.capture(frame.buffer)
+                // Publish gates on resolved dimensions, but captured frames resolve
+                // them on the capture processing queue, which a loaded host can defer
+                // past the publish timeout. This test is about signaling, not the
+                // capture pipeline, so resolve them directly; the feeding task
+                // supplies media so the subscriber sees the tracks.
+                capturer.set(dimensions: Dimensions(width: 320, height: 240))
                 let frames = Task.detached {
                     while !Task.isCancelled {
                         capturer.capture(frame.buffer)
