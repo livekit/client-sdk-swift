@@ -34,9 +34,8 @@ actor IncomingStreamManager: Loggable {
     private var byteStreamHandlers: [String: ByteStreamHandler] = [:]
     private var textStreamHandlers: [String: TextStreamHandler] = [:]
 
-    /// Topics whose handlers run one at a time, in wire order.
-    private var orderedTopics: Set<String> = []
     /// Per-topic FIFO of pending handler invocations, consumed by a single task.
+    /// A topic having an entry here is what makes it ordered.
     private var orderedQueues: [String: AsyncStream<@Sendable () async -> Void>.Continuation] = [:]
 
     /// Events are processed in a serial (FIFO) order
@@ -97,7 +96,15 @@ actor IncomingStreamManager: Loggable {
             throw StreamError.handlerAlreadyRegistered
         }
         textStreamHandlers[topic] = onNewStream
-        if ordered { orderedTopics.insert(topic) }
+        if ordered {
+            let (stream, continuation) = AsyncStream.makeStream(of: (@Sendable () async -> Void).self)
+            Task.detachedDiscarding {
+                for await work in stream {
+                    await work()
+                }
+            }
+            orderedQueues[topic] = continuation
+        }
     }
 
     /// SDK-internal: register `onNewStream` for `topic` if no handler is registered yet,
@@ -116,7 +123,6 @@ actor IncomingStreamManager: Loggable {
 
     func unregisterTextStreamHandler(for topic: String) {
         textStreamHandlers[topic] = nil
-        orderedTopics.remove(topic)
         orderedQueues.removeValue(forKey: topic)?.finish()
     }
 
@@ -162,8 +168,8 @@ actor IncomingStreamManager: Loggable {
 
         // Detached: handler lifetime is not tied to the descriptor — abnormal stream
         // conditions are signalled through `source` throwing instead.
-        if orderedTopics.contains(info.topic) {
-            orderedQueue(for: info.topic).yield {
+        if let orderedQueue = orderedQueues[info.topic] {
+            orderedQueue.yield {
                 try? await handler(source, identity)
             }
         } else {
