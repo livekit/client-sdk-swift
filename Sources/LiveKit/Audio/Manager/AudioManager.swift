@@ -445,26 +445,6 @@ public class AudioManager: Loggable {
         try checkAdmResult(code: result)
     }
 
-    /// Tells the session observer which voice processing implementation the
-    /// next capture resolves to, before the ADM engine transition starts. The
-    /// session category and mode are configured during that transition, so the
-    /// expectation must be known up front. Also called from
-    /// ``LocalAudioTrack/setAudioProcessingOptions(_:)`` since track-level
-    /// requests reach the ADM through the sender, bypassing this manager.
-    func updateExpectedPlatformVoiceProcessing(for options: AudioProcessingOptions?) {
-        #if os(iOS) || os(visionOS) || os(tvOS)
-        // nil requests no processing change and the ADM keeps its current
-        // voice processing state, so the expectation must stay unchanged too.
-        guard let options else { return }
-        #if targetEnvironment(simulator)
-        let expected = false
-        #else
-        let expected = options.requestsPlatformEchoNoisePath && isPlatformVoiceProcessingAllowed
-        #endif
-        audioSession.setPlatformVoiceProcessingExpected(expected)
-        #endif
-    }
-
     /// Stops mic input after it was started with ``startLocalRecording()``
     public func stopLocalRecording() throws {
         let result = RTC.audioDeviceModule.stopRecording()
@@ -590,6 +570,26 @@ public extension AudioManager {
 }
 
 extension AudioManager {
+    /// Tells the session observer which voice processing implementation the
+    /// next capture resolves to, before the ADM engine transition starts. The
+    /// session category and mode are configured during that transition, so the
+    /// expectation must be known up front. Also called from
+    /// ``LocalAudioTrack/setAudioProcessingOptions(_:)`` since track-level
+    /// requests reach the ADM through the sender, bypassing this manager.
+    func updateExpectedPlatformVoiceProcessing(for options: AudioProcessingOptions?) {
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        // nil requests no processing change and the ADM keeps its current
+        // voice processing state, so the expectation must stay unchanged too.
+        guard let options else { return }
+        #if targetEnvironment(simulator)
+        let expected = false
+        #else
+        let expected = options.requestsPlatformEchoNoisePath && isPlatformVoiceProcessingAllowed
+        #endif
+        audioSession.setPlatformVoiceProcessingExpected(expected)
+        #endif
+    }
+
     func buildEngineObserverChain() -> (any AudioEngineObserver)? {
         var objects = _state.engineObservers
         guard !objects.isEmpty else { return nil }

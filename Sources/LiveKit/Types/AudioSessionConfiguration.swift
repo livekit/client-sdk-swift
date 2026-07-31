@@ -46,6 +46,13 @@ public extension AudioSessionConfiguration {
                                                                  categoryOptions: playAndRecordOptions,
                                                                  mode: .voiceChat)
 
+    // tvOS has neither a receiver nor a built-in speaker route to prefer.
+    #if os(tvOS)
+    private static let playAndRecordSpeakerMediaOptions: AVAudioSession.CategoryOptions = playAndRecordOptions
+    #else
+    private static let playAndRecordSpeakerMediaOptions: AVAudioSession.CategoryOptions = playAndRecordOptions.union(.defaultToSpeaker)
+    #endif
+
     /// Media-tuned variants for recording without Apple voice processing.
     ///
     /// iOS applies a reduced, call-tuned speaker gain when the session mode is
@@ -56,7 +63,7 @@ public extension AudioSessionConfiguration {
     /// speaker variant needs an explicit `.defaultToSpeaker` since `.default`
     /// mode routes to the receiver otherwise.
     static let playAndRecordSpeakerMedia = AudioSessionConfiguration(category: .playAndRecord,
-                                                                     categoryOptions: playAndRecordOptions.union(.defaultToSpeaker),
+                                                                     categoryOptions: playAndRecordSpeakerMediaOptions,
                                                                      mode: .default)
 
     static let playAndRecordReceiverMedia = AudioSessionConfiguration(category: .playAndRecord,
