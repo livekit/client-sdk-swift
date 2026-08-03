@@ -1,0 +1,1 @@
+patch type="fixed" "Completer timeouts and camera device discovery no longer run at background QoS, which the system may defer indefinitely under load"

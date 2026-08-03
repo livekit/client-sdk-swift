@@ -44,15 +44,10 @@ struct WebSocketTests {
         try? await Task.sleep(nanoseconds: 1_000_000) // 1ms
         task.cancel()
 
-        let result = await task.result
-        switch result {
-        case .success:
-            // Connected before cancel fired — clean up
-            await room.disconnect()
-        case .failure:
-            // Cancelled as expected
-            break
-        }
+        // Disconnect either way: a cancelled connect can still have completed the
+        // server-side join, and the participant then lingers until the process dies.
+        _ = await task.result
+        await room.disconnect()
     }
 
     @Test func rapidFireConnectCancel() async throws {
@@ -77,14 +72,11 @@ struct WebSocketTests {
             try? await Task.sleep(nanoseconds: delay)
             task.cancel()
 
-            let result = await task.result
-            switch result {
-            case .success:
-                connected += 1
-                await room.disconnect()
-            case .failure:
-                cancelled += 1
+            switch await task.result {
+            case .success: connected += 1
+            case .failure: cancelled += 1
             }
+            await room.disconnect()
         }
 
         // At least some should have been cancelled or connected — no crashes
@@ -116,6 +108,7 @@ struct WebSocketTests {
             try? await Task.sleep(nanoseconds: delay)
             task.cancel()
             _ = await task.result
+            await room.disconnect()
         }
 
         // Final connect — must succeed cleanly despite all the prior churn

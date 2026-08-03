@@ -37,6 +37,14 @@ actor MessageCollector {
     func getMessages() -> OrderedDictionary<ReceivedMessage.ID, ReceivedMessage> {
         messages
     }
+
+    /// Waits until `count` updates have arrived, or `timeout` elapses.
+    func waitForUpdates(count: Int, timeout: TimeInterval = 10) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while updates.count < count, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+    }
 }
 
 @Suite(.serialized, .tags(.e2e)) final class TranscriptionTests: @unchecked Sendable {
@@ -118,8 +126,7 @@ actor MessageCollector {
                     try await Task.sleep(nanoseconds: 10_000_000)
                 }
                 try await writer.close()
-                // Wait for the stream-close finalization message to propagate
-                try await Task.sleep(nanoseconds: 500_000_000)
+                await self.messageCollector.waitForUpdates(count: expectedContent.count)
             }
 
             self.collectionTask.cancel()
@@ -167,8 +174,7 @@ actor MessageCollector {
                 ]
                 let options = StreamTextOptions(topic: topic, attributes: attributes)
                 try await self.senderRoom.localParticipant.sendText("Hello!", options: options)
-                // Wait for message delivery
-                try await Task.sleep(nanoseconds: 500_000_000)
+                await self.messageCollector.waitForUpdates(count: 1)
             }
 
             // Brief wait to ensure no extra messages arrive
@@ -227,15 +233,18 @@ actor MessageCollector {
         expectedContent: [String],
         expectedIsFinal: [Bool],
     ) {
-        // Validate updates
-        #expect(updates.count == expectedContent.count)
+        // Bail on a count mismatch rather than indexing past the end: `#expect` is
+        // soft, so the subscripts below would trap and abort the test process.
+        guard updates.count == expectedContent.count, updates.count == expectedIsFinal.count else {
+            Issue.record("Expected \(expectedContent.count) updates, got \(updates.count): \(updates.map(\.content))")
+            return
+        }
         for (index, expected) in expectedContent.enumerated() {
             #expect(updates[index].content == .agentTranscript(expected))
             #expect(updates[index].id == segmentID)
         }
 
         // Validate isFinal
-        #expect(updates.count == expectedIsFinal.count)
         for (index, expected) in expectedIsFinal.enumerated() {
             #expect(updates[index].isFinal == expected, "isFinal mismatch at index \(index)")
         }
@@ -247,9 +256,12 @@ actor MessageCollector {
         }
 
         // Validate final message
-        #expect(messages.count == 1)
+        guard messages.count == 1, let expectedFinal = expectedContent.last else {
+            Issue.record("Expected exactly 1 final message, got \(messages.count)")
+            return
+        }
         #expect(messages.keys[0] == segmentID)
-        #expect(messages.values[0].content == .agentTranscript(expectedContent.last!))
+        #expect(messages.values[0].content == .agentTranscript(expectedFinal))
         #expect(messages.values[0].id == segmentID)
         #expect(messages.values[0].timestamp == firstTimestamp)
         #expect(messages.values[0].isFinal)
@@ -285,6 +297,7 @@ actor MessageCollector {
                     streamID: streamID,
                     to: senderRoom,
                 )
+                await messageCollector.waitForUpdates(count: expectedContent.count)
             }
 
             let updates = await messageCollector.getUpdates()

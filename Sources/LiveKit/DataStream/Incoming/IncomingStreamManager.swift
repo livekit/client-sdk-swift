@@ -16,23 +16,40 @@
 
 import Foundation
 
+// swiftlint:disable file_length
+
 /// Manages state of incoming data streams.
 actor IncomingStreamManager: Loggable {
     /// Information about an open data stream.
     private struct Descriptor {
+        /// Distinguishes this descriptor from others that reuse the same stream
+        /// ID, so a stale cleanup can't remove a successor.
+        let generation = UUID()
         let info: StreamInfo
-        let openTime: TimeInterval
+        let identity: Participant.Identity
         let continuation: StreamReaderSource.Continuation
         var readLength = 0
     }
 
     /// Mapping between stream ID and descriptor for open streams.
     private var openStreams: [String: Descriptor] = [:]
+
+    var openStreamCount: Int { openStreams.count }
     /// Stream topics without a registered handler.
     private var failedToOpenStreams: Set<String> = []
 
     private var byteStreamHandlers: [String: ByteStreamHandler] = [:]
     private var textStreamHandlers: [String: TextStreamHandler] = [:]
+
+    /// Topics whose handlers preserve wire order (see `registerTextStreamHandler`).
+    private var orderedTopics: Set<String> = []
+    /// Handlers of streams that are still open on the wire, keyed by topic and
+    /// descriptor generation. Open streams gate nothing.
+    private var runningHandlers: [String: [UUID: Task<Void, Never>]] = [:]
+    /// Handlers of streams already closed on the wire but still executing (e.g.
+    /// draining buffered chunks or emitting a finalization). A new stream on the
+    /// topic opened after these closed, so its handler must wait for them.
+    private var finishingHandlers: [String: [UUID: Task<Void, Never>]] = [:]
 
     /// Events are processed in a serial (FIFO) order
     enum StreamEvent {
@@ -83,11 +100,22 @@ actor IncomingStreamManager: Loggable {
         byteStreamHandlers[topic] = onNewStream
     }
 
-    func registerTextStreamHandler(for topic: String, _ onNewStream: @escaping TextStreamHandler) throws {
+    /// When `ordered` is true, handlers for streams that do not overlap on the
+    /// wire run in wire order: a stream opened after another closed waits for the
+    /// earlier handler to finish. Streams that are open concurrently are handled
+    /// concurrently, so a still-open stream never delays later ones. Off by
+    /// default: it would serialize consumers that want strict concurrency (e.g.
+    /// RPC request handling).
+    ///
+    /// Contract: an ordered handler should return promptly once its reader ends —
+    /// work it keeps doing after its stream closed delays every later
+    /// non-overlapping stream on the topic.
+    func registerTextStreamHandler(for topic: String, ordered: Bool = false, _ onNewStream: @escaping TextStreamHandler) throws {
         guard textStreamHandlers[topic] == nil else {
             throw StreamError.handlerAlreadyRegistered
         }
         textStreamHandlers[topic] = onNewStream
+        if ordered { orderedTopics.insert(topic) }
     }
 
     /// SDK-internal: register `onNewStream` for `topic` if no handler is registered yet,
@@ -106,6 +134,7 @@ actor IncomingStreamManager: Loggable {
 
     func unregisterTextStreamHandler(for topic: String) {
         textStreamHandlers[topic] = nil
+        orderedTopics.remove(topic)
     }
 
     // MARK: - Packet processing
@@ -122,6 +151,7 @@ actor IncomingStreamManager: Loggable {
 
     private func openStream(with info: StreamInfo, from identity: Participant.Identity) {
         guard openStreams[info.id] == nil else {
+            log("Ignoring stream \(info.id) from \(identity): a stream with this ID is already open", .warning)
             return
         }
         guard let handler = handler(for: info) else {
@@ -135,40 +165,107 @@ actor IncomingStreamManager: Loggable {
 
         var continuation: StreamReaderSource.Continuation!
         let source = StreamReaderSource {
-            $0.onTermination = { @Sendable [weak self] _ in
-                guard let self else { return }
-                Task { await self.closeStream(with: info.id) }
-            }
             continuation = $0
         }
 
-        openStreams[info.id] = Descriptor(
+        let descriptor = Descriptor(
             info: info,
-            openTime: Date.timeIntervalSinceReferenceDate,
+            identity: identity,
             continuation: continuation,
         )
+        openStreams[info.id] = descriptor
+
+        // Set after the descriptor is stored: this task runs at an arbitrary
+        // later point, and a sender may have reused the stream ID by then, so
+        // it must only remove its own generation.
+        continuation.onTermination = { @Sendable [weak self, generation = descriptor.generation] _ in
+            guard let self else { return }
+            Task { await self.closeStream(with: info.id, generation: generation) }
+        }
 
         // Detached: handler lifetime is not tied to the descriptor — abnormal stream
         // conditions are signalled through `source` throwing instead.
-        Task.detachedDiscarding {
-            try await handler(source, identity)
+        if orderedTopics.contains(info.topic) {
+            // Wire happens-before: this stream opened after `predecessors` closed,
+            // so their handlers must finish first. Same-segment streams never
+            // overlap (senders close one before opening the next), which is what
+            // makes finalizations and stream-ID reuse race-free.
+            let predecessors = Array((finishingHandlers[info.topic] ?? [:]).values)
+            let topic = info.topic
+            let generation = descriptor.generation
+            let task = Task.detached { [weak self] in
+                for predecessor in predecessors {
+                    await predecessor.value
+                }
+                do {
+                    try await handler(source, identity)
+                } catch {
+                    self?.log("Text stream handler for topic '\(topic)' threw: \(error)", .warning)
+                }
+                await self?.handlerCompleted(topic: topic, generation: generation)
+            }
+            runningHandlers[topic, default: [:]][generation] = task
+        } else {
+            Task.detachedDiscarding {
+                try await handler(source, identity)
+            }
         }
     }
 
-    /// Close the stream with the given id.
-    private func closeStream(with id: String) {
+    /// Marks the stream's handler as gating later non-overlapping streams on the
+    /// same ordered topic. Called wherever a stream is closed on the wire.
+    private func streamDidClose(_ descriptor: Descriptor) {
+        let topic = descriptor.info.topic
+        if let task = runningHandlers[topic]?.removeValue(forKey: descriptor.generation) {
+            finishingHandlers[topic, default: [:]][descriptor.generation] = task
+        }
+    }
+
+    private func handlerCompleted(topic: String, generation: UUID) {
+        runningHandlers[topic]?[generation] = nil
+        finishingHandlers[topic]?[generation] = nil
+    }
+
+    /// Close the stream with the given id, unless it has been superseded by a
+    /// newer stream reusing the same id.
+    private func closeStream(with id: String, generation: UUID) {
+        guard openStreams[id]?.generation == generation else { return }
         openStreams[id] = nil
+    }
+
+    /// Fails all open streams from the given participant, whose trailers can no
+    /// longer arrive; their readers throw and their handlers return.
+    func closeStreams(from identity: Participant.Identity) {
+        for (id, descriptor) in openStreams where descriptor.identity == identity {
+            openStreams[id] = nil
+            streamDidClose(descriptor)
+            descriptor.continuation.finish(throwing: StreamError.terminated)
+        }
+    }
+
+    /// Fails all open streams. Handler registrations survive so streams arriving
+    /// after a reconnect are still handled.
+    func reset() {
+        for descriptor in openStreams.values {
+            streamDidClose(descriptor)
+            descriptor.continuation.finish(throwing: StreamError.terminated)
+        }
+        openStreams.removeAll()
     }
 
     /// Handles a data stream chunk.
     private func handle(chunk: Livekit_DataStream.Chunk, encryptionType: EncryptionType) {
         guard !chunk.content.isEmpty, let descriptor = openStreams[chunk.streamID] else { return }
 
+        // Error paths remove the descriptor synchronously for the same reason as
+        // the trailer path: a header reusing this stream ID may be the next event.
         if descriptor.info.encryptionType != encryptionType {
             let error = StreamError.encryptionTypeMismatch(
                 expected: descriptor.info.encryptionType,
                 received: encryptionType,
             )
+            openStreams[chunk.streamID] = nil
+            streamDidClose(descriptor)
             descriptor.continuation.finish(throwing: error)
             return
         }
@@ -177,6 +274,8 @@ actor IncomingStreamManager: Loggable {
 
         if let totalLength = descriptor.info.totalLength {
             guard readLength <= totalLength else {
+                openStreams[chunk.streamID] = nil
+                streamDidClose(descriptor)
                 descriptor.continuation.finish(throwing: StreamError.lengthExceeded)
                 return
             }
@@ -190,6 +289,13 @@ actor IncomingStreamManager: Loggable {
         guard let descriptor = openStreams[trailer.streamID] else {
             return
         }
+
+        // Remove synchronously: senders may reuse a stream ID, and the reopening
+        // header is processed by this same event loop right after the trailer.
+        // The reader's `onTermination` cleanup runs in its own task and can lose
+        // that race, making `openStream` silently drop the new stream.
+        openStreams[trailer.streamID] = nil
+        streamDidClose(descriptor)
 
         if descriptor.info.encryptionType != encryptionType {
             let error = StreamError.encryptionTypeMismatch(
@@ -314,3 +420,5 @@ extension TextStreamInfo.OperationType {
         self = Self(rawValue: operationType.rawValue) ?? .create
     }
 }
+
+// swiftlint:enable file_length

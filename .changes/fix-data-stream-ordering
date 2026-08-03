@@ -1,0 +1,1 @@
+patch type="fixed" "Incoming data streams could be dropped on stream-ID reuse or handled out of order; transcription handlers now run in wire order and open streams are failed on sender disconnect and room cleanup"

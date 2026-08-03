@@ -29,4 +29,13 @@ public actor ConcurrentCounter {
     public func getCount() -> Int {
         count
     }
+
+    /// Polls until `count >= target` (or `timeout` elapses) and returns the observed count.
+    public func wait(untilAtLeast target: Int, timeout: TimeInterval = 10) async -> Int {
+        let deadline = Date().addingTimeInterval(timeout)
+        while count < target, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        return count
+    }
 }
