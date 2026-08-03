@@ -336,6 +336,19 @@ extension IncomingStreamManagerTests {
         manager.handle(.header(header, participant.stringValue, .none))
     }
 
+    private func sendTextChunk(streamID: String, content: String) async {
+        var chunk = Livekit_DataStream.Chunk()
+        chunk.streamID = streamID
+        chunk.content = Data(content.utf8)
+        manager.handle(.chunk(chunk, .none))
+    }
+
+    private func sendTextTrailer(streamID: String) async {
+        var trailer = Livekit_DataStream.Trailer()
+        trailer.streamID = streamID
+        manager.handle(.trailer(trailer, .none))
+    }
+
     /// Senders may reuse one stream ID for consecutive streams (each `sendText`
     /// in a transcription segment does). Descriptor cleanup used to run in the
     /// reader's `onTermination` task, which raced the reopening header and made
@@ -387,6 +400,39 @@ extension IncomingStreamManagerTests {
         }
 
         #expect(received.copy() == ["ok"])
+        await manager.unregisterTextStreamHandler(for: topicName)
+    }
+
+    /// A still-open stream must not delay streams that overlap with it on the
+    /// wire (e.g. a user's live transcript arriving while an agent's message
+    /// stream is still open). Ordering applies only to non-overlapping streams.
+    @Test func orderedTopicDoesNotDelayOverlappingStreams() async throws {
+        let received = StateSync<[String]>([])
+
+        try await manager.registerTextStreamHandler(for: topicName, ordered: true) { reader, _ in
+            let payload = try await reader.readAll()
+            received.mutate { $0.append(payload) }
+        }
+
+        // Stream A opens and stays open; stream B opens, delivers, and closes
+        // while A is still open — B's handler must complete without waiting.
+        await sendTextHeader(streamID: "open-a")
+        await sendTextChunk(streamID: "open-a", content: "a")
+        await sendTextStream(chunks: ["b"], streamID: "b", settle: false)
+
+        var deadline = Date().addingTimeInterval(10)
+        while received.copy().isEmpty, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        #expect(received.copy() == ["b"])
+
+        // A still completes normally once its trailer arrives.
+        await sendTextTrailer(streamID: "open-a")
+        deadline = Date().addingTimeInterval(10)
+        while received.copy().count < 2, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        #expect(received.copy() == ["b", "a"])
         await manager.unregisterTextStreamHandler(for: topicName)
     }
 

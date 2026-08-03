@@ -16,6 +16,8 @@
 
 import Foundation
 
+// swiftlint:disable file_length
+
 /// Manages state of incoming data streams.
 actor IncomingStreamManager: Loggable {
     /// Information about an open data stream.
@@ -40,9 +42,15 @@ actor IncomingStreamManager: Loggable {
     private var byteStreamHandlers: [String: ByteStreamHandler] = [:]
     private var textStreamHandlers: [String: TextStreamHandler] = [:]
 
-    /// Per-topic FIFO of pending handler invocations, consumed by a single task.
-    /// A topic having an entry here is what makes it ordered.
-    private var orderedQueues: [String: AsyncStream<@Sendable () async -> Void>.Continuation] = [:]
+    /// Topics whose handlers preserve wire order (see `registerTextStreamHandler`).
+    private var orderedTopics: Set<String> = []
+    /// Handlers of streams that are still open on the wire, keyed by topic and
+    /// descriptor generation. Open streams gate nothing.
+    private var runningHandlers: [String: [UUID: Task<Void, Never>]] = [:]
+    /// Handlers of streams already closed on the wire but still executing (e.g.
+    /// draining buffered chunks or emitting a finalization). A new stream on the
+    /// topic opened after these closed, so its handler must wait for them.
+    private var finishingHandlers: [String: [UUID: Task<Void, Never>]] = [:]
 
     /// Events are processed in a serial (FIFO) order
     enum StreamEvent {
@@ -93,24 +101,18 @@ actor IncomingStreamManager: Loggable {
         byteStreamHandlers[topic] = onNewStream
     }
 
-    /// When `ordered` is true, handlers for this topic run sequentially in wire
-    /// order instead of concurrently. Off by default: it would serialize
-    /// consumers that want concurrency (e.g. RPC request handling), and a
-    /// stream that never closes would block all later ones behind it.
+    /// When `ordered` is true, handlers for streams that do not overlap on the
+    /// wire run in wire order: a stream opened after another closed waits for the
+    /// earlier handler to finish. Streams that are open concurrently are handled
+    /// concurrently, so a still-open stream never delays later ones. Off by
+    /// default: it would serialize consumers that want strict concurrency (e.g.
+    /// RPC request handling).
     func registerTextStreamHandler(for topic: String, ordered: Bool = false, _ onNewStream: @escaping TextStreamHandler) throws {
         guard textStreamHandlers[topic] == nil else {
             throw StreamError.handlerAlreadyRegistered
         }
         textStreamHandlers[topic] = onNewStream
-        if ordered {
-            let (stream, continuation) = AsyncStream.makeStream(of: (@Sendable () async -> Void).self)
-            Task.detachedDiscarding {
-                for await work in stream {
-                    await work()
-                }
-            }
-            orderedQueues[topic] = continuation
-        }
+        if ordered { orderedTopics.insert(topic) }
     }
 
     /// SDK-internal: register `onNewStream` for `topic` if no handler is registered yet,
@@ -129,7 +131,7 @@ actor IncomingStreamManager: Loggable {
 
     func unregisterTextStreamHandler(for topic: String) {
         textStreamHandlers[topic] = nil
-        orderedQueues.removeValue(forKey: topic)?.finish()
+        orderedTopics.remove(topic)
     }
 
     // MARK: - Packet processing
@@ -180,19 +182,45 @@ actor IncomingStreamManager: Loggable {
 
         // Detached: handler lifetime is not tied to the descriptor — abnormal stream
         // conditions are signalled through `source` throwing instead.
-        if let orderedQueue = orderedQueues[info.topic] {
-            orderedQueue.yield {
+        if orderedTopics.contains(info.topic) {
+            // Wire happens-before: this stream opened after `predecessors` closed,
+            // so their handlers must finish first. Same-segment streams never
+            // overlap (senders close one before opening the next), which is what
+            // makes finalizations and stream-ID reuse race-free.
+            let predecessors = Array((finishingHandlers[info.topic] ?? [:]).values)
+            let topic = info.topic
+            let generation = descriptor.generation
+            let task = Task.detached { [weak self] in
+                for predecessor in predecessors {
+                    await predecessor.value
+                }
                 do {
                     try await handler(source, identity)
                 } catch {
-                    Self.log("Stream handler error: \(error)", .error)
+                    self?.log("Text stream handler for topic '\(topic)' threw: \(error)", .warning)
                 }
+                await self?.handlerCompleted(topic: topic, generation: generation)
             }
+            runningHandlers[topic, default: [:]][generation] = task
         } else {
             Task.detachedDiscarding {
                 try await handler(source, identity)
             }
         }
+    }
+
+    /// Marks the stream's handler as gating later non-overlapping streams on the
+    /// same ordered topic. Called wherever a stream is closed on the wire.
+    private func streamDidClose(_ descriptor: Descriptor) {
+        let topic = descriptor.info.topic
+        if let task = runningHandlers[topic]?.removeValue(forKey: descriptor.generation) {
+            finishingHandlers[topic, default: [:]][descriptor.generation] = task
+        }
+    }
+
+    private func handlerCompleted(topic: String, generation: UUID) {
+        runningHandlers[topic]?[generation] = nil
+        finishingHandlers[topic]?[generation] = nil
     }
 
     /// Close the stream with the given id, unless it has been superseded by a
@@ -208,6 +236,7 @@ actor IncomingStreamManager: Loggable {
     func closeStreams(from identity: Participant.Identity) {
         for (id, descriptor) in openStreams where descriptor.identity == identity {
             openStreams[id] = nil
+            streamDidClose(descriptor)
             descriptor.continuation.finish(throwing: StreamError.terminated)
         }
     }
@@ -216,6 +245,7 @@ actor IncomingStreamManager: Loggable {
     /// survive so streams arriving after a reconnect are still handled.
     func reset() {
         for descriptor in openStreams.values {
+            streamDidClose(descriptor)
             descriptor.continuation.finish(throwing: StreamError.terminated)
         }
         openStreams.removeAll()
@@ -233,6 +263,7 @@ actor IncomingStreamManager: Loggable {
                 received: encryptionType,
             )
             openStreams[chunk.streamID] = nil
+            streamDidClose(descriptor)
             descriptor.continuation.finish(throwing: error)
             return
         }
@@ -242,6 +273,7 @@ actor IncomingStreamManager: Loggable {
         if let totalLength = descriptor.info.totalLength {
             guard readLength <= totalLength else {
                 openStreams[chunk.streamID] = nil
+                streamDidClose(descriptor)
                 descriptor.continuation.finish(throwing: StreamError.lengthExceeded)
                 return
             }
@@ -261,6 +293,7 @@ actor IncomingStreamManager: Loggable {
         // The reader's `onTermination` cleanup runs in its own task and can lose
         // that race, making `openStream` silently drop the new stream.
         openStreams[trailer.streamID] = nil
+        streamDidClose(descriptor)
 
         if descriptor.info.encryptionType != encryptionType {
             let error = StreamError.encryptionTypeMismatch(
@@ -310,9 +343,6 @@ actor IncomingStreamManager: Loggable {
 
     deinit {
         eventContinuation.finish()
-        for continuation in orderedQueues.values {
-            continuation.finish()
-        }
         guard !openStreams.isEmpty else { return }
         for descriptor in openStreams.values {
             descriptor.continuation.finish(throwing: StreamError.terminated)
@@ -388,3 +418,5 @@ extension TextStreamInfo.OperationType {
         self = Self(rawValue: operationType.rawValue) ?? .create
     }
 }
+
+// swiftlint:enable file_length
