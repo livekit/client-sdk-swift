@@ -27,7 +27,6 @@ actor IncomingStreamManager: Loggable {
         let generation = UUID()
         let info: StreamInfo
         let identity: Participant.Identity
-        let openTime: TimeInterval
         let continuation: StreamReaderSource.Continuation
         var readLength = 0
     }
@@ -148,6 +147,7 @@ actor IncomingStreamManager: Loggable {
 
     private func openStream(with info: StreamInfo, from identity: Participant.Identity) {
         guard openStreams[info.id] == nil else {
+            log("Ignoring stream \(info.id) from \(identity): a stream with this ID is already open", .warning)
             return
         }
         guard let handler = handler(for: info) else {
@@ -167,7 +167,6 @@ actor IncomingStreamManager: Loggable {
         let descriptor = Descriptor(
             info: info,
             identity: identity,
-            openTime: Date.timeIntervalSinceReferenceDate,
             continuation: continuation,
         )
         openStreams[info.id] = descriptor
@@ -230,9 +229,8 @@ actor IncomingStreamManager: Loggable {
         openStreams[id] = nil
     }
 
-    /// Fails all open streams from the given participant. Without this, a stream
-    /// whose sender disconnects before its trailer stays open forever — and on an
-    /// ordered topic its handler blocks every stream behind it.
+    /// Fails all open streams from the given participant, whose trailers can no
+    /// longer arrive; their readers throw and their handlers return.
     func closeStreams(from identity: Participant.Identity) {
         for (id, descriptor) in openStreams where descriptor.identity == identity {
             openStreams[id] = nil
@@ -241,8 +239,8 @@ actor IncomingStreamManager: Loggable {
         }
     }
 
-    /// Fails all open streams. Registered handlers and their ordered queues
-    /// survive so streams arriving after a reconnect are still handled.
+    /// Fails all open streams. Handler registrations survive so streams arriving
+    /// after a reconnect are still handled.
     func reset() {
         for descriptor in openStreams.values {
             streamDidClose(descriptor)
