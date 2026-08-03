@@ -318,6 +318,26 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
     }
 }
 
+/// One-shot latch: `wait()` suspends until `open()`; waiters after `open()` pass through.
+private actor TestGate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        guard !isOpen else { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func open() {
+        isOpen = true
+        let continuations = waiters
+        waiters = []
+        for continuation in continuations {
+            continuation.resume()
+        }
+    }
+}
+
 extension IncomingStreamManagerTests {
     /// `handle(_:)` only enqueues onto the manager's event loop, so tests that
     /// call cleanup APIs directly must first wait for the events to be processed.
@@ -400,6 +420,35 @@ extension IncomingStreamManagerTests {
         }
 
         #expect(received.copy() == ["ok"])
+        await manager.unregisterTextStreamHandler(for: topicName)
+    }
+
+    /// Ordering must compose transitively: C waits on B even while B is itself
+    /// still waiting on A. If the chain breaks, B and C complete while A's
+    /// handler is gated and the order comes out wrong.
+    @Test func orderedTopicChainsAcrossFinishingHandlers() async throws {
+        let received = StateSync<[String]>([])
+        let gate = TestGate()
+
+        try await manager.registerTextStreamHandler(for: topicName, ordered: true) { reader, _ in
+            let payload = try await reader.readAll()
+            // First handler stalls after its stream closed, becoming a
+            // still-finishing predecessor for the streams sent after it.
+            if payload == "a" { await gate.wait() }
+            received.mutate { $0.append(payload) }
+        }
+
+        for payload in ["a", "b", "c"] {
+            await sendTextStream(chunks: [payload], settle: false)
+        }
+        await gate.open()
+
+        let deadline = Date().addingTimeInterval(10)
+        while received.copy().count < 3, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+
+        #expect(received.copy() == ["a", "b", "c"])
         await manager.unregisterTextStreamHandler(for: topicName)
     }
 

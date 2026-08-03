@@ -106,6 +106,10 @@ actor IncomingStreamManager: Loggable {
     /// concurrently, so a still-open stream never delays later ones. Off by
     /// default: it would serialize consumers that want strict concurrency (e.g.
     /// RPC request handling).
+    ///
+    /// Contract: an ordered handler should return promptly once its reader ends —
+    /// work it keeps doing after its stream closed delays every later
+    /// non-overlapping stream on the topic.
     func registerTextStreamHandler(for topic: String, ordered: Bool = false, _ onNewStream: @escaping TextStreamHandler) throws {
         guard textStreamHandlers[topic] == nil else {
             throw StreamError.handlerAlreadyRegistered
