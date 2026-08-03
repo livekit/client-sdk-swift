@@ -708,6 +708,17 @@ extension LocalParticipant {
                     if let preferredCodec = publishOptions.preferredCodec {
                         try transceiver.set(preferredVideoCodec: preferredCodec)
                     }
+
+                    // Register bitrate info for x-google-start-bitrate SDP munging
+                    if let firstEncoding = sendEncodings.first,
+                       let maxBitrateBps = firstEncoding.maxBitrateBps?.intValue,
+                       maxBitrateBps > 0
+                    {
+                        let codec = publishOptions.preferredCodec?.name ?? "vp8"
+                        await publisher.setTrackBitrateInfo(cid: track.mediaTrack.trackId,
+                                                           codec: codec,
+                                                           maxBitrateKbps: maxBitrateBps / 1000)
+                    }
                 }
 
                 try await room.publisherShouldNegotiate()
