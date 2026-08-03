@@ -39,3 +39,7 @@ public struct DevelopmentTokenSource: EndpointTokenSource {
         self.id = id.trimmingCharacters(in: .alphanumerics.inverted)
     }
 }
+
+/// A token source that queries LiveKit's sandbox token server for development and testing.
+@available(*, deprecated, renamed: "DevelopmentTokenSource")
+public typealias SandboxTokenSource = DevelopmentTokenSource
