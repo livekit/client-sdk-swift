@@ -279,6 +279,9 @@ class Utils: Loggable {
                 $0.version = LiveKitSDK.version
                 $0.protocol = Int32(connectOptions.protocolVersion.rawValue)
                 $0.clientProtocol = Int32(connectOptions.clientProtocol.rawValue)
+                // Advertised unconditionally: deflate-raw payloads are decompressed by the
+                // Rust data stream layer, so support does not vary by platform or options.
+                $0.capabilities = [.capCompressionDeflateRaw]
                 $0.os = String(describing: os())
                 $0.osVersion = osVersionString()
                 if let model = modelIdentifier() { $0.deviceModel = model }
