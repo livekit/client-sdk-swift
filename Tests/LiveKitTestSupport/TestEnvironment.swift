@@ -78,7 +78,6 @@ public enum TestEnvironment {
 
     // Set up variable number of Rooms, connect them, wait for participants to discover each other,
     // execute the block, then disconnect. Framework-agnostic (no XCTest/Testing dependency).
-    // swiftlint:disable:next function_body_length
     public static func withRooms(_ options: [RoomTestingOptions] = [],
                                  _ block: @escaping ([Room]) async throws -> Void) async throws
     {
@@ -111,12 +110,38 @@ public enum TestEnvironment {
 
             print("Token: \(token) for room: \(roomName)")
 
-            return (room: room,
-                    identity: identity,
-                    url: url,
-                    token: token)
+            return RoomFixture(room: room,
+                               identity: identity,
+                               url: url,
+                               token: token)
         }
 
+        let allRooms = rooms.map(\.room)
+
+        // Tear down on every exit path: a `Room` keeps itself alive through its
+        // signaling and transport tasks, so an early exit without `disconnect()`
+        // leaks a live Room into the rest of the test process.
+        do {
+            try await connectAndDiscover(rooms, sharedRoomName: sharedRoomName)
+            try await block(allRooms)
+        } catch {
+            await teardown(allRooms)
+            throw error
+        }
+        await teardown(allRooms)
+
+        // Allow the server to fully tear down resources before the next test.
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+    }
+
+    private struct RoomFixture {
+        let room: Room
+        let identity: String
+        let url: String
+        let token: String
+    }
+
+    private static func connectAndDiscover(_ rooms: [RoomFixture], sharedRoomName: String) async throws {
         // Connect all Rooms concurrently (retry on transient failure)
         try await Task.retrying(totalAttempts: 3, retryDelay: 2) { _, _ in
             try await withThrowingTaskGroup { group in
@@ -146,7 +171,8 @@ public enum TestEnvironment {
         if rooms.count >= 2 {
             let allIdentities = rooms.map(\.identity)
 
-            for (room, identity, _, _) in rooms {
+            for fixture in rooms {
+                let (room, identity) = (fixture.room, fixture.identity)
                 let exceptSelfIdentity = allIdentities.filter { $0 != identity }
                 print("Will wait for remote participants: \(exceptSelfIdentity)")
 
@@ -165,23 +191,17 @@ public enum TestEnvironment {
                 }
             }
         }
+    }
 
-        let allRooms = rooms.map(\.room)
-        // Execute block
-        try await block(allRooms)
-
-        // Gracefully unpublish all tracks then disconnect.
-        try await withThrowingTaskGroup { group in
-            for element in rooms {
+    /// Gracefully unpublish all tracks then disconnect, best-effort.
+    private static func teardown(_ rooms: [Room]) async {
+        await withTaskGroup(of: Void.self) { group in
+            for room in rooms {
                 group.addTask {
-                    await element.room.localParticipant.unpublishAll()
-                    await element.room.disconnect()
+                    await room.localParticipant.unpublishAll()
+                    await room.disconnect()
                 }
             }
-            try await group.waitForAll()
         }
-
-        // Allow the server to fully tear down resources before the next test.
-        try await Task.sleep(nanoseconds: 1_000_000_000)
     }
 }

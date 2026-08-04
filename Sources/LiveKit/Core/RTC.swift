@@ -83,6 +83,11 @@ actor RTC {
                                                                                 delegate: nil) }
     }
 
+    // Marshalled to the worker thread inside webrtc-sdk, safe to call directly.
+    static func audioProcessingState() -> LKRTCAudioProcessingState {
+        peerConnectionFactory.audioProcessingState
+    }
+
     static func createVideoSource(forScreenShare: Bool) -> LKRTCVideoSource {
         DispatchQueue.liveKitWebRTC.sync { peerConnectionFactory.videoSource(forScreenCast: forScreenShare) }
     }

@@ -115,15 +115,14 @@ import LiveKitTestSupport
                     try await sending.send(userPacket: userPacket, kind: .reliable)
                     try await Task.sleep(nanoseconds: UInt64(sendInterval * 1_000_000_000))
                 }
-            }
 
-            // `withRooms` tears the rooms down once its body returns, but
-            // the last few deliveries may still be in flight. Poll until
-            // all confirms have fired (or the deadline expires) so we
-            // don't end the confirmation body prematurely.
-            let deadline = Date().addingTimeInterval(receiveDeadline)
-            while Date() < deadline, self._receivedIndices.copy().count < iterations {
-                try? await Task.sleep(nanoseconds: 100_000_000)
+                // Wait for the receiver inside `withRooms` so the data channel stays
+                // open until every packet has been delivered; waiting after the body
+                // returns loses anything still in flight to the room teardown.
+                let deadline = Date().addingTimeInterval(receiveDeadline)
+                while Date() < deadline, self._receivedIndices.copy().count < iterations {
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                }
             }
         }
 

@@ -44,7 +44,7 @@ final class TestEngineObserver: AudioEngineObserver, @unchecked Sendable {
         AudioManager.shared.set(engineObservers: [testObserver])
 
         // Test without enabling VP
-        try AudioManager.shared.setVoiceProcessingEnabled(false)
+        try AudioManager.shared.setPlatformVoiceProcessingAllowed(false)
 
         // First check
         #expect(!AudioManager.shared.isEngineRunning)

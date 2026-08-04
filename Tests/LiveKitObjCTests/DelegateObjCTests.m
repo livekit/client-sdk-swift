@@ -70,7 +70,7 @@
     // Verify roomDidConnect fires
     self.roomDidConnectExp = [self expectationWithDescription:@"roomDidConnect"];
     XCTestExpectation *connectExp = [self expectationWithDescription:@"connectCompletion"];
-    [room connectWithUrl:url token:token connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room url:url token:token completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connectExp fulfill];
     }];
@@ -110,7 +110,7 @@
     Room *room1 = [[Room alloc] initWithDelegate:self connectOptions:nil roomOptions:nil];
 
     XCTestExpectation *connect1 = [self expectationWithDescription:@"connect1"];
-    [room1 connectWithUrl:url token:token1 connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room1 url:url token:token1 completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
@@ -123,7 +123,7 @@
     Room *room2 = [[Room alloc] initWithDelegate:nil connectOptions:nil roomOptions:nil];
 
     XCTestExpectation *connect2 = [self expectationWithDescription:@"connect2"];
-    [room2 connectWithUrl:url token:token2 connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room2 url:url token:token2 completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connect2 fulfill];
     }];
@@ -166,7 +166,7 @@
     Room *room1 = [[Room alloc] initWithDelegate:self connectOptions:nil roomOptions:nil];
 
     XCTestExpectation *connect1 = [self expectationWithDescription:@"connect1"];
-    [room1 connectWithUrl:url token:token1 connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room1 url:url token:token1 completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
@@ -179,7 +179,7 @@
     Room *room2 = [[Room alloc] initWithDelegate:nil connectOptions:nil roomOptions:nil];
 
     XCTestExpectation *connect2 = [self expectationWithDescription:@"connect2"];
-    [room2 connectWithUrl:url token:token2 connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room2 url:url token:token2 completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connect2 fulfill];
     }];

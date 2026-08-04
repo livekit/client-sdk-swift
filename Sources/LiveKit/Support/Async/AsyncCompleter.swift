@@ -87,7 +87,7 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
 
     let label: String
 
-    private let _timerQueue = DispatchQueue(label: "LiveKitSDK.AsyncCompleter", qos: .background)
+    private let _timerQueue = DispatchQueue(label: "LiveKitSDK.AsyncCompleter", qos: .utility)
 
     // Internal states
     private var _defaultTimeout: DispatchTimeInterval

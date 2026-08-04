@@ -104,6 +104,27 @@ import LiveKitTestSupport
             }
         }
     }
+
+    @Test func publishDtmfSendsSipDtmfPacket() async throws {
+        try await TestEnvironment.withRoom { room in
+            try await confirmation("Should send SIP DTMF packet") { confirm in
+                let mockDataChannel = MockDataChannelPair { packet in
+                    #expect(packet.kind == .reliable)
+                    #expect(packet.participantIdentity == room.localParticipant.identity?.stringValue ?? "")
+                    guard case let .sipDtmf(sipDtmf)? = packet.value else {
+                        Issue.record("Expected sipDtmf packet")
+                        return
+                    }
+                    #expect(sipDtmf.code == 10)
+                    #expect(sipDtmf.digit == "*")
+                    confirm()
+                }
+                room.publisherDataChannel = mockDataChannel
+
+                try await room.localParticipant.publishDtmf(code: 10, digit: "*")
+            }
+        }
+    }
 }
 
 private struct WeakRoomRefs: @unchecked Sendable {

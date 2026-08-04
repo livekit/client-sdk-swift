@@ -1,6 +1,6 @@
 Pod::Spec.new do |spec|
   spec.name = "LiveKitClient"
-  spec.version = "2.15.1"
+  spec.version = "2.16.0"
   spec.summary = "LiveKit Swift Client SDK. Easily build live audio or video experiences into your mobile app, game or website."
   spec.homepage = "https://github.com/livekit/client-sdk-swift"
   spec.license = {:type => "Apache 2.0", :file => "LICENSE"}
@@ -14,7 +14,7 @@ Pod::Spec.new do |spec|
 
   spec.source_files = "Sources/**/*"
 
-  spec.dependency("LiveKitWebRTC", "= 144.7559.10")
+  spec.dependency("LiveKitWebRTC", "= 144.7559.11")
   spec.dependency("LiveKitUniFFI", "= 0.0.6")
   spec.dependency("SwiftProtobuf")
 

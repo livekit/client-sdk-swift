@@ -190,13 +190,13 @@ actor Transport: NSObject, Loggable {
         func _negotiateSequence() async throws {
             _latestOfferId += 1
             var offer = try await createOffer(for: constraints)
-            if singlePCMode {
-                let mungedSDP = Self.mungeInactiveToRecvOnlyForMedia(offer.sdp)
-                if mungedSDP != offer.sdp {
-                    offer = RTC.createSessionDescription(type: offer.type, sdp: mungedSDP)
-                }
+            let mungedSDP = singlePCMode ? Self.mungeInactiveToRecvOnlyForMedia(offer.sdp) : offer.sdp
+            if mungedSDP != offer.sdp {
+                offer = try await set(mungedLocalDescription: RTC.createSessionDescription(type: offer.type, sdp: mungedSDP),
+                                      fallingBackTo: offer)
+            } else {
+                try await set(localDescription: offer)
             }
-            try await set(localDescription: offer)
             try await _onOffer(offer, _latestOfferId)
         }
 
@@ -232,31 +232,32 @@ extension Transport {
     /// WebRTC can generate inactive direction even when transceivers were configured as recvonly.
     /// Only rewrites RTP m-sections — non-RTP sections (e.g. data channel `m=application`) are preserved.
     static func mungeInactiveToRecvOnlyForMedia(_ sdp: String) -> String {
-        let usesCRLF = sdp.contains("\r\n")
-        let eol = usesCRLF ? "\r\n" : "\n"
-        let lines = sdp.components(separatedBy: usesCRLF ? "\r\n" : "\n")
-
-        var out: [String] = []
-        out.reserveCapacity(lines.count)
-        var inRTPMediaSection = false
-
-        for line in lines {
-            let l = line.trimmingCharacters(in: .whitespaces)
-            if l.hasPrefix("m=") {
-                inRTPMediaSection = l.contains("RTP/")
-            }
-            if inRTPMediaSection, l == "a=inactive" {
-                out.append("a=recvonly")
-            } else {
-                out.append(line)
+        var document = SDP(parsing: sdp)
+        for index in document.mediaSections.indices {
+            let section = document.mediaSections[index]
+            if section.isRTP, section.direction == .inactive {
+                document.mediaSections[index].set(direction: .recvonly)
             }
         }
+        return document.write()
+    }
 
-        var result = out.joined(separator: eol)
-        if sdp.hasSuffix(eol), !result.hasSuffix(eol) {
-            result.append(eol)
+    /// Sets `munged` as the local description, falling back to `original` when libwebrtc
+    /// rejects it — a rejected set leaves the peer connection state untouched, so
+    /// negotiation proceeds without the munge instead of failing. libwebrtc validates
+    /// munged SDP and rejects some munging types outright (`IsSdpMungingAllowed`,
+    /// expanding via field-trial kill switches). Returns the description that was applied.
+    func set(mungedLocalDescription munged: LKRTCSessionDescription,
+             fallingBackTo original: LKRTCSessionDescription) async throws -> LKRTCSessionDescription
+    {
+        do {
+            try await set(localDescription: munged)
+            return munged
+        } catch {
+            log("Munged local description was rejected, falling back to the original: \(error)", .warning)
+            try await set(localDescription: original)
+            return original
         }
-        return result
     }
 }
 
@@ -332,7 +333,9 @@ extension Transport: LKRTCPeerConnectionDelegate {
 
 // MARK: - Private
 
-private extension Transport {
+// MARK: - Internal
+
+extension Transport {
     func createOffer(for constraints: [String: String]? = nil) async throws -> LKRTCSessionDescription {
         let mediaConstraints = LKRTCMediaConstraints(mandatoryConstraints: constraints,
                                                      optionalConstraints: nil)
@@ -349,11 +352,7 @@ private extension Transport {
             }
         }
     }
-}
 
-// MARK: - Internal
-
-extension Transport {
     func createAnswer(for constraints: [String: String]? = nil) async throws -> LKRTCSessionDescription {
         let mediaConstraints = LKRTCMediaConstraints(mandatoryConstraints: constraints,
                                                      optionalConstraints: nil)

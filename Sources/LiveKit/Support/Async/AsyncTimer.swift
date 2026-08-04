@@ -20,73 +20,71 @@ final class AsyncTimer: Sendable, Loggable {
     // MARK: - Public types
 
     typealias TimerBlock = @Sendable () async throws -> Void
+    typealias SleepFunction = @Sendable (TimeInterval) async throws -> Void
+
+    static let taskSleep: SleepFunction = { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) }
 
     // MARK: - Private
 
     struct State {
-        var isStarted: Bool = false
         var interval: TimeInterval
+        // Non-nil means running. Reassigning or clearing cancels the previous task:
+        // AnyTaskCancellable cancels its Task on deinit (like Combine's AnyCancellable).
         var task: AnyTaskCancellable?
         var block: TimerBlock?
     }
 
     let _state: StateSync<State>
+    private let _sleep: SleepFunction
 
-    init(interval: TimeInterval) {
+    init(interval: TimeInterval, sleep: @escaping SleepFunction = AsyncTimer.taskSleep) {
+        _sleep = sleep
         _state = StateSync(State(interval: interval))
     }
 
     deinit {
-        _state.mutate {
-            $0.isStarted = false
-            $0.task?.cancel()
-        }
+        _state.mutate { $0.task = nil }
     }
 
     func cancel() {
-        _state.mutate {
-            $0.isStarted = false
-            $0.task?.cancel()
-        }
+        _state.mutate { $0.task = nil }
     }
 
     /// Block must not retain self
     func setTimerBlock(block: @escaping TimerBlock) {
-        _state.mutate {
-            $0.block = block
-        }
+        _state.mutate { $0.block = block }
     }
 
     /// Update timer interval
     func setTimerInterval(_ timerInterval: TimeInterval) {
-        _state.mutate {
-            $0.interval = timerInterval
-        }
+        _state.mutate { $0.interval = timerInterval }
     }
 
-    private func scheduleNextInvocation() async {
-        let state = _state.copy()
-        guard state.isStarted else { return }
-        let task = Task.detached(priority: .utility) { [weak self] in
-            guard let self else { return }
-            try? await Task.sleep(nanoseconds: UInt64(state.interval * 1_000_000_000))
-            if !state.isStarted || Task.isCancelled { return }
-            do {
-                try await state.block?()
-            } catch {
-                log("Error in timer block: \(error)", .error)
+    private func makeLoopTask() -> AnyTaskCancellable {
+        Task.detached(priority: .utility) { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                let (interval, block) = _state.read { ($0.interval, $0.block) }
+                try? await _sleep(interval)
+                if Task.isCancelled { break }
+                do {
+                    try await block?()
+                } catch {
+                    log("Error in timer block: \(error)", .error)
+                }
             }
-            await scheduleNextInvocation()
         }.cancellable()
-        _state.mutate { $0.task = task }
     }
 
     func restart() {
-        _state.mutate {
-            $0.task?.cancel()
-            $0.isStarted = true
-        }
+        _state.mutate { $0.task = makeLoopTask() }
+    }
 
-        Task { await scheduleNextInvocation() }
+    /// Starts the timer only if not already running, leaving an in-flight countdown untouched.
+    func startIfStopped() {
+        _state.mutate {
+            guard $0.task == nil else { return }
+            $0.task = makeLoopTask()
+        }
     }
 }
