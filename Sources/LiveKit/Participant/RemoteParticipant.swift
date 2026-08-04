@@ -19,8 +19,14 @@ internal import LiveKitWebRTC
 @objcMembers
 public class RemoteParticipant: Participant, @unchecked Sendable {
     /// Data tracks published by this participant, keyed by track SID.
-    public var dataTracks: [DataTrack.Sid: RemoteDataTrack] { _dataTracks.copy() }
-    private let _dataTracks = StateSync<[DataTrack.Sid: RemoteDataTrack]>([:])
+    ///
+    /// SIDs rotate when the publisher republishes after a full reconnect (the track object itself
+    /// survives), so keys are derived from the tracks' current info rather than stored.
+    public var dataTracks: [DataTrack.Sid: RemoteDataTrack] {
+        Dictionary(uniqueKeysWithValues: _dataTracks.copy().map { ($0.info.sid, $0) })
+    }
+
+    private let _dataTracks = StateSync<[RemoteDataTrack]>([])
 
     init(info: Livekit_ParticipantInfo, room: Room, connectionState: ConnectionState) {
         super.init(room: room, sid: Participant.Sid(from: info.sid), identity: Participant.Identity(from: info.identity))
@@ -28,12 +34,15 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
     }
 
     func addDataTrack(_ track: RemoteDataTrack) {
-        _dataTracks.mutate { $0[track.info.sid] = track }
+        _dataTracks.mutate { $0.append(track) }
     }
 
     @discardableResult
     func removeDataTrack(sid: DataTrack.Sid) -> RemoteDataTrack? {
-        _dataTracks.mutate { $0.removeValue(forKey: sid) }
+        _dataTracks.mutate {
+            guard let index = $0.firstIndex(where: { $0.info.sid == sid }) else { return nil }
+            return $0.remove(at: index)
+        }
     }
 
     override func set(info: Livekit_ParticipantInfo, connectionState: ConnectionState) {
@@ -158,8 +167,8 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
 
         // Data tracks: on disconnect the participant is removed before the async manager callback
         // arrives, so it can't route the unpublish — clear them here, mirroring the media path.
-        let dataTrackSids = Array(_dataTracks.copy().keys)
-        _dataTracks.mutate { $0 = [:] }
+        let dataTrackSids = _dataTracks.copy().map(\.info.sid)
+        _dataTracks.mutate { $0 = [] }
         guard _notify, let room = _room else { return }
         for sid in dataTrackSids {
             delegates.notify(label: { "participant.didUnpublishDataTrack \(sid)" }) {
