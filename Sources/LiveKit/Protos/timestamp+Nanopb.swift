@@ -6,25 +6,37 @@ import CLiveKitProto
 import Foundation
 import LiveKitNanopb
 
-struct Google_Protobuf_Timestamp: NanopbMessage {
+struct Google_Protobuf_Timestamp: NanopbMessage, @unchecked Sendable {
     typealias Storage = google_protobuf_Timestamp
     static var descriptor: pb_msgdesc_t { google_protobuf_Timestamp_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var seconds: Int64 {
-        get { _box.storage.seconds?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.seconds, newValue) }
+        get { _pointer.pointee.seconds?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.seconds, newValue) }
     }
-    var hasSeconds: Bool { _box.storage.seconds != nil }
+    var hasSeconds: Bool { _pointer.pointee.seconds != nil }
 
     var nanos: Int32 {
-        get { _box.storage.nanos?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.nanos, newValue) }
+        get { _pointer.pointee.nanos?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.nanos, newValue) }
     }
-    var hasNanos: Bool { _box.storage.nanos != nil }
+    var hasNanos: Bool { _pointer.pointee.nanos != nil }
 
 }
 

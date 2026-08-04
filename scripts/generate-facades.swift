@@ -643,13 +643,25 @@ struct Emitter {
         let pad = String(repeating: "    ", count: depth)
         let type = names.localName(message.cName)
         var out = """
-        \(pad)struct \(type): NanopbMessage {
+        \(pad)struct \(type): NanopbMessage, @unchecked Sendable {
         \(pad)    typealias Storage = \(message.cName)
         \(pad)    static var descriptor: pb_msgdesc_t { \(message.cName)_msg }
         \(pad)    static var zero: Storage { Storage() }
 
-        \(pad)    var _box: NanopbBox<Storage>
-        \(pad)    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+        \(pad)    var _owner: AnyObject
+        \(pad)    var _pointer: UnsafeMutablePointer<Storage>
+
+        \(pad)    init() {
+        \(pad)        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        \(pad)        _owner = box
+        \(pad)        _pointer = box.pointer
+        \(pad)    }
+
+        \(pad)    /// Zero-copy view into `owner`'s storage.
+        \(pad)    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        \(pad)        _owner = owner
+        \(pad)        _pointer = pointer
+        \(pad)    }
 
 
         """
@@ -677,7 +689,7 @@ struct Emitter {
 
         let property = names.property(field.name)
         let capitalised = property.replacingOccurrences(of: "`", with: "").capitalizedFirst
-        let slot = "_box.storage.\(Naming.escaping(field.name))"
+        let slot = "_pointer.pointee.\(Naming.escaping(field.name))"
 
         switch field.kind {
         case .string:
@@ -731,12 +743,12 @@ struct Emitter {
             let type = names.swiftType(field.cType)
             var lines = ["var \(property): \(type) {"]
             if field.isPointer {
-                lines.append("    get { lkMessage(\(slot)) }")
+                lines.append("    get { \(slot).map { \(type)(_sharing: $0, owner: _owner) } ?? \(type)() }")
                 lines.append("    set { _ensureUnique(); lkSetMessage(&\(slot), newValue) }")
             } else {
-                lines.append("    get { withUnsafePointer(to: \(slot)) { lkMessage(copying: $0) } }")
+                lines.append("    get { \(type)(_sharing: lkMemberPointer(_pointer, \\Storage.\(Naming.escaping(field.name))), owner: _owner) }")
                 if field.hasFlag {
-                    lines.append("    set { _ensureUnique(); lkSetMessage(inline: &\(slot), newValue); _box.storage.has_\(field.name) = true }")
+                    lines.append("    set { _ensureUnique(); lkSetMessage(inline: &\(slot), newValue); _pointer.pointee.has_\(field.name) = true }")
                 } else {
                     lines.append("    set { _ensureUnique(); lkSetMessage(inline: &\(slot), newValue) }")
                 }
@@ -751,7 +763,7 @@ struct Emitter {
 
     private func presence(_ field: CField, capitalised: String, slot: String) -> [String] {
         if field.hasFlag {
-            return ["var has\(capitalised): Bool { _box.storage.has_\(field.name) }"]
+            return ["var has\(capitalised): Bool { _pointer.pointee.has_\(field.name) }"]
         }
         if field.isPointer {
             return ["var has\(capitalised): Bool { \(slot) != nil }"]
@@ -761,8 +773,8 @@ struct Emitter {
 
     private func emitRepeated(_ field: CField) -> [String] {
         let property = names.property(field.name)
-        let count = "_box.storage.\(field.name)_count"
-        let base = "_box.storage.\(Naming.escaping(field.name))"
+        let count = "_pointer.pointee.\(field.name)_count"
+        let base = "_pointer.pointee.\(Naming.escaping(field.name))"
 
         if let entry = mapEntry(field) {
             return emitMap(field, entry: entry, property: property, count: count, base: base)
@@ -810,7 +822,7 @@ struct Emitter {
             let type = names.swiftType(field.cType)
             return [
                 "var \(property): [\(type)] {",
-                "    get { lkRepeatedMessages(\(count), \(base)) }",
+                "    get { lkViews(\(count), \(base), owner: _owner) }",
                 "    set {",
                 "        _ensureUnique()",
                 "        var count = \(count), base = \(base)",
@@ -844,7 +856,7 @@ struct Emitter {
             "var \(property): [\(keyType): \(valueType)] {",
             "    get {",
             "        var out: [\(keyType): \(valueType)] = [:]",
-            "        for entry in lkRepeatedMessages(\(count), \(base)) as [\(entryType)] {",
+            "        for entry in lkViews(\(count), \(base), owner: _owner) as [\(entryType)] {",
             "            out[entry.key] = entry.value",
             "        }",
             "        return out",
@@ -869,7 +881,7 @@ struct Emitter {
         let property = names.property(field.name)
         let capitalised = property.replacingOccurrences(of: "`", with: "").capitalizedFirst
         let enumName = "OneOf_\(capitalised)"
-        let which = "_box.storage.which_\(field.name)"
+        let which = "_pointer.pointee.which_\(field.name)"
 
         var out = ["enum \(enumName): Equatable {"]
         for variant in field.variants {
@@ -924,7 +936,7 @@ struct Emitter {
         out.append("private mutating func _clear\(capitalised)() {")
         out.append("    switch \(which) {")
         for variant in field.variants {
-            let slot = "_box.storage.\(field.name).\(Naming.escaping(variant.name))"
+            let slot = "_pointer.pointee.\(field.name).\(Naming.escaping(variant.name))"
             out.append("    case pb_size_t(\(message.cName)_\(variant.name)_tag):")
             switch variant.kind {
             case .message:
@@ -940,13 +952,13 @@ struct Emitter {
         out.append("    \(which) = 0")
         out.append("    // zero the union: stale bits from an inline variant would otherwise")
         out.append("    // be misread as a pointer by the next variant's setter")
-        out.append("    _box.storage.\(field.name) = .init()")
+        out.append("    _pointer.pointee.\(field.name) = .init()")
         out.append("}")
         return out
     }
 
     private func read(_ variant: CField, in oneof: CField) -> String {
-        let slot = "_box.storage.\(oneof.name).\(Naming.escaping(variant.name))"
+        let slot = "_pointer.pointee.\(oneof.name).\(Naming.escaping(variant.name))"
         switch variant.kind {
         case .string: return "lkString(\(slot)) ?? \"\""
         case .bytes: return "lkData(\(slot))"
@@ -958,12 +970,14 @@ struct Emitter {
             return variant.isPointer
                 ? "\(slot).map { lkEnum($0.pointee) as \(type) } ?? \(type)()"
                 : "lkEnum(\(slot))"
-        default: return "lkMessage(\(slot))"
+        default:
+            let type = names.swiftType(variant.cType)
+            return "\(slot).map { \(type)(_sharing: $0, owner: _owner) } ?? \(type)()"
         }
     }
 
     private func write(_ variant: CField, in oneof: CField, from source: String) -> String {
-        let slot = "_box.storage.\(oneof.name).\(Naming.escaping(variant.name))"
+        let slot = "_pointer.pointee.\(oneof.name).\(Naming.escaping(variant.name))"
         switch variant.kind {
         case .string: return "lkSetString(&\(slot), \(source))"
         case .bytes: return "lkSetData(&\(slot), \(source))"

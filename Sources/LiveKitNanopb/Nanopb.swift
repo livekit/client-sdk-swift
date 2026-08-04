@@ -51,50 +51,40 @@ public enum NanopbError: Error, CustomStringConvertible {
 
 // MARK: - Storage box
 
-/// Owns one nanopb C struct; `pb_release` frees its malloc'd fields on deinit.
+/// Owns one nanopb C struct in a malloc'd, address-stable allocation;
+/// `pb_release` frees its dynamic fields on deinit.
 ///
 /// `@unchecked Sendable` under the copy-on-write invariant (same justification
-/// as `Array`): a box reachable from more than one message value is never
-/// mutated — `_ensureUnique()` replaces it with a fresh copy first.
+/// as `Array`): storage reachable from more than one message value is never
+/// mutated — `_ensureUnique()` detaches first. Child views retain their
+/// parent's box, so a parent that copies itself away cannot free storage a
+/// live view still points into.
 public final class NanopbBox<Storage>: @unchecked Sendable {
-    public var storage: Storage
+    public let pointer: UnsafeMutablePointer<Storage>
     @usableFromInline let descriptor: pb_msgdesc_t
 
     public init(zero: Storage, descriptor: pb_msgdesc_t) {
-        storage = zero
+        pointer = .allocate(capacity: 1)
+        pointer.initialize(to: zero)
         self.descriptor = descriptor
     }
 
     deinit {
         var descriptor = descriptor
-        withUnsafePointer(to: storage) {
-            pb_release(&descriptor, UnsafeMutableRawPointer(mutating: $0))
-        }
-    }
-
-    /// Independent copy via an encode/decode round trip (nanopb has no copier).
-    public func deepCopy(zero: Storage) -> NanopbBox<Storage> {
-        let fresh = NanopbBox(zero: zero, descriptor: descriptor)
-        do {
-            let bytes = try withUnsafePointer(to: storage) {
-                try nanopbEncodedBytes($0, descriptor)
-            }
-            try bytes.withUnsafeBytes { raw in
-                try withUnsafeMutablePointer(to: &fresh.storage) {
-                    try nanopbDecode(into: $0, descriptor, raw)
-                }
-            }
-        } catch {
-            // A zeroed copy is the only safe fallback; encoding a valid
-            // message does not fail in practice.
-        }
-        return fresh
+        pb_release(&descriptor, UnsafeMutableRawPointer(pointer))
+        pointer.deinitialize(count: 1)
+        pointer.deallocate()
     }
 }
 
 // MARK: - Protocols
 
 /// A protobuf message whose storage and wire format are nanopb's.
+///
+/// A value either owns its allocation (`_owner` is its own box) or is a *view*
+/// sharing a parent message's box, pointing directly at the nested C struct.
+/// Reads are pointer reads either way; the first mutation of any non-uniquely
+/// owned value detaches it via an encode/decode round trip of its subtree.
 public protocol NanopbMessage: Equatable, Hashable, Sendable {
     associatedtype Storage
 
@@ -103,15 +93,30 @@ public protocol NanopbMessage: Equatable, Hashable, Sendable {
     /// A zeroed `Storage`, i.e. nanopb's `<T>_init_zero`.
     static var zero: Storage { get }
 
-    var _box: NanopbBox<Storage> { get set }
+    /// Keeps `_pointer`'s allocation alive: this value's own box, or the box
+    /// of the message this value is a view into.
+    var _owner: AnyObject { get set }
+    var _pointer: UnsafeMutablePointer<Storage> { get set }
+
     init()
+    /// A view into storage owned by `owner` — zero-copy.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject)
 }
 
 public extension NanopbMessage {
-    /// Copy-on-write guard: call before any mutation.
+    /// Copy-on-write guard: call before any mutation. Detaches this value —
+    /// copying only its own subtree — when its storage is shared with any
+    /// other value (a copy, or the parent/child of a view).
     mutating func _ensureUnique() {
-        if !isKnownUniquelyReferenced(&_box) {
-            _box = _box.deepCopy(zero: Self.zero)
+        if !isKnownUniquelyReferenced(&_owner) {
+            let fresh = NanopbBox<Storage>(zero: Self.zero, descriptor: Self.descriptor)
+            if let bytes = try? nanopbEncodedBytes(_pointer, Self.descriptor) {
+                try? bytes.withUnsafeBytes {
+                    try? nanopbDecode(into: fresh.pointer, Self.descriptor, $0)
+                }
+            }
+            _owner = fresh
+            _pointer = fresh.pointer
         }
     }
 
@@ -127,11 +132,7 @@ public extension NanopbMessage {
     init(serializedBytes bytes: some Collection<UInt8>) throws {
         self.init()
         let array = Array(bytes)
-        try array.withUnsafeBytes { raw in
-            try withUnsafeMutablePointer(to: &_box.storage) {
-                try nanopbDecode(into: $0, Self.descriptor, raw)
-            }
-        }
+        try array.withUnsafeBytes { try nanopbDecode(into: _pointer, Self.descriptor, $0) }
     }
 
     init(serializedData data: Data) throws {
@@ -139,7 +140,7 @@ public extension NanopbMessage {
     }
 
     func serializedBytes() throws -> [UInt8] {
-        try withUnsafePointer(to: _box.storage) { try nanopbEncodedBytes($0, Self.descriptor) }
+        try nanopbEncodedBytes(_pointer, Self.descriptor)
     }
 
     func serializedData() throws -> Data {
@@ -148,12 +149,10 @@ public extension NanopbMessage {
 
     /// Encode into scratch space and hand it to `body` — nothing heap-allocated.
     func withEncodedBytes<R>(_ body: (UnsafeRawBufferPointer) throws -> R) throws -> R {
-        try withUnsafePointer(to: _box.storage) { pointer in
-            let size = try nanopbEncodedSize(pointer, Self.descriptor)
-            return try withUnsafeTemporaryAllocation(byteCount: size, alignment: 1) { buffer in
-                let written = try nanopbEncode(pointer, Self.descriptor, into: buffer)
-                return try body(UnsafeRawBufferPointer(rebasing: buffer[..<written]))
-            }
+        let size = try nanopbEncodedSize(_pointer, Self.descriptor)
+        return try withUnsafeTemporaryAllocation(byteCount: size, alignment: 1) { buffer in
+            let written = try nanopbEncode(_pointer, Self.descriptor, into: buffer)
+            return try body(UnsafeRawBufferPointer(rebasing: buffer[..<written]))
         }
     }
 
@@ -166,7 +165,7 @@ public extension NanopbMessage {
     // false "changed" is benign.
 
     static func == (lhs: Self, rhs: Self) -> Bool {
-        if lhs._box === rhs._box { return true }
+        if lhs._pointer == rhs._pointer { return true }
         return (try? lhs.serializedBytes()) == (try? rhs.serializedBytes())
     }
 
@@ -350,14 +349,21 @@ public func lkMessage<M: NanopbMessage>(_ pointer: UnsafeMutablePointer<M.Storag
 
 @inlinable
 public func lkMessage<M: NanopbMessage>(copying pointer: UnsafePointer<M.Storage>) -> M {
-    var message = M()
-    guard let bytes = try? nanopbEncodedBytes(pointer, M.descriptor) else { return message }
-    try? bytes.withUnsafeBytes { raw in
-        try withUnsafeMutablePointer(to: &message._box.storage) {
-            try nanopbDecode(into: $0, M.descriptor, raw)
-        }
+    let message = M()
+    if let bytes = try? nanopbEncodedBytes(pointer, M.descriptor) {
+        try? bytes.withUnsafeBytes { try nanopbDecode(into: message._pointer, M.descriptor, $0) }
     }
     return message
+}
+
+/// Address of a struct member inside a malloc'd allocation — the anchor for
+/// zero-copy views into inline submessage fields.
+@inlinable
+public func lkMemberPointer<S, M>(
+    _ base: UnsafeMutablePointer<S>, _ keyPath: WritableKeyPath<S, M>,
+) -> UnsafeMutablePointer<M> {
+    let offset = MemoryLayout<S>.offset(of: keyPath)!
+    return (UnsafeMutableRawPointer(base) + offset).assumingMemoryBound(to: M.self)
 }
 
 /// Replace a pointer submessage field.
@@ -384,9 +390,7 @@ public func lkSetMessage<M: NanopbMessage>(inline slot: inout M.Storage, _ value
 
 @usableFromInline
 func lkOverwrite<M: NanopbMessage>(_ pointer: UnsafeMutablePointer<M.Storage>, with value: M) {
-    if let bytes = try? withUnsafePointer(to: value._box.storage, {
-        try nanopbEncodedBytes($0, M.descriptor)
-    }) {
+    if let bytes = try? nanopbEncodedBytes(value._pointer, M.descriptor) {
         try? bytes.withUnsafeBytes { try nanopbDecode(into: pointer, M.descriptor, $0) }
     }
 }
@@ -522,3 +526,13 @@ public func lkSetRepeatedMessages<M: NanopbMessage>(
 
 @inlinable
 public func lkCount(_ count: pb_size_t) -> Int { Int(count) }
+
+/// Zero-copy views over a repeated submessage field. Each element retains
+/// `owner`, so the parent's storage outlives every view handed out.
+@inlinable
+public func lkViews<M: NanopbMessage>(
+    _ count: pb_size_t, _ base: UnsafeMutablePointer<M.Storage>?, owner: AnyObject,
+) -> [M] {
+    guard let base, count > 0 else { return [] }
+    return (0 ..< Int(count)).map { M(_sharing: base + $0, owner: owner) }
+}

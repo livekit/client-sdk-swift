@@ -6,195 +6,243 @@ import CLiveKitProto
 import Foundation
 import LiveKitNanopb
 
-struct Livekit_MetricsBatch: NanopbMessage {
+struct Livekit_MetricsBatch: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_MetricsBatch
     static var descriptor: pb_msgdesc_t { livekit_MetricsBatch_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var timestampMs: Int64 {
-        get { _box.storage.timestamp_ms?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.timestamp_ms, newValue) }
+        get { _pointer.pointee.timestamp_ms?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.timestamp_ms, newValue) }
     }
-    var hasTimestampMs: Bool { _box.storage.timestamp_ms != nil }
+    var hasTimestampMs: Bool { _pointer.pointee.timestamp_ms != nil }
 
     var normalizedTimestamp: Google_Protobuf_Timestamp {
-        get { lkMessage(_box.storage.normalized_timestamp) }
-        set { _ensureUnique(); lkSetMessage(&_box.storage.normalized_timestamp, newValue) }
+        get { _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp() }
+        set { _ensureUnique(); lkSetMessage(&_pointer.pointee.normalized_timestamp, newValue) }
     }
-    var hasNormalizedTimestamp: Bool { _box.storage.normalized_timestamp != nil }
+    var hasNormalizedTimestamp: Bool { _pointer.pointee.normalized_timestamp != nil }
 
     var strData: [String] {
-        get { lkRepeated(_box.storage.str_data_count, _box.storage.str_data) }
+        get { lkRepeated(_pointer.pointee.str_data_count, _pointer.pointee.str_data) }
         set {
             _ensureUnique()
-            var count = _box.storage.str_data_count, base = _box.storage.str_data
+            var count = _pointer.pointee.str_data_count, base = _pointer.pointee.str_data
             lkSetRepeated(&count, &base, newValue)
-            _box.storage.str_data_count = count; _box.storage.str_data = base
+            _pointer.pointee.str_data_count = count; _pointer.pointee.str_data = base
         }
     }
 
     var timeSeries: [Livekit_TimeSeriesMetric] {
-        get { lkRepeatedMessages(_box.storage.time_series_count, _box.storage.time_series) }
+        get { lkViews(_pointer.pointee.time_series_count, _pointer.pointee.time_series, owner: _owner) }
         set {
             _ensureUnique()
-            var count = _box.storage.time_series_count, base = _box.storage.time_series
+            var count = _pointer.pointee.time_series_count, base = _pointer.pointee.time_series
             lkSetRepeatedMessages(&count, &base, newValue)
-            _box.storage.time_series_count = count; _box.storage.time_series = base
+            _pointer.pointee.time_series_count = count; _pointer.pointee.time_series = base
         }
     }
 
     var events: [Livekit_EventMetric] {
-        get { lkRepeatedMessages(_box.storage.events_count, _box.storage.events) }
+        get { lkViews(_pointer.pointee.events_count, _pointer.pointee.events, owner: _owner) }
         set {
             _ensureUnique()
-            var count = _box.storage.events_count, base = _box.storage.events
+            var count = _pointer.pointee.events_count, base = _pointer.pointee.events
             lkSetRepeatedMessages(&count, &base, newValue)
-            _box.storage.events_count = count; _box.storage.events = base
+            _pointer.pointee.events_count = count; _pointer.pointee.events = base
         }
     }
 
 }
 
-struct Livekit_TimeSeriesMetric: NanopbMessage {
+struct Livekit_TimeSeriesMetric: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_TimeSeriesMetric
     static var descriptor: pb_msgdesc_t { livekit_TimeSeriesMetric_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var label: UInt32 {
-        get { _box.storage.label?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.label, newValue) }
+        get { _pointer.pointee.label?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.label, newValue) }
     }
-    var hasLabel: Bool { _box.storage.label != nil }
+    var hasLabel: Bool { _pointer.pointee.label != nil }
 
     var participantIdentity: UInt32 {
-        get { _box.storage.participant_identity?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.participant_identity, newValue) }
+        get { _pointer.pointee.participant_identity?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.participant_identity, newValue) }
     }
-    var hasParticipantIdentity: Bool { _box.storage.participant_identity != nil }
+    var hasParticipantIdentity: Bool { _pointer.pointee.participant_identity != nil }
 
     var trackSid: UInt32 {
-        get { _box.storage.track_sid?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.track_sid, newValue) }
+        get { _pointer.pointee.track_sid?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.track_sid, newValue) }
     }
-    var hasTrackSid: Bool { _box.storage.track_sid != nil }
+    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
 
     var samples: [Livekit_MetricSample] {
-        get { lkRepeatedMessages(_box.storage.samples_count, _box.storage.samples) }
+        get { lkViews(_pointer.pointee.samples_count, _pointer.pointee.samples, owner: _owner) }
         set {
             _ensureUnique()
-            var count = _box.storage.samples_count, base = _box.storage.samples
+            var count = _pointer.pointee.samples_count, base = _pointer.pointee.samples
             lkSetRepeatedMessages(&count, &base, newValue)
-            _box.storage.samples_count = count; _box.storage.samples = base
+            _pointer.pointee.samples_count = count; _pointer.pointee.samples = base
         }
     }
 
     var rid: UInt32 {
-        get { _box.storage.rid?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.rid, newValue) }
+        get { _pointer.pointee.rid?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.rid, newValue) }
     }
-    var hasRid: Bool { _box.storage.rid != nil }
+    var hasRid: Bool { _pointer.pointee.rid != nil }
 
 }
 
-struct Livekit_MetricSample: NanopbMessage {
+struct Livekit_MetricSample: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_MetricSample
     static var descriptor: pb_msgdesc_t { livekit_MetricSample_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var timestampMs: Int64 {
-        get { _box.storage.timestamp_ms?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.timestamp_ms, newValue) }
+        get { _pointer.pointee.timestamp_ms?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.timestamp_ms, newValue) }
     }
-    var hasTimestampMs: Bool { _box.storage.timestamp_ms != nil }
+    var hasTimestampMs: Bool { _pointer.pointee.timestamp_ms != nil }
 
     var normalizedTimestamp: Google_Protobuf_Timestamp {
-        get { lkMessage(_box.storage.normalized_timestamp) }
-        set { _ensureUnique(); lkSetMessage(&_box.storage.normalized_timestamp, newValue) }
+        get { _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp() }
+        set { _ensureUnique(); lkSetMessage(&_pointer.pointee.normalized_timestamp, newValue) }
     }
-    var hasNormalizedTimestamp: Bool { _box.storage.normalized_timestamp != nil }
+    var hasNormalizedTimestamp: Bool { _pointer.pointee.normalized_timestamp != nil }
 
     var value: Float {
-        get { _box.storage.value?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.value, newValue) }
+        get { _pointer.pointee.value?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.value, newValue) }
     }
-    var hasValue: Bool { _box.storage.value != nil }
+    var hasValue: Bool { _pointer.pointee.value != nil }
 
 }
 
-struct Livekit_EventMetric: NanopbMessage {
+struct Livekit_EventMetric: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_EventMetric
     static var descriptor: pb_msgdesc_t { livekit_EventMetric_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var label: UInt32 {
-        get { _box.storage.label?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.label, newValue) }
+        get { _pointer.pointee.label?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.label, newValue) }
     }
-    var hasLabel: Bool { _box.storage.label != nil }
+    var hasLabel: Bool { _pointer.pointee.label != nil }
 
     var participantIdentity: UInt32 {
-        get { _box.storage.participant_identity?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.participant_identity, newValue) }
+        get { _pointer.pointee.participant_identity?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.participant_identity, newValue) }
     }
-    var hasParticipantIdentity: Bool { _box.storage.participant_identity != nil }
+    var hasParticipantIdentity: Bool { _pointer.pointee.participant_identity != nil }
 
     var trackSid: UInt32 {
-        get { _box.storage.track_sid?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.track_sid, newValue) }
+        get { _pointer.pointee.track_sid?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.track_sid, newValue) }
     }
-    var hasTrackSid: Bool { _box.storage.track_sid != nil }
+    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
 
     var startTimestampMs: Int64 {
-        get { _box.storage.start_timestamp_ms?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.start_timestamp_ms, newValue) }
+        get { _pointer.pointee.start_timestamp_ms?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.start_timestamp_ms, newValue) }
     }
-    var hasStartTimestampMs: Bool { _box.storage.start_timestamp_ms != nil }
+    var hasStartTimestampMs: Bool { _pointer.pointee.start_timestamp_ms != nil }
 
     var endTimestampMs: Int64 {
-        get { _box.storage.end_timestamp_ms?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.end_timestamp_ms, newValue) }
+        get { _pointer.pointee.end_timestamp_ms?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.end_timestamp_ms, newValue) }
     }
-    var hasEndTimestampMs: Bool { _box.storage.end_timestamp_ms != nil }
+    var hasEndTimestampMs: Bool { _pointer.pointee.end_timestamp_ms != nil }
 
     var normalizedStartTimestamp: Google_Protobuf_Timestamp {
-        get { lkMessage(_box.storage.normalized_start_timestamp) }
-        set { _ensureUnique(); lkSetMessage(&_box.storage.normalized_start_timestamp, newValue) }
+        get { _pointer.pointee.normalized_start_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp() }
+        set { _ensureUnique(); lkSetMessage(&_pointer.pointee.normalized_start_timestamp, newValue) }
     }
-    var hasNormalizedStartTimestamp: Bool { _box.storage.normalized_start_timestamp != nil }
+    var hasNormalizedStartTimestamp: Bool { _pointer.pointee.normalized_start_timestamp != nil }
 
     var normalizedEndTimestamp: Google_Protobuf_Timestamp {
-        get { lkMessage(_box.storage.normalized_end_timestamp) }
-        set { _ensureUnique(); lkSetMessage(&_box.storage.normalized_end_timestamp, newValue) }
+        get { _pointer.pointee.normalized_end_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp() }
+        set { _ensureUnique(); lkSetMessage(&_pointer.pointee.normalized_end_timestamp, newValue) }
     }
-    var hasNormalizedEndTimestamp: Bool { _box.storage.normalized_end_timestamp != nil }
+    var hasNormalizedEndTimestamp: Bool { _pointer.pointee.normalized_end_timestamp != nil }
 
     var metadata: String {
-        get { lkString(_box.storage.metadata) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.metadata, newValue) }
+        get { lkString(_pointer.pointee.metadata) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.metadata, newValue) }
     }
-    var hasMetadata: Bool { _box.storage.metadata != nil }
+    var hasMetadata: Bool { _pointer.pointee.metadata != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withMetadataBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.metadata, body)
+        try withLkBytes(_pointer.pointee.metadata, body)
     }
 
     var rid: UInt32 {
-        get { _box.storage.rid?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.rid, newValue) }
+        get { _pointer.pointee.rid?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.rid, newValue) }
     }
-    var hasRid: Bool { _box.storage.rid != nil }
+    var hasRid: Bool { _pointer.pointee.rid != nil }
 
 }
 

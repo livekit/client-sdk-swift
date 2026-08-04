@@ -16,6 +16,13 @@
 
 import Foundation
 @testable import LiveKit
+import LiveKitNanopb
+
+private extension NanopbMessage {
+    /// Dereferences the C storage so Mirror sees the proto fields.
+    var _reflectedStorage: Any { _pointer.pointee }
+}
+
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -59,12 +66,12 @@ enum Comparator {
     }
 
     static func extractFields(from instance: some Any, excludedFields: Set<String> = []) -> [FieldInfo] {
-        // nanopb-backed facades keep proto fields in a C struct behind a CoW
-        // box (their only stored property); reflect the storage instead.
-        if let box = Mirror(reflecting: instance).children.first(where: { $0.label == "_box" })?.value,
-           let storage = Mirror(reflecting: box).children.first(where: { $0.label == "storage" })?.value
-        {
-            return extractNanopbFields(from: storage, excludedFields: excludedFields)
+        // nanopb-backed facades keep proto fields in a C struct behind an
+        // owner/pointer pair; reflect the pointed-to storage instead.
+        if let message = instance as? any NanopbMessage {
+            return extractNanopbFields(
+                from: message._reflectedStorage, excludedFields: excludedFields,
+            )
         }
         let mirror = Mirror(reflecting: instance)
         var fields: [FieldInfo] = []

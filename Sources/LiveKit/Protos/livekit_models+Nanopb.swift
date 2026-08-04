@@ -6,332 +6,380 @@ import CLiveKitProto
 import Foundation
 import LiveKitNanopb
 
-struct Livekit_Room: NanopbMessage {
+struct Livekit_Room: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_Room
     static var descriptor: pb_msgdesc_t { livekit_Room_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var sid: String {
-        get { lkString(_box.storage.sid) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.sid, newValue) }
+        get { lkString(_pointer.pointee.sid) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.sid, newValue) }
     }
-    var hasSid: Bool { _box.storage.sid != nil }
+    var hasSid: Bool { _pointer.pointee.sid != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withSidBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.sid, body)
+        try withLkBytes(_pointer.pointee.sid, body)
     }
 
     var name: String {
-        get { lkString(_box.storage.name) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.name, newValue) }
+        get { lkString(_pointer.pointee.name) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.name, newValue) }
     }
-    var hasName: Bool { _box.storage.name != nil }
+    var hasName: Bool { _pointer.pointee.name != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withNameBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.name, body)
+        try withLkBytes(_pointer.pointee.name, body)
     }
 
     var emptyTimeout: UInt32 {
-        get { _box.storage.empty_timeout?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.empty_timeout, newValue) }
+        get { _pointer.pointee.empty_timeout?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.empty_timeout, newValue) }
     }
-    var hasEmptyTimeout: Bool { _box.storage.empty_timeout != nil }
+    var hasEmptyTimeout: Bool { _pointer.pointee.empty_timeout != nil }
 
     var maxParticipants: UInt32 {
-        get { _box.storage.max_participants?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.max_participants, newValue) }
+        get { _pointer.pointee.max_participants?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.max_participants, newValue) }
     }
-    var hasMaxParticipants: Bool { _box.storage.max_participants != nil }
+    var hasMaxParticipants: Bool { _pointer.pointee.max_participants != nil }
 
     var creationTime: Int64 {
-        get { _box.storage.creation_time?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.creation_time, newValue) }
+        get { _pointer.pointee.creation_time?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.creation_time, newValue) }
     }
-    var hasCreationTime: Bool { _box.storage.creation_time != nil }
+    var hasCreationTime: Bool { _pointer.pointee.creation_time != nil }
 
     var turnPassword: String {
-        get { lkString(_box.storage.turn_password) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.turn_password, newValue) }
+        get { lkString(_pointer.pointee.turn_password) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.turn_password, newValue) }
     }
-    var hasTurnPassword: Bool { _box.storage.turn_password != nil }
+    var hasTurnPassword: Bool { _pointer.pointee.turn_password != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withTurnPasswordBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.turn_password, body)
+        try withLkBytes(_pointer.pointee.turn_password, body)
     }
 
     var enabledCodecs: [Livekit_Codec] {
-        get { lkRepeatedMessages(_box.storage.enabled_codecs_count, _box.storage.enabled_codecs) }
+        get { lkViews(_pointer.pointee.enabled_codecs_count, _pointer.pointee.enabled_codecs, owner: _owner) }
         set {
             _ensureUnique()
-            var count = _box.storage.enabled_codecs_count, base = _box.storage.enabled_codecs
+            var count = _pointer.pointee.enabled_codecs_count, base = _pointer.pointee.enabled_codecs
             lkSetRepeatedMessages(&count, &base, newValue)
-            _box.storage.enabled_codecs_count = count; _box.storage.enabled_codecs = base
+            _pointer.pointee.enabled_codecs_count = count; _pointer.pointee.enabled_codecs = base
         }
     }
 
     var metadata: String {
-        get { lkString(_box.storage.metadata) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.metadata, newValue) }
+        get { lkString(_pointer.pointee.metadata) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.metadata, newValue) }
     }
-    var hasMetadata: Bool { _box.storage.metadata != nil }
+    var hasMetadata: Bool { _pointer.pointee.metadata != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withMetadataBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.metadata, body)
+        try withLkBytes(_pointer.pointee.metadata, body)
     }
 
     var numParticipants: UInt32 {
-        get { _box.storage.num_participants?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.num_participants, newValue) }
+        get { _pointer.pointee.num_participants?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.num_participants, newValue) }
     }
-    var hasNumParticipants: Bool { _box.storage.num_participants != nil }
+    var hasNumParticipants: Bool { _pointer.pointee.num_participants != nil }
 
     var activeRecording: Bool {
-        get { _box.storage.active_recording?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.active_recording, newValue) }
+        get { _pointer.pointee.active_recording?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.active_recording, newValue) }
     }
-    var hasActiveRecording: Bool { _box.storage.active_recording != nil }
+    var hasActiveRecording: Bool { _pointer.pointee.active_recording != nil }
 
     var numPublishers: UInt32 {
-        get { _box.storage.num_publishers?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.num_publishers, newValue) }
+        get { _pointer.pointee.num_publishers?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.num_publishers, newValue) }
     }
-    var hasNumPublishers: Bool { _box.storage.num_publishers != nil }
+    var hasNumPublishers: Bool { _pointer.pointee.num_publishers != nil }
 
     var version: Livekit_TimedVersion {
-        get { lkMessage(_box.storage.version) }
-        set { _ensureUnique(); lkSetMessage(&_box.storage.version, newValue) }
+        get { _pointer.pointee.version.map { Livekit_TimedVersion(_sharing: $0, owner: _owner) } ?? Livekit_TimedVersion() }
+        set { _ensureUnique(); lkSetMessage(&_pointer.pointee.version, newValue) }
     }
-    var hasVersion: Bool { _box.storage.version != nil }
+    var hasVersion: Bool { _pointer.pointee.version != nil }
 
     var departureTimeout: UInt32 {
-        get { _box.storage.departure_timeout?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.departure_timeout, newValue) }
+        get { _pointer.pointee.departure_timeout?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.departure_timeout, newValue) }
     }
-    var hasDepartureTimeout: Bool { _box.storage.departure_timeout != nil }
+    var hasDepartureTimeout: Bool { _pointer.pointee.departure_timeout != nil }
 
     var creationTimeMs: Int64 {
-        get { _box.storage.creation_time_ms?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.creation_time_ms, newValue) }
+        get { _pointer.pointee.creation_time_ms?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.creation_time_ms, newValue) }
     }
-    var hasCreationTimeMs: Bool { _box.storage.creation_time_ms != nil }
+    var hasCreationTimeMs: Bool { _pointer.pointee.creation_time_ms != nil }
 
 }
 
-struct Livekit_Codec: NanopbMessage {
+struct Livekit_Codec: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_Codec
     static var descriptor: pb_msgdesc_t { livekit_Codec_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var mime: String {
-        get { lkString(_box.storage.mime) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.mime, newValue) }
+        get { lkString(_pointer.pointee.mime) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.mime, newValue) }
     }
-    var hasMime: Bool { _box.storage.mime != nil }
+    var hasMime: Bool { _pointer.pointee.mime != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withMimeBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.mime, body)
+        try withLkBytes(_pointer.pointee.mime, body)
     }
 
     var fmtpLine: String {
-        get { lkString(_box.storage.fmtp_line) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.fmtp_line, newValue) }
+        get { lkString(_pointer.pointee.fmtp_line) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.fmtp_line, newValue) }
     }
-    var hasFmtpLine: Bool { _box.storage.fmtp_line != nil }
+    var hasFmtpLine: Bool { _pointer.pointee.fmtp_line != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withFmtpLineBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.fmtp_line, body)
+        try withLkBytes(_pointer.pointee.fmtp_line, body)
     }
 
 }
 
-struct Livekit_ParticipantPermission: NanopbMessage {
+struct Livekit_ParticipantPermission: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_ParticipantPermission
     static var descriptor: pb_msgdesc_t { livekit_ParticipantPermission_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var canSubscribe: Bool {
-        get { _box.storage.can_subscribe?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.can_subscribe, newValue) }
+        get { _pointer.pointee.can_subscribe?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.can_subscribe, newValue) }
     }
-    var hasCanSubscribe: Bool { _box.storage.can_subscribe != nil }
+    var hasCanSubscribe: Bool { _pointer.pointee.can_subscribe != nil }
 
     var canPublish: Bool {
-        get { _box.storage.can_publish?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.can_publish, newValue) }
+        get { _pointer.pointee.can_publish?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.can_publish, newValue) }
     }
-    var hasCanPublish: Bool { _box.storage.can_publish != nil }
+    var hasCanPublish: Bool { _pointer.pointee.can_publish != nil }
 
     var canPublishData: Bool {
-        get { _box.storage.can_publish_data?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.can_publish_data, newValue) }
+        get { _pointer.pointee.can_publish_data?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.can_publish_data, newValue) }
     }
-    var hasCanPublishData: Bool { _box.storage.can_publish_data != nil }
+    var hasCanPublishData: Bool { _pointer.pointee.can_publish_data != nil }
 
     var hidden: Bool {
-        get { _box.storage.hidden?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.hidden, newValue) }
+        get { _pointer.pointee.hidden?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.hidden, newValue) }
     }
-    var hasHidden: Bool { _box.storage.hidden != nil }
+    var hasHidden: Bool { _pointer.pointee.hidden != nil }
 
     var recorder: Bool {
-        get { _box.storage.recorder?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.recorder, newValue) }
+        get { _pointer.pointee.recorder?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.recorder, newValue) }
     }
-    var hasRecorder: Bool { _box.storage.recorder != nil }
+    var hasRecorder: Bool { _pointer.pointee.recorder != nil }
 
     var canPublishSources: [Livekit_TrackSource] {
-        get { lkRepeatedEnum(_box.storage.can_publish_sources_count, _box.storage.can_publish_sources) }
+        get { lkRepeatedEnum(_pointer.pointee.can_publish_sources_count, _pointer.pointee.can_publish_sources) }
         set {
             _ensureUnique()
-            var count = _box.storage.can_publish_sources_count, base = _box.storage.can_publish_sources
+            var count = _pointer.pointee.can_publish_sources_count, base = _pointer.pointee.can_publish_sources
             lkSetRepeatedEnum(&count, &base, newValue)
-            _box.storage.can_publish_sources_count = count; _box.storage.can_publish_sources = base
+            _pointer.pointee.can_publish_sources_count = count; _pointer.pointee.can_publish_sources = base
         }
     }
 
     var canUpdateMetadata: Bool {
-        get { _box.storage.can_update_metadata?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.can_update_metadata, newValue) }
+        get { _pointer.pointee.can_update_metadata?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.can_update_metadata, newValue) }
     }
-    var hasCanUpdateMetadata: Bool { _box.storage.can_update_metadata != nil }
+    var hasCanUpdateMetadata: Bool { _pointer.pointee.can_update_metadata != nil }
 
     var agent: Bool {
-        get { _box.storage.agent?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.agent, newValue) }
+        get { _pointer.pointee.agent?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.agent, newValue) }
     }
-    var hasAgent: Bool { _box.storage.agent != nil }
+    var hasAgent: Bool { _pointer.pointee.agent != nil }
 
     var canSubscribeMetrics: Bool {
-        get { _box.storage.can_subscribe_metrics?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.can_subscribe_metrics, newValue) }
+        get { _pointer.pointee.can_subscribe_metrics?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.can_subscribe_metrics, newValue) }
     }
-    var hasCanSubscribeMetrics: Bool { _box.storage.can_subscribe_metrics != nil }
+    var hasCanSubscribeMetrics: Bool { _pointer.pointee.can_subscribe_metrics != nil }
 
     var canManageAgentSession: Bool {
-        get { _box.storage.can_manage_agent_session?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.can_manage_agent_session, newValue) }
+        get { _pointer.pointee.can_manage_agent_session?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.can_manage_agent_session, newValue) }
     }
-    var hasCanManageAgentSession: Bool { _box.storage.can_manage_agent_session != nil }
+    var hasCanManageAgentSession: Bool { _pointer.pointee.can_manage_agent_session != nil }
 
 }
 
-struct Livekit_ParticipantInfo: NanopbMessage {
+struct Livekit_ParticipantInfo: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_ParticipantInfo
     static var descriptor: pb_msgdesc_t { livekit_ParticipantInfo_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var sid: String {
-        get { lkString(_box.storage.sid) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.sid, newValue) }
+        get { lkString(_pointer.pointee.sid) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.sid, newValue) }
     }
-    var hasSid: Bool { _box.storage.sid != nil }
+    var hasSid: Bool { _pointer.pointee.sid != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withSidBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.sid, body)
+        try withLkBytes(_pointer.pointee.sid, body)
     }
 
     var identity: String {
-        get { lkString(_box.storage.identity) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.identity, newValue) }
+        get { lkString(_pointer.pointee.identity) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.identity, newValue) }
     }
-    var hasIdentity: Bool { _box.storage.identity != nil }
+    var hasIdentity: Bool { _pointer.pointee.identity != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withIdentityBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.identity, body)
+        try withLkBytes(_pointer.pointee.identity, body)
     }
 
     var state: Livekit_ParticipantInfo.State {
-        get { _box.storage.state.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo.State() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.state, newValue) }
+        get { _pointer.pointee.state.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo.State() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.state, newValue) }
     }
-    var hasState: Bool { _box.storage.state != nil }
+    var hasState: Bool { _pointer.pointee.state != nil }
 
     var tracks: [Livekit_TrackInfo] {
-        get { lkRepeatedMessages(_box.storage.tracks_count, _box.storage.tracks) }
+        get { lkViews(_pointer.pointee.tracks_count, _pointer.pointee.tracks, owner: _owner) }
         set {
             _ensureUnique()
-            var count = _box.storage.tracks_count, base = _box.storage.tracks
+            var count = _pointer.pointee.tracks_count, base = _pointer.pointee.tracks
             lkSetRepeatedMessages(&count, &base, newValue)
-            _box.storage.tracks_count = count; _box.storage.tracks = base
+            _pointer.pointee.tracks_count = count; _pointer.pointee.tracks = base
         }
     }
 
     var metadata: String {
-        get { lkString(_box.storage.metadata) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.metadata, newValue) }
+        get { lkString(_pointer.pointee.metadata) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.metadata, newValue) }
     }
-    var hasMetadata: Bool { _box.storage.metadata != nil }
+    var hasMetadata: Bool { _pointer.pointee.metadata != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withMetadataBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.metadata, body)
+        try withLkBytes(_pointer.pointee.metadata, body)
     }
 
     var joinedAt: Int64 {
-        get { _box.storage.joined_at?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.joined_at, newValue) }
+        get { _pointer.pointee.joined_at?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.joined_at, newValue) }
     }
-    var hasJoinedAt: Bool { _box.storage.joined_at != nil }
+    var hasJoinedAt: Bool { _pointer.pointee.joined_at != nil }
 
     var name: String {
-        get { lkString(_box.storage.name) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.name, newValue) }
+        get { lkString(_pointer.pointee.name) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.name, newValue) }
     }
-    var hasName: Bool { _box.storage.name != nil }
+    var hasName: Bool { _pointer.pointee.name != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withNameBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.name, body)
+        try withLkBytes(_pointer.pointee.name, body)
     }
 
     var version: UInt32 {
-        get { _box.storage.version?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.version, newValue) }
+        get { _pointer.pointee.version?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.version, newValue) }
     }
-    var hasVersion: Bool { _box.storage.version != nil }
+    var hasVersion: Bool { _pointer.pointee.version != nil }
 
     var permission: Livekit_ParticipantPermission {
-        get { lkMessage(_box.storage.permission) }
-        set { _ensureUnique(); lkSetMessage(&_box.storage.permission, newValue) }
+        get { _pointer.pointee.permission.map { Livekit_ParticipantPermission(_sharing: $0, owner: _owner) } ?? Livekit_ParticipantPermission() }
+        set { _ensureUnique(); lkSetMessage(&_pointer.pointee.permission, newValue) }
     }
-    var hasPermission: Bool { _box.storage.permission != nil }
+    var hasPermission: Bool { _pointer.pointee.permission != nil }
 
     var region: String {
-        get { lkString(_box.storage.region) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.region, newValue) }
+        get { lkString(_pointer.pointee.region) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.region, newValue) }
     }
-    var hasRegion: Bool { _box.storage.region != nil }
+    var hasRegion: Bool { _pointer.pointee.region != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withRegionBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.region, body)
+        try withLkBytes(_pointer.pointee.region, body)
     }
 
     var isPublisher: Bool {
-        get { _box.storage.is_publisher?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.is_publisher, newValue) }
+        get { _pointer.pointee.is_publisher?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.is_publisher, newValue) }
     }
-    var hasIsPublisher: Bool { _box.storage.is_publisher != nil }
+    var hasIsPublisher: Bool { _pointer.pointee.is_publisher != nil }
 
     var kind: Livekit_ParticipantInfo.Kind {
-        get { _box.storage.kind.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo.Kind() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.kind, newValue) }
+        get { _pointer.pointee.kind.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo.Kind() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.kind, newValue) }
     }
-    var hasKind: Bool { _box.storage.kind != nil }
+    var hasKind: Bool { _pointer.pointee.kind != nil }
 
     var attributes: [String: String] {
         get {
             var out: [String: String] = [:]
-            for entry in lkRepeatedMessages(_box.storage.attributes_count, _box.storage.attributes) as [Livekit_ParticipantInfo.AttributesEntry] {
+            for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _owner) as [Livekit_ParticipantInfo.AttributesEntry] {
                 out[entry.key] = entry.value
             }
             return out
@@ -342,76 +390,88 @@ struct Livekit_ParticipantInfo: NanopbMessage {
             let entries = newValue.sorted { $0.key < $1.key }.map { pair in
                 Livekit_ParticipantInfo.AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
             }
-            var count = _box.storage.attributes_count, base = _box.storage.attributes
+            var count = _pointer.pointee.attributes_count, base = _pointer.pointee.attributes
             lkSetRepeatedMessages(&count, &base, entries)
-            _box.storage.attributes_count = count; _box.storage.attributes = base
+            _pointer.pointee.attributes_count = count; _pointer.pointee.attributes = base
         }
     }
 
     var disconnectReason: Livekit_DisconnectReason {
-        get { _box.storage.disconnect_reason.map { lkEnum($0.pointee) } ?? Livekit_DisconnectReason() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.disconnect_reason, newValue) }
+        get { _pointer.pointee.disconnect_reason.map { lkEnum($0.pointee) } ?? Livekit_DisconnectReason() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.disconnect_reason, newValue) }
     }
-    var hasDisconnectReason: Bool { _box.storage.disconnect_reason != nil }
+    var hasDisconnectReason: Bool { _pointer.pointee.disconnect_reason != nil }
 
     var joinedAtMs: Int64 {
-        get { _box.storage.joined_at_ms?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.joined_at_ms, newValue) }
+        get { _pointer.pointee.joined_at_ms?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.joined_at_ms, newValue) }
     }
-    var hasJoinedAtMs: Bool { _box.storage.joined_at_ms != nil }
+    var hasJoinedAtMs: Bool { _pointer.pointee.joined_at_ms != nil }
 
     var kindDetails: [Livekit_ParticipantInfo.KindDetail] {
-        get { lkRepeatedEnum(_box.storage.kind_details_count, _box.storage.kind_details) }
+        get { lkRepeatedEnum(_pointer.pointee.kind_details_count, _pointer.pointee.kind_details) }
         set {
             _ensureUnique()
-            var count = _box.storage.kind_details_count, base = _box.storage.kind_details
+            var count = _pointer.pointee.kind_details_count, base = _pointer.pointee.kind_details
             lkSetRepeatedEnum(&count, &base, newValue)
-            _box.storage.kind_details_count = count; _box.storage.kind_details = base
+            _pointer.pointee.kind_details_count = count; _pointer.pointee.kind_details = base
         }
     }
 
     var dataTracks: [Livekit_DataTrackInfo] {
-        get { lkRepeatedMessages(_box.storage.data_tracks_count, _box.storage.data_tracks) }
+        get { lkViews(_pointer.pointee.data_tracks_count, _pointer.pointee.data_tracks, owner: _owner) }
         set {
             _ensureUnique()
-            var count = _box.storage.data_tracks_count, base = _box.storage.data_tracks
+            var count = _pointer.pointee.data_tracks_count, base = _pointer.pointee.data_tracks
             lkSetRepeatedMessages(&count, &base, newValue)
-            _box.storage.data_tracks_count = count; _box.storage.data_tracks = base
+            _pointer.pointee.data_tracks_count = count; _pointer.pointee.data_tracks = base
         }
     }
 
     var clientProtocol: Int32 {
-        get { _box.storage.client_protocol?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.client_protocol, newValue) }
+        get { _pointer.pointee.client_protocol?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.client_protocol, newValue) }
     }
-    var hasClientProtocol: Bool { _box.storage.client_protocol != nil }
+    var hasClientProtocol: Bool { _pointer.pointee.client_protocol != nil }
 
-    struct AttributesEntry: NanopbMessage {
+    struct AttributesEntry: NanopbMessage, @unchecked Sendable {
         typealias Storage = livekit_ParticipantInfo_AttributesEntry
         static var descriptor: pb_msgdesc_t { livekit_ParticipantInfo_AttributesEntry_msg }
         static var zero: Storage { Storage() }
 
-        var _box: NanopbBox<Storage>
-        init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+        var _owner: AnyObject
+        var _pointer: UnsafeMutablePointer<Storage>
+
+        init() {
+            let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+            _owner = box
+            _pointer = box.pointer
+        }
+
+        /// Zero-copy view into `owner`'s storage.
+        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+            _owner = owner
+            _pointer = pointer
+        }
 
         var key: String {
-            get { lkString(_box.storage.key) ?? "" }
-            set { _ensureUnique(); lkSetString(&_box.storage.key, newValue) }
+            get { lkString(_pointer.pointee.key) ?? "" }
+            set { _ensureUnique(); lkSetString(&_pointer.pointee.key, newValue) }
         }
-        var hasKey: Bool { _box.storage.key != nil }
+        var hasKey: Bool { _pointer.pointee.key != nil }
         /// Zero-copy read — borrows nanopb's allocation for the call only.
         func withKeyBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-            try withLkBytes(_box.storage.key, body)
+            try withLkBytes(_pointer.pointee.key, body)
         }
 
         var value: String {
-            get { lkString(_box.storage.value) ?? "" }
-            set { _ensureUnique(); lkSetString(&_box.storage.value, newValue) }
+            get { lkString(_pointer.pointee.value) ?? "" }
+            set { _ensureUnique(); lkSetString(&_pointer.pointee.value, newValue) }
         }
-        var hasValue: Bool { _box.storage.value != nil }
+        var hasValue: Bool { _pointer.pointee.value != nil }
         /// Zero-copy read — borrows nanopb's allocation for the call only.
         func withValueBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-            try withLkBytes(_box.storage.value, body)
+            try withLkBytes(_pointer.pointee.value, body)
         }
 
     }
@@ -532,13 +592,25 @@ struct Livekit_ParticipantInfo: NanopbMessage {
 
 }
 
-struct Livekit_Encryption: NanopbMessage {
+struct Livekit_Encryption: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_Encryption
     static var descriptor: pb_msgdesc_t { livekit_Encryption_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     enum TypeEnum: NanopbEnum, CaseIterable {
         case none
@@ -573,361 +645,421 @@ struct Livekit_Encryption: NanopbMessage {
 
 }
 
-struct Livekit_SimulcastCodecInfo: NanopbMessage {
+struct Livekit_SimulcastCodecInfo: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_SimulcastCodecInfo
     static var descriptor: pb_msgdesc_t { livekit_SimulcastCodecInfo_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var mimeType: String {
-        get { lkString(_box.storage.mime_type) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.mime_type, newValue) }
+        get { lkString(_pointer.pointee.mime_type) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.mime_type, newValue) }
     }
-    var hasMimeType: Bool { _box.storage.mime_type != nil }
+    var hasMimeType: Bool { _pointer.pointee.mime_type != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withMimeTypeBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.mime_type, body)
+        try withLkBytes(_pointer.pointee.mime_type, body)
     }
 
     var mid: String {
-        get { lkString(_box.storage.mid) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.mid, newValue) }
+        get { lkString(_pointer.pointee.mid) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.mid, newValue) }
     }
-    var hasMid: Bool { _box.storage.mid != nil }
+    var hasMid: Bool { _pointer.pointee.mid != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withMidBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.mid, body)
+        try withLkBytes(_pointer.pointee.mid, body)
     }
 
     var cid: String {
-        get { lkString(_box.storage.cid) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.cid, newValue) }
+        get { lkString(_pointer.pointee.cid) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.cid, newValue) }
     }
-    var hasCid: Bool { _box.storage.cid != nil }
+    var hasCid: Bool { _pointer.pointee.cid != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withCidBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.cid, body)
+        try withLkBytes(_pointer.pointee.cid, body)
     }
 
     var layers: [Livekit_VideoLayer] {
-        get { lkRepeatedMessages(_box.storage.layers_count, _box.storage.layers) }
+        get { lkViews(_pointer.pointee.layers_count, _pointer.pointee.layers, owner: _owner) }
         set {
             _ensureUnique()
-            var count = _box.storage.layers_count, base = _box.storage.layers
+            var count = _pointer.pointee.layers_count, base = _pointer.pointee.layers
             lkSetRepeatedMessages(&count, &base, newValue)
-            _box.storage.layers_count = count; _box.storage.layers = base
+            _pointer.pointee.layers_count = count; _pointer.pointee.layers = base
         }
     }
 
     var videoLayerMode: Livekit_VideoLayer.Mode {
-        get { _box.storage.video_layer_mode.map { lkEnum($0.pointee) } ?? Livekit_VideoLayer.Mode() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.video_layer_mode, newValue) }
+        get { _pointer.pointee.video_layer_mode.map { lkEnum($0.pointee) } ?? Livekit_VideoLayer.Mode() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.video_layer_mode, newValue) }
     }
-    var hasVideoLayerMode: Bool { _box.storage.video_layer_mode != nil }
+    var hasVideoLayerMode: Bool { _pointer.pointee.video_layer_mode != nil }
 
     var sdpCid: String {
-        get { lkString(_box.storage.sdp_cid) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.sdp_cid, newValue) }
+        get { lkString(_pointer.pointee.sdp_cid) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.sdp_cid, newValue) }
     }
-    var hasSdpCid: Bool { _box.storage.sdp_cid != nil }
+    var hasSdpCid: Bool { _pointer.pointee.sdp_cid != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withSdpCidBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.sdp_cid, body)
+        try withLkBytes(_pointer.pointee.sdp_cid, body)
     }
 
 }
 
-struct Livekit_TrackInfo: NanopbMessage {
+struct Livekit_TrackInfo: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_TrackInfo
     static var descriptor: pb_msgdesc_t { livekit_TrackInfo_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var sid: String {
-        get { lkString(_box.storage.sid) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.sid, newValue) }
+        get { lkString(_pointer.pointee.sid) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.sid, newValue) }
     }
-    var hasSid: Bool { _box.storage.sid != nil }
+    var hasSid: Bool { _pointer.pointee.sid != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withSidBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.sid, body)
+        try withLkBytes(_pointer.pointee.sid, body)
     }
 
     var type: Livekit_TrackType {
-        get { _box.storage.type.map { lkEnum($0.pointee) } ?? Livekit_TrackType() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.type, newValue) }
+        get { _pointer.pointee.type.map { lkEnum($0.pointee) } ?? Livekit_TrackType() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.type, newValue) }
     }
-    var hasType: Bool { _box.storage.type != nil }
+    var hasType: Bool { _pointer.pointee.type != nil }
 
     var name: String {
-        get { lkString(_box.storage.name) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.name, newValue) }
+        get { lkString(_pointer.pointee.name) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.name, newValue) }
     }
-    var hasName: Bool { _box.storage.name != nil }
+    var hasName: Bool { _pointer.pointee.name != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withNameBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.name, body)
+        try withLkBytes(_pointer.pointee.name, body)
     }
 
     var muted: Bool {
-        get { _box.storage.muted?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.muted, newValue) }
+        get { _pointer.pointee.muted?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.muted, newValue) }
     }
-    var hasMuted: Bool { _box.storage.muted != nil }
+    var hasMuted: Bool { _pointer.pointee.muted != nil }
 
     var width: UInt32 {
-        get { _box.storage.width?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.width, newValue) }
+        get { _pointer.pointee.width?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.width, newValue) }
     }
-    var hasWidth: Bool { _box.storage.width != nil }
+    var hasWidth: Bool { _pointer.pointee.width != nil }
 
     var height: UInt32 {
-        get { _box.storage.height?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.height, newValue) }
+        get { _pointer.pointee.height?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.height, newValue) }
     }
-    var hasHeight: Bool { _box.storage.height != nil }
+    var hasHeight: Bool { _pointer.pointee.height != nil }
 
     var simulcast: Bool {
-        get { _box.storage.simulcast?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.simulcast, newValue) }
+        get { _pointer.pointee.simulcast?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.simulcast, newValue) }
     }
-    var hasSimulcast: Bool { _box.storage.simulcast != nil }
+    var hasSimulcast: Bool { _pointer.pointee.simulcast != nil }
 
     var disableDtx: Bool {
-        get { _box.storage.disable_dtx?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.disable_dtx, newValue) }
+        get { _pointer.pointee.disable_dtx?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.disable_dtx, newValue) }
     }
-    var hasDisableDtx: Bool { _box.storage.disable_dtx != nil }
+    var hasDisableDtx: Bool { _pointer.pointee.disable_dtx != nil }
 
     var source: Livekit_TrackSource {
-        get { _box.storage.source.map { lkEnum($0.pointee) } ?? Livekit_TrackSource() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.source, newValue) }
+        get { _pointer.pointee.source.map { lkEnum($0.pointee) } ?? Livekit_TrackSource() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.source, newValue) }
     }
-    var hasSource: Bool { _box.storage.source != nil }
+    var hasSource: Bool { _pointer.pointee.source != nil }
 
     var layers: [Livekit_VideoLayer] {
-        get { lkRepeatedMessages(_box.storage.layers_count, _box.storage.layers) }
+        get { lkViews(_pointer.pointee.layers_count, _pointer.pointee.layers, owner: _owner) }
         set {
             _ensureUnique()
-            var count = _box.storage.layers_count, base = _box.storage.layers
+            var count = _pointer.pointee.layers_count, base = _pointer.pointee.layers
             lkSetRepeatedMessages(&count, &base, newValue)
-            _box.storage.layers_count = count; _box.storage.layers = base
+            _pointer.pointee.layers_count = count; _pointer.pointee.layers = base
         }
     }
 
     var mimeType: String {
-        get { lkString(_box.storage.mime_type) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.mime_type, newValue) }
+        get { lkString(_pointer.pointee.mime_type) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.mime_type, newValue) }
     }
-    var hasMimeType: Bool { _box.storage.mime_type != nil }
+    var hasMimeType: Bool { _pointer.pointee.mime_type != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withMimeTypeBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.mime_type, body)
+        try withLkBytes(_pointer.pointee.mime_type, body)
     }
 
     var mid: String {
-        get { lkString(_box.storage.mid) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.mid, newValue) }
+        get { lkString(_pointer.pointee.mid) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.mid, newValue) }
     }
-    var hasMid: Bool { _box.storage.mid != nil }
+    var hasMid: Bool { _pointer.pointee.mid != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withMidBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.mid, body)
+        try withLkBytes(_pointer.pointee.mid, body)
     }
 
     var codecs: [Livekit_SimulcastCodecInfo] {
-        get { lkRepeatedMessages(_box.storage.codecs_count, _box.storage.codecs) }
+        get { lkViews(_pointer.pointee.codecs_count, _pointer.pointee.codecs, owner: _owner) }
         set {
             _ensureUnique()
-            var count = _box.storage.codecs_count, base = _box.storage.codecs
+            var count = _pointer.pointee.codecs_count, base = _pointer.pointee.codecs
             lkSetRepeatedMessages(&count, &base, newValue)
-            _box.storage.codecs_count = count; _box.storage.codecs = base
+            _pointer.pointee.codecs_count = count; _pointer.pointee.codecs = base
         }
     }
 
     var stereo: Bool {
-        get { _box.storage.stereo?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.stereo, newValue) }
+        get { _pointer.pointee.stereo?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.stereo, newValue) }
     }
-    var hasStereo: Bool { _box.storage.stereo != nil }
+    var hasStereo: Bool { _pointer.pointee.stereo != nil }
 
     var disableRed: Bool {
-        get { _box.storage.disable_red?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.disable_red, newValue) }
+        get { _pointer.pointee.disable_red?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.disable_red, newValue) }
     }
-    var hasDisableRed: Bool { _box.storage.disable_red != nil }
+    var hasDisableRed: Bool { _pointer.pointee.disable_red != nil }
 
     var encryption: Livekit_Encryption.TypeEnum {
-        get { _box.storage.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.encryption, newValue) }
+        get { _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.encryption, newValue) }
     }
-    var hasEncryption: Bool { _box.storage.encryption != nil }
+    var hasEncryption: Bool { _pointer.pointee.encryption != nil }
 
     var stream: String {
-        get { lkString(_box.storage.stream) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.stream, newValue) }
+        get { lkString(_pointer.pointee.stream) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.stream, newValue) }
     }
-    var hasStream: Bool { _box.storage.stream != nil }
+    var hasStream: Bool { _pointer.pointee.stream != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withStreamBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.stream, body)
+        try withLkBytes(_pointer.pointee.stream, body)
     }
 
     var version: Livekit_TimedVersion {
-        get { lkMessage(_box.storage.version) }
-        set { _ensureUnique(); lkSetMessage(&_box.storage.version, newValue) }
+        get { _pointer.pointee.version.map { Livekit_TimedVersion(_sharing: $0, owner: _owner) } ?? Livekit_TimedVersion() }
+        set { _ensureUnique(); lkSetMessage(&_pointer.pointee.version, newValue) }
     }
-    var hasVersion: Bool { _box.storage.version != nil }
+    var hasVersion: Bool { _pointer.pointee.version != nil }
 
     var audioFeatures: [Livekit_AudioTrackFeature] {
-        get { lkRepeatedEnum(_box.storage.audio_features_count, _box.storage.audio_features) }
+        get { lkRepeatedEnum(_pointer.pointee.audio_features_count, _pointer.pointee.audio_features) }
         set {
             _ensureUnique()
-            var count = _box.storage.audio_features_count, base = _box.storage.audio_features
+            var count = _pointer.pointee.audio_features_count, base = _pointer.pointee.audio_features
             lkSetRepeatedEnum(&count, &base, newValue)
-            _box.storage.audio_features_count = count; _box.storage.audio_features = base
+            _pointer.pointee.audio_features_count = count; _pointer.pointee.audio_features = base
         }
     }
 
     var backupCodecPolicy: Livekit_BackupCodecPolicy {
-        get { _box.storage.backup_codec_policy.map { lkEnum($0.pointee) } ?? Livekit_BackupCodecPolicy() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.backup_codec_policy, newValue) }
+        get { _pointer.pointee.backup_codec_policy.map { lkEnum($0.pointee) } ?? Livekit_BackupCodecPolicy() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.backup_codec_policy, newValue) }
     }
-    var hasBackupCodecPolicy: Bool { _box.storage.backup_codec_policy != nil }
+    var hasBackupCodecPolicy: Bool { _pointer.pointee.backup_codec_policy != nil }
 
     var packetTrailerFeatures: [Livekit_PacketTrailerFeature] {
-        get { lkRepeatedEnum(_box.storage.packet_trailer_features_count, _box.storage.packet_trailer_features) }
+        get { lkRepeatedEnum(_pointer.pointee.packet_trailer_features_count, _pointer.pointee.packet_trailer_features) }
         set {
             _ensureUnique()
-            var count = _box.storage.packet_trailer_features_count, base = _box.storage.packet_trailer_features
+            var count = _pointer.pointee.packet_trailer_features_count, base = _pointer.pointee.packet_trailer_features
             lkSetRepeatedEnum(&count, &base, newValue)
-            _box.storage.packet_trailer_features_count = count; _box.storage.packet_trailer_features = base
+            _pointer.pointee.packet_trailer_features_count = count; _pointer.pointee.packet_trailer_features = base
         }
     }
 
 }
 
-struct Livekit_DataTrackInfo: NanopbMessage {
+struct Livekit_DataTrackInfo: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_DataTrackInfo
     static var descriptor: pb_msgdesc_t { livekit_DataTrackInfo_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var pubHandle: UInt32 {
-        get { _box.storage.pub_handle?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.pub_handle, newValue) }
+        get { _pointer.pointee.pub_handle?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.pub_handle, newValue) }
     }
-    var hasPubHandle: Bool { _box.storage.pub_handle != nil }
+    var hasPubHandle: Bool { _pointer.pointee.pub_handle != nil }
 
     var sid: String {
-        get { lkString(_box.storage.sid) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.sid, newValue) }
+        get { lkString(_pointer.pointee.sid) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.sid, newValue) }
     }
-    var hasSid: Bool { _box.storage.sid != nil }
+    var hasSid: Bool { _pointer.pointee.sid != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withSidBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.sid, body)
+        try withLkBytes(_pointer.pointee.sid, body)
     }
 
     var name: String {
-        get { lkString(_box.storage.name) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.name, newValue) }
+        get { lkString(_pointer.pointee.name) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.name, newValue) }
     }
-    var hasName: Bool { _box.storage.name != nil }
+    var hasName: Bool { _pointer.pointee.name != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withNameBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.name, body)
+        try withLkBytes(_pointer.pointee.name, body)
     }
 
     var encryption: Livekit_Encryption.TypeEnum {
-        get { _box.storage.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.encryption, newValue) }
+        get { _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.encryption, newValue) }
     }
-    var hasEncryption: Bool { _box.storage.encryption != nil }
+    var hasEncryption: Bool { _pointer.pointee.encryption != nil }
 
 }
 
-struct Livekit_DataTrackSubscriptionOptions: NanopbMessage {
+struct Livekit_DataTrackSubscriptionOptions: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_DataTrackSubscriptionOptions
     static var descriptor: pb_msgdesc_t { livekit_DataTrackSubscriptionOptions_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var targetFps: UInt32 {
-        get { _box.storage.target_fps?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.target_fps, newValue) }
+        get { _pointer.pointee.target_fps?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.target_fps, newValue) }
     }
-    var hasTargetFps: Bool { _box.storage.target_fps != nil }
+    var hasTargetFps: Bool { _pointer.pointee.target_fps != nil }
 
 }
 
-struct Livekit_VideoLayer: NanopbMessage {
+struct Livekit_VideoLayer: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_VideoLayer
     static var descriptor: pb_msgdesc_t { livekit_VideoLayer_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var quality: Livekit_VideoQuality {
-        get { _box.storage.quality.map { lkEnum($0.pointee) } ?? Livekit_VideoQuality() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.quality, newValue) }
+        get { _pointer.pointee.quality.map { lkEnum($0.pointee) } ?? Livekit_VideoQuality() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.quality, newValue) }
     }
-    var hasQuality: Bool { _box.storage.quality != nil }
+    var hasQuality: Bool { _pointer.pointee.quality != nil }
 
     var width: UInt32 {
-        get { _box.storage.width?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.width, newValue) }
+        get { _pointer.pointee.width?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.width, newValue) }
     }
-    var hasWidth: Bool { _box.storage.width != nil }
+    var hasWidth: Bool { _pointer.pointee.width != nil }
 
     var height: UInt32 {
-        get { _box.storage.height?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.height, newValue) }
+        get { _pointer.pointee.height?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.height, newValue) }
     }
-    var hasHeight: Bool { _box.storage.height != nil }
+    var hasHeight: Bool { _pointer.pointee.height != nil }
 
     var bitrate: UInt32 {
-        get { _box.storage.bitrate?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.bitrate, newValue) }
+        get { _pointer.pointee.bitrate?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.bitrate, newValue) }
     }
-    var hasBitrate: Bool { _box.storage.bitrate != nil }
+    var hasBitrate: Bool { _pointer.pointee.bitrate != nil }
 
     var ssrc: UInt32 {
-        get { _box.storage.ssrc?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.ssrc, newValue) }
+        get { _pointer.pointee.ssrc?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.ssrc, newValue) }
     }
-    var hasSsrc: Bool { _box.storage.ssrc != nil }
+    var hasSsrc: Bool { _pointer.pointee.ssrc != nil }
 
     var spatialLayer: Int32 {
-        get { _box.storage.spatial_layer?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.spatial_layer, newValue) }
+        get { _pointer.pointee.spatial_layer?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.spatial_layer, newValue) }
     }
-    var hasSpatialLayer: Bool { _box.storage.spatial_layer != nil }
+    var hasSpatialLayer: Bool { _pointer.pointee.spatial_layer != nil }
 
     var rid: String {
-        get { lkString(_box.storage.rid) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.rid, newValue) }
+        get { lkString(_pointer.pointee.rid) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.rid, newValue) }
     }
-    var hasRid: Bool { _box.storage.rid != nil }
+    var hasRid: Bool { _pointer.pointee.rid != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withRidBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.rid, body)
+        try withLkBytes(_pointer.pointee.rid, body)
     }
 
     var repairSsrc: UInt32 {
-        get { _box.storage.repair_ssrc?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.repair_ssrc, newValue) }
+        get { _pointer.pointee.repair_ssrc?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.repair_ssrc, newValue) }
     }
-    var hasRepairSsrc: Bool { _box.storage.repair_ssrc != nil }
+    var hasRepairSsrc: Bool { _pointer.pointee.repair_ssrc != nil }
 
     enum Mode: NanopbEnum, CaseIterable {
         case unused
@@ -965,19 +1097,31 @@ struct Livekit_VideoLayer: NanopbMessage {
 
 }
 
-struct Livekit_DataPacket: NanopbMessage {
+struct Livekit_DataPacket: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_DataPacket
     static var descriptor: pb_msgdesc_t { livekit_DataPacket_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var kind: Livekit_DataPacket.Kind {
-        get { _box.storage.kind.map { lkEnum($0.pointee) } ?? Livekit_DataPacket.Kind() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.kind, newValue) }
+        get { _pointer.pointee.kind.map { lkEnum($0.pointee) } ?? Livekit_DataPacket.Kind() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.kind, newValue) }
     }
-    var hasKind: Bool { _box.storage.kind != nil }
+    var hasKind: Bool { _pointer.pointee.kind != nil }
 
     enum OneOf_Value: Equatable {
         case user(Livekit_UserPacket)
@@ -997,33 +1141,33 @@ struct Livekit_DataPacket: NanopbMessage {
     
     var value: OneOf_Value? {
         get {
-            switch _box.storage.which_value {
+            switch _pointer.pointee.which_value {
             case pb_size_t(livekit_DataPacket_user_tag):
-                return .user(lkMessage(_box.storage.value.user))
+                return .user(_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _owner) } ?? Livekit_UserPacket())
             case pb_size_t(livekit_DataPacket_speaker_tag):
-                return .speaker(lkMessage(_box.storage.value.speaker))
+                return .speaker(_pointer.pointee.value.speaker.map { Livekit_ActiveSpeakerUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ActiveSpeakerUpdate())
             case pb_size_t(livekit_DataPacket_sip_dtmf_tag):
-                return .sipDtmf(lkMessage(_box.storage.value.sip_dtmf))
+                return .sipDtmf(_pointer.pointee.value.sip_dtmf.map { Livekit_SipDTMF(_sharing: $0, owner: _owner) } ?? Livekit_SipDTMF())
             case pb_size_t(livekit_DataPacket_transcription_tag):
-                return .transcription(lkMessage(_box.storage.value.transcription))
+                return .transcription(_pointer.pointee.value.transcription.map { Livekit_Transcription(_sharing: $0, owner: _owner) } ?? Livekit_Transcription())
             case pb_size_t(livekit_DataPacket_metrics_tag):
-                return .metrics(lkMessage(_box.storage.value.metrics))
+                return .metrics(_pointer.pointee.value.metrics.map { Livekit_MetricsBatch(_sharing: $0, owner: _owner) } ?? Livekit_MetricsBatch())
             case pb_size_t(livekit_DataPacket_chat_message_tag):
-                return .chatMessage(lkMessage(_box.storage.value.chat_message))
+                return .chatMessage(_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _owner) } ?? Livekit_ChatMessage())
             case pb_size_t(livekit_DataPacket_rpc_request_tag):
-                return .rpcRequest(lkMessage(_box.storage.value.rpc_request))
+                return .rpcRequest(_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _owner) } ?? Livekit_RpcRequest())
             case pb_size_t(livekit_DataPacket_rpc_ack_tag):
-                return .rpcAck(lkMessage(_box.storage.value.rpc_ack))
+                return .rpcAck(_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _owner) } ?? Livekit_RpcAck())
             case pb_size_t(livekit_DataPacket_rpc_response_tag):
-                return .rpcResponse(lkMessage(_box.storage.value.rpc_response))
+                return .rpcResponse(_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse())
             case pb_size_t(livekit_DataPacket_stream_header_tag):
-                return .streamHeader(lkMessage(_box.storage.value.stream_header))
+                return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Header())
             case pb_size_t(livekit_DataPacket_stream_chunk_tag):
-                return .streamChunk(lkMessage(_box.storage.value.stream_chunk))
+                return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Chunk())
             case pb_size_t(livekit_DataPacket_stream_trailer_tag):
-                return .streamTrailer(lkMessage(_box.storage.value.stream_trailer))
+                return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Trailer())
             case pb_size_t(livekit_DataPacket_encrypted_packet_tag):
-                return .encryptedPacket(lkMessage(_box.storage.value.encrypted_packet))
+                return .encryptedPacket(_pointer.pointee.value.encrypted_packet.map { Livekit_EncryptedPacket(_sharing: $0, owner: _owner) } ?? Livekit_EncryptedPacket())
             default: return nil
             }
         }
@@ -1032,237 +1176,237 @@ struct Livekit_DataPacket: NanopbMessage {
             _clearValue()
             switch newValue {
             case let .user(value):
-                _box.storage.which_value = pb_size_t(livekit_DataPacket_user_tag)
-                lkSetMessage(&_box.storage.value.user, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_user_tag)
+                lkSetMessage(&_pointer.pointee.value.user, value)
             case let .speaker(value):
-                _box.storage.which_value = pb_size_t(livekit_DataPacket_speaker_tag)
-                lkSetMessage(&_box.storage.value.speaker, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_speaker_tag)
+                lkSetMessage(&_pointer.pointee.value.speaker, value)
             case let .sipDtmf(value):
-                _box.storage.which_value = pb_size_t(livekit_DataPacket_sip_dtmf_tag)
-                lkSetMessage(&_box.storage.value.sip_dtmf, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_sip_dtmf_tag)
+                lkSetMessage(&_pointer.pointee.value.sip_dtmf, value)
             case let .transcription(value):
-                _box.storage.which_value = pb_size_t(livekit_DataPacket_transcription_tag)
-                lkSetMessage(&_box.storage.value.transcription, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_transcription_tag)
+                lkSetMessage(&_pointer.pointee.value.transcription, value)
             case let .metrics(value):
-                _box.storage.which_value = pb_size_t(livekit_DataPacket_metrics_tag)
-                lkSetMessage(&_box.storage.value.metrics, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_metrics_tag)
+                lkSetMessage(&_pointer.pointee.value.metrics, value)
             case let .chatMessage(value):
-                _box.storage.which_value = pb_size_t(livekit_DataPacket_chat_message_tag)
-                lkSetMessage(&_box.storage.value.chat_message, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_chat_message_tag)
+                lkSetMessage(&_pointer.pointee.value.chat_message, value)
             case let .rpcRequest(value):
-                _box.storage.which_value = pb_size_t(livekit_DataPacket_rpc_request_tag)
-                lkSetMessage(&_box.storage.value.rpc_request, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_request_tag)
+                lkSetMessage(&_pointer.pointee.value.rpc_request, value)
             case let .rpcAck(value):
-                _box.storage.which_value = pb_size_t(livekit_DataPacket_rpc_ack_tag)
-                lkSetMessage(&_box.storage.value.rpc_ack, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_ack_tag)
+                lkSetMessage(&_pointer.pointee.value.rpc_ack, value)
             case let .rpcResponse(value):
-                _box.storage.which_value = pb_size_t(livekit_DataPacket_rpc_response_tag)
-                lkSetMessage(&_box.storage.value.rpc_response, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_response_tag)
+                lkSetMessage(&_pointer.pointee.value.rpc_response, value)
             case let .streamHeader(value):
-                _box.storage.which_value = pb_size_t(livekit_DataPacket_stream_header_tag)
-                lkSetMessage(&_box.storage.value.stream_header, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_header_tag)
+                lkSetMessage(&_pointer.pointee.value.stream_header, value)
             case let .streamChunk(value):
-                _box.storage.which_value = pb_size_t(livekit_DataPacket_stream_chunk_tag)
-                lkSetMessage(&_box.storage.value.stream_chunk, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_chunk_tag)
+                lkSetMessage(&_pointer.pointee.value.stream_chunk, value)
             case let .streamTrailer(value):
-                _box.storage.which_value = pb_size_t(livekit_DataPacket_stream_trailer_tag)
-                lkSetMessage(&_box.storage.value.stream_trailer, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_trailer_tag)
+                lkSetMessage(&_pointer.pointee.value.stream_trailer, value)
             case let .encryptedPacket(value):
-                _box.storage.which_value = pb_size_t(livekit_DataPacket_encrypted_packet_tag)
-                lkSetMessage(&_box.storage.value.encrypted_packet, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_encrypted_packet_tag)
+                lkSetMessage(&_pointer.pointee.value.encrypted_packet, value)
             case nil: break
             }
         }
     }
     
     var user: Livekit_UserPacket {
-        get { _box.storage.which_value == pb_size_t(livekit_DataPacket_user_tag) ? (lkMessage(_box.storage.value.user)) : Livekit_UserPacket() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_user_tag) ? (_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _owner) } ?? Livekit_UserPacket()) : Livekit_UserPacket() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_DataPacket_user_tag)
-            lkSetMessage(&_box.storage.value.user, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_user_tag)
+            lkSetMessage(&_pointer.pointee.value.user, newValue)
         }
     }
     var speaker: Livekit_ActiveSpeakerUpdate {
-        get { _box.storage.which_value == pb_size_t(livekit_DataPacket_speaker_tag) ? (lkMessage(_box.storage.value.speaker)) : Livekit_ActiveSpeakerUpdate() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_speaker_tag) ? (_pointer.pointee.value.speaker.map { Livekit_ActiveSpeakerUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ActiveSpeakerUpdate()) : Livekit_ActiveSpeakerUpdate() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_DataPacket_speaker_tag)
-            lkSetMessage(&_box.storage.value.speaker, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_speaker_tag)
+            lkSetMessage(&_pointer.pointee.value.speaker, newValue)
         }
     }
     var sipDtmf: Livekit_SipDTMF {
-        get { _box.storage.which_value == pb_size_t(livekit_DataPacket_sip_dtmf_tag) ? (lkMessage(_box.storage.value.sip_dtmf)) : Livekit_SipDTMF() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_sip_dtmf_tag) ? (_pointer.pointee.value.sip_dtmf.map { Livekit_SipDTMF(_sharing: $0, owner: _owner) } ?? Livekit_SipDTMF()) : Livekit_SipDTMF() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_DataPacket_sip_dtmf_tag)
-            lkSetMessage(&_box.storage.value.sip_dtmf, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_sip_dtmf_tag)
+            lkSetMessage(&_pointer.pointee.value.sip_dtmf, newValue)
         }
     }
     var transcription: Livekit_Transcription {
-        get { _box.storage.which_value == pb_size_t(livekit_DataPacket_transcription_tag) ? (lkMessage(_box.storage.value.transcription)) : Livekit_Transcription() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_transcription_tag) ? (_pointer.pointee.value.transcription.map { Livekit_Transcription(_sharing: $0, owner: _owner) } ?? Livekit_Transcription()) : Livekit_Transcription() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_DataPacket_transcription_tag)
-            lkSetMessage(&_box.storage.value.transcription, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_transcription_tag)
+            lkSetMessage(&_pointer.pointee.value.transcription, newValue)
         }
     }
     var metrics: Livekit_MetricsBatch {
-        get { _box.storage.which_value == pb_size_t(livekit_DataPacket_metrics_tag) ? (lkMessage(_box.storage.value.metrics)) : Livekit_MetricsBatch() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_metrics_tag) ? (_pointer.pointee.value.metrics.map { Livekit_MetricsBatch(_sharing: $0, owner: _owner) } ?? Livekit_MetricsBatch()) : Livekit_MetricsBatch() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_DataPacket_metrics_tag)
-            lkSetMessage(&_box.storage.value.metrics, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_metrics_tag)
+            lkSetMessage(&_pointer.pointee.value.metrics, newValue)
         }
     }
     var chatMessage: Livekit_ChatMessage {
-        get { _box.storage.which_value == pb_size_t(livekit_DataPacket_chat_message_tag) ? (lkMessage(_box.storage.value.chat_message)) : Livekit_ChatMessage() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_chat_message_tag) ? (_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _owner) } ?? Livekit_ChatMessage()) : Livekit_ChatMessage() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_DataPacket_chat_message_tag)
-            lkSetMessage(&_box.storage.value.chat_message, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_chat_message_tag)
+            lkSetMessage(&_pointer.pointee.value.chat_message, newValue)
         }
     }
     var rpcRequest: Livekit_RpcRequest {
-        get { _box.storage.which_value == pb_size_t(livekit_DataPacket_rpc_request_tag) ? (lkMessage(_box.storage.value.rpc_request)) : Livekit_RpcRequest() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_request_tag) ? (_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _owner) } ?? Livekit_RpcRequest()) : Livekit_RpcRequest() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_DataPacket_rpc_request_tag)
-            lkSetMessage(&_box.storage.value.rpc_request, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_request_tag)
+            lkSetMessage(&_pointer.pointee.value.rpc_request, newValue)
         }
     }
     var rpcAck: Livekit_RpcAck {
-        get { _box.storage.which_value == pb_size_t(livekit_DataPacket_rpc_ack_tag) ? (lkMessage(_box.storage.value.rpc_ack)) : Livekit_RpcAck() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_ack_tag) ? (_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _owner) } ?? Livekit_RpcAck()) : Livekit_RpcAck() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_DataPacket_rpc_ack_tag)
-            lkSetMessage(&_box.storage.value.rpc_ack, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_ack_tag)
+            lkSetMessage(&_pointer.pointee.value.rpc_ack, newValue)
         }
     }
     var rpcResponse: Livekit_RpcResponse {
-        get { _box.storage.which_value == pb_size_t(livekit_DataPacket_rpc_response_tag) ? (lkMessage(_box.storage.value.rpc_response)) : Livekit_RpcResponse() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse()) : Livekit_RpcResponse() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_DataPacket_rpc_response_tag)
-            lkSetMessage(&_box.storage.value.rpc_response, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_response_tag)
+            lkSetMessage(&_pointer.pointee.value.rpc_response, newValue)
         }
     }
     var streamHeader: Livekit_DataStream.Header {
-        get { _box.storage.which_value == pb_size_t(livekit_DataPacket_stream_header_tag) ? (lkMessage(_box.storage.value.stream_header)) : Livekit_DataStream.Header() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Header()) : Livekit_DataStream.Header() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_DataPacket_stream_header_tag)
-            lkSetMessage(&_box.storage.value.stream_header, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_header_tag)
+            lkSetMessage(&_pointer.pointee.value.stream_header, newValue)
         }
     }
     var streamChunk: Livekit_DataStream.Chunk {
-        get { _box.storage.which_value == pb_size_t(livekit_DataPacket_stream_chunk_tag) ? (lkMessage(_box.storage.value.stream_chunk)) : Livekit_DataStream.Chunk() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Chunk()) : Livekit_DataStream.Chunk() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_DataPacket_stream_chunk_tag)
-            lkSetMessage(&_box.storage.value.stream_chunk, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_chunk_tag)
+            lkSetMessage(&_pointer.pointee.value.stream_chunk, newValue)
         }
     }
     var streamTrailer: Livekit_DataStream.Trailer {
-        get { _box.storage.which_value == pb_size_t(livekit_DataPacket_stream_trailer_tag) ? (lkMessage(_box.storage.value.stream_trailer)) : Livekit_DataStream.Trailer() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Trailer()) : Livekit_DataStream.Trailer() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_DataPacket_stream_trailer_tag)
-            lkSetMessage(&_box.storage.value.stream_trailer, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_trailer_tag)
+            lkSetMessage(&_pointer.pointee.value.stream_trailer, newValue)
         }
     }
     var encryptedPacket: Livekit_EncryptedPacket {
-        get { _box.storage.which_value == pb_size_t(livekit_DataPacket_encrypted_packet_tag) ? (lkMessage(_box.storage.value.encrypted_packet)) : Livekit_EncryptedPacket() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_encrypted_packet_tag) ? (_pointer.pointee.value.encrypted_packet.map { Livekit_EncryptedPacket(_sharing: $0, owner: _owner) } ?? Livekit_EncryptedPacket()) : Livekit_EncryptedPacket() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_DataPacket_encrypted_packet_tag)
-            lkSetMessage(&_box.storage.value.encrypted_packet, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_encrypted_packet_tag)
+            lkSetMessage(&_pointer.pointee.value.encrypted_packet, newValue)
         }
     }
     
     private mutating func _clearValue() {
-        switch _box.storage.which_value {
+        switch _pointer.pointee.which_value {
         case pb_size_t(livekit_DataPacket_user_tag):
-            lkRelease(message: &_box.storage.value.user, Livekit_UserPacket.descriptor)
+            lkRelease(message: &_pointer.pointee.value.user, Livekit_UserPacket.descriptor)
         case pb_size_t(livekit_DataPacket_speaker_tag):
-            lkRelease(message: &_box.storage.value.speaker, Livekit_ActiveSpeakerUpdate.descriptor)
+            lkRelease(message: &_pointer.pointee.value.speaker, Livekit_ActiveSpeakerUpdate.descriptor)
         case pb_size_t(livekit_DataPacket_sip_dtmf_tag):
-            lkRelease(message: &_box.storage.value.sip_dtmf, Livekit_SipDTMF.descriptor)
+            lkRelease(message: &_pointer.pointee.value.sip_dtmf, Livekit_SipDTMF.descriptor)
         case pb_size_t(livekit_DataPacket_transcription_tag):
-            lkRelease(message: &_box.storage.value.transcription, Livekit_Transcription.descriptor)
+            lkRelease(message: &_pointer.pointee.value.transcription, Livekit_Transcription.descriptor)
         case pb_size_t(livekit_DataPacket_metrics_tag):
-            lkRelease(message: &_box.storage.value.metrics, Livekit_MetricsBatch.descriptor)
+            lkRelease(message: &_pointer.pointee.value.metrics, Livekit_MetricsBatch.descriptor)
         case pb_size_t(livekit_DataPacket_chat_message_tag):
-            lkRelease(message: &_box.storage.value.chat_message, Livekit_ChatMessage.descriptor)
+            lkRelease(message: &_pointer.pointee.value.chat_message, Livekit_ChatMessage.descriptor)
         case pb_size_t(livekit_DataPacket_rpc_request_tag):
-            lkRelease(message: &_box.storage.value.rpc_request, Livekit_RpcRequest.descriptor)
+            lkRelease(message: &_pointer.pointee.value.rpc_request, Livekit_RpcRequest.descriptor)
         case pb_size_t(livekit_DataPacket_rpc_ack_tag):
-            lkRelease(message: &_box.storage.value.rpc_ack, Livekit_RpcAck.descriptor)
+            lkRelease(message: &_pointer.pointee.value.rpc_ack, Livekit_RpcAck.descriptor)
         case pb_size_t(livekit_DataPacket_rpc_response_tag):
-            lkRelease(message: &_box.storage.value.rpc_response, Livekit_RpcResponse.descriptor)
+            lkRelease(message: &_pointer.pointee.value.rpc_response, Livekit_RpcResponse.descriptor)
         case pb_size_t(livekit_DataPacket_stream_header_tag):
-            lkRelease(message: &_box.storage.value.stream_header, Livekit_DataStream.Header.descriptor)
+            lkRelease(message: &_pointer.pointee.value.stream_header, Livekit_DataStream.Header.descriptor)
         case pb_size_t(livekit_DataPacket_stream_chunk_tag):
-            lkRelease(message: &_box.storage.value.stream_chunk, Livekit_DataStream.Chunk.descriptor)
+            lkRelease(message: &_pointer.pointee.value.stream_chunk, Livekit_DataStream.Chunk.descriptor)
         case pb_size_t(livekit_DataPacket_stream_trailer_tag):
-            lkRelease(message: &_box.storage.value.stream_trailer, Livekit_DataStream.Trailer.descriptor)
+            lkRelease(message: &_pointer.pointee.value.stream_trailer, Livekit_DataStream.Trailer.descriptor)
         case pb_size_t(livekit_DataPacket_encrypted_packet_tag):
-            lkRelease(message: &_box.storage.value.encrypted_packet, Livekit_EncryptedPacket.descriptor)
+            lkRelease(message: &_pointer.pointee.value.encrypted_packet, Livekit_EncryptedPacket.descriptor)
         default: break
         }
-        _box.storage.which_value = 0
+        _pointer.pointee.which_value = 0
         // zero the union: stale bits from an inline variant would otherwise
         // be misread as a pointer by the next variant's setter
-        _box.storage.value = .init()
+        _pointer.pointee.value = .init()
     }
 
     var participantIdentity: String {
-        get { lkString(_box.storage.participant_identity) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.participant_identity, newValue) }
+        get { lkString(_pointer.pointee.participant_identity) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.participant_identity, newValue) }
     }
-    var hasParticipantIdentity: Bool { _box.storage.participant_identity != nil }
+    var hasParticipantIdentity: Bool { _pointer.pointee.participant_identity != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withParticipantIdentityBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.participant_identity, body)
+        try withLkBytes(_pointer.pointee.participant_identity, body)
     }
 
     var destinationIdentities: [String] {
-        get { lkRepeated(_box.storage.destination_identities_count, _box.storage.destination_identities) }
+        get { lkRepeated(_pointer.pointee.destination_identities_count, _pointer.pointee.destination_identities) }
         set {
             _ensureUnique()
-            var count = _box.storage.destination_identities_count, base = _box.storage.destination_identities
+            var count = _pointer.pointee.destination_identities_count, base = _pointer.pointee.destination_identities
             lkSetRepeated(&count, &base, newValue)
-            _box.storage.destination_identities_count = count; _box.storage.destination_identities = base
+            _pointer.pointee.destination_identities_count = count; _pointer.pointee.destination_identities = base
         }
     }
 
     var sequence: UInt32 {
-        get { _box.storage.sequence?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.sequence, newValue) }
+        get { _pointer.pointee.sequence?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.sequence, newValue) }
     }
-    var hasSequence: Bool { _box.storage.sequence != nil }
+    var hasSequence: Bool { _pointer.pointee.sequence != nil }
 
     var participantSid: String {
-        get { lkString(_box.storage.participant_sid) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.participant_sid, newValue) }
+        get { lkString(_pointer.pointee.participant_sid) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.participant_sid, newValue) }
     }
-    var hasParticipantSid: Bool { _box.storage.participant_sid != nil }
+    var hasParticipantSid: Bool { _pointer.pointee.participant_sid != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withParticipantSidBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.participant_sid, body)
+        try withLkBytes(_pointer.pointee.participant_sid, body)
     }
 
     enum Kind: NanopbEnum, CaseIterable {
@@ -1295,53 +1439,77 @@ struct Livekit_DataPacket: NanopbMessage {
 
 }
 
-struct Livekit_EncryptedPacket: NanopbMessage {
+struct Livekit_EncryptedPacket: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_EncryptedPacket
     static var descriptor: pb_msgdesc_t { livekit_EncryptedPacket_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var encryptionType: Livekit_Encryption.TypeEnum {
-        get { _box.storage.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.encryption_type, newValue) }
+        get { _pointer.pointee.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.encryption_type, newValue) }
     }
-    var hasEncryptionType: Bool { _box.storage.encryption_type != nil }
+    var hasEncryptionType: Bool { _pointer.pointee.encryption_type != nil }
 
     var iv: Data {
-        get { lkData(_box.storage.iv) }
-        set { _ensureUnique(); lkSetData(&_box.storage.iv, newValue) }
+        get { lkData(_pointer.pointee.iv) }
+        set { _ensureUnique(); lkSetData(&_pointer.pointee.iv, newValue) }
     }
-    var hasIv: Bool { _box.storage.iv != nil }
+    var hasIv: Bool { _pointer.pointee.iv != nil }
     func withIv<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkData(_box.storage.iv, body)
+        try withLkData(_pointer.pointee.iv, body)
     }
 
     var keyIndex: UInt32 {
-        get { _box.storage.key_index?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.key_index, newValue) }
+        get { _pointer.pointee.key_index?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.key_index, newValue) }
     }
-    var hasKeyIndex: Bool { _box.storage.key_index != nil }
+    var hasKeyIndex: Bool { _pointer.pointee.key_index != nil }
 
     var encryptedValue: Data {
-        get { lkData(_box.storage.encrypted_value) }
-        set { _ensureUnique(); lkSetData(&_box.storage.encrypted_value, newValue) }
+        get { lkData(_pointer.pointee.encrypted_value) }
+        set { _ensureUnique(); lkSetData(&_pointer.pointee.encrypted_value, newValue) }
     }
-    var hasEncryptedValue: Bool { _box.storage.encrypted_value != nil }
+    var hasEncryptedValue: Bool { _pointer.pointee.encrypted_value != nil }
     func withEncryptedValue<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkData(_box.storage.encrypted_value, body)
+        try withLkData(_pointer.pointee.encrypted_value, body)
     }
 
 }
 
-struct Livekit_EncryptedPacketPayload: NanopbMessage {
+struct Livekit_EncryptedPacketPayload: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_EncryptedPacketPayload
     static var descriptor: pb_msgdesc_t { livekit_EncryptedPacketPayload_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     enum OneOf_Value: Equatable {
         case user(Livekit_UserPacket)
@@ -1356,23 +1524,23 @@ struct Livekit_EncryptedPacketPayload: NanopbMessage {
     
     var value: OneOf_Value? {
         get {
-            switch _box.storage.which_value {
+            switch _pointer.pointee.which_value {
             case pb_size_t(livekit_EncryptedPacketPayload_user_tag):
-                return .user(lkMessage(_box.storage.value.user))
+                return .user(_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _owner) } ?? Livekit_UserPacket())
             case pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag):
-                return .chatMessage(lkMessage(_box.storage.value.chat_message))
+                return .chatMessage(_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _owner) } ?? Livekit_ChatMessage())
             case pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag):
-                return .rpcRequest(lkMessage(_box.storage.value.rpc_request))
+                return .rpcRequest(_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _owner) } ?? Livekit_RpcRequest())
             case pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag):
-                return .rpcAck(lkMessage(_box.storage.value.rpc_ack))
+                return .rpcAck(_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _owner) } ?? Livekit_RpcAck())
             case pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag):
-                return .rpcResponse(lkMessage(_box.storage.value.rpc_response))
+                return .rpcResponse(_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse())
             case pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag):
-                return .streamHeader(lkMessage(_box.storage.value.stream_header))
+                return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Header())
             case pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag):
-                return .streamChunk(lkMessage(_box.storage.value.stream_chunk))
+                return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Chunk())
             case pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag):
-                return .streamTrailer(lkMessage(_box.storage.value.stream_trailer))
+                return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Trailer())
             default: return nil
             }
         }
@@ -1381,562 +1549,682 @@ struct Livekit_EncryptedPacketPayload: NanopbMessage {
             _clearValue()
             switch newValue {
             case let .user(value):
-                _box.storage.which_value = pb_size_t(livekit_EncryptedPacketPayload_user_tag)
-                lkSetMessage(&_box.storage.value.user, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_user_tag)
+                lkSetMessage(&_pointer.pointee.value.user, value)
             case let .chatMessage(value):
-                _box.storage.which_value = pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag)
-                lkSetMessage(&_box.storage.value.chat_message, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag)
+                lkSetMessage(&_pointer.pointee.value.chat_message, value)
             case let .rpcRequest(value):
-                _box.storage.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag)
-                lkSetMessage(&_box.storage.value.rpc_request, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag)
+                lkSetMessage(&_pointer.pointee.value.rpc_request, value)
             case let .rpcAck(value):
-                _box.storage.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag)
-                lkSetMessage(&_box.storage.value.rpc_ack, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag)
+                lkSetMessage(&_pointer.pointee.value.rpc_ack, value)
             case let .rpcResponse(value):
-                _box.storage.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag)
-                lkSetMessage(&_box.storage.value.rpc_response, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag)
+                lkSetMessage(&_pointer.pointee.value.rpc_response, value)
             case let .streamHeader(value):
-                _box.storage.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag)
-                lkSetMessage(&_box.storage.value.stream_header, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag)
+                lkSetMessage(&_pointer.pointee.value.stream_header, value)
             case let .streamChunk(value):
-                _box.storage.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag)
-                lkSetMessage(&_box.storage.value.stream_chunk, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag)
+                lkSetMessage(&_pointer.pointee.value.stream_chunk, value)
             case let .streamTrailer(value):
-                _box.storage.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag)
-                lkSetMessage(&_box.storage.value.stream_trailer, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag)
+                lkSetMessage(&_pointer.pointee.value.stream_trailer, value)
             case nil: break
             }
         }
     }
     
     var user: Livekit_UserPacket {
-        get { _box.storage.which_value == pb_size_t(livekit_EncryptedPacketPayload_user_tag) ? (lkMessage(_box.storage.value.user)) : Livekit_UserPacket() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_user_tag) ? (_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _owner) } ?? Livekit_UserPacket()) : Livekit_UserPacket() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_EncryptedPacketPayload_user_tag)
-            lkSetMessage(&_box.storage.value.user, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_user_tag)
+            lkSetMessage(&_pointer.pointee.value.user, newValue)
         }
     }
     var chatMessage: Livekit_ChatMessage {
-        get { _box.storage.which_value == pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag) ? (lkMessage(_box.storage.value.chat_message)) : Livekit_ChatMessage() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag) ? (_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _owner) } ?? Livekit_ChatMessage()) : Livekit_ChatMessage() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag)
-            lkSetMessage(&_box.storage.value.chat_message, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag)
+            lkSetMessage(&_pointer.pointee.value.chat_message, newValue)
         }
     }
     var rpcRequest: Livekit_RpcRequest {
-        get { _box.storage.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag) ? (lkMessage(_box.storage.value.rpc_request)) : Livekit_RpcRequest() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag) ? (_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _owner) } ?? Livekit_RpcRequest()) : Livekit_RpcRequest() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag)
-            lkSetMessage(&_box.storage.value.rpc_request, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag)
+            lkSetMessage(&_pointer.pointee.value.rpc_request, newValue)
         }
     }
     var rpcAck: Livekit_RpcAck {
-        get { _box.storage.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag) ? (lkMessage(_box.storage.value.rpc_ack)) : Livekit_RpcAck() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag) ? (_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _owner) } ?? Livekit_RpcAck()) : Livekit_RpcAck() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag)
-            lkSetMessage(&_box.storage.value.rpc_ack, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag)
+            lkSetMessage(&_pointer.pointee.value.rpc_ack, newValue)
         }
     }
     var rpcResponse: Livekit_RpcResponse {
-        get { _box.storage.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag) ? (lkMessage(_box.storage.value.rpc_response)) : Livekit_RpcResponse() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse()) : Livekit_RpcResponse() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag)
-            lkSetMessage(&_box.storage.value.rpc_response, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag)
+            lkSetMessage(&_pointer.pointee.value.rpc_response, newValue)
         }
     }
     var streamHeader: Livekit_DataStream.Header {
-        get { _box.storage.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag) ? (lkMessage(_box.storage.value.stream_header)) : Livekit_DataStream.Header() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Header()) : Livekit_DataStream.Header() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag)
-            lkSetMessage(&_box.storage.value.stream_header, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag)
+            lkSetMessage(&_pointer.pointee.value.stream_header, newValue)
         }
     }
     var streamChunk: Livekit_DataStream.Chunk {
-        get { _box.storage.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag) ? (lkMessage(_box.storage.value.stream_chunk)) : Livekit_DataStream.Chunk() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Chunk()) : Livekit_DataStream.Chunk() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag)
-            lkSetMessage(&_box.storage.value.stream_chunk, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag)
+            lkSetMessage(&_pointer.pointee.value.stream_chunk, newValue)
         }
     }
     var streamTrailer: Livekit_DataStream.Trailer {
-        get { _box.storage.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag) ? (lkMessage(_box.storage.value.stream_trailer)) : Livekit_DataStream.Trailer() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Trailer()) : Livekit_DataStream.Trailer() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag)
-            lkSetMessage(&_box.storage.value.stream_trailer, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag)
+            lkSetMessage(&_pointer.pointee.value.stream_trailer, newValue)
         }
     }
     
     private mutating func _clearValue() {
-        switch _box.storage.which_value {
+        switch _pointer.pointee.which_value {
         case pb_size_t(livekit_EncryptedPacketPayload_user_tag):
-            lkRelease(message: &_box.storage.value.user, Livekit_UserPacket.descriptor)
+            lkRelease(message: &_pointer.pointee.value.user, Livekit_UserPacket.descriptor)
         case pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag):
-            lkRelease(message: &_box.storage.value.chat_message, Livekit_ChatMessage.descriptor)
+            lkRelease(message: &_pointer.pointee.value.chat_message, Livekit_ChatMessage.descriptor)
         case pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag):
-            lkRelease(message: &_box.storage.value.rpc_request, Livekit_RpcRequest.descriptor)
+            lkRelease(message: &_pointer.pointee.value.rpc_request, Livekit_RpcRequest.descriptor)
         case pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag):
-            lkRelease(message: &_box.storage.value.rpc_ack, Livekit_RpcAck.descriptor)
+            lkRelease(message: &_pointer.pointee.value.rpc_ack, Livekit_RpcAck.descriptor)
         case pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag):
-            lkRelease(message: &_box.storage.value.rpc_response, Livekit_RpcResponse.descriptor)
+            lkRelease(message: &_pointer.pointee.value.rpc_response, Livekit_RpcResponse.descriptor)
         case pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag):
-            lkRelease(message: &_box.storage.value.stream_header, Livekit_DataStream.Header.descriptor)
+            lkRelease(message: &_pointer.pointee.value.stream_header, Livekit_DataStream.Header.descriptor)
         case pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag):
-            lkRelease(message: &_box.storage.value.stream_chunk, Livekit_DataStream.Chunk.descriptor)
+            lkRelease(message: &_pointer.pointee.value.stream_chunk, Livekit_DataStream.Chunk.descriptor)
         case pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag):
-            lkRelease(message: &_box.storage.value.stream_trailer, Livekit_DataStream.Trailer.descriptor)
+            lkRelease(message: &_pointer.pointee.value.stream_trailer, Livekit_DataStream.Trailer.descriptor)
         default: break
         }
-        _box.storage.which_value = 0
+        _pointer.pointee.which_value = 0
         // zero the union: stale bits from an inline variant would otherwise
         // be misread as a pointer by the next variant's setter
-        _box.storage.value = .init()
+        _pointer.pointee.value = .init()
     }
 
 }
 
-struct Livekit_ActiveSpeakerUpdate: NanopbMessage {
+struct Livekit_ActiveSpeakerUpdate: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_ActiveSpeakerUpdate
     static var descriptor: pb_msgdesc_t { livekit_ActiveSpeakerUpdate_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var speakers: [Livekit_SpeakerInfo] {
-        get { lkRepeatedMessages(_box.storage.speakers_count, _box.storage.speakers) }
+        get { lkViews(_pointer.pointee.speakers_count, _pointer.pointee.speakers, owner: _owner) }
         set {
             _ensureUnique()
-            var count = _box.storage.speakers_count, base = _box.storage.speakers
+            var count = _pointer.pointee.speakers_count, base = _pointer.pointee.speakers
             lkSetRepeatedMessages(&count, &base, newValue)
-            _box.storage.speakers_count = count; _box.storage.speakers = base
+            _pointer.pointee.speakers_count = count; _pointer.pointee.speakers = base
         }
     }
 
 }
 
-struct Livekit_SpeakerInfo: NanopbMessage {
+struct Livekit_SpeakerInfo: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_SpeakerInfo
     static var descriptor: pb_msgdesc_t { livekit_SpeakerInfo_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var sid: String {
-        get { lkString(_box.storage.sid) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.sid, newValue) }
+        get { lkString(_pointer.pointee.sid) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.sid, newValue) }
     }
-    var hasSid: Bool { _box.storage.sid != nil }
+    var hasSid: Bool { _pointer.pointee.sid != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withSidBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.sid, body)
+        try withLkBytes(_pointer.pointee.sid, body)
     }
 
     var level: Float {
-        get { _box.storage.level?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.level, newValue) }
+        get { _pointer.pointee.level?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.level, newValue) }
     }
-    var hasLevel: Bool { _box.storage.level != nil }
+    var hasLevel: Bool { _pointer.pointee.level != nil }
 
     var active: Bool {
-        get { _box.storage.active?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.active, newValue) }
+        get { _pointer.pointee.active?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.active, newValue) }
     }
-    var hasActive: Bool { _box.storage.active != nil }
+    var hasActive: Bool { _pointer.pointee.active != nil }
 
 }
 
-struct Livekit_UserPacket: NanopbMessage {
+struct Livekit_UserPacket: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_UserPacket
     static var descriptor: pb_msgdesc_t { livekit_UserPacket_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var participantSid: String {
-        get { lkString(_box.storage.participant_sid) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.participant_sid, newValue) }
+        get { lkString(_pointer.pointee.participant_sid) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.participant_sid, newValue) }
     }
-    var hasParticipantSid: Bool { _box.storage.participant_sid != nil }
+    var hasParticipantSid: Bool { _pointer.pointee.participant_sid != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withParticipantSidBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.participant_sid, body)
+        try withLkBytes(_pointer.pointee.participant_sid, body)
     }
 
     var payload: Data {
-        get { lkData(_box.storage.payload) }
-        set { _ensureUnique(); lkSetData(&_box.storage.payload, newValue) }
+        get { lkData(_pointer.pointee.payload) }
+        set { _ensureUnique(); lkSetData(&_pointer.pointee.payload, newValue) }
     }
-    var hasPayload: Bool { _box.storage.payload != nil }
+    var hasPayload: Bool { _pointer.pointee.payload != nil }
     func withPayload<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkData(_box.storage.payload, body)
+        try withLkData(_pointer.pointee.payload, body)
     }
 
     var destinationSids: [String] {
-        get { lkRepeated(_box.storage.destination_sids_count, _box.storage.destination_sids) }
+        get { lkRepeated(_pointer.pointee.destination_sids_count, _pointer.pointee.destination_sids) }
         set {
             _ensureUnique()
-            var count = _box.storage.destination_sids_count, base = _box.storage.destination_sids
+            var count = _pointer.pointee.destination_sids_count, base = _pointer.pointee.destination_sids
             lkSetRepeated(&count, &base, newValue)
-            _box.storage.destination_sids_count = count; _box.storage.destination_sids = base
+            _pointer.pointee.destination_sids_count = count; _pointer.pointee.destination_sids = base
         }
     }
 
     var topic: String {
-        get { lkString(_box.storage.topic) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.topic, newValue) }
+        get { lkString(_pointer.pointee.topic) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.topic, newValue) }
     }
-    var hasTopic: Bool { _box.storage.topic != nil }
+    var hasTopic: Bool { _pointer.pointee.topic != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withTopicBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.topic, body)
+        try withLkBytes(_pointer.pointee.topic, body)
     }
 
     var participantIdentity: String {
-        get { lkString(_box.storage.participant_identity) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.participant_identity, newValue) }
+        get { lkString(_pointer.pointee.participant_identity) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.participant_identity, newValue) }
     }
-    var hasParticipantIdentity: Bool { _box.storage.participant_identity != nil }
+    var hasParticipantIdentity: Bool { _pointer.pointee.participant_identity != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withParticipantIdentityBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.participant_identity, body)
+        try withLkBytes(_pointer.pointee.participant_identity, body)
     }
 
     var destinationIdentities: [String] {
-        get { lkRepeated(_box.storage.destination_identities_count, _box.storage.destination_identities) }
+        get { lkRepeated(_pointer.pointee.destination_identities_count, _pointer.pointee.destination_identities) }
         set {
             _ensureUnique()
-            var count = _box.storage.destination_identities_count, base = _box.storage.destination_identities
+            var count = _pointer.pointee.destination_identities_count, base = _pointer.pointee.destination_identities
             lkSetRepeated(&count, &base, newValue)
-            _box.storage.destination_identities_count = count; _box.storage.destination_identities = base
+            _pointer.pointee.destination_identities_count = count; _pointer.pointee.destination_identities = base
         }
     }
 
     var id: String {
-        get { lkString(_box.storage.id) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.id, newValue) }
+        get { lkString(_pointer.pointee.id) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.id, newValue) }
     }
-    var hasId: Bool { _box.storage.id != nil }
+    var hasId: Bool { _pointer.pointee.id != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withIdBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.id, body)
+        try withLkBytes(_pointer.pointee.id, body)
     }
 
     var startTime: UInt64 {
-        get { _box.storage.start_time?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.start_time, newValue) }
+        get { _pointer.pointee.start_time?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.start_time, newValue) }
     }
-    var hasStartTime: Bool { _box.storage.start_time != nil }
+    var hasStartTime: Bool { _pointer.pointee.start_time != nil }
 
     var endTime: UInt64 {
-        get { _box.storage.end_time?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.end_time, newValue) }
+        get { _pointer.pointee.end_time?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.end_time, newValue) }
     }
-    var hasEndTime: Bool { _box.storage.end_time != nil }
+    var hasEndTime: Bool { _pointer.pointee.end_time != nil }
 
     var nonce: Data {
-        get { lkData(_box.storage.nonce) }
-        set { _ensureUnique(); lkSetData(&_box.storage.nonce, newValue) }
+        get { lkData(_pointer.pointee.nonce) }
+        set { _ensureUnique(); lkSetData(&_pointer.pointee.nonce, newValue) }
     }
-    var hasNonce: Bool { _box.storage.nonce != nil }
+    var hasNonce: Bool { _pointer.pointee.nonce != nil }
     func withNonce<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkData(_box.storage.nonce, body)
+        try withLkData(_pointer.pointee.nonce, body)
     }
 
 }
 
-struct Livekit_SipDTMF: NanopbMessage {
+struct Livekit_SipDTMF: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_SipDTMF
     static var descriptor: pb_msgdesc_t { livekit_SipDTMF_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var code: UInt32 {
-        get { _box.storage.code?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.code, newValue) }
+        get { _pointer.pointee.code?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.code, newValue) }
     }
-    var hasCode: Bool { _box.storage.code != nil }
+    var hasCode: Bool { _pointer.pointee.code != nil }
 
     var digit: String {
-        get { lkString(_box.storage.digit) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.digit, newValue) }
+        get { lkString(_pointer.pointee.digit) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.digit, newValue) }
     }
-    var hasDigit: Bool { _box.storage.digit != nil }
+    var hasDigit: Bool { _pointer.pointee.digit != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withDigitBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.digit, body)
+        try withLkBytes(_pointer.pointee.digit, body)
     }
 
 }
 
-struct Livekit_Transcription: NanopbMessage {
+struct Livekit_Transcription: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_Transcription
     static var descriptor: pb_msgdesc_t { livekit_Transcription_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var transcribedParticipantIdentity: String {
-        get { lkString(_box.storage.transcribed_participant_identity) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.transcribed_participant_identity, newValue) }
+        get { lkString(_pointer.pointee.transcribed_participant_identity) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.transcribed_participant_identity, newValue) }
     }
-    var hasTranscribedParticipantIdentity: Bool { _box.storage.transcribed_participant_identity != nil }
+    var hasTranscribedParticipantIdentity: Bool { _pointer.pointee.transcribed_participant_identity != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withTranscribedParticipantIdentityBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.transcribed_participant_identity, body)
+        try withLkBytes(_pointer.pointee.transcribed_participant_identity, body)
     }
 
     var trackID: String {
-        get { lkString(_box.storage.track_id) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.track_id, newValue) }
+        get { lkString(_pointer.pointee.track_id) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.track_id, newValue) }
     }
-    var hasTrackID: Bool { _box.storage.track_id != nil }
+    var hasTrackID: Bool { _pointer.pointee.track_id != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withTrackIDBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.track_id, body)
+        try withLkBytes(_pointer.pointee.track_id, body)
     }
 
     var segments: [Livekit_TranscriptionSegment] {
-        get { lkRepeatedMessages(_box.storage.segments_count, _box.storage.segments) }
+        get { lkViews(_pointer.pointee.segments_count, _pointer.pointee.segments, owner: _owner) }
         set {
             _ensureUnique()
-            var count = _box.storage.segments_count, base = _box.storage.segments
+            var count = _pointer.pointee.segments_count, base = _pointer.pointee.segments
             lkSetRepeatedMessages(&count, &base, newValue)
-            _box.storage.segments_count = count; _box.storage.segments = base
+            _pointer.pointee.segments_count = count; _pointer.pointee.segments = base
         }
     }
 
 }
 
-struct Livekit_TranscriptionSegment: NanopbMessage {
+struct Livekit_TranscriptionSegment: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_TranscriptionSegment
     static var descriptor: pb_msgdesc_t { livekit_TranscriptionSegment_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var id: String {
-        get { lkString(_box.storage.id) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.id, newValue) }
+        get { lkString(_pointer.pointee.id) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.id, newValue) }
     }
-    var hasId: Bool { _box.storage.id != nil }
+    var hasId: Bool { _pointer.pointee.id != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withIdBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.id, body)
+        try withLkBytes(_pointer.pointee.id, body)
     }
 
     var text: String {
-        get { lkString(_box.storage.text) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.text, newValue) }
+        get { lkString(_pointer.pointee.text) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.text, newValue) }
     }
-    var hasText: Bool { _box.storage.text != nil }
+    var hasText: Bool { _pointer.pointee.text != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withTextBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.text, body)
+        try withLkBytes(_pointer.pointee.text, body)
     }
 
     var startTime: UInt64 {
-        get { _box.storage.start_time?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.start_time, newValue) }
+        get { _pointer.pointee.start_time?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.start_time, newValue) }
     }
-    var hasStartTime: Bool { _box.storage.start_time != nil }
+    var hasStartTime: Bool { _pointer.pointee.start_time != nil }
 
     var endTime: UInt64 {
-        get { _box.storage.end_time?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.end_time, newValue) }
+        get { _pointer.pointee.end_time?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.end_time, newValue) }
     }
-    var hasEndTime: Bool { _box.storage.end_time != nil }
+    var hasEndTime: Bool { _pointer.pointee.end_time != nil }
 
     var final: Bool {
-        get { _box.storage.final?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.final, newValue) }
+        get { _pointer.pointee.final?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.final, newValue) }
     }
-    var hasFinal: Bool { _box.storage.final != nil }
+    var hasFinal: Bool { _pointer.pointee.final != nil }
 
     var language: String {
-        get { lkString(_box.storage.language) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.language, newValue) }
+        get { lkString(_pointer.pointee.language) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.language, newValue) }
     }
-    var hasLanguage: Bool { _box.storage.language != nil }
+    var hasLanguage: Bool { _pointer.pointee.language != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withLanguageBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.language, body)
+        try withLkBytes(_pointer.pointee.language, body)
     }
 
 }
 
-struct Livekit_ChatMessage: NanopbMessage {
+struct Livekit_ChatMessage: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_ChatMessage
     static var descriptor: pb_msgdesc_t { livekit_ChatMessage_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var id: String {
-        get { lkString(_box.storage.id) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.id, newValue) }
+        get { lkString(_pointer.pointee.id) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.id, newValue) }
     }
-    var hasId: Bool { _box.storage.id != nil }
+    var hasId: Bool { _pointer.pointee.id != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withIdBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.id, body)
+        try withLkBytes(_pointer.pointee.id, body)
     }
 
     var timestamp: Int64 {
-        get { _box.storage.timestamp?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.timestamp, newValue) }
+        get { _pointer.pointee.timestamp?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.timestamp, newValue) }
     }
-    var hasTimestamp: Bool { _box.storage.timestamp != nil }
+    var hasTimestamp: Bool { _pointer.pointee.timestamp != nil }
 
     var editTimestamp: Int64 {
-        get { _box.storage.edit_timestamp?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.edit_timestamp, newValue) }
+        get { _pointer.pointee.edit_timestamp?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.edit_timestamp, newValue) }
     }
-    var hasEditTimestamp: Bool { _box.storage.edit_timestamp != nil }
+    var hasEditTimestamp: Bool { _pointer.pointee.edit_timestamp != nil }
 
     var message: String {
-        get { lkString(_box.storage.message) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.message, newValue) }
+        get { lkString(_pointer.pointee.message) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.message, newValue) }
     }
-    var hasMessage: Bool { _box.storage.message != nil }
+    var hasMessage: Bool { _pointer.pointee.message != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withMessageBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.message, body)
+        try withLkBytes(_pointer.pointee.message, body)
     }
 
     var deleted: Bool {
-        get { _box.storage.deleted?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.deleted, newValue) }
+        get { _pointer.pointee.deleted?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.deleted, newValue) }
     }
-    var hasDeleted: Bool { _box.storage.deleted != nil }
+    var hasDeleted: Bool { _pointer.pointee.deleted != nil }
 
     var generated: Bool {
-        get { _box.storage.generated?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.generated, newValue) }
+        get { _pointer.pointee.generated?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.generated, newValue) }
     }
-    var hasGenerated: Bool { _box.storage.generated != nil }
+    var hasGenerated: Bool { _pointer.pointee.generated != nil }
 
 }
 
-struct Livekit_RpcRequest: NanopbMessage {
+struct Livekit_RpcRequest: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_RpcRequest
     static var descriptor: pb_msgdesc_t { livekit_RpcRequest_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var id: String {
-        get { lkString(_box.storage.id) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.id, newValue) }
+        get { lkString(_pointer.pointee.id) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.id, newValue) }
     }
-    var hasId: Bool { _box.storage.id != nil }
+    var hasId: Bool { _pointer.pointee.id != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withIdBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.id, body)
+        try withLkBytes(_pointer.pointee.id, body)
     }
 
     var method: String {
-        get { lkString(_box.storage.method) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.method, newValue) }
+        get { lkString(_pointer.pointee.method) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.method, newValue) }
     }
-    var hasMethod: Bool { _box.storage.method != nil }
+    var hasMethod: Bool { _pointer.pointee.method != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withMethodBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.method, body)
+        try withLkBytes(_pointer.pointee.method, body)
     }
 
     var payload: String {
-        get { lkString(_box.storage.payload) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.payload, newValue) }
+        get { lkString(_pointer.pointee.payload) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.payload, newValue) }
     }
-    var hasPayload: Bool { _box.storage.payload != nil }
+    var hasPayload: Bool { _pointer.pointee.payload != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withPayloadBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.payload, body)
+        try withLkBytes(_pointer.pointee.payload, body)
     }
 
     var responseTimeoutMs: UInt32 {
-        get { _box.storage.response_timeout_ms?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.response_timeout_ms, newValue) }
+        get { _pointer.pointee.response_timeout_ms?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.response_timeout_ms, newValue) }
     }
-    var hasResponseTimeoutMs: Bool { _box.storage.response_timeout_ms != nil }
+    var hasResponseTimeoutMs: Bool { _pointer.pointee.response_timeout_ms != nil }
 
     var version: UInt32 {
-        get { _box.storage.version?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.version, newValue) }
+        get { _pointer.pointee.version?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.version, newValue) }
     }
-    var hasVersion: Bool { _box.storage.version != nil }
+    var hasVersion: Bool { _pointer.pointee.version != nil }
 
     var compressedPayload: Data {
-        get { lkData(_box.storage.compressed_payload) }
-        set { _ensureUnique(); lkSetData(&_box.storage.compressed_payload, newValue) }
+        get { lkData(_pointer.pointee.compressed_payload) }
+        set { _ensureUnique(); lkSetData(&_pointer.pointee.compressed_payload, newValue) }
     }
-    var hasCompressedPayload: Bool { _box.storage.compressed_payload != nil }
+    var hasCompressedPayload: Bool { _pointer.pointee.compressed_payload != nil }
     func withCompressedPayload<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkData(_box.storage.compressed_payload, body)
+        try withLkData(_pointer.pointee.compressed_payload, body)
     }
 
 }
 
-struct Livekit_RpcAck: NanopbMessage {
+struct Livekit_RpcAck: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_RpcAck
     static var descriptor: pb_msgdesc_t { livekit_RpcAck_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var requestID: String {
-        get { lkString(_box.storage.request_id) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.request_id, newValue) }
+        get { lkString(_pointer.pointee.request_id) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.request_id, newValue) }
     }
-    var hasRequestID: Bool { _box.storage.request_id != nil }
+    var hasRequestID: Bool { _pointer.pointee.request_id != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withRequestIDBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.request_id, body)
+        try withLkBytes(_pointer.pointee.request_id, body)
     }
 
 }
 
-struct Livekit_RpcResponse: NanopbMessage {
+struct Livekit_RpcResponse: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_RpcResponse
     static var descriptor: pb_msgdesc_t { livekit_RpcResponse_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var requestID: String {
-        get { lkString(_box.storage.request_id) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.request_id, newValue) }
+        get { lkString(_pointer.pointee.request_id) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.request_id, newValue) }
     }
-    var hasRequestID: Bool { _box.storage.request_id != nil }
+    var hasRequestID: Bool { _pointer.pointee.request_id != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withRequestIDBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.request_id, body)
+        try withLkBytes(_pointer.pointee.request_id, body)
     }
 
     enum OneOf_Value: Equatable {
@@ -1947,13 +2235,13 @@ struct Livekit_RpcResponse: NanopbMessage {
     
     var value: OneOf_Value? {
         get {
-            switch _box.storage.which_value {
+            switch _pointer.pointee.which_value {
             case pb_size_t(livekit_RpcResponse_payload_tag):
-                return .payload(lkString(_box.storage.value.payload) ?? "")
+                return .payload(lkString(_pointer.pointee.value.payload) ?? "")
             case pb_size_t(livekit_RpcResponse_error_tag):
-                return .error(lkMessage(_box.storage.value.error))
+                return .error(_pointer.pointee.value.error.map { Livekit_RpcError(_sharing: $0, owner: _owner) } ?? Livekit_RpcError())
             case pb_size_t(livekit_RpcResponse_compressed_payload_tag):
-                return .compressedPayload(lkData(_box.storage.value.compressed_payload))
+                return .compressedPayload(lkData(_pointer.pointee.value.compressed_payload))
             default: return nil
             }
         }
@@ -1962,196 +2250,232 @@ struct Livekit_RpcResponse: NanopbMessage {
             _clearValue()
             switch newValue {
             case let .payload(value):
-                _box.storage.which_value = pb_size_t(livekit_RpcResponse_payload_tag)
-                lkSetString(&_box.storage.value.payload, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_payload_tag)
+                lkSetString(&_pointer.pointee.value.payload, value)
             case let .error(value):
-                _box.storage.which_value = pb_size_t(livekit_RpcResponse_error_tag)
-                lkSetMessage(&_box.storage.value.error, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_error_tag)
+                lkSetMessage(&_pointer.pointee.value.error, value)
             case let .compressedPayload(value):
-                _box.storage.which_value = pb_size_t(livekit_RpcResponse_compressed_payload_tag)
-                lkSetData(&_box.storage.value.compressed_payload, value)
+                _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_compressed_payload_tag)
+                lkSetData(&_pointer.pointee.value.compressed_payload, value)
             case nil: break
             }
         }
     }
     
     var payload: String {
-        get { _box.storage.which_value == pb_size_t(livekit_RpcResponse_payload_tag) ? (lkString(_box.storage.value.payload) ?? "") : "" }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_payload_tag) ? (lkString(_pointer.pointee.value.payload) ?? "") : "" }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_RpcResponse_payload_tag)
-            lkSetString(&_box.storage.value.payload, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_payload_tag)
+            lkSetString(&_pointer.pointee.value.payload, newValue)
         }
     }
     var error: Livekit_RpcError {
-        get { _box.storage.which_value == pb_size_t(livekit_RpcResponse_error_tag) ? (lkMessage(_box.storage.value.error)) : Livekit_RpcError() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_error_tag) ? (_pointer.pointee.value.error.map { Livekit_RpcError(_sharing: $0, owner: _owner) } ?? Livekit_RpcError()) : Livekit_RpcError() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_RpcResponse_error_tag)
-            lkSetMessage(&_box.storage.value.error, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_error_tag)
+            lkSetMessage(&_pointer.pointee.value.error, newValue)
         }
     }
     var compressedPayload: Data {
-        get { _box.storage.which_value == pb_size_t(livekit_RpcResponse_compressed_payload_tag) ? (lkData(_box.storage.value.compressed_payload)) : Data() }
+        get { _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_compressed_payload_tag) ? (lkData(_pointer.pointee.value.compressed_payload)) : Data() }
         set {
             _ensureUnique()
             _clearValue()
-            _box.storage.which_value = pb_size_t(livekit_RpcResponse_compressed_payload_tag)
-            lkSetData(&_box.storage.value.compressed_payload, newValue)
+            _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_compressed_payload_tag)
+            lkSetData(&_pointer.pointee.value.compressed_payload, newValue)
         }
     }
     
     private mutating func _clearValue() {
-        switch _box.storage.which_value {
+        switch _pointer.pointee.which_value {
         case pb_size_t(livekit_RpcResponse_payload_tag):
-            lkFree(&_box.storage.value.payload)
+            lkFree(&_pointer.pointee.value.payload)
         case pb_size_t(livekit_RpcResponse_error_tag):
-            lkRelease(message: &_box.storage.value.error, Livekit_RpcError.descriptor)
+            lkRelease(message: &_pointer.pointee.value.error, Livekit_RpcError.descriptor)
         case pb_size_t(livekit_RpcResponse_compressed_payload_tag):
-            lkFree(&_box.storage.value.compressed_payload)
+            lkFree(&_pointer.pointee.value.compressed_payload)
         default: break
         }
-        _box.storage.which_value = 0
+        _pointer.pointee.which_value = 0
         // zero the union: stale bits from an inline variant would otherwise
         // be misread as a pointer by the next variant's setter
-        _box.storage.value = .init()
+        _pointer.pointee.value = .init()
     }
 
 }
 
-struct Livekit_RpcError: NanopbMessage {
+struct Livekit_RpcError: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_RpcError
     static var descriptor: pb_msgdesc_t { livekit_RpcError_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var code: UInt32 {
-        get { _box.storage.code?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.code, newValue) }
+        get { _pointer.pointee.code?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.code, newValue) }
     }
-    var hasCode: Bool { _box.storage.code != nil }
+    var hasCode: Bool { _pointer.pointee.code != nil }
 
     var message: String {
-        get { lkString(_box.storage.message) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.message, newValue) }
+        get { lkString(_pointer.pointee.message) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.message, newValue) }
     }
-    var hasMessage: Bool { _box.storage.message != nil }
+    var hasMessage: Bool { _pointer.pointee.message != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withMessageBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.message, body)
+        try withLkBytes(_pointer.pointee.message, body)
     }
 
     var data: String {
-        get { lkString(_box.storage.data) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.data, newValue) }
+        get { lkString(_pointer.pointee.data) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.data, newValue) }
     }
-    var hasData: Bool { _box.storage.data != nil }
+    var hasData: Bool { _pointer.pointee.data != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withDataBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.data, body)
+        try withLkBytes(_pointer.pointee.data, body)
     }
 
 }
 
-struct Livekit_ParticipantTracks: NanopbMessage {
+struct Livekit_ParticipantTracks: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_ParticipantTracks
     static var descriptor: pb_msgdesc_t { livekit_ParticipantTracks_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var participantSid: String {
-        get { lkString(_box.storage.participant_sid) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.participant_sid, newValue) }
+        get { lkString(_pointer.pointee.participant_sid) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.participant_sid, newValue) }
     }
-    var hasParticipantSid: Bool { _box.storage.participant_sid != nil }
+    var hasParticipantSid: Bool { _pointer.pointee.participant_sid != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withParticipantSidBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.participant_sid, body)
+        try withLkBytes(_pointer.pointee.participant_sid, body)
     }
 
     var trackSids: [String] {
-        get { lkRepeated(_box.storage.track_sids_count, _box.storage.track_sids) }
+        get { lkRepeated(_pointer.pointee.track_sids_count, _pointer.pointee.track_sids) }
         set {
             _ensureUnique()
-            var count = _box.storage.track_sids_count, base = _box.storage.track_sids
+            var count = _pointer.pointee.track_sids_count, base = _pointer.pointee.track_sids
             lkSetRepeated(&count, &base, newValue)
-            _box.storage.track_sids_count = count; _box.storage.track_sids = base
+            _pointer.pointee.track_sids_count = count; _pointer.pointee.track_sids = base
         }
     }
 
 }
 
-struct Livekit_ServerInfo: NanopbMessage {
+struct Livekit_ServerInfo: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_ServerInfo
     static var descriptor: pb_msgdesc_t { livekit_ServerInfo_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var edition: Livekit_ServerInfo.Edition {
-        get { _box.storage.edition.map { lkEnum($0.pointee) } ?? Livekit_ServerInfo.Edition() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.edition, newValue) }
+        get { _pointer.pointee.edition.map { lkEnum($0.pointee) } ?? Livekit_ServerInfo.Edition() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.edition, newValue) }
     }
-    var hasEdition: Bool { _box.storage.edition != nil }
+    var hasEdition: Bool { _pointer.pointee.edition != nil }
 
     var version: String {
-        get { lkString(_box.storage.version) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.version, newValue) }
+        get { lkString(_pointer.pointee.version) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.version, newValue) }
     }
-    var hasVersion: Bool { _box.storage.version != nil }
+    var hasVersion: Bool { _pointer.pointee.version != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withVersionBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.version, body)
+        try withLkBytes(_pointer.pointee.version, body)
     }
 
     var `protocol`: Int32 {
-        get { _box.storage.`protocol`?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.`protocol`, newValue) }
+        get { _pointer.pointee.`protocol`?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.`protocol`, newValue) }
     }
-    var hasProtocol: Bool { _box.storage.`protocol` != nil }
+    var hasProtocol: Bool { _pointer.pointee.`protocol` != nil }
 
     var region: String {
-        get { lkString(_box.storage.region) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.region, newValue) }
+        get { lkString(_pointer.pointee.region) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.region, newValue) }
     }
-    var hasRegion: Bool { _box.storage.region != nil }
+    var hasRegion: Bool { _pointer.pointee.region != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withRegionBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.region, body)
+        try withLkBytes(_pointer.pointee.region, body)
     }
 
     var nodeID: String {
-        get { lkString(_box.storage.node_id) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.node_id, newValue) }
+        get { lkString(_pointer.pointee.node_id) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.node_id, newValue) }
     }
-    var hasNodeID: Bool { _box.storage.node_id != nil }
+    var hasNodeID: Bool { _pointer.pointee.node_id != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withNodeIDBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.node_id, body)
+        try withLkBytes(_pointer.pointee.node_id, body)
     }
 
     var debugInfo: String {
-        get { lkString(_box.storage.debug_info) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.debug_info, newValue) }
+        get { lkString(_pointer.pointee.debug_info) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.debug_info, newValue) }
     }
-    var hasDebugInfo: Bool { _box.storage.debug_info != nil }
+    var hasDebugInfo: Bool { _pointer.pointee.debug_info != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withDebugInfoBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.debug_info, body)
+        try withLkBytes(_pointer.pointee.debug_info, body)
     }
 
     var agentProtocol: Int32 {
-        get { _box.storage.agent_protocol?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.agent_protocol, newValue) }
+        get { _pointer.pointee.agent_protocol?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.agent_protocol, newValue) }
     }
-    var hasAgentProtocol: Bool { _box.storage.agent_protocol != nil }
+    var hasAgentProtocol: Bool { _pointer.pointee.agent_protocol != nil }
 
     enum Edition: NanopbEnum, CaseIterable {
         case standard
@@ -2183,129 +2507,141 @@ struct Livekit_ServerInfo: NanopbMessage {
 
 }
 
-struct Livekit_ClientInfo: NanopbMessage {
+struct Livekit_ClientInfo: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_ClientInfo
     static var descriptor: pb_msgdesc_t { livekit_ClientInfo_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var sdk: Livekit_ClientInfo.SDK {
-        get { _box.storage.sdk.map { lkEnum($0.pointee) } ?? Livekit_ClientInfo.SDK() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.sdk, newValue) }
+        get { _pointer.pointee.sdk.map { lkEnum($0.pointee) } ?? Livekit_ClientInfo.SDK() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.sdk, newValue) }
     }
-    var hasSdk: Bool { _box.storage.sdk != nil }
+    var hasSdk: Bool { _pointer.pointee.sdk != nil }
 
     var version: String {
-        get { lkString(_box.storage.version) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.version, newValue) }
+        get { lkString(_pointer.pointee.version) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.version, newValue) }
     }
-    var hasVersion: Bool { _box.storage.version != nil }
+    var hasVersion: Bool { _pointer.pointee.version != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withVersionBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.version, body)
+        try withLkBytes(_pointer.pointee.version, body)
     }
 
     var `protocol`: Int32 {
-        get { _box.storage.`protocol`?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.`protocol`, newValue) }
+        get { _pointer.pointee.`protocol`?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.`protocol`, newValue) }
     }
-    var hasProtocol: Bool { _box.storage.`protocol` != nil }
+    var hasProtocol: Bool { _pointer.pointee.`protocol` != nil }
 
     var os: String {
-        get { lkString(_box.storage.os) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.os, newValue) }
+        get { lkString(_pointer.pointee.os) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.os, newValue) }
     }
-    var hasOs: Bool { _box.storage.os != nil }
+    var hasOs: Bool { _pointer.pointee.os != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withOsBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.os, body)
+        try withLkBytes(_pointer.pointee.os, body)
     }
 
     var osVersion: String {
-        get { lkString(_box.storage.os_version) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.os_version, newValue) }
+        get { lkString(_pointer.pointee.os_version) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.os_version, newValue) }
     }
-    var hasOsVersion: Bool { _box.storage.os_version != nil }
+    var hasOsVersion: Bool { _pointer.pointee.os_version != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withOsVersionBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.os_version, body)
+        try withLkBytes(_pointer.pointee.os_version, body)
     }
 
     var deviceModel: String {
-        get { lkString(_box.storage.device_model) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.device_model, newValue) }
+        get { lkString(_pointer.pointee.device_model) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.device_model, newValue) }
     }
-    var hasDeviceModel: Bool { _box.storage.device_model != nil }
+    var hasDeviceModel: Bool { _pointer.pointee.device_model != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withDeviceModelBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.device_model, body)
+        try withLkBytes(_pointer.pointee.device_model, body)
     }
 
     var browser: String {
-        get { lkString(_box.storage.browser) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.browser, newValue) }
+        get { lkString(_pointer.pointee.browser) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.browser, newValue) }
     }
-    var hasBrowser: Bool { _box.storage.browser != nil }
+    var hasBrowser: Bool { _pointer.pointee.browser != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withBrowserBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.browser, body)
+        try withLkBytes(_pointer.pointee.browser, body)
     }
 
     var browserVersion: String {
-        get { lkString(_box.storage.browser_version) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.browser_version, newValue) }
+        get { lkString(_pointer.pointee.browser_version) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.browser_version, newValue) }
     }
-    var hasBrowserVersion: Bool { _box.storage.browser_version != nil }
+    var hasBrowserVersion: Bool { _pointer.pointee.browser_version != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withBrowserVersionBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.browser_version, body)
+        try withLkBytes(_pointer.pointee.browser_version, body)
     }
 
     var address: String {
-        get { lkString(_box.storage.address) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.address, newValue) }
+        get { lkString(_pointer.pointee.address) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.address, newValue) }
     }
-    var hasAddress: Bool { _box.storage.address != nil }
+    var hasAddress: Bool { _pointer.pointee.address != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withAddressBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.address, body)
+        try withLkBytes(_pointer.pointee.address, body)
     }
 
     var network: String {
-        get { lkString(_box.storage.network) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.network, newValue) }
+        get { lkString(_pointer.pointee.network) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.network, newValue) }
     }
-    var hasNetwork: Bool { _box.storage.network != nil }
+    var hasNetwork: Bool { _pointer.pointee.network != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withNetworkBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.network, body)
+        try withLkBytes(_pointer.pointee.network, body)
     }
 
     var otherSdks: String {
-        get { lkString(_box.storage.other_sdks) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.other_sdks, newValue) }
+        get { lkString(_pointer.pointee.other_sdks) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.other_sdks, newValue) }
     }
-    var hasOtherSdks: Bool { _box.storage.other_sdks != nil }
+    var hasOtherSdks: Bool { _pointer.pointee.other_sdks != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withOtherSdksBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.other_sdks, body)
+        try withLkBytes(_pointer.pointee.other_sdks, body)
     }
 
     var clientProtocol: Int32 {
-        get { _box.storage.client_protocol?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.client_protocol, newValue) }
+        get { _pointer.pointee.client_protocol?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.client_protocol, newValue) }
     }
-    var hasClientProtocol: Bool { _box.storage.client_protocol != nil }
+    var hasClientProtocol: Bool { _pointer.pointee.client_protocol != nil }
 
     var capabilities: [Livekit_ClientInfo.Capability] {
-        get { lkRepeatedEnum(_box.storage.capabilities_count, _box.storage.capabilities) }
+        get { lkRepeatedEnum(_pointer.pointee.capabilities_count, _pointer.pointee.capabilities) }
         set {
             _ensureUnique()
-            var count = _box.storage.capabilities_count, base = _box.storage.capabilities
+            var count = _pointer.pointee.capabilities_count, base = _pointer.pointee.capabilities
             lkSetRepeatedEnum(&count, &base, newValue)
-            _box.storage.capabilities_count = count; _box.storage.capabilities = base
+            _pointer.pointee.capabilities_count = count; _pointer.pointee.capabilities = base
         }
     }
 
@@ -2406,252 +2742,348 @@ struct Livekit_ClientInfo: NanopbMessage {
 
 }
 
-struct Livekit_ClientConfiguration: NanopbMessage {
+struct Livekit_ClientConfiguration: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_ClientConfiguration
     static var descriptor: pb_msgdesc_t { livekit_ClientConfiguration_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var video: Livekit_VideoConfiguration {
-        get { lkMessage(_box.storage.video) }
-        set { _ensureUnique(); lkSetMessage(&_box.storage.video, newValue) }
+        get { _pointer.pointee.video.map { Livekit_VideoConfiguration(_sharing: $0, owner: _owner) } ?? Livekit_VideoConfiguration() }
+        set { _ensureUnique(); lkSetMessage(&_pointer.pointee.video, newValue) }
     }
-    var hasVideo: Bool { _box.storage.video != nil }
+    var hasVideo: Bool { _pointer.pointee.video != nil }
 
     var screen: Livekit_VideoConfiguration {
-        get { lkMessage(_box.storage.screen) }
-        set { _ensureUnique(); lkSetMessage(&_box.storage.screen, newValue) }
+        get { _pointer.pointee.screen.map { Livekit_VideoConfiguration(_sharing: $0, owner: _owner) } ?? Livekit_VideoConfiguration() }
+        set { _ensureUnique(); lkSetMessage(&_pointer.pointee.screen, newValue) }
     }
-    var hasScreen: Bool { _box.storage.screen != nil }
+    var hasScreen: Bool { _pointer.pointee.screen != nil }
 
     var resumeConnection: Livekit_ClientConfigSetting {
-        get { _box.storage.resume_connection.map { lkEnum($0.pointee) } ?? Livekit_ClientConfigSetting() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.resume_connection, newValue) }
+        get { _pointer.pointee.resume_connection.map { lkEnum($0.pointee) } ?? Livekit_ClientConfigSetting() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.resume_connection, newValue) }
     }
-    var hasResumeConnection: Bool { _box.storage.resume_connection != nil }
+    var hasResumeConnection: Bool { _pointer.pointee.resume_connection != nil }
 
     var disabledCodecs: Livekit_DisabledCodecs {
-        get { lkMessage(_box.storage.disabled_codecs) }
-        set { _ensureUnique(); lkSetMessage(&_box.storage.disabled_codecs, newValue) }
+        get { _pointer.pointee.disabled_codecs.map { Livekit_DisabledCodecs(_sharing: $0, owner: _owner) } ?? Livekit_DisabledCodecs() }
+        set { _ensureUnique(); lkSetMessage(&_pointer.pointee.disabled_codecs, newValue) }
     }
-    var hasDisabledCodecs: Bool { _box.storage.disabled_codecs != nil }
+    var hasDisabledCodecs: Bool { _pointer.pointee.disabled_codecs != nil }
 
     var forceRelay: Livekit_ClientConfigSetting {
-        get { _box.storage.force_relay.map { lkEnum($0.pointee) } ?? Livekit_ClientConfigSetting() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.force_relay, newValue) }
+        get { _pointer.pointee.force_relay.map { lkEnum($0.pointee) } ?? Livekit_ClientConfigSetting() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.force_relay, newValue) }
     }
-    var hasForceRelay: Bool { _box.storage.force_relay != nil }
+    var hasForceRelay: Bool { _pointer.pointee.force_relay != nil }
 
 }
 
-struct Livekit_VideoConfiguration: NanopbMessage {
+struct Livekit_VideoConfiguration: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_VideoConfiguration
     static var descriptor: pb_msgdesc_t { livekit_VideoConfiguration_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var hardwareEncoder: Livekit_ClientConfigSetting {
-        get { _box.storage.hardware_encoder.map { lkEnum($0.pointee) } ?? Livekit_ClientConfigSetting() }
-        set { _ensureUnique(); lkSetEnumPointer(&_box.storage.hardware_encoder, newValue) }
+        get { _pointer.pointee.hardware_encoder.map { lkEnum($0.pointee) } ?? Livekit_ClientConfigSetting() }
+        set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.hardware_encoder, newValue) }
     }
-    var hasHardwareEncoder: Bool { _box.storage.hardware_encoder != nil }
+    var hasHardwareEncoder: Bool { _pointer.pointee.hardware_encoder != nil }
 
 }
 
-struct Livekit_DisabledCodecs: NanopbMessage {
+struct Livekit_DisabledCodecs: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_DisabledCodecs
     static var descriptor: pb_msgdesc_t { livekit_DisabledCodecs_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var codecs: [Livekit_Codec] {
-        get { lkRepeatedMessages(_box.storage.codecs_count, _box.storage.codecs) }
+        get { lkViews(_pointer.pointee.codecs_count, _pointer.pointee.codecs, owner: _owner) }
         set {
             _ensureUnique()
-            var count = _box.storage.codecs_count, base = _box.storage.codecs
+            var count = _pointer.pointee.codecs_count, base = _pointer.pointee.codecs
             lkSetRepeatedMessages(&count, &base, newValue)
-            _box.storage.codecs_count = count; _box.storage.codecs = base
+            _pointer.pointee.codecs_count = count; _pointer.pointee.codecs = base
         }
     }
 
     var publish: [Livekit_Codec] {
-        get { lkRepeatedMessages(_box.storage.publish_count, _box.storage.publish) }
+        get { lkViews(_pointer.pointee.publish_count, _pointer.pointee.publish, owner: _owner) }
         set {
             _ensureUnique()
-            var count = _box.storage.publish_count, base = _box.storage.publish
+            var count = _pointer.pointee.publish_count, base = _pointer.pointee.publish
             lkSetRepeatedMessages(&count, &base, newValue)
-            _box.storage.publish_count = count; _box.storage.publish = base
+            _pointer.pointee.publish_count = count; _pointer.pointee.publish = base
         }
     }
 
 }
 
-struct Livekit_TimedVersion: NanopbMessage {
+struct Livekit_TimedVersion: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_TimedVersion
     static var descriptor: pb_msgdesc_t { livekit_TimedVersion_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var unixMicro: Int64 {
-        get { _box.storage.unix_micro?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.unix_micro, newValue) }
+        get { _pointer.pointee.unix_micro?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.unix_micro, newValue) }
     }
-    var hasUnixMicro: Bool { _box.storage.unix_micro != nil }
+    var hasUnixMicro: Bool { _pointer.pointee.unix_micro != nil }
 
     var ticks: Int32 {
-        get { _box.storage.ticks?.pointee ?? 0 }
-        set { _ensureUnique(); lkSetValue(&_box.storage.ticks, newValue) }
+        get { _pointer.pointee.ticks?.pointee ?? 0 }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.ticks, newValue) }
     }
-    var hasTicks: Bool { _box.storage.ticks != nil }
+    var hasTicks: Bool { _pointer.pointee.ticks != nil }
 
 }
 
-struct Livekit_DataStream: NanopbMessage {
+struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_DataStream
     static var descriptor: pb_msgdesc_t { livekit_DataStream_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
 
-    struct ByteHeader: NanopbMessage {
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
+
+    struct ByteHeader: NanopbMessage, @unchecked Sendable {
         typealias Storage = livekit_DataStream_ByteHeader
         static var descriptor: pb_msgdesc_t { livekit_DataStream_ByteHeader_msg }
         static var zero: Storage { Storage() }
 
-        var _box: NanopbBox<Storage>
-        init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+        var _owner: AnyObject
+        var _pointer: UnsafeMutablePointer<Storage>
+
+        init() {
+            let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+            _owner = box
+            _pointer = box.pointer
+        }
+
+        /// Zero-copy view into `owner`'s storage.
+        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+            _owner = owner
+            _pointer = pointer
+        }
 
         var name: String {
-            get { lkString(_box.storage.name) ?? "" }
-            set { _ensureUnique(); lkSetString(&_box.storage.name, newValue) }
+            get { lkString(_pointer.pointee.name) ?? "" }
+            set { _ensureUnique(); lkSetString(&_pointer.pointee.name, newValue) }
         }
-        var hasName: Bool { _box.storage.name != nil }
+        var hasName: Bool { _pointer.pointee.name != nil }
         /// Zero-copy read — borrows nanopb's allocation for the call only.
         func withNameBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-            try withLkBytes(_box.storage.name, body)
+            try withLkBytes(_pointer.pointee.name, body)
         }
 
     }
 
-    struct Chunk: NanopbMessage {
+    struct Chunk: NanopbMessage, @unchecked Sendable {
         typealias Storage = livekit_DataStream_Chunk
         static var descriptor: pb_msgdesc_t { livekit_DataStream_Chunk_msg }
         static var zero: Storage { Storage() }
 
-        var _box: NanopbBox<Storage>
-        init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+        var _owner: AnyObject
+        var _pointer: UnsafeMutablePointer<Storage>
+
+        init() {
+            let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+            _owner = box
+            _pointer = box.pointer
+        }
+
+        /// Zero-copy view into `owner`'s storage.
+        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+            _owner = owner
+            _pointer = pointer
+        }
 
         var streamID: String {
-            get { lkString(_box.storage.stream_id) ?? "" }
-            set { _ensureUnique(); lkSetString(&_box.storage.stream_id, newValue) }
+            get { lkString(_pointer.pointee.stream_id) ?? "" }
+            set { _ensureUnique(); lkSetString(&_pointer.pointee.stream_id, newValue) }
         }
-        var hasStreamID: Bool { _box.storage.stream_id != nil }
+        var hasStreamID: Bool { _pointer.pointee.stream_id != nil }
         /// Zero-copy read — borrows nanopb's allocation for the call only.
         func withStreamIDBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-            try withLkBytes(_box.storage.stream_id, body)
+            try withLkBytes(_pointer.pointee.stream_id, body)
         }
 
         var chunkIndex: UInt64 {
-            get { _box.storage.chunk_index?.pointee ?? 0 }
-            set { _ensureUnique(); lkSetValue(&_box.storage.chunk_index, newValue) }
+            get { _pointer.pointee.chunk_index?.pointee ?? 0 }
+            set { _ensureUnique(); lkSetValue(&_pointer.pointee.chunk_index, newValue) }
         }
-        var hasChunkIndex: Bool { _box.storage.chunk_index != nil }
+        var hasChunkIndex: Bool { _pointer.pointee.chunk_index != nil }
 
         var content: Data {
-            get { lkData(_box.storage.content) }
-            set { _ensureUnique(); lkSetData(&_box.storage.content, newValue) }
+            get { lkData(_pointer.pointee.content) }
+            set { _ensureUnique(); lkSetData(&_pointer.pointee.content, newValue) }
         }
-        var hasContent: Bool { _box.storage.content != nil }
+        var hasContent: Bool { _pointer.pointee.content != nil }
         func withContent<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-            try withLkData(_box.storage.content, body)
+            try withLkData(_pointer.pointee.content, body)
         }
 
         var version: Int32 {
-            get { _box.storage.version?.pointee ?? 0 }
-            set { _ensureUnique(); lkSetValue(&_box.storage.version, newValue) }
+            get { _pointer.pointee.version?.pointee ?? 0 }
+            set { _ensureUnique(); lkSetValue(&_pointer.pointee.version, newValue) }
         }
-        var hasVersion: Bool { _box.storage.version != nil }
+        var hasVersion: Bool { _pointer.pointee.version != nil }
 
         var iv: Data {
-            get { lkData(_box.storage.iv) }
-            set { _ensureUnique(); lkSetData(&_box.storage.iv, newValue) }
+            get { lkData(_pointer.pointee.iv) }
+            set { _ensureUnique(); lkSetData(&_pointer.pointee.iv, newValue) }
         }
-        var hasIv: Bool { _box.storage.iv != nil }
+        var hasIv: Bool { _pointer.pointee.iv != nil }
         func withIv<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-            try withLkData(_box.storage.iv, body)
+            try withLkData(_pointer.pointee.iv, body)
         }
 
     }
 
-    struct Header: NanopbMessage {
+    struct Header: NanopbMessage, @unchecked Sendable {
         typealias Storage = livekit_DataStream_Header
         static var descriptor: pb_msgdesc_t { livekit_DataStream_Header_msg }
         static var zero: Storage { Storage() }
 
-        var _box: NanopbBox<Storage>
-        init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+        var _owner: AnyObject
+        var _pointer: UnsafeMutablePointer<Storage>
+
+        init() {
+            let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+            _owner = box
+            _pointer = box.pointer
+        }
+
+        /// Zero-copy view into `owner`'s storage.
+        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+            _owner = owner
+            _pointer = pointer
+        }
 
         var streamID: String {
-            get { lkString(_box.storage.stream_id) ?? "" }
-            set { _ensureUnique(); lkSetString(&_box.storage.stream_id, newValue) }
+            get { lkString(_pointer.pointee.stream_id) ?? "" }
+            set { _ensureUnique(); lkSetString(&_pointer.pointee.stream_id, newValue) }
         }
-        var hasStreamID: Bool { _box.storage.stream_id != nil }
+        var hasStreamID: Bool { _pointer.pointee.stream_id != nil }
         /// Zero-copy read — borrows nanopb's allocation for the call only.
         func withStreamIDBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-            try withLkBytes(_box.storage.stream_id, body)
+            try withLkBytes(_pointer.pointee.stream_id, body)
         }
 
         var timestamp: Int64 {
-            get { _box.storage.timestamp?.pointee ?? 0 }
-            set { _ensureUnique(); lkSetValue(&_box.storage.timestamp, newValue) }
+            get { _pointer.pointee.timestamp?.pointee ?? 0 }
+            set { _ensureUnique(); lkSetValue(&_pointer.pointee.timestamp, newValue) }
         }
-        var hasTimestamp: Bool { _box.storage.timestamp != nil }
+        var hasTimestamp: Bool { _pointer.pointee.timestamp != nil }
 
         var topic: String {
-            get { lkString(_box.storage.topic) ?? "" }
-            set { _ensureUnique(); lkSetString(&_box.storage.topic, newValue) }
+            get { lkString(_pointer.pointee.topic) ?? "" }
+            set { _ensureUnique(); lkSetString(&_pointer.pointee.topic, newValue) }
         }
-        var hasTopic: Bool { _box.storage.topic != nil }
+        var hasTopic: Bool { _pointer.pointee.topic != nil }
         /// Zero-copy read — borrows nanopb's allocation for the call only.
         func withTopicBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-            try withLkBytes(_box.storage.topic, body)
+            try withLkBytes(_pointer.pointee.topic, body)
         }
 
         var mimeType: String {
-            get { lkString(_box.storage.mime_type) ?? "" }
-            set { _ensureUnique(); lkSetString(&_box.storage.mime_type, newValue) }
+            get { lkString(_pointer.pointee.mime_type) ?? "" }
+            set { _ensureUnique(); lkSetString(&_pointer.pointee.mime_type, newValue) }
         }
-        var hasMimeType: Bool { _box.storage.mime_type != nil }
+        var hasMimeType: Bool { _pointer.pointee.mime_type != nil }
         /// Zero-copy read — borrows nanopb's allocation for the call only.
         func withMimeTypeBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-            try withLkBytes(_box.storage.mime_type, body)
+            try withLkBytes(_pointer.pointee.mime_type, body)
         }
 
         var totalLength: UInt64 {
-            get { _box.storage.total_length?.pointee ?? 0 }
-            set { _ensureUnique(); lkSetValue(&_box.storage.total_length, newValue) }
+            get { _pointer.pointee.total_length?.pointee ?? 0 }
+            set { _ensureUnique(); lkSetValue(&_pointer.pointee.total_length, newValue) }
         }
-        var hasTotalLength: Bool { _box.storage.total_length != nil }
+        var hasTotalLength: Bool { _pointer.pointee.total_length != nil }
 
         var encryptionType: Livekit_Encryption.TypeEnum {
-            get { _box.storage.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
-            set { _ensureUnique(); lkSetEnumPointer(&_box.storage.encryption_type, newValue) }
+            get { _pointer.pointee.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
+            set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.encryption_type, newValue) }
         }
-        var hasEncryptionType: Bool { _box.storage.encryption_type != nil }
+        var hasEncryptionType: Bool { _pointer.pointee.encryption_type != nil }
 
         var attributes: [String: String] {
             get {
                 var out: [String: String] = [:]
-                for entry in lkRepeatedMessages(_box.storage.attributes_count, _box.storage.attributes) as [Livekit_DataStream.Header.AttributesEntry] {
+                for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _owner) as [Livekit_DataStream.Header.AttributesEntry] {
                     out[entry.key] = entry.value
                 }
                 return out
@@ -2662,9 +3094,9 @@ struct Livekit_DataStream: NanopbMessage {
                 let entries = newValue.sorted { $0.key < $1.key }.map { pair in
                     Livekit_DataStream.Header.AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
                 }
-                var count = _box.storage.attributes_count, base = _box.storage.attributes
+                var count = _pointer.pointee.attributes_count, base = _pointer.pointee.attributes
                 lkSetRepeatedMessages(&count, &base, entries)
-                _box.storage.attributes_count = count; _box.storage.attributes = base
+                _pointer.pointee.attributes_count = count; _pointer.pointee.attributes = base
             }
         }
 
@@ -2675,11 +3107,11 @@ struct Livekit_DataStream: NanopbMessage {
         
         var contentHeader: OneOf_ContentHeader? {
             get {
-                switch _box.storage.which_content_header {
+                switch _pointer.pointee.which_content_header {
                 case pb_size_t(livekit_DataStream_Header_text_header_tag):
-                    return .textHeader(lkMessage(_box.storage.content_header.text_header))
+                    return .textHeader(_pointer.pointee.content_header.text_header.map { Livekit_DataStream.TextHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.TextHeader())
                 case pb_size_t(livekit_DataStream_Header_byte_header_tag):
-                    return .byteHeader(lkMessage(_box.storage.content_header.byte_header))
+                    return .byteHeader(_pointer.pointee.content_header.byte_header.map { Livekit_DataStream.ByteHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.ByteHeader())
                 default: return nil
                 }
             }
@@ -2688,161 +3120,197 @@ struct Livekit_DataStream: NanopbMessage {
                 _clearContentHeader()
                 switch newValue {
                 case let .textHeader(value):
-                    _box.storage.which_content_header = pb_size_t(livekit_DataStream_Header_text_header_tag)
-                    lkSetMessage(&_box.storage.content_header.text_header, value)
+                    _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_text_header_tag)
+                    lkSetMessage(&_pointer.pointee.content_header.text_header, value)
                 case let .byteHeader(value):
-                    _box.storage.which_content_header = pb_size_t(livekit_DataStream_Header_byte_header_tag)
-                    lkSetMessage(&_box.storage.content_header.byte_header, value)
+                    _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_byte_header_tag)
+                    lkSetMessage(&_pointer.pointee.content_header.byte_header, value)
                 case nil: break
                 }
             }
         }
         
         var textHeader: Livekit_DataStream.TextHeader {
-            get { _box.storage.which_content_header == pb_size_t(livekit_DataStream_Header_text_header_tag) ? (lkMessage(_box.storage.content_header.text_header)) : Livekit_DataStream.TextHeader() }
+            get { _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_text_header_tag) ? (_pointer.pointee.content_header.text_header.map { Livekit_DataStream.TextHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.TextHeader()) : Livekit_DataStream.TextHeader() }
             set {
                 _ensureUnique()
                 _clearContentHeader()
-                _box.storage.which_content_header = pb_size_t(livekit_DataStream_Header_text_header_tag)
-                lkSetMessage(&_box.storage.content_header.text_header, newValue)
+                _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_text_header_tag)
+                lkSetMessage(&_pointer.pointee.content_header.text_header, newValue)
             }
         }
         var byteHeader: Livekit_DataStream.ByteHeader {
-            get { _box.storage.which_content_header == pb_size_t(livekit_DataStream_Header_byte_header_tag) ? (lkMessage(_box.storage.content_header.byte_header)) : Livekit_DataStream.ByteHeader() }
+            get { _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_byte_header_tag) ? (_pointer.pointee.content_header.byte_header.map { Livekit_DataStream.ByteHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.ByteHeader()) : Livekit_DataStream.ByteHeader() }
             set {
                 _ensureUnique()
                 _clearContentHeader()
-                _box.storage.which_content_header = pb_size_t(livekit_DataStream_Header_byte_header_tag)
-                lkSetMessage(&_box.storage.content_header.byte_header, newValue)
+                _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_byte_header_tag)
+                lkSetMessage(&_pointer.pointee.content_header.byte_header, newValue)
             }
         }
         
         private mutating func _clearContentHeader() {
-            switch _box.storage.which_content_header {
+            switch _pointer.pointee.which_content_header {
             case pb_size_t(livekit_DataStream_Header_text_header_tag):
-                lkRelease(message: &_box.storage.content_header.text_header, Livekit_DataStream.TextHeader.descriptor)
+                lkRelease(message: &_pointer.pointee.content_header.text_header, Livekit_DataStream.TextHeader.descriptor)
             case pb_size_t(livekit_DataStream_Header_byte_header_tag):
-                lkRelease(message: &_box.storage.content_header.byte_header, Livekit_DataStream.ByteHeader.descriptor)
+                lkRelease(message: &_pointer.pointee.content_header.byte_header, Livekit_DataStream.ByteHeader.descriptor)
             default: break
             }
-            _box.storage.which_content_header = 0
+            _pointer.pointee.which_content_header = 0
             // zero the union: stale bits from an inline variant would otherwise
             // be misread as a pointer by the next variant's setter
-            _box.storage.content_header = .init()
+            _pointer.pointee.content_header = .init()
         }
 
-        struct AttributesEntry: NanopbMessage {
+        struct AttributesEntry: NanopbMessage, @unchecked Sendable {
             typealias Storage = livekit_DataStream_Header_AttributesEntry
             static var descriptor: pb_msgdesc_t { livekit_DataStream_Header_AttributesEntry_msg }
             static var zero: Storage { Storage() }
 
-            var _box: NanopbBox<Storage>
-            init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+            var _owner: AnyObject
+            var _pointer: UnsafeMutablePointer<Storage>
+
+            init() {
+                let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+                _owner = box
+                _pointer = box.pointer
+            }
+
+            /// Zero-copy view into `owner`'s storage.
+            init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+                _owner = owner
+                _pointer = pointer
+            }
 
             var key: String {
-                get { lkString(_box.storage.key) ?? "" }
-                set { _ensureUnique(); lkSetString(&_box.storage.key, newValue) }
+                get { lkString(_pointer.pointee.key) ?? "" }
+                set { _ensureUnique(); lkSetString(&_pointer.pointee.key, newValue) }
             }
-            var hasKey: Bool { _box.storage.key != nil }
+            var hasKey: Bool { _pointer.pointee.key != nil }
             /// Zero-copy read — borrows nanopb's allocation for the call only.
             func withKeyBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-                try withLkBytes(_box.storage.key, body)
+                try withLkBytes(_pointer.pointee.key, body)
             }
 
             var value: String {
-                get { lkString(_box.storage.value) ?? "" }
-                set { _ensureUnique(); lkSetString(&_box.storage.value, newValue) }
+                get { lkString(_pointer.pointee.value) ?? "" }
+                set { _ensureUnique(); lkSetString(&_pointer.pointee.value, newValue) }
             }
-            var hasValue: Bool { _box.storage.value != nil }
+            var hasValue: Bool { _pointer.pointee.value != nil }
             /// Zero-copy read — borrows nanopb's allocation for the call only.
             func withValueBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-                try withLkBytes(_box.storage.value, body)
+                try withLkBytes(_pointer.pointee.value, body)
             }
 
         }
 
     }
 
-    struct TextHeader: NanopbMessage {
+    struct TextHeader: NanopbMessage, @unchecked Sendable {
         typealias Storage = livekit_DataStream_TextHeader
         static var descriptor: pb_msgdesc_t { livekit_DataStream_TextHeader_msg }
         static var zero: Storage { Storage() }
 
-        var _box: NanopbBox<Storage>
-        init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+        var _owner: AnyObject
+        var _pointer: UnsafeMutablePointer<Storage>
+
+        init() {
+            let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+            _owner = box
+            _pointer = box.pointer
+        }
+
+        /// Zero-copy view into `owner`'s storage.
+        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+            _owner = owner
+            _pointer = pointer
+        }
 
         var operationType: Livekit_DataStream.OperationType {
-            get { _box.storage.operation_type.map { lkEnum($0.pointee) } ?? Livekit_DataStream.OperationType() }
-            set { _ensureUnique(); lkSetEnumPointer(&_box.storage.operation_type, newValue) }
+            get { _pointer.pointee.operation_type.map { lkEnum($0.pointee) } ?? Livekit_DataStream.OperationType() }
+            set { _ensureUnique(); lkSetEnumPointer(&_pointer.pointee.operation_type, newValue) }
         }
-        var hasOperationType: Bool { _box.storage.operation_type != nil }
+        var hasOperationType: Bool { _pointer.pointee.operation_type != nil }
 
         var version: Int32 {
-            get { _box.storage.version?.pointee ?? 0 }
-            set { _ensureUnique(); lkSetValue(&_box.storage.version, newValue) }
+            get { _pointer.pointee.version?.pointee ?? 0 }
+            set { _ensureUnique(); lkSetValue(&_pointer.pointee.version, newValue) }
         }
-        var hasVersion: Bool { _box.storage.version != nil }
+        var hasVersion: Bool { _pointer.pointee.version != nil }
 
         var replyToStreamID: String {
-            get { lkString(_box.storage.reply_to_stream_id) ?? "" }
-            set { _ensureUnique(); lkSetString(&_box.storage.reply_to_stream_id, newValue) }
+            get { lkString(_pointer.pointee.reply_to_stream_id) ?? "" }
+            set { _ensureUnique(); lkSetString(&_pointer.pointee.reply_to_stream_id, newValue) }
         }
-        var hasReplyToStreamID: Bool { _box.storage.reply_to_stream_id != nil }
+        var hasReplyToStreamID: Bool { _pointer.pointee.reply_to_stream_id != nil }
         /// Zero-copy read — borrows nanopb's allocation for the call only.
         func withReplyToStreamIDBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-            try withLkBytes(_box.storage.reply_to_stream_id, body)
+            try withLkBytes(_pointer.pointee.reply_to_stream_id, body)
         }
 
         var attachedStreamIds: [String] {
-            get { lkRepeated(_box.storage.attached_stream_ids_count, _box.storage.attached_stream_ids) }
+            get { lkRepeated(_pointer.pointee.attached_stream_ids_count, _pointer.pointee.attached_stream_ids) }
             set {
                 _ensureUnique()
-                var count = _box.storage.attached_stream_ids_count, base = _box.storage.attached_stream_ids
+                var count = _pointer.pointee.attached_stream_ids_count, base = _pointer.pointee.attached_stream_ids
                 lkSetRepeated(&count, &base, newValue)
-                _box.storage.attached_stream_ids_count = count; _box.storage.attached_stream_ids = base
+                _pointer.pointee.attached_stream_ids_count = count; _pointer.pointee.attached_stream_ids = base
             }
         }
 
         var generated: Bool {
-            get { _box.storage.generated?.pointee ?? false }
-            set { _ensureUnique(); lkSetValue(&_box.storage.generated, newValue) }
+            get { _pointer.pointee.generated?.pointee ?? false }
+            set { _ensureUnique(); lkSetValue(&_pointer.pointee.generated, newValue) }
         }
-        var hasGenerated: Bool { _box.storage.generated != nil }
+        var hasGenerated: Bool { _pointer.pointee.generated != nil }
 
     }
 
-    struct Trailer: NanopbMessage {
+    struct Trailer: NanopbMessage, @unchecked Sendable {
         typealias Storage = livekit_DataStream_Trailer
         static var descriptor: pb_msgdesc_t { livekit_DataStream_Trailer_msg }
         static var zero: Storage { Storage() }
 
-        var _box: NanopbBox<Storage>
-        init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+        var _owner: AnyObject
+        var _pointer: UnsafeMutablePointer<Storage>
+
+        init() {
+            let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+            _owner = box
+            _pointer = box.pointer
+        }
+
+        /// Zero-copy view into `owner`'s storage.
+        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+            _owner = owner
+            _pointer = pointer
+        }
 
         var streamID: String {
-            get { lkString(_box.storage.stream_id) ?? "" }
-            set { _ensureUnique(); lkSetString(&_box.storage.stream_id, newValue) }
+            get { lkString(_pointer.pointee.stream_id) ?? "" }
+            set { _ensureUnique(); lkSetString(&_pointer.pointee.stream_id, newValue) }
         }
-        var hasStreamID: Bool { _box.storage.stream_id != nil }
+        var hasStreamID: Bool { _pointer.pointee.stream_id != nil }
         /// Zero-copy read — borrows nanopb's allocation for the call only.
         func withStreamIDBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-            try withLkBytes(_box.storage.stream_id, body)
+            try withLkBytes(_pointer.pointee.stream_id, body)
         }
 
         var reason: String {
-            get { lkString(_box.storage.reason) ?? "" }
-            set { _ensureUnique(); lkSetString(&_box.storage.reason, newValue) }
+            get { lkString(_pointer.pointee.reason) ?? "" }
+            set { _ensureUnique(); lkSetString(&_pointer.pointee.reason, newValue) }
         }
-        var hasReason: Bool { _box.storage.reason != nil }
+        var hasReason: Bool { _pointer.pointee.reason != nil }
         /// Zero-copy read — borrows nanopb's allocation for the call only.
         func withReasonBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-            try withLkBytes(_box.storage.reason, body)
+            try withLkBytes(_pointer.pointee.reason, body)
         }
 
         var attributes: [String: String] {
             get {
                 var out: [String: String] = [:]
-                for entry in lkRepeatedMessages(_box.storage.attributes_count, _box.storage.attributes) as [Livekit_DataStream.Trailer.AttributesEntry] {
+                for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _owner) as [Livekit_DataStream.Trailer.AttributesEntry] {
                     out[entry.key] = entry.value
                 }
                 return out
@@ -2853,38 +3321,50 @@ struct Livekit_DataStream: NanopbMessage {
                 let entries = newValue.sorted { $0.key < $1.key }.map { pair in
                     Livekit_DataStream.Trailer.AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
                 }
-                var count = _box.storage.attributes_count, base = _box.storage.attributes
+                var count = _pointer.pointee.attributes_count, base = _pointer.pointee.attributes
                 lkSetRepeatedMessages(&count, &base, entries)
-                _box.storage.attributes_count = count; _box.storage.attributes = base
+                _pointer.pointee.attributes_count = count; _pointer.pointee.attributes = base
             }
         }
 
-        struct AttributesEntry: NanopbMessage {
+        struct AttributesEntry: NanopbMessage, @unchecked Sendable {
             typealias Storage = livekit_DataStream_Trailer_AttributesEntry
             static var descriptor: pb_msgdesc_t { livekit_DataStream_Trailer_AttributesEntry_msg }
             static var zero: Storage { Storage() }
 
-            var _box: NanopbBox<Storage>
-            init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+            var _owner: AnyObject
+            var _pointer: UnsafeMutablePointer<Storage>
+
+            init() {
+                let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+                _owner = box
+                _pointer = box.pointer
+            }
+
+            /// Zero-copy view into `owner`'s storage.
+            init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+                _owner = owner
+                _pointer = pointer
+            }
 
             var key: String {
-                get { lkString(_box.storage.key) ?? "" }
-                set { _ensureUnique(); lkSetString(&_box.storage.key, newValue) }
+                get { lkString(_pointer.pointee.key) ?? "" }
+                set { _ensureUnique(); lkSetString(&_pointer.pointee.key, newValue) }
             }
-            var hasKey: Bool { _box.storage.key != nil }
+            var hasKey: Bool { _pointer.pointee.key != nil }
             /// Zero-copy read — borrows nanopb's allocation for the call only.
             func withKeyBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-                try withLkBytes(_box.storage.key, body)
+                try withLkBytes(_pointer.pointee.key, body)
             }
 
             var value: String {
-                get { lkString(_box.storage.value) ?? "" }
-                set { _ensureUnique(); lkSetString(&_box.storage.value, newValue) }
+                get { lkString(_pointer.pointee.value) ?? "" }
+                set { _ensureUnique(); lkSetString(&_pointer.pointee.value, newValue) }
             }
-            var hasValue: Bool { _box.storage.value != nil }
+            var hasValue: Bool { _pointer.pointee.value != nil }
             /// Zero-copy read — borrows nanopb's allocation for the call only.
             func withValueBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-                try withLkBytes(_box.storage.value, body)
+                try withLkBytes(_pointer.pointee.value, body)
             }
 
         }
@@ -2927,29 +3407,41 @@ struct Livekit_DataStream: NanopbMessage {
 
 }
 
-struct Livekit_SubscribedAudioCodec: NanopbMessage {
+struct Livekit_SubscribedAudioCodec: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_SubscribedAudioCodec
     static var descriptor: pb_msgdesc_t { livekit_SubscribedAudioCodec_msg }
     static var zero: Storage { Storage() }
 
-    var _box: NanopbBox<Storage>
-    init() { _box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor) }
+    var _owner: AnyObject
+    var _pointer: UnsafeMutablePointer<Storage>
+
+    init() {
+        let box = NanopbBox(zero: Self.zero, descriptor: Self.descriptor)
+        _owner = box
+        _pointer = box.pointer
+    }
+
+    /// Zero-copy view into `owner`'s storage.
+    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject) {
+        _owner = owner
+        _pointer = pointer
+    }
 
     var codec: String {
-        get { lkString(_box.storage.codec) ?? "" }
-        set { _ensureUnique(); lkSetString(&_box.storage.codec, newValue) }
+        get { lkString(_pointer.pointee.codec) ?? "" }
+        set { _ensureUnique(); lkSetString(&_pointer.pointee.codec, newValue) }
     }
-    var hasCodec: Bool { _box.storage.codec != nil }
+    var hasCodec: Bool { _pointer.pointee.codec != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
     func withCodecBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkBytes(_box.storage.codec, body)
+        try withLkBytes(_pointer.pointee.codec, body)
     }
 
     var enabled: Bool {
-        get { _box.storage.enabled?.pointee ?? false }
-        set { _ensureUnique(); lkSetValue(&_box.storage.enabled, newValue) }
+        get { _pointer.pointee.enabled?.pointee ?? false }
+        set { _ensureUnique(); lkSetValue(&_pointer.pointee.enabled, newValue) }
     }
-    var hasEnabled: Bool { _box.storage.enabled != nil }
+    var hasEnabled: Bool { _pointer.pointee.enabled != nil }
 
 }
 
