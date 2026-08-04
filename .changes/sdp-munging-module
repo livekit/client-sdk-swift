@@ -1,1 +1,0 @@
-patch type="changed" "Encapsulate SDP munging in a tested SDP module and fall back to the unmunged offer if libwebrtc rejects munged SDP"

@@ -33,7 +33,7 @@ public class LiveKitSDK: NSObject, Loggable {
     override private init() {}
 
     @objc(sdkVersion)
-    public static let version = "2.15.3"
+    public static let version = "2.16.0"
     static let ffiVersion = buildVersion()
 
     fileprivate struct State {
