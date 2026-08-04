@@ -334,6 +334,16 @@ public class AudioManager: Loggable {
     public func setPlatformVoiceProcessingAllowed(_ allowed: Bool) throws {
         let result = RTC.audioDeviceModule.setPlatformVoiceProcessingAllowed(allowed)
         try checkAdmResult(code: result)
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        // Disallowing the platform path tears down any current VPIO and makes
+        // future captures resolve to software processing regardless of their
+        // options, so the session must not keep the chat mode expectation.
+        // Re-allowing does not enable VPIO by itself, the next capture's
+        // options decide, so the expectation is left for that path to update.
+        if !allowed {
+            audioSession.setPlatformVoiceProcessingExpected(false)
+        }
+        #endif
     }
 
     @available(*, deprecated, renamed: "isPlatformVoiceProcessingAllowed")
@@ -422,6 +432,9 @@ public class AudioManager: Loggable {
         _ enabled: Bool,
         audioProcessingOptions: AudioProcessingOptions? = nil,
     ) async throws {
+        if enabled {
+            updateExpectedPlatformVoiceProcessing(for: audioProcessingOptions)
+        }
         let result = RTC.audioDeviceModule.setRecordingAlwaysPreparedMode(
             enabled,
             audioProcessingOptions: audioProcessingOptions?.toRTCType(),
@@ -432,6 +445,7 @@ public class AudioManager: Loggable {
     /// Starts mic input to the SDK even without any ``Room`` or a connection.
     /// Audio buffers will flow into ``LocalAudioTrack/add(audioRenderer:)`` and ``capturePostProcessingDelegate``.
     public func startLocalRecording(audioProcessingOptions: AudioProcessingOptions? = nil) throws {
+        updateExpectedPlatformVoiceProcessing(for: audioProcessingOptions)
         // Always unmute APM if muted by last session.
         RTC.audioProcessingModule.isMuted = false // TODO: Possibly not required anymore with new libs
         // Start recording on the ADM.
@@ -566,6 +580,26 @@ public extension AudioManager {
 }
 
 extension AudioManager {
+    /// Tells the session observer which voice processing implementation the
+    /// next capture resolves to, before the ADM engine transition starts. The
+    /// session category and mode are configured during that transition, so the
+    /// expectation must be known up front. Also called from
+    /// ``LocalAudioTrack/setAudioProcessingOptions(_:)`` since track-level
+    /// requests reach the ADM through the sender, bypassing this manager.
+    func updateExpectedPlatformVoiceProcessing(for options: AudioProcessingOptions?) {
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        // nil requests no processing change and the ADM keeps its current
+        // voice processing state, so the expectation must stay unchanged too.
+        guard let options else { return }
+        #if targetEnvironment(simulator)
+        let expected = false
+        #else
+        let expected = options.requestsPlatformEchoNoisePath && isPlatformVoiceProcessingAllowed
+        #endif
+        audioSession.setPlatformVoiceProcessingExpected(expected)
+        #endif
+    }
+
     func buildEngineObserverChain() -> (any AudioEngineObserver)? {
         var objects = _state.engineObservers
         guard !objects.isEmpty else { return nil }

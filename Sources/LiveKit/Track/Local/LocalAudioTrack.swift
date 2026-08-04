@@ -110,7 +110,12 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
                 message: "Media track is not an audio track",
             )
         }
-        return try audioTrack.setAudioProcessingOptions(options.toRTCType()).toLKType()
+        let result = try audioTrack.setAudioProcessingOptions(options.toRTCType()).toLKType()
+        // Track-level options reach the ADM through the sender, so inform the
+        // session observer here to keep the session mode in sync with the
+        // requested voice processing implementation.
+        AudioManager.shared.updateExpectedPlatformVoiceProcessing(for: options)
+        return result
     }
 
     // MARK: - Internal
