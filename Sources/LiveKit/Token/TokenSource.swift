@@ -35,7 +35,7 @@ public protocol TokenSourceFixed: Sendable {
 /// production applications that need flexible authentication and room management.
 ///
 /// Common implementations:
-/// - ``DevelopmentTokenSource``: For testing with LiveKit Cloud [development token server](https://cloud.livekit.io/projects/p_/sandbox/templates/token-server)
+/// - ``DevelopmentTokenSource``: For testing with LiveKit Cloud [development token server](https://docs.livekit.io/frontends/build/authentication/sandbox-token-server/)
 /// - ``EndpointTokenSource``: For custom backend endpoints using LiveKit's JSON format
 /// - ``CachingTokenSource``: For caching credentials (or use the `.cached()` extension)
 public protocol TokenSourceConfigurable: Sendable {
