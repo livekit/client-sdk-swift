@@ -103,6 +103,7 @@ actor MetricsManager: Loggable {
 
 private extension Livekit_MetricsBatch {
     init(statistics: TrackStatistics, identity: Participant.Identity?) {
+        self.init()
         var strings = OrderedSet<String>()
         defer { strData = strings.elements }
 

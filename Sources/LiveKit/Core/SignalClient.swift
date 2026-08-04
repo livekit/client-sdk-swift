@@ -282,7 +282,9 @@ private extension SignalClient {
     func onWebSocketMessage(_ message: URLSessionWebSocketTask.Message) async {
         let response: Livekit_SignalResponse? = switch message {
         case let .data(data): try? Livekit_SignalResponse(serializedBytes: data)
-        case let .string(string): try? Livekit_SignalResponse(jsonString: string)
+        // JSON signal frames are not supported by the nanopb-backed protocol
+        // layer; production servers send binary protobuf.
+        case .string: nil
         default: nil
         }
 

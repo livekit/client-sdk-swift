@@ -1,0 +1,1 @@
+patch type="changed" "Replace SwiftProtobuf with a vendored nanopb-based protocol layer, reducing the SDK's app-size footprint by ~1.7 MB"

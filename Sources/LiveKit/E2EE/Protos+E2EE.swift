@@ -22,6 +22,7 @@ internal import LiveKitWebRTC
 
 extension Livekit_EncryptedPacket {
     init(rtcPacket: LKRTCEncryptedPacket) {
+        self.init()
         encryptionType = .gcm
         iv = rtcPacket.iv
         keyIndex = rtcPacket.keyIndex
@@ -41,6 +42,7 @@ extension Livekit_EncryptedPacket {
 
 extension Livekit_EncryptedPacketPayload {
     init?(dataPacket: Livekit_DataPacket) {
+        self.init()
         switch dataPacket.value {
         case let .user(user):
             self.user = user
