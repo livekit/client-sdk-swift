@@ -301,17 +301,32 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
             self.room = room
         }
 
-        func remoteClientProtocol(identity: String) -> Int32 {
-            guard let room else { return 0 }
-            let participant = room.remoteParticipants.first(where: { $0.key.stringValue == identity })
-            return Int32(participant?.value.clientProtocol.rawValue ?? 0)
+        private func participant(for identity: String) -> RemoteParticipant? {
+            room?.remoteParticipants.first { $0.key.stringValue == identity }?.value
         }
 
-        func remoteCapabilities(identity _: String) -> [LiveKitUniFFI.ClientCapability] { [] }
+        func remoteClientProtocol(identity: String) -> Int32 {
+            Int32(participant(for: identity)?.clientProtocol.rawValue ?? 0)
+        }
+
+        func remoteCapabilities(identity: String) -> [LiveKitUniFFI.ClientCapability] {
+            participant(for: identity)?.capabilities.map(\.ffiValue) ?? []
+        }
 
         func remoteIdentities() -> [String] {
             guard let room else { return [] }
             return room.remoteParticipants.keys.map(\.stringValue)
+        }
+    }
+}
+
+private extension ClientCapability {
+    /// Bridges to the FFI enum. Kept here so `ClientCapability` itself stays free of any
+    /// `LiveKitUniFFI` import, matching how the rest of the public API is layered.
+    var ffiValue: LiveKitUniFFI.ClientCapability {
+        switch self {
+        case .packetTrailer: .packetTrailer
+        case .compressionDeflateRaw: .compressionDeflateRaw
         }
     }
 }
