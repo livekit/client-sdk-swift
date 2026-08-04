@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
 internal import LiveKitUniFFI
+import Foundation
 
 // MARK: - Source
 
@@ -35,7 +35,7 @@ public protocol TokenSourceFixed: Sendable {
 /// production applications that need flexible authentication and room management.
 ///
 /// Common implementations:
-/// - ``DevelopmentTokenSource``: For testing with LiveKit Cloud [development token server](https://docs.livekit.io/frontends/build/authentication/sandbox-token-server/)
+/// - ``DevelopmentTokenSource``: For testing with LiveKit Cloud [development token server](https://cloud.livekit.io/projects/p_/sandbox/templates/token-server)
 /// - ``EndpointTokenSource``: For custom backend endpoints using LiveKit's JSON format
 /// - ``CachingTokenSource``: For caching credentials (or use the `.cached()` extension)
 public protocol TokenSourceConfigurable: Sendable {
@@ -84,15 +84,11 @@ public struct TokenRequestOptions: Sendable, Equatable {
     }
 
     func toRequest() -> TokenSourceRequest {
-        let agents: [RoomAgentDispatch]? =
-            if agentName != nil || agentMetadata != nil || agentDeployment != nil {
-                [
-                    RoomAgentDispatch(
-                        agentName: agentName, metadata: agentMetadata, deployment: agentDeployment)
-                ]
-            } else {
-                nil
-            }
+        let agents: [RoomAgentDispatch]? = if agentName != nil || agentMetadata != nil || agentDeployment != nil {
+            [RoomAgentDispatch(agentName: agentName, metadata: agentMetadata, deployment: agentDeployment)]
+        } else {
+            nil
+        }
 
         return TokenSourceRequest(
             roomName: roomName,
@@ -141,10 +137,7 @@ public struct TokenSourceResponse: Decodable, Sendable {
         case roomName = "room_name"
     }
 
-    public init(
-        serverURL: URL, participantToken: String, participantName: String? = nil,
-        roomName: String? = nil
-    ) {
+    public init(serverURL: URL, participantToken: String, participantName: String? = nil, roomName: String? = nil) {
         self.serverURL = serverURL
         self.participantToken = participantToken
         self.participantName = participantName
@@ -152,7 +145,7 @@ public struct TokenSourceResponse: Decodable, Sendable {
     }
 }
 
-extension TokenSourceResponse {
+public extension TokenSourceResponse {
     /// Extracts the JWT payload from the participant token.
     ///
     /// - Returns: The JWT payload if successfully parsed, nil otherwise
@@ -163,7 +156,7 @@ extension TokenSourceResponse {
     /// Checks if the JWT token contains agent dispatch configuration.
     ///
     /// - Returns: `true` if the token is configured to dispatch one or more agents, `false` otherwise
-    public func dispatchesAgent() -> Bool {
+    func dispatchesAgent() -> Bool {
         guard let jwt = jwt(), let agents = jwt.roomConfiguration?.agents else {
             return false
         }
