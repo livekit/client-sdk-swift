@@ -35,19 +35,37 @@ public final class DataTrackWatcher: NSObject, RoomDelegate, @unchecked Sendable
     }
 
     /// Waits for the expected track to be published.
-    public func waitForTrack(timeout _: TimeInterval = 15) async throws -> RemoteDataTrack {
-        for await track in publishStream {
-            return track
+    public func waitForTrack(timeout: TimeInterval = 15) async throws -> RemoteDataTrack {
+        guard let track = await Self.first(of: publishStream, timeout: timeout) else {
+            throw LiveKitError(.timedOut, message: "Timed out waiting for data track '\(expectedName)'")
         }
-        throw LiveKitError(.timedOut, message: "Timed out waiting for data track '\(expectedName)'")
+        return track
     }
 
     /// Waits for a data track to be unpublished, returning its SID.
-    public func waitForUnpublish(timeout _: TimeInterval = 15) async throws -> DataTrack.Sid {
-        for await sid in unpublishStream {
-            return sid
+    public func waitForUnpublish(timeout: TimeInterval = 15) async throws -> DataTrack.Sid {
+        guard let sid = await Self.first(of: unpublishStream, timeout: timeout) else {
+            throw LiveKitError(.timedOut, message: "Timed out waiting for data track unpublish")
         }
-        throw LiveKitError(.timedOut, message: "Timed out waiting for data track unpublish")
+        return sid
+    }
+
+    /// First element of the stream, or `nil` on timeout.
+    private static func first<T: Sendable>(of stream: AsyncStream<T>, timeout: TimeInterval) async -> T? {
+        await withTaskGroup(of: T?.self) { group in
+            group.addTask {
+                for await element in stream {
+                    return element
+                }
+                return nil
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                return nil
+            }
+            defer { group.cancelAll() }
+            return await group.next() ?? nil
+        }
     }
 
     // MARK: - RoomDelegate

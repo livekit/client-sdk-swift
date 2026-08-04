@@ -424,11 +424,11 @@ struct DataTrackTests {
 
     // MARK: - Reconnect
 
-    /// A published data track survives a full reconnect: the data track subsystem is session-scoped,
-    /// so its manager persists and republishes the track (a recreated manager would lose it). The
-    /// subscriber sees the republished track re-announced.
+    /// A published data track survives the publisher's full reconnect: the session-scoped manager
+    /// republishes it under a new SID, and the subscriber's existing ``RemoteDataTrack`` carries
+    /// over — its SID is reassigned in place, with no unpublish/republish events fired.
     @Test
-    func republishesTrackAfterFullReconnect() async throws {
+    func trackSurvivesPublisherFullReconnect() async throws {
         try await TestEnvironment.withRooms([
             RoomTestingOptions(canPublishData: true),
             RoomTestingOptions(canSubscribe: true),
@@ -438,16 +438,35 @@ struct DataTrackTests {
 
             _ = try await publisher.localParticipant.publishDataTrack(name: "survives-reconnect")
             // Confirm the subscriber sees the initial publication.
-            _ = try await subscriber.waitForDataTrack(name: "survives-reconnect")
+            let remoteTrack = try await subscriber.waitForDataTrack(name: "survives-reconnect")
+            let originalSid = remoteTrack.info.sid
 
-            // Watch for the re-announcement, then force a full reconnect of the publisher.
-            let republishWatcher = DataTrackWatcher(expectedName: "survives-reconnect")
-            subscriber.delegates.add(delegate: republishWatcher)
+            // No unpublish/republish events should fire on the subscriber during the reconnect.
+            let recorder = DataTrackDelegateRecorder()
+            subscriber.delegates.add(delegate: recorder)
             try await publisher.startReconnect(reason: .debug, nextReconnectMode: .full)
 
-            // The session-scoped manager republishes the track; the subscriber sees it again.
-            let republished = try await republishWatcher.waitForTrack()
-            #expect(republished.info.name == "survives-reconnect")
+            // The existing track object survives; its SID rotates once the track is republished.
+            let deadline = Date().addingTimeInterval(15)
+            while remoteTrack.info.sid == originalSid, Date() < deadline {
+                try await Task.sleep(nanoseconds: 200_000_000)
+            }
+            let newSid = remoteTrack.info.sid
+            #expect(newSid != originalSid)
+            #expect(remoteTrack.info.name == "survives-reconnect")
+
+            // The participant's track map follows the SID reassignment.
+            let participant = try #require(subscriber.remoteParticipants.values.first)
+            #expect(participant.dataTracks[newSid] === remoteTrack)
+            #expect(participant.dataTracks[originalSid] == nil)
+
+            // Continuity, not re-announcement: no events fired on the subscriber.
+            await #expect(throws: LiveKitError.self) {
+                _ = try await recorder.waitFor(.roomRemotePublish, timeout: 2)
+            }
+            await #expect(throws: LiveKitError.self) {
+                _ = try await recorder.waitFor(.roomRemoteUnpublish, timeout: 2)
+            }
         }
     }
 
