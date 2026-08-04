@@ -122,6 +122,12 @@ struct GenerateFacades: ParsableCommand {
         }
 
         let pruned = keep.map { allMessages.count - $0.messages.count } ?? 0
+        // Self-check: every emitted mutation path must uphold the copy-on-write
+        // invariant that justifies `@unchecked Sendable` on NanopbBox. A setter
+        // that skips _ensureUnique() would mutate storage shared across values
+        // (and potentially tasks) — fail generation, not the user.
+        try Self.verifyCoWInvariant(in: outFolder)
+
         print("""
         messages : \(stats.messages)  (nested: \(stats.nested), pruned top-level: \(pruned))
         enums    : \(stats.enums)
@@ -147,6 +153,34 @@ struct GenerateFacades: ParsableCommand {
             }
         }
         return used
+    }
+
+    static func verifyCoWInvariant(in folder: Folder) throws {
+        var violations: [String] = []
+        for file in folder.files where file.name.hasSuffix("+Nanopb.swift") {
+            let lines = try file.readAsString().components(separatedBy: "\n")
+            for (index, line) in lines.enumerated() {
+                if line.contains("nonmutating set") {
+                    violations.append("\(file.name):\(index + 1): nonmutating set")
+                }
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard trimmed == "set {" || trimmed.hasPrefix("set { ") else { continue }
+                let rest = trimmed.dropFirst("set {".count).trimmingCharacters(in: .whitespaces)
+                let next = rest.isEmpty
+                    ? (index + 1 < lines.count
+                        ? lines[index + 1].trimmingCharacters(in: .whitespaces) : "")
+                    : rest
+                if !next.hasPrefix("_ensureUnique()") {
+                    violations.append("\(file.name):\(index + 1): setter without _ensureUnique()")
+                }
+            }
+        }
+        guard violations.isEmpty else {
+            throw ValidationError("""
+            Generated setters violate the copy-on-write invariant:
+            \(violations.joined(separator: "\n"))
+            """)
+        }
     }
 
     static let fileHeader = """
