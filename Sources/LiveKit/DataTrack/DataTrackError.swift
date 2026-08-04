@@ -32,6 +32,8 @@ public enum DataTrackPublishError: Error, Sendable {
     case limitReached(String)
     /// The connection was lost before the publish completed.
     case disconnected(String)
+    /// The track's schema metadata is invalid.
+    case invalidSchema(String)
     /// An unexpected internal error occurred.
     case internalError(String)
 
@@ -43,6 +45,7 @@ public enum DataTrackPublishError: Error, Sendable {
         case let .Timeout(message): self = .timeout(message)
         case let .LimitReached(message): self = .limitReached(message)
         case let .Disconnected(message): self = .disconnected(message)
+        case let .InvalidSchema(message): self = .invalidSchema(message)
         case let .Internal(message): self = .internalError(message)
         }
     }
