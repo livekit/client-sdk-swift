@@ -242,6 +242,39 @@ extension Transport {
         return document.write()
     }
 
+    /// Munge an answer to declare `stereo=1` on the Opus fmtp of every section whose
+    /// counterpart in `offer` advertises `sprop-stereo=1`.
+    ///
+    /// Per [RFC 7587 §7.1](https://datatracker.ietf.org/doc/html/rfc7587#section-7.1) `stereo`
+    /// is the *receiver's* preference: without it libwebrtc instantiates a mono Opus decoder and
+    /// downmixes, regardless of what the sender transmits. `sprop-stereo` states only what the
+    /// sender emits, so it does not carry the answerer's preference on its own. This mirrors
+    /// `ensureAudioNackAndStereo()` in client-sdk-js.
+    ///
+    /// Sections are matched by mid rather than by position, and the Opus payload type is
+    /// resolved independently in each document, so an answerer that reorders or renumbers
+    /// still lands the parameter on the right section.
+    static func mungeOpusStereo(_ sdp: String, matchingOffer offer: String) -> String {
+        let stereoMids = Set(SDP(parsing: offer).mediaSections.compactMap { section -> String? in
+            guard section.mediaType == "audio",
+                  let mid = section.mid,
+                  let payload = section.payload(forCodec: "opus"),
+                  section.fmtp(forPayload: payload)?.parameters.contains("sprop-stereo=1") == true
+            else { return nil }
+            return mid
+        })
+        guard !stereoMids.isEmpty else { return sdp }
+
+        var document = SDP(parsing: sdp)
+        for index in document.mediaSections.indices {
+            let section = document.mediaSections[index]
+            guard let mid = section.mid, stereoMids.contains(mid),
+                  let payload = section.payload(forCodec: "opus") else { continue }
+            document.mediaSections[index].appendFmtpParameter("stereo=1", forPayload: payload)
+        }
+        return document.write()
+    }
+
     /// Sets `munged` as the local description, falling back to `original` when libwebrtc
     /// rejects it — a rejected set leaves the peer connection state untouched, so
     /// negotiation proceeds without the munge instead of failing. libwebrtc validates
