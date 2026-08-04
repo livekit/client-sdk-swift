@@ -23,7 +23,7 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
     /// SIDs rotate when the publisher republishes after a full reconnect (the track object itself
     /// survives), so keys are derived from the tracks' current info rather than stored.
     public var dataTracks: [DataTrack.Sid: RemoteDataTrack] {
-        Dictionary(uniqueKeysWithValues: _dataTracks.copy().map { ($0.info.sid, $0) })
+        _dataTracks.copy().reduce(into: [:]) { $0[$1.info.sid] = $1 }
     }
 
     private let _dataTracks = StateSync<[RemoteDataTrack]>([])
