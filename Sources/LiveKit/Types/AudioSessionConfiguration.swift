@@ -64,13 +64,13 @@ public extension AudioSessionConfiguration {
     /// Processing I/O adds its own loudness stage that compensates for this,
     /// but with WebRTC software processing there is no VPIO and playback stays
     /// noticeably quieter. Using `.default` mode keeps the media gain.
-    static let playAndRecordSpeakerMedia = AudioSessionConfiguration(category: .playAndRecord,
-                                                                     categoryOptions: playAndRecordSpeakerOptions,
-                                                                     mode: .default)
+    internal static let playAndRecordSpeakerMedia = AudioSessionConfiguration(category: .playAndRecord,
+                                                                              categoryOptions: playAndRecordSpeakerOptions,
+                                                                              mode: .default)
 
-    static let playAndRecordReceiverMedia = AudioSessionConfiguration(category: .playAndRecord,
-                                                                      categoryOptions: playAndRecordOptions,
-                                                                      mode: .default)
+    internal static let playAndRecordReceiverMedia = AudioSessionConfiguration(category: .playAndRecord,
+                                                                               categoryOptions: playAndRecordOptions,
+                                                                               mode: .default)
 }
 
 @objcMembers
