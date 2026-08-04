@@ -1,0 +1,171 @@
+/*
+ * Copyright 2026 LiveKit
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import Foundation
+@testable import LiveKit
+import Testing
+#if canImport(LiveKitTestSupport)
+import LiveKitTestSupport
+#endif
+
+/// Data track lifecycle: join-time announcements, publication lifetime, and reconnects.
+@Suite(.serialized, .tags(.dataTrack, .e2e))
+struct DataTrackLifecycleTests {
+    /// A track published before a participant joins surfaces via the JoinResponse.
+    @Test
+    func receivesTrackPublishedBeforeJoin() async throws {
+        let roomName = UUID().uuidString
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(roomName: roomName, canPublishData: true),
+        ]) { pubRooms in
+            _ = try await pubRooms[0].localParticipant.publishDataTrack(name: "pre-join")
+
+            // The subscriber joins *after* the publish; its watcher is the delegate from creation,
+            // so it catches the publish delivered during connect (via the JoinResponse). A distinct
+            // identity avoids colliding with the publisher in the same room.
+            let watcher = DataTrackWatcher(expectedName: "pre-join")
+            try await TestEnvironment.withRooms([
+                RoomTestingOptions(delegate: watcher, roomName: roomName, identity: "subscriber", canSubscribe: true),
+            ]) { _ in
+                let remoteTrack = try await watcher.waitForTrack()
+                #expect(remoteTrack.info.name == "pre-join")
+            }
+        }
+    }
+
+    // MARK: - Publication Lifetime
+
+    /// The SDK retains the publication, so dropping the returned handle does not unpublish it
+    /// (matching JS; the raw Rust handle unpublishes on drop).
+    @Test
+    func retainsPublicationWhenHandleDropped() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let subscriber = rooms[1]
+            let watcher = DataTrackWatcher(expectedName: "retained")
+            subscriber.delegates.add(delegate: watcher)
+
+            // Publish and immediately discard the handle.
+            _ = try await rooms[0].localParticipant.publishDataTrack(name: "retained")
+
+            let remoteTrack = try await watcher.waitForTrack()
+            #expect(remoteTrack.info.name == "retained")
+            // Still published a beat later — the dropped handle did not tear it down.
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+            #expect(remoteTrack.isPublished)
+        }
+    }
+
+    // MARK: - Reconnect
+
+    /// A published data track survives the publisher's full reconnect: the session-scoped manager
+    /// republishes it under a new SID, and the subscriber's existing ``RemoteDataTrack`` carries
+    /// over — its SID is reassigned in place, with no unpublish/republish events fired.
+    @Test
+    func trackSurvivesPublisherFullReconnect() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let publisher = rooms[0]
+            let subscriber = rooms[1]
+
+            _ = try await publisher.localParticipant.publishDataTrack(name: "survives-reconnect")
+            // Confirm the subscriber sees the initial publication.
+            let remoteTrack = try await subscriber.waitForDataTrack(name: "survives-reconnect")
+            let originalSid = remoteTrack.info.sid
+
+            // No unpublish/republish events should fire on the subscriber during the reconnect.
+            let recorder = DataTrackDelegateRecorder()
+            subscriber.delegates.add(delegate: recorder)
+            try await publisher.startReconnect(reason: .debug, nextReconnectMode: .full)
+
+            // The existing track object survives; its SID rotates once the track is republished.
+            let deadline = Date().addingTimeInterval(15)
+            while remoteTrack.info.sid == originalSid, Date() < deadline {
+                try await Task.sleep(nanoseconds: 200_000_000)
+            }
+            let newSid = remoteTrack.info.sid
+            #expect(newSid != originalSid)
+            #expect(remoteTrack.info.name == "survives-reconnect")
+
+            // The participant's track map follows the SID reassignment.
+            let participant = try #require(subscriber.remoteParticipants.values.first)
+            #expect(participant.dataTracks[newSid] === remoteTrack)
+            #expect(participant.dataTracks[originalSid] == nil)
+
+            // Continuity, not re-announcement: no events fired on the subscriber.
+            await #expect(throws: LiveKitError.self) {
+                _ = try await recorder.waitFor(.roomRemotePublish, timeout: 2)
+            }
+            await #expect(throws: LiveKitError.self) {
+                _ = try await recorder.waitFor(.roomRemoteUnpublish, timeout: 2)
+            }
+        }
+    }
+
+    /// Frames keep flowing across a quick reconnect: `SyncState.publishDataTracks` preserves the
+    /// publication and the resumed transports keep the subscription, so the same stream delivers.
+    @Test
+    func dataTrackSurvivesQuickReconnect() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let publisher = rooms[0]
+            let subscriber = rooms[1]
+
+            let watcher = DataTrackWatcher(expectedName: "sync-state")
+            subscriber.delegates.add(delegate: watcher)
+            let track = try await publisher.localParticipant.publishDataTrack(name: "sync-state")
+            let stream = try await watcher.waitForTrack().subscribe()
+
+            // Quick reconnect (resume). nextReconnectMode: .quick keeps the first attempt on the
+            // resume path, which sends SyncState (incl. publishDataTracks) and preserves transports.
+            try await publisher.startReconnect(reason: .debug, nextReconnectMode: .quick)
+
+            // Push in the background; assert at least one post-reconnect frame arrives (bounded, so
+            // a broken publication fails cleanly instead of hanging).
+            let payload = Data("after-quick-reconnect".utf8)
+            let pusher = Task {
+                while !Task.isCancelled {
+                    try? track.tryPush(frame: .now(payload: payload))
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                }
+            }
+            defer { pusher.cancel() }
+
+            let received = await withTaskGroup(of: Bool.self) { group in
+                group.addTask {
+                    for await frame in stream.values where frame.payload == payload {
+                        return true
+                    }
+                    return false
+                }
+                group.addTask {
+                    try? await Task.sleep(nanoseconds: 15_000_000_000)
+                    return false
+                }
+                let first = await group.next() ?? false
+                group.cancelAll()
+                return first
+            }
+            #expect(received, "Frames should keep flowing after a quick reconnect")
+        }
+    }
+}

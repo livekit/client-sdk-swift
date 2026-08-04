@@ -62,12 +62,12 @@
 
     // Connect both rooms.
     XCTestExpectation *connectSub = [self expectationWithDescription:@"connectSub"];
-    [subRoom connectWithUrl:url token:subToken connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:subRoom url:url token:subToken completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connectSub fulfill];
     }];
     XCTestExpectation *connectPub = [self expectationWithDescription:@"connectPub"];
-    [pubRoom connectWithUrl:url token:pubToken connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:pubRoom url:url token:pubToken completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connectPub fulfill];
     }];
