@@ -64,34 +64,12 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
     }
 
-    /// Controls whether the session mode follows the voice processing implementation.
-    ///
-    /// iOS applies a reduced, call-tuned speaker gain when the session mode is
-    /// `.videoChat` or `.voiceChat` while the microphone is active. Apple's
-    /// Voice Processing I/O compensates with its own loudness stage, WebRTC
-    /// software processing does not, which makes remote audio noticeably
-    /// quieter in software mode.
-    ///
-    /// - When `true`: `.default` mode is used while recording with software
-    ///   voice processing, keeping media playback loudness. Chat modes are
-    ///   used when Apple voice processing is active.
-    /// - When `false`: Chat modes are always used while recording (legacy behavior).
-    ///
-    /// > Note: This value is only used when `isAutomaticConfigurationEnabled` is `true`.
-    ///
-    /// Default value: `true`
-    public var isSoftwareProcessingMediaModeEnabled: Bool {
-        get { _state.isSoftwareProcessingMediaModeEnabled }
-        set { _state.mutate { $0.isSoftwareProcessingMediaModeEnabled = newValue } }
-    }
-
     struct State {
         var next: (any AudioEngineObserver)?
 
         var isAutomaticConfigurationEnabled: Bool = true
         var isAutomaticDeactivationEnabled: Bool = true
         var isSpeakerOutputPreferred: Bool = true
-        var isSoftwareProcessingMediaModeEnabled: Bool = true
 
         // Whether the next capture is expected to use Apple's voice processing
         // path. Updated by AudioManager before recording starts, since the ADM
@@ -114,7 +92,6 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         _state.onDidMutate = { [weak self] new, old in
             guard let self,
                   new.isSpeakerOutputPreferred != old.isSpeakerOutputPreferred ||
-                  new.isSoftwareProcessingMediaModeEnabled != old.isSoftwareProcessingMediaModeEnabled ||
                   new.isPlatformVoiceProcessingExpected != old.isPlatformVoiceProcessingExpected else { return }
             do {
                 try configureIfNeeded(oldState: old, newState: new)
@@ -213,11 +190,11 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             }
         } else if newState.isRecordingEnabled || newState.isPlayoutEnabled {
             // Configure and activate the session with the appropriate category.
-            // Chat modes engage the call-tuned speaker gain and are only kept
+            // Chat modes engage iOS's call-tuned speaker gain and are only kept
             // when Apple voice processing provides its compensating loudness
-            // stage. See isSoftwareProcessingMediaModeEnabled.
-            let useChatModes = !newState.isSoftwareProcessingMediaModeEnabled || newState.isPlatformVoiceProcessingExpected
-            let playAndRecord: AudioSessionConfiguration = if useChatModes {
+            // stage. With software processing, the media-tuned presets keep
+            // remote audio at media playback loudness.
+            let playAndRecord: AudioSessionConfiguration = if newState.isPlatformVoiceProcessingExpected {
                 newState.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver
             } else {
                 newState.isSpeakerOutputPreferred ? .playAndRecordSpeakerMedia : .playAndRecordReceiverMedia
