@@ -59,6 +59,13 @@ enum Comparator {
     }
 
     static func extractFields(from instance: some Any, excludedFields: Set<String> = []) -> [FieldInfo] {
+        // nanopb-backed facades keep proto fields in a C struct behind a CoW
+        // box (their only stored property); reflect the storage instead.
+        if let box = Mirror(reflecting: instance).children.first(where: { $0.label == "_box" })?.value,
+           let storage = Mirror(reflecting: box).children.first(where: { $0.label == "storage" })?.value
+        {
+            return extractNanopbFields(from: storage, excludedFields: excludedFields)
+        }
         let mirror = Mirror(reflecting: instance)
         var fields: [FieldInfo] = []
         var backingFields: Set<String> = []
@@ -101,6 +108,38 @@ enum Comparator {
             fields.append(FieldInfo(name: label, type: typeString, nonOptionalType: nonOptional))
         }
 
+        return fields.sorted { $0.name < $1.name }
+    }
+
+    /// Fields of an imported nanopb C struct, normalised to proto camelCase
+    /// names and Swift-ish types so they compare against SDK declarations.
+    static func extractNanopbFields(from storage: Any, excludedFields: Set<String>) -> [FieldInfo] {
+        var fields: [FieldInfo] = []
+        for child in Mirror(reflecting: storage).children {
+            guard let label = child.label else { continue }
+            if label == "dummy_field" || label.hasPrefix("has_") || label.hasPrefix("which_")
+                || label.hasSuffix("_count")
+            {
+                continue
+            }
+            let parts = label.split(separator: "_").map(String.init)
+            let name = (parts.first ?? label) + parts.dropFirst()
+                .map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined()
+            if excludedFields.contains(name) { continue }
+
+            // Optional<UnsafeMutablePointer<X>> -> X, then C spellings to Swift
+            var type = extractNonOptionalType(from: String(describing: Swift.type(of: child.value)))
+            if type.hasPrefix("UnsafeMutablePointer<"), type.hasSuffix(">") {
+                type = String(type.dropFirst("UnsafeMutablePointer<".count).dropLast())
+            }
+            switch type {
+            case "CChar", "Int8": type = "String"
+            case "pb_bytes_array_t": type = "Data"
+            default:
+                if type.hasPrefix("livekit_") { type = String(type.dropFirst("livekit_".count)) }
+            }
+            fields.append(FieldInfo(name: name, type: type, nonOptionalType: type))
+        }
         return fields.sorted { $0.name < $1.name }
     }
 
