@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.16.0] - 2026-08-04
+
+### Added
+
+- Add `DevelopmentTokenSource`, the new name for the now-deprecated `SandboxTokenSource`
+- Add `BaseKeyProvider.setKey(keyData:participantId:index:)` for installing raw binary E2EE key material without String conversion
+
+### Changed
+
+- Encapsulate SDP munging in a tested SDP module and fall back to the unmunged offer if libwebrtc rejects munged SDP
+
+### Fixed
+
+- Use media session mode when recording with software voice processing to fix quiet remote audio
+- Pre-connect audio buffer could be sent before the microphone publish resolved its track sid, arriving at the agent without a trackId and being dropped
+- Incoming data streams could be dropped on stream-ID reuse or handled out of order; transcription handlers now run in wire order and open streams are failed on sender disconnect and room cleanup
+- Completer timeouts and camera device discovery no longer run at background QoS, which the system may defer indefinitely under load
+
 ## [2.15.3] - 2026-07-27
 
 ### Fixed
