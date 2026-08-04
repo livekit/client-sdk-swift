@@ -301,7 +301,11 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
             self.room = room
         }
 
-        func remoteClientProtocol(identity _: String) -> Int32 { 0 }
+        func remoteClientProtocol(identity: String) -> Int32 {
+            guard let room else { return 0 }
+            let participant = room.remoteParticipants.first(where: { $0.key.stringValue == identity })
+            return Int32(participant?.value.clientProtocol.rawValue ?? 0)
+        }
 
         func remoteCapabilities(identity _: String) -> [LiveKitUniFFI.ClientCapability] { [] }
 
