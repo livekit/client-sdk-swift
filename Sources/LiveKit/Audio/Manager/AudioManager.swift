@@ -334,6 +334,16 @@ public class AudioManager: Loggable {
     public func setPlatformVoiceProcessingAllowed(_ allowed: Bool) throws {
         let result = RTC.audioDeviceModule.setPlatformVoiceProcessingAllowed(allowed)
         try checkAdmResult(code: result)
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        // Disallowing the platform path tears down any current VPIO and makes
+        // future captures resolve to software processing regardless of their
+        // options, so the session must not keep the chat mode expectation.
+        // Re-allowing does not enable VPIO by itself, the next capture's
+        // options decide, so the expectation is left for that path to update.
+        if !allowed {
+            audioSession.setPlatformVoiceProcessingExpected(false)
+        }
+        #endif
     }
 
     @available(*, deprecated, renamed: "isPlatformVoiceProcessingAllowed")
