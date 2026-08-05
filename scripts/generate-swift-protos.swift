@@ -132,9 +132,9 @@ struct GenerateSwiftProtos: ParsableCommand {
             guard let folder = try? Folder(path: root) else { continue }
             for file in folder.files.recursive where file.name.hasSuffix(".swift") {
                 let path = file.path
-                if path.contains("/Protos/") || path.contains("/Oracle/") { continue }
+                if path.contains("/Protos/") || path.contains("/Oracle/")
+                    || path.contains("/Generated/") { continue }
                 guard let text = try? file.readAsString() else { continue }
-                for match in text.matches(of: typeName) {
                     used.insert(String(match.output))
                 }
             }
