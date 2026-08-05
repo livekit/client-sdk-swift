@@ -38,6 +38,7 @@ proto: protoc protoc-swift swift-sh nanopb-generator
 	@# CocoaPods flattens all pod headers into one directory, so nested
 	@# includes ("google/protobuf/timestamp.pb.h") would break pod builds.
 	$(NANOPB_GEN) -I $(PROTO_STAGE) -D $(PROTO_STAGE)/out --strip-path \
+		--error-on-unmatched \
 		$(foreach p,$(CLIENT_PROTOS),$(PROTO_STAGE)/$(p).proto) \
 		$(PROTO_STAGE)/google/protobuf/timestamp.proto \
 		$(PROTO_STAGE)/logger/options.proto
