@@ -55,8 +55,12 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         _state.enabled && options != nil
     }
 
-    /// Whether encryption is currently enabled, regardless of which options style configured it.
-    var isEnabled: Bool { _state.enabled }
+    /// Whether data-track frames should be encrypted: the runtime flag plus a configured
+    /// encryption type, honoring either options style (unlike the data-channel gate, which
+    /// requires the newer ``EncryptionOptions``).
+    var isDataTrackEncryptionEnabled: Bool {
+        _state.enabled && frameEncryptionType != .none
+    }
 
     public var dataChannelEncryptionType: EncryptionType {
         guard isDataChannelEncryptionEnabled else { return .none }

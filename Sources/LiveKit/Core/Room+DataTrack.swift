@@ -62,7 +62,7 @@ final class DataTracks: NSObject, @unchecked Sendable {
         // subscribers key their decryption on, so publishing captures the runtime E2EE toggle as
         // of connect rather than consulting it per frame; reception can always decrypt.
         let cryptor: DataTrackCryptor? = room.e2eeManager.map(DataTrackCryptor.init)
-        let encryptionProvider = room.e2eeManager?.isEnabled == true ? cryptor : nil
+        let encryptionProvider = room.e2eeManager?.isDataTrackEncryptionEnabled == true ? cryptor : nil
         local = LocalDataTrackManager(delegate: managerDelegate, encryptionProvider: encryptionProvider)
         remote = RemoteDataTrackManager(delegate: managerDelegate, decryptionProvider: cryptor)
         super.init()
@@ -77,11 +77,11 @@ final class DataTracks: NSObject, @unchecked Sendable {
         // A data-track-only publisher in subscriber-primary mode has no negotiated publisher
         // transport yet — establish it and wait for the channel to open, or frames would be
         // silently dropped (`sendData` on a non-open channel fails).
-        _hasPublished.mutate { $0 = true }
         try await room?.ensurePublisherConnected()
         try await _publisherChannelOpen.wait()
         do {
             let track = try await local.publishTrack(options: DataTrackOptions(name: name))
+            _hasPublished.mutate { $0 = true }
             return LocalDataTrack(track)
         } catch let error as PublishError {
             throw DataTrackPublishError(error)

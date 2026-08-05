@@ -105,16 +105,19 @@ actor SignalClient: Loggable {
     // wire order — a detached task per message could reorder e.g. a publish/unpublish response
     // pair. The path deliberately bypasses `_responseQueue`: the data-track managers own their
     // reconnect semantics (republish, subscription re-requests, sync state) and consume wire
-    // order directly.
-    private let _rawResponses: AsyncStream<Data>.Continuation
+    // order directly. Items are stamped with a connection epoch — `cleanUp` advances it — so
+    // messages still buffered from a torn-down connection are dropped, not applied to the next.
+    private let _rawResponses: AsyncStream<(epoch: Int, data: Data)>.Continuation
+    private var _rawResponseEpoch = 0
 
     init() {
-        let (rawResponses, continuation) = AsyncStream.makeStream(of: Data.self)
+        let (rawResponses, continuation) = AsyncStream.makeStream(of: (epoch: Int, data: Data).self)
         _rawResponses = continuation
         Task { [weak self] in
-            for await data in rawResponses {
+            for await item in rawResponses {
                 guard let self else { break }
-                try? await _delegate.notifyAsync { await $0.signalClient(self, didReceiveRawResponse: data) }
+                guard await item.epoch == _rawResponseEpoch else { continue }
+                try? await _delegate.notifyAsync { await $0.signalClient(self, didReceiveRawResponse: item.data) }
             }
         }
 
@@ -278,6 +281,8 @@ actor SignalClient: Loggable {
         await _addTrackCompleters.reset(throwing: disconnectError)
         await _requestQueue.clear()
         await _responseQueue.clear()
+        // Invalidate raw data-track responses still buffered from this connection.
+        _rawResponseEpoch += 1
 
         _state.mutate {
             $0.disconnectError = LiveKitError.from(error: disconnectError)
@@ -322,7 +327,7 @@ private extension SignalClient {
         }
 
         if let rawData {
-            _rawResponses.yield(rawData)
+            _rawResponses.yield((epoch: _rawResponseEpoch, data: rawData))
         }
 
         Task.detached {
