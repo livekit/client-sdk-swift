@@ -53,4 +53,11 @@ struct StreamOptionsTests {
         #expect(byte.mimeType == "image/png")
         #expect(byte.totalSize == 42)
     }
+
+    @Test func dataStreamMaxPayloadSizeOption() {
+        #expect(DataStreamOptions().maxPayloadSize == nil)
+        #expect(DataStreamOptions(maxPayloadSize: 1000).maxPayloadSize == 1000)
+        #expect(RoomOptions().dataStreamOptions.maxPayloadSize == nil)
+        #expect(RoomOptions(dataStreamOptions: DataStreamOptions(maxPayloadSize: 42)).dataStreamOptions.maxPayloadSize == 42)
+    }
 }

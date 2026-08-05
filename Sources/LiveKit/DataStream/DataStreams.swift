@@ -47,22 +47,28 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     private let textStreamHandlers = StateSync<[String: TextStreamHandler]>([:])
     // Topics we've already logged a missing-handler warning for, to avoid log spam.
     private let failedTopics = StateSync<Set<String>>([])
-    // Topics whose text handlers run in wire order. Successive (non-overlapping) streams on such a
-    // topic have their handlers serialized so they process in arrival order. Used by internal
+    // Topics whose text handlers run in wire order. Successive streams from the *same sender* on
+    // such a topic have their handlers serialized so they process in arrival order. Used by internal
     // consumers like transcription; off by default so concurrent consumers (e.g. RPC) aren't slowed.
+    //
+    // Keyed by sender identity within a topic — not by topic alone — so a still-open stream from one
+    // sender doesn't block a concurrent stream from another (e.g. an agent transcript arriving while
+    // a user transcript on the same topic is still streaming). A single sender's streams are
+    // sequential in practice, so per-sender serialization preserves ordering without stalling peers.
     private let orderedTopics = StateSync<Set<String>>([])
-    private let orderedTails = StateSync<[String: Task<Void, Never>]>([:])
+    private let orderedTails = StateSync<[String: [String: Task<Void, Never>]]>([:])
 
-    init(room: Room) {
+    init(room: Room, maxPayloadSize: Int? = nil) {
         self.room = room
         let incomingDelegate = IncomingDelegate()
         let outgoingDelegate = OutgoingDelegate(room: room)
         let registry = Registry(room: room)
-        // No payload cap; topic routing (incl. the `lk.rpc` guard) is handled Swift-side in
-        // `Room+DataStream`, matching the previous pure-Swift implementation.
+        // `maxPayloadSize` caps the reassembled size of an incoming stream (nil → the core's default
+        // cap). Topic routing (incl. the `lk.rpc` guard) is handled Swift-side in `Room+DataStream`,
+        // matching the previous pure-Swift implementation.
         incoming = LiveKitUniFFI.IncomingDataStreamManager(
             delegate: incomingDelegate,
-            maxPayloadByteLength: nil,
+            maxPayloadByteLength: maxPayloadSize.map { UInt64($0) },
         )
         outgoing = LiveKitUniFFI.OutgoingDataStreamManager(delegate: outgoingDelegate, registry: registry)
         super.init()
@@ -215,12 +221,13 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
             Task.detachedDiscarding { try await handler(reader, participantIdentity) }
             return
         }
-        // Ordered topic: chain this handler after the previous one on the same topic so successive
-        // streams process in arrival order.
+        // Ordered topic: chain this handler after the previous one from the *same sender* so that
+        // sender's successive streams process in arrival order — while streams from other senders on
+        // the topic run concurrently (a still-open stream from one sender never blocks another's).
         let topic = info.topic
         orderedTails.mutate { tails in
-            let predecessor = tails[topic]
-            tails[topic] = Task.detached { [weak self] in
+            let predecessor = tails[topic]?[identity]
+            tails[topic, default: [:]][identity] = Task.detached { [weak self] in
                 await predecessor?.value
                 do {
                     try await handler(reader, participantIdentity)
