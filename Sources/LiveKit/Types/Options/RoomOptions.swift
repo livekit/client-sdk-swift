@@ -32,6 +32,10 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
 
     public let defaultDataPublishOptions: DataPublishOptions
 
+    /// Options controlling how incoming data streams are handled (e.g. the maximum accepted
+    /// payload size).
+    public let dataStreamOptions: DataStreamOptions
+
     /// AdaptiveStream lets LiveKit automatically manage quality of subscribed
     /// video tracks to optimize for bandwidth and CPU.
     /// When attached video elements are visible, it'll choose an appropriate
@@ -72,6 +76,7 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
         defaultVideoPublishOptions = VideoPublishOptions()
         defaultAudioPublishOptions = AudioPublishOptions()
         defaultDataPublishOptions = DataPublishOptions()
+        dataStreamOptions = DataStreamOptions()
         adaptiveStream = false
         dynacast = false
         stopLocalTrackOnUnpublish = true
@@ -88,6 +93,7 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
                 defaultVideoPublishOptions: VideoPublishOptions = VideoPublishOptions(),
                 defaultAudioPublishOptions: AudioPublishOptions = AudioPublishOptions(),
                 defaultDataPublishOptions: DataPublishOptions = DataPublishOptions(),
+                dataStreamOptions: DataStreamOptions = DataStreamOptions(),
                 adaptiveStream: Bool = false,
                 dynacast: Bool = false,
                 stopLocalTrackOnUnpublish: Bool = true,
@@ -103,6 +109,7 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
         self.defaultVideoPublishOptions = defaultVideoPublishOptions
         self.defaultAudioPublishOptions = defaultAudioPublishOptions
         self.defaultDataPublishOptions = defaultDataPublishOptions
+        self.dataStreamOptions = dataStreamOptions
         self.adaptiveStream = adaptiveStream
         self.dynacast = dynacast
         self.stopLocalTrackOnUnpublish = stopLocalTrackOnUnpublish
@@ -129,6 +136,7 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
             defaultVideoPublishOptions == other.defaultVideoPublishOptions &&
             defaultAudioPublishOptions == other.defaultAudioPublishOptions &&
             defaultDataPublishOptions == other.defaultDataPublishOptions &&
+            dataStreamOptions == other.dataStreamOptions &&
             adaptiveStream == other.adaptiveStream &&
             dynacast == other.dynacast &&
             stopLocalTrackOnUnpublish == other.stopLocalTrackOnUnpublish &&
@@ -147,6 +155,7 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
         hasher.combine(defaultVideoPublishOptions)
         hasher.combine(defaultAudioPublishOptions)
         hasher.combine(defaultDataPublishOptions)
+        hasher.combine(dataStreamOptions)
         hasher.combine(adaptiveStream)
         hasher.combine(dynacast)
         hasher.combine(stopLocalTrackOnUnpublish)
