@@ -30,21 +30,26 @@
 //
 // Zero-copy `withXBytes { }` readers are emitted alongside for hot paths.
 
-// CocoaPods compiles all of Sources into the single LiveKitClient module;
-// there the C declarations arrive through the umbrella header instead.
-#if !COCOAPODS
+// Single-module builds compile these sources into the product directly:
+// CocoaPods surfaces the C declarations through the umbrella header, while the
+// prebuilt xcframework resolves CLiveKitProto via its modulemap (package import
+// so `package` declarations may expose C types without entering the public
+// .swiftinterface).
+#if LK_XCFRAMEWORK
+package import CLiveKitProto
+#elseif !COCOAPODS
 import CLiveKitProto
 #endif
 import Foundation
 
 // MARK: - Errors
 
-public enum NanopbError: Error, CustomStringConvertible {
+package enum NanopbError: Error, CustomStringConvertible {
     case decodeFailed(String)
     case encodeFailed(String)
     case allocationFailed
 
-    public var description: String {
+    package var description: String {
         switch self {
         case let .decodeFailed(message): "nanopb decode failed: \(message)"
         case let .encodeFailed(message): "nanopb encode failed: \(message)"
@@ -63,11 +68,11 @@ public enum NanopbError: Error, CustomStringConvertible {
 /// mutated — `_ensureUnique()` detaches first. Child views retain their
 /// parent's box, so a parent that copies itself away cannot free storage a
 /// live view still points into.
-public final class NanopbBox<Storage>: @unchecked Sendable {
-    public let pointer: UnsafeMutablePointer<Storage>
-    @usableFromInline let descriptor: pb_msgdesc_t
+package final class NanopbBox<Storage>: @unchecked Sendable {
+    package let pointer: UnsafeMutablePointer<Storage>
+    let descriptor: pb_msgdesc_t
 
-    public init(zero: Storage, descriptor: pb_msgdesc_t) {
+    package init(zero: Storage, descriptor: pb_msgdesc_t) {
         pointer = .allocate(capacity: 1)
         pointer.initialize(to: zero)
         self.descriptor = descriptor
@@ -89,7 +94,7 @@ public final class NanopbBox<Storage>: @unchecked Sendable {
 /// sharing a parent message's box, pointing directly at the nested C struct.
 /// Reads are pointer reads either way; the first mutation of any non-uniquely
 /// owned value detaches it via an encode/decode round trip of its subtree.
-public protocol NanopbMessage: Equatable, Hashable, Sendable {
+package protocol NanopbMessage: Equatable, Hashable, Sendable {
     associatedtype Storage
 
     /// nanopb's field table for `Storage`.
@@ -107,7 +112,7 @@ public protocol NanopbMessage: Equatable, Hashable, Sendable {
     init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: AnyObject)
 }
 
-public extension NanopbMessage {
+package extension NanopbMessage {
     /// Copy-on-write guard: call before any mutation. Detaches this value —
     /// copying only its own subtree — when its storage is shared with any
     /// other value (a copy, or the parent/child of a view).
@@ -179,14 +184,13 @@ public extension NanopbMessage {
 }
 
 /// A protobuf enum. Mirrors SwiftProtobuf's open-enum shape (`UNRECOGNIZED`).
-public protocol NanopbEnum: RawRepresentable, Hashable, Sendable where RawValue == Int {
+package protocol NanopbEnum: RawRepresentable, Hashable, Sendable where RawValue == Int {
     init()
 }
 
 // MARK: - Wire-format primitives
 
-@inlinable
-public func nanopbDecode(
+package func nanopbDecode(
     into pointer: UnsafeMutablePointer<some Any>,
     _ descriptor: pb_msgdesc_t,
     _ bytes: UnsafeRawBufferPointer,
@@ -200,8 +204,7 @@ public func nanopbDecode(
     }
 }
 
-@inlinable
-public func nanopbEncodedSize(
+package func nanopbEncodedSize(
     _ pointer: UnsafePointer<some Any>, _ descriptor: pb_msgdesc_t,
 ) throws -> Int {
     var descriptor = descriptor
@@ -212,8 +215,7 @@ public func nanopbEncodedSize(
     return size
 }
 
-@inlinable
-public func nanopbEncode(
+package func nanopbEncode(
     _ pointer: UnsafePointer<some Any>,
     _ descriptor: pb_msgdesc_t,
     into buffer: UnsafeMutableRawBufferPointer,
@@ -228,8 +230,7 @@ public func nanopbEncode(
     return stream.bytes_written
 }
 
-@inlinable
-public func nanopbEncodedBytes(
+package func nanopbEncodedBytes(
     _ pointer: UnsafePointer<some Any>, _ descriptor: pb_msgdesc_t,
 ) throws -> [UInt8] {
     let size = try nanopbEncodedSize(pointer, descriptor)

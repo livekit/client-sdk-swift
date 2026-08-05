@@ -90,7 +90,7 @@ an independent "oracle" implementation to verify against.
 
 ## Compile-Time Flags
 
-- `LK_XCFRAMEWORK` — set in the generated xcodeproj by `scripts/xcframework.swift`; switches `import SwiftProtobuf` to `internal import` in proto files so it doesn't leak into `.swiftinterface`
+- `LK_XCFRAMEWORK` — set in the generated xcodeproj by `scripts/xcframework.swift`; that build compiles `CLiveKitProto`/`LiveKitNanopb` sources into the framework target directly, so the guards in those files switch to `internal`/`package import CLiveKitProto` (resolved via its modulemap) and drop `import LiveKitNanopb`, keeping both out of the emitted `.swiftinterface`
 - `LK_BENCHMARK` — set when building benchmarks (`Benchmarks/`); skips `DeviceManager`/`AudioManager` init in `Room.init` to allow headless benchmark runs
 - `LK_SIGNPOSTS` — enables `os.signpost` instrumentation in `StateSync` for profiling lock contention in Instruments
 

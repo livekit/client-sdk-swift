@@ -18,29 +18,31 @@
 // enums, submessage views, oneof releases, and repeated fields. The core
 // runtime (NanopbBox, NanopbMessage, wire-format primitives) is in Nanopb.swift.
 
-// CocoaPods compiles all of Sources into the single LiveKitClient module;
-// there the C declarations arrive through the umbrella header instead.
-#if !COCOAPODS
+// Single-module builds compile these sources into the product directly:
+// CocoaPods surfaces the C declarations through the umbrella header, while the
+// prebuilt xcframework resolves CLiveKitProto via its modulemap (package import
+// so `package` declarations may expose C types without entering the public
+// .swiftinterface).
+#if LK_XCFRAMEWORK
+package import CLiveKitProto
+#elseif !COCOAPODS
 import CLiveKitProto
 #endif
 import Foundation
 
 // MARK: - Strings
 
-@inlinable
-public func lkString(_ pointer: UnsafeMutablePointer<CChar>?) -> String? {
+package func lkString(_ pointer: UnsafeMutablePointer<CChar>?) -> String? {
     pointer.map { String(cString: $0) }
 }
 
-@inlinable
-public func lkSetString(_ slot: inout UnsafeMutablePointer<CChar>?, _ value: String) {
+package func lkSetString(_ slot: inout UnsafeMutablePointer<CChar>?, _ value: String) {
     if let old = slot { free(old) }
     slot = strdup(value)
 }
 
 /// Borrow the bytes of an owned C string for the duration of `body` — no copy.
-@inlinable
-public func withLkBytes<R>(
+package func withLkBytes<R>(
     _ pointer: UnsafeMutablePointer<CChar>?,
     _ body: (UnsafeRawBufferPointer?) throws -> R,
 ) rethrows -> R {
@@ -50,23 +52,20 @@ public func withLkBytes<R>(
 
 // MARK: - Bytes
 
-@inlinable
-public func lkData(_ pointer: UnsafeMutablePointer<pb_bytes_array_t>?) -> Data {
+package func lkData(_ pointer: UnsafeMutablePointer<pb_bytes_array_t>?) -> Data {
     guard let pointer, pointer.pointee.size > 0 else { return Data() }
     return withUnsafePointer(to: &pointer.pointee.bytes) {
         Data(bytes: UnsafeRawPointer($0), count: Int(pointer.pointee.size))
     }
 }
 
-@inlinable
-public func lkSetData(_ slot: inout UnsafeMutablePointer<pb_bytes_array_t>?, _ value: Data) {
+package func lkSetData(_ slot: inout UnsafeMutablePointer<pb_bytes_array_t>?, _ value: Data) {
     if let old = slot { free(old) }
     slot = lkAllocBytes(value)
 }
 
 /// Borrow a bytes field without copying into `Data`.
-@inlinable
-public func withLkData<R>(
+package func withLkData<R>(
     _ pointer: UnsafeMutablePointer<pb_bytes_array_t>?,
     _ body: (UnsafeRawBufferPointer?) throws -> R,
 ) rethrows -> R {
@@ -76,7 +75,6 @@ public func withLkData<R>(
     }
 }
 
-@usableFromInline
 func lkAllocBytes(_ value: Data) -> UnsafeMutablePointer<pb_bytes_array_t>? {
     // pb_bytes_array_t is a size header followed by an inline byte array.
     let header = MemoryLayout<pb_bytes_array_t>.offset(of: \pb_bytes_array_t.bytes) ?? 4
@@ -92,8 +90,7 @@ func lkAllocBytes(_ value: Data) -> UnsafeMutablePointer<pb_bytes_array_t>? {
 // MARK: - Scalars and enums
 
 /// Scalar stored behind a pointer (proto3 `optional`).
-@inlinable
-public func lkSetValue<T>(_ slot: inout UnsafeMutablePointer<T>?, _ value: T) {
+package func lkSetValue<T>(_ slot: inout UnsafeMutablePointer<T>?, _ value: T) {
     if let old = slot { free(old) }
     guard let raw = malloc(MemoryLayout<T>.size) else { slot = nil; return }
     let pointer = raw.bindMemory(to: T.self, capacity: 1)
@@ -101,13 +98,11 @@ public func lkSetValue<T>(_ slot: inout UnsafeMutablePointer<T>?, _ value: T) {
     slot = pointer
 }
 
-@inlinable
-public func lkEnum<C: RawRepresentable, E: NanopbEnum>(_ value: C) -> E where C.RawValue == UInt32 {
+package func lkEnum<C: RawRepresentable, E: NanopbEnum>(_ value: C) -> E where C.RawValue == UInt32 {
     E(rawValue: Int(value.rawValue)) ?? E()
 }
 
-@inlinable
-public func lkSetEnum<C: RawRepresentable>(
+package func lkSetEnum<C: RawRepresentable>(
     _ slot: inout C, _ value: some NanopbEnum,
 ) where C.RawValue == UInt32 {
     if let converted = C(rawValue: UInt32(truncatingIfNeeded: value.rawValue)) {
@@ -115,8 +110,7 @@ public func lkSetEnum<C: RawRepresentable>(
     }
 }
 
-@inlinable
-public func lkSetEnumPointer<C: RawRepresentable>(
+package func lkSetEnumPointer<C: RawRepresentable>(
     _ slot: inout UnsafeMutablePointer<C>?, _ value: some NanopbEnum,
 ) where C.RawValue == UInt32 {
     guard let converted = C(rawValue: UInt32(truncatingIfNeeded: value.rawValue)) else { return }
@@ -131,14 +125,12 @@ public func lkSetEnumPointer<C: RawRepresentable>(
 // boundary copies, via an encode/decode round trip. Signalling messages are
 // small; hot paths can use the zero-copy readers instead.
 
-@inlinable
-public func lkMessage<M: NanopbMessage>(_ pointer: UnsafeMutablePointer<M.Storage>?) -> M {
+package func lkMessage<M: NanopbMessage>(_ pointer: UnsafeMutablePointer<M.Storage>?) -> M {
     guard let pointer else { return M() }
     return lkMessage(copying: pointer)
 }
 
-@inlinable
-public func lkMessage<M: NanopbMessage>(copying pointer: UnsafePointer<M.Storage>) -> M {
+package func lkMessage<M: NanopbMessage>(copying pointer: UnsafePointer<M.Storage>) -> M {
     let message = M()
     if let bytes = try? nanopbEncodedBytes(pointer, M.descriptor) {
         try? bytes.withUnsafeBytes { try nanopbDecode(into: message._pointer, M.descriptor, $0) }
@@ -148,8 +140,7 @@ public func lkMessage<M: NanopbMessage>(copying pointer: UnsafePointer<M.Storage
 
 /// Address of a struct member inside a malloc'd allocation — the anchor for
 /// zero-copy views into inline submessage fields.
-@inlinable
-public func lkMemberPointer<S, M>(
+package func lkMemberPointer<S, M>(
     _ base: UnsafeMutablePointer<S>, _ keyPath: WritableKeyPath<S, M>,
 ) -> UnsafeMutablePointer<M> {
     let offset = MemoryLayout<S>.offset(of: keyPath)!
@@ -157,8 +148,7 @@ public func lkMemberPointer<S, M>(
 }
 
 /// Replace a pointer submessage field.
-@inlinable
-public func lkSetMessage<M: NanopbMessage>(
+package func lkSetMessage<M: NanopbMessage>(
     _ slot: inout UnsafeMutablePointer<M.Storage>?, _ value: M,
 ) {
     lkRelease(message: &slot, M.descriptor)
@@ -170,15 +160,13 @@ public func lkSetMessage<M: NanopbMessage>(
 }
 
 /// Replace an inline submessage field.
-@inlinable
-public func lkSetMessage<M: NanopbMessage>(inline slot: inout M.Storage, _ value: M) {
+package func lkSetMessage<M: NanopbMessage>(inline slot: inout M.Storage, _ value: M) {
     var descriptor = M.descriptor
     withUnsafeMutablePointer(to: &slot) { pb_release(&descriptor, UnsafeMutableRawPointer($0)) }
     slot = M.zero
     withUnsafeMutablePointer(to: &slot) { lkOverwrite($0, with: value) }
 }
 
-@usableFromInline
 func lkOverwrite<M: NanopbMessage>(_ pointer: UnsafeMutablePointer<M.Storage>, with value: M) {
     if let bytes = try? nanopbEncodedBytes(value._pointer, M.descriptor) {
         try? bytes.withUnsafeBytes { try nanopbDecode(into: pointer, M.descriptor, $0) }
@@ -191,8 +179,7 @@ func lkOverwrite<M: NanopbMessage>(_ pointer: UnsafeMutablePointer<M.Storage>, w
 // Union members share one address, so switching variants must release the old
 // payload with the *old* variant's layout before the new one is written.
 
-@inlinable
-public func lkRelease(message slot: inout UnsafeMutablePointer<some Any>?, _ descriptor: pb_msgdesc_t) {
+package func lkRelease(message slot: inout UnsafeMutablePointer<some Any>?, _ descriptor: pb_msgdesc_t) {
     guard let old = slot else { return }
     var descriptor = descriptor
     pb_release(&descriptor, UnsafeMutableRawPointer(old))
@@ -200,8 +187,7 @@ public func lkRelease(message slot: inout UnsafeMutablePointer<some Any>?, _ des
     slot = nil
 }
 
-@inlinable
-public func lkFree(_ slot: inout UnsafeMutablePointer<some Any>?) {
+package func lkFree(_ slot: inout UnsafeMutablePointer<some Any>?) {
     if let old = slot { free(old) }
     slot = nil
 }
@@ -209,8 +195,7 @@ public func lkFree(_ slot: inout UnsafeMutablePointer<some Any>?) {
 // MARK: - Repeated fields
 
 /// Borrow a repeated field for the duration of `body` — no array allocated.
-@inlinable
-public func withLkRepeated<C, R>(
+package func withLkRepeated<C, R>(
     _ count: pb_size_t,
     _ base: UnsafeMutablePointer<C>?,
     _ body: (UnsafeBufferPointer<C>) throws -> R,
@@ -219,21 +204,18 @@ public func withLkRepeated<C, R>(
     return try body(UnsafeBufferPointer(start: base, count: Int(count)))
 }
 
-@inlinable
-public func lkRepeated<C>(_ count: pb_size_t, _ base: UnsafeMutablePointer<C>?) -> [C] {
+package func lkRepeated<C>(_ count: pb_size_t, _ base: UnsafeMutablePointer<C>?) -> [C] {
     withLkRepeated(count, base) { Array($0) }
 }
 
 /// Repeated strings: an array of owned `char *`.
-@inlinable
-public func lkRepeated(
+package func lkRepeated(
     _ count: pb_size_t, _ base: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
 ) -> [String] {
     withLkRepeated(count, base) { $0.map { lkString($0) ?? "" } }
 }
 
-@inlinable
-public func lkSetRepeated<C>(
+package func lkSetRepeated<C>(
     _ count: inout pb_size_t, _ base: inout UnsafeMutablePointer<C>?, _ values: [C],
 ) {
     if let old = base { free(old) }
@@ -250,8 +232,7 @@ public func lkSetRepeated<C>(
     count = pb_size_t(values.count)
 }
 
-@inlinable
-public func lkSetRepeated(
+package func lkSetRepeated(
     _ count: inout pb_size_t,
     _ base: inout UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
     _ values: [String],
@@ -265,23 +246,20 @@ public func lkSetRepeated(
     lkSetRepeated(&count, &base, values.map { strdup($0) })
 }
 
-@inlinable
-public func lkRepeatedEnum<C: RawRepresentable, E: NanopbEnum>(
+package func lkRepeatedEnum<C: RawRepresentable, E: NanopbEnum>(
     _ count: pb_size_t, _ base: UnsafeMutablePointer<C>?,
 ) -> [E] where C.RawValue == UInt32 {
     withLkRepeated(count, base) { $0.map { E(rawValue: Int($0.rawValue)) ?? E() } }
 }
 
-@inlinable
-public func lkSetRepeatedEnum<C: RawRepresentable>(
+package func lkSetRepeatedEnum<C: RawRepresentable>(
     _ count: inout pb_size_t, _ base: inout UnsafeMutablePointer<C>?, _ values: [some NanopbEnum],
 ) where C.RawValue == UInt32 {
     let converted = values.compactMap { C(rawValue: UInt32(truncatingIfNeeded: $0.rawValue)) }
     lkSetRepeated(&count, &base, converted)
 }
 
-@inlinable
-public func lkRepeatedMessages<M: NanopbMessage>(
+package func lkRepeatedMessages<M: NanopbMessage>(
     _ count: pb_size_t, _ base: UnsafeMutablePointer<M.Storage>?,
 ) -> [M] {
     withLkRepeated(count, base) { buffer in
@@ -289,8 +267,7 @@ public func lkRepeatedMessages<M: NanopbMessage>(
     }
 }
 
-@inlinable
-public func lkSetRepeatedMessages<M: NanopbMessage>(
+package func lkSetRepeatedMessages<M: NanopbMessage>(
     _ count: inout pb_size_t, _ base: inout UnsafeMutablePointer<M.Storage>?, _ values: [M],
 ) {
     if let old = base {
@@ -314,13 +291,11 @@ public func lkSetRepeatedMessages<M: NanopbMessage>(
     count = pb_size_t(values.count)
 }
 
-@inlinable
-public func lkCount(_ count: pb_size_t) -> Int { Int(count) }
+package func lkCount(_ count: pb_size_t) -> Int { Int(count) }
 
 /// Zero-copy views over a repeated submessage field. Each element retains
 /// `owner`, so the parent's storage outlives every view handed out.
-@inlinable
-public func lkViews<M: NanopbMessage>(
+package func lkViews<M: NanopbMessage>(
     _ count: pb_size_t, _ base: UnsafeMutablePointer<M.Storage>?, owner: AnyObject,
 ) -> [M] {
     guard let base, count > 0 else { return [] }

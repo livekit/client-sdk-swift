@@ -4,9 +4,13 @@
 
 import Foundation
 
-// CocoaPods compiles all of Sources into the single LiveKitClient module;
-// there the C declarations arrive through the umbrella header instead.
-#if !COCOAPODS
+// Single-module builds compile these sources into the product directly:
+// CocoaPods surfaces the C declarations through the umbrella header, while
+// the prebuilt xcframework resolves CLiveKitProto via its modulemap — the
+// internal import keeps it out of the emitted .swiftinterface.
+#if LK_XCFRAMEWORK
+internal import CLiveKitProto
+#elseif !COCOAPODS
 import CLiveKitProto
 import LiveKitNanopb
 #endif

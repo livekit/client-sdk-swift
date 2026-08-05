@@ -14,6 +14,10 @@ Pod::Spec.new do |spec|
 
   spec.source_files = "Sources/**/*"
 
+  # The LiveKitNanopb runtime uses `package` access; Swift requires a package
+  # identifier wherever those sources compile.
+  spec.pod_target_xcconfig = {"SWIFT_PACKAGE_NAME" => "livekit_client_sdk_swift"}
+
   spec.dependency("LiveKitWebRTC", "= 144.7559.11")
   spec.dependency("LiveKitUniFFI", "= 0.0.6")
 
