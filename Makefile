@@ -14,9 +14,10 @@ CLIENT_PROTOS=livekit_models livekit_rtc livekit_metrics
 #      identical to selective pointers, no field can silently degrade to a
 #      nanopb callback, and new proto fields need no options maintenance.
 #      Cost is one malloc per set scalar field — noise at signalling rates.
-#   3. scripts/generate-facades.swift — injects ABI defines into the headers
-#      and emits the Swift facades (fails loudly if a new proto field would
-#      silently become a nanopb callback).
+#   3. scripts/generate-facades.swift — descriptor-driven (FileDescriptorSet +
+#      SwiftProtobufPluginLibrary's namer, no C-header or generated-Swift
+#      parsing); fails loudly if a new proto field would silently become a
+#      nanopb callback, or if any emitted setter skips the CoW guard.
 proto: protoc protoc-swift swift-sh nanopb-generator
 	protoc --swift_out=Tests/LiveKitNanopbTests/Oracle -I=${PROTO_SOURCE} \
 		$(foreach p,$(CLIENT_PROTOS),${PROTO_SOURCE}/$(p).proto)
@@ -29,6 +30,10 @@ proto: protoc protoc-swift swift-sh nanopb-generator
 	cp ${PROTO_SOURCE}/logger/options.proto $(PROTO_STAGE)/logger/
 	cp $(PROTOC_INCLUDE)/google/protobuf/timestamp.proto $(PROTO_STAGE)/google/protobuf/
 	mkdir -p $(PROTO_STAGE)/out
+	protoc -I=$(PROTO_STAGE) --include_imports \
+		--descriptor_set_out=$(PROTO_STAGE)/descriptors.pb \
+		$(foreach p,$(CLIENT_PROTOS),$(PROTO_STAGE)/$(p).proto) \
+		$(PROTO_STAGE)/google/protobuf/timestamp.proto
 	$(NANOPB_GEN) -I $(PROTO_STAGE) -D $(PROTO_STAGE)/out \
 		$(foreach p,$(CLIENT_PROTOS),$(PROTO_STAGE)/$(p).proto) \
 		$(PROTO_STAGE)/google/protobuf/timestamp.proto \
