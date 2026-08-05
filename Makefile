@@ -42,16 +42,25 @@ proto: protoc protoc-swift swift-sh nanopb-generator
 		--descriptor_set_out=$(PROTO_STAGE)/descriptors.pb \
 		$(foreach p,$(CLIENT_PROTOS),$(PROTO_STAGE)/$(p).proto) \
 		$(PROTO_STAGE)/google/protobuf/timestamp.proto
-	$(NANOPB_GEN) -I $(PROTO_STAGE) -D $(PROTO_STAGE)/out \
+	@# --strip-path flattens #include directives; headers are copied flat below.
+	@# CocoaPods flattens all pod headers into one directory, so nested
+	@# includes ("google/protobuf/timestamp.pb.h") would break pod builds.
+	$(NANOPB_GEN) -I $(PROTO_STAGE) -D $(PROTO_STAGE)/out --strip-path \
 		$(foreach p,$(CLIENT_PROTOS),$(PROTO_STAGE)/$(p).proto) \
 		$(PROTO_STAGE)/google/protobuf/timestamp.proto \
 		$(PROTO_STAGE)/logger/options.proto
 	cp $(PROTO_STAGE)/out/livekit_*.pb.h Sources/CLiveKitProto/include/
 	cp $(PROTO_STAGE)/out/livekit_*.pb.c Sources/CLiveKitProto/
-	cp $(PROTO_STAGE)/out/google/protobuf/timestamp.pb.h Sources/CLiveKitProto/include/google/protobuf/
+	@# --strip-path only flattens each file's include of its own header;
+	@# cross-file includes keep the proto import path and need flattening here.
+	sed -i '' \
+		-e 's|#include "google/protobuf/timestamp.pb.h"|#include "timestamp.pb.h"|' \
+		-e 's|#include "logger/options.pb.h"|#include "options.pb.h"|' \
+		Sources/CLiveKitProto/include/livekit_*.pb.h
+	cp $(PROTO_STAGE)/out/google/protobuf/timestamp.pb.h Sources/CLiveKitProto/include/
 	cp $(PROTO_STAGE)/out/google/protobuf/timestamp.pb.c Sources/CLiveKitProto/
 	@# logger/options.proto declares only annotations — header needed, no .c
-	cp $(PROTO_STAGE)/out/logger/options.pb.h Sources/CLiveKitProto/include/logger/
+	cp $(PROTO_STAGE)/out/logger/options.pb.h Sources/CLiveKitProto/include/
 	swift-sh scripts/generate-facades.swift
 
 nanopb-generator:

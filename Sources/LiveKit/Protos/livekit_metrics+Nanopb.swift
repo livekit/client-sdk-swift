@@ -2,9 +2,14 @@
 //
 // Copy-on-write facades over nanopb's C structs. See Sources/LiveKitNanopb.
 
-import CLiveKitProto
 import Foundation
+
+// CocoaPods compiles all of Sources into the single LiveKitClient module;
+// there the C declarations arrive through the umbrella header instead.
+#if !COCOAPODS
+import CLiveKitProto
 import LiveKitNanopb
+#endif
 
 struct Livekit_MetricsBatch: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_MetricsBatch

@@ -4,9 +4,9 @@
 #ifndef PB_LIVEKIT_LIVEKIT_MODELS_PB_H_INCLUDED
 #define PB_LIVEKIT_LIVEKIT_MODELS_PB_H_INCLUDED
 #include <pb.h>
-#include "google/protobuf/timestamp.pb.h"
+#include "timestamp.pb.h"
 #include "livekit_metrics.pb.h"
-#include "logger/options.pb.h"
+#include "options.pb.h"
 
 #if PB_PROTO_HEADER_VERSION != 40
 #error Regenerate this file with the current version of nanopb generator.

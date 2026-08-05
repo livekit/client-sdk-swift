@@ -30,7 +30,11 @@
 //
 // Zero-copy `withXBytes { }` readers are emitted alongside for hot paths.
 
+// CocoaPods compiles all of Sources into the single LiveKitClient module;
+// there the C declarations arrive through the umbrella header instead.
+#if !COCOAPODS
 import CLiveKitProto
+#endif
 import Foundation
 
 // MARK: - Errors
