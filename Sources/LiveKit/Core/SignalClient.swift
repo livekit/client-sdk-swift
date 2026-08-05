@@ -280,11 +280,16 @@ private extension SignalClient {
     }
 
     func onWebSocketMessage(_ message: URLSessionWebSocketTask.Message) async {
+        // The server mirrors the client's encoding and this SDK has sent
+        // binary protobuf since 2021, so text (JSON) frames cannot occur
+        // against livekit-server; they are unsupported here (as on Android).
+        if case .string = message {
+            log("Received JSON signal message, unsupported in this version.", .warning)
+            return
+        }
+
         let response: Livekit_SignalResponse? = switch message {
         case let .data(data): try? Livekit_SignalResponse(serializedBytes: data)
-        // JSON signal frames are not supported by the nanopb-backed protocol
-        // layer; production servers send binary protobuf.
-        case .string: nil
         default: nil
         }
 
