@@ -34,8 +34,13 @@ internal import LiveKitUniFFI
 /// delegates are immutable after init. Not an actor — the UniFFI delegate callbacks are synchronous
 /// and can't `await`.
 final class DataStreams: NSObject, @unchecked Sendable, Loggable {
-    private let incoming: LiveKitUniFFI.IncomingDataStreamManager
     private let outgoing: LiveKitUniFFI.OutgoingDataStreamManager
+
+    // Created lazily on the first inbound packet, not at init: the incoming manager's payload cap
+    // comes from the room's options, which aren't finalized until `connect` — after this coordinator
+    // is built at `Room.init`. Deferring lets it pick up a `maxPayloadSize` passed at connect time.
+    // StateSync-guarded so it's constructed exactly once even if packets race in.
+    private let _incoming = StateSync<LiveKitUniFFI.IncomingDataStreamManager?>(nil)
 
     // Held weakly: the Room owns this coordinator, so the back-reference must not retain it. Used
     // for the room-level encryption type stamped onto stream info, and for logging.
@@ -58,22 +63,31 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     private let orderedTopics = StateSync<Set<String>>([])
     private let orderedTails = StateSync<[String: [String: Task<Void, Never>]]>([:])
 
-    init(room: Room, maxPayloadSize: Int? = nil) {
+    init(room: Room) {
         self.room = room
-        let incomingDelegate = IncomingDelegate()
         let outgoingDelegate = OutgoingDelegate(room: room)
         let registry = Registry(room: room)
-        // `maxPayloadSize` caps the reassembled size of an incoming stream (nil → the core's default
-        // cap). Topic routing (incl. the `lk.rpc` guard) is handled Swift-side in `Room+DataStream`,
-        // matching the previous pure-Swift implementation.
-        incoming = LiveKitUniFFI.IncomingDataStreamManager(
-            delegate: incomingDelegate,
-            maxPayloadByteLength: maxPayloadSize.map { UInt64($0) },
-        )
         outgoing = LiveKitUniFFI.OutgoingDataStreamManager(delegate: outgoingDelegate, registry: registry)
         super.init()
-        // The FFI manager retains its delegate strongly, so the delegate points back here weakly.
-        incomingDelegate.coordinator = self
+    }
+
+    /// The incoming manager, created on first use with the room's current payload cap. Topic routing
+    /// (incl. the `lk.rpc` guard) is handled Swift-side in `Room+DataStream`.
+    private func incomingManager() -> LiveKitUniFFI.IncomingDataStreamManager {
+        _incoming.mutate { existing in
+            if let existing { return existing }
+            let delegate = IncomingDelegate()
+            delegate.coordinator = self
+            // `nil` → the core's default cap. Read now (first packet, i.e. post-connect) so a
+            // `maxPayloadSize` supplied via `connect(roomOptions:)` is honored.
+            let maxPayloadSize = room?._state.roomOptions.dataStreamOptions.maxPayloadSize
+            let manager = LiveKitUniFFI.IncomingDataStreamManager(
+                delegate: delegate,
+                maxPayloadByteLength: maxPayloadSize.map { UInt64($0) },
+            )
+            existing = manager
+            return manager
+        }
     }
 
     // Room-level encryption type, stamped onto every stream info as it crosses the FFI boundary.
@@ -178,7 +192,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     /// the incoming manager. The FFI re-decodes the serialized `DataPacket` itself.
     func handleIncoming(_ dataPacket: Livekit_DataPacket) {
         guard let data = try? dataPacket.serializedData() else { return }
-        incoming.handlePacketReceived(packet: data)
+        incomingManager().handlePacketReceived(packet: data)
     }
 
     // MARK: - Stream lifecycle
@@ -187,13 +201,14 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     /// on a reader that will never finish would otherwise stall its topic's ordered queue. Handler
     /// registrations survive, so streams arriving after a reconnect are still handled.
     func reset() {
-        incoming.abortAllStreams()
+        // No-op if the incoming manager was never created (no packets received): nothing is open.
+        _incoming.copy()?.abortAllStreams()
     }
 
     /// Fails open incoming streams sent by `identity` (they disconnected mid-send), so their readers
     /// throw and their handlers return instead of hanging.
     func closeStreams(from identity: Participant.Identity) {
-        incoming.abortStreamsFrom(identity: identity.stringValue)
+        _incoming.copy()?.abortStreamsFrom(identity: identity.stringValue)
     }
 
     // MARK: - Stream open dispatch (called from the incoming delegate)
