@@ -29,7 +29,7 @@ public final class DataTrackInfo: NSObject, Sendable, FFIBridged {
     public let usesE2ee: Bool
 
     init(_ info: LiveKitUniFFI.DataTrackInfo) {
-        sid = info.sid
+        sid = DataTrack.Sid(from: info.sid)
         name = info.name
         usesE2ee = info.usesE2ee
         super.init()

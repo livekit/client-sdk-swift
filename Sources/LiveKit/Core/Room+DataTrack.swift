@@ -249,8 +249,8 @@ final class DataTracks: NSObject, @unchecked Sendable {
             coordinator?.remoteTrackPublished(RemoteDataTrack(track))
         }
 
-        func onTrackUnpublished(sid: DataTrack.Sid) {
-            coordinator?.remoteTrackUnpublished(sid: sid)
+        func onTrackUnpublished(sid: LiveKitUniFFI.DataTrackSid) {
+            coordinator?.remoteTrackUnpublished(sid: DataTrack.Sid(from: sid))
         }
 
         // Bound the publisher data track channel buffer; parity with the lossy data channel threshold.

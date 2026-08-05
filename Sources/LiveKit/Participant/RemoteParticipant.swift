@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import Foundation
+
 internal import LiveKitWebRTC
 
 @objcMembers
@@ -167,8 +169,11 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
 
         // Data tracks: on disconnect the participant is removed before the async manager callback
         // arrives, so it can't route the unpublish — clear them here, mirroring the media path.
-        let dataTrackSids = _dataTracks.copy().map(\.info.sid)
-        _dataTracks.mutate { $0 = [] }
+        let dataTrackSids = _dataTracks.mutate { tracks in
+            let sids = tracks.map(\.info.sid)
+            tracks = []
+            return sids
+        }
         guard _notify, let room = _room else { return }
         for sid in dataTrackSids {
             delegates.notify(label: { "participant.didUnpublishDataTrack \(sid)" }) {
