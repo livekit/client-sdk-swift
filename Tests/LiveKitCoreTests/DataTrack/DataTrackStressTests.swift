@@ -22,7 +22,7 @@ import LiveKitTestSupport
 #endif
 
 /// Multi-track concurrent-push stress scenarios.
-@Suite(.serialized, .tags(.dataTrack, .e2e))
+@Suite(.serialized, .timeLimit(.minutes(5)), .tags(.dataTrack, .e2e))
 struct DataTrackStressTests {
     /// A multi-track concurrent-push stress scenario.
     struct PushScenario: CustomTestStringConvertible {

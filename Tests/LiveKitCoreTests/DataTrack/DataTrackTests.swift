@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized, .tags(.dataTrack, .e2e))
+@Suite(.serialized, .timeLimit(.minutes(5)), .tags(.dataTrack, .e2e))
 struct DataTrackTests {
     // MARK: - Publish and Receive
 
