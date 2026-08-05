@@ -277,10 +277,8 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Install protoc
-        # protoc-gen-swift is version-pinned and built from source by the
-        # Makefile — committed oracle output must not float with brew.
-        run: brew install protobuf
+      - name: Install swift-protobuf
+        run: brew install protobuf swift-protobuf
 
       - name: Generate Swift protobuf files
         run: make proto

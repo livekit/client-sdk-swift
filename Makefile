@@ -6,13 +6,6 @@ PROTO_STAGE=.build/proto-stage
 PROTOC_INCLUDE=$(shell brew --prefix)/include
 CLIENT_PROTOS=livekit_models livekit_rtc livekit_metrics
 
-# The oracle's generated Swift is committed, so its generator must be pinned —
-# a floating brew protoc-gen-swift breaks the check-protocol job on every
-# formula bump. Built from source at the same version the facade generator
-# resolves via swift-sh.
-SWIFT_PROTOBUF_VERSION=1.38.1
-PROTOC_GEN_SWIFT=.build/protoc-gen-swift/$(SWIFT_PROTOBUF_VERSION)/protoc-gen-swift
-
 # Regenerates the whole protocol layer:
 #   1. SwiftProtobuf "oracle" (test-only): naming source for the facade
 #      generator and the conformance tests' independent implementation.
@@ -26,8 +19,7 @@ PROTOC_GEN_SWIFT=.build/protoc-gen-swift/$(SWIFT_PROTOBUF_VERSION)/protoc-gen-sw
 #      parsing); fails loudly if a new proto field would silently become a
 #      nanopb callback, or if any emitted setter skips the CoW guard.
 proto: protoc protoc-swift swift-sh nanopb-generator
-	protoc --plugin=protoc-gen-swift=$(PROTOC_GEN_SWIFT) \
-		--swift_out=Tests/LiveKitNanopbTests/Oracle -I=${PROTO_SOURCE} \
+	protoc --swift_out=Tests/LiveKitNanopbTests/Oracle -I=${PROTO_SOURCE} \
 		$(foreach p,$(CLIENT_PROTOS),${PROTO_SOURCE}/$(p).proto)
 	rm -rf $(PROTO_STAGE)
 	mkdir -p $(PROTO_STAGE)/google/protobuf $(PROTO_STAGE)/logger
@@ -81,17 +73,10 @@ docs: swift-docs
 		--format html \
 		--base-url /client-sdk-swift
 
-protoc-swift: $(PROTOC_GEN_SWIFT)
-
-$(PROTOC_GEN_SWIFT):
-	rm -rf .build/swift-protobuf-src
-	git clone -q --depth 1 --branch $(SWIFT_PROTOBUF_VERSION) \
-		https://github.com/apple/swift-protobuf .build/swift-protobuf-src
-	swift build -c release --package-path .build/swift-protobuf-src \
-		--product protoc-gen-swift
-	mkdir -p $(dir $(PROTOC_GEN_SWIFT))
-	cp .build/swift-protobuf-src/.build/release/protoc-gen-swift $(PROTOC_GEN_SWIFT)
-	rm -rf .build/swift-protobuf-src
+protoc-swift:
+ifeq (, $(shell which protoc-gen-swift))
+	brew install swift-protobuf
+endif
 
 protoc:
 ifeq (, $(shell which protoc))
