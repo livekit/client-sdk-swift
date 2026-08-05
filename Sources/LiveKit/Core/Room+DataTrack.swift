@@ -51,9 +51,13 @@ final class DataTracks: NSObject, @unchecked Sendable {
         self.room = room
         let managerDelegate = ManagerDelegate(room: room)
         // Provide the cryptor only when E2EE is configured — its presence is what marks tracks as
-        // encrypted (usesE2ee), so it must be nil otherwise.
+        // encrypted (usesE2ee), so it must be nil otherwise. Unlike data channel payloads (a
+        // per-message property), data track encryption is a track-level protocol property that
+        // subscribers key their decryption on, so publishing captures the runtime E2EE toggle as
+        // of connect rather than consulting it per frame; reception can always decrypt.
         let cryptor: DataTrackCryptor? = room.e2eeManager.map(DataTrackCryptor.init)
-        local = LocalDataTrackManager(delegate: managerDelegate, encryptionProvider: cryptor)
+        let encryptionProvider = room.e2eeManager?.isDataChannelEncryptionEnabled == true ? cryptor : nil
+        local = LocalDataTrackManager(delegate: managerDelegate, encryptionProvider: encryptionProvider)
         remote = RemoteDataTrackManager(delegate: managerDelegate, decryptionProvider: cryptor)
         super.init()
         // The UniFFI managers retain their delegate strongly, so it points back here weakly to

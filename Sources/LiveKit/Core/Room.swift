@@ -106,6 +106,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     /// (via ``RoomOptions/encryptionOptions``) and to be connected.
     /// Otherwise this is a no-op.
     ///
+    /// - Note: Data track encryption is fixed for the session when the Room connects: tracks
+    ///   advertise whether they are encrypted at publish time, so toggling mid-session affects
+    ///   media and data channel payloads but not data tracks.
+    ///
     /// - Parameter enabled: Whether to enable encryption.
     public func setE2EEEnabled(_ enabled: Bool) {
         e2eeManager?.enableE2EE(enabled: enabled)
