@@ -99,6 +99,9 @@ final class DataTracks: NSObject, @unchecked Sendable {
         }
         guard let data = try? response.serializedData() else { return }
         try? remote.handleSfuParticipantUpdate(res: data, localParticipantIdentity: localIdentity)
+        // A track announced before its publisher was registered is parked in `_remoteTracks`;
+        // now that participants are current, attach any such stragglers.
+        reattachRemoteTracks()
     }
 
     func handleRoomMoved(_ participants: [Livekit_ParticipantInfo], localIdentity: String) {
@@ -134,7 +137,9 @@ final class DataTracks: NSObject, @unchecked Sendable {
         _remoteTracks.mutate { $0.append(track) }
         let identity = Participant.Identity(from: track.publisherIdentity)
         guard let participant = room.remoteParticipants[identity] else {
-            room.log("Data track published by unknown participant \(identity)", .warning)
+            // The callback can race the participant's registration; the track stays in
+            // `_remoteTracks` and attaches on the next participant update.
+            room.log("Data track published by not-yet-known participant \(identity)", .debug)
             return
         }
         attach(track, to: participant, in: room)
@@ -154,20 +159,21 @@ final class DataTracks: NSObject, @unchecked Sendable {
         }
     }
 
-    /// Re-attaches live remote tracks to the participants recreated from a full reconnect's join
-    /// response. No-op on the initial join (nothing registered yet) and for tracks already
-    /// attached.
+    /// Attaches parked remote tracks to participants that have since become known: after a full
+    /// reconnect's join response (participants are recreated) and after participant updates (a
+    /// publish callback can precede its publisher's registration). Idempotent — skips tracks
+    /// already attached and publishers still missing.
     private func reattachRemoteTracks() {
         guard let room else { return }
         for track in _remoteTracks.copy() {
-            guard let participant = room.remoteParticipants[Participant.Identity(from: track.publisherIdentity)],
-                  participant.dataTracks[track.info.sid] == nil else { continue }
+            guard let participant = room.remoteParticipants[Participant.Identity(from: track.publisherIdentity)] else { continue }
             attach(track, to: participant, in: room)
         }
     }
 
+    /// No-op (and no events) when this exact track is already attached.
     private func attach(_ track: RemoteDataTrack, to participant: RemoteParticipant, in room: Room) {
-        participant.addDataTrack(track)
+        guard participant.addDataTrack(track) else { return }
         participant.delegates.notify(label: { "participant.didPublishDataTrack" }) {
             $0.participant?(participant, didPublishDataTrack: track)
         }

@@ -75,7 +75,7 @@ struct DataTrackLifecycleTests {
 
     /// A published data track survives the publisher's full reconnect: the session-scoped manager
     /// republishes it under a new SID, and the subscriber's existing ``RemoteDataTrack`` carries
-    /// over — its SID is reassigned in place, with no unpublish/republish events fired.
+    /// over — its SID is reassigned in place.
     @Test
     func trackSurvivesPublisherFullReconnect() async throws {
         try await TestEnvironment.withRooms([
@@ -109,12 +109,11 @@ struct DataTrackLifecycleTests {
             #expect(participant.dataTracks[newSid] === remoteTrack)
             #expect(participant.dataTracks[originalSid] == nil)
 
-            // Continuity, not re-announcement: no events fired on the subscriber.
-            await #expect(throws: LiveKitError.self) {
-                _ = try await recorder.waitFor(.roomRemotePublish, timeout: 2)
-            }
-            await #expect(throws: LiveKitError.self) {
-                _ = try await recorder.waitFor(.roomRemoteUnpublish, timeout: 2)
+            // Depending on whether the SFU signals the publisher's brief departure, the app sees
+            // either silent continuity (no events) or a coherent unpublish → publish pair when the
+            // participant is dropped and recreated — never a publish without its unpublish.
+            if await (try? recorder.waitFor(.roomRemotePublish, timeout: 2)) != nil {
+                #expect(try await recorder.waitFor(.roomRemoteUnpublish, timeout: 2) == originalSid)
             }
         }
     }

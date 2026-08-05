@@ -35,8 +35,15 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
         set(info: info, connectionState: connectionState)
     }
 
-    func addDataTrack(_ track: RemoteDataTrack) {
-        _dataTracks.mutate { $0.append(track) }
+    /// Adds the track, returning `false` if this exact track is already attached. Identity-based
+    /// so it stays race-free while the track's SID is being reassigned by the manager.
+    @discardableResult
+    func addDataTrack(_ track: RemoteDataTrack) -> Bool {
+        _dataTracks.mutate {
+            guard !$0.contains(where: { $0 === track }) else { return false }
+            $0.append(track)
+            return true
+        }
     }
 
     @discardableResult

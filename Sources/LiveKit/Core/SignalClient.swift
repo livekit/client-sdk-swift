@@ -280,10 +280,20 @@ private extension SignalClient {
     }
 
     func onWebSocketMessage(_ message: URLSessionWebSocketTask.Message) async {
-        let response: Livekit_SignalResponse? = switch message {
-        case let .data(data): try? Livekit_SignalResponse(serializedBytes: data)
-        case let .string(string): try? Livekit_SignalResponse(jsonString: string)
-        default: nil
+        let response: Livekit_SignalResponse?
+        // Serialized protobuf bytes for the data track managers: the received payload as-is for
+        // binary messages, re-serialized only when the message arrived as JSON (string).
+        let rawData: Data?
+        switch message {
+        case let .data(data):
+            response = try? Livekit_SignalResponse(serializedBytes: data)
+            rawData = response != nil ? data : nil
+        case let .string(string):
+            response = try? Livekit_SignalResponse(jsonString: string)
+            rawData = try? response?.serializedData()
+        default:
+            response = nil
+            rawData = nil
         }
 
         guard let response else {
@@ -291,9 +301,7 @@ private extension SignalClient {
             return
         }
 
-        // Forward serialized protobuf bytes to delegate for data track managers.
-        // Re-serialize if the message arrived as JSON (string) rather than binary.
-        if let rawData = try? response.serializedData() {
+        if let rawData {
             _delegate.notifyDetached { await $0.signalClient(self, didReceiveRawResponse: rawData) }
         }
 
