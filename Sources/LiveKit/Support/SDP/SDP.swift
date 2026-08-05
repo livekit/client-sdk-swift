@@ -122,6 +122,26 @@ struct SDPMediaSection {
         return false
     }
 
+    /// Whether an `a=rtcp-fb:<payload> <value>` line with exactly `value` exists for
+    /// `payload`. Exact-value match: `nack` does not match `nack pli` (RFC 4585 §4.2
+    /// — they are distinct feedback parameters).
+    func hasRtcpFeedback(_ value: String, forPayload payload: String) -> Bool {
+        lines.contains { line in
+            guard let (fbPayload, fbValue) = Self.payloadAttribute(line, name: "rtcp-fb") else { return false }
+            return fbPayload == payload && fbValue == value
+        }
+    }
+
+    /// Appends an `a=rtcp-fb:<payload> <value>` line at the end of the section,
+    /// unless the exact feedback is already present. Returns `true` if the section
+    /// was modified.
+    @discardableResult
+    mutating func appendRtcpFeedback(_ value: String, forPayload payload: String) -> Bool {
+        guard !hasRtcpFeedback(value, forPayload: payload) else { return false }
+        lines.append("a=rtcp-fb:\(payload) \(value)")
+        return true
+    }
+
     /// Appends a raw line at the end of the section.
     mutating func append(line: String) {
         lines.append(line)

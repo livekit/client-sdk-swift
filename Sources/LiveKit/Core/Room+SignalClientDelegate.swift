@@ -364,8 +364,11 @@ extension Room: SignalClientDelegate {
 
         do {
             try await subscriber.set(remoteDescription: offer)
-            let answer = try await subscriber.createAnswer()
-            try await subscriber.set(localDescription: answer)
+            var answer = try await subscriber.createAnswer()
+            answer = try await subscriber.set(localDescription: answer, munging: [
+                { Transport.mungeOpusStereo($0, matchingOffer: offer.sdp) },
+                { Transport.mungeOpusNack($0, matchingOffer: offer.sdp) },
+            ])
             try await signalClient.send(answer: answer, offerId: offerId)
             connectSpan?.record("answer_sent")
         } catch {
