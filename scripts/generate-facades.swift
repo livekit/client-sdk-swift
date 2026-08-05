@@ -16,6 +16,9 @@
  * limitations under the License.
  */
 
+// swift-sh scripts are single-file by design.
+// swiftlint:disable file_length
+
 import ArgumentParser // apple/swift-argument-parser ~> 1.3
 import Files // JohnSundell/Files ~> 4.2
 import Foundation
@@ -70,7 +73,7 @@ struct GenerateFacades: ParsableCommand {
         // FT_POINTER options — nanopb would silently drop it on decode.
         try Self.verifyNoCallbacks(headers: headers)
 
-        let data = try Data(contentsOf: URL(fileURLWithPath: descriptors))
+        let data = try Data(contentsOf: URL(filePath: descriptors))
         let set = try DescriptorSet(proto: Google_Protobuf_FileDescriptorSet(serializedBytes: data))
         let namer = SwiftProtobufNamer()
 
@@ -116,18 +119,15 @@ struct GenerateFacades: ParsableCommand {
     /// Type names spelled anywhere in hand-written SDK or test code.
     static func usedTypeNames() -> Set<String> {
         var used: Set<String> = []
-        let pattern = try! NSRegularExpression(
-            pattern: #"\b((?:Livekit|Google_Protobuf)_[A-Za-z0-9_]+)"#,
-        )
+        let typeName = #/\b(?:Livekit|Google_Protobuf)_[A-Za-z0-9_]+/#
         for root in ["Sources/LiveKit", "Tests"] {
             guard let folder = try? Folder(path: root) else { continue }
             for file in folder.files.recursive where file.name.hasSuffix(".swift") {
                 let path = file.path
                 if path.contains("/Protos/") || path.contains("/Oracle/") { continue }
                 guard let text = try? file.readAsString() else { continue }
-                let range = NSRange(text.startIndex ..< text.endIndex, in: text)
-                for match in pattern.matches(in: text, range: range) {
-                    if let r = Range(match.range(at: 1), in: text) { used.insert(String(text[r])) }
+                for match in text.matches(of: typeName) {
+                    used.insert(String(match.output))
                 }
             }
         }
@@ -136,15 +136,11 @@ struct GenerateFacades: ParsableCommand {
 
     static func verifyNoCallbacks(headers: String) throws {
         var violations: [String] = []
-        let folder = try Folder(path: headers)
-        let pattern = try! NSRegularExpression(pattern: #"pb_callback_t (\w+);"#)
-        for file in folder.files.recursive where file.name.hasSuffix(".pb.h") {
+        let callbackField = #/pb_callback_t (\w+);/#
+        for file in try Folder(path: headers).files.recursive where file.name.hasSuffix(".pb.h") {
             let text = try file.readAsString()
-            let range = NSRange(text.startIndex ..< text.endIndex, in: text)
-            for match in pattern.matches(in: text, range: range) {
-                if let r = Range(match.range(at: 1), in: text) {
-                    violations.append("\(file.name): \(text[r])")
-                }
+            for match in text.matches(of: callbackField) {
+                violations.append("\(file.name): \(match.1)")
             }
         }
         guard violations.isEmpty else {
@@ -393,30 +389,9 @@ struct Emitter {
 
         switch field.type {
         case .string:
-            let capitalised = names.has.dropFirst("has".count)
-            return [
-                "var \(names.name): String {",
-                "    get { lkString(\(slot)) ?? \"\" }",
-                "    set { _ensureUnique(); lkSetString(&\(slot), newValue) }",
-                "}",
-                "var \(names.has): Bool { \(slot) != nil }",
-                "/// Zero-copy read — borrows nanopb's allocation for the call only.",
-                "func with\(capitalised)Bytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {",
-                "    try withLkBytes(\(slot), body)",
-                "}",
-            ]
+            return emitString(names, slot)
         case .bytes:
-            let capitalised = names.has.dropFirst("has".count)
-            return [
-                "var \(names.name): Data {",
-                "    get { lkData(\(slot)) }",
-                "    set { _ensureUnique(); lkSetData(&\(slot), newValue) }",
-                "}",
-                "var \(names.has): Bool { \(slot) != nil }",
-                "func with\(capitalised)<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {",
-                "    try withLkData(\(slot), body)",
-                "}",
-            ]
+            return emitBytes(names, slot)
         case .enum:
             let type = Self.local(namer.fullName(enum: field.enumType!))
             return [
@@ -445,6 +420,35 @@ struct Emitter {
                 "var \(names.has): Bool { \(slot) != nil }",
             ]
         }
+    }
+
+    private func emitString(_ names: SwiftProtobufNamer.MessageFieldNames, _ slot: String) -> [String] {
+        let capitalised = names.has.dropFirst("has".count)
+        return [
+            "var \(names.name): String {",
+            "    get { lkString(\(slot)) ?? \"\" }",
+            "    set { _ensureUnique(); lkSetString(&\(slot), newValue) }",
+            "}",
+            "var \(names.has): Bool { \(slot) != nil }",
+            "/// Zero-copy read — borrows nanopb's allocation for the call only.",
+            "func with\(capitalised)Bytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {",
+            "    try withLkBytes(\(slot), body)",
+            "}",
+        ]
+    }
+
+    private func emitBytes(_ names: SwiftProtobufNamer.MessageFieldNames, _ slot: String) -> [String] {
+        let capitalised = names.has.dropFirst("has".count)
+        return [
+            "var \(names.name): Data {",
+            "    get { lkData(\(slot)) }",
+            "    set { _ensureUnique(); lkSetData(&\(slot), newValue) }",
+            "}",
+            "var \(names.has): Bool { \(slot) != nil }",
+            "func with\(capitalised)<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {",
+            "    try withLkData(\(slot), body)",
+            "}",
+        ]
     }
 
     private func emitRepeated(_ field: FieldDescriptor) -> [String] {
@@ -526,73 +530,118 @@ struct Emitter {
         ]
     }
 
-    // MARK: oneofs — protoc-gen-swift's `OneOf_X` enum-with-payload shape
+    /// A proto field may be named after a Swift keyword (e.g. `protocol`) —
+    /// the imported C member needs backticks on the Swift side.
+    static func escaped(_ identifier: String) -> String {
+        keywords.contains(identifier) ? "`\(identifier)`" : identifier
+    }
 
-    private func emit(oneof: OneofDescriptor, of message: Descriptor) -> [String] {
-        let property = namer.messagePropertyName(oneof: oneof, prefixed: "").name
+    private static let keywords: Set<String> = [
+        "protocol", "class", "struct", "enum", "func", "var", "let", "return", "default",
+        "internal", "public", "private", "static", "operator", "extension", "import",
+        "where", "repeat", "in", "is", "as", "self", "super", "true", "false", "nil",
+    ]
+}
+
+// MARK: - Oneofs — protoc-gen-swift's `OneOf_X` enum-with-payload shape
+
+extension Emitter {
+    /// Everything oneof emission derives from the descriptor pair.
+    private struct OneofContext {
+        let oneof: OneofDescriptor
+        let enumName: String
+        let property: String
+        let clearName: String
+        let which: String
+        let tag: (FieldDescriptor) -> String
+        let caseName: (FieldDescriptor) -> String
+        var variants: [FieldDescriptor] { oneof.fields.sorted { $0.number < $1.number } }
+    }
+
+    private func context(oneof: OneofDescriptor, of message: Descriptor) -> OneofContext {
         let enumName = namer.relativeName(oneof: oneof)
-        let clearName = "_clear\(enumName.dropFirst("OneOf_".count))"
         let storage = cName(message)
-        let which = "_pointer.pointee.which_\(oneof.name)"
-        let variants = oneof.fields.sorted { $0.number < $1.number }
+        let namer = namer
+        return OneofContext(
+            oneof: oneof,
+            enumName: enumName,
+            property: namer.messagePropertyName(oneof: oneof, prefixed: "").name,
+            clearName: "_clear\(enumName.dropFirst("OneOf_".count))",
+            which: "_pointer.pointee.which_\(oneof.name)",
+            tag: { "pb_size_t(\(storage)_\($0.name)_tag)" },
+            caseName: {
+                namer.messagePropertyNames(field: $0, prefixed: "", includeHasAndClear: false).name
+            },
+        )
+    }
 
-        func caseName(_ field: FieldDescriptor) -> String {
-            namer.messagePropertyNames(field: field, prefixed: "", includeHasAndClear: false).name
-        }
-
-        var out = ["enum \(enumName): Equatable {"]
-        for variant in variants {
-            out.append("    case \(caseName(variant))(\(payloadType(variant)))")
+    func emit(oneof: OneofDescriptor, of message: Descriptor) -> [String] {
+        let ctx = context(oneof: oneof, of: message)
+        var out = ["enum \(ctx.enumName): Equatable {"]
+        for variant in ctx.variants {
+            out.append("    case \(ctx.caseName(variant))(\(payloadType(variant)))")
         }
         out.append("}")
         out.append("")
+        out += emitProperty(ctx)
+        out.append("")
+        out += emitVariantAccessors(ctx)
+        out.append("")
+        out += emitClear(ctx)
+        return out
+    }
 
-        out.append("var \(property): \(enumName)? {")
+    private func emitProperty(_ ctx: OneofContext) -> [String] {
+        var out = ["var \(ctx.property): \(ctx.enumName)? {"]
         out.append("    get {")
-        out.append("        switch \(which) {")
-        for variant in variants {
-            out.append("        case pb_size_t(\(storage)_\(variant.name)_tag):")
-            out.append("            return .\(caseName(variant))(\(read(variant, in: oneof)))")
+        out.append("        switch \(ctx.which) {")
+        for variant in ctx.variants {
+            out.append("        case \(ctx.tag(variant)):")
+            out.append("            return .\(ctx.caseName(variant))(\(read(variant, in: ctx.oneof)))")
         }
         out.append("        default: return nil")
         out.append("        }")
         out.append("    }")
         out.append("    set {")
         out.append("        _ensureUnique()")
-        out.append("        \(clearName)()")
+        out.append("        \(ctx.clearName)()")
         out.append("        switch newValue {")
-        for variant in variants {
-            out.append("        case let .\(caseName(variant))(value):")
-            out.append("            \(which) = pb_size_t(\(storage)_\(variant.name)_tag)")
-            out.append("            \(write(variant, in: oneof, from: "value"))")
+        for variant in ctx.variants {
+            out.append("        case let .\(ctx.caseName(variant))(value):")
+            out.append("            \(ctx.which) = \(ctx.tag(variant))")
+            out.append("            \(write(variant, in: ctx.oneof, from: "value"))")
         }
         out.append("        case nil: break")
         out.append("        }")
         out.append("    }")
         out.append("}")
-        out.append("")
+        return out
+    }
 
-        // direct per-variant accessors, as protoc-gen-swift emits
-        for variant in variants {
-            let vName = caseName(variant)
-            out.append("var \(vName): \(payloadType(variant)) {")
-            out.append("    get { \(which) == pb_size_t(\(storage)_\(variant.name)_tag) ? (\(read(variant, in: oneof))) : \(defaultValue(variant)) }")
+    /// Direct per-variant accessors, as protoc-gen-swift emits.
+    private func emitVariantAccessors(_ ctx: OneofContext) -> [String] {
+        var out: [String] = []
+        for variant in ctx.variants {
+            out.append("var \(ctx.caseName(variant)): \(payloadType(variant)) {")
+            out.append("    get { \(ctx.which) == \(ctx.tag(variant)) ? (\(read(variant, in: ctx.oneof))) : \(defaultValue(variant)) }")
             out.append("    set {")
             out.append("        _ensureUnique()")
-            out.append("        \(clearName)()")
-            out.append("        \(which) = pb_size_t(\(storage)_\(variant.name)_tag)")
-            out.append("        \(write(variant, in: oneof, from: "newValue"))")
+            out.append("        \(ctx.clearName)()")
+            out.append("        \(ctx.which) = \(ctx.tag(variant))")
+            out.append("        \(write(variant, in: ctx.oneof, from: "newValue"))")
             out.append("    }")
             out.append("}")
         }
-        out.append("")
+        return out
+    }
 
-        // release the live variant with the right layout before switching
-        out.append("private mutating func \(clearName)() {")
-        out.append("    switch \(which) {")
-        for variant in variants {
-            let slot = "_pointer.pointee.\(oneof.name).\(Self.escaped(variant.name))"
-            out.append("    case pb_size_t(\(storage)_\(variant.name)_tag):")
+    /// Releases the live variant with the right layout before switching.
+    private func emitClear(_ ctx: OneofContext) -> [String] {
+        var out = ["private mutating func \(ctx.clearName)() {"]
+        out.append("    switch \(ctx.which) {")
+        for variant in ctx.variants {
+            let slot = "_pointer.pointee.\(ctx.oneof.name).\(Self.escaped(variant.name))"
+            out.append("    case \(ctx.tag(variant)):")
             switch variant.type {
             case .message, .group:
                 let type = Self.local(namer.fullName(message: variant.messageType!))
@@ -603,10 +652,10 @@ struct Emitter {
         }
         out.append("    default: break")
         out.append("    }")
-        out.append("    \(which) = 0")
+        out.append("    \(ctx.which) = 0")
         out.append("    // zero the union: stale bits from a previous variant would otherwise")
         out.append("    // be misread as a pointer by the next variant's setter")
-        out.append("    _pointer.pointee.\(oneof.name) = .init()")
+        out.append("    _pointer.pointee.\(ctx.oneof.name) = .init()")
         out.append("}")
         return out
     }
@@ -659,9 +708,11 @@ struct Emitter {
         default: scalar(variant.type)!.zero
         }
     }
+}
 
-    // MARK: enums
+// MARK: - Enums
 
+extension Emitter {
     func emit(enum enumType: EnumDescriptor, depth: Int) -> String {
         let pad = String(repeating: "    ", count: depth)
         let type = namer.relativeName(enum: enumType)
@@ -693,18 +744,6 @@ struct Emitter {
         out += "\(pad)}\n\n"
         return out
     }
-
-    /// A proto field may be named after a Swift keyword (e.g. `protocol`) —
-    /// the imported C member needs backticks on the Swift side.
-    static func escaped(_ identifier: String) -> String {
-        keywords.contains(identifier) ? "`\(identifier)`" : identifier
-    }
-
-    private static let keywords: Set<String> = [
-        "protocol", "class", "struct", "enum", "func", "var", "let", "return", "default",
-        "internal", "public", "private", "static", "operator", "extension", "import",
-        "where", "repeat", "in", "is", "as", "self", "super", "true", "false", "nil",
-    ]
 }
 
 GenerateFacades.main()
