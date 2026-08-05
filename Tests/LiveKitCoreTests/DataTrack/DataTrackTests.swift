@@ -21,8 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@available(iOS 16.0, macOS 13.0, tvOS 16.0, *)
-@Suite(.serialized, .timeLimit(.minutes(5)), .tags(.dataTrack, .e2e))
+@Suite(.serialized, .tags(.dataTrack, .e2e))
 struct DataTrackTests {
     // MARK: - Publish and Receive
 
