@@ -58,7 +58,35 @@ Key components:
 - `StateSync<T>` - thread-safe state container with `@dynamicMemberLookup`; triggers `onDidMutate` callbacks
 - `MulticastDelegate<T>` - weak-reference delegate collection for event broadcasting
 
-Dependencies: LiveKitWebRTC, LiveKitUniFFI, SwiftProtobuf.
+Dependencies: LiveKitWebRTC, LiveKitUniFFI. (SwiftProtobuf is test-only — see below.)
+
+## Protocol Layer (protobuf)
+
+The wire protocol is nanopb-based: `Sources/CLiveKitProto` holds the vendored
+nanopb runtime plus generated C structs, and `Sources/LiveKit/Protos` holds
+generated copy-on-write Swift facades over them (runtime in
+`Sources/LiveKitNanopb`). SwiftProtobuf is linked only by the test target, as
+an independent "oracle" implementation to verify against.
+
+- **Updating protos**: bump the `protocol` submodule, run `make proto`, commit
+  everything it changes (C files, facades, test oracle, conformance
+  exemplars). The check-protocol CI job fails if a regeneration is missing.
+- **Never edit generated code**: `Sources/CLiveKitProto/*.pb.*`,
+  `Sources/LiveKit/Protos/`, `Tests/LiveKitNanopbTests/{Oracle,Generated}/`
+  are all `make proto` output (generator: `scripts/generate-facades.swift`).
+- **Using a new proto type in SDK code**: facades are emitted only for types
+  the SDK references (type-level pruning) — spell the `Livekit_X` type in
+  code, re-run `make proto`, and its facade appears.
+- **Validation**: `Tests/LiveKitNanopbTests` asserts byte-identical encoding
+  against the oracle for a generated, fully-populated exemplar of every
+  message and every oneof variant. `ConformanceEdgeCaseTests` pins the known,
+  deliberate differences: explicit zero scalars are encoded (pointer
+  presence), unknown fields are dropped on re-encode, embedded NULs truncate
+  strings.
+- **ABI**: nanopb configuration (`PB_FIELD_32BIT` etc.) must stay in the
+  vendored `pb.h`, never in build settings — SPM `cSettings` are invisible to
+  the Swift Clang importer and cause silent struct-layout mismatches.
+  `lk_abi_check.c` guards this at compile time.
 
 ## Compile-Time Flags
 
