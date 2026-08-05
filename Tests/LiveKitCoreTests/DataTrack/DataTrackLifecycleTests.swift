@@ -22,6 +22,7 @@ import LiveKitTestSupport
 #endif
 
 /// Data track lifecycle: join-time announcements, publication lifetime, and reconnects.
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, *)
 @Suite(.serialized, .timeLimit(.minutes(5)), .tags(.dataTrack, .e2e))
 struct DataTrackLifecycleTests {
     /// A track published before a participant joins surfaces via the JoinResponse.

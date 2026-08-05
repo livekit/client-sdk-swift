@@ -22,6 +22,7 @@ import LiveKitTestSupport
 #endif
 
 /// Multi-track concurrent-push stress scenarios.
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, *)
 @Suite(.serialized, .timeLimit(.minutes(5)), .tags(.dataTrack, .e2e))
 struct DataTrackStressTests {
     /// A multi-track concurrent-push stress scenario.
