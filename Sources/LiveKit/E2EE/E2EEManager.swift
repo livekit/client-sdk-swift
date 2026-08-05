@@ -188,7 +188,11 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         }
     }
 
-    public func cleanUp(isFullReconnect: Bool = false) {
+    public func cleanUp() {
+        cleanUp(isFullReconnect: false)
+    }
+
+    func cleanUp(isFullReconnect: Bool) {
         _state.mutate {
             for (_, frameCryptor) in $0.frameCryptors {
                 frameCryptor.delegate = nil

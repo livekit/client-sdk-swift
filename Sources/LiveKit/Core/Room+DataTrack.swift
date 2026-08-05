@@ -101,6 +101,15 @@ final class DataTracks: NSObject, @unchecked Sendable {
         try? remote.handleSfuParticipantUpdate(res: data, localParticipantIdentity: localIdentity)
     }
 
+    func handleRoomMoved(_ participants: [Livekit_ParticipantInfo], localIdentity: String) {
+        // The old room's tracks are gone for good — their unpublish events already fired with the
+        // participant disconnects — so drop them instead of keeping them for re-attach. Then
+        // republish local tracks into the new room and surface its existing publications.
+        _remoteTracks.mutate { $0 = [] }
+        local.republishTracks()
+        handleParticipantUpdate(participants, localIdentity: localIdentity)
+    }
+
     func handleReconnect(fullReconnect: Bool) {
         // Quick reconnect preserves local publications via sync state, so only a full reconnect
         // republishes. Either way, re-assert subscriptions so the SFU re-issues subscriber handles.

@@ -152,6 +152,11 @@ extension Room: SignalClientDelegate {
 
         let newParticipants = _addNewParticipants(from: response.otherParticipants)
         _notifyNewParticipants(newParticipants)
+
+        // Republish local data tracks into the new room and surface its existing publications.
+        if let identity = localParticipant.identity?.stringValue {
+            dataTracks?.handleRoomMoved(response.otherParticipants, localIdentity: identity)
+        }
     }
 
     func signalClient(_: SignalClient, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) async {

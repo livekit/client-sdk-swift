@@ -37,6 +37,12 @@ public final class DataTrackStream: NSObject, Sendable, FFIBridged {
         return DataTrackFrame(frame)
     }
 
+    /// The received frames as an `AsyncStream`, for `for await` iteration. Ends when the track
+    /// is unpublished or the subscription is cancelled.
+    public var values: AsyncStream<DataTrackFrame> {
+        AsyncStream(unfolding: next)
+    }
+
     /// Delivers frames to `onFrame` until the stream ends.
     ///
     /// Objective-C entry point; Swift callers should prefer `for await frame in stream.values`.
@@ -46,6 +52,3 @@ public final class DataTrackStream: NSObject, Sendable, FFIBridged {
         }
     }
 }
-
-// Provides `values: AsyncStream<DataTrackFrame>` for `for await` iteration.
-extension DataTrackStream: AsyncPolling {}
