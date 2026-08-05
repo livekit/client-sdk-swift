@@ -101,7 +101,23 @@ actor SignalClient: Loggable {
 
     let _state = StateSync(State())
 
+    // Raw data-track responses drain through a single consumer task so the managers see them in
+    // wire order — a detached task per message could reorder e.g. a publish/unpublish response
+    // pair. The path deliberately bypasses `_responseQueue`: the data-track managers own their
+    // reconnect semantics (republish, subscription re-requests, sync state) and consume wire
+    // order directly.
+    private let _rawResponses: AsyncStream<Data>.Continuation
+
     init() {
+        let (rawResponses, continuation) = AsyncStream.makeStream(of: Data.self)
+        _rawResponses = continuation
+        Task { [weak self] in
+            for await data in rawResponses {
+                guard let self else { break }
+                try? await _delegate.notifyAsync { await $0.signalClient(self, didReceiveRawResponse: data) }
+            }
+        }
+
         log()
         _state.onDidMutate = { [weak self] newState, oldState in
             guard let self else { return }
@@ -111,6 +127,10 @@ actor SignalClient: Loggable {
                 _delegate.notifyDetached { await $0.signalClient(self, didUpdateConnectionState: newState.connectionState, oldState: oldState.connectionState, disconnectError: self.disconnectError) }
             }
         }
+    }
+
+    deinit {
+        _rawResponses.finish()
     }
 
     @discardableResult
@@ -302,7 +322,7 @@ private extension SignalClient {
         }
 
         if let rawData {
-            _delegate.notifyDetached { await $0.signalClient(self, didReceiveRawResponse: rawData) }
+            _rawResponses.yield(rawData)
         }
 
         Task.detached {

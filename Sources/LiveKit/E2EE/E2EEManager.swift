@@ -55,6 +55,9 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         _state.enabled && options != nil
     }
 
+    /// Whether encryption is currently enabled, regardless of which options style configured it.
+    var isEnabled: Bool { _state.enabled }
+
     public var dataChannelEncryptionType: EncryptionType {
         guard isDataChannelEncryptionEnabled else { return .none }
         return options?.encryptionType ?? .none

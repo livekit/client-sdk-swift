@@ -56,7 +56,7 @@ final class DataTracks: NSObject, @unchecked Sendable {
         // subscribers key their decryption on, so publishing captures the runtime E2EE toggle as
         // of connect rather than consulting it per frame; reception can always decrypt.
         let cryptor: DataTrackCryptor? = room.e2eeManager.map(DataTrackCryptor.init)
-        let encryptionProvider = room.e2eeManager?.isDataChannelEncryptionEnabled == true ? cryptor : nil
+        let encryptionProvider = room.e2eeManager?.isEnabled == true ? cryptor : nil
         local = LocalDataTrackManager(delegate: managerDelegate, encryptionProvider: encryptionProvider)
         remote = RemoteDataTrackManager(delegate: managerDelegate, decryptionProvider: cryptor)
         super.init()
