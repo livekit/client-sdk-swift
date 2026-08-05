@@ -81,4 +81,26 @@ struct TransportMungeFallbackTests {
             #expect(applied === munged)
         }
     }
+
+    /// A no-op munge must set the original directly — object identity proves the munged
+    /// path (which would wrap the SDP in a new description) was never taken.
+    @Test func noOpMungeSetsTheOriginalDirectly() async throws {
+        try await withTransport { transport in
+            let offer = try await transport.createOffer()
+
+            let applied = try await transport.set(localDescription: offer) { $0 }
+
+            #expect(applied === offer)
+        }
+    }
+
+    @Test func mungingClosureRoutesThroughTheRejectionFallback() async throws {
+        try await withTransport { transport in
+            let offer = try await transport.createOffer()
+
+            let applied = try await transport.set(localDescription: offer) { _ in "this is not sdp" }
+
+            #expect(applied === offer)
+        }
+    }
 }

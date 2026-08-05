@@ -190,12 +190,8 @@ actor Transport: NSObject, Loggable {
         func _negotiateSequence() async throws {
             _latestOfferId += 1
             var offer = try await createOffer(for: constraints)
-            let mungedSDP = singlePCMode ? Self.mungeInactiveToRecvOnlyForMedia(offer.sdp) : offer.sdp
-            if mungedSDP != offer.sdp {
-                offer = try await set(mungedLocalDescription: RTC.createSessionDescription(type: offer.type, sdp: mungedSDP),
-                                      fallingBackTo: offer)
-            } else {
-                try await set(localDescription: offer)
+            offer = try await set(localDescription: offer) {
+                singlePCMode ? Self.mungeInactiveToRecvOnlyForMedia($0) : $0
             }
             try await _onOffer(offer, _latestOfferId)
         }
@@ -291,6 +287,23 @@ extension Transport {
             try await set(localDescription: original)
             return original
         }
+    }
+
+    /// Applies `munge` to `original` and sets the result as the local description through
+    /// the rejection fallback above; a no-op munge sets `original` directly, so nothing
+    /// munged is ever offered to libwebrtc. Returns the description that was applied —
+    /// the one to signal, since signalling a rejected munge would advertise parameters
+    /// the peer connection was never configured with.
+    func set(localDescription original: LKRTCSessionDescription,
+             munging munge: (String) -> String) async throws -> LKRTCSessionDescription
+    {
+        let mungedSDP = munge(original.sdp)
+        guard mungedSDP != original.sdp else {
+            try await set(localDescription: original)
+            return original
+        }
+        return try await set(mungedLocalDescription: RTC.createSessionDescription(type: original.type, sdp: mungedSDP),
+                             fallingBackTo: original)
     }
 }
 

@@ -365,15 +365,8 @@ extension Room: SignalClientDelegate {
         do {
             try await subscriber.set(remoteDescription: offer)
             var answer = try await subscriber.createAnswer()
-            let mungedSDP = Transport.mungeOpusStereo(answer.sdp, matchingOffer: offer.sdp)
-            if mungedSDP != answer.sdp {
-                // Signal whichever description was actually applied. If libwebrtc rejects the
-                // munge, telling the SFU we negotiated stereo while the local decoder was built
-                // from the unmunged answer would leave the two ends disagreeing.
-                answer = try await subscriber.set(mungedLocalDescription: RTC.createSessionDescription(type: answer.type, sdp: mungedSDP),
-                                                  fallingBackTo: answer)
-            } else {
-                try await subscriber.set(localDescription: answer)
+            answer = try await subscriber.set(localDescription: answer) {
+                Transport.mungeOpusStereo($0, matchingOffer: offer.sdp)
             }
             try await signalClient.send(answer: answer, offerId: offerId)
             connectSpan?.record("answer_sent")
