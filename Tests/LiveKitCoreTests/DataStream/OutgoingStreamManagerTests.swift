@@ -118,6 +118,21 @@ struct OutgoingStreamManagerTests {
         #expect(LiveKit.StreamByteOptions(topic: "t").ffi.compress == nil)
     }
 
+    @Test func writerIsOpenReflectsClose() async throws {
+        let manager = OutgoingDataStreamManager(delegate: CapturingDelegate(), registry: StubRegistry())
+        let ffiWriter = try await manager.streamBytes(
+            options: LiveKitUniFFI.StreamByteOptions(topic: "some-topic", attributes: [:]),
+        )
+        let writer = LiveKit.ByteStreamWriter(ffiWriter, encryptionType: .none)
+
+        var isOpen = await writer.isOpen
+        #expect(isOpen == true)
+
+        try await writer.close()
+        isOpen = await writer.isOpen
+        #expect(isOpen == false)
+    }
+
     // Note: the v1 `errorPropagation` behavior (a data-channel send failure surfacing back to the
     // caller of `write`) is intentionally not ported. The UniFFI outgoing manager decouples the
     // send from transport delivery and does not propagate transport-level send failures.
