@@ -47,6 +47,7 @@ public enum DataTrackPublishError: Error, Sendable {
         case let .Disconnected(message): self = .disconnected(message)
         case let .InvalidSchema(message): self = .invalidSchema(message)
         case let .Internal(message): self = .internalError(message)
+        @unknown default: self = .internalError(String(describing: error))
         }
     }
 }
@@ -57,11 +58,14 @@ public enum DataTrackPushFrameError: Error, Sendable {
     case trackUnpublished(String)
     /// The send queue is full; the frame was not enqueued.
     case queueFull(String)
+    /// An unexpected internal error occurred.
+    case internalError(String)
 
     init(_ error: PushFrameErrorReason) {
         switch error {
         case let .TrackUnpublished(message): self = .trackUnpublished(message)
         case let .QueueFull(message): self = .queueFull(message)
+        @unknown default: self = .internalError(String(describing: error))
         }
     }
 }
@@ -83,6 +87,7 @@ public enum DataTrackSubscribeError: Error, Sendable {
         case let .Timeout(message): self = .timeout(message)
         case let .Disconnected(message): self = .disconnected(message)
         case let .Internal(message): self = .internalError(message)
+        @unknown default: self = .internalError(String(describing: error))
         }
     }
 }
