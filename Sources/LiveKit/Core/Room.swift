@@ -139,7 +139,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // The data stream subsystem (incoming/outgoing UniFFI managers, the topic→handler registry, and
     // packet routing) behind one reference. Kept for the Room's lifetime — not session-scoped like
     // ``DataTracks`` — so stream handlers survive reconnects and can be registered before connect.
-    lazy var dataStreams = DataStreams(room: self)
+    private(set) var dataStreams: DataStreams!
 
     // MARK: - Data Tracks
 
@@ -287,6 +287,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                                  roomOptions: roomOptions ?? RoomOptions()))
 
         super.init()
+
+        dataStreams = DataStreams(room: self)
+
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), ffi: \(LiveKitSDK.ffiVersion), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
 
