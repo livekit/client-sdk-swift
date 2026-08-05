@@ -59,5 +59,9 @@ struct StreamOptionsTests {
         #expect(DataStreamOptions(maxPayloadSize: 1000).maxPayloadSize == 1000)
         #expect(RoomOptions().dataStreamOptions.maxPayloadSize == nil)
         #expect(RoomOptions(dataStreamOptions: DataStreamOptions(maxPayloadSize: 42)).dataStreamOptions.maxPayloadSize == 42)
+        // Objective-C accessor mirrors the Swift `Int?`.
+        #expect(DataStreamOptions().maxPayloadSizeNumber == nil)
+        #expect(DataStreamOptions(maxPayloadSize: 1000).maxPayloadSizeNumber == 1000)
+        #expect(DataStreamOptions(maxPayloadSizeNumber: 1000).maxPayloadSize == 1000)
     }
 }
