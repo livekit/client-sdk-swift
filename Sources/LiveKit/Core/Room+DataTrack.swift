@@ -39,6 +39,12 @@ final class DataTracks: NSObject, @unchecked Sendable {
     // delegated) because its Swift wrapper must stay alive for native callbacks to reach us.
     private let _publisherChannel = StateSync<LKRTCDataChannel?>(nil)
     private let _subscriberChannel = StateSync<LKRTCDataChannel?>(nil)
+    // Resolves when the publisher data-track channel reaches `.open`; reset when the channel is
+    // swapped on a full reconnect. Gates publishing so frames aren't dropped into a closed channel.
+    private let _publisherChannelOpen = AsyncCompleter<Void>(label: "Data track publisher channel open", defaultTimeout: .defaultTransportState)
+    // Whether this session ever published, so a full reconnect knows to re-establish the
+    // publisher transport (media republishing only does this for media publishers).
+    private let _hasPublished = StateSync<Bool>(false)
     // Live remote tracks. Kept here — not only on the participants — because participant objects
     // are discarded on a full reconnect while this subsystem (and the manager's track state)
     // survives, so the manager won't re-announce tracks it already knows; see
@@ -68,6 +74,12 @@ final class DataTracks: NSObject, @unchecked Sendable {
     // MARK: - Publishing
 
     func publish(name: String) async throws -> LocalDataTrack {
+        // A data-track-only publisher in subscriber-primary mode has no negotiated publisher
+        // transport yet — establish it and wait for the channel to open, or frames would be
+        // silently dropped (`sendData` on a non-open channel fails).
+        _hasPublished.mutate { $0 = true }
+        try await room?.ensurePublisherConnected()
+        try await _publisherChannelOpen.wait()
         do {
             let track = try await local.publishTrack(options: DataTrackOptions(name: name))
             return LocalDataTrack(track)
@@ -120,7 +132,14 @@ final class DataTracks: NSObject, @unchecked Sendable {
     func handleReconnect(fullReconnect: Bool) {
         // Quick reconnect preserves local publications via sync state, so only a full reconnect
         // republishes. Either way, re-assert subscriptions so the SFU re-issues subscriber handles.
-        if fullReconnect { local.republishTracks() }
+        if fullReconnect {
+            local.republishTracks()
+            // A data-track-only publisher needs the publisher transport re-established too; the
+            // media republish path only does this when media tracks exist.
+            if _hasPublished.copy(), let room {
+                Task { try? await room.ensurePublisherConnected() }
+            }
+        }
         remote.resendSubscriptionUpdates()
     }
 
@@ -189,7 +208,13 @@ final class DataTracks: NSObject, @unchecked Sendable {
     // MARK: - Channels
 
     func setPublisherChannel(_ channel: LKRTCDataChannel) {
+        // A new channel arrives unopened (e.g. swapped in by a full reconnect); re-arm the gate.
+        _publisherChannelOpen.reset()
         _publisherChannel.mutate { $0 = channel }
+        channel.delegate = self
+        if channel.readyState == .open {
+            _publisherChannelOpen.resume(returning: ())
+        }
     }
 
     func setSubscriberChannel(_ channel: LKRTCDataChannel) {
@@ -249,8 +274,12 @@ final class DataTracks: NSObject, @unchecked Sendable {
                     room?.log("Data track channel congested (\(channel.bufferedAmount) bytes buffered), dropping frame", .warning)
                     return
                 }
-                for buffer in buffers {
-                    channel.sendData(buffer)
+                var dropped = 0
+                for buffer in buffers where !channel.sendData(buffer) {
+                    dropped += 1
+                }
+                if dropped > 0 {
+                    room?.log("Dropped \(dropped) data track packet(s); channel not open (state: \(channel.readyState.rawValue))", .debug)
                 }
             }
         }
@@ -271,7 +300,11 @@ final class DataTracks: NSObject, @unchecked Sendable {
 // MARK: - Subscriber Channel Delegate
 
 extension DataTracks: LKRTCDataChannelDelegate {
-    func dataChannelDidChangeState(_: LKRTCDataChannel) {}
+    func dataChannelDidChangeState(_ dataChannel: LKRTCDataChannel) {
+        if dataChannel === publisherChannel, dataChannel.readyState == .open {
+            _publisherChannelOpen.resume(returning: ())
+        }
+    }
 
     func dataChannel(_: LKRTCDataChannel, didReceiveMessageWith buffer: LKRTCDataBuffer) {
         handlePacket(buffer.data)

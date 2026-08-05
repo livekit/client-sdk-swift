@@ -68,29 +68,31 @@ extension Room {
         })
     }
 
-    func send(dataPacket packet: Livekit_DataPacket) async throws {
-        func ensurePublisherConnected() async throws {
-            // Only needed when subscriber is primary in dual PC mode
-            guard case .subscriberPrimary = _state.transport else {
-                return
-            }
-
-            let publisher = try requirePublisher()
-
-            let connectionState = await publisher.connectionState
-            if connectionState != .connected, connectionState != .connecting {
-                try await publisherShouldNegotiate()
-            }
-
-            // Single combined gate: wait for both the publisher PC to be ICE-
-            // connected *and* the data channels to reach `.open` concurrently.
-            // Mirrors the prevailing pattern in client-sdk-js / -rust, where a
-            // single poll loop checks both conditions before any send proceeds.
-            async let transportReady: Void = publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
-            async let dataChannelReady: Void = publisherDataChannel.openCompleter.wait()
-            _ = try await (transportReady, dataChannelReady)
+    /// Negotiates the publisher peer connection on demand (subscriber-primary dual-PC mode defers
+    /// it until something is published) and waits until it and the data channels are open.
+    func ensurePublisherConnected() async throws {
+        // Only needed when subscriber is primary in dual PC mode
+        guard case .subscriberPrimary = _state.transport else {
+            return
         }
 
+        let publisher = try requirePublisher()
+
+        let connectionState = await publisher.connectionState
+        if connectionState != .connected, connectionState != .connecting {
+            try await publisherShouldNegotiate()
+        }
+
+        // Single combined gate: wait for both the publisher PC to be ICE-
+        // connected *and* the data channels to reach `.open` concurrently.
+        // Mirrors the prevailing pattern in client-sdk-js / -rust, where a
+        // single poll loop checks both conditions before any send proceeds.
+        async let transportReady: Void = publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
+        async let dataChannelReady: Void = publisherDataChannel.openCompleter.wait()
+        _ = try await (transportReady, dataChannelReady)
+    }
+
+    func send(dataPacket packet: Livekit_DataPacket) async throws {
         try await ensurePublisherConnected()
 
         // At this point publisher should be .connected and dc should be .open
