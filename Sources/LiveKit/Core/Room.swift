@@ -617,7 +617,7 @@ extension Room {
 
         // Cleanup for E2EE
         if let e2eeManager {
-            e2eeManager.cleanUp()
+            e2eeManager.cleanUp(isFullReconnect: isFullReconnect)
         }
 
         // Reset state

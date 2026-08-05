@@ -188,14 +188,19 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         }
     }
 
-    public func cleanUp() {
+    public func cleanUp(isFullReconnect: Bool = false) {
         _state.mutate {
             for (_, frameCryptor) in $0.frameCryptors {
                 frameCryptor.delegate = nil
             }
             $0.frameCryptors.removeAll()
             $0.trackPublications.removeAll()
-            $0.dataCryptor = nil
+            // The data cryptor is key-provider-scoped (not bound to a transport), and its users —
+            // encrypted data payloads and the data-track subsystem — survive a full reconnect, so
+            // keep it: nothing re-runs setup() until the next explicit connect.
+            if !isFullReconnect {
+                $0.dataCryptor = nil
+            }
         }
     }
 }
