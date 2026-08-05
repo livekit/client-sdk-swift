@@ -73,7 +73,7 @@ an independent "oracle" implementation to verify against.
   exemplars). The check-protocol CI job fails if a regeneration is missing.
 - **Never edit generated code**: `Sources/CLiveKitProto/*.pb.*`,
   `Sources/LiveKit/Protos/`, `Tests/LiveKitNanopbTests/{Oracle,Generated}/`
-  are all `make proto` output (generator: `scripts/generate-facades.swift`).
+  are all `make proto` output (generator: `scripts/generate-swift-protos.swift`).
 - **Using a new proto type in SDK code**: facades are emitted only for types
   the SDK references (type-level pruning) — spell the `Livekit_X` type in
   code, re-run `make proto`, and its facade appears.

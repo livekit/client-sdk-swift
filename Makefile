@@ -14,7 +14,7 @@ CLIENT_PROTOS=livekit_models livekit_rtc livekit_metrics
 #      identical to selective pointers, no field can silently degrade to a
 #      nanopb callback, and new proto fields need no options maintenance.
 #      Cost is one malloc per set scalar field — noise at signalling rates.
-#   3. scripts/generate-facades.swift — descriptor-driven (FileDescriptorSet +
+#   3. scripts/generate-swift-protos.swift — descriptor-driven (FileDescriptorSet +
 #      SwiftProtobufPluginLibrary's namer, no C-header or generated-Swift
 #      parsing); fails loudly if a new proto field would silently become a
 #      nanopb callback, or if any emitted setter skips the CoW guard.
@@ -54,7 +54,7 @@ proto: protoc protoc-swift swift-sh nanopb-generator
 	cp $(PROTO_STAGE)/out/google/protobuf/timestamp.pb.c Sources/CLiveKitProto/
 	@# logger/options.proto declares only annotations — header needed, no .c
 	cp $(PROTO_STAGE)/out/logger/options.pb.h Sources/CLiveKitProto/include/
-	swift-sh scripts/generate-facades.swift
+	swift-sh scripts/generate-swift-protos.swift
 
 nanopb-generator:
 ifeq (, $(wildcard $(NANOPB_GEN)))
