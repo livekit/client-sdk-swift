@@ -281,7 +281,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         super.init()
 
-        dataStreams = DataStreams(room: self, maxPayloadSize: _state.roomOptions.dataStreamOptions.maxPayloadSize)
+        dataStreams = DataStreams(room: self)
 
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), ffi: \(LiveKitSDK.ffiVersion), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
