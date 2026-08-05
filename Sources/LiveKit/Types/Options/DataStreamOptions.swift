@@ -17,14 +17,40 @@
 import Foundation
 
 /// Options controlling how the ``Room`` handles incoming data streams.
-public struct DataStreamOptions: Sendable, Equatable, Hashable {
+@objcMembers
+public final class DataStreamOptions: NSObject, Sendable {
     /// Maximum size, in bytes, of an incoming data-stream payload the receiver will accept.
     ///
     /// A stream whose reassembled payload would exceed this cap fails the read rather than buffering
     /// unbounded data. `nil` (the default) uses the SDK's built-in cap of 5gb.
     public let maxPayloadSize: Int?
 
-    public init(maxPayloadSize: Int? = nil) {
+    public var maxPayloadSizeNumber: NSNumber? {
+        maxPayloadSize.map { NSNumber(value: $0) }
+    }
+
+    public init(maxPayloadSize: Int?) {
         self.maxPayloadSize = maxPayloadSize
+    }
+
+    override public init() {
+        maxPayloadSize = nil
+    }
+
+    public convenience init(maxPayloadSizeNumber: NSNumber?) {
+        self.init(maxPayloadSize: maxPayloadSizeNumber?.intValue)
+    }
+
+    // MARK: - Equal
+
+    override public func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return maxPayloadSize == other.maxPayloadSize
+    }
+
+    override public var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(maxPayloadSize)
+        return hasher.finalize()
     }
 }
