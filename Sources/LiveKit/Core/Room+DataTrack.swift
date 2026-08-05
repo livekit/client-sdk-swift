@@ -33,15 +33,22 @@ internal import LiveKitWebRTC
 final class DataTracks: NSObject, @unchecked Sendable {
     private let local: LocalDataTrackManager
     private let remote: RemoteDataTrackManager
+    private weak var room: Room?
     // Wired in after creation (Engine/TransportDelegate) and read from the Rust callback thread,
     // so they need their own synchronization. The subscriber channel is retained (not just
     // delegated) because its Swift wrapper must stay alive for native callbacks to reach us.
     private let _publisherChannel = StateSync<LKRTCDataChannel?>(nil)
     private let _subscriberChannel = StateSync<LKRTCDataChannel?>(nil)
+    // Live remote tracks. Kept here — not only on the participants — because participant objects
+    // are discarded on a full reconnect while this subsystem (and the manager's track state)
+    // survives, so the manager won't re-announce tracks it already knows; see
+    // `reattachRemoteTracks`.
+    private let _remoteTracks = StateSync<[RemoteDataTrack]>([])
 
     var publisherChannel: LKRTCDataChannel? { _publisherChannel.copy() }
 
     init(room: Room) {
+        self.room = room
         let managerDelegate = ManagerDelegate(room: room)
         // Provide the cryptor only when E2EE is configured — its presence is what marks tracks as
         // encrypted (usesE2ee), so it must be nil otherwise.
@@ -73,6 +80,7 @@ final class DataTracks: NSObject, @unchecked Sendable {
         let response = Livekit_SignalResponse.with { $0.join = joinResponse }
         guard let data = try? response.serializedData() else { return }
         try? remote.handleSfuJoinResponse(res: data)
+        reattachRemoteTracks()
     }
 
     func handleSignalResponse(_ data: Data) {
@@ -110,6 +118,55 @@ final class DataTracks: NSObject, @unchecked Sendable {
         remote.handlePacketReceived(packet: data)
     }
 
+    // MARK: - Remote Tracks
+
+    fileprivate func remoteTrackPublished(_ track: RemoteDataTrack) {
+        guard let room else { return }
+        _remoteTracks.mutate { $0.append(track) }
+        let identity = Participant.Identity(from: track.publisherIdentity)
+        guard let participant = room.remoteParticipants[identity] else {
+            room.log("Data track published by unknown participant \(identity)", .warning)
+            return
+        }
+        attach(track, to: participant, in: room)
+    }
+
+    fileprivate func remoteTrackUnpublished(sid: DataTrack.Sid) {
+        guard let room else { return }
+        _remoteTracks.mutate { $0.removeAll { $0.info.sid == sid } }
+        for participant in room.remoteParticipants.values where participant.removeDataTrack(sid: sid) != nil {
+            participant.delegates.notify(label: { "participant.didUnpublishDataTrack" }) {
+                $0.participant?(participant, didUnpublishDataTrack: sid)
+            }
+            room.delegates.notify(label: { "room.didUnpublishDataTrack" }) {
+                $0.room?(room, participant: participant, didUnpublishDataTrack: sid)
+            }
+            return
+        }
+    }
+
+    /// Re-attaches live remote tracks to the participants recreated from a full reconnect's join
+    /// response. No-op on the initial join (nothing registered yet) and for tracks already
+    /// attached.
+    private func reattachRemoteTracks() {
+        guard let room else { return }
+        for track in _remoteTracks.copy() {
+            guard let participant = room.remoteParticipants[Participant.Identity(from: track.publisherIdentity)],
+                  participant.dataTracks[track.info.sid] == nil else { continue }
+            attach(track, to: participant, in: room)
+        }
+    }
+
+    private func attach(_ track: RemoteDataTrack, to participant: RemoteParticipant, in room: Room) {
+        participant.addDataTrack(track)
+        participant.delegates.notify(label: { "participant.didPublishDataTrack" }) {
+            $0.participant?(participant, didPublishDataTrack: track)
+        }
+        room.delegates.notify(label: { "room.didPublishDataTrack" }) {
+            $0.room?(room, participant: participant, didPublishDataTrack: track)
+        }
+    }
+
     // MARK: - Channels
 
     func setPublisherChannel(_ channel: LKRTCDataChannel) {
@@ -133,23 +190,33 @@ final class DataTracks: NSObject, @unchecked Sendable {
     private final class ManagerDelegate: LocalDataTrackManagerDelegate, RemoteDataTrackManagerDelegate, @unchecked Sendable {
         private weak var room: Room?
         weak var coordinator: DataTracks?
-        // Serializes outbound signal requests so they reach the SFU in the order the manager emits
-        // them — a bare Task per callback could reorder e.g. a publish/unpublish pair.
-        private let signalSender = AsyncSerialDelegate<Room>()
+        // Outbound signal requests are yielded into this FIFO stream and drained by a single
+        // consumer task, so they reach the SFU in the order the managers emit them — a task per
+        // callback could be scheduled out of order and swap e.g. a publish/unpublish pair.
+        private let signalRequests: AsyncStream<Data>.Continuation
 
         init(room: Room) {
             self.room = room
-            signalSender.set(delegate: room)
+            let (stream, continuation) = AsyncStream.makeStream(of: Data.self)
+            signalRequests = continuation
+            Task { [weak room] in
+                for await request in stream {
+                    guard let room else { break }
+                    guard let signalRequest = try? Livekit_SignalRequest(serializedBytes: request) else {
+                        room.log("Failed to decode data track signal request", .warning)
+                        continue
+                    }
+                    try? await room.signalClient.sendRequest(signalRequest)
+                }
+            }
+        }
+
+        deinit {
+            signalRequests.finish()
         }
 
         func onSignalRequest(request: Data) {
-            signalSender.notifyDetached { room in
-                guard let signalRequest = try? Livekit_SignalRequest(serializedBytes: request) else {
-                    room.log("Failed to decode data track signal request", .warning)
-                    return
-                }
-                try? await room.signalClient.sendRequest(signalRequest)
-            }
+            signalRequests.yield(request)
         }
 
         func onPacketsAvailable(packets: [Data]) {
@@ -170,33 +237,11 @@ final class DataTracks: NSObject, @unchecked Sendable {
         }
 
         func onTrackPublished(track: LiveKitUniFFI.RemoteDataTrack) {
-            guard let room else { return }
-            let dataTrack = RemoteDataTrack(track)
-            let identity = Participant.Identity(from: dataTrack.publisherIdentity)
-            guard let participant = room.remoteParticipants[identity] else {
-                room.log("Data track published by unknown participant \(identity)", .warning)
-                return
-            }
-            participant.addDataTrack(dataTrack)
-            participant.delegates.notify(label: { "participant.didPublishDataTrack" }) {
-                $0.participant?(participant, didPublishDataTrack: dataTrack)
-            }
-            room.delegates.notify(label: { "room.didPublishDataTrack" }) {
-                $0.room?(room, participant: participant, didPublishDataTrack: dataTrack)
-            }
+            coordinator?.remoteTrackPublished(RemoteDataTrack(track))
         }
 
         func onTrackUnpublished(sid: DataTrack.Sid) {
-            guard let room else { return }
-            for participant in room.remoteParticipants.values where participant.removeDataTrack(sid: sid) != nil {
-                participant.delegates.notify(label: { "participant.didUnpublishDataTrack" }) {
-                    $0.participant?(participant, didUnpublishDataTrack: sid)
-                }
-                room.delegates.notify(label: { "room.didUnpublishDataTrack" }) {
-                    $0.room?(room, participant: participant, didUnpublishDataTrack: sid)
-                }
-                return
-            }
+            coordinator?.remoteTrackUnpublished(sid: sid)
         }
 
         // Bound the publisher data track channel buffer; parity with the lossy data channel threshold.

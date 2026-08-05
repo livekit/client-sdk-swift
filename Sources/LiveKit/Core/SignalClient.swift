@@ -406,6 +406,10 @@ private extension SignalClient {
         case let .mediaSectionsRequirement(requirement):
             _delegate.notifyDetached { await $0.signalClient(self, didReceiveMediaSectionsRequirement: requirement) }
 
+        case .publishDataTrackResponse, .unpublishDataTrackResponse, .dataTrackSubscriberHandles:
+            // Handled by the data-track subsystem via didReceiveRawResponse.
+            break
+
         default:
             log("Unhandled signal message: \(message)", .warning)
         }

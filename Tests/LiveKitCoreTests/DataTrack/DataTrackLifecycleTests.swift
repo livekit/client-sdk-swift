@@ -168,4 +168,64 @@ struct DataTrackLifecycleTests {
             #expect(received, "Frames should keep flowing after a quick reconnect")
         }
     }
+
+    /// Remote data tracks survive the local client's own full reconnect: cleanup discards the
+    /// participant objects (firing unpublish), then the preserved subsystem re-attaches its live
+    /// tracks to the recreated participants (re-firing publish) and re-asserts the subscription.
+    /// With E2EE on (the `withRooms` default), delivery also proves the data cryptor survives
+    /// the teardown.
+    @Test
+    func remoteTracksSurviveLocalFullReconnect() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let publisher = rooms[0]
+            let subscriber = rooms[1]
+
+            let watcher = DataTrackWatcher(expectedName: "local-full-reconnect")
+            subscriber.delegates.add(delegate: watcher)
+            let track = try await publisher.localParticipant.publishDataTrack(name: "local-full-reconnect")
+            let remoteTrack = try await watcher.waitForTrack()
+            let stream = try await remoteTrack.subscribe()
+
+            // Register after the initial publish, so only reconnect-driven events are recorded.
+            let recorder = DataTrackDelegateRecorder()
+            subscriber.delegates.add(delegate: recorder)
+
+            try await subscriber.startReconnect(reason: .debug, nextReconnectMode: .full)
+
+            // The surviving track is re-attached to the recreated participant and re-announced.
+            #expect(try await recorder.waitFor(.roomRemotePublish) == remoteTrack.info.sid)
+            let participant = try #require(subscriber.remoteParticipants.values.first)
+            #expect(participant.dataTracks[remoteTrack.info.sid] === remoteTrack)
+
+            // Frames keep flowing on the existing stream once the subscription is re-established.
+            let payload = Data("after-full-reconnect".utf8)
+            let pusher = Task {
+                while !Task.isCancelled {
+                    try? track.tryPush(frame: .now(payload: payload))
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                }
+            }
+            defer { pusher.cancel() }
+
+            let received = await withTaskGroup(of: Bool.self) { group in
+                group.addTask {
+                    for await frame in stream.values where frame.payload == payload {
+                        return true
+                    }
+                    return false
+                }
+                group.addTask {
+                    try? await Task.sleep(nanoseconds: 15_000_000_000)
+                    return false
+                }
+                let first = await group.next() ?? false
+                group.cancelAll()
+                return first
+            }
+            #expect(received, "Frames should keep flowing after the local client's full reconnect")
+        }
+    }
 }
