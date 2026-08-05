@@ -93,7 +93,7 @@ struct OpusStereoSdpTests {
 
     @Test(.spec("https://datatracker.ietf.org/doc/html/rfc7587#section-7.1"))
     func addsStereoOnlyToSectionsTheOfferSendsInStereo() {
-        let munged = Transport.mungeOpusStereo(Self.answer, matchingOffer: Self.offer)
+        let munged = Transport.mungeOpusStereoAndNack(Self.answer, matchingOffer: Self.offer)
 
         #expect(Self.fmtps(munged) == [
             "a=fmtp:111 minptime=10;useinbandfec=1;stereo=1", // mid 0: offered stereo
@@ -102,32 +102,32 @@ struct OpusStereoSdpTests {
         ])
     }
 
-    /// `sprop-stereo=1` contains "stereo=1" as a substring, so a `contains` check —
-    /// as in client-sdk-js — reads the section as already stereo and skips it,
-    /// leaving the receiver in mono. That is the exact case this code exists to fix,
-    /// so it is pinned here as well as in ``SDPTests``.
+    /// `sprop-stereo=1` contains "stereo=1" as a substring, so a naive `contains` check
+    /// — as client-sdk-js used before moving to exact-token matching — reads the section
+    /// as already stereo and skips it, leaving the receiver in mono. That is the exact
+    /// case this code exists to fix, so it is pinned here as well as in ``SDPTests``.
     @Test func spropStereoDoesNotSuppressTheReceiverPreference() {
         // Answering with the offer's own SDP is the worst case: every stereo section
         // already carries the substring.
-        let munged = Transport.mungeOpusStereo(Self.offer, matchingOffer: Self.offer)
+        let munged = Transport.mungeOpusStereoAndNack(Self.offer, matchingOffer: Self.offer)
 
         #expect(Self.fmtps(munged).first == "a=fmtp:111 minptime=10;useinbandfec=1;sprop-stereo=1;stereo=1")
     }
 
     @Test func isIdempotent() {
-        let once = Transport.mungeOpusStereo(Self.answer, matchingOffer: Self.offer)
-        #expect(Transport.mungeOpusStereo(once, matchingOffer: Self.offer) == once)
+        let once = Transport.mungeOpusStereoAndNack(Self.answer, matchingOffer: Self.offer)
+        #expect(Transport.mungeOpusStereoAndNack(once, matchingOffer: Self.offer) == once)
     }
 
-    /// No stereo anywhere in the offer must return the answer untouched rather than
-    /// round-tripped, so the caller's `munged != answer` check stays false and no
-    /// munged description is ever offered to libwebrtc.
-    @Test func offerWithoutStereoReturnsTheAnswerUnchanged() {
+    /// No stereo and no nack anywhere in the offer must return the answer untouched
+    /// rather than round-tripped, so the caller's `munged != answer` check stays false
+    /// and no munged description is ever offered to libwebrtc.
+    @Test func offerWithoutStereoOrNackReturnsTheAnswerUnchanged() {
         let monoOffer = Self.offer.replacingOccurrences(of: ";sprop-stereo=1", with: "")
             .replacingOccurrences(of: "a=fmtp:8 sprop-stereo=1", with: "a=fmtp:8 maxptime=40")
             .replacingOccurrences(of: "a=fmtp:111 sprop-stereo=1", with: "a=fmtp:111 useinbandfec=1")
 
-        #expect(Transport.mungeOpusStereo(Self.answer, matchingOffer: monoOffer) == Self.answer)
+        #expect(Transport.mungeOpusStereoAndNack(Self.answer, matchingOffer: monoOffer) == Self.answer)
     }
 
     /// Sections are keyed by mid, not by position — an answer that lists them in a
@@ -144,7 +144,7 @@ struct OpusStereoSdpTests {
         a=rtpmap:111 opus/48000/2
         a=fmtp:111 useinbandfec=1
         """)
-        let munged = Transport.mungeOpusStereo(reordered, matchingOffer: Self.offer)
+        let munged = Transport.mungeOpusStereoAndNack(reordered, matchingOffer: Self.offer)
 
         #expect(Self.fmtps(munged) == [
             "a=fmtp:111 useinbandfec=1", // mid 1
@@ -163,7 +163,7 @@ struct OpusStereoSdpTests {
         a=fmtp:63 useinbandfec=1
         """)
 
-        #expect(Transport.mungeOpusStereo(renumbered, matchingOffer: Self.offer)
+        #expect(Transport.mungeOpusStereoAndNack(renumbered, matchingOffer: Self.offer)
             .contains("a=fmtp:63 useinbandfec=1;stereo=1"))
     }
 
@@ -179,7 +179,7 @@ struct OpusStereoSdpTests {
         a=rtpmap:111 opus/48000/2
         """)
 
-        #expect(Transport.mungeOpusStereo(noFmtp, matchingOffer: Self.offer) == noFmtp)
+        #expect(Transport.mungeOpusStereoAndNack(noFmtp, matchingOffer: Self.offer) == noFmtp)
     }
 
     /// A section the offer never mentioned, and one whose mid matches but which
@@ -200,6 +200,54 @@ struct OpusStereoSdpTests {
         a=fmtp:111 useinbandfec=1
         """)
 
-        #expect(Transport.mungeOpusStereo(extra, matchingOffer: Self.offer) == extra)
+        #expect(Transport.mungeOpusStereoAndNack(extra, matchingOffer: Self.offer) == extra)
+    }
+
+    /// The SFU offers `nack` for Opus (it does so when RED is off for the track), but
+    /// libwebrtc's answer drops it because audio codec capabilities carry no NACK — so
+    /// retransmission never activates. The munge accepts it, and only on the mids the
+    /// offer advertises it for.
+    @Test(.spec("https://datatracker.ietf.org/doc/html/rfc4585#section-4.2"))
+    func acceptsNackOnlyForMidsTheOfferAdvertisesItOn() {
+        let nackOffer = Self.sdp("""
+        v=0
+        m=audio 9 UDP/TLS/RTP/SAVPF 111
+        a=mid:0
+        a=rtpmap:111 opus/48000/2
+        a=rtcp-fb:111 nack
+        a=fmtp:111 minptime=10;useinbandfec=1
+        m=audio 9 UDP/TLS/RTP/SAVPF 111
+        a=mid:1
+        a=rtpmap:111 opus/48000/2
+        a=fmtp:111 minptime=10;useinbandfec=1
+        """)
+
+        let munged = Transport.mungeOpusStereoAndNack(Self.answer, matchingOffer: nackOffer)
+
+        let sections = SDP(parsing: munged).mediaSections
+        #expect(sections[0].hasRtcpFeedback("nack", forPayload: "111"))
+        #expect(!sections[1].hasRtcpFeedback("nack", forPayload: "111"))
+        // The nack offer carries no sprop-stereo, so no stereo preference is declared.
+        #expect(Self.fmtps(munged) == Self.fmtps(Self.answer))
+    }
+
+    /// A mid whose offer advertises both stereo and nack gets both in the answer,
+    /// and re-answering the munged answer changes nothing.
+    @Test func appliesStereoAndNackTogetherIdempotently() {
+        let bothOffer = Self.sdp("""
+        v=0
+        m=audio 9 UDP/TLS/RTP/SAVPF 111
+        a=mid:0
+        a=rtpmap:111 opus/48000/2
+        a=rtcp-fb:111 nack
+        a=fmtp:111 minptime=10;useinbandfec=1;sprop-stereo=1
+        """)
+
+        let munged = Transport.mungeOpusStereoAndNack(Self.answer, matchingOffer: bothOffer)
+
+        let section = SDP(parsing: munged).mediaSections[0]
+        #expect(section.fmtp(forPayload: "111")?.config == "minptime=10;useinbandfec=1;stereo=1")
+        #expect(section.hasRtcpFeedback("nack", forPayload: "111"))
+        #expect(Transport.mungeOpusStereoAndNack(munged, matchingOffer: bothOffer) == munged)
     }
 }

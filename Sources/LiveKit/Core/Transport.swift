@@ -190,8 +190,9 @@ actor Transport: NSObject, Loggable {
         func _negotiateSequence() async throws {
             _latestOfferId += 1
             var offer = try await createOffer(for: constraints)
-            offer = try await set(localDescription: offer) {
-                singlePCMode ? Self.mungeInactiveToRecvOnlyForMedia($0) : $0
+            offer = try await set(localDescription: offer) { sdp in
+                guard singlePCMode else { return sdp }
+                return Self.mungeOpusStereoForAllAudio(Self.mungeInactiveToRecvOnlyForMedia(sdp))
             }
             try await _onOffer(offer, _latestOfferId)
         }
@@ -239,32 +240,67 @@ extension Transport {
     }
 
     /// Munge an answer to declare `stereo=1` on the Opus fmtp of every section whose
-    /// counterpart in `offer` advertises `sprop-stereo=1`.
+    /// counterpart in `offer` advertises `sprop-stereo=1`, and to accept `nack` feedback
+    /// for Opus wherever the offer advertises it.
     ///
     /// Per [RFC 7587 §7.1](https://datatracker.ietf.org/doc/html/rfc7587#section-7.1) `stereo`
     /// is the *receiver's* preference: without it libwebrtc instantiates a mono Opus decoder and
     /// downmixes, regardless of what the sender transmits. `sprop-stereo` states only what the
-    /// sender emits, so it does not carry the answerer's preference on its own. This mirrors
-    /// `ensureAudioNackAndStereo()` in client-sdk-js.
+    /// sender emits, so it does not carry the answerer's preference on its own.
     ///
-    /// Sections are matched by mid rather than by position, and the Opus payload type is
-    /// resolved independently in each document, so an answerer that reorders or renumbers
-    /// still lands the parameter on the right section.
-    static func mungeOpusStereo(_ sdp: String, matchingOffer offer: String) -> String {
-        let stereoMids = Set(SDP(parsing: offer).mediaSections.compactMap { section -> String? in
+    /// libwebrtc does not support NACK for audio in its codec capabilities, so its answer
+    /// drops the `a=rtcp-fb:<pt> nack` the SFU offers (the SFU offers it when RED is off for
+    /// the track) and retransmission never activates — feedback is active only when both
+    /// sides agree ([RFC 4585 §4.2](https://datatracker.ietf.org/doc/html/rfc4585#section-4.2)).
+    ///
+    /// Both mirror `ensureAudioNackAndStereo()` in client-sdk-js. Sections are matched by
+    /// mid rather than by position, and the Opus payload type is resolved independently in
+    /// each document, so an answerer that reorders or renumbers still lands the parameters
+    /// on the right section.
+    static func mungeOpusStereoAndNack(_ sdp: String, matchingOffer offer: String) -> String {
+        var stereoMids: Set<String> = []
+        var nackMids: Set<String> = []
+        for section in SDP(parsing: offer).mediaSections {
             guard section.mediaType == "audio",
                   let mid = section.mid,
-                  let payload = section.payload(forCodec: "opus"),
-                  section.fmtp(forPayload: payload)?.parameters.contains("sprop-stereo=1") == true
-            else { return nil }
-            return mid
-        })
-        guard !stereoMids.isEmpty else { return sdp }
+                  let payload = section.payload(forCodec: "opus") else { continue }
+            if section.fmtp(forPayload: payload)?.parameters.contains("sprop-stereo=1") == true {
+                stereoMids.insert(mid)
+            }
+            if section.hasRtcpFeedback("nack", forPayload: payload) {
+                nackMids.insert(mid)
+            }
+        }
+        guard !stereoMids.isEmpty || !nackMids.isEmpty else { return sdp }
 
         var document = SDP(parsing: sdp)
         for index in document.mediaSections.indices {
             let section = document.mediaSections[index]
-            guard let mid = section.mid, stereoMids.contains(mid),
+            guard let mid = section.mid,
+                  let payload = section.payload(forCodec: "opus") else { continue }
+            if stereoMids.contains(mid) {
+                document.mediaSections[index].appendFmtpParameter("stereo=1", forPayload: payload)
+            }
+            if nackMids.contains(mid) {
+                document.mediaSections[index].appendRtcpFeedback("nack", forPayload: payload)
+            }
+        }
+        return document.write()
+    }
+
+    /// Munge a local offer to declare `stereo=1` on the Opus fmtp of every audio section.
+    ///
+    /// In single PC mode the client is the offerer for its own receive sections, and at
+    /// offer time it cannot know which remote publications are stereo — so the receive
+    /// preference is declared unconditionally, mirroring client-sdk-js (which munges every
+    /// local offer) and rust-sdks (`munge_stereo_for_audio`). Dual-PC offers don't take
+    /// this path: receive negotiation happens in the subscriber answer munge above, and a
+    /// publisher offer's send-only sections gain nothing from a receive preference.
+    static func mungeOpusStereoForAllAudio(_ sdp: String) -> String {
+        var document = SDP(parsing: sdp)
+        for index in document.mediaSections.indices {
+            let section = document.mediaSections[index]
+            guard section.mediaType == "audio",
                   let payload = section.payload(forCodec: "opus") else { continue }
             document.mediaSections[index].appendFmtpParameter("stereo=1", forPayload: payload)
         }

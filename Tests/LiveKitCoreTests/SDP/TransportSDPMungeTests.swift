@@ -61,4 +61,45 @@ struct TransportSDPMungeTests {
         let sdp = Self.offer.replacingOccurrences(of: "a=inactive", with: "a=recvonly")
         #expect(Transport.mungeInactiveToRecvOnlyForMedia(sdp) == sdp)
     }
+
+    /// Two Opus audio sections (one already declaring `stereo=1`, one carrying the
+    /// `sprop-stereo=1` substring trap), a video section, and a non-Opus audio section.
+    private static let singlePCOffer = """
+    v=0
+    m=audio 9 UDP/TLS/RTP/SAVPF 111
+    a=mid:0
+    a=rtpmap:111 opus/48000/2
+    a=fmtp:111 minptime=10;useinbandfec=1
+    m=audio 9 UDP/TLS/RTP/SAVPF 111
+    a=mid:1
+    a=rtpmap:111 opus/48000/2
+    a=fmtp:111 sprop-stereo=1
+    m=video 9 UDP/TLS/RTP/SAVPF 96
+    a=mid:2
+    a=rtpmap:96 VP8/90000
+    m=audio 9 UDP/TLS/RTP/SAVPF 8
+    a=mid:3
+    a=rtpmap:8 PCMA/8000
+    a=fmtp:8 maxptime=40
+    """.replacingOccurrences(of: "\n", with: "\r\n") + "\r\n"
+
+    /// In single PC mode the offerer is also the receiver, so `stereo=1` (RFC 7587 §7.1)
+    /// is declared on every audio section's Opus fmtp — including past the
+    /// `sprop-stereo=1` substring trap — while video and non-Opus audio are untouched.
+    @Test func declaresStereoOnEveryAudioOpusSection() {
+        let munged = Transport.mungeOpusStereoForAllAudio(Self.singlePCOffer)
+
+        #expect(SDP(parsing: munged).mediaSections.flatMap(\.fmtps).map(\.config) == [
+            "minptime=10;useinbandfec=1;stereo=1",
+            "sprop-stereo=1;stereo=1",
+            "maxptime=40",
+        ])
+    }
+
+    @Test func stereoForAllAudioIsIdempotentAndPreservesUnrelatedSDP() {
+        let once = Transport.mungeOpusStereoForAllAudio(Self.singlePCOffer)
+
+        #expect(Transport.mungeOpusStereoForAllAudio(once) == once)
+        #expect(Transport.mungeOpusStereoForAllAudio(Self.offer) == Self.offer)
+    }
 }
