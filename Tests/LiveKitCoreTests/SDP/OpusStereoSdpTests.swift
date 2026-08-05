@@ -93,7 +93,7 @@ struct OpusStereoSdpTests {
 
     @Test(.spec("https://datatracker.ietf.org/doc/html/rfc7587#section-7.1"))
     func addsStereoOnlyToSectionsTheOfferSendsInStereo() {
-        let munged = Transport.mungeOpusStereoAndNack(Self.answer, matchingOffer: Self.offer)
+        let munged = Transport.mungeOpusStereo(Self.answer, matchingOffer: Self.offer)
 
         #expect(Self.fmtps(munged) == [
             "a=fmtp:111 minptime=10;useinbandfec=1;stereo=1", // mid 0: offered stereo
@@ -109,25 +109,27 @@ struct OpusStereoSdpTests {
     @Test func spropStereoDoesNotSuppressTheReceiverPreference() {
         // Answering with the offer's own SDP is the worst case: every stereo section
         // already carries the substring.
-        let munged = Transport.mungeOpusStereoAndNack(Self.offer, matchingOffer: Self.offer)
+        let munged = Transport.mungeOpusStereo(Self.offer, matchingOffer: Self.offer)
 
         #expect(Self.fmtps(munged).first == "a=fmtp:111 minptime=10;useinbandfec=1;sprop-stereo=1;stereo=1")
     }
 
     @Test func isIdempotent() {
-        let once = Transport.mungeOpusStereoAndNack(Self.answer, matchingOffer: Self.offer)
-        #expect(Transport.mungeOpusStereoAndNack(once, matchingOffer: Self.offer) == once)
+        let once = Transport.mungeOpusStereo(Self.answer, matchingOffer: Self.offer)
+        #expect(Transport.mungeOpusStereo(once, matchingOffer: Self.offer) == once)
     }
 
-    /// No stereo and no nack anywhere in the offer must return the answer untouched
-    /// rather than round-tripped, so the caller's `munged != answer` check stays false
-    /// and no munged description is ever offered to libwebrtc.
+    /// An offer with nothing to accept must return the answer untouched rather than
+    /// round-tripped, so the caller's munged-vs-original check stays false and no
+    /// munged description is ever offered to libwebrtc.
     @Test func offerWithoutStereoOrNackReturnsTheAnswerUnchanged() {
         let monoOffer = Self.offer.replacingOccurrences(of: ";sprop-stereo=1", with: "")
             .replacingOccurrences(of: "a=fmtp:8 sprop-stereo=1", with: "a=fmtp:8 maxptime=40")
             .replacingOccurrences(of: "a=fmtp:111 sprop-stereo=1", with: "a=fmtp:111 useinbandfec=1")
 
-        #expect(Transport.mungeOpusStereoAndNack(Self.answer, matchingOffer: monoOffer) == Self.answer)
+        #expect(Transport.mungeOpusStereo(Self.answer, matchingOffer: monoOffer) == Self.answer)
+        // Self.offer advertises no rtcp-fb at all, so the nack munge is a no-op too.
+        #expect(Transport.mungeOpusNack(Self.answer, matchingOffer: Self.offer) == Self.answer)
     }
 
     /// Sections are keyed by mid, not by position — an answer that lists them in a
@@ -144,7 +146,7 @@ struct OpusStereoSdpTests {
         a=rtpmap:111 opus/48000/2
         a=fmtp:111 useinbandfec=1
         """)
-        let munged = Transport.mungeOpusStereoAndNack(reordered, matchingOffer: Self.offer)
+        let munged = Transport.mungeOpusStereo(reordered, matchingOffer: Self.offer)
 
         #expect(Self.fmtps(munged) == [
             "a=fmtp:111 useinbandfec=1", // mid 1
@@ -163,7 +165,7 @@ struct OpusStereoSdpTests {
         a=fmtp:63 useinbandfec=1
         """)
 
-        #expect(Transport.mungeOpusStereoAndNack(renumbered, matchingOffer: Self.offer)
+        #expect(Transport.mungeOpusStereo(renumbered, matchingOffer: Self.offer)
             .contains("a=fmtp:63 useinbandfec=1;stereo=1"))
     }
 
@@ -179,7 +181,7 @@ struct OpusStereoSdpTests {
         a=rtpmap:111 opus/48000/2
         """)
 
-        #expect(Transport.mungeOpusStereoAndNack(noFmtp, matchingOffer: Self.offer) == noFmtp)
+        #expect(Transport.mungeOpusStereo(noFmtp, matchingOffer: Self.offer) == noFmtp)
     }
 
     /// A section the offer never mentioned, and one whose mid matches but which
@@ -200,7 +202,7 @@ struct OpusStereoSdpTests {
         a=fmtp:111 useinbandfec=1
         """)
 
-        #expect(Transport.mungeOpusStereoAndNack(extra, matchingOffer: Self.offer) == extra)
+        #expect(Transport.mungeOpusStereo(extra, matchingOffer: Self.offer) == extra)
     }
 
     /// The SFU offers `nack` for Opus (it does so when RED is off for the track), but
@@ -222,18 +224,18 @@ struct OpusStereoSdpTests {
         a=fmtp:111 minptime=10;useinbandfec=1
         """)
 
-        let munged = Transport.mungeOpusStereoAndNack(Self.answer, matchingOffer: nackOffer)
+        let munged = Transport.mungeOpusNack(Self.answer, matchingOffer: nackOffer)
 
         let sections = SDP(parsing: munged).mediaSections
         #expect(sections[0].hasRtcpFeedback("nack", forPayload: "111"))
         #expect(!sections[1].hasRtcpFeedback("nack", forPayload: "111"))
-        // The nack offer carries no sprop-stereo, so no stereo preference is declared.
+        // The nack munge never touches fmtp lines.
         #expect(Self.fmtps(munged) == Self.fmtps(Self.answer))
     }
 
-    /// A mid whose offer advertises both stereo and nack gets both in the answer,
-    /// and re-answering the munged answer changes nothing.
-    @Test func appliesStereoAndNackTogetherIdempotently() {
+    /// The two munges compose (as the answer path applies them), and re-answering
+    /// the munged answer changes nothing.
+    @Test func stereoAndNackComposeIdempotently() {
         let bothOffer = Self.sdp("""
         v=0
         m=audio 9 UDP/TLS/RTP/SAVPF 111
@@ -242,12 +244,15 @@ struct OpusStereoSdpTests {
         a=rtcp-fb:111 nack
         a=fmtp:111 minptime=10;useinbandfec=1;sprop-stereo=1
         """)
+        func munge(_ sdp: String) -> String {
+            Transport.mungeOpusNack(Transport.mungeOpusStereo(sdp, matchingOffer: bothOffer), matchingOffer: bothOffer)
+        }
 
-        let munged = Transport.mungeOpusStereoAndNack(Self.answer, matchingOffer: bothOffer)
+        let munged = munge(Self.answer)
 
         let section = SDP(parsing: munged).mediaSections[0]
         #expect(section.fmtp(forPayload: "111")?.config == "minptime=10;useinbandfec=1;stereo=1")
         #expect(section.hasRtcpFeedback("nack", forPayload: "111"))
-        #expect(Transport.mungeOpusStereoAndNack(munged, matchingOffer: bothOffer) == munged)
+        #expect(munge(munged) == munged)
     }
 }

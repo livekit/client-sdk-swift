@@ -190,10 +190,11 @@ actor Transport: NSObject, Loggable {
         func _negotiateSequence() async throws {
             _latestOfferId += 1
             var offer = try await createOffer(for: constraints)
-            offer = try await set(localDescription: offer) { sdp in
-                guard singlePCMode else { return sdp }
-                return Self.mungeOpusStereoForAllAudio(Self.mungeInactiveToRecvOnlyForMedia(sdp))
-            }
+            // The direction rewrite is required to receive media in single PC mode; the
+            // stereo preference is optional and must be the one dropped on rejection.
+            offer = try await set(localDescription: offer, munging: singlePCMode
+                ? [Self.mungeInactiveToRecvOnlyForMedia, Self.mungeOpusStereoForAllAudio]
+                : [])
             try await _onOffer(offer, _latestOfferId)
         }
 
@@ -240,50 +241,64 @@ extension Transport {
     }
 
     /// Munge an answer to declare `stereo=1` on the Opus fmtp of every section whose
-    /// counterpart in `offer` advertises `sprop-stereo=1`, and to accept `nack` feedback
-    /// for Opus wherever the offer advertises it.
+    /// counterpart in `offer` advertises `sprop-stereo=1`.
     ///
     /// Per [RFC 7587 §7.1](https://datatracker.ietf.org/doc/html/rfc7587#section-7.1) `stereo`
     /// is the *receiver's* preference: without it libwebrtc instantiates a mono Opus decoder and
     /// downmixes, regardless of what the sender transmits. `sprop-stereo` states only what the
-    /// sender emits, so it does not carry the answerer's preference on its own.
+    /// sender emits, so it does not carry the answerer's preference on its own. This mirrors
+    /// `ensureAudioNackAndStereo()` in client-sdk-js.
     ///
-    /// libwebrtc does not support NACK for audio in its codec capabilities, so its answer
-    /// drops the `a=rtcp-fb:<pt> nack` the SFU offers (the SFU offers it when RED is off for
-    /// the track) and retransmission never activates — feedback is active only when both
-    /// sides agree ([RFC 4585 §4.2](https://datatracker.ietf.org/doc/html/rfc4585#section-4.2)).
-    ///
-    /// Both mirror `ensureAudioNackAndStereo()` in client-sdk-js. Sections are matched by
-    /// mid rather than by position, and the Opus payload type is resolved independently in
-    /// each document, so an answerer that reorders or renumbers still lands the parameters
-    /// on the right section.
-    static func mungeOpusStereoAndNack(_ sdp: String, matchingOffer offer: String) -> String {
-        var stereoMids: Set<String> = []
-        var nackMids: Set<String> = []
-        for section in SDP(parsing: offer).mediaSections {
+    /// Sections are matched by mid rather than by position, and the Opus payload type is
+    /// resolved independently in each document, so an answerer that reorders or renumbers
+    /// still lands the parameter on the right section.
+    static func mungeOpusStereo(_ sdp: String, matchingOffer offer: String) -> String {
+        let stereoMids = Set(SDP(parsing: offer).mediaSections.compactMap { section -> String? in
             guard section.mediaType == "audio",
                   let mid = section.mid,
-                  let payload = section.payload(forCodec: "opus") else { continue }
-            if section.fmtp(forPayload: payload)?.parameters.contains("sprop-stereo=1") == true {
-                stereoMids.insert(mid)
-            }
-            if section.hasRtcpFeedback("nack", forPayload: payload) {
-                nackMids.insert(mid)
-            }
-        }
-        guard !stereoMids.isEmpty || !nackMids.isEmpty else { return sdp }
+                  let payload = section.payload(forCodec: "opus"),
+                  section.fmtp(forPayload: payload)?.parameters.contains("sprop-stereo=1") == true
+            else { return nil }
+            return mid
+        })
+        guard !stereoMids.isEmpty else { return sdp }
 
         var document = SDP(parsing: sdp)
         for index in document.mediaSections.indices {
             let section = document.mediaSections[index]
-            guard let mid = section.mid,
+            guard let mid = section.mid, stereoMids.contains(mid),
                   let payload = section.payload(forCodec: "opus") else { continue }
-            if stereoMids.contains(mid) {
-                document.mediaSections[index].appendFmtpParameter("stereo=1", forPayload: payload)
-            }
-            if nackMids.contains(mid) {
-                document.mediaSections[index].appendRtcpFeedback("nack", forPayload: payload)
-            }
+            document.mediaSections[index].appendFmtpParameter("stereo=1", forPayload: payload)
+        }
+        return document.write()
+    }
+
+    /// Munge an answer to accept `nack` feedback for Opus on every section whose
+    /// counterpart in `offer` advertises it.
+    ///
+    /// libwebrtc does not support NACK for audio in its codec capabilities, so its answer
+    /// drops the `a=rtcp-fb:<pt> nack` the SFU offers (the SFU offers it when RED is off
+    /// for the track) and retransmission never activates — feedback is active only when
+    /// both sides agree ([RFC 4585 §4.2](https://datatracker.ietf.org/doc/html/rfc4585#section-4.2)).
+    /// This mirrors `ensureAudioNackAndStereo()` in client-sdk-js, with the same
+    /// mid-and-payload matching as ``mungeOpusStereo(_:matchingOffer:)``.
+    static func mungeOpusNack(_ sdp: String, matchingOffer offer: String) -> String {
+        let nackMids = Set(SDP(parsing: offer).mediaSections.compactMap { section -> String? in
+            guard section.mediaType == "audio",
+                  let mid = section.mid,
+                  let payload = section.payload(forCodec: "opus"),
+                  section.hasRtcpFeedback("nack", forPayload: payload)
+            else { return nil }
+            return mid
+        })
+        guard !nackMids.isEmpty else { return sdp }
+
+        var document = SDP(parsing: sdp)
+        for index in document.mediaSections.indices {
+            let section = document.mediaSections[index]
+            guard let mid = section.mid, nackMids.contains(mid),
+                  let payload = section.payload(forCodec: "opus") else { continue }
+            document.mediaSections[index].appendRtcpFeedback("nack", forPayload: payload)
         }
         return document.write()
     }
@@ -307,39 +322,32 @@ extension Transport {
         return document.write()
     }
 
-    /// Sets `munged` as the local description, falling back to `original` when libwebrtc
-    /// rejects it — a rejected set leaves the peer connection state untouched, so
-    /// negotiation proceeds without the munge instead of failing. libwebrtc validates
-    /// munged SDP and rejects some munging types outright (`IsSdpMungingAllowed`,
-    /// expanding via field-trial kill switches). Returns the description that was applied.
-    func set(mungedLocalDescription munged: LKRTCSessionDescription,
-             fallingBackTo original: LKRTCSessionDescription) async throws -> LKRTCSessionDescription
-    {
-        do {
-            try await set(localDescription: munged)
-            return munged
-        } catch {
-            log("Munged local description was rejected, falling back to the original: \(error)", .warning)
-            try await set(localDescription: original)
-            return original
-        }
-    }
-
-    /// Applies `munge` to `original` and sets the result as the local description through
-    /// the rejection fallback above; a no-op munge sets `original` directly, so nothing
-    /// munged is ever offered to libwebrtc. Returns the description that was applied —
-    /// the one to signal, since signalling a rejected munge would advertise parameters
+    /// Applies `munges` composed left-to-right and sets the result as the local
+    /// description. libwebrtc validates munged SDP and rejects some munging types
+    /// outright (`IsSdpMungingAllowed`, expanding via field-trial kill switches);
+    /// a rejected set leaves the peer connection state untouched, so on rejection
+    /// the last munge is dropped and the set retried. Order munges most-required
+    /// first: a rejected optional munge then cannot revert the ones before it.
+    /// A no-op composition sets `original` directly, so nothing munged is ever
+    /// offered to libwebrtc. Returns the description that was applied — the one
+    /// to signal, since signalling a rejected munge would advertise parameters
     /// the peer connection was never configured with.
     func set(localDescription original: LKRTCSessionDescription,
-             munging munge: (String) -> String) async throws -> LKRTCSessionDescription
+             munging munges: [(String) -> String]) async throws -> LKRTCSessionDescription
     {
-        let mungedSDP = munge(original.sdp)
+        let mungedSDP = munges.reduce(original.sdp) { $1($0) }
         guard mungedSDP != original.sdp else {
             try await set(localDescription: original)
             return original
         }
-        return try await set(mungedLocalDescription: RTC.createSessionDescription(type: original.type, sdp: mungedSDP),
-                             fallingBackTo: original)
+        do {
+            let munged = RTC.createSessionDescription(type: original.type, sdp: mungedSDP)
+            try await set(localDescription: munged)
+            return munged
+        } catch {
+            log("Munged local description was rejected, dropping the last munge and retrying: \(error)", .warning)
+            return try await set(localDescription: original, munging: Array(munges.dropLast()))
+        }
     }
 }
 
