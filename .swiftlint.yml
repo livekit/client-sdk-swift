@@ -5,6 +5,7 @@ excluded:
   - .swiftpm
   - build
   - Sources/LiveKit/Protos
+  - Tests/LiveKitNanopbTests/Oracle
 
 disabled_rules:
   - todo
