@@ -25,12 +25,11 @@ public final class TextStreamWriter: NSObject, Sendable {
     public let info: TextStreamInfo
 
     private let writer: LiveKitUniFFI.TextStreamWriter
-    // The FFI writer exposes no open state, so track local closure here.
-    private let _isOpen = StateSync<Bool>(true)
 
-    /// Whether or not the stream is still open.
+    /// Whether or not the stream is still open. Reflects the FFI writer's state, so it becomes
+    /// `false` once the stream is closed locally or a send fails (e.g. the room disconnected).
     public var isOpen: Bool {
-        get async { _isOpen.copy() }
+        get async { await writer.isOpen() }
     }
 
     /// Write text to the stream.
@@ -55,7 +54,6 @@ public final class TextStreamWriter: NSObject, Sendable {
     ///   cannot be communicated to remote participants.
     ///
     public func close(reason: String? = nil) async throws {
-        _isOpen.mutate { $0 = false }
         do {
             if let reason {
                 try await writer.closeWithReason(reason: reason)
