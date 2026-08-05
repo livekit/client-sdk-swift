@@ -58,6 +58,9 @@ struct GenerateFacades: ParsableCommand {
     @Option(help: "Where to write the generated facades.")
     var output = "Sources/LiveKit/Protos"
 
+    @Option(help: "Where to write the generated conformance exemplars (test target).")
+    var testOutput = "Tests/LiveKitNanopbTests/Generated"
+
     @Flag(inversion: .prefixedNo, help: "Emit facades only for types reachable from SDK code.")
     var prune = true
 
@@ -105,6 +108,10 @@ struct GenerateFacades: ParsableCommand {
 
         try Self.verifyCoWInvariant(in: outFolder)
 
+        let exemplars = ExemplarEmitter(namer: namer).emit(files: files, keep: keep)
+        let testFolder = try Folder(path: ".").createSubfolderIfNeeded(at: testOutput)
+        try testFolder.createFile(named: "ConformanceExemplars.swift").write(exemplars.source)
+
         let emitted = stats.messages + stats.enums
         print("""
         messages : \(stats.messages)  (nested: \(stats.nested))
@@ -112,6 +119,7 @@ struct GenerateFacades: ParsableCommand {
         fields   : \(stats.fields)
         oneofs   : \(stats.oneofs)
         emitted  : \(emitted) types (prune \(prune ? "on" : "off"))
+        exemplars: \(exemplars.messages) messages, \(exemplars.oneofVariants) oneof variants
         output   : \(output)
         """)
     }
@@ -744,6 +752,279 @@ extension Emitter {
         out += "\(pad)}\n\n"
         return out
     }
+}
+
+// MARK: - Conformance exemplars
+
+/// Emits a deterministic, fully-populated exemplar of every facade message,
+/// built through BOTH implementations from the same descriptor walk, plus one
+/// exemplar per oneof variant. ExemplarConformanceTests asserts the two
+/// encodings are byte-identical and that facade decode→encode is stable —
+/// coverage of every field is mechanical, so it can't rot as protos change.
+struct ExemplarEmitter {
+    let namer: SwiftProtobufNamer
+    private let graph = TypeGraph()
+
+    /// Message-reference graph for cycle-safe population: a message-typed
+    /// field is left unset (in both builders) when setting it would recurse.
+    final class TypeGraph {
+        private var direct: [String: Set<String>] = [:]
+        private var memo: [String: Set<String>] = [:]
+
+        func add(_ message: Descriptor) {
+            var refs: Set<String> = []
+            for field in message.fields {
+                if let target = Self.messageTarget(of: field) { refs.insert(target.fullName) }
+            }
+            direct[message.fullName] = refs
+        }
+
+        static func messageTarget(of field: FieldDescriptor) -> Descriptor? {
+            if field.isMap {
+                let value = field.messageType!.fields.first { $0.name == "value" }!
+                return value.type == .message ? value.messageType : nil
+            }
+            return field.type == .message || field.type == .group ? field.messageType : nil
+        }
+
+        func reachable(from name: String) -> Set<String> {
+            if let cached = memo[name] { return cached }
+            var seen: Set<String> = []
+            var queue = Array(direct[name] ?? [])
+            while let next = queue.popLast() {
+                guard seen.insert(next).inserted else { continue }
+                queue += direct[next] ?? []
+            }
+            memo[name] = seen
+            return seen
+        }
+
+        func createsCycle(_ field: FieldDescriptor, in container: Descriptor) -> Bool {
+            guard let target = Self.messageTarget(of: field) else { return false }
+            return target.fullName == container.fullName
+                || reachable(from: target.fullName).contains(container.fullName)
+        }
+    }
+
+    struct Output {
+        var source = ""
+        var messages = 0
+        var oneofVariants = 0
+    }
+
+    func emit(files: [FileDescriptor], keep: Set<String>?) -> Output {
+        var messages: [Descriptor] = []
+        for file in files {
+            for message in file.messages where keep?.contains(message.fullName) != false {
+                collect(message, into: &messages)
+            }
+        }
+        for message in messages {
+            graph.add(message)
+        }
+
+        var out = Self.header
+        var registry: [String] = []
+        var variants: [String] = []
+        for message in messages {
+            out += builders(for: message)
+            registry.append(registryEntry(for: message))
+            variants += variantEntries(for: message)
+        }
+        out += "let conformanceExemplars: [ConformanceExemplar] = [\n"
+        out += registry.joined()
+        out += "]\n\nlet oneofVariantExemplars: [ConformanceExemplar] = [\n"
+        out += variants.joined()
+        out += "]\n"
+        return Output(source: out, messages: messages.count, oneofVariants: variants.count)
+    }
+
+    /// Map entries are synthetic — nanopb needs their C structs, but
+    /// protoc-gen-swift emits dictionaries, so there is no oracle type.
+    private func collect(_ message: Descriptor, into list: inout [Descriptor]) {
+        guard !message.options.mapEntry else { return }
+        list.append(message)
+        for child in message.messages {
+            collect(child, into: &list)
+        }
+    }
+
+    // MARK: naming
+
+    private func mangled(_ message: Descriptor) -> String {
+        Emitter.local(namer.fullName(message: message)).replacingOccurrences(of: ".", with: "_")
+    }
+
+    private func facadeType(_ message: Descriptor) -> String {
+        "LiveKit.\(Emitter.local(namer.fullName(message: message)))"
+    }
+
+    /// The oracle type as protoc-gen-swift names it — well-known types stay
+    /// module-qualified (SwiftProtobuf.Google_Protobuf_Timestamp).
+    private func oracleType(_ message: Descriptor) -> String {
+        namer.fullName(message: message)
+    }
+
+    private func propertyName(_ field: FieldDescriptor) -> String {
+        namer.messagePropertyNames(field: field, prefixed: "", includeHasAndClear: false).name
+    }
+
+    private func builderCall(_ message: Descriptor, oracle: Bool) -> String {
+        "\(oracle ? "oracleExemplar_" : "exemplar_")\(mangled(message))()"
+    }
+
+    // MARK: builders
+
+    private func builders(for message: Descriptor) -> String {
+        [false, true].map { oracle in
+            let type = oracle ? oracleType(message) : facadeType(message)
+            let name = builderCall(message, oracle: oracle).dropLast(2)
+            let lines = assignments(for: message, oracle: oracle)
+            guard !lines.isEmpty else { return "func \(name)() -> \(type) { \(type)() }\n\n" }
+            return "func \(name)() -> \(type) {\n"
+                + "    var m = \(type)()\n"
+                + lines.map { "    \($0)\n" }.joined()
+                + "    return m\n}\n\n"
+        }.joined()
+    }
+
+    private func assignments(for message: Descriptor, oracle: Bool) -> [String] {
+        var lines: [String] = []
+        for field in message.fields.sorted(by: { $0.number < $1.number })
+            where field.realContainingOneof == nil
+        {
+            if let expr = valueExpr(for: field, in: message, oracle: oracle) {
+                lines.append("m.\(propertyName(field)) = \(expr)")
+            }
+        }
+        // one deterministic variant per oneof; every variant separately in
+        // oneofVariantExemplars
+        for oneof in Emitter.realOneofs(of: message) {
+            let variants = oneof.fields.sorted { $0.number < $1.number }
+            if let (variant, expr) = variants.lazy.compactMap({ variant in
+                self.singularExpr(for: variant, in: message, oracle: oracle).map { (variant, $0) }
+            }).first {
+                lines.append("m.\(propertyName(variant)) = \(expr)")
+            }
+        }
+        return lines
+    }
+
+    /// nil = leave the field unset (in both builders): recursive message,
+    /// or an enum with no nonzero value to distinguish from the default.
+    private func valueExpr(for field: FieldDescriptor, in message: Descriptor, oracle: Bool) -> String? {
+        if field.isMap { return mapExpr(for: field, in: message, oracle: oracle) }
+        if field.isRepeated { return repeatedExpr(for: field, in: message, oracle: oracle) }
+        return singularExpr(for: field, in: message, oracle: oracle)
+    }
+
+    private func singularExpr(for field: FieldDescriptor, in message: Descriptor, oracle: Bool) -> String? {
+        switch field.type {
+        case .string: "\"\(field.name)\""
+        case .bytes: "Data(\"\(field.name)\".utf8)"
+        case .bool: "true"
+        case .enum: enumCase(field.enumType!)
+        case .message, .group:
+            graph.createsCycle(field, in: message)
+                ? nil : builderCall(field.messageType!, oracle: oracle)
+        default: "\(field.number)"
+        }
+    }
+
+    private func repeatedExpr(for field: FieldDescriptor, in message: Descriptor, oracle: Bool) -> String? {
+        switch field.type {
+        case .string: "[\"\(field.name)_0\", \"\(field.name)_1\"]"
+        case .bool: "[true, false]"
+        case .enum: enumCase(field.enumType!).map { "[\($0)]" }
+        case .message, .group:
+            graph.createsCycle(field, in: message)
+                ? nil : "[\(builderCall(field.messageType!, oracle: oracle))]"
+        case .bytes: "[Data(\"\(field.name)\".utf8)]"
+        default: "[\(field.number), \(field.number + 1)]"
+        }
+    }
+
+    private func mapExpr(for field: FieldDescriptor, in message: Descriptor, oracle: Bool) -> String? {
+        let entry = field.messageType!
+        let key = entry.fields.first { $0.name == "key" }!
+        let value = entry.fields.first { $0.name == "value" }!
+        let keyLit = switch key.type {
+        case .string: "\"\(field.name)_key\""
+        case .bool: "true"
+        default: "\(field.number)"
+        }
+        // single entry: SwiftProtobuf map iteration order is undefined, so
+        // multi-entry byte-identity cannot be asserted (see the map edge test)
+        return singularExpr(for: value, in: message, oracle: oracle).map { "[\(keyLit): \($0)]" }
+    }
+
+    /// First nonzero enum case — proto3 skips zero-valued fields on the wire
+    /// in SwiftProtobuf, while FT_POINTER presence would emit them.
+    private func enumCase(_ enumType: EnumDescriptor) -> String? {
+        namer.uniquelyNamedValues(enum: enumType)
+            .first { $0.number != 0 }
+            .map { ".\(namer.relativeName(enumValue: $0))" }
+    }
+
+    // MARK: registry
+
+    private func registryEntry(for message: Descriptor) -> String {
+        """
+            ConformanceExemplar(
+                name: "\(mangled(message))",
+                facade: { try \(builderCall(message, oracle: false)).serializedData() },
+                oracle: { try \(builderCall(message, oracle: true)).serializedData() },
+                reencode: { try \(facadeType(message))(serializedData: $0).serializedData() },
+            ),
+
+        """
+    }
+
+    private func variantEntries(for message: Descriptor) -> [String] {
+        var out: [String] = []
+        for oneof in Emitter.realOneofs(of: message) {
+            for variant in oneof.fields.sorted(by: { $0.number < $1.number }) {
+                guard let facadeExpr = singularExpr(for: variant, in: message, oracle: false),
+                      let oracleExpr = singularExpr(for: variant, in: message, oracle: true)
+                else { continue }
+                out.append("""
+                    ConformanceExemplar(
+                        name: "\(mangled(message)).\(oneof.name).\(propertyName(variant))",
+                        facade: { try \(facadeType(message)).with { $0.\(propertyName(variant)) = \(facadeExpr) }.serializedData() },
+                        oracle: { try \(oracleType(message)).with { $0.\(propertyName(variant)) = \(oracleExpr) }.serializedData() },
+                        reencode: { try \(facadeType(message))(serializedData: $0).serializedData() },
+                    ),
+
+                """)
+            }
+        }
+        return out
+    }
+
+    static let header = """
+    // Generated by scripts/generate-facades.swift — do not edit.
+    //
+    // Deterministic fully-populated exemplars of every facade message, built
+    // through both implementations. See ExemplarConformanceTests.
+
+    import Foundation
+    @testable import LiveKit
+    import LiveKitNanopb
+    import SwiftProtobuf
+
+    struct ConformanceExemplar: CustomStringConvertible, Sendable {
+        let name: String
+        /// Exemplar built and encoded through the nanopb facade.
+        let facade: @Sendable () throws -> Data
+        /// The same exemplar built and encoded through protoc-gen-swift.
+        let oracle: @Sendable () throws -> Data
+        /// Facade decode → encode of the given bytes.
+        let reencode: @Sendable (Data) throws -> Data
+        var description: String { name }
+    }
+
+
+    """
 }
 
 GenerateFacades.main()
