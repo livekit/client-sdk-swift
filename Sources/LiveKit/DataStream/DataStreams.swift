@@ -142,7 +142,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
             id: options.id,
             mimeType: options.mimeType ?? fileInfo.mimeType,
             name: options.name ?? fileInfo.name,
-            totalLength: UInt64(options.totalSize ?? fileInfo.size),
+            totalLength: UInt64(fileInfo.size),
             compress: options.compress,
             senderIdentity: nil,
         )
