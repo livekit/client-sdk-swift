@@ -174,21 +174,31 @@ package extension NanopbMessage {
 
     // MARK: Wire format
 
-    init(serializedBytes bytes: some Collection<UInt8>) throws {
+    init(serializedBytes bytes: some Collection<UInt8>) throws(NanopbError) {
         self.init()
         let array = Array(bytes)
-        try array.withUnsafeBytes { try nanopbDecode(into: _pointer, Self.descriptor, $0) }
+        // see `nanopbEncodedBytes` on why the error is captured rather than
+        // propagated straight through the stdlib's untyped `rethrows`
+        var failure: NanopbError?
+        array.withUnsafeBytes { buffer in
+            do throws(NanopbError) {
+                try nanopbDecode(into: _pointer, Self.descriptor, buffer)
+            } catch {
+                failure = error
+            }
+        }
+        if let failure { throw failure }
     }
 
-    init(serializedData data: Data) throws {
+    init(serializedData data: Data) throws(NanopbError) {
         try self.init(serializedBytes: data)
     }
 
-    func serializedBytes() throws -> [UInt8] {
+    func serializedBytes() throws(NanopbError) -> [UInt8] {
         try nanopbEncodedBytes(_pointer, Self.descriptor)
     }
 
-    func serializedData() throws -> Data {
+    func serializedData() throws(NanopbError) -> Data {
         try Data(serializedBytes())
     }
 
@@ -230,7 +240,7 @@ package func nanopbDecode(
     into pointer: UnsafeMutablePointer<some Any>,
     _ descriptor: pb_msgdesc_t,
     _ bytes: UnsafeRawBufferPointer,
-) throws {
+) throws(NanopbError) {
     var descriptor = descriptor
     // SAFETY: nanopb reads at most `bytes.count` bytes from the buffer, and
     // the buffer outlives the call because the caller owns it for the
@@ -245,7 +255,7 @@ package func nanopbDecode(
 
 package func nanopbEncodedSize(
     _ pointer: UnsafePointer<some Any>, _ descriptor: pb_msgdesc_t,
-) throws -> Int {
+) throws(NanopbError) -> Int {
     var descriptor = descriptor
     var size = 0
     guard lk_pb_get_encoded_size(&size, &descriptor, UnsafeRawPointer(pointer)) else {
@@ -258,7 +268,7 @@ package func nanopbEncode(
     _ pointer: UnsafePointer<some Any>,
     _ descriptor: pb_msgdesc_t,
     into buffer: UnsafeMutableRawBufferPointer,
-) throws -> Int {
+) throws(NanopbError) -> Int {
     var descriptor = descriptor
     // SAFETY: the stream is capped at `buffer.count`, so nanopb fails the
     // encode rather than overrunning if the size estimate was short.
@@ -273,10 +283,21 @@ package func nanopbEncode(
 
 package func nanopbEncodedBytes(
     _ pointer: UnsafePointer<some Any>, _ descriptor: pb_msgdesc_t,
-) throws -> [UInt8] {
+) throws(NanopbError) -> [UInt8] {
     let size = try nanopbEncodedSize(pointer, descriptor)
     var out = [UInt8](repeating: 0, count: size)
-    let written = try out.withUnsafeMutableBytes { try nanopbEncode(pointer, descriptor, into: $0) }
+    // `withUnsafeMutableBytes` is untyped `rethrows`, which would erase
+    // NanopbError back to `any Error`; capture and rethrow to keep the type.
+    var failure: NanopbError?
+    var written = 0
+    out.withUnsafeMutableBytes { buffer in
+        do throws(NanopbError) {
+            written = try nanopbEncode(pointer, descriptor, into: buffer)
+        } catch {
+            failure = error
+        }
+    }
+    if let failure { throw failure }
     if written != size { out.removeLast(size - written) }
     return out
 }

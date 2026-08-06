@@ -134,6 +134,12 @@ adopting them means moving the floor off Swift 6.1. Compiling this target with
 generated code (the generator would have to emit the markers). Revisit when the
 minimum toolchain reaches 6.2.
 
+Already adopted from that port, within the 6.1 floor: typed throws on the wire
+API and the scoped borrows (a non-throwing body specialises to `throws(Never)`,
+so it needs no `try` and emits no error path), and a shared `_empty` per
+message instead of allocating a throwaway value for an absent submessage —
+their zone-sentinel trick, sound here only because messages are immutable.
+
 Reachable improvements once the floor moves:
 
 - `Span`/`RawSpan` borrows already exist behind `#if compiler(>=6.2)`
@@ -176,3 +182,8 @@ Reachable improvements once the floor moves:
 4. No new synchronization primitives; safety is immutability.
 5. Conformance suites must stay green — they are the encoding oracle:
    `swift test --filter 'Nanopb|Conformance'`.
+6. `Livekit_DataPacket` is decoded from bytes another participant sent, so the
+   decoder is the SDK's only parser facing untrusted input. `DecodeFuzzTests`
+   walks mutated and random encodings through it from a fixed seed; run it
+   under ASan (`--sanitize=address`) after touching decode or any accessor's
+   pointer arithmetic, since an out-of-bounds read there need not crash.
