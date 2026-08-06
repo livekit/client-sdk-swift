@@ -41,8 +41,19 @@ package import CLiveKitProto
 import CLiveKitProto
 #endif
 import Foundation
+import os
 
 // MARK: - Errors
+
+private let nanopbLog = OSLog(subsystem: "io.livekit.nanopb", category: "runtime")
+
+/// Reports a failure on a path that cannot throw (setters, the CoW guard).
+/// These only fail on allocation exhaustion or a descriptor bug; the callers
+/// degrade to the least-damaging outcome instead of crashing, and this makes
+/// the degradation observable (Console, sysdiagnose).
+package func nanopbReportFailure(_ operation: StaticString, _ error: Error) {
+    os_log(.fault, log: nanopbLog, "%{public}@ failed: %{public}@", "\(operation)", "\(error)")
+}
 
 package enum NanopbError: Error, CustomStringConvertible {
     case decodeFailed(String)
@@ -80,7 +91,7 @@ package final class NanopbBox<Storage>: @unchecked Sendable {
 
     deinit {
         var descriptor = descriptor
-        pb_release(&descriptor, UnsafeMutableRawPointer(pointer))
+        lk_pb_release(&descriptor, UnsafeMutableRawPointer(pointer))
         pointer.deinitialize(count: 1)
         pointer.deallocate()
     }
@@ -119,14 +130,35 @@ package extension NanopbMessage {
     mutating func _ensureUnique() {
         if !isKnownUniquelyReferenced(&_owner) {
             let fresh = NanopbBox<Storage>(zero: Self.zero, descriptor: Self.descriptor)
-            if let bytes = try? nanopbEncodedBytes(_pointer, Self.descriptor) {
-                try? bytes.withUnsafeBytes {
-                    try? nanopbDecode(into: fresh.pointer, Self.descriptor, $0)
+            do {
+                let bytes = try nanopbEncodedBytes(_pointer, Self.descriptor)
+                try bytes.withUnsafeBytes {
+                    try nanopbDecode(into: fresh.pointer, Self.descriptor, $0)
                 }
+            } catch {
+                // Allocation exhaustion or a descriptor bug. Detaching to the
+                // fresh (empty) storage loses this value's content — but the
+                // alternative, mutating storage other copies still see, would
+                // corrupt values far from the failure. Report and degrade.
+                nanopbReportFailure("copy-on-write detach", error)
             }
             _owner = fresh
             _pointer = fresh.pointer
         }
+    }
+
+    /// An independent copy that owns only its own subtree.
+    ///
+    /// Submessage and repeated getters return zero-copy *views* whose `_owner`
+    /// is the box of the whole decoded message — storing a view long-term
+    /// keeps that entire allocation alive. Call this when promoting a decoded
+    /// sub-message into long-lived state. Values that already own their
+    /// storage are returned as-is (copy-on-write covers later mutation).
+    func detached() -> Self {
+        if let box = _owner as? NanopbBox<Storage>, box.pointer == _pointer {
+            return self
+        }
+        return lkMessage(copying: _pointer)
     }
 
     /// protoc-gen-swift's builder.
@@ -196,10 +228,10 @@ package func nanopbDecode(
     _ bytes: UnsafeRawBufferPointer,
 ) throws {
     var descriptor = descriptor
-    var stream = pb_istream_from_buffer(
+    var stream = lk_pb_istream_from_buffer(
         bytes.baseAddress?.assumingMemoryBound(to: UInt8.self), bytes.count,
     )
-    guard pb_decode(&stream, &descriptor, UnsafeMutableRawPointer(pointer)) else {
+    guard lk_pb_decode(&stream, &descriptor, UnsafeMutableRawPointer(pointer)) else {
         throw NanopbError.decodeFailed(stream.errmsg.map { String(cString: $0) } ?? "unknown")
     }
 }
@@ -209,7 +241,7 @@ package func nanopbEncodedSize(
 ) throws -> Int {
     var descriptor = descriptor
     var size = 0
-    guard pb_get_encoded_size(&size, &descriptor, UnsafeRawPointer(pointer)) else {
+    guard lk_pb_get_encoded_size(&size, &descriptor, UnsafeRawPointer(pointer)) else {
         throw NanopbError.encodeFailed("size")
     }
     return size
@@ -221,10 +253,10 @@ package func nanopbEncode(
     into buffer: UnsafeMutableRawBufferPointer,
 ) throws -> Int {
     var descriptor = descriptor
-    var stream = pb_ostream_from_buffer(
+    var stream = lk_pb_ostream_from_buffer(
         buffer.baseAddress?.assumingMemoryBound(to: UInt8.self), buffer.count,
     )
-    guard pb_encode(&stream, &descriptor, UnsafeRawPointer(pointer)) else {
+    guard lk_pb_encode(&stream, &descriptor, UnsafeRawPointer(pointer)) else {
         throw NanopbError.encodeFailed("encode")
     }
     return stream.bytes_written

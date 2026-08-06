@@ -112,4 +112,24 @@ struct NanopbRuntimeTests {
     func emptyMessage() throws {
         #expect(try LiveKit.Livekit_Room().serializedBytes().isEmpty)
     }
+
+    @Test("detached() frees a view from its parent's allocation")
+    func detachedView() {
+        var response = LiveKit.Livekit_SignalResponse()
+        response.update.participants = [.with { $0.sid = "PA_x" }]
+
+        let view = response.update.participants[0]
+        let viewSharesParentBox = view._owner === response._owner
+        #expect(viewSharesParentBox, "getter should hand out a view")
+
+        let detached = view.detached()
+        let detachedOwnsItsBox = detached._owner !== response._owner
+        #expect(detachedOwnsItsBox, "detached copy owns its own box")
+        #expect(detached == view)
+
+        // a value that already owns its storage is returned as-is
+        let owned = LiveKit.Livekit_ParticipantInfo.with { $0.sid = "PA_y" }
+        let ownedIsReturnedAsIs = owned.detached()._owner === owned._owner
+        #expect(ownedIsReturnedAsIs)
+    }
 }

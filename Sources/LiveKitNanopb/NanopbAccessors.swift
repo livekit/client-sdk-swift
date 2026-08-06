@@ -132,8 +132,13 @@ package func lkMessage<M: NanopbMessage>(_ pointer: UnsafeMutablePointer<M.Stora
 
 package func lkMessage<M: NanopbMessage>(copying pointer: UnsafePointer<M.Storage>) -> M {
     let message = M()
-    if let bytes = try? nanopbEncodedBytes(pointer, M.descriptor) {
-        try? bytes.withUnsafeBytes { try nanopbDecode(into: message._pointer, M.descriptor, $0) }
+    do {
+        let bytes = try nanopbEncodedBytes(pointer, M.descriptor)
+        try bytes.withUnsafeBytes { try nanopbDecode(into: message._pointer, M.descriptor, $0) }
+    } catch {
+        // pb_decode releases whatever it allocated before failing, so the
+        // result degrades to an empty message — reported, never silent.
+        nanopbReportFailure("message copy", error)
     }
     return message
 }
@@ -162,14 +167,19 @@ package func lkSetMessage<M: NanopbMessage>(
 /// Replace an inline submessage field.
 package func lkSetMessage<M: NanopbMessage>(inline slot: inout M.Storage, _ value: M) {
     var descriptor = M.descriptor
-    withUnsafeMutablePointer(to: &slot) { pb_release(&descriptor, UnsafeMutableRawPointer($0)) }
+    withUnsafeMutablePointer(to: &slot) { lk_pb_release(&descriptor, UnsafeMutableRawPointer($0)) }
     slot = M.zero
     withUnsafeMutablePointer(to: &slot) { lkOverwrite($0, with: value) }
 }
 
 func lkOverwrite<M: NanopbMessage>(_ pointer: UnsafeMutablePointer<M.Storage>, with value: M) {
-    if let bytes = try? nanopbEncodedBytes(value._pointer, M.descriptor) {
-        try? bytes.withUnsafeBytes { try nanopbDecode(into: pointer, M.descriptor, $0) }
+    do {
+        let bytes = try nanopbEncodedBytes(value._pointer, M.descriptor)
+        try bytes.withUnsafeBytes { try nanopbDecode(into: pointer, M.descriptor, $0) }
+    } catch {
+        // Encode failure leaves the destination untouched; a decode failure
+        // degrades it to empty (pb_decode releases its partial allocations).
+        nanopbReportFailure("message overwrite", error)
     }
 }
 
@@ -182,7 +192,7 @@ func lkOverwrite<M: NanopbMessage>(_ pointer: UnsafeMutablePointer<M.Storage>, w
 package func lkRelease(message slot: inout UnsafeMutablePointer<some Any>?, _ descriptor: pb_msgdesc_t) {
     guard let old = slot else { return }
     var descriptor = descriptor
-    pb_release(&descriptor, UnsafeMutableRawPointer(old))
+    lk_pb_release(&descriptor, UnsafeMutableRawPointer(old))
     free(old)
     slot = nil
 }
@@ -273,7 +283,7 @@ package func lkSetRepeatedMessages<M: NanopbMessage>(
     if let old = base {
         var descriptor = M.descriptor
         for index in 0 ..< Int(count) {
-            pb_release(&descriptor, UnsafeMutableRawPointer(old.advanced(by: index)))
+            lk_pb_release(&descriptor, UnsafeMutableRawPointer(old.advanced(by: index)))
         }
         free(old)
         base = nil

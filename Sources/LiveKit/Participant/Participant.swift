@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#if !COCOAPODS && !LK_XCFRAMEWORK
+import LiveKitNanopb
+#endif
 import Combine
 import Foundation
 
@@ -252,7 +255,9 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
             }
         }
 
-        self.info = info
+        // Detach: a view from a decoded signal message would otherwise keep
+        // the entire response allocation alive for this participant's lifetime.
+        self.info = info.detached()
         set(permissions: info.permission.toLKType())
     }
 
