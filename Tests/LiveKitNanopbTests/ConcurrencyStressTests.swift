@@ -82,4 +82,131 @@ struct ConcurrencyStressTests {
         #expect(base.emptyTimeout == 300)
         #expect(base.version.ticks == 0)
     }
+
+    @Test("views keep the parent allocation alive after the parent value dies")
+    func viewLifetime() async {
+        await withTaskGroup(of: Bool.self) { group in
+            for _ in 0 ..< 8 {
+                group.addTask {
+                    var ok = true
+                    for iteration in 0 ..< 300 {
+                        let view: LiveKit.Livekit_ParticipantInfo = {
+                            var response = LiveKit.Livekit_SignalResponse()
+                            response.update.participants = [.with { $0.sid = "PA_\(iteration)" }]
+                            return response.update.participants[0]
+                        }() // the response dies here; the view must hold the box
+                        ok = ok && view.sid == "PA_\(iteration)"
+                        let detached = view.detached()
+                        ok = ok && detached.sid == "PA_\(iteration)"
+                    }
+                    return ok
+                }
+            }
+            for await ok in group {
+                #expect(ok)
+            }
+        }
+    }
+
+    @Test("shared views stay stable while sibling copies mutate and detach")
+    func viewStabilityUnderCopyMutation() async {
+        var response = LiveKit.Livekit_SignalResponse()
+        response.update.participants = [
+            .with { $0.sid = "PA_a"; $0.name = "alice" },
+            .with { $0.sid = "PA_b"; $0.name = "bob" },
+        ]
+        let views = response.update.participants // zero-copy views into `response`
+        let shared = response
+
+        await withTaskGroup(of: Bool.self) { group in
+            for _ in 0 ..< 4 { // readers: views must never observe mutation
+                group.addTask {
+                    var ok = true
+                    for _ in 0 ..< 1000 {
+                        ok = ok && views[0].sid == "PA_a" && views[1].name == "bob"
+                    }
+                    return ok
+                }
+            }
+            for worker in 0 ..< 4 { // writers: copies detach before mutating
+                group.addTask {
+                    var ok = true
+                    for iteration in 0 ..< 250 {
+                        var copy = shared
+                        copy.update.participants = [.with { $0.sid = "PA_\(worker)_\(iteration)" }]
+                        ok = ok && copy.update.participants.count == 1
+                    }
+                    return ok
+                }
+            }
+            for await ok in group {
+                #expect(ok)
+            }
+        }
+        #expect(response.update.participants.count == 2)
+    }
+
+    @Test("oneof variant churn on concurrent copies")
+    func oneofChurn() async {
+        var base = LiveKit.Livekit_SignalRequest()
+        base.ping = 1
+        let shared = base
+
+        await withTaskGroup(of: Bool.self) { group in
+            for worker in 0 ..< 8 {
+                group.addTask {
+                    var ok = true
+                    for iteration in 0 ..< 250 {
+                        var copy = shared
+                        // cycle variants: scalar → message → scalar (exercises
+                        // union release + zeroing on every switch)
+                        copy.mute = .with { $0.sid = "TR_\(worker)"; $0.muted = true }
+                        copy.ping = Int64(iteration)
+                        copy.offer = .with { $0.sdp = "sdp_\(iteration)" }
+                        let wire = (try? copy.serializedBytes()) ?? []
+                        let back = try? LiveKit.Livekit_SignalRequest(serializedBytes: wire)
+                        ok = ok && back?.offer.sdp == "sdp_\(iteration)"
+                    }
+                    return ok
+                }
+            }
+            for await ok in group {
+                #expect(ok)
+            }
+        }
+        #expect(shared.ping == 1)
+    }
+
+    @Test("map and repeated churn on concurrent copies")
+    func collectionChurn() async {
+        var base = LiveKit.Livekit_ParticipantInfo()
+        base.attributes = ["role": "listener"]
+        base.tracks = [.with { $0.sid = "TR_base" }]
+        let shared = base
+
+        await withTaskGroup(of: Bool.self) { group in
+            for worker in 0 ..< 8 {
+                group.addTask {
+                    var ok = true
+                    for iteration in 0 ..< 200 {
+                        var copy = shared
+                        copy.attributes = ["worker": "\(worker)", "iteration": "\(iteration)"]
+                        copy.tracks = [
+                            .with { $0.sid = "TR_\(worker)_\(iteration)" },
+                            .with { $0.sid = "TR_second" },
+                        ]
+                        // equality reads shared storage while other tasks detach
+                        ok = ok && copy != shared
+                        ok = ok && copy.tracks.count == 2
+                    }
+                    return ok
+                }
+            }
+            for await ok in group {
+                #expect(ok)
+            }
+        }
+        #expect(shared.attributes == ["role": "listener"])
+        #expect(shared.tracks.count == 1)
+    }
 }
