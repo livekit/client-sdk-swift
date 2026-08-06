@@ -30,6 +30,7 @@ let package = Package(
     targets: [
         .target(
             name: "CLiveKitProto",
+            exclude: ["LICENSE-nanopb.txt", "module.modulemap"],
             publicHeadersPath: "include",
             cSettings: [
                 // ABI defines live in include/lk_pb_config.h (included from
