@@ -172,7 +172,7 @@ package func lkSetMessage<M: NanopbMessage>(inline slot: inout M.Storage, _ valu
     withUnsafeMutablePointer(to: &slot) { lkOverwrite($0, with: value) }
 }
 
-func lkOverwrite<M: NanopbMessage>(_ pointer: UnsafeMutablePointer<M.Storage>, with value: M) {
+package func lkOverwrite<M: NanopbMessage>(_ pointer: UnsafeMutablePointer<M.Storage>, with value: M) {
     do {
         let bytes = try nanopbEncodedBytes(value._pointer, M.descriptor)
         try bytes.withUnsafeBytes { try nanopbDecode(into: pointer, M.descriptor, $0) }
@@ -306,7 +306,7 @@ package func lkCount(_ count: pb_size_t) -> Int { Int(count) }
 /// Zero-copy views over a repeated submessage field. Each element retains
 /// `owner`, so the parent's storage outlives every view handed out.
 package func lkViews<M: NanopbMessage>(
-    _ count: pb_size_t, _ base: UnsafeMutablePointer<M.Storage>?, owner: AnyObject,
+    _ count: pb_size_t, _ base: UnsafeMutablePointer<M.Storage>?, owner: NanopbAnyBox,
 ) -> [M] {
     guard let base, count > 0 else { return [] }
     return (0 ..< Int(count)).map { M(_sharing: base + $0, owner: owner) }
