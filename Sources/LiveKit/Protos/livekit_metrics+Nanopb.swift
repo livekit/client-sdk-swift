@@ -20,6 +20,10 @@ struct Livekit_MetricsBatch: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_MetricsBatch
     static var descriptor: pb_msgdesc_t { livekit_MetricsBatch_msg }
     static var zero: Storage { Storage() }
+    /// Shared value returned when a submessage field is absent. Safe to
+    /// share because messages are immutable; `modifying` sees the static
+    /// reference, so it copies rather than writing through it.
+    static let _empty = Livekit_MetricsBatch()
 
     var _owner: NanopbAnyBox
     var _pointer: UnsafeMutablePointer<Storage>
@@ -45,7 +49,7 @@ struct Livekit_MetricsBatch: NanopbMessage, @unchecked Sendable {
     var hasTimestampMs: Bool { _pointer.pointee.timestamp_ms != nil }
 
     var normalizedTimestamp: Google_Protobuf_Timestamp {
-        _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp()
+        _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty
     }
     var hasNormalizedTimestamp: Bool { _pointer.pointee.normalized_timestamp != nil }
 
@@ -79,7 +83,7 @@ struct Livekit_MetricsBatch: NanopbMessage, @unchecked Sendable {
         }
 
         var normalizedTimestamp: Google_Protobuf_Timestamp {
-            get { _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp() }
+            get { _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty }
             nonmutating set { lkSetMessage(&_pointer.pointee.normalized_timestamp, newValue) }
         }
 
@@ -138,6 +142,10 @@ struct Livekit_TimeSeriesMetric: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_TimeSeriesMetric
     static var descriptor: pb_msgdesc_t { livekit_TimeSeriesMetric_msg }
     static var zero: Storage { Storage() }
+    /// Shared value returned when a submessage field is absent. Safe to
+    /// share because messages are immutable; `modifying` sees the static
+    /// reference, so it copies rather than writing through it.
+    static let _empty = Livekit_TimeSeriesMetric()
 
     var _owner: NanopbAnyBox
     var _pointer: UnsafeMutablePointer<Storage>
@@ -250,6 +258,10 @@ struct Livekit_MetricSample: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_MetricSample
     static var descriptor: pb_msgdesc_t { livekit_MetricSample_msg }
     static var zero: Storage { Storage() }
+    /// Shared value returned when a submessage field is absent. Safe to
+    /// share because messages are immutable; `modifying` sees the static
+    /// reference, so it copies rather than writing through it.
+    static let _empty = Livekit_MetricSample()
 
     var _owner: NanopbAnyBox
     var _pointer: UnsafeMutablePointer<Storage>
@@ -275,7 +287,7 @@ struct Livekit_MetricSample: NanopbMessage, @unchecked Sendable {
     var hasTimestampMs: Bool { _pointer.pointee.timestamp_ms != nil }
 
     var normalizedTimestamp: Google_Protobuf_Timestamp {
-        _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp()
+        _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty
     }
     var hasNormalizedTimestamp: Bool { _pointer.pointee.normalized_timestamp != nil }
 
@@ -302,7 +314,7 @@ struct Livekit_MetricSample: NanopbMessage, @unchecked Sendable {
         }
 
         var normalizedTimestamp: Google_Protobuf_Timestamp {
-            get { _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp() }
+            get { _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty }
             nonmutating set { lkSetMessage(&_pointer.pointee.normalized_timestamp, newValue) }
         }
 
@@ -339,6 +351,10 @@ struct Livekit_EventMetric: NanopbMessage, @unchecked Sendable {
     typealias Storage = livekit_EventMetric
     static var descriptor: pb_msgdesc_t { livekit_EventMetric_msg }
     static var zero: Storage { Storage() }
+    /// Shared value returned when a submessage field is absent. Safe to
+    /// share because messages are immutable; `modifying` sees the static
+    /// reference, so it copies rather than writing through it.
+    static let _empty = Livekit_EventMetric()
 
     var _owner: NanopbAnyBox
     var _pointer: UnsafeMutablePointer<Storage>
@@ -384,12 +400,12 @@ struct Livekit_EventMetric: NanopbMessage, @unchecked Sendable {
     var hasEndTimestampMs: Bool { _pointer.pointee.end_timestamp_ms != nil }
 
     var normalizedStartTimestamp: Google_Protobuf_Timestamp {
-        _pointer.pointee.normalized_start_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp()
+        _pointer.pointee.normalized_start_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty
     }
     var hasNormalizedStartTimestamp: Bool { _pointer.pointee.normalized_start_timestamp != nil }
 
     var normalizedEndTimestamp: Google_Protobuf_Timestamp {
-        _pointer.pointee.normalized_end_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp()
+        _pointer.pointee.normalized_end_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty
     }
     var hasNormalizedEndTimestamp: Bool { _pointer.pointee.normalized_end_timestamp != nil }
 
@@ -398,7 +414,7 @@ struct Livekit_EventMetric: NanopbMessage, @unchecked Sendable {
     }
     var hasMetadata: Bool { _pointer.pointee.metadata != nil }
     /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withMetadataBytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
+    func withMetadataBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
         try withLkBytes(_pointer.pointee.metadata, body)
     }
 
@@ -445,12 +461,12 @@ struct Livekit_EventMetric: NanopbMessage, @unchecked Sendable {
         }
 
         var normalizedStartTimestamp: Google_Protobuf_Timestamp {
-            get { _pointer.pointee.normalized_start_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp() }
+            get { _pointer.pointee.normalized_start_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty }
             nonmutating set { lkSetMessage(&_pointer.pointee.normalized_start_timestamp, newValue) }
         }
 
         var normalizedEndTimestamp: Google_Protobuf_Timestamp {
-            get { _pointer.pointee.normalized_end_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp() }
+            get { _pointer.pointee.normalized_end_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty }
             nonmutating set { lkSetMessage(&_pointer.pointee.normalized_end_timestamp, newValue) }
         }
 

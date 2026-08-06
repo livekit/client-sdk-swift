@@ -114,6 +114,36 @@ construction, or any accessor's free/alloc ordering, run:
 swift test --filter 'Nanopb|Conformance|ConcurrencyStress' --sanitize=thread
 ```
 
+## Memory safety
+
+The unsafe surface is the C boundary: `NanopbBox`'s allocation, the `lk*`
+accessors, and the pointer reads in the generated facades. Nothing unsafe is
+reachable from public API — every declaration here is `package`, and no public
+type exposes a pointer.
+
+Each site that carries an invariant the code cannot show for itself has a
+`// SAFETY:` comment, the convention Apple's TrueType-hinting port uses
+(`apple/truetype-hinting-interpreter-example`). Add one when introducing a new
+unsafe operation; state the invariant, not what the line does.
+
+Swift 6.2's strict memory safety (`.strictMemorySafety()`, `unsafe` expression
+markers, `@safe`) is **not** adopted: the markers are 6.2 syntax, a 6.1
+compiler rejects them, and they cannot be `#if`-guarded per expression, so
+adopting them means moving the floor off Swift 6.1. Compiling this target with
+`-strict-memory-safety` today reports ~11,200 warnings, ~5,400 of them in
+generated code (the generator would have to emit the markers). Revisit when the
+minimum toolchain reaches 6.2.
+
+Reachable improvements once the floor moves:
+
+- `Span`/`RawSpan` borrows already exist behind `#if compiler(>=6.2)`
+  (`withLkSpan`); they hand the closure a bounds-checked view instead of a raw
+  pointer, and back-deploy to iOS 12.2, so only the compiler gates them.
+- Making views `~Escapable` with `@_lifetime` would turn "stored a view and
+  pinned the parent allocation" from a memory-growth bug into a compile error.
+  Apple's port does exactly this for its `Zone` projection, but it needs
+  `.enableExperimentalFeature("Lifetimes")`.
+
 ## Tradeoffs (deliberate)
 
 - **Equality/hashing via canonical bytes**: nanopb encodes deterministically

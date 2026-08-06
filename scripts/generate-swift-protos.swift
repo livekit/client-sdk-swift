@@ -474,7 +474,7 @@ struct Emitter {
             let type = Self.local(namer.fullName(message: field.messageType!))
             return [
                 "var \(names.name): \(type) {",
-                "    get { \(slot).map { \(type)(_sharing: $0, owner: _owner) } ?? \(type)() }",
+                "    get { \(slot).map { \(type)(_sharing: $0, owner: _owner) } ?? \(type)._empty }",
                 "    set { _ensureUnique(); lkSetMessage(&\(slot), newValue) }",
                 "}",
                 "var \(names.has): Bool { \(slot) != nil }",
@@ -500,7 +500,7 @@ struct Emitter {
             "}",
             "var \(names.has): Bool { \(slot) != nil }",
             "/// Zero-copy read — borrows nanopb's allocation for the call only.",
-            "func with\(capitalised)Bytes<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {",
+            "func with\(capitalised)Bytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {",
             "    try withLkBytes(\(slot), body)",
             "}",
         ]
@@ -739,7 +739,7 @@ extension Emitter {
             return "\(slot).map { lkEnum($0.pointee) as \(type) } ?? \(type)()"
         case .message, .group:
             let type = Self.local(namer.fullName(message: variant.messageType!))
-            return "\(slot).map { \(type)(_sharing: $0, owner: _owner) } ?? \(type)()"
+            return "\(slot).map { \(type)(_sharing: $0, owner: _owner) } ?? \(type)._empty"
         default:
             return "\(slot)?.pointee ?? \(scalar(variant.type)!.zero)"
         }
@@ -863,6 +863,10 @@ extension Emitter {
         \(pad)    typealias Storage = \(storage)
         \(pad)    static var descriptor: pb_msgdesc_t { \(storage)_msg }
         \(pad)    static var zero: Storage { Storage() }
+        \(pad)    /// Shared value returned when a submessage field is absent. Safe to
+        \(pad)    /// share because messages are immutable; `modifying` sees the static
+        \(pad)    /// reference, so it copies rather than writing through it.
+        \(pad)    static let _empty = \(type)()
 
         \(pad)    var _owner: NanopbAnyBox
         \(pad)    var _pointer: UnsafeMutablePointer<Storage>

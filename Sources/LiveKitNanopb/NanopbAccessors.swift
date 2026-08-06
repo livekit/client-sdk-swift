@@ -37,26 +37,38 @@ package func lkString(_ pointer: UnsafeMutablePointer<CChar>?) -> String? {
 }
 
 package func lkSetString(_ slot: inout UnsafeMutablePointer<CChar>?, _ value: String) {
+    // SAFETY: `slot` is owned by one box, and a message is only mutated
+    // through its own `Builder`, so no other value can observe the old
+    // pointer between the free and the store.
     if let old = slot { free(old) }
     slot = strdup(value)
 }
 
 /// Borrow the bytes of an owned C string for the duration of `body` — no copy.
-package func withLkBytes<R>(
+package func withLkBytes<R, E: Error>(
     _ pointer: UnsafeMutablePointer<CChar>?,
-    _ body: (UnsafeRawBufferPointer?) throws -> R,
-) rethrows -> R {
+    _ body: (UnsafeRawBufferPointer?) throws(E) -> R,
+) throws(E) -> R {
     guard let pointer else { return try body(nil) }
     return try body(UnsafeRawBufferPointer(start: pointer, count: strlen(pointer)))
 }
 
 // MARK: - Bytes
 
+/// `pb_bytes_array_t` is a size header followed by an inline byte array; the
+/// payload starts at that member's offset.
+private let lkBytesHeader = MemoryLayout<pb_bytes_array_t>.offset(of: \pb_bytes_array_t.bytes) ?? 4
+
+private func lkBytesBase(_ pointer: UnsafeMutablePointer<pb_bytes_array_t>) -> UnsafeRawPointer {
+    // SAFETY: `pointer` comes from `lkAllocBytes`, which allocates
+    // `lkBytesHeader + size` bytes, so the payload is in bounds for `size`
+    // bytes. Reading `bytes` as a Swift tuple would only cover one element.
+    UnsafeRawPointer(pointer).advanced(by: lkBytesHeader)
+}
+
 package func lkData(_ pointer: UnsafeMutablePointer<pb_bytes_array_t>?) -> Data {
     guard let pointer, pointer.pointee.size > 0 else { return Data() }
-    return withUnsafePointer(to: &pointer.pointee.bytes) {
-        Data(bytes: UnsafeRawPointer($0), count: Int(pointer.pointee.size))
-    }
+    return Data(bytes: lkBytesBase(pointer), count: Int(pointer.pointee.size))
 }
 
 package func lkSetData(_ slot: inout UnsafeMutablePointer<pb_bytes_array_t>?, _ value: Data) {
@@ -65,19 +77,20 @@ package func lkSetData(_ slot: inout UnsafeMutablePointer<pb_bytes_array_t>?, _ 
 }
 
 /// Borrow a bytes field without copying into `Data`.
-package func withLkData<R>(
+package func withLkData<R, E: Error>(
     _ pointer: UnsafeMutablePointer<pb_bytes_array_t>?,
-    _ body: (UnsafeRawBufferPointer?) throws -> R,
-) rethrows -> R {
+    _ body: (UnsafeRawBufferPointer?) throws(E) -> R,
+) throws(E) -> R {
     guard let pointer else { return try body(nil) }
-    return try withUnsafePointer(to: &pointer.pointee.bytes) {
-        try body(UnsafeRawBufferPointer(start: $0, count: Int(pointer.pointee.size)))
-    }
+    return try body(UnsafeRawBufferPointer(start: lkBytesBase(pointer),
+                                           count: Int(pointer.pointee.size)))
 }
 
 func lkAllocBytes(_ value: Data) -> UnsafeMutablePointer<pb_bytes_array_t>? {
-    // pb_bytes_array_t is a size header followed by an inline byte array.
-    let header = MemoryLayout<pb_bytes_array_t>.offset(of: \pb_bytes_array_t.bytes) ?? 4
+    let header = lkBytesHeader
+    // SAFETY: at least one byte is always allocated so the flexible array
+    // member has a valid address even for an empty payload; the memcpy below
+    // is bounded by the same `value.count` used to size the allocation.
     guard let raw = malloc(header + max(value.count, 1)) else { return nil }
     let array = raw.bindMemory(to: pb_bytes_array_t.self, capacity: 1)
     array.pointee.size = pb_size_t(value.count)
@@ -126,7 +139,7 @@ package func lkSetEnumPointer<C: RawRepresentable>(
 // small; hot paths can use the zero-copy readers instead.
 
 package func lkMessage<M: NanopbMessage>(_ pointer: UnsafeMutablePointer<M.Storage>?) -> M {
-    guard let pointer else { return M() }
+    guard let pointer else { return M._empty }
     return lkMessage(copying: pointer)
 }
 
@@ -148,6 +161,8 @@ package func lkMessage<M: NanopbMessage>(copying pointer: UnsafePointer<M.Storag
 package func lkMemberPointer<S, M>(
     _ base: UnsafeMutablePointer<S>, _ keyPath: WritableKeyPath<S, M>,
 ) -> UnsafeMutablePointer<M> {
+    // SAFETY: `S` is a C struct imported with its C layout, so the member
+    // offset is stable and the result stays inside `base`'s allocation.
     let offset = MemoryLayout<S>.offset(of: keyPath)!
     return (UnsafeMutableRawPointer(base) + offset).assumingMemoryBound(to: M.self)
 }
@@ -205,11 +220,11 @@ package func lkFree(_ slot: inout UnsafeMutablePointer<some Any>?) {
 // MARK: - Repeated fields
 
 /// Borrow a repeated field for the duration of `body` — no array allocated.
-package func withLkRepeated<C, R>(
+package func withLkRepeated<C, R, E: Error>(
     _ count: pb_size_t,
     _ base: UnsafeMutablePointer<C>?,
-    _ body: (UnsafeBufferPointer<C>) throws -> R,
-) rethrows -> R {
+    _ body: (UnsafeBufferPointer<C>) throws(E) -> R,
+) throws(E) -> R {
     guard let base, count > 0 else { return try body(.init(start: nil, count: 0)) }
     return try body(UnsafeBufferPointer(start: base, count: Int(count)))
 }
@@ -280,6 +295,9 @@ package func lkRepeatedMessages<M: NanopbMessage>(
 package func lkSetRepeatedMessages<M: NanopbMessage>(
     _ count: inout pb_size_t, _ base: inout UnsafeMutablePointer<M.Storage>?, _ values: [M],
 ) {
+    // SAFETY: each element owns nested allocations, so every one must be
+    // released with its descriptor before the array itself is freed —
+    // freeing the array alone would leak the whole subtree.
     if let old = base {
         var descriptor = M.descriptor
         for index in 0 ..< Int(count) {
@@ -308,6 +326,41 @@ package func lkCount(_ count: pb_size_t) -> Int { Int(count) }
 package func lkViews<M: NanopbMessage>(
     _ count: pb_size_t, _ base: UnsafeMutablePointer<M.Storage>?, owner: NanopbAnyBox,
 ) -> [M] {
+    // SAFETY: every element retains `owner`, so the parent's allocation
+    // outlives each view; storage is immutable once published, so the
+    // elements can be read while other values share the same box.
     guard let base, count > 0 else { return [] }
     return (0 ..< Int(count)).map { M(_sharing: base + $0, owner: owner) }
 }
+
+// MARK: - Spans
+
+#if compiler(>=6.2)
+// `Span` and `RawSpan` are Swift 6.2 stdlib types that back-deploy to
+// macOS 10.14.4 / iOS 12.2, so only the compiler floor gates them, not the
+// deployment target. They give the closure body a bounds-checked view instead
+// of a raw pointer; returning one would additionally need a lifetime
+// annotation (`@_lifetime`), which is still experimental, so the borrow stays
+// scoped to the call.
+
+/// Borrow a bytes field as a bounds-checked `RawSpan`.
+package func withLkSpan<R, E: Error>(
+    _ pointer: UnsafeMutablePointer<pb_bytes_array_t>?,
+    _ body: (RawSpan) throws(E) -> R,
+) throws(E) -> R {
+    try withLkData(pointer) { (buffer: UnsafeRawBufferPointer?) throws(E) -> R in
+        try body(unsafe RawSpan(_unsafeBytes: buffer ?? UnsafeRawBufferPointer(start: nil, count: 0)))
+    }
+}
+
+/// Borrow a repeated scalar field as a bounds-checked `Span`.
+package func withLkSpan<C: BitwiseCopyable, R, E: Error>(
+    _ count: pb_size_t,
+    _ base: UnsafeMutablePointer<C>?,
+    _ body: (Span<C>) throws(E) -> R,
+) throws(E) -> R {
+    try withLkRepeated(count, base) { (buffer: UnsafeBufferPointer<C>) throws(E) -> R in
+        try body(unsafe Span(_unsafeElements: buffer))
+    }
+}
+#endif

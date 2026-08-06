@@ -20,6 +20,10 @@ struct Google_Protobuf_Timestamp: NanopbMessage, @unchecked Sendable {
     typealias Storage = google_protobuf_Timestamp
     static var descriptor: pb_msgdesc_t { google_protobuf_Timestamp_msg }
     static var zero: Storage { Storage() }
+    /// Shared value returned when a submessage field is absent. Safe to
+    /// share because messages are immutable; `modifying` sees the static
+    /// reference, so it copies rather than writing through it.
+    static let _empty = Google_Protobuf_Timestamp()
 
     var _owner: NanopbAnyBox
     var _pointer: UnsafeMutablePointer<Storage>

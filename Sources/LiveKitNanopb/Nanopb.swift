@@ -100,6 +100,9 @@ package final class NanopbBox<Storage>: NanopbAnyBox, @unchecked Sendable {
     let descriptor: pb_msgdesc_t
 
     package init(zero: Storage, descriptor: pb_msgdesc_t) {
+        // SAFETY: the allocation is address-stable for the box's lifetime,
+        // which is what lets views point into it; `deinit` is the only place
+        // it is torn down, and it pairs every step taken here.
         pointer = .allocate(capacity: 1)
         pointer.initialize(to: zero)
         self.descriptor = descriptor
@@ -107,6 +110,9 @@ package final class NanopbBox<Storage>: NanopbAnyBox, @unchecked Sendable {
     }
 
     deinit {
+        // SAFETY: `lk_pb_release` frees the dynamic fields and nulls them, so
+        // a double release is harmless — `pb_decode` may already have released
+        // partial state after a failed decode into this same storage.
         var descriptor = descriptor
         lk_pb_release(&descriptor, UnsafeMutableRawPointer(pointer))
         pointer.deinitialize(count: 1)
@@ -137,6 +143,8 @@ package protocol NanopbMessage: Equatable, Hashable, Sendable {
     var _pointer: UnsafeMutablePointer<Storage> { get set }
 
     init()
+    /// Shared empty value handed out for absent submessage fields.
+    static var _empty: Self { get }
     /// A view into storage owned by `owner` — zero-copy.
     init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox)
 }
@@ -158,6 +166,9 @@ package extension NanopbMessage {
     /// True when `_owner` is this value's own box rather than a parent's,
     /// tested without retaining the box.
     var _ownsItsStorage: Bool {
+        // SAFETY: compares addresses only. A `NanopbBox<Storage>` downcast
+        // would hold a second reference across `modifying`'s uniqueness
+        // check and make it always fail.
         _owner.rawPointer == UnsafeMutableRawPointer(_pointer)
     }
 
@@ -221,6 +232,9 @@ package func nanopbDecode(
     _ bytes: UnsafeRawBufferPointer,
 ) throws {
     var descriptor = descriptor
+    // SAFETY: nanopb reads at most `bytes.count` bytes from the buffer, and
+    // the buffer outlives the call because the caller owns it for the
+    // duration of `withUnsafeBytes`.
     var stream = lk_pb_istream_from_buffer(
         bytes.baseAddress?.assumingMemoryBound(to: UInt8.self), bytes.count,
     )
@@ -246,6 +260,8 @@ package func nanopbEncode(
     into buffer: UnsafeMutableRawBufferPointer,
 ) throws -> Int {
     var descriptor = descriptor
+    // SAFETY: the stream is capped at `buffer.count`, so nanopb fails the
+    // encode rather than overrunning if the size estimate was short.
     var stream = lk_pb_ostream_from_buffer(
         buffer.baseAddress?.assumingMemoryBound(to: UInt8.self), buffer.count,
     )

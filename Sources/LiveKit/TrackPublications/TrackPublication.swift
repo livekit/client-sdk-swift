@@ -99,7 +99,9 @@ public class TrackPublication: NSObject, @unchecked Sendable, ObservableObject, 
             dimensions: info.type == .video ? Dimensions(width: Int32(info.width), height: Int32(info.height)) : nil,
             isMetadataMuted: info.muted,
             encryptionType: info.encryption.toLKType(),
-            latestInfo: info,
+            // owned: `info` is a view into the decoded signal message, which a
+            // stored view would pin for this publication's whole lifetime
+            latestInfo: info.owned(),
             audioTrackFeatures: Set(info.audioFeatures),
         ))
 
