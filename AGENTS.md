@@ -83,10 +83,11 @@ an independent "oracle" implementation to verify against.
   deliberate differences: explicit zero scalars are encoded (pointer
   presence), unknown fields are dropped on re-encode, embedded NULs truncate
   strings.
-- **ABI**: nanopb configuration (`PB_FIELD_32BIT` etc.) must stay in the
-  vendored `pb.h`, never in build settings — SPM `cSettings` are invisible to
-  the Swift Clang importer and cause silent struct-layout mismatches.
-  `lk_abi_check.c` guards this at compile time.
+- **ABI**: nanopb configuration (`PB_FIELD_32BIT` etc.) lives in
+  `lk_pb_config.h`, included from the vendored `pb.h` — never in build
+  settings: SPM `cSettings` are invisible to the Swift Clang importer and
+  cause silent struct-layout mismatches. `lk_abi_check.c` guards this at
+  compile time.
 - **Symbols**: the vendored runtime's functions are renamed `pb_*` → `lk_pb_*`
   (`lk_pb_rename.h`) so a second nanopb in the app (e.g. Firebase pods) can't
   silently bind against ours under static linking. After a nanopb upgrade the

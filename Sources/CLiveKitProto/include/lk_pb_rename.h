@@ -1,8 +1,8 @@
 /*
  * Renames every external symbol of the vendored nanopb runtime to an lk_
- * prefix. Included from pb.h's marked LiveKit block, so every translation
- * unit (runtime .c, generated .c, and the Swift importer) sees the same
- * renamed declarations.
+ * prefix. Included from lk_pb_config.h (reached via pb.h's marked LiveKit
+ * block), so every translation unit (runtime .c, generated .c, and the Swift
+ * importer) sees the same renamed declarations.
  *
  * Why: apps commonly embed a second nanopb — Firebase pods ship one — and
  * under static linking the duplicate C symbols do NOT collide loudly: the
