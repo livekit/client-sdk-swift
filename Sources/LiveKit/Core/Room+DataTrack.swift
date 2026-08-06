@@ -51,6 +51,11 @@ final class DataTracks: NSObject, @unchecked Sendable {
     // `reattachRemoteTracks`.
     private let _remoteTracks = StateSync<[RemoteDataTrack]>([])
 
+    // Outbound frame drain. Confined to `DispatchQueue.liveKitWebRTC` (no locks: `sendData`
+    // proxies into WebRTC's threads, and the buffered-amount callbacks arrive from them — a lock
+    // held across either direction could deadlock).
+    fileprivate let frameSender = DataTrackFrameSender()
+
     var publisherChannel: LKRTCDataChannel? { _publisherChannel.copy() }
 
     init(room: Room) {
@@ -215,6 +220,10 @@ final class DataTracks: NSObject, @unchecked Sendable {
         if channel.readyState == .open {
             _publisherChannelOpen.resume(returning: ())
         }
+        // Frames queued for the old channel belong to the torn-down transport.
+        DispatchQueue.liveKitWebRTC.async { [weak self] in
+            self?.frameSender.attach(channel)
+        }
     }
 
     func setSubscriberChannel(_ channel: LKRTCDataChannel) {
@@ -264,23 +273,8 @@ final class DataTracks: NSObject, @unchecked Sendable {
         }
 
         func onPacketsAvailable(packets: [Data]) {
-            guard let channel = coordinator?.publisherChannel else { return }
-            let buffers = packets.map { RTC.createDataBuffer(data: $0) }
-            DispatchQueue.liveKitWebRTC.async { [weak room] in
-                // ponytail: drop the whole frame when the channel is congested. The DTP channel is
-                // unreliable, so dropping beats unbounded buffering; switch to drop-oldest if the
-                // newest-frame loss becomes a problem.
-                guard channel.bufferedAmount < Self.maxBufferedAmount else {
-                    room?.log("Data track channel congested (\(channel.bufferedAmount) bytes buffered), dropping frame", .warning)
-                    return
-                }
-                var dropped = 0
-                for buffer in buffers where !channel.sendData(buffer) {
-                    dropped += 1
-                }
-                if dropped > 0 {
-                    room?.log("Dropped \(dropped) data track packet(s); channel not open (state: \(channel.readyState.rawValue))", .debug)
-                }
+            DispatchQueue.liveKitWebRTC.async { [weak coordinator] in
+                coordinator?.frameSender.sendOrQueue(packets)
             }
         }
 
@@ -291,9 +285,6 @@ final class DataTracks: NSObject, @unchecked Sendable {
         func onTrackUnpublished(sid: LiveKitUniFFI.DataTrackSid) {
             coordinator?.remoteTrackUnpublished(sid: DataTrack.Sid(from: sid))
         }
-
-        // Bound the publisher data track channel buffer; parity with the lossy data channel threshold.
-        private static let maxBufferedAmount: UInt64 = 2 * 1024 * 1024
     }
 }
 
@@ -303,6 +294,17 @@ extension DataTracks: LKRTCDataChannelDelegate {
     func dataChannelDidChangeState(_ dataChannel: LKRTCDataChannel) {
         if dataChannel === publisherChannel, dataChannel.readyState == .open {
             _publisherChannelOpen.resume(returning: ())
+            // Drain anything queued while the channel was still opening.
+            DispatchQueue.liveKitWebRTC.async { [weak self] in
+                self?.frameSender.pump()
+            }
+        }
+    }
+
+    func dataChannel(_ dataChannel: LKRTCDataChannel, didChangeBufferedAmount _: UInt64) {
+        guard dataChannel === publisherChannel else { return }
+        DispatchQueue.liveKitWebRTC.async { [weak self] in
+            self?.frameSender.pump()
         }
     }
 
