@@ -127,6 +127,7 @@ jobs:
             -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
             APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
             -only-testing:LiveKitCoreTests \
+            -only-testing:LiveKitNanopbTests \
             -only-testing:LiveKitObjCTests \
             -parallel-testing-enabled NO \
             -retry-tests-on-failure -test-iterations 2 \
