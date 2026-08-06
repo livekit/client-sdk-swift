@@ -94,16 +94,14 @@ public enum DataTrackDelegateEvent: String, Sendable {
 /// Records data-track delegate events from both ``RoomDelegate`` and ``ParticipantDelegate``.
 /// Register on a room and/or a participant before publishing to avoid races.
 public final class DataTrackDelegateRecorder: NSObject, RoomDelegate, ParticipantDelegate, @unchecked Sendable {
-    private let lock = NSLock()
-    private var events: [(DataTrackDelegateEvent, DataTrack.Sid)] = []
+    private let _events = StateSync<[(DataTrackDelegateEvent, DataTrack.Sid)]>([])
 
     private func record(_ kind: DataTrackDelegateEvent, _ sid: DataTrack.Sid) {
-        lock.lock(); events.append((kind, sid)); lock.unlock()
+        _events.mutate { $0.append((kind, sid)) }
     }
 
     private func firstSid(_ kind: DataTrackDelegateEvent) -> DataTrack.Sid? {
-        lock.lock(); defer { lock.unlock() }
-        return events.first { $0.0 == kind }?.1
+        _events.read { $0.first { $0.0 == kind }?.1 }
     }
 
     /// Waits for the given event, returning the SID it carried.
