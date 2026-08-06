@@ -135,6 +135,7 @@ struct GenerateSwiftProtos: ParsableCommand {
                 if path.contains("/Protos/") || path.contains("/Oracle/")
                     || path.contains("/Generated/") { continue }
                 guard let text = try? file.readAsString() else { continue }
+                for match in text.matches(of: typeName) {
                     used.insert(String(match.output))
                 }
             }
