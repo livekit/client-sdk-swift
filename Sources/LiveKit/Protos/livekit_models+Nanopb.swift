@@ -47,19 +47,11 @@ struct Livekit_Room: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.sid) ?? ""
     }
     var hasSid: Bool { _pointer.pointee.sid != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withSidBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.sid, body)
-    }
 
     var name: String {
         lkString(_pointer.pointee.name) ?? ""
     }
     var hasName: Bool { _pointer.pointee.name != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withNameBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.name, body)
-    }
 
     var emptyTimeout: UInt32 {
         _pointer.pointee.empty_timeout?.pointee ?? 0
@@ -80,10 +72,6 @@ struct Livekit_Room: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.turn_password) ?? ""
     }
     var hasTurnPassword: Bool { _pointer.pointee.turn_password != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withTurnPasswordBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.turn_password, body)
-    }
 
     var enabledCodecs: [Livekit_Codec] {
         lkViews(_pointer.pointee.enabled_codecs_count, _pointer.pointee.enabled_codecs, owner: _owner)
@@ -93,10 +81,6 @@ struct Livekit_Room: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.metadata) ?? ""
     }
     var hasMetadata: Bool { _pointer.pointee.metadata != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withMetadataBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.metadata, body)
-    }
 
     var numParticipants: UInt32 {
         _pointer.pointee.num_participants?.pointee ?? 0
@@ -269,19 +253,11 @@ struct Livekit_Codec: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.mime) ?? ""
     }
     var hasMime: Bool { _pointer.pointee.mime != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withMimeBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.mime, body)
-    }
 
     var fmtpLine: String {
         lkString(_pointer.pointee.fmtp_line) ?? ""
     }
     var hasFmtpLine: Bool { _pointer.pointee.fmtp_line != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withFmtpLineBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.fmtp_line, body)
-    }
 
     /// Mutation lives here. `~Copyable` means the compiler proves there is
     /// never a second live handle to this storage, so no uniqueness check is
@@ -526,19 +502,11 @@ struct Livekit_ParticipantInfo: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.sid) ?? ""
     }
     var hasSid: Bool { _pointer.pointee.sid != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withSidBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.sid, body)
-    }
 
     var identity: String {
         lkString(_pointer.pointee.identity) ?? ""
     }
     var hasIdentity: Bool { _pointer.pointee.identity != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withIdentityBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.identity, body)
-    }
 
     var state: Livekit_ParticipantInfo.State {
         _pointer.pointee.state.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo.State()
@@ -553,10 +521,6 @@ struct Livekit_ParticipantInfo: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.metadata) ?? ""
     }
     var hasMetadata: Bool { _pointer.pointee.metadata != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withMetadataBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.metadata, body)
-    }
 
     var joinedAt: Int64 {
         _pointer.pointee.joined_at?.pointee ?? 0
@@ -567,10 +531,6 @@ struct Livekit_ParticipantInfo: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.name) ?? ""
     }
     var hasName: Bool { _pointer.pointee.name != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withNameBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.name, body)
-    }
 
     var version: UInt32 {
         _pointer.pointee.version?.pointee ?? 0
@@ -586,10 +546,6 @@ struct Livekit_ParticipantInfo: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.region) ?? ""
     }
     var hasRegion: Bool { _pointer.pointee.region != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withRegionBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.region, body)
-    }
 
     var isPublisher: Bool {
         _pointer.pointee.is_publisher?.pointee ?? false
@@ -663,19 +619,11 @@ struct Livekit_ParticipantInfo: NanopbMessage, @unchecked Sendable {
             lkString(_pointer.pointee.key) ?? ""
         }
         var hasKey: Bool { _pointer.pointee.key != nil }
-        /// Zero-copy read — borrows nanopb's allocation for the call only.
-        func withKeyBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-            try withLkBytes(_pointer.pointee.key, body)
-        }
 
         var value: String {
             lkString(_pointer.pointee.value) ?? ""
         }
         var hasValue: Bool { _pointer.pointee.value != nil }
-        /// Zero-copy read — borrows nanopb's allocation for the call only.
-        func withValueBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-            try withLkBytes(_pointer.pointee.value, body)
-        }
 
         /// Mutation lives here. `~Copyable` means the compiler proves there is
         /// never a second live handle to this storage, so no uniqueness check is
@@ -1114,28 +1062,16 @@ struct Livekit_SimulcastCodecInfo: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.mime_type) ?? ""
     }
     var hasMimeType: Bool { _pointer.pointee.mime_type != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withMimeTypeBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.mime_type, body)
-    }
 
     var mid: String {
         lkString(_pointer.pointee.mid) ?? ""
     }
     var hasMid: Bool { _pointer.pointee.mid != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withMidBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.mid, body)
-    }
 
     var cid: String {
         lkString(_pointer.pointee.cid) ?? ""
     }
     var hasCid: Bool { _pointer.pointee.cid != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withCidBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.cid, body)
-    }
 
     var layers: [Livekit_VideoLayer] {
         lkViews(_pointer.pointee.layers_count, _pointer.pointee.layers, owner: _owner)
@@ -1150,10 +1086,6 @@ struct Livekit_SimulcastCodecInfo: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.sdp_cid) ?? ""
     }
     var hasSdpCid: Bool { _pointer.pointee.sdp_cid != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withSdpCidBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.sdp_cid, body)
-    }
 
     /// Mutation lives here. `~Copyable` means the compiler proves there is
     /// never a second live handle to this storage, so no uniqueness check is
@@ -1256,10 +1188,6 @@ struct Livekit_TrackInfo: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.sid) ?? ""
     }
     var hasSid: Bool { _pointer.pointee.sid != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withSidBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.sid, body)
-    }
 
     var type: Livekit_TrackType {
         _pointer.pointee.type.map { lkEnum($0.pointee) } ?? Livekit_TrackType()
@@ -1270,10 +1198,6 @@ struct Livekit_TrackInfo: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.name) ?? ""
     }
     var hasName: Bool { _pointer.pointee.name != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withNameBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.name, body)
-    }
 
     var muted: Bool {
         _pointer.pointee.muted?.pointee ?? false
@@ -1313,19 +1237,11 @@ struct Livekit_TrackInfo: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.mime_type) ?? ""
     }
     var hasMimeType: Bool { _pointer.pointee.mime_type != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withMimeTypeBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.mime_type, body)
-    }
 
     var mid: String {
         lkString(_pointer.pointee.mid) ?? ""
     }
     var hasMid: Bool { _pointer.pointee.mid != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withMidBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.mid, body)
-    }
 
     var codecs: [Livekit_SimulcastCodecInfo] {
         lkViews(_pointer.pointee.codecs_count, _pointer.pointee.codecs, owner: _owner)
@@ -1350,10 +1266,6 @@ struct Livekit_TrackInfo: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.stream) ?? ""
     }
     var hasStream: Bool { _pointer.pointee.stream != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withStreamBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.stream, body)
-    }
 
     var version: Livekit_TimedVersion {
         _pointer.pointee.version.map { Livekit_TimedVersion(_sharing: $0, owner: _owner) } ?? Livekit_TimedVersion._empty
@@ -1566,19 +1478,11 @@ struct Livekit_DataTrackInfo: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.sid) ?? ""
     }
     var hasSid: Bool { _pointer.pointee.sid != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withSidBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.sid, body)
-    }
 
     var name: String {
         lkString(_pointer.pointee.name) ?? ""
     }
     var hasName: Bool { _pointer.pointee.name != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withNameBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.name, body)
-    }
 
     var encryption: Livekit_Encryption.TypeEnum {
         _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum()
@@ -1775,10 +1679,6 @@ struct Livekit_VideoLayer: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.rid) ?? ""
     }
     var hasRid: Bool { _pointer.pointee.rid != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withRidBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.rid, body)
-    }
 
     var repairSsrc: UInt32 {
         _pointer.pointee.repair_ssrc?.pointee ?? 0
@@ -1931,10 +1831,6 @@ struct Livekit_DataPacket: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.participant_identity) ?? ""
     }
     var hasParticipantIdentity: Bool { _pointer.pointee.participant_identity != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withParticipantIdentityBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.participant_identity, body)
-    }
 
     var destinationIdentities: [String] {
         lkRepeated(_pointer.pointee.destination_identities_count, _pointer.pointee.destination_identities)
@@ -1949,10 +1845,6 @@ struct Livekit_DataPacket: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.participant_sid) ?? ""
     }
     var hasParticipantSid: Bool { _pointer.pointee.participant_sid != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withParticipantSidBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.participant_sid, body)
-    }
 
     enum OneOf_Value: Equatable {
         case user(Livekit_UserPacket)
@@ -2387,9 +2279,6 @@ struct Livekit_EncryptedPacket: NanopbMessage, @unchecked Sendable {
         lkData(_pointer.pointee.iv)
     }
     var hasIv: Bool { _pointer.pointee.iv != nil }
-    func withIv<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkData(_pointer.pointee.iv, body)
-    }
 
     var keyIndex: UInt32 {
         _pointer.pointee.key_index?.pointee ?? 0
@@ -2400,9 +2289,6 @@ struct Livekit_EncryptedPacket: NanopbMessage, @unchecked Sendable {
         lkData(_pointer.pointee.encrypted_value)
     }
     var hasEncryptedValue: Bool { _pointer.pointee.encrypted_value != nil }
-    func withEncryptedValue<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkData(_pointer.pointee.encrypted_value, body)
-    }
 
     /// Mutation lives here. `~Copyable` means the compiler proves there is
     /// never a second live handle to this storage, so no uniqueness check is
@@ -2829,10 +2715,6 @@ struct Livekit_SpeakerInfo: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.sid) ?? ""
     }
     var hasSid: Bool { _pointer.pointee.sid != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withSidBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.sid, body)
-    }
 
     var level: Float {
         _pointer.pointee.level?.pointee ?? 0
@@ -2926,18 +2808,11 @@ struct Livekit_UserPacket: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.participant_sid) ?? ""
     }
     var hasParticipantSid: Bool { _pointer.pointee.participant_sid != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withParticipantSidBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.participant_sid, body)
-    }
 
     var payload: Data {
         lkData(_pointer.pointee.payload)
     }
     var hasPayload: Bool { _pointer.pointee.payload != nil }
-    func withPayload<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkData(_pointer.pointee.payload, body)
-    }
 
     var destinationSids: [String] {
         lkRepeated(_pointer.pointee.destination_sids_count, _pointer.pointee.destination_sids)
@@ -2947,19 +2822,11 @@ struct Livekit_UserPacket: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.topic) ?? ""
     }
     var hasTopic: Bool { _pointer.pointee.topic != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withTopicBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.topic, body)
-    }
 
     var participantIdentity: String {
         lkString(_pointer.pointee.participant_identity) ?? ""
     }
     var hasParticipantIdentity: Bool { _pointer.pointee.participant_identity != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withParticipantIdentityBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.participant_identity, body)
-    }
 
     var destinationIdentities: [String] {
         lkRepeated(_pointer.pointee.destination_identities_count, _pointer.pointee.destination_identities)
@@ -2969,10 +2836,6 @@ struct Livekit_UserPacket: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.id) ?? ""
     }
     var hasID: Bool { _pointer.pointee.id != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withIDBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.id, body)
-    }
 
     var startTime: UInt64 {
         _pointer.pointee.start_time?.pointee ?? 0
@@ -2988,9 +2851,6 @@ struct Livekit_UserPacket: NanopbMessage, @unchecked Sendable {
         lkData(_pointer.pointee.nonce)
     }
     var hasNonce: Bool { _pointer.pointee.nonce != nil }
-    func withNonce<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkData(_pointer.pointee.nonce, body)
-    }
 
     /// Mutation lives here. `~Copyable` means the compiler proves there is
     /// never a second live handle to this storage, so no uniqueness check is
@@ -3122,10 +2982,6 @@ struct Livekit_SipDTMF: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.digit) ?? ""
     }
     var hasDigit: Bool { _pointer.pointee.digit != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withDigitBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.digit, body)
-    }
 
     /// Mutation lives here. `~Copyable` means the compiler proves there is
     /// never a second live handle to this storage, so no uniqueness check is
@@ -3204,19 +3060,11 @@ struct Livekit_Transcription: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.transcribed_participant_identity) ?? ""
     }
     var hasTranscribedParticipantIdentity: Bool { _pointer.pointee.transcribed_participant_identity != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withTranscribedParticipantIdentityBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.transcribed_participant_identity, body)
-    }
 
     var trackID: String {
         lkString(_pointer.pointee.track_id) ?? ""
     }
     var hasTrackID: Bool { _pointer.pointee.track_id != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withTrackIDBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.track_id, body)
-    }
 
     var segments: [Livekit_TranscriptionSegment] {
         lkViews(_pointer.pointee.segments_count, _pointer.pointee.segments, owner: _owner)
@@ -3308,19 +3156,11 @@ struct Livekit_TranscriptionSegment: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.id) ?? ""
     }
     var hasID: Bool { _pointer.pointee.id != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withIDBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.id, body)
-    }
 
     var text: String {
         lkString(_pointer.pointee.text) ?? ""
     }
     var hasText: Bool { _pointer.pointee.text != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withTextBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.text, body)
-    }
 
     var startTime: UInt64 {
         _pointer.pointee.start_time?.pointee ?? 0
@@ -3341,10 +3181,6 @@ struct Livekit_TranscriptionSegment: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.language) ?? ""
     }
     var hasLanguage: Bool { _pointer.pointee.language != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withLanguageBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.language, body)
-    }
 
     /// Mutation lives here. `~Copyable` means the compiler proves there is
     /// never a second live handle to this storage, so no uniqueness check is
@@ -3443,10 +3279,6 @@ struct Livekit_ChatMessage: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.id) ?? ""
     }
     var hasID: Bool { _pointer.pointee.id != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withIDBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.id, body)
-    }
 
     var timestamp: Int64 {
         _pointer.pointee.timestamp?.pointee ?? 0
@@ -3462,10 +3294,6 @@ struct Livekit_ChatMessage: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.message) ?? ""
     }
     var hasMessage: Bool { _pointer.pointee.message != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withMessageBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.message, body)
-    }
 
     var deleted: Bool {
         _pointer.pointee.deleted?.pointee ?? false
@@ -3574,28 +3402,16 @@ struct Livekit_RpcRequest: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.id) ?? ""
     }
     var hasID: Bool { _pointer.pointee.id != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withIDBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.id, body)
-    }
 
     var method: String {
         lkString(_pointer.pointee.method) ?? ""
     }
     var hasMethod: Bool { _pointer.pointee.method != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withMethodBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.method, body)
-    }
 
     var payload: String {
         lkString(_pointer.pointee.payload) ?? ""
     }
     var hasPayload: Bool { _pointer.pointee.payload != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withPayloadBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.payload, body)
-    }
 
     var responseTimeoutMs: UInt32 {
         _pointer.pointee.response_timeout_ms?.pointee ?? 0
@@ -3611,9 +3427,6 @@ struct Livekit_RpcRequest: NanopbMessage, @unchecked Sendable {
         lkData(_pointer.pointee.compressed_payload)
     }
     var hasCompressedPayload: Bool { _pointer.pointee.compressed_payload != nil }
-    func withCompressedPayload<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-        try withLkData(_pointer.pointee.compressed_payload, body)
-    }
 
     /// Mutation lives here. `~Copyable` means the compiler proves there is
     /// never a second live handle to this storage, so no uniqueness check is
@@ -3712,10 +3525,6 @@ struct Livekit_RpcAck: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.request_id) ?? ""
     }
     var hasRequestID: Bool { _pointer.pointee.request_id != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withRequestIDBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.request_id, body)
-    }
 
     /// Mutation lives here. `~Copyable` means the compiler proves there is
     /// never a second live handle to this storage, so no uniqueness check is
@@ -3789,10 +3598,6 @@ struct Livekit_RpcResponse: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.request_id) ?? ""
     }
     var hasRequestID: Bool { _pointer.pointee.request_id != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withRequestIDBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.request_id, body)
-    }
 
     enum OneOf_Value: Equatable {
         case payload(String)
@@ -3965,19 +3770,11 @@ struct Livekit_RpcError: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.message) ?? ""
     }
     var hasMessage: Bool { _pointer.pointee.message != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withMessageBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.message, body)
-    }
 
     var data: String {
         lkString(_pointer.pointee.data) ?? ""
     }
     var hasData: Bool { _pointer.pointee.data != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withDataBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.data, body)
-    }
 
     /// Mutation lives here. `~Copyable` means the compiler proves there is
     /// never a second live handle to this storage, so no uniqueness check is
@@ -4061,10 +3858,6 @@ struct Livekit_ParticipantTracks: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.participant_sid) ?? ""
     }
     var hasParticipantSid: Bool { _pointer.pointee.participant_sid != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withParticipantSidBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.participant_sid, body)
-    }
 
     var trackSids: [String] {
         lkRepeated(_pointer.pointee.track_sids_count, _pointer.pointee.track_sids)
@@ -4156,10 +3949,6 @@ struct Livekit_ServerInfo: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.version) ?? ""
     }
     var hasVersion: Bool { _pointer.pointee.version != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withVersionBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.version, body)
-    }
 
     var `protocol`: Int32 {
         _pointer.pointee.`protocol`?.pointee ?? 0
@@ -4170,28 +3959,16 @@ struct Livekit_ServerInfo: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.region) ?? ""
     }
     var hasRegion: Bool { _pointer.pointee.region != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withRegionBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.region, body)
-    }
 
     var nodeID: String {
         lkString(_pointer.pointee.node_id) ?? ""
     }
     var hasNodeID: Bool { _pointer.pointee.node_id != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withNodeIDBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.node_id, body)
-    }
 
     var debugInfo: String {
         lkString(_pointer.pointee.debug_info) ?? ""
     }
     var hasDebugInfo: Bool { _pointer.pointee.debug_info != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withDebugInfoBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.debug_info, body)
-    }
 
     var agentProtocol: Int32 {
         _pointer.pointee.agent_protocol?.pointee ?? 0
@@ -4333,10 +4110,6 @@ struct Livekit_ClientInfo: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.version) ?? ""
     }
     var hasVersion: Bool { _pointer.pointee.version != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withVersionBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.version, body)
-    }
 
     var `protocol`: Int32 {
         _pointer.pointee.`protocol`?.pointee ?? 0
@@ -4347,73 +4120,41 @@ struct Livekit_ClientInfo: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.os) ?? ""
     }
     var hasOs: Bool { _pointer.pointee.os != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withOsBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.os, body)
-    }
 
     var osVersion: String {
         lkString(_pointer.pointee.os_version) ?? ""
     }
     var hasOsVersion: Bool { _pointer.pointee.os_version != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withOsVersionBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.os_version, body)
-    }
 
     var deviceModel: String {
         lkString(_pointer.pointee.device_model) ?? ""
     }
     var hasDeviceModel: Bool { _pointer.pointee.device_model != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withDeviceModelBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.device_model, body)
-    }
 
     var browser: String {
         lkString(_pointer.pointee.browser) ?? ""
     }
     var hasBrowser: Bool { _pointer.pointee.browser != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withBrowserBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.browser, body)
-    }
 
     var browserVersion: String {
         lkString(_pointer.pointee.browser_version) ?? ""
     }
     var hasBrowserVersion: Bool { _pointer.pointee.browser_version != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withBrowserVersionBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.browser_version, body)
-    }
 
     var address: String {
         lkString(_pointer.pointee.address) ?? ""
     }
     var hasAddress: Bool { _pointer.pointee.address != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withAddressBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.address, body)
-    }
 
     var network: String {
         lkString(_pointer.pointee.network) ?? ""
     }
     var hasNetwork: Bool { _pointer.pointee.network != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withNetworkBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.network, body)
-    }
 
     var otherSdks: String {
         lkString(_pointer.pointee.other_sdks) ?? ""
     }
     var hasOtherSdks: Bool { _pointer.pointee.other_sdks != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withOtherSdksBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.other_sdks, body)
-    }
 
     var clientProtocol: Int32 {
         _pointer.pointee.client_protocol?.pointee ?? 0
@@ -5050,10 +4791,6 @@ struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
             lkString(_pointer.pointee.reply_to_stream_id) ?? ""
         }
         var hasReplyToStreamID: Bool { _pointer.pointee.reply_to_stream_id != nil }
-        /// Zero-copy read — borrows nanopb's allocation for the call only.
-        func withReplyToStreamIDBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-            try withLkBytes(_pointer.pointee.reply_to_stream_id, body)
-        }
 
         var attachedStreamIds: [String] {
             lkRepeated(_pointer.pointee.attached_stream_ids_count, _pointer.pointee.attached_stream_ids)
@@ -5160,10 +4897,6 @@ struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
             lkString(_pointer.pointee.name) ?? ""
         }
         var hasName: Bool { _pointer.pointee.name != nil }
-        /// Zero-copy read — borrows nanopb's allocation for the call only.
-        func withNameBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-            try withLkBytes(_pointer.pointee.name, body)
-        }
 
         /// Mutation lives here. `~Copyable` means the compiler proves there is
         /// never a second live handle to this storage, so no uniqueness check is
@@ -5237,10 +4970,6 @@ struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
             lkString(_pointer.pointee.stream_id) ?? ""
         }
         var hasStreamID: Bool { _pointer.pointee.stream_id != nil }
-        /// Zero-copy read — borrows nanopb's allocation for the call only.
-        func withStreamIDBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-            try withLkBytes(_pointer.pointee.stream_id, body)
-        }
 
         var timestamp: Int64 {
             _pointer.pointee.timestamp?.pointee ?? 0
@@ -5251,19 +4980,11 @@ struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
             lkString(_pointer.pointee.topic) ?? ""
         }
         var hasTopic: Bool { _pointer.pointee.topic != nil }
-        /// Zero-copy read — borrows nanopb's allocation for the call only.
-        func withTopicBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-            try withLkBytes(_pointer.pointee.topic, body)
-        }
 
         var mimeType: String {
             lkString(_pointer.pointee.mime_type) ?? ""
         }
         var hasMimeType: Bool { _pointer.pointee.mime_type != nil }
-        /// Zero-copy read — borrows nanopb's allocation for the call only.
-        func withMimeTypeBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-            try withLkBytes(_pointer.pointee.mime_type, body)
-        }
 
         var totalLength: UInt64 {
             _pointer.pointee.total_length?.pointee ?? 0
@@ -5334,19 +5055,11 @@ struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
                 lkString(_pointer.pointee.key) ?? ""
             }
             var hasKey: Bool { _pointer.pointee.key != nil }
-            /// Zero-copy read — borrows nanopb's allocation for the call only.
-            func withKeyBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-                try withLkBytes(_pointer.pointee.key, body)
-            }
 
             var value: String {
                 lkString(_pointer.pointee.value) ?? ""
             }
             var hasValue: Bool { _pointer.pointee.value != nil }
-            /// Zero-copy read — borrows nanopb's allocation for the call only.
-            func withValueBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-                try withLkBytes(_pointer.pointee.value, body)
-            }
 
             /// Mutation lives here. `~Copyable` means the compiler proves there is
             /// never a second live handle to this storage, so no uniqueness check is
@@ -5563,10 +5276,6 @@ struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
             lkString(_pointer.pointee.stream_id) ?? ""
         }
         var hasStreamID: Bool { _pointer.pointee.stream_id != nil }
-        /// Zero-copy read — borrows nanopb's allocation for the call only.
-        func withStreamIDBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-            try withLkBytes(_pointer.pointee.stream_id, body)
-        }
 
         var chunkIndex: UInt64 {
             _pointer.pointee.chunk_index?.pointee ?? 0
@@ -5577,9 +5286,6 @@ struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
             lkData(_pointer.pointee.content)
         }
         var hasContent: Bool { _pointer.pointee.content != nil }
-        func withContent<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-            try withLkData(_pointer.pointee.content, body)
-        }
 
         var version: Int32 {
             _pointer.pointee.version?.pointee ?? 0
@@ -5590,9 +5296,6 @@ struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
             lkData(_pointer.pointee.iv)
         }
         var hasIv: Bool { _pointer.pointee.iv != nil }
-        func withIv<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {
-            try withLkData(_pointer.pointee.iv, body)
-        }
 
         /// Mutation lives here. `~Copyable` means the compiler proves there is
         /// never a second live handle to this storage, so no uniqueness check is
@@ -5686,19 +5389,11 @@ struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
             lkString(_pointer.pointee.stream_id) ?? ""
         }
         var hasStreamID: Bool { _pointer.pointee.stream_id != nil }
-        /// Zero-copy read — borrows nanopb's allocation for the call only.
-        func withStreamIDBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-            try withLkBytes(_pointer.pointee.stream_id, body)
-        }
 
         var reason: String {
             lkString(_pointer.pointee.reason) ?? ""
         }
         var hasReason: Bool { _pointer.pointee.reason != nil }
-        /// Zero-copy read — borrows nanopb's allocation for the call only.
-        func withReasonBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-            try withLkBytes(_pointer.pointee.reason, body)
-        }
 
         var attributes: [String: String] {
             var out: [String: String] = [:]
@@ -5739,19 +5434,11 @@ struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
                 lkString(_pointer.pointee.key) ?? ""
             }
             var hasKey: Bool { _pointer.pointee.key != nil }
-            /// Zero-copy read — borrows nanopb's allocation for the call only.
-            func withKeyBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-                try withLkBytes(_pointer.pointee.key, body)
-            }
 
             var value: String {
                 lkString(_pointer.pointee.value) ?? ""
             }
             var hasValue: Bool { _pointer.pointee.value != nil }
-            /// Zero-copy read — borrows nanopb's allocation for the call only.
-            func withValueBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-                try withLkBytes(_pointer.pointee.value, body)
-            }
 
             /// Mutation lives here. `~Copyable` means the compiler proves there is
             /// never a second live handle to this storage, so no uniqueness check is
@@ -5965,10 +5652,6 @@ struct Livekit_SubscribedAudioCodec: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.codec) ?? ""
     }
     var hasCodec: Bool { _pointer.pointee.codec != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withCodecBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.codec, body)
-    }
 
     var enabled: Bool {
         _pointer.pointee.enabled?.pointee ?? false

@@ -44,15 +44,6 @@ package func lkSetString(_ slot: inout UnsafeMutablePointer<CChar>?, _ value: St
     slot = strdup(value)
 }
 
-/// Borrow the bytes of an owned C string for the duration of `body` — no copy.
-package func withLkBytes<R, E: Error>(
-    _ pointer: UnsafeMutablePointer<CChar>?,
-    _ body: (UnsafeRawBufferPointer?) throws(E) -> R,
-) throws(E) -> R {
-    guard let pointer else { return try body(nil) }
-    return try body(UnsafeRawBufferPointer(start: pointer, count: strlen(pointer)))
-}
-
 // MARK: - Bytes
 
 /// `pb_bytes_array_t` is a size header followed by an inline byte array; the
@@ -115,14 +106,6 @@ package func lkEnum<C: RawRepresentable, E: NanopbEnum>(_ value: C) -> E where C
     E(rawValue: Int(value.rawValue)) ?? E()
 }
 
-package func lkSetEnum<C: RawRepresentable>(
-    _ slot: inout C, _ value: some NanopbEnum,
-) where C.RawValue == UInt32 {
-    if let converted = C(rawValue: UInt32(truncatingIfNeeded: value.rawValue)) {
-        slot = converted
-    }
-}
-
 package func lkSetEnumPointer<C: RawRepresentable>(
     _ slot: inout UnsafeMutablePointer<C>?, _ value: some NanopbEnum,
 ) where C.RawValue == UInt32 {
@@ -158,15 +141,6 @@ package func lkMessage<M: NanopbMessage>(copying pointer: UnsafePointer<M.Storag
 
 /// Address of a struct member inside a malloc'd allocation — the anchor for
 /// zero-copy views into inline submessage fields.
-package func lkMemberPointer<S, M>(
-    _ base: UnsafeMutablePointer<S>, _ keyPath: WritableKeyPath<S, M>,
-) -> UnsafeMutablePointer<M> {
-    // SAFETY: `S` is a C struct imported with its C layout, so the member
-    // offset is stable and the result stays inside `base`'s allocation.
-    let offset = MemoryLayout<S>.offset(of: keyPath)!
-    return (UnsafeMutableRawPointer(base) + offset).assumingMemoryBound(to: M.self)
-}
-
 /// Replace a pointer submessage field.
 package func lkSetMessage<M: NanopbMessage>(
     _ slot: inout UnsafeMutablePointer<M.Storage>?, _ value: M,
@@ -301,14 +275,6 @@ package func lkSetRepeatedEnum<C: RawRepresentable>(
     lkSetRepeated(&count, &base, converted)
 }
 
-package func lkRepeatedMessages<M: NanopbMessage>(
-    _ count: pb_size_t, _ base: UnsafeMutablePointer<M.Storage>?,
-) -> [M] {
-    withLkRepeated(count, base) { buffer in
-        buffer.indices.map { lkMessage(copying: buffer.baseAddress!.advanced(by: $0)) }
-    }
-}
-
 package func lkSetRepeatedMessages<M: NanopbMessage>(
     _ count: inout pb_size_t, _ base: inout UnsafeMutablePointer<M.Storage>?, _ values: [M],
 ) {
@@ -339,8 +305,6 @@ package func lkSetRepeatedMessages<M: NanopbMessage>(
     base = fresh
     count = fresh == nil ? 0 : pb_size_t(values.count)
 }
-
-package func lkCount(_ count: pb_size_t) -> Int { Int(count) }
 
 /// Zero-copy views over a repeated submessage field. Each element retains
 /// `owner`, so the parent's storage outlives every view handed out.

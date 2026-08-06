@@ -413,10 +413,6 @@ struct Livekit_EventMetric: NanopbMessage, @unchecked Sendable {
         lkString(_pointer.pointee.metadata) ?? ""
     }
     var hasMetadata: Bool { _pointer.pointee.metadata != nil }
-    /// Zero-copy read — borrows nanopb's allocation for the call only.
-    func withMetadataBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {
-        try withLkBytes(_pointer.pointee.metadata, body)
-    }
 
     var rid: UInt32 {
         _pointer.pointee.rid?.pointee ?? 0

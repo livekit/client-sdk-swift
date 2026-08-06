@@ -492,31 +492,22 @@ struct Emitter {
     }
 
     private func emitString(_ names: SwiftProtobufNamer.MessageFieldNames, _ slot: String) -> [String] {
-        let capitalised = names.has.dropFirst("has".count)
-        return [
+        [
             "var \(names.name): String {",
             "    get { lkString(\(slot)) ?? \"\" }",
             "    set { _ensureUnique(); lkSetString(&\(slot), newValue) }",
             "}",
             "var \(names.has): Bool { \(slot) != nil }",
-            "/// Zero-copy read — borrows nanopb's allocation for the call only.",
-            "func with\(capitalised)Bytes<R, E: Error>(_ body: (UnsafeRawBufferPointer?) throws(E) -> R) throws(E) -> R {",
-            "    try withLkBytes(\(slot), body)",
-            "}",
         ]
     }
 
     private func emitBytes(_ names: SwiftProtobufNamer.MessageFieldNames, _ slot: String) -> [String] {
-        let capitalised = names.has.dropFirst("has".count)
-        return [
+        [
             "var \(names.name): Data {",
             "    get { lkData(\(slot)) }",
             "    set { _ensureUnique(); lkSetData(&\(slot), newValue) }",
             "}",
             "var \(names.has): Bool { \(slot) != nil }",
-            "func with\(capitalised)<R>(_ body: (UnsafeRawBufferPointer?) throws -> R) rethrows -> R {",
-            "    try withLkData(\(slot), body)",
-            "}",
         ]
     }
 

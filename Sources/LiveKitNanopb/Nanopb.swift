@@ -30,8 +30,6 @@
 // The wire format lives entirely in nanopb's C tables, so this file is a fixed
 // cost that does not grow with the number of messages — SwiftProtobuf's runtime
 // links ~1.1 MB no matter how few messages you use.
-//
-// Zero-copy `withXBytes { }` readers are emitted alongside for hot paths.
 
 // Single-module builds compile these sources into the product directly:
 // CocoaPods surfaces the C declarations through the umbrella header, while the
@@ -200,15 +198,6 @@ package extension NanopbMessage {
 
     func serializedData() throws(NanopbError) -> Data {
         try Data(serializedBytes())
-    }
-
-    /// Encode into scratch space and hand it to `body` — nothing heap-allocated.
-    func withEncodedBytes<R>(_ body: (UnsafeRawBufferPointer) throws -> R) throws -> R {
-        let size = try nanopbEncodedSize(_pointer, Self.descriptor)
-        return try withUnsafeTemporaryAllocation(byteCount: size, alignment: 1) { buffer in
-            let written = try nanopbEncode(_pointer, Self.descriptor, into: buffer)
-            return try body(UnsafeRawBufferPointer(rebasing: buffer[..<written]))
-        }
     }
 
     // MARK: Equatable / Hashable

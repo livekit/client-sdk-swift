@@ -145,6 +145,8 @@ Reachable improvements once the floor moves:
 - `Span`/`RawSpan` borrows already exist behind `#if compiler(>=6.2)`
   (`withLkSpan`); they hand the closure a bounds-checked view instead of a raw
   pointer, and back-deploy to iOS 12.2, so only the compiler gates them.
+  Nothing calls them yet — they are kept as the proven shape for the first hot
+  path that needs one, not as an API to reach for by default.
 - Making views `~Escapable` with `@_lifetime` would turn "stored a view and
   pinned the parent allocation" from a memory-growth bug into a compile error.
   Apple's port does exactly this for its `Zone` projection, but it needs
@@ -164,8 +166,16 @@ Reachable improvements once the floor moves:
   unchanged, a failed copy yields an *empty* value rather than aliasing
   storage. These only fire on allocation exhaustion or a descriptor bug.
 - **Collections materialize**: repeated/map getters build Swift arrays and
-  dictionaries of (for submessages) views. Hot paths should use the zero-copy
-  borrows instead: `withEncodedBytes`, `withLkData`, `withLkRepeated`.
+  dictionaries of (for submessages) views. Submessage and repeated-submessage
+  reads stay zero-copy — the elements are views — but scalar, string and bytes
+  reads copy out.
+
+  There is deliberately **no** per-field borrow accessor. The generator used to
+  emit one for every string and bytes field, 128 of them, and not a single call
+  site ever used one; the receive path hands consumers a `Data` anyway, so the
+  copy happens at the API boundary regardless. `withLkData` / `withLkRepeated`
+  remain as runtime primitives if a real hot path ever needs one, and the
+  generator can re-emit wrappers on demand the same way it prunes types.
 - **`package` access everywhere**: this target is SDK plumbing, never public
   API. In single-module builds (CocoaPods, xcframework) these sources compile
   into the product directly — see the `#if LK_XCFRAMEWORK / #elseif !COCOAPODS`
