@@ -113,6 +113,29 @@ struct NanopbRuntimeTests {
         #expect(try LiveKit.Livekit_Room().serializedBytes().isEmpty)
     }
 
+    @Test("appended sequence-only packet merges on decode (send-path stamp)")
+    func concatenationMerge() throws {
+        var packet = LiveKit.Livekit_DataPacket()
+        packet.user = .with { $0.payload = Data(repeating: 0xAB, count: 1000) }
+
+        // DataChannelPair stamps the reliable sequence by appending a
+        // sequence-only packet to the encoded bytes; protobuf defines
+        // concatenation as merge, with scalars taking the last occurrence.
+        var bytes = try packet.serializedData()
+        var stamp = LiveKit.Livekit_DataPacket()
+        stamp.sequence = 42
+        try bytes.append(stamp.serializedData())
+
+        // the oracle stands in for every receiving SDK's parser
+        let oracle = try Livekit_DataPacket(serializedBytes: bytes)
+        #expect(oracle.sequence == 42)
+        #expect(oracle.user.payload == Data(repeating: 0xAB, count: 1000))
+
+        let back = try LiveKit.Livekit_DataPacket(serializedBytes: bytes)
+        #expect(back.sequence == 42)
+        #expect(back.user.payload == Data(repeating: 0xAB, count: 1000))
+    }
+
     @Test("detached() frees a view from its parent's allocation")
     func detachedView() {
         var response = LiveKit.Livekit_SignalResponse()

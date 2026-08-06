@@ -327,18 +327,32 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         processSendQueue(threshold: Self.reliableLowThreshold, buffer: &buffers.reliableBuffer, kind: .reliable)
     }
 
-    /// Promote a `PendingSend` to a fully-prepared `PublishDataRequest`: assigns
-    /// the reliable sequence number (under the same lock that tracks the
-    /// per-publisher counter), then serializes and wraps in a `LKRTCDataBuffer`.
-    /// Returns `nil` (after failing the continuation) when serialization throws
-    /// or the encoded packet exceeds the negotiated SCTP max-message-size —
-    /// either way the loop invariant holds: every yielded `.sendPending`
-    /// resolves its continuation exactly once.
+    /// Promote a `PendingSend` to a fully-prepared `PublishDataRequest`:
+    /// serializes the packet, stamps the reliable sequence number (under the
+    /// same lock that tracks the per-publisher counter), and wraps in a
+    /// `LKRTCDataBuffer`. Returns `nil` (after failing the continuation) when
+    /// serialization throws or the encoded packet exceeds the negotiated SCTP
+    /// max-message-size — either way the loop invariant holds: every yielded
+    /// `.sendPending` resolves its continuation exactly once.
     private func makeRequest(from pending: PendingSend) -> PublishDataRequest? {
-        let sequencedPacket = withSequence(pending.packet)
-        let bytes: Data
+        var bytes: Data
+        var sequence = pending.packet.sequence
         do {
-            bytes = try sequencedPacket.serializedData()
+            bytes = try pending.packet.serializedData()
+            // Stamp the sequence by appending an encoded packet holding only
+            // that field: concatenation is protobuf merge, and scalar fields
+            // take the last occurrence. Setting it on `pending.packet` instead
+            // would copy-on-write detach — a full encode/decode of the payload
+            // just to write 4 bytes, since the event still shares its storage.
+            if pending.packet.kind == .reliable, sequence == 0 {
+                _state.mutate {
+                    sequence = $0.reliableDataSequence
+                    $0.reliableDataSequence += 1
+                }
+                var stamp = Livekit_DataPacket()
+                stamp.sequence = sequence
+                try bytes.append(stamp.serializedData())
+            }
         } catch {
             pending.continuation.resume(throwing: error)
             return nil
@@ -359,7 +373,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
         return PublishDataRequest(
             data: RTC.createDataBuffer(data: bytes),
-            sequence: sequencedPacket.sequence,
+            sequence: sequence,
             continuation: pending.continuation,
         )
     }
@@ -555,16 +569,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             packet.encryptedPacket = Livekit_EncryptedPacket(rtcPacket: rtcEncryptedPacket)
         } catch {
             throw LiveKitError(.encryptionFailed, internalError: error)
-        }
-        return packet
-    }
-
-    private func withSequence(_ packet: Livekit_DataPacket) -> Livekit_DataPacket {
-        guard packet.kind == .reliable, packet.sequence == 0 else { return packet }
-        var packet = packet
-        _state.mutate {
-            packet.sequence = $0.reliableDataSequence
-            $0.reliableDataSequence += 1
         }
         return packet
     }
