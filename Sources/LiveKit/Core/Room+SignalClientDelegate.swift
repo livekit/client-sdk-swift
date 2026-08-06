@@ -116,7 +116,7 @@ extension Room: SignalClientDelegate {
 
             _state.mutate {
                 $0.apply(roomInfo: joinResponse.room)
-                $0.serverInfo = joinResponse.serverInfo.detached()
+                $0.serverInfo = joinResponse.serverInfo.owned()
 
                 localParticipant.set(info: joinResponse.participant, connectionState: $0.connectionState)
                 localParticipant.set(enabledPublishCodecs: joinResponse.enabledPublishCodecs)

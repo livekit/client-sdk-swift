@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 actor SignalClient: Loggable {
     // MARK: - Types
 
-    typealias AddTrackRequestPopulator = @Sendable (inout Livekit_AddTrackRequest) throws -> Void
+    typealias AddTrackRequestPopulator = @Sendable (inout Livekit_AddTrackRequest.Builder) throws -> Void
 
     enum ConnectResponse {
         case join(Livekit_JoinResponse)
@@ -470,15 +470,14 @@ extension SignalClient {
                       encryption: Livekit_Encryption.TypeEnum = .none,
                       _ populator: AddTrackRequestPopulator) async throws -> Livekit_TrackInfo
     {
-        var addTrackRequest = Livekit_AddTrackRequest.with {
+        let addTrackRequest = try Livekit_AddTrackRequest.with {
             $0.cid = cid
             $0.name = name
             $0.type = type
             $0.source = source
             $0.encryption = encryption
+            try populator(&$0)
         }
-
-        try populator(&addTrackRequest)
 
         let request = Livekit_SignalRequest.with {
             $0.addTrack = addTrackRequest

@@ -341,16 +341,15 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             bytes = try pending.packet.serializedData()
             // Stamp the sequence by appending an encoded packet holding only
             // that field: concatenation is protobuf merge, and scalar fields
-            // take the last occurrence. Setting it on `pending.packet` instead
-            // would copy-on-write detach — a full encode/decode of the payload
-            // just to write 4 bytes, since the event still shares its storage.
+            // take the last occurrence. Deriving a new packet with `modifying`
+            // instead would re-encode the whole payload to write 4 bytes, since
+            // the queued event still holds the original.
             if pending.packet.kind == .reliable, sequence == 0 {
                 _state.mutate {
                     sequence = $0.reliableDataSequence
                     $0.reliableDataSequence += 1
                 }
-                var stamp = Livekit_DataPacket()
-                stamp.sequence = sequence
+                let stamp = Livekit_DataPacket.with { $0.sequence = sequence }
                 try bytes.append(stamp.serializedData())
             }
         } catch {
@@ -539,7 +538,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         })
     }
 
-    func send(dataPacket packet: Livekit_DataPacket) async throws {
+    func send(dataPacket packet: consuming Livekit_DataPacket) async throws {
         // Encrypt outside the event loop (CPU work that doesn't touch ordering).
         let encryptedPacket = try withEncryption(packet)
 
@@ -562,15 +561,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     private func withEncryption(_ packet: Livekit_DataPacket) throws -> Livekit_DataPacket {
         guard let e2eeManager = _state.e2eeManager, e2eeManager.isDataChannelEncryptionEnabled,
               let payload = Livekit_EncryptedPacketPayload(dataPacket: packet) else { return packet }
-        var packet = packet
+        let encrypted: Livekit_EncryptedPacket
         do {
             let payloadData = try payload.serializedData()
-            let rtcEncryptedPacket = try e2eeManager.encrypt(data: payloadData)
-            packet.encryptedPacket = Livekit_EncryptedPacket(rtcPacket: rtcEncryptedPacket)
+            encrypted = try Livekit_EncryptedPacket(rtcPacket: e2eeManager.encrypt(data: payloadData))
         } catch {
             throw LiveKitError(.encryptionFailed, internalError: error)
         }
-        return packet
+        return packet.modifying { $0.encryptedPacket = encrypted }
     }
 
     func retryReliable(lastSequence: UInt32) {
@@ -681,8 +679,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
                 let decryptedData = try e2eeManager.handle(encryptedData: encryptedPacket.toRTCEncryptedPacket(), participantIdentity: dataPacket.participantIdentity)
                 let decryptedPayload = try Livekit_EncryptedPacketPayload(serializedBytes: decryptedData)
 
-                var dataPacket = dataPacket
-                decryptedPayload.applyTo(&dataPacket)
+                let dataPacket = dataPacket.modifying { decryptedPayload.applyTo(&$0) }
 
                 delegates.notify { [dataPacket] in
                     $0.dataChannel(self, didReceiveDataPacket: dataPacket)

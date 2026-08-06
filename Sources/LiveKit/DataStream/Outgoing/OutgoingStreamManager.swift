@@ -278,8 +278,15 @@ extension Livekit_DataStream.Header {
 
     // Stream timestamps are in ms (13 digits)
     var timestampDate: Date {
+        Date(timeIntervalSince1970: TimeInterval(timestamp) / TimeInterval(1000))
+    }
+}
+
+extension Livekit_DataStream.Header.Builder {
+    // Mirrors `Livekit_DataStream.Header.timestampDate`; setters live on the builder.
+    var timestampDate: Date {
         get { Date(timeIntervalSince1970: TimeInterval(timestamp) / TimeInterval(1000)) }
-        set { timestamp = Int64(newValue.timeIntervalSince1970 * TimeInterval(1000)) }
+        nonmutating set { timestamp = Int64(newValue.timeIntervalSince1970 * TimeInterval(1000)) }
     }
 }
 

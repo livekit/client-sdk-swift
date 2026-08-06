@@ -643,7 +643,7 @@ extension LocalParticipant {
                         populator.stream = streamName
                     }
 
-                    self.log("[publish] requesting add track to server with \(populator)...")
+                    self.log("[publish] requesting add track to server: \(populator.width)x\(populator.height), \(populator.layers.count) layer(s)...")
                 }
             } else if track is LocalAudioTrack {
                 // additional params for Audio

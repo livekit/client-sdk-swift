@@ -257,7 +257,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
 
         // Detach: a view from a decoded signal message would otherwise keep
         // the entire response allocation alive for this participant's lifetime.
-        self.info = info.detached()
+        self.info = info.owned()
         set(permissions: info.permission.toLKType())
     }
 
