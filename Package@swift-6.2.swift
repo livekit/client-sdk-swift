@@ -32,14 +32,15 @@ let package = Package(
             name: "CLiveKitProto",
             publicHeadersPath: "include",
             cSettings: [
-                // ABI defines live in include/pb.h (see the marked LiveKit
-                // block there); lk_abi_check.c guards them at compile time.
+                // ABI defines live in include/lk_pb_config.h (included from
+                // pb.h); lk_abi_check.c guards them at compile time.
                 .headerSearchPath("include"),
             ],
         ),
         .target(
             name: "LiveKitNanopb",
             dependencies: ["CLiveKitProto"],
+            exclude: ["AGENTS.md", "CLAUDE.md"],
         ),
         .target(
             name: "LKObjCHelpers",
