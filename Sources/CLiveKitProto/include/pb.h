@@ -16,6 +16,10 @@
 #define PB_NO_PACKED_STRUCTS 1 /* packed structs break the Swift importer */
 #define PB_FIELD_32BIT 1       /* bytes/repeated >65535 (audio buffers) */
 #define PB_BUFFER_ONLY 1       /* we never use stream callbacks */
+/* lk_ prefix on all runtime symbols: a second embedded nanopb (e.g. from
+ * Firebase pods) would otherwise resolve against ours under static linking —
+ * silently, across incompatible versions. See lk_pb_rename.h. */
+#include "lk_pb_rename.h"
 /* ========================================================================= */
 
 /*****************************************************************

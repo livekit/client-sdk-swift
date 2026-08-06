@@ -2,8 +2,9 @@ The nanopb runtime vendored in this directory (pb.h, pb_common.h/.c,
 pb_decode.h/.c, pb_encode.h/.c) is the nanopb 0.4.9.1 release (tag 0.4.9.1,
 commit cad3c18e) from https://github.com/nanopb/nanopb — the same version
 the generator is pinned to in the Makefile. pb.h contains one clearly marked
-LiveKit ABI-configuration block (an altered version per clause 2 below);
-the other files are unmodified. Used under the zlib license:
+LiveKit block (an altered version per clause 2 below) providing ABI
+configuration and lk_-prefixed symbol renames (see lk_pb_rename.h, a LiveKit
+file); the other upstream files are unmodified. Used under the zlib license:
 
 Copyright (c) 2011 Petteri Aimonen <jpa at nanopb.mail.kapsi.fi>
 

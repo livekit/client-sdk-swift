@@ -87,6 +87,10 @@ an independent "oracle" implementation to verify against.
   vendored `pb.h`, never in build settings — SPM `cSettings` are invisible to
   the Swift Clang importer and cause silent struct-layout mismatches.
   `lk_abi_check.c` guards this at compile time.
+- **Symbols**: the vendored runtime's functions are renamed `pb_*` → `lk_pb_*`
+  (`lk_pb_rename.h`) so a second nanopb in the app (e.g. Firebase pods) can't
+  silently bind against ours under static linking. After a nanopb upgrade the
+  rename list must cover every exported symbol.
 
 ## Compile-Time Flags
 
