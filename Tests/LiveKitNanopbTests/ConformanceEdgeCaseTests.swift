@@ -33,12 +33,14 @@ struct ConformanceEdgeCaseTests {
     /// emits nothing. Any proto3 receiver decodes both to the same message.
     @Test("scalar set to zero emits an explicit field, unlike SwiftProtobuf")
     func zeroScalarPresence() throws {
-        var facade = LiveKit.Livekit_Room()
-        facade.emptyTimeout = 0
+        let facade = LiveKit.Livekit_Room.with { facade in
+            facade.emptyTimeout = 0
+        }
         let facadeBytes = try facade.serializedData()
 
-        var oracle = Livekit_Room()
-        oracle.emptyTimeout = 0
+        let oracle = Livekit_Room.with { oracle in
+            oracle.emptyTimeout = 0
+        }
         let oracleBytes = try oracle.serializedData()
 
         #expect(oracleBytes.isEmpty)
@@ -61,12 +63,14 @@ struct ConformanceEdgeCaseTests {
     /// `bytes`, not `string`.
     @Test("string with embedded NUL truncates, unlike SwiftProtobuf")
     func embeddedNulTruncates() throws {
-        var facade = LiveKit.Livekit_Room()
-        facade.name = "a\0b"
+        let facade = LiveKit.Livekit_Room.with { facade in
+            facade.name = "a\0b"
+        }
         #expect(facade.name == "a")
 
-        var oracle = Livekit_Room()
-        oracle.name = "a\0b"
+        let oracle = Livekit_Room.with { oracle in
+            oracle.name = "a\0b"
+        }
         let roundTripped = try Livekit_Room(serializedBytes: oracle.serializedData())
         #expect(roundTripped.name == "a\0b")
     }
@@ -79,8 +83,9 @@ struct ConformanceEdgeCaseTests {
     /// runtime and would catch a regression to the 16-bit default.
     @Test("bytes fields beyond 16-bit sizes round-trip")
     func largeBytesField() throws {
-        var facade = LiveKit.Livekit_UserPacket()
-        facade.payload = Data(repeating: 0xAB, count: 100_000)
+        let facade = LiveKit.Livekit_UserPacket.with { facade in
+            facade.payload = Data(repeating: 0xAB, count: 100_000)
+        }
         let bytes = try facade.serializedData()
 
         let oracle = try Livekit_UserPacket(serializedBytes: bytes)
@@ -99,13 +104,15 @@ struct ConformanceEdgeCaseTests {
     func multiEntryMap() throws {
         let entries = ["k1": "v1", "k2": "v2", "k3": "v3"]
 
-        var facade = LiveKit.Livekit_ParticipantInfo()
-        facade.attributes = entries
+        let facade = LiveKit.Livekit_ParticipantInfo.with { facade in
+            facade.attributes = entries
+        }
         let decodedOracle = try Livekit_ParticipantInfo(serializedBytes: facade.serializedData())
         #expect(decodedOracle.attributes == entries)
 
-        var oracle = Livekit_ParticipantInfo()
-        oracle.attributes = entries
+        let oracle = Livekit_ParticipantInfo.with { oracle in
+            oracle.attributes = entries
+        }
         let decodedFacade = try LiveKit.Livekit_ParticipantInfo(serializedData: oracle.serializedData())
         #expect(decodedFacade.attributes == entries)
     }
@@ -118,8 +125,9 @@ struct ConformanceEdgeCaseTests {
     /// sendSyncState); pinned here so the difference stays deliberate.
     @Test("unknown fields are dropped on re-encode, unlike SwiftProtobuf")
     func unknownFieldsDropped() throws {
-        var room = Livekit_Room()
-        room.sid = "RM_x"
+        let room = Livekit_Room.with { room in
+            room.sid = "RM_x"
+        }
         let known = try room.serializedData()
 
         // append an unknown varint field #2047: tag (2047 << 3) = [0xF8, 0x7F]

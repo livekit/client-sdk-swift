@@ -64,10 +64,17 @@ Dependencies: LiveKitWebRTC, LiveKitUniFFI. (SwiftProtobuf is test-only — see 
 
 The wire protocol is nanopb-based: `Sources/CLiveKitProto` holds the vendored
 nanopb runtime plus generated C structs, and `Sources/LiveKit/Protos` holds
-generated copy-on-write Swift facades over them (runtime in
+generated *immutable* Swift facades over them, each with a nested
+`Builder: ~Copyable` that carries every setter (runtime in
 `Sources/LiveKitNanopb` — design, memory and concurrency semantics in its
 `AGENTS.md`). SwiftProtobuf is linked only by the test target, as an
 independent "oracle" implementation to verify against.
+
+- **Building messages**: `Livekit_X.with { $0.field = ... }`; messages have no
+  setters, so `msg.field = x` does not compile. To derive one message from
+  another use `msg.modifying { ... }`, and mark the parameter `consuming` where
+  you can so it mutates in place instead of copying. Nested writes need an
+  explicit submessage: `$0.a = .with { $0.b = c }`.
 
 - **Updating protos**: bump the `protocol` submodule, run `make proto`, commit
   everything it changes (C files, facades, test oracle, conformance

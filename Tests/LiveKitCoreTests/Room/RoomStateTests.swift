@@ -47,9 +47,10 @@ struct RoomStateTests {
         if let sid = c.initialSid { state.sid = Room.Sid(from: sid) }
         state.name = c.initialName
 
-        var info = Livekit_Room()
-        info.sid = c.infoSid
-        info.name = c.infoName
+        let info = Livekit_Room.with { info in
+            info.sid = c.infoSid
+            info.name = c.infoName
+        }
         state.apply(roomInfo: info)
 
         #expect(state.sid?.stringValue == c.expectedSid)
@@ -74,17 +75,19 @@ struct RoomStateTests {
     @Test func joinWithEmptySidThenRoomUpdatePopulatesSid() async throws {
         let room = Room()
 
-        var join = Livekit_JoinResponse()
-        join.room.sid = ""
-        join.room.name = "my-room"
+        let join = Livekit_JoinResponse.with { join in
+            join.room = .with { $0.sid = "" }
+            join.room = .with { $0.name = "my-room" }
+        }
         await room.signalClient(room.signalClient, didReceiveConnectResponse: .join(join))
 
         #expect(room.sid == nil)
         #expect(room.name == "my-room")
 
-        var update = Livekit_Room()
-        update.sid = "RM_delivered_later"
-        update.name = "my-room"
+        let update = Livekit_Room.with { update in
+            update.sid = "RM_delivered_later"
+            update.name = "my-room"
+        }
         await room.signalClient(room.signalClient, didUpdateRoom: update)
 
         let awaited = try await room.sid()
@@ -94,8 +97,9 @@ struct RoomStateTests {
     @Test func joinWithSidResolvesAwaitedSid() async throws {
         let room = Room()
 
-        var join = Livekit_JoinResponse()
-        join.room.sid = "RM_from_join"
+        let join = Livekit_JoinResponse.with { join in
+            join.room = .with { $0.sid = "RM_from_join" }
+        }
         await room.signalClient(room.signalClient, didReceiveConnectResponse: .join(join))
 
         let awaited = try await room.sid()
@@ -105,12 +109,14 @@ struct RoomStateTests {
     @Test func roomUpdateWithEmptySidDoesNotClearExistingSid() async {
         let room = Room()
 
-        var join = Livekit_JoinResponse()
-        join.room.sid = "RM_initial"
+        let join = Livekit_JoinResponse.with { join in
+            join.room = .with { $0.sid = "RM_initial" }
+        }
         await room.signalClient(room.signalClient, didReceiveConnectResponse: .join(join))
 
-        var update = Livekit_Room()
-        update.sid = ""
+        let update = Livekit_Room.with { update in
+            update.sid = ""
+        }
         await room.signalClient(room.signalClient, didUpdateRoom: update)
 
         #expect(room.sid?.stringValue == "RM_initial")

@@ -29,14 +29,15 @@ import Testing
 struct ConformanceTests {
     @Test("nanopb output decodes in SwiftProtobuf")
     func nanopbToSwiftProtobuf() throws {
-        var room = LiveKit.Livekit_Room()
-        room.sid = "RM_conformance"
-        room.name = "room-name"
-        room.metadata = #"{"k":"v"}"#
-        room.emptyTimeout = 600
-        room.maxParticipants = 12
-        room.creationTime = 1_754_300_777
-        room.activeRecording = true
+        let room = LiveKit.Livekit_Room.with { room in
+            room.sid = "RM_conformance"
+            room.name = "room-name"
+            room.metadata = #"{"k":"v"}"#
+            room.emptyTimeout = 600
+            room.maxParticipants = 12
+            room.creationTime = 1_754_300_777
+            room.activeRecording = true
+        }
 
         let bytes = try room.serializedBytes()
         let oracle = try Livekit_Room(serializedBytes: bytes)
@@ -52,12 +53,13 @@ struct ConformanceTests {
 
     @Test("SwiftProtobuf output decodes in nanopb")
     func swiftProtobufToNanopb() throws {
-        var oracle = Livekit_Room()
-        oracle.sid = "RM_reverse"
-        oracle.name = "reverse"
-        oracle.emptyTimeout = 99
-        oracle.activeRecording = false
-        oracle.creationTime = -5
+        let oracle = Livekit_Room.with { oracle in
+            oracle.sid = "RM_reverse"
+            oracle.name = "reverse"
+            oracle.emptyTimeout = 99
+            oracle.activeRecording = false
+            oracle.creationTime = -5
+        }
 
         let bytes: [UInt8] = try oracle.serializedBytes()
         let room = try LiveKit.Livekit_Room(serializedBytes: bytes)
@@ -70,15 +72,17 @@ struct ConformanceTests {
 
     @Test("both implementations produce identical bytes")
     func identicalEncoding() throws {
-        var room = LiveKit.Livekit_Room()
-        room.sid = "RM_same"
-        room.emptyTimeout = 7
-        room.creationTime = 1_700_000_000
+        let room = LiveKit.Livekit_Room.with { room in
+            room.sid = "RM_same"
+            room.emptyTimeout = 7
+            room.creationTime = 1_700_000_000
+        }
 
-        var oracle = Livekit_Room()
-        oracle.sid = "RM_same"
-        oracle.emptyTimeout = 7
-        oracle.creationTime = 1_700_000_000
+        let oracle = Livekit_Room.with { oracle in
+            oracle.sid = "RM_same"
+            oracle.emptyTimeout = 7
+            oracle.creationTime = 1_700_000_000
+        }
 
         let mine = try room.serializedBytes()
         let theirs: [UInt8] = try oracle.serializedBytes()
@@ -87,9 +91,10 @@ struct ConformanceTests {
 
     @Test("empty and unicode strings survive both directions")
     func edgeCases() throws {
-        var room = LiveKit.Livekit_Room()
-        room.sid = ""
-        room.name = "🎙 café — ünïcode"
+        let room = LiveKit.Livekit_Room.with { room in
+            room.sid = ""
+            room.name = "🎙 café — ünïcode"
+        }
         let bytes = try room.serializedBytes()
 
         let oracle = try Livekit_Room(serializedBytes: bytes)

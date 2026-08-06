@@ -19,19 +19,21 @@ import Foundation
 import Testing
 
 // The oracle target compiles its own `Livekit_Room`, so the nanopb-backed type
-// is module-qualified as `LiveKit.Livekit_Room` throughout.
-@Suite("nanopb CoW runtime")
+// is module-qualified as `LiveKit.Livekit_Room` throughout. Messages are
+// immutable: they are built with `.with { }` and derived with `.modifying { }`.
+@Suite("nanopb runtime")
 struct NanopbRuntimeTests {
     @Test("round-trips scalars, strings and presence")
     func roundTrip() throws {
-        var room = LiveKit.Livekit_Room()
-        room.sid = "RM_abc123"
-        room.name = "my-room"
-        room.metadata = #"{"tier":"pro"}"#
-        room.emptyTimeout = 300
-        room.maxParticipants = 50
-        room.creationTime = 1_754_300_000
-        room.activeRecording = true
+        let room = LiveKit.Livekit_Room.with { room in
+            room.sid = "RM_abc123"
+            room.name = "my-room"
+            room.metadata = #"{"tier":"pro"}"#
+            room.emptyTimeout = 300
+            room.maxParticipants = 50
+            room.creationTime = 1_754_300_000
+            room.activeRecording = true
+        }
 
         let wire = try room.serializedBytes()
         let back = try LiveKit.Livekit_Room(serializedBytes: wire)
@@ -47,23 +49,26 @@ struct NanopbRuntimeTests {
         #expect(back == room)
     }
 
-    @Test("copies have value semantics (copy-on-write)")
-    func valueSemantics() {
-        var a = LiveKit.Livekit_Room()
-        a.sid = "RM_original"
-        let b = a
-        a.sid = "RM_mutated"
-        #expect(b.sid == "RM_original")
-        #expect(a.sid == "RM_mutated")
+    @Test("`modifying` leaves the original untouched")
+    func modifyingIsNonDestructive() {
+        let a = LiveKit.Livekit_Room.with { $0.sid = "RM_original" }
+        let b = a.modifying { $0.sid = "RM_mutated" }
+        #expect(a.sid == "RM_original")
+        #expect(b.sid == "RM_mutated")
         #expect(a != b)
     }
 
-    @Test("submessage get-modify-set round trip")
+    @Test("submessage set and read back")
     func submessage() {
-        var room = LiveKit.Livekit_Room()
-        #expect(!room.hasVersion)
-        room.version.unixMicro = 42
-        room.version.ticks = 7
+        let empty = LiveKit.Livekit_Room()
+        #expect(!empty.hasVersion)
+
+        let room = LiveKit.Livekit_Room.with {
+            $0.version = .with { version in
+                version.unixMicro = 42
+                version.ticks = 7
+            }
+        }
         #expect(room.hasVersion)
         #expect(room.version.unixMicro == 42)
         #expect(room.version.ticks == 7)
@@ -71,11 +76,12 @@ struct NanopbRuntimeTests {
 
     @Test("oneof: set, read, switch variant")
     func oneof() throws {
-        var request = LiveKit.Livekit_SignalRequest()
-        request.ping = 99
-        #expect(request.message == .ping(99))
+        let ping = LiveKit.Livekit_SignalRequest.with { $0.ping = 99 }
+        #expect(ping.message == .ping(99))
 
-        request.message = .mute(.with { $0.sid = "TR_x"; $0.muted = true })
+        let request = ping.modifying {
+            $0.message = .mute(.with { $0.sid = "TR_x"; $0.muted = true })
+        }
         guard case let .mute(mute) = request.message else {
             Issue.record("expected .mute")
             return
@@ -93,8 +99,9 @@ struct NanopbRuntimeTests {
 
     @Test("map fields round trip as dictionaries")
     func maps() throws {
-        var info = LiveKit.Livekit_ParticipantInfo()
-        info.attributes = ["role": "speaker", "tier": "pro"]
+        let info = LiveKit.Livekit_ParticipantInfo.with { info in
+            info.attributes = ["role": "speaker", "tier": "pro"]
+        }
         let wire = try info.serializedBytes()
         let back = try LiveKit.Livekit_ParticipantInfo(serializedBytes: wire)
         #expect(back.attributes == ["role": "speaker", "tier": "pro"])
@@ -102,8 +109,9 @@ struct NanopbRuntimeTests {
 
     @Test("tolerates unknown fields from a newer server")
     func unknownFields() throws {
-        var room = LiveKit.Livekit_Room()
-        room.sid = "RM_fwd"
+        let room = LiveKit.Livekit_Room.with { room in
+            room.sid = "RM_fwd"
+        }
         let wire = try room.serializedBytes() + [0xF8, 0x7F, 0x01]
         #expect(try LiveKit.Livekit_Room(serializedBytes: wire).sid == "RM_fwd")
     }
@@ -115,15 +123,17 @@ struct NanopbRuntimeTests {
 
     @Test("appended sequence-only packet merges on decode (send-path stamp)")
     func concatenationMerge() throws {
-        var packet = LiveKit.Livekit_DataPacket()
-        packet.user = .with { $0.payload = Data(repeating: 0xAB, count: 1000) }
+        let packet = LiveKit.Livekit_DataPacket.with { packet in
+            packet.user = .with { $0.payload = Data(repeating: 0xAB, count: 1000) }
+        }
 
         // DataChannelPair stamps the reliable sequence by appending a
         // sequence-only packet to the encoded bytes; protobuf defines
         // concatenation as merge, with scalars taking the last occurrence.
         var bytes = try packet.serializedData()
-        var stamp = LiveKit.Livekit_DataPacket()
-        stamp.sequence = 42
+        let stamp = LiveKit.Livekit_DataPacket.with { stamp in
+            stamp.sequence = 42
+        }
         try bytes.append(stamp.serializedData())
 
         // the oracle stands in for every receiving SDK's parser
@@ -136,23 +146,60 @@ struct NanopbRuntimeTests {
         #expect(back.user.payload == Data(repeating: 0xAB, count: 1000))
     }
 
-    @Test("detached() frees a view from its parent's allocation")
-    func detachedView() {
-        var response = LiveKit.Livekit_SignalResponse()
-        response.update.participants = [.with { $0.sid = "PA_x" }]
+    @Test("owned() frees a view from its parent's allocation")
+    func ownedView() {
+        let response = LiveKit.Livekit_SignalResponse.with { response in
+            response.update = .with { $0.participants = [.with { $0.sid = "PA_x" }] }
+        }
 
         let view = response.update.participants[0]
         let viewSharesParentBox = view._owner === response._owner
         #expect(viewSharesParentBox, "getter should hand out a view")
 
-        let detached = view.detached()
-        let detachedOwnsItsBox = detached._owner !== response._owner
-        #expect(detachedOwnsItsBox, "detached copy owns its own box")
-        #expect(detached == view)
+        let copied = view.owned()
+        let copyOwnsItsBox = copied._owner !== response._owner
+        #expect(copyOwnsItsBox, "the copy owns its own box")
+        #expect(copied == view)
 
         // a value that already owns its storage is returned as-is
-        let owned = LiveKit.Livekit_ParticipantInfo.with { $0.sid = "PA_y" }
-        let ownedIsReturnedAsIs = owned.detached()._owner === owned._owner
-        #expect(ownedIsReturnedAsIs)
+        let alreadyOwned = LiveKit.Livekit_ParticipantInfo.with { $0.sid = "PA_y" }
+        let returnedAsIs = alreadyOwned.owned()._owner === alreadyOwned._owner
+        #expect(returnedAsIs)
+    }
+
+    // `modifying` is consuming: with no other owner it must reuse the box
+    // rather than round-trip through encode/decode. Nothing else observes the
+    // difference, so without this a regression to always-copy is silent.
+    //
+    // Box identity has to be watched with a `weak` reference — a strong one
+    // would itself make the value non-unique, and comparing `_pointer` can
+    // false-pass when malloc hands the fresh box the address just freed.
+    @Test("`modifying` reuses the box when nothing else owns it")
+    func modifyingIsInPlaceWhenUnique() {
+        let packet = LiveKit.Livekit_DataPacket.with {
+            $0.user = .with { $0.payload = Data(repeating: 0xAB, count: 4096) }
+        }
+        weak var box: AnyObject? = packet._owner
+
+        // Handing the value to a `consuming` parameter is what real callers
+        // such as `Room.send(dataPacket:)` do.
+        func stamp(_ packet: consuming LiveKit.Livekit_DataPacket) -> LiveKit.Livekit_DataPacket {
+            packet.modifying { $0.participantIdentity = "id" }
+        }
+        let stamped = stamp(packet)
+
+        #expect(box != nil, "unique `modifying` reallocated instead of mutating in place")
+        #expect(stamped.participantIdentity == "id")
+        #expect(stamped.user.payload.count == 4096)
+    }
+
+    @Test("`modifying` copies when the value is still shared")
+    func modifyingCopiesWhenShared() {
+        let original = LiveKit.Livekit_Room.with { $0.sid = "RM_a" }
+        let derived = original.modifying { $0.sid = "RM_b" }
+        let boxesDiffer = derived._owner !== original._owner
+        #expect(boxesDiffer, "a shared value must not be mutated in place")
+        #expect(original.sid == "RM_a")
+        #expect(derived.sid == "RM_b")
     }
 }

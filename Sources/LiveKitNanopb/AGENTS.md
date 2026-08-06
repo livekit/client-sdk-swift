@@ -15,10 +15,12 @@ download-size contribution by ~1.7 MB. A stripped fork of SwiftProtobuf was
 evaluated and bottoms out ~2.3× larger (see PR #1081 discussion) — the overhead
 is structural (per-message metadata, codec logic), not trimmable.
 
-The facades clone protoc-gen-swift's API (`Livekit_Room`, `.with {}`,
-`serializedBytes()`, `Equatable`/`Hashable`/`Sendable` value types) so SDK call
-sites did not change, and `Tests/LiveKitNanopbTests` can assert byte-identical
-encoding against SwiftProtobuf as an independent oracle.
+The facades keep protoc-gen-swift's shape where it costs nothing (`Livekit_Room`,
+`.with {}`, `serializedBytes()`, `Equatable`/`Hashable`/`Sendable` value types),
+so most SDK call sites are unchanged, and `Tests/LiveKitNanopbTests` can assert
+byte-identical encoding against SwiftProtobuf as an independent oracle. The one
+deliberate departure: **messages are immutable**. `msg.field = x` does not
+compile; you build with `.with { }` or derive with `.modifying { }`.
 
 ## Design
 
@@ -31,12 +33,13 @@ Three layers:
    `lk_pb_rename.h` (see those headers for the Firebase-collision and
    SwiftPM-importer rationale).
 2. **`LiveKitNanopb`** (this target) — `NanopbBox` ownership, the
-   `NanopbMessage` protocol (CoW, wire format, equality), and the `lk*` field
+   `NanopbMessage` protocol (wire format, equality, `owned()`), and the `lk*` field
    accessors the generated code calls.
 3. **Generated facades** — one Swift struct per message the SDK references
-   (type-level pruning), with computed properties over the C struct.
+   (type-level pruning), with read-only computed properties over the C struct,
+   plus a nested `Builder: ~Copyable` carrying every setter.
 
-A message value is a `struct` holding `_owner: AnyObject` (lifetime) and
+A message value is a `struct` holding `_owner: NanopbAnyBox` (lifetime) and
 `_pointer` (a nanopb C struct in a malloc'd, address-stable allocation). It is
 in one of two states:
 
@@ -54,24 +57,30 @@ in one of two states:
 - **Views keep parents alive**: a view retains the parent's box, so extracting
   `response.update.participants[0]` and dropping `response` is safe — but
   storing a view long-term pins the *entire* decoded message's allocation.
-  Call `detached()` when promoting a sub-message into long-lived state (the
+  Call `owned()` when promoting a sub-message into long-lived state (the
   SDK does this for `Participant.info`, `latestInfo`, `serverInfo`). Owning
-  values pass through `detached()` unchanged.
-- **Copy-on-write**: assigning a message copies nothing — it bumps the box
-  refcount. The first mutation of a value whose box is shared (a copy, or the
-  parent/child of a view) detaches it first: `_ensureUnique()` deep-copies the
-  value's own subtree via an encode/decode round trip. Typical SDK traffic is
-  build-encode-drop or decode-read-drop, so detaches are rare.
+  values pass through `owned()` unchanged. Immutability does not remove this
+  hazard: a view is still a pointer into a bigger allocation.
+- **Copying is free**: assigning a message bumps the box refcount and can
+  never deep-copy, because a message has no setters — there is no later
+  mutation for a copy to defend against. Building goes through `Builder`,
+  which allocates its own box, so it needs no uniqueness check either.
+- **Deriving from an existing message**: `modifying { }` is `consuming`. When
+  the caller's value was the last owner the mutation happens in place; when it
+  is shared (or is a view) it copies once for the whole batch, never per field.
+  Marking a parameter `consuming` on the way in is what lets the in-place path
+  fire — see `Room.send(dataPacket:)`.
 - **Deep copy = encode/decode round trip**: nanopb has no clone; a struct's
   pointers cannot be shared between two trees that will both be released. The
   round trip is the correctness-safe copy and doubles as tested code. Two
   consequences: copies are O(subtree size), and **unknown fields are dropped**
   on copy/re-encode (pinned in `ConformanceEdgeCaseTests` — acceptable because
   the SDK never echoes messages back verbatim).
-- **Crossing the C boundary copies**: setting a submessage
-  (`room.version = v`) encodes `v` into the parent's allocation; getting one
+- **Crossing the C boundary copies**: setting a submessage on a builder
+  (`$0.version = v`) encodes `v` into the builder's allocation; getting one
   hands out a view. There is no aliasing between two Swift values' storage
-  except the read-only CoW/view sharing above.
+  except the read-only box/view sharing above. Nested mutation
+  (`$0.a.b = c`) does not compile — write `$0.a = .with { $0.b = c }`.
 - **Oneofs**: union members share an address, so switching variants releases
   the old payload with the *old* variant's descriptor before writing the new
   one (`lkRelease`), then zeroes the union. Getters for non-active variants
@@ -83,23 +92,23 @@ in one of two states:
 ## Concurrency semantics
 
 `NanopbBox` is `@unchecked Sendable`; messages are `Sendable` value types. The
-justification is the same invariant as `Array`:
+justification is immutability, and the compiler enforces most of it:
 
-- Storage reachable from more than one value is **never mutated** — every
-  generated setter calls `_ensureUnique()` first, which detaches unless
-  `isKnownUniquelyReferenced(&_owner)`.
-- Concurrent **reads** of shared storage are safe (pointer reads of immutable
-  memory). Concurrent mutation of *distinct copies* is safe (each detaches to
-  private storage).
-- The only contract callers must uphold is Swift's ordinary exclusivity rule:
-  don't mutate the *same* `var` from two threads. Nothing in this target adds
-  locks — safety comes from the CoW invariant, not synchronization.
+- Storage a message can reach is **never mutated**. A message has no setters;
+  the only writer is a `Builder`, and `Builder` is `~Copyable` and consumed by
+  `build()`, so no live handle can write to storage after it is published.
+- Concurrent **reads** of shared storage are therefore always safe, including
+  reads through views into a shared parent.
+- `modifying` writes in place only after `isKnownUniquelyReferenced` proves no
+  other value — copy or view — can observe the storage.
+- Nothing in this target adds locks; safety comes from the type system, not
+  synchronization.
 
 `Tests/LiveKitNanopbTests/ConcurrencyStressTests` exercises the claim under
-TSan (shared reads, copy detach, view lifetime, view stability during sibling
-mutation, oneof churn, collection churn); CI's TSan matrix leg runs it on
-every push. When touching `_ensureUnique`, `detached()`, view construction, or
-any accessor's free/alloc ordering, run:
+TSan (shared reads, concurrent `modifying` on copies, view lifetime, view
+stability during sibling mutation, oneof churn, collection churn); CI's TSan
+matrix leg runs it on every push. When touching `modifying`, `owned()`, view
+construction, or any accessor's free/alloc ordering, run:
 
 ```zsh
 swift test --filter 'Nanopb|Conformance|ConcurrencyStress' --sanitize=thread
@@ -113,11 +122,11 @@ swift test --filter 'Nanopb|Conformance|ConcurrencyStress' --sanitize=thread
   false "changed" is benign. Don't use facade equality where map-order
   insensitivity matters.
 - **No crashing in the runtime**: encode/decode failures on paths that cannot
-  throw (setters, the CoW guard) are reported via `nanopbReportFailure`
-  (os_log `.fault`, subsystem `io.livekit.nanopb`) and degrade to the
-  least-damaging outcome — a setter leaves the destination unchanged, the CoW
-  guard detaches to an *empty* value rather than mutate shared storage. These
-  only fire on allocation exhaustion or a descriptor bug.
+  throw (builder setters, the `modifying` copy) are reported via
+  `nanopbReportFailure` (os_log `.fault`, subsystem `io.livekit.nanopb`) and
+  degrade to the least-damaging outcome — a setter leaves the destination
+  unchanged, a failed copy yields an *empty* value rather than aliasing
+  storage. These only fire on allocation exhaustion or a descriptor bug.
 - **Collections materialize**: repeated/map getters build Swift arrays and
   dictionaries of (for submessages) views. Hot paths should use the zero-copy
   borrows instead: `withEncodedBytes`, `withLkData`, `withLkRepeated`.
@@ -128,11 +137,12 @@ swift test --filter 'Nanopb|Conformance|ConcurrencyStress' --sanitize=thread
 
 ## Invariants to preserve when editing
 
-1. Every mutation path calls `_ensureUnique()` before writing.
+1. Setters exist only on `Builder`, never on a message — the generator's
+   `verifyBuilderInvariant` fails the build otherwise.
 2. Every `free`/`lk_pb_release` matches the allocation's actual layout —
    especially oneof switches (release with the old variant's descriptor).
 3. New runtime symbols from a nanopb upgrade must be added to
    `lk_pb_rename.h` (`nm -gU` the runtime objects to enumerate).
-4. No new synchronization primitives; safety is the CoW invariant.
+4. No new synchronization primitives; safety is immutability.
 5. Conformance suites must stay green — they are the encoding oracle:
    `swift test --filter 'Nanopb|Conformance'`.

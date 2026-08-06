@@ -18,20 +18,21 @@ import Foundation
 @testable import LiveKit
 import Testing
 
-/// Validates the copy-on-write invariant behind `NanopbBox`'s
+/// Validates the immutability invariant behind `NanopbBox`'s
 /// `@unchecked Sendable`: values sharing a box may be read concurrently, and
-/// mutation always detaches. Run under TSan (`swift test --sanitize=thread`)
-/// to catch any generated accessor that mutates shared storage in place.
-@Suite("nanopb CoW concurrency")
+/// `modifying` writes in place only when nothing else can observe the storage.
+/// Run under TSan (`swift test --sanitize=thread`) to catch any generated
+/// accessor that mutates storage another value can reach.
+@Suite("nanopb concurrency")
 struct ConcurrencyStressTests {
     private static func makeBase() -> LiveKit.Livekit_Room {
-        var room = LiveKit.Livekit_Room()
-        room.sid = "RM_stress"
-        room.name = "stress-room"
-        room.metadata = String(repeating: "x", count: 512)
-        room.emptyTimeout = 300
-        room.version.unixMicro = 42
-        return room
+        LiveKit.Livekit_Room.with { room in
+            room.sid = "RM_stress"
+            room.name = "stress-room"
+            room.metadata = String(repeating: "x", count: 512)
+            room.emptyTimeout = 300
+            room.version = .with { $0.unixMicro = 42 }
+        }
     }
 
     @Test("concurrent reads of one shared value")
@@ -58,17 +59,18 @@ struct ConcurrencyStressTests {
     }
 
     @Test("concurrent mutation of independent copies never affects the shared base")
-    func copyOnWriteDetach() async {
+    func concurrentModifying() async {
         let base = Self.makeBase()
         await withTaskGroup(of: Bool.self) { group in
             for worker in 0 ..< 8 {
                 group.addTask {
                     var ok = true
                     for iteration in 0 ..< 500 {
-                        var copy = base // shares the box until first mutation
-                        copy.sid = "RM_\(worker)_\(iteration)"
-                        copy.emptyTimeout = UInt32(worker)
-                        copy.version.ticks = Int32(iteration)
+                        let copy = base.modifying { copy in
+                            copy.sid = "RM_\(worker)_\(iteration)"
+                            copy.emptyTimeout = UInt32(worker)
+                            copy.version = .with { $0.ticks = Int32(iteration) }
+                        }
                         ok = ok && copy.sid == "RM_\(worker)_\(iteration)"
                     }
                     return ok
@@ -91,13 +93,14 @@ struct ConcurrencyStressTests {
                     var ok = true
                     for iteration in 0 ..< 300 {
                         let view: LiveKit.Livekit_ParticipantInfo = {
-                            var response = LiveKit.Livekit_SignalResponse()
-                            response.update.participants = [.with { $0.sid = "PA_\(iteration)" }]
+                            let response = LiveKit.Livekit_SignalResponse.with { response in
+                                response.update = .with { $0.participants = [.with { $0.sid = "PA_\(iteration)" }] }
+                            }
                             return response.update.participants[0]
                         }() // the response dies here; the view must hold the box
                         ok = ok && view.sid == "PA_\(iteration)"
-                        let detached = view.detached()
-                        ok = ok && detached.sid == "PA_\(iteration)"
+                        let copied = view.owned()
+                        ok = ok && copied.sid == "PA_\(iteration)"
                     }
                     return ok
                 }
@@ -110,11 +113,14 @@ struct ConcurrencyStressTests {
 
     @Test("shared views stay stable while sibling copies mutate and detach")
     func viewStabilityUnderCopyMutation() async {
-        var response = LiveKit.Livekit_SignalResponse()
-        response.update.participants = [
-            .with { $0.sid = "PA_a"; $0.name = "alice" },
-            .with { $0.sid = "PA_b"; $0.name = "bob" },
-        ]
+        let response = LiveKit.Livekit_SignalResponse.with { response in
+            response.update = .with {
+                $0.participants = [
+                    .with { $0.sid = "PA_a"; $0.name = "alice" },
+                    .with { $0.sid = "PA_b"; $0.name = "bob" },
+                ]
+            }
+        }
         let views = response.update.participants // zero-copy views into `response`
         let shared = response
 
@@ -128,12 +134,13 @@ struct ConcurrencyStressTests {
                     return ok
                 }
             }
-            for worker in 0 ..< 4 { // writers: copies detach before mutating
+            for worker in 0 ..< 4 { // writers: `modifying` must copy, never touch the shared box
                 group.addTask {
                     var ok = true
                     for iteration in 0 ..< 250 {
-                        var copy = shared
-                        copy.update.participants = [.with { $0.sid = "PA_\(worker)_\(iteration)" }]
+                        let copy = shared.modifying { copy in
+                            copy.update = .with { $0.participants = [.with { $0.sid = "PA_\(worker)_\(iteration)" }] }
+                        }
                         ok = ok && copy.update.participants.count == 1
                     }
                     return ok
@@ -148,8 +155,9 @@ struct ConcurrencyStressTests {
 
     @Test("oneof variant churn on concurrent copies")
     func oneofChurn() async {
-        var base = LiveKit.Livekit_SignalRequest()
-        base.ping = 1
+        let base = LiveKit.Livekit_SignalRequest.with { base in
+            base.ping = 1
+        }
         let shared = base
 
         await withTaskGroup(of: Bool.self) { group in
@@ -157,12 +165,13 @@ struct ConcurrencyStressTests {
                 group.addTask {
                     var ok = true
                     for iteration in 0 ..< 250 {
-                        var copy = shared
                         // cycle variants: scalar → message → scalar (exercises
                         // union release + zeroing on every switch)
-                        copy.mute = .with { $0.sid = "TR_\(worker)"; $0.muted = true }
-                        copy.ping = Int64(iteration)
-                        copy.offer = .with { $0.sdp = "sdp_\(iteration)" }
+                        let copy = shared.modifying { copy in
+                            copy.mute = .with { $0.sid = "TR_\(worker)"; $0.muted = true }
+                            copy.ping = Int64(iteration)
+                            copy.offer = .with { $0.sdp = "sdp_\(iteration)" }
+                        }
                         let wire = (try? copy.serializedBytes()) ?? []
                         let back = try? LiveKit.Livekit_SignalRequest(serializedBytes: wire)
                         ok = ok && back?.offer.sdp == "sdp_\(iteration)"
@@ -179,9 +188,10 @@ struct ConcurrencyStressTests {
 
     @Test("map and repeated churn on concurrent copies")
     func collectionChurn() async {
-        var base = LiveKit.Livekit_ParticipantInfo()
-        base.attributes = ["role": "listener"]
-        base.tracks = [.with { $0.sid = "TR_base" }]
+        let base = LiveKit.Livekit_ParticipantInfo.with { base in
+            base.attributes = ["role": "listener"]
+            base.tracks = [.with { $0.sid = "TR_base" }]
+        }
         let shared = base
 
         await withTaskGroup(of: Bool.self) { group in
@@ -189,12 +199,13 @@ struct ConcurrencyStressTests {
                 group.addTask {
                     var ok = true
                     for iteration in 0 ..< 200 {
-                        var copy = shared
-                        copy.attributes = ["worker": "\(worker)", "iteration": "\(iteration)"]
-                        copy.tracks = [
-                            .with { $0.sid = "TR_\(worker)_\(iteration)" },
-                            .with { $0.sid = "TR_second" },
-                        ]
+                        let copy = shared.modifying { copy in
+                            copy.attributes = ["worker": "\(worker)", "iteration": "\(iteration)"]
+                            copy.tracks = [
+                                .with { $0.sid = "TR_\(worker)_\(iteration)" },
+                                .with { $0.sid = "TR_second" },
+                            ]
+                        }
                         // equality reads shared storage while other tasks detach
                         ok = ok && copy != shared
                         ok = ok && copy.tracks.count == 2

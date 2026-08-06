@@ -20,229 +20,229 @@ struct ConformanceExemplar: CustomStringConvertible, Sendable {
 }
 
 func exemplar_Google_Protobuf_Timestamp() -> LiveKit.Google_Protobuf_Timestamp {
-    var m = LiveKit.Google_Protobuf_Timestamp()
-    m.seconds = 1
-    m.nanos = 2
-    return m
+    LiveKit.Google_Protobuf_Timestamp.with { m in
+        m.seconds = 1
+        m.nanos = 2
+    }
 }
 
 func oracleExemplar_Google_Protobuf_Timestamp() -> SwiftProtobuf.Google_Protobuf_Timestamp {
-    var m = SwiftProtobuf.Google_Protobuf_Timestamp()
-    m.seconds = 1
-    m.nanos = 2
-    return m
+    SwiftProtobuf.Google_Protobuf_Timestamp.with { m in
+        m.seconds = 1
+        m.nanos = 2
+    }
 }
 
 func exemplar_Livekit_MetricsBatch() -> LiveKit.Livekit_MetricsBatch {
-    var m = LiveKit.Livekit_MetricsBatch()
-    m.timestampMs = 1
-    m.normalizedTimestamp = exemplar_Google_Protobuf_Timestamp()
-    m.strData = ["str_data_0", "str_data_1"]
-    m.timeSeries = [exemplar_Livekit_TimeSeriesMetric()]
-    m.events = [exemplar_Livekit_EventMetric()]
-    return m
+    LiveKit.Livekit_MetricsBatch.with { m in
+        m.timestampMs = 1
+        m.normalizedTimestamp = exemplar_Google_Protobuf_Timestamp()
+        m.strData = ["str_data_0", "str_data_1"]
+        m.timeSeries = [exemplar_Livekit_TimeSeriesMetric()]
+        m.events = [exemplar_Livekit_EventMetric()]
+    }
 }
 
 func oracleExemplar_Livekit_MetricsBatch() -> Livekit_MetricsBatch {
-    var m = Livekit_MetricsBatch()
-    m.timestampMs = 1
-    m.normalizedTimestamp = oracleExemplar_Google_Protobuf_Timestamp()
-    m.strData = ["str_data_0", "str_data_1"]
-    m.timeSeries = [oracleExemplar_Livekit_TimeSeriesMetric()]
-    m.events = [oracleExemplar_Livekit_EventMetric()]
-    return m
+    Livekit_MetricsBatch.with { m in
+        m.timestampMs = 1
+        m.normalizedTimestamp = oracleExemplar_Google_Protobuf_Timestamp()
+        m.strData = ["str_data_0", "str_data_1"]
+        m.timeSeries = [oracleExemplar_Livekit_TimeSeriesMetric()]
+        m.events = [oracleExemplar_Livekit_EventMetric()]
+    }
 }
 
 func exemplar_Livekit_TimeSeriesMetric() -> LiveKit.Livekit_TimeSeriesMetric {
-    var m = LiveKit.Livekit_TimeSeriesMetric()
-    m.label = 1
-    m.participantIdentity = 2
-    m.trackSid = 3
-    m.samples = [exemplar_Livekit_MetricSample()]
-    m.rid = 5
-    return m
+    LiveKit.Livekit_TimeSeriesMetric.with { m in
+        m.label = 1
+        m.participantIdentity = 2
+        m.trackSid = 3
+        m.samples = [exemplar_Livekit_MetricSample()]
+        m.rid = 5
+    }
 }
 
 func oracleExemplar_Livekit_TimeSeriesMetric() -> Livekit_TimeSeriesMetric {
-    var m = Livekit_TimeSeriesMetric()
-    m.label = 1
-    m.participantIdentity = 2
-    m.trackSid = 3
-    m.samples = [oracleExemplar_Livekit_MetricSample()]
-    m.rid = 5
-    return m
+    Livekit_TimeSeriesMetric.with { m in
+        m.label = 1
+        m.participantIdentity = 2
+        m.trackSid = 3
+        m.samples = [oracleExemplar_Livekit_MetricSample()]
+        m.rid = 5
+    }
 }
 
 func exemplar_Livekit_MetricSample() -> LiveKit.Livekit_MetricSample {
-    var m = LiveKit.Livekit_MetricSample()
-    m.timestampMs = 1
-    m.normalizedTimestamp = exemplar_Google_Protobuf_Timestamp()
-    m.value = 3
-    return m
+    LiveKit.Livekit_MetricSample.with { m in
+        m.timestampMs = 1
+        m.normalizedTimestamp = exemplar_Google_Protobuf_Timestamp()
+        m.value = 3
+    }
 }
 
 func oracleExemplar_Livekit_MetricSample() -> Livekit_MetricSample {
-    var m = Livekit_MetricSample()
-    m.timestampMs = 1
-    m.normalizedTimestamp = oracleExemplar_Google_Protobuf_Timestamp()
-    m.value = 3
-    return m
+    Livekit_MetricSample.with { m in
+        m.timestampMs = 1
+        m.normalizedTimestamp = oracleExemplar_Google_Protobuf_Timestamp()
+        m.value = 3
+    }
 }
 
 func exemplar_Livekit_EventMetric() -> LiveKit.Livekit_EventMetric {
-    var m = LiveKit.Livekit_EventMetric()
-    m.label = 1
-    m.participantIdentity = 2
-    m.trackSid = 3
-    m.startTimestampMs = 4
-    m.endTimestampMs = 5
-    m.normalizedStartTimestamp = exemplar_Google_Protobuf_Timestamp()
-    m.normalizedEndTimestamp = exemplar_Google_Protobuf_Timestamp()
-    m.metadata = "metadata"
-    m.rid = 9
-    return m
+    LiveKit.Livekit_EventMetric.with { m in
+        m.label = 1
+        m.participantIdentity = 2
+        m.trackSid = 3
+        m.startTimestampMs = 4
+        m.endTimestampMs = 5
+        m.normalizedStartTimestamp = exemplar_Google_Protobuf_Timestamp()
+        m.normalizedEndTimestamp = exemplar_Google_Protobuf_Timestamp()
+        m.metadata = "metadata"
+        m.rid = 9
+    }
 }
 
 func oracleExemplar_Livekit_EventMetric() -> Livekit_EventMetric {
-    var m = Livekit_EventMetric()
-    m.label = 1
-    m.participantIdentity = 2
-    m.trackSid = 3
-    m.startTimestampMs = 4
-    m.endTimestampMs = 5
-    m.normalizedStartTimestamp = oracleExemplar_Google_Protobuf_Timestamp()
-    m.normalizedEndTimestamp = oracleExemplar_Google_Protobuf_Timestamp()
-    m.metadata = "metadata"
-    m.rid = 9
-    return m
+    Livekit_EventMetric.with { m in
+        m.label = 1
+        m.participantIdentity = 2
+        m.trackSid = 3
+        m.startTimestampMs = 4
+        m.endTimestampMs = 5
+        m.normalizedStartTimestamp = oracleExemplar_Google_Protobuf_Timestamp()
+        m.normalizedEndTimestamp = oracleExemplar_Google_Protobuf_Timestamp()
+        m.metadata = "metadata"
+        m.rid = 9
+    }
 }
 
 func exemplar_Livekit_Room() -> LiveKit.Livekit_Room {
-    var m = LiveKit.Livekit_Room()
-    m.sid = "sid"
-    m.name = "name"
-    m.emptyTimeout = 3
-    m.maxParticipants = 4
-    m.creationTime = 5
-    m.turnPassword = "turn_password"
-    m.enabledCodecs = [exemplar_Livekit_Codec()]
-    m.metadata = "metadata"
-    m.numParticipants = 9
-    m.activeRecording = true
-    m.numPublishers = 11
-    m.version = exemplar_Livekit_TimedVersion()
-    m.departureTimeout = 14
-    m.creationTimeMs = 15
-    return m
+    LiveKit.Livekit_Room.with { m in
+        m.sid = "sid"
+        m.name = "name"
+        m.emptyTimeout = 3
+        m.maxParticipants = 4
+        m.creationTime = 5
+        m.turnPassword = "turn_password"
+        m.enabledCodecs = [exemplar_Livekit_Codec()]
+        m.metadata = "metadata"
+        m.numParticipants = 9
+        m.activeRecording = true
+        m.numPublishers = 11
+        m.version = exemplar_Livekit_TimedVersion()
+        m.departureTimeout = 14
+        m.creationTimeMs = 15
+    }
 }
 
 func oracleExemplar_Livekit_Room() -> Livekit_Room {
-    var m = Livekit_Room()
-    m.sid = "sid"
-    m.name = "name"
-    m.emptyTimeout = 3
-    m.maxParticipants = 4
-    m.creationTime = 5
-    m.turnPassword = "turn_password"
-    m.enabledCodecs = [oracleExemplar_Livekit_Codec()]
-    m.metadata = "metadata"
-    m.numParticipants = 9
-    m.activeRecording = true
-    m.numPublishers = 11
-    m.version = oracleExemplar_Livekit_TimedVersion()
-    m.departureTimeout = 14
-    m.creationTimeMs = 15
-    return m
+    Livekit_Room.with { m in
+        m.sid = "sid"
+        m.name = "name"
+        m.emptyTimeout = 3
+        m.maxParticipants = 4
+        m.creationTime = 5
+        m.turnPassword = "turn_password"
+        m.enabledCodecs = [oracleExemplar_Livekit_Codec()]
+        m.metadata = "metadata"
+        m.numParticipants = 9
+        m.activeRecording = true
+        m.numPublishers = 11
+        m.version = oracleExemplar_Livekit_TimedVersion()
+        m.departureTimeout = 14
+        m.creationTimeMs = 15
+    }
 }
 
 func exemplar_Livekit_Codec() -> LiveKit.Livekit_Codec {
-    var m = LiveKit.Livekit_Codec()
-    m.mime = "mime"
-    m.fmtpLine = "fmtp_line"
-    return m
+    LiveKit.Livekit_Codec.with { m in
+        m.mime = "mime"
+        m.fmtpLine = "fmtp_line"
+    }
 }
 
 func oracleExemplar_Livekit_Codec() -> Livekit_Codec {
-    var m = Livekit_Codec()
-    m.mime = "mime"
-    m.fmtpLine = "fmtp_line"
-    return m
+    Livekit_Codec.with { m in
+        m.mime = "mime"
+        m.fmtpLine = "fmtp_line"
+    }
 }
 
 func exemplar_Livekit_ParticipantPermission() -> LiveKit.Livekit_ParticipantPermission {
-    var m = LiveKit.Livekit_ParticipantPermission()
-    m.canSubscribe = true
-    m.canPublish = true
-    m.canPublishData = true
-    m.hidden = true
-    m.recorder = true
-    m.canPublishSources = [.camera]
-    m.canUpdateMetadata = true
-    m.agent = true
-    m.canSubscribeMetrics = true
-    m.canManageAgentSession = true
-    return m
+    LiveKit.Livekit_ParticipantPermission.with { m in
+        m.canSubscribe = true
+        m.canPublish = true
+        m.canPublishData = true
+        m.hidden = true
+        m.recorder = true
+        m.canPublishSources = [.camera]
+        m.canUpdateMetadata = true
+        m.agent = true
+        m.canSubscribeMetrics = true
+        m.canManageAgentSession = true
+    }
 }
 
 func oracleExemplar_Livekit_ParticipantPermission() -> Livekit_ParticipantPermission {
-    var m = Livekit_ParticipantPermission()
-    m.canSubscribe = true
-    m.canPublish = true
-    m.canPublishData = true
-    m.hidden = true
-    m.recorder = true
-    m.canPublishSources = [.camera]
-    m.canUpdateMetadata = true
-    m.agent = true
-    m.canSubscribeMetrics = true
-    m.canManageAgentSession = true
-    return m
+    Livekit_ParticipantPermission.with { m in
+        m.canSubscribe = true
+        m.canPublish = true
+        m.canPublishData = true
+        m.hidden = true
+        m.recorder = true
+        m.canPublishSources = [.camera]
+        m.canUpdateMetadata = true
+        m.agent = true
+        m.canSubscribeMetrics = true
+        m.canManageAgentSession = true
+    }
 }
 
 func exemplar_Livekit_ParticipantInfo() -> LiveKit.Livekit_ParticipantInfo {
-    var m = LiveKit.Livekit_ParticipantInfo()
-    m.sid = "sid"
-    m.identity = "identity"
-    m.state = .joined
-    m.tracks = [exemplar_Livekit_TrackInfo()]
-    m.metadata = "metadata"
-    m.joinedAt = 6
-    m.name = "name"
-    m.version = 10
-    m.permission = exemplar_Livekit_ParticipantPermission()
-    m.region = "region"
-    m.isPublisher = true
-    m.kind = .ingress
-    m.attributes = ["attributes_key": "value"]
-    m.disconnectReason = .clientInitiated
-    m.joinedAtMs = 17
-    m.kindDetails = [.forwarded]
-    m.dataTracks = [exemplar_Livekit_DataTrackInfo()]
-    m.clientProtocol = 20
-    return m
+    LiveKit.Livekit_ParticipantInfo.with { m in
+        m.sid = "sid"
+        m.identity = "identity"
+        m.state = .joined
+        m.tracks = [exemplar_Livekit_TrackInfo()]
+        m.metadata = "metadata"
+        m.joinedAt = 6
+        m.name = "name"
+        m.version = 10
+        m.permission = exemplar_Livekit_ParticipantPermission()
+        m.region = "region"
+        m.isPublisher = true
+        m.kind = .ingress
+        m.attributes = ["attributes_key": "value"]
+        m.disconnectReason = .clientInitiated
+        m.joinedAtMs = 17
+        m.kindDetails = [.forwarded]
+        m.dataTracks = [exemplar_Livekit_DataTrackInfo()]
+        m.clientProtocol = 20
+    }
 }
 
 func oracleExemplar_Livekit_ParticipantInfo() -> Livekit_ParticipantInfo {
-    var m = Livekit_ParticipantInfo()
-    m.sid = "sid"
-    m.identity = "identity"
-    m.state = .joined
-    m.tracks = [oracleExemplar_Livekit_TrackInfo()]
-    m.metadata = "metadata"
-    m.joinedAt = 6
-    m.name = "name"
-    m.version = 10
-    m.permission = oracleExemplar_Livekit_ParticipantPermission()
-    m.region = "region"
-    m.isPublisher = true
-    m.kind = .ingress
-    m.attributes = ["attributes_key": "value"]
-    m.disconnectReason = .clientInitiated
-    m.joinedAtMs = 17
-    m.kindDetails = [.forwarded]
-    m.dataTracks = [oracleExemplar_Livekit_DataTrackInfo()]
-    m.clientProtocol = 20
-    return m
+    Livekit_ParticipantInfo.with { m in
+        m.sid = "sid"
+        m.identity = "identity"
+        m.state = .joined
+        m.tracks = [oracleExemplar_Livekit_TrackInfo()]
+        m.metadata = "metadata"
+        m.joinedAt = 6
+        m.name = "name"
+        m.version = 10
+        m.permission = oracleExemplar_Livekit_ParticipantPermission()
+        m.region = "region"
+        m.isPublisher = true
+        m.kind = .ingress
+        m.attributes = ["attributes_key": "value"]
+        m.disconnectReason = .clientInitiated
+        m.joinedAtMs = 17
+        m.kindDetails = [.forwarded]
+        m.dataTracks = [oracleExemplar_Livekit_DataTrackInfo()]
+        m.clientProtocol = 20
+    }
 }
 
 func exemplar_Livekit_Encryption() -> LiveKit.Livekit_Encryption { LiveKit.Livekit_Encryption() }
@@ -250,515 +250,515 @@ func exemplar_Livekit_Encryption() -> LiveKit.Livekit_Encryption { LiveKit.Livek
 func oracleExemplar_Livekit_Encryption() -> Livekit_Encryption { Livekit_Encryption() }
 
 func exemplar_Livekit_SimulcastCodecInfo() -> LiveKit.Livekit_SimulcastCodecInfo {
-    var m = LiveKit.Livekit_SimulcastCodecInfo()
-    m.mimeType = "mime_type"
-    m.mid = "mid"
-    m.cid = "cid"
-    m.layers = [exemplar_Livekit_VideoLayer()]
-    m.videoLayerMode = .oneSpatialLayerPerStream
-    m.sdpCid = "sdp_cid"
-    return m
+    LiveKit.Livekit_SimulcastCodecInfo.with { m in
+        m.mimeType = "mime_type"
+        m.mid = "mid"
+        m.cid = "cid"
+        m.layers = [exemplar_Livekit_VideoLayer()]
+        m.videoLayerMode = .oneSpatialLayerPerStream
+        m.sdpCid = "sdp_cid"
+    }
 }
 
 func oracleExemplar_Livekit_SimulcastCodecInfo() -> Livekit_SimulcastCodecInfo {
-    var m = Livekit_SimulcastCodecInfo()
-    m.mimeType = "mime_type"
-    m.mid = "mid"
-    m.cid = "cid"
-    m.layers = [oracleExemplar_Livekit_VideoLayer()]
-    m.videoLayerMode = .oneSpatialLayerPerStream
-    m.sdpCid = "sdp_cid"
-    return m
+    Livekit_SimulcastCodecInfo.with { m in
+        m.mimeType = "mime_type"
+        m.mid = "mid"
+        m.cid = "cid"
+        m.layers = [oracleExemplar_Livekit_VideoLayer()]
+        m.videoLayerMode = .oneSpatialLayerPerStream
+        m.sdpCid = "sdp_cid"
+    }
 }
 
 func exemplar_Livekit_TrackInfo() -> LiveKit.Livekit_TrackInfo {
-    var m = LiveKit.Livekit_TrackInfo()
-    m.sid = "sid"
-    m.type = .video
-    m.name = "name"
-    m.muted = true
-    m.width = 5
-    m.height = 6
-    m.simulcast = true
-    m.disableDtx = true
-    m.source = .camera
-    m.layers = [exemplar_Livekit_VideoLayer()]
-    m.mimeType = "mime_type"
-    m.mid = "mid"
-    m.codecs = [exemplar_Livekit_SimulcastCodecInfo()]
-    m.stereo = true
-    m.disableRed = true
-    m.encryption = .gcm
-    m.stream = "stream"
-    m.version = exemplar_Livekit_TimedVersion()
-    m.audioFeatures = [.tfNoDtx]
-    m.backupCodecPolicy = .simulcast
-    m.packetTrailerFeatures = [.ptfFrameID]
-    return m
+    LiveKit.Livekit_TrackInfo.with { m in
+        m.sid = "sid"
+        m.type = .video
+        m.name = "name"
+        m.muted = true
+        m.width = 5
+        m.height = 6
+        m.simulcast = true
+        m.disableDtx = true
+        m.source = .camera
+        m.layers = [exemplar_Livekit_VideoLayer()]
+        m.mimeType = "mime_type"
+        m.mid = "mid"
+        m.codecs = [exemplar_Livekit_SimulcastCodecInfo()]
+        m.stereo = true
+        m.disableRed = true
+        m.encryption = .gcm
+        m.stream = "stream"
+        m.version = exemplar_Livekit_TimedVersion()
+        m.audioFeatures = [.tfNoDtx]
+        m.backupCodecPolicy = .simulcast
+        m.packetTrailerFeatures = [.ptfFrameID]
+    }
 }
 
 func oracleExemplar_Livekit_TrackInfo() -> Livekit_TrackInfo {
-    var m = Livekit_TrackInfo()
-    m.sid = "sid"
-    m.type = .video
-    m.name = "name"
-    m.muted = true
-    m.width = 5
-    m.height = 6
-    m.simulcast = true
-    m.disableDtx = true
-    m.source = .camera
-    m.layers = [oracleExemplar_Livekit_VideoLayer()]
-    m.mimeType = "mime_type"
-    m.mid = "mid"
-    m.codecs = [oracleExemplar_Livekit_SimulcastCodecInfo()]
-    m.stereo = true
-    m.disableRed = true
-    m.encryption = .gcm
-    m.stream = "stream"
-    m.version = oracleExemplar_Livekit_TimedVersion()
-    m.audioFeatures = [.tfNoDtx]
-    m.backupCodecPolicy = .simulcast
-    m.packetTrailerFeatures = [.ptfFrameID]
-    return m
+    Livekit_TrackInfo.with { m in
+        m.sid = "sid"
+        m.type = .video
+        m.name = "name"
+        m.muted = true
+        m.width = 5
+        m.height = 6
+        m.simulcast = true
+        m.disableDtx = true
+        m.source = .camera
+        m.layers = [oracleExemplar_Livekit_VideoLayer()]
+        m.mimeType = "mime_type"
+        m.mid = "mid"
+        m.codecs = [oracleExemplar_Livekit_SimulcastCodecInfo()]
+        m.stereo = true
+        m.disableRed = true
+        m.encryption = .gcm
+        m.stream = "stream"
+        m.version = oracleExemplar_Livekit_TimedVersion()
+        m.audioFeatures = [.tfNoDtx]
+        m.backupCodecPolicy = .simulcast
+        m.packetTrailerFeatures = [.ptfFrameID]
+    }
 }
 
 func exemplar_Livekit_DataTrackInfo() -> LiveKit.Livekit_DataTrackInfo {
-    var m = LiveKit.Livekit_DataTrackInfo()
-    m.pubHandle = 1
-    m.sid = "sid"
-    m.name = "name"
-    m.encryption = .gcm
-    return m
+    LiveKit.Livekit_DataTrackInfo.with { m in
+        m.pubHandle = 1
+        m.sid = "sid"
+        m.name = "name"
+        m.encryption = .gcm
+    }
 }
 
 func oracleExemplar_Livekit_DataTrackInfo() -> Livekit_DataTrackInfo {
-    var m = Livekit_DataTrackInfo()
-    m.pubHandle = 1
-    m.sid = "sid"
-    m.name = "name"
-    m.encryption = .gcm
-    return m
+    Livekit_DataTrackInfo.with { m in
+        m.pubHandle = 1
+        m.sid = "sid"
+        m.name = "name"
+        m.encryption = .gcm
+    }
 }
 
 func exemplar_Livekit_DataTrackSubscriptionOptions() -> LiveKit.Livekit_DataTrackSubscriptionOptions {
-    var m = LiveKit.Livekit_DataTrackSubscriptionOptions()
-    m.targetFps = 1
-    return m
+    LiveKit.Livekit_DataTrackSubscriptionOptions.with { m in
+        m.targetFps = 1
+    }
 }
 
 func oracleExemplar_Livekit_DataTrackSubscriptionOptions() -> Livekit_DataTrackSubscriptionOptions {
-    var m = Livekit_DataTrackSubscriptionOptions()
-    m.targetFps = 1
-    return m
+    Livekit_DataTrackSubscriptionOptions.with { m in
+        m.targetFps = 1
+    }
 }
 
 func exemplar_Livekit_VideoLayer() -> LiveKit.Livekit_VideoLayer {
-    var m = LiveKit.Livekit_VideoLayer()
-    m.quality = .medium
-    m.width = 2
-    m.height = 3
-    m.bitrate = 4
-    m.ssrc = 5
-    m.spatialLayer = 6
-    m.rid = "rid"
-    m.repairSsrc = 8
-    return m
+    LiveKit.Livekit_VideoLayer.with { m in
+        m.quality = .medium
+        m.width = 2
+        m.height = 3
+        m.bitrate = 4
+        m.ssrc = 5
+        m.spatialLayer = 6
+        m.rid = "rid"
+        m.repairSsrc = 8
+    }
 }
 
 func oracleExemplar_Livekit_VideoLayer() -> Livekit_VideoLayer {
-    var m = Livekit_VideoLayer()
-    m.quality = .medium
-    m.width = 2
-    m.height = 3
-    m.bitrate = 4
-    m.ssrc = 5
-    m.spatialLayer = 6
-    m.rid = "rid"
-    m.repairSsrc = 8
-    return m
+    Livekit_VideoLayer.with { m in
+        m.quality = .medium
+        m.width = 2
+        m.height = 3
+        m.bitrate = 4
+        m.ssrc = 5
+        m.spatialLayer = 6
+        m.rid = "rid"
+        m.repairSsrc = 8
+    }
 }
 
 func exemplar_Livekit_DataPacket() -> LiveKit.Livekit_DataPacket {
-    var m = LiveKit.Livekit_DataPacket()
-    m.kind = .lossy
-    m.participantIdentity = "participant_identity"
-    m.destinationIdentities = ["destination_identities_0", "destination_identities_1"]
-    m.sequence = 16
-    m.participantSid = "participant_sid"
-    m.user = exemplar_Livekit_UserPacket()
-    return m
+    LiveKit.Livekit_DataPacket.with { m in
+        m.kind = .lossy
+        m.participantIdentity = "participant_identity"
+        m.destinationIdentities = ["destination_identities_0", "destination_identities_1"]
+        m.sequence = 16
+        m.participantSid = "participant_sid"
+        m.user = exemplar_Livekit_UserPacket()
+    }
 }
 
 func oracleExemplar_Livekit_DataPacket() -> Livekit_DataPacket {
-    var m = Livekit_DataPacket()
-    m.kind = .lossy
-    m.participantIdentity = "participant_identity"
-    m.destinationIdentities = ["destination_identities_0", "destination_identities_1"]
-    m.sequence = 16
-    m.participantSid = "participant_sid"
-    m.user = oracleExemplar_Livekit_UserPacket()
-    return m
+    Livekit_DataPacket.with { m in
+        m.kind = .lossy
+        m.participantIdentity = "participant_identity"
+        m.destinationIdentities = ["destination_identities_0", "destination_identities_1"]
+        m.sequence = 16
+        m.participantSid = "participant_sid"
+        m.user = oracleExemplar_Livekit_UserPacket()
+    }
 }
 
 func exemplar_Livekit_EncryptedPacket() -> LiveKit.Livekit_EncryptedPacket {
-    var m = LiveKit.Livekit_EncryptedPacket()
-    m.encryptionType = .gcm
-    m.iv = Data("iv".utf8)
-    m.keyIndex = 3
-    m.encryptedValue = Data("encrypted_value".utf8)
-    return m
+    LiveKit.Livekit_EncryptedPacket.with { m in
+        m.encryptionType = .gcm
+        m.iv = Data("iv".utf8)
+        m.keyIndex = 3
+        m.encryptedValue = Data("encrypted_value".utf8)
+    }
 }
 
 func oracleExemplar_Livekit_EncryptedPacket() -> Livekit_EncryptedPacket {
-    var m = Livekit_EncryptedPacket()
-    m.encryptionType = .gcm
-    m.iv = Data("iv".utf8)
-    m.keyIndex = 3
-    m.encryptedValue = Data("encrypted_value".utf8)
-    return m
+    Livekit_EncryptedPacket.with { m in
+        m.encryptionType = .gcm
+        m.iv = Data("iv".utf8)
+        m.keyIndex = 3
+        m.encryptedValue = Data("encrypted_value".utf8)
+    }
 }
 
 func exemplar_Livekit_EncryptedPacketPayload() -> LiveKit.Livekit_EncryptedPacketPayload {
-    var m = LiveKit.Livekit_EncryptedPacketPayload()
-    m.user = exemplar_Livekit_UserPacket()
-    return m
+    LiveKit.Livekit_EncryptedPacketPayload.with { m in
+        m.user = exemplar_Livekit_UserPacket()
+    }
 }
 
 func oracleExemplar_Livekit_EncryptedPacketPayload() -> Livekit_EncryptedPacketPayload {
-    var m = Livekit_EncryptedPacketPayload()
-    m.user = oracleExemplar_Livekit_UserPacket()
-    return m
+    Livekit_EncryptedPacketPayload.with { m in
+        m.user = oracleExemplar_Livekit_UserPacket()
+    }
 }
 
 func exemplar_Livekit_ActiveSpeakerUpdate() -> LiveKit.Livekit_ActiveSpeakerUpdate {
-    var m = LiveKit.Livekit_ActiveSpeakerUpdate()
-    m.speakers = [exemplar_Livekit_SpeakerInfo()]
-    return m
+    LiveKit.Livekit_ActiveSpeakerUpdate.with { m in
+        m.speakers = [exemplar_Livekit_SpeakerInfo()]
+    }
 }
 
 func oracleExemplar_Livekit_ActiveSpeakerUpdate() -> Livekit_ActiveSpeakerUpdate {
-    var m = Livekit_ActiveSpeakerUpdate()
-    m.speakers = [oracleExemplar_Livekit_SpeakerInfo()]
-    return m
+    Livekit_ActiveSpeakerUpdate.with { m in
+        m.speakers = [oracleExemplar_Livekit_SpeakerInfo()]
+    }
 }
 
 func exemplar_Livekit_SpeakerInfo() -> LiveKit.Livekit_SpeakerInfo {
-    var m = LiveKit.Livekit_SpeakerInfo()
-    m.sid = "sid"
-    m.level = 2
-    m.active = true
-    return m
+    LiveKit.Livekit_SpeakerInfo.with { m in
+        m.sid = "sid"
+        m.level = 2
+        m.active = true
+    }
 }
 
 func oracleExemplar_Livekit_SpeakerInfo() -> Livekit_SpeakerInfo {
-    var m = Livekit_SpeakerInfo()
-    m.sid = "sid"
-    m.level = 2
-    m.active = true
-    return m
+    Livekit_SpeakerInfo.with { m in
+        m.sid = "sid"
+        m.level = 2
+        m.active = true
+    }
 }
 
 func exemplar_Livekit_UserPacket() -> LiveKit.Livekit_UserPacket {
-    var m = LiveKit.Livekit_UserPacket()
-    m.participantSid = "participant_sid"
-    m.payload = Data("payload".utf8)
-    m.destinationSids = ["destination_sids_0", "destination_sids_1"]
-    m.topic = "topic"
-    m.participantIdentity = "participant_identity"
-    m.destinationIdentities = ["destination_identities_0", "destination_identities_1"]
-    m.id = "id"
-    m.startTime = 9
-    m.endTime = 10
-    m.nonce = Data("nonce".utf8)
-    return m
+    LiveKit.Livekit_UserPacket.with { m in
+        m.participantSid = "participant_sid"
+        m.payload = Data("payload".utf8)
+        m.destinationSids = ["destination_sids_0", "destination_sids_1"]
+        m.topic = "topic"
+        m.participantIdentity = "participant_identity"
+        m.destinationIdentities = ["destination_identities_0", "destination_identities_1"]
+        m.id = "id"
+        m.startTime = 9
+        m.endTime = 10
+        m.nonce = Data("nonce".utf8)
+    }
 }
 
 func oracleExemplar_Livekit_UserPacket() -> Livekit_UserPacket {
-    var m = Livekit_UserPacket()
-    m.participantSid = "participant_sid"
-    m.payload = Data("payload".utf8)
-    m.destinationSids = ["destination_sids_0", "destination_sids_1"]
-    m.topic = "topic"
-    m.participantIdentity = "participant_identity"
-    m.destinationIdentities = ["destination_identities_0", "destination_identities_1"]
-    m.id = "id"
-    m.startTime = 9
-    m.endTime = 10
-    m.nonce = Data("nonce".utf8)
-    return m
+    Livekit_UserPacket.with { m in
+        m.participantSid = "participant_sid"
+        m.payload = Data("payload".utf8)
+        m.destinationSids = ["destination_sids_0", "destination_sids_1"]
+        m.topic = "topic"
+        m.participantIdentity = "participant_identity"
+        m.destinationIdentities = ["destination_identities_0", "destination_identities_1"]
+        m.id = "id"
+        m.startTime = 9
+        m.endTime = 10
+        m.nonce = Data("nonce".utf8)
+    }
 }
 
 func exemplar_Livekit_SipDTMF() -> LiveKit.Livekit_SipDTMF {
-    var m = LiveKit.Livekit_SipDTMF()
-    m.code = 3
-    m.digit = "digit"
-    return m
+    LiveKit.Livekit_SipDTMF.with { m in
+        m.code = 3
+        m.digit = "digit"
+    }
 }
 
 func oracleExemplar_Livekit_SipDTMF() -> Livekit_SipDTMF {
-    var m = Livekit_SipDTMF()
-    m.code = 3
-    m.digit = "digit"
-    return m
+    Livekit_SipDTMF.with { m in
+        m.code = 3
+        m.digit = "digit"
+    }
 }
 
 func exemplar_Livekit_Transcription() -> LiveKit.Livekit_Transcription {
-    var m = LiveKit.Livekit_Transcription()
-    m.transcribedParticipantIdentity = "transcribed_participant_identity"
-    m.trackID = "track_id"
-    m.segments = [exemplar_Livekit_TranscriptionSegment()]
-    return m
+    LiveKit.Livekit_Transcription.with { m in
+        m.transcribedParticipantIdentity = "transcribed_participant_identity"
+        m.trackID = "track_id"
+        m.segments = [exemplar_Livekit_TranscriptionSegment()]
+    }
 }
 
 func oracleExemplar_Livekit_Transcription() -> Livekit_Transcription {
-    var m = Livekit_Transcription()
-    m.transcribedParticipantIdentity = "transcribed_participant_identity"
-    m.trackID = "track_id"
-    m.segments = [oracleExemplar_Livekit_TranscriptionSegment()]
-    return m
+    Livekit_Transcription.with { m in
+        m.transcribedParticipantIdentity = "transcribed_participant_identity"
+        m.trackID = "track_id"
+        m.segments = [oracleExemplar_Livekit_TranscriptionSegment()]
+    }
 }
 
 func exemplar_Livekit_TranscriptionSegment() -> LiveKit.Livekit_TranscriptionSegment {
-    var m = LiveKit.Livekit_TranscriptionSegment()
-    m.id = "id"
-    m.text = "text"
-    m.startTime = 3
-    m.endTime = 4
-    m.final = true
-    m.language = "language"
-    return m
+    LiveKit.Livekit_TranscriptionSegment.with { m in
+        m.id = "id"
+        m.text = "text"
+        m.startTime = 3
+        m.endTime = 4
+        m.final = true
+        m.language = "language"
+    }
 }
 
 func oracleExemplar_Livekit_TranscriptionSegment() -> Livekit_TranscriptionSegment {
-    var m = Livekit_TranscriptionSegment()
-    m.id = "id"
-    m.text = "text"
-    m.startTime = 3
-    m.endTime = 4
-    m.final = true
-    m.language = "language"
-    return m
+    Livekit_TranscriptionSegment.with { m in
+        m.id = "id"
+        m.text = "text"
+        m.startTime = 3
+        m.endTime = 4
+        m.final = true
+        m.language = "language"
+    }
 }
 
 func exemplar_Livekit_ChatMessage() -> LiveKit.Livekit_ChatMessage {
-    var m = LiveKit.Livekit_ChatMessage()
-    m.id = "id"
-    m.timestamp = 2
-    m.editTimestamp = 3
-    m.message = "message"
-    m.deleted = true
-    m.generated = true
-    return m
+    LiveKit.Livekit_ChatMessage.with { m in
+        m.id = "id"
+        m.timestamp = 2
+        m.editTimestamp = 3
+        m.message = "message"
+        m.deleted = true
+        m.generated = true
+    }
 }
 
 func oracleExemplar_Livekit_ChatMessage() -> Livekit_ChatMessage {
-    var m = Livekit_ChatMessage()
-    m.id = "id"
-    m.timestamp = 2
-    m.editTimestamp = 3
-    m.message = "message"
-    m.deleted = true
-    m.generated = true
-    return m
+    Livekit_ChatMessage.with { m in
+        m.id = "id"
+        m.timestamp = 2
+        m.editTimestamp = 3
+        m.message = "message"
+        m.deleted = true
+        m.generated = true
+    }
 }
 
 func exemplar_Livekit_RpcRequest() -> LiveKit.Livekit_RpcRequest {
-    var m = LiveKit.Livekit_RpcRequest()
-    m.id = "id"
-    m.method = "method"
-    m.payload = "payload"
-    m.responseTimeoutMs = 4
-    m.version = 5
-    m.compressedPayload = Data("compressed_payload".utf8)
-    return m
+    LiveKit.Livekit_RpcRequest.with { m in
+        m.id = "id"
+        m.method = "method"
+        m.payload = "payload"
+        m.responseTimeoutMs = 4
+        m.version = 5
+        m.compressedPayload = Data("compressed_payload".utf8)
+    }
 }
 
 func oracleExemplar_Livekit_RpcRequest() -> Livekit_RpcRequest {
-    var m = Livekit_RpcRequest()
-    m.id = "id"
-    m.method = "method"
-    m.payload = "payload"
-    m.responseTimeoutMs = 4
-    m.version = 5
-    m.compressedPayload = Data("compressed_payload".utf8)
-    return m
+    Livekit_RpcRequest.with { m in
+        m.id = "id"
+        m.method = "method"
+        m.payload = "payload"
+        m.responseTimeoutMs = 4
+        m.version = 5
+        m.compressedPayload = Data("compressed_payload".utf8)
+    }
 }
 
 func exemplar_Livekit_RpcAck() -> LiveKit.Livekit_RpcAck {
-    var m = LiveKit.Livekit_RpcAck()
-    m.requestID = "request_id"
-    return m
+    LiveKit.Livekit_RpcAck.with { m in
+        m.requestID = "request_id"
+    }
 }
 
 func oracleExemplar_Livekit_RpcAck() -> Livekit_RpcAck {
-    var m = Livekit_RpcAck()
-    m.requestID = "request_id"
-    return m
+    Livekit_RpcAck.with { m in
+        m.requestID = "request_id"
+    }
 }
 
 func exemplar_Livekit_RpcResponse() -> LiveKit.Livekit_RpcResponse {
-    var m = LiveKit.Livekit_RpcResponse()
-    m.requestID = "request_id"
-    m.payload = "payload"
-    return m
+    LiveKit.Livekit_RpcResponse.with { m in
+        m.requestID = "request_id"
+        m.payload = "payload"
+    }
 }
 
 func oracleExemplar_Livekit_RpcResponse() -> Livekit_RpcResponse {
-    var m = Livekit_RpcResponse()
-    m.requestID = "request_id"
-    m.payload = "payload"
-    return m
+    Livekit_RpcResponse.with { m in
+        m.requestID = "request_id"
+        m.payload = "payload"
+    }
 }
 
 func exemplar_Livekit_RpcError() -> LiveKit.Livekit_RpcError {
-    var m = LiveKit.Livekit_RpcError()
-    m.code = 1
-    m.message = "message"
-    m.data = "data"
-    return m
+    LiveKit.Livekit_RpcError.with { m in
+        m.code = 1
+        m.message = "message"
+        m.data = "data"
+    }
 }
 
 func oracleExemplar_Livekit_RpcError() -> Livekit_RpcError {
-    var m = Livekit_RpcError()
-    m.code = 1
-    m.message = "message"
-    m.data = "data"
-    return m
+    Livekit_RpcError.with { m in
+        m.code = 1
+        m.message = "message"
+        m.data = "data"
+    }
 }
 
 func exemplar_Livekit_ParticipantTracks() -> LiveKit.Livekit_ParticipantTracks {
-    var m = LiveKit.Livekit_ParticipantTracks()
-    m.participantSid = "participant_sid"
-    m.trackSids = ["track_sids_0", "track_sids_1"]
-    return m
+    LiveKit.Livekit_ParticipantTracks.with { m in
+        m.participantSid = "participant_sid"
+        m.trackSids = ["track_sids_0", "track_sids_1"]
+    }
 }
 
 func oracleExemplar_Livekit_ParticipantTracks() -> Livekit_ParticipantTracks {
-    var m = Livekit_ParticipantTracks()
-    m.participantSid = "participant_sid"
-    m.trackSids = ["track_sids_0", "track_sids_1"]
-    return m
+    Livekit_ParticipantTracks.with { m in
+        m.participantSid = "participant_sid"
+        m.trackSids = ["track_sids_0", "track_sids_1"]
+    }
 }
 
 func exemplar_Livekit_ServerInfo() -> LiveKit.Livekit_ServerInfo {
-    var m = LiveKit.Livekit_ServerInfo()
-    m.edition = .cloud
-    m.version = "version"
-    m.`protocol` = 3
-    m.region = "region"
-    m.nodeID = "node_id"
-    m.debugInfo = "debug_info"
-    m.agentProtocol = 7
-    return m
+    LiveKit.Livekit_ServerInfo.with { m in
+        m.edition = .cloud
+        m.version = "version"
+        m.`protocol` = 3
+        m.region = "region"
+        m.nodeID = "node_id"
+        m.debugInfo = "debug_info"
+        m.agentProtocol = 7
+    }
 }
 
 func oracleExemplar_Livekit_ServerInfo() -> Livekit_ServerInfo {
-    var m = Livekit_ServerInfo()
-    m.edition = .cloud
-    m.version = "version"
-    m.`protocol` = 3
-    m.region = "region"
-    m.nodeID = "node_id"
-    m.debugInfo = "debug_info"
-    m.agentProtocol = 7
-    return m
+    Livekit_ServerInfo.with { m in
+        m.edition = .cloud
+        m.version = "version"
+        m.`protocol` = 3
+        m.region = "region"
+        m.nodeID = "node_id"
+        m.debugInfo = "debug_info"
+        m.agentProtocol = 7
+    }
 }
 
 func exemplar_Livekit_ClientInfo() -> LiveKit.Livekit_ClientInfo {
-    var m = LiveKit.Livekit_ClientInfo()
-    m.sdk = .js
-    m.version = "version"
-    m.`protocol` = 3
-    m.os = "os"
-    m.osVersion = "os_version"
-    m.deviceModel = "device_model"
-    m.browser = "browser"
-    m.browserVersion = "browser_version"
-    m.address = "address"
-    m.network = "network"
-    m.otherSdks = "other_sdks"
-    m.clientProtocol = 12
-    m.capabilities = [.capPacketTrailer]
-    return m
+    LiveKit.Livekit_ClientInfo.with { m in
+        m.sdk = .js
+        m.version = "version"
+        m.`protocol` = 3
+        m.os = "os"
+        m.osVersion = "os_version"
+        m.deviceModel = "device_model"
+        m.browser = "browser"
+        m.browserVersion = "browser_version"
+        m.address = "address"
+        m.network = "network"
+        m.otherSdks = "other_sdks"
+        m.clientProtocol = 12
+        m.capabilities = [.capPacketTrailer]
+    }
 }
 
 func oracleExemplar_Livekit_ClientInfo() -> Livekit_ClientInfo {
-    var m = Livekit_ClientInfo()
-    m.sdk = .js
-    m.version = "version"
-    m.`protocol` = 3
-    m.os = "os"
-    m.osVersion = "os_version"
-    m.deviceModel = "device_model"
-    m.browser = "browser"
-    m.browserVersion = "browser_version"
-    m.address = "address"
-    m.network = "network"
-    m.otherSdks = "other_sdks"
-    m.clientProtocol = 12
-    m.capabilities = [.capPacketTrailer]
-    return m
+    Livekit_ClientInfo.with { m in
+        m.sdk = .js
+        m.version = "version"
+        m.`protocol` = 3
+        m.os = "os"
+        m.osVersion = "os_version"
+        m.deviceModel = "device_model"
+        m.browser = "browser"
+        m.browserVersion = "browser_version"
+        m.address = "address"
+        m.network = "network"
+        m.otherSdks = "other_sdks"
+        m.clientProtocol = 12
+        m.capabilities = [.capPacketTrailer]
+    }
 }
 
 func exemplar_Livekit_ClientConfiguration() -> LiveKit.Livekit_ClientConfiguration {
-    var m = LiveKit.Livekit_ClientConfiguration()
-    m.video = exemplar_Livekit_VideoConfiguration()
-    m.screen = exemplar_Livekit_VideoConfiguration()
-    m.resumeConnection = .disabled
-    m.disabledCodecs = exemplar_Livekit_DisabledCodecs()
-    m.forceRelay = .disabled
-    return m
+    LiveKit.Livekit_ClientConfiguration.with { m in
+        m.video = exemplar_Livekit_VideoConfiguration()
+        m.screen = exemplar_Livekit_VideoConfiguration()
+        m.resumeConnection = .disabled
+        m.disabledCodecs = exemplar_Livekit_DisabledCodecs()
+        m.forceRelay = .disabled
+    }
 }
 
 func oracleExemplar_Livekit_ClientConfiguration() -> Livekit_ClientConfiguration {
-    var m = Livekit_ClientConfiguration()
-    m.video = oracleExemplar_Livekit_VideoConfiguration()
-    m.screen = oracleExemplar_Livekit_VideoConfiguration()
-    m.resumeConnection = .disabled
-    m.disabledCodecs = oracleExemplar_Livekit_DisabledCodecs()
-    m.forceRelay = .disabled
-    return m
+    Livekit_ClientConfiguration.with { m in
+        m.video = oracleExemplar_Livekit_VideoConfiguration()
+        m.screen = oracleExemplar_Livekit_VideoConfiguration()
+        m.resumeConnection = .disabled
+        m.disabledCodecs = oracleExemplar_Livekit_DisabledCodecs()
+        m.forceRelay = .disabled
+    }
 }
 
 func exemplar_Livekit_VideoConfiguration() -> LiveKit.Livekit_VideoConfiguration {
-    var m = LiveKit.Livekit_VideoConfiguration()
-    m.hardwareEncoder = .disabled
-    return m
+    LiveKit.Livekit_VideoConfiguration.with { m in
+        m.hardwareEncoder = .disabled
+    }
 }
 
 func oracleExemplar_Livekit_VideoConfiguration() -> Livekit_VideoConfiguration {
-    var m = Livekit_VideoConfiguration()
-    m.hardwareEncoder = .disabled
-    return m
+    Livekit_VideoConfiguration.with { m in
+        m.hardwareEncoder = .disabled
+    }
 }
 
 func exemplar_Livekit_DisabledCodecs() -> LiveKit.Livekit_DisabledCodecs {
-    var m = LiveKit.Livekit_DisabledCodecs()
-    m.codecs = [exemplar_Livekit_Codec()]
-    m.publish = [exemplar_Livekit_Codec()]
-    return m
+    LiveKit.Livekit_DisabledCodecs.with { m in
+        m.codecs = [exemplar_Livekit_Codec()]
+        m.publish = [exemplar_Livekit_Codec()]
+    }
 }
 
 func oracleExemplar_Livekit_DisabledCodecs() -> Livekit_DisabledCodecs {
-    var m = Livekit_DisabledCodecs()
-    m.codecs = [oracleExemplar_Livekit_Codec()]
-    m.publish = [oracleExemplar_Livekit_Codec()]
-    return m
+    Livekit_DisabledCodecs.with { m in
+        m.codecs = [oracleExemplar_Livekit_Codec()]
+        m.publish = [oracleExemplar_Livekit_Codec()]
+    }
 }
 
 func exemplar_Livekit_TimedVersion() -> LiveKit.Livekit_TimedVersion {
-    var m = LiveKit.Livekit_TimedVersion()
-    m.unixMicro = 1
-    m.ticks = 2
-    return m
+    LiveKit.Livekit_TimedVersion.with { m in
+        m.unixMicro = 1
+        m.ticks = 2
+    }
 }
 
 func oracleExemplar_Livekit_TimedVersion() -> Livekit_TimedVersion {
-    var m = Livekit_TimedVersion()
-    m.unixMicro = 1
-    m.ticks = 2
-    return m
+    Livekit_TimedVersion.with { m in
+        m.unixMicro = 1
+        m.ticks = 2
+    }
 }
 
 func exemplar_Livekit_DataStream() -> LiveKit.Livekit_DataStream { LiveKit.Livekit_DataStream() }
@@ -766,1037 +766,1037 @@ func exemplar_Livekit_DataStream() -> LiveKit.Livekit_DataStream { LiveKit.Livek
 func oracleExemplar_Livekit_DataStream() -> Livekit_DataStream { Livekit_DataStream() }
 
 func exemplar_Livekit_DataStream_TextHeader() -> LiveKit.Livekit_DataStream.TextHeader {
-    var m = LiveKit.Livekit_DataStream.TextHeader()
-    m.operationType = .update
-    m.version = 2
-    m.replyToStreamID = "reply_to_stream_id"
-    m.attachedStreamIds = ["attached_stream_ids_0", "attached_stream_ids_1"]
-    m.generated = true
-    return m
+    LiveKit.Livekit_DataStream.TextHeader.with { m in
+        m.operationType = .update
+        m.version = 2
+        m.replyToStreamID = "reply_to_stream_id"
+        m.attachedStreamIds = ["attached_stream_ids_0", "attached_stream_ids_1"]
+        m.generated = true
+    }
 }
 
 func oracleExemplar_Livekit_DataStream_TextHeader() -> Livekit_DataStream.TextHeader {
-    var m = Livekit_DataStream.TextHeader()
-    m.operationType = .update
-    m.version = 2
-    m.replyToStreamID = "reply_to_stream_id"
-    m.attachedStreamIds = ["attached_stream_ids_0", "attached_stream_ids_1"]
-    m.generated = true
-    return m
+    Livekit_DataStream.TextHeader.with { m in
+        m.operationType = .update
+        m.version = 2
+        m.replyToStreamID = "reply_to_stream_id"
+        m.attachedStreamIds = ["attached_stream_ids_0", "attached_stream_ids_1"]
+        m.generated = true
+    }
 }
 
 func exemplar_Livekit_DataStream_ByteHeader() -> LiveKit.Livekit_DataStream.ByteHeader {
-    var m = LiveKit.Livekit_DataStream.ByteHeader()
-    m.name = "name"
-    return m
+    LiveKit.Livekit_DataStream.ByteHeader.with { m in
+        m.name = "name"
+    }
 }
 
 func oracleExemplar_Livekit_DataStream_ByteHeader() -> Livekit_DataStream.ByteHeader {
-    var m = Livekit_DataStream.ByteHeader()
-    m.name = "name"
-    return m
+    Livekit_DataStream.ByteHeader.with { m in
+        m.name = "name"
+    }
 }
 
 func exemplar_Livekit_DataStream_Header() -> LiveKit.Livekit_DataStream.Header {
-    var m = LiveKit.Livekit_DataStream.Header()
-    m.streamID = "stream_id"
-    m.timestamp = 2
-    m.topic = "topic"
-    m.mimeType = "mime_type"
-    m.totalLength = 5
-    m.encryptionType = .gcm
-    m.attributes = ["attributes_key": "value"]
-    m.textHeader = exemplar_Livekit_DataStream_TextHeader()
-    return m
+    LiveKit.Livekit_DataStream.Header.with { m in
+        m.streamID = "stream_id"
+        m.timestamp = 2
+        m.topic = "topic"
+        m.mimeType = "mime_type"
+        m.totalLength = 5
+        m.encryptionType = .gcm
+        m.attributes = ["attributes_key": "value"]
+        m.textHeader = exemplar_Livekit_DataStream_TextHeader()
+    }
 }
 
 func oracleExemplar_Livekit_DataStream_Header() -> Livekit_DataStream.Header {
-    var m = Livekit_DataStream.Header()
-    m.streamID = "stream_id"
-    m.timestamp = 2
-    m.topic = "topic"
-    m.mimeType = "mime_type"
-    m.totalLength = 5
-    m.encryptionType = .gcm
-    m.attributes = ["attributes_key": "value"]
-    m.textHeader = oracleExemplar_Livekit_DataStream_TextHeader()
-    return m
+    Livekit_DataStream.Header.with { m in
+        m.streamID = "stream_id"
+        m.timestamp = 2
+        m.topic = "topic"
+        m.mimeType = "mime_type"
+        m.totalLength = 5
+        m.encryptionType = .gcm
+        m.attributes = ["attributes_key": "value"]
+        m.textHeader = oracleExemplar_Livekit_DataStream_TextHeader()
+    }
 }
 
 func exemplar_Livekit_DataStream_Chunk() -> LiveKit.Livekit_DataStream.Chunk {
-    var m = LiveKit.Livekit_DataStream.Chunk()
-    m.streamID = "stream_id"
-    m.chunkIndex = 2
-    m.content = Data("content".utf8)
-    m.version = 4
-    m.iv = Data("iv".utf8)
-    return m
+    LiveKit.Livekit_DataStream.Chunk.with { m in
+        m.streamID = "stream_id"
+        m.chunkIndex = 2
+        m.content = Data("content".utf8)
+        m.version = 4
+        m.iv = Data("iv".utf8)
+    }
 }
 
 func oracleExemplar_Livekit_DataStream_Chunk() -> Livekit_DataStream.Chunk {
-    var m = Livekit_DataStream.Chunk()
-    m.streamID = "stream_id"
-    m.chunkIndex = 2
-    m.content = Data("content".utf8)
-    m.version = 4
-    m.iv = Data("iv".utf8)
-    return m
+    Livekit_DataStream.Chunk.with { m in
+        m.streamID = "stream_id"
+        m.chunkIndex = 2
+        m.content = Data("content".utf8)
+        m.version = 4
+        m.iv = Data("iv".utf8)
+    }
 }
 
 func exemplar_Livekit_DataStream_Trailer() -> LiveKit.Livekit_DataStream.Trailer {
-    var m = LiveKit.Livekit_DataStream.Trailer()
-    m.streamID = "stream_id"
-    m.reason = "reason"
-    m.attributes = ["attributes_key": "value"]
-    return m
+    LiveKit.Livekit_DataStream.Trailer.with { m in
+        m.streamID = "stream_id"
+        m.reason = "reason"
+        m.attributes = ["attributes_key": "value"]
+    }
 }
 
 func oracleExemplar_Livekit_DataStream_Trailer() -> Livekit_DataStream.Trailer {
-    var m = Livekit_DataStream.Trailer()
-    m.streamID = "stream_id"
-    m.reason = "reason"
-    m.attributes = ["attributes_key": "value"]
-    return m
+    Livekit_DataStream.Trailer.with { m in
+        m.streamID = "stream_id"
+        m.reason = "reason"
+        m.attributes = ["attributes_key": "value"]
+    }
 }
 
 func exemplar_Livekit_SubscribedAudioCodec() -> LiveKit.Livekit_SubscribedAudioCodec {
-    var m = LiveKit.Livekit_SubscribedAudioCodec()
-    m.codec = "codec"
-    m.enabled = true
-    return m
+    LiveKit.Livekit_SubscribedAudioCodec.with { m in
+        m.codec = "codec"
+        m.enabled = true
+    }
 }
 
 func oracleExemplar_Livekit_SubscribedAudioCodec() -> Livekit_SubscribedAudioCodec {
-    var m = Livekit_SubscribedAudioCodec()
-    m.codec = "codec"
-    m.enabled = true
-    return m
+    Livekit_SubscribedAudioCodec.with { m in
+        m.codec = "codec"
+        m.enabled = true
+    }
 }
 
 func exemplar_Livekit_SignalRequest() -> LiveKit.Livekit_SignalRequest {
-    var m = LiveKit.Livekit_SignalRequest()
-    m.offer = exemplar_Livekit_SessionDescription()
-    return m
+    LiveKit.Livekit_SignalRequest.with { m in
+        m.offer = exemplar_Livekit_SessionDescription()
+    }
 }
 
 func oracleExemplar_Livekit_SignalRequest() -> Livekit_SignalRequest {
-    var m = Livekit_SignalRequest()
-    m.offer = oracleExemplar_Livekit_SessionDescription()
-    return m
+    Livekit_SignalRequest.with { m in
+        m.offer = oracleExemplar_Livekit_SessionDescription()
+    }
 }
 
 func exemplar_Livekit_SignalResponse() -> LiveKit.Livekit_SignalResponse {
-    var m = LiveKit.Livekit_SignalResponse()
-    m.join = exemplar_Livekit_JoinResponse()
-    return m
+    LiveKit.Livekit_SignalResponse.with { m in
+        m.join = exemplar_Livekit_JoinResponse()
+    }
 }
 
 func oracleExemplar_Livekit_SignalResponse() -> Livekit_SignalResponse {
-    var m = Livekit_SignalResponse()
-    m.join = oracleExemplar_Livekit_JoinResponse()
-    return m
+    Livekit_SignalResponse.with { m in
+        m.join = oracleExemplar_Livekit_JoinResponse()
+    }
 }
 
 func exemplar_Livekit_SimulcastCodec() -> LiveKit.Livekit_SimulcastCodec {
-    var m = LiveKit.Livekit_SimulcastCodec()
-    m.codec = "codec"
-    m.cid = "cid"
-    m.layers = [exemplar_Livekit_VideoLayer()]
-    m.videoLayerMode = .oneSpatialLayerPerStream
-    return m
+    LiveKit.Livekit_SimulcastCodec.with { m in
+        m.codec = "codec"
+        m.cid = "cid"
+        m.layers = [exemplar_Livekit_VideoLayer()]
+        m.videoLayerMode = .oneSpatialLayerPerStream
+    }
 }
 
 func oracleExemplar_Livekit_SimulcastCodec() -> Livekit_SimulcastCodec {
-    var m = Livekit_SimulcastCodec()
-    m.codec = "codec"
-    m.cid = "cid"
-    m.layers = [oracleExemplar_Livekit_VideoLayer()]
-    m.videoLayerMode = .oneSpatialLayerPerStream
-    return m
+    Livekit_SimulcastCodec.with { m in
+        m.codec = "codec"
+        m.cid = "cid"
+        m.layers = [oracleExemplar_Livekit_VideoLayer()]
+        m.videoLayerMode = .oneSpatialLayerPerStream
+    }
 }
 
 func exemplar_Livekit_AddTrackRequest() -> LiveKit.Livekit_AddTrackRequest {
-    var m = LiveKit.Livekit_AddTrackRequest()
-    m.cid = "cid"
-    m.name = "name"
-    m.type = .video
-    m.width = 4
-    m.height = 5
-    m.muted = true
-    m.disableDtx = true
-    m.source = .camera
-    m.layers = [exemplar_Livekit_VideoLayer()]
-    m.simulcastCodecs = [exemplar_Livekit_SimulcastCodec()]
-    m.sid = "sid"
-    m.stereo = true
-    m.disableRed = true
-    m.encryption = .gcm
-    m.stream = "stream"
-    m.backupCodecPolicy = .simulcast
-    m.audioFeatures = [.tfNoDtx]
-    m.packetTrailerFeatures = [.ptfFrameID]
-    return m
+    LiveKit.Livekit_AddTrackRequest.with { m in
+        m.cid = "cid"
+        m.name = "name"
+        m.type = .video
+        m.width = 4
+        m.height = 5
+        m.muted = true
+        m.disableDtx = true
+        m.source = .camera
+        m.layers = [exemplar_Livekit_VideoLayer()]
+        m.simulcastCodecs = [exemplar_Livekit_SimulcastCodec()]
+        m.sid = "sid"
+        m.stereo = true
+        m.disableRed = true
+        m.encryption = .gcm
+        m.stream = "stream"
+        m.backupCodecPolicy = .simulcast
+        m.audioFeatures = [.tfNoDtx]
+        m.packetTrailerFeatures = [.ptfFrameID]
+    }
 }
 
 func oracleExemplar_Livekit_AddTrackRequest() -> Livekit_AddTrackRequest {
-    var m = Livekit_AddTrackRequest()
-    m.cid = "cid"
-    m.name = "name"
-    m.type = .video
-    m.width = 4
-    m.height = 5
-    m.muted = true
-    m.disableDtx = true
-    m.source = .camera
-    m.layers = [oracleExemplar_Livekit_VideoLayer()]
-    m.simulcastCodecs = [oracleExemplar_Livekit_SimulcastCodec()]
-    m.sid = "sid"
-    m.stereo = true
-    m.disableRed = true
-    m.encryption = .gcm
-    m.stream = "stream"
-    m.backupCodecPolicy = .simulcast
-    m.audioFeatures = [.tfNoDtx]
-    m.packetTrailerFeatures = [.ptfFrameID]
-    return m
+    Livekit_AddTrackRequest.with { m in
+        m.cid = "cid"
+        m.name = "name"
+        m.type = .video
+        m.width = 4
+        m.height = 5
+        m.muted = true
+        m.disableDtx = true
+        m.source = .camera
+        m.layers = [oracleExemplar_Livekit_VideoLayer()]
+        m.simulcastCodecs = [oracleExemplar_Livekit_SimulcastCodec()]
+        m.sid = "sid"
+        m.stereo = true
+        m.disableRed = true
+        m.encryption = .gcm
+        m.stream = "stream"
+        m.backupCodecPolicy = .simulcast
+        m.audioFeatures = [.tfNoDtx]
+        m.packetTrailerFeatures = [.ptfFrameID]
+    }
 }
 
 func exemplar_Livekit_PublishDataTrackRequest() -> LiveKit.Livekit_PublishDataTrackRequest {
-    var m = LiveKit.Livekit_PublishDataTrackRequest()
-    m.pubHandle = 1
-    m.name = "name"
-    m.encryption = .gcm
-    return m
+    LiveKit.Livekit_PublishDataTrackRequest.with { m in
+        m.pubHandle = 1
+        m.name = "name"
+        m.encryption = .gcm
+    }
 }
 
 func oracleExemplar_Livekit_PublishDataTrackRequest() -> Livekit_PublishDataTrackRequest {
-    var m = Livekit_PublishDataTrackRequest()
-    m.pubHandle = 1
-    m.name = "name"
-    m.encryption = .gcm
-    return m
+    Livekit_PublishDataTrackRequest.with { m in
+        m.pubHandle = 1
+        m.name = "name"
+        m.encryption = .gcm
+    }
 }
 
 func exemplar_Livekit_PublishDataTrackResponse() -> LiveKit.Livekit_PublishDataTrackResponse {
-    var m = LiveKit.Livekit_PublishDataTrackResponse()
-    m.info = exemplar_Livekit_DataTrackInfo()
-    return m
+    LiveKit.Livekit_PublishDataTrackResponse.with { m in
+        m.info = exemplar_Livekit_DataTrackInfo()
+    }
 }
 
 func oracleExemplar_Livekit_PublishDataTrackResponse() -> Livekit_PublishDataTrackResponse {
-    var m = Livekit_PublishDataTrackResponse()
-    m.info = oracleExemplar_Livekit_DataTrackInfo()
-    return m
+    Livekit_PublishDataTrackResponse.with { m in
+        m.info = oracleExemplar_Livekit_DataTrackInfo()
+    }
 }
 
 func exemplar_Livekit_UnpublishDataTrackRequest() -> LiveKit.Livekit_UnpublishDataTrackRequest {
-    var m = LiveKit.Livekit_UnpublishDataTrackRequest()
-    m.pubHandle = 1
-    return m
+    LiveKit.Livekit_UnpublishDataTrackRequest.with { m in
+        m.pubHandle = 1
+    }
 }
 
 func oracleExemplar_Livekit_UnpublishDataTrackRequest() -> Livekit_UnpublishDataTrackRequest {
-    var m = Livekit_UnpublishDataTrackRequest()
-    m.pubHandle = 1
-    return m
+    Livekit_UnpublishDataTrackRequest.with { m in
+        m.pubHandle = 1
+    }
 }
 
 func exemplar_Livekit_UnpublishDataTrackResponse() -> LiveKit.Livekit_UnpublishDataTrackResponse {
-    var m = LiveKit.Livekit_UnpublishDataTrackResponse()
-    m.info = exemplar_Livekit_DataTrackInfo()
-    return m
+    LiveKit.Livekit_UnpublishDataTrackResponse.with { m in
+        m.info = exemplar_Livekit_DataTrackInfo()
+    }
 }
 
 func oracleExemplar_Livekit_UnpublishDataTrackResponse() -> Livekit_UnpublishDataTrackResponse {
-    var m = Livekit_UnpublishDataTrackResponse()
-    m.info = oracleExemplar_Livekit_DataTrackInfo()
-    return m
+    Livekit_UnpublishDataTrackResponse.with { m in
+        m.info = oracleExemplar_Livekit_DataTrackInfo()
+    }
 }
 
 func exemplar_Livekit_DataTrackSubscriberHandles() -> LiveKit.Livekit_DataTrackSubscriberHandles {
-    var m = LiveKit.Livekit_DataTrackSubscriberHandles()
-    m.subHandles = [1: exemplar_Livekit_DataTrackSubscriberHandles_PublishedDataTrack()]
-    return m
+    LiveKit.Livekit_DataTrackSubscriberHandles.with { m in
+        m.subHandles = [1: exemplar_Livekit_DataTrackSubscriberHandles_PublishedDataTrack()]
+    }
 }
 
 func oracleExemplar_Livekit_DataTrackSubscriberHandles() -> Livekit_DataTrackSubscriberHandles {
-    var m = Livekit_DataTrackSubscriberHandles()
-    m.subHandles = [1: oracleExemplar_Livekit_DataTrackSubscriberHandles_PublishedDataTrack()]
-    return m
+    Livekit_DataTrackSubscriberHandles.with { m in
+        m.subHandles = [1: oracleExemplar_Livekit_DataTrackSubscriberHandles_PublishedDataTrack()]
+    }
 }
 
 func exemplar_Livekit_DataTrackSubscriberHandles_PublishedDataTrack() -> LiveKit.Livekit_DataTrackSubscriberHandles.PublishedDataTrack {
-    var m = LiveKit.Livekit_DataTrackSubscriberHandles.PublishedDataTrack()
-    m.publisherIdentity = "publisher_identity"
-    m.publisherSid = "publisher_sid"
-    m.trackSid = "track_sid"
-    return m
+    LiveKit.Livekit_DataTrackSubscriberHandles.PublishedDataTrack.with { m in
+        m.publisherIdentity = "publisher_identity"
+        m.publisherSid = "publisher_sid"
+        m.trackSid = "track_sid"
+    }
 }
 
 func oracleExemplar_Livekit_DataTrackSubscriberHandles_PublishedDataTrack() -> Livekit_DataTrackSubscriberHandles.PublishedDataTrack {
-    var m = Livekit_DataTrackSubscriberHandles.PublishedDataTrack()
-    m.publisherIdentity = "publisher_identity"
-    m.publisherSid = "publisher_sid"
-    m.trackSid = "track_sid"
-    return m
+    Livekit_DataTrackSubscriberHandles.PublishedDataTrack.with { m in
+        m.publisherIdentity = "publisher_identity"
+        m.publisherSid = "publisher_sid"
+        m.trackSid = "track_sid"
+    }
 }
 
 func exemplar_Livekit_TrickleRequest() -> LiveKit.Livekit_TrickleRequest {
-    var m = LiveKit.Livekit_TrickleRequest()
-    m.candidateInit = "candidateInit"
-    m.target = .subscriber
-    m.final = true
-    return m
+    LiveKit.Livekit_TrickleRequest.with { m in
+        m.candidateInit = "candidateInit"
+        m.target = .subscriber
+        m.final = true
+    }
 }
 
 func oracleExemplar_Livekit_TrickleRequest() -> Livekit_TrickleRequest {
-    var m = Livekit_TrickleRequest()
-    m.candidateInit = "candidateInit"
-    m.target = .subscriber
-    m.final = true
-    return m
+    Livekit_TrickleRequest.with { m in
+        m.candidateInit = "candidateInit"
+        m.target = .subscriber
+        m.final = true
+    }
 }
 
 func exemplar_Livekit_MuteTrackRequest() -> LiveKit.Livekit_MuteTrackRequest {
-    var m = LiveKit.Livekit_MuteTrackRequest()
-    m.sid = "sid"
-    m.muted = true
-    return m
+    LiveKit.Livekit_MuteTrackRequest.with { m in
+        m.sid = "sid"
+        m.muted = true
+    }
 }
 
 func oracleExemplar_Livekit_MuteTrackRequest() -> Livekit_MuteTrackRequest {
-    var m = Livekit_MuteTrackRequest()
-    m.sid = "sid"
-    m.muted = true
-    return m
+    Livekit_MuteTrackRequest.with { m in
+        m.sid = "sid"
+        m.muted = true
+    }
 }
 
 func exemplar_Livekit_JoinResponse() -> LiveKit.Livekit_JoinResponse {
-    var m = LiveKit.Livekit_JoinResponse()
-    m.room = exemplar_Livekit_Room()
-    m.participant = exemplar_Livekit_ParticipantInfo()
-    m.otherParticipants = [exemplar_Livekit_ParticipantInfo()]
-    m.serverVersion = "server_version"
-    m.iceServers = [exemplar_Livekit_ICEServer()]
-    m.subscriberPrimary = true
-    m.alternativeURL = "alternative_url"
-    m.clientConfiguration = exemplar_Livekit_ClientConfiguration()
-    m.serverRegion = "server_region"
-    m.pingTimeout = 10
-    m.pingInterval = 11
-    m.serverInfo = exemplar_Livekit_ServerInfo()
-    m.sifTrailer = Data("sif_trailer".utf8)
-    m.enabledPublishCodecs = [exemplar_Livekit_Codec()]
-    m.fastPublish = true
-    return m
+    LiveKit.Livekit_JoinResponse.with { m in
+        m.room = exemplar_Livekit_Room()
+        m.participant = exemplar_Livekit_ParticipantInfo()
+        m.otherParticipants = [exemplar_Livekit_ParticipantInfo()]
+        m.serverVersion = "server_version"
+        m.iceServers = [exemplar_Livekit_ICEServer()]
+        m.subscriberPrimary = true
+        m.alternativeURL = "alternative_url"
+        m.clientConfiguration = exemplar_Livekit_ClientConfiguration()
+        m.serverRegion = "server_region"
+        m.pingTimeout = 10
+        m.pingInterval = 11
+        m.serverInfo = exemplar_Livekit_ServerInfo()
+        m.sifTrailer = Data("sif_trailer".utf8)
+        m.enabledPublishCodecs = [exemplar_Livekit_Codec()]
+        m.fastPublish = true
+    }
 }
 
 func oracleExemplar_Livekit_JoinResponse() -> Livekit_JoinResponse {
-    var m = Livekit_JoinResponse()
-    m.room = oracleExemplar_Livekit_Room()
-    m.participant = oracleExemplar_Livekit_ParticipantInfo()
-    m.otherParticipants = [oracleExemplar_Livekit_ParticipantInfo()]
-    m.serverVersion = "server_version"
-    m.iceServers = [oracleExemplar_Livekit_ICEServer()]
-    m.subscriberPrimary = true
-    m.alternativeURL = "alternative_url"
-    m.clientConfiguration = oracleExemplar_Livekit_ClientConfiguration()
-    m.serverRegion = "server_region"
-    m.pingTimeout = 10
-    m.pingInterval = 11
-    m.serverInfo = oracleExemplar_Livekit_ServerInfo()
-    m.sifTrailer = Data("sif_trailer".utf8)
-    m.enabledPublishCodecs = [oracleExemplar_Livekit_Codec()]
-    m.fastPublish = true
-    return m
+    Livekit_JoinResponse.with { m in
+        m.room = oracleExemplar_Livekit_Room()
+        m.participant = oracleExemplar_Livekit_ParticipantInfo()
+        m.otherParticipants = [oracleExemplar_Livekit_ParticipantInfo()]
+        m.serverVersion = "server_version"
+        m.iceServers = [oracleExemplar_Livekit_ICEServer()]
+        m.subscriberPrimary = true
+        m.alternativeURL = "alternative_url"
+        m.clientConfiguration = oracleExemplar_Livekit_ClientConfiguration()
+        m.serverRegion = "server_region"
+        m.pingTimeout = 10
+        m.pingInterval = 11
+        m.serverInfo = oracleExemplar_Livekit_ServerInfo()
+        m.sifTrailer = Data("sif_trailer".utf8)
+        m.enabledPublishCodecs = [oracleExemplar_Livekit_Codec()]
+        m.fastPublish = true
+    }
 }
 
 func exemplar_Livekit_ReconnectResponse() -> LiveKit.Livekit_ReconnectResponse {
-    var m = LiveKit.Livekit_ReconnectResponse()
-    m.iceServers = [exemplar_Livekit_ICEServer()]
-    m.clientConfiguration = exemplar_Livekit_ClientConfiguration()
-    m.serverInfo = exemplar_Livekit_ServerInfo()
-    m.lastMessageSeq = 4
-    return m
+    LiveKit.Livekit_ReconnectResponse.with { m in
+        m.iceServers = [exemplar_Livekit_ICEServer()]
+        m.clientConfiguration = exemplar_Livekit_ClientConfiguration()
+        m.serverInfo = exemplar_Livekit_ServerInfo()
+        m.lastMessageSeq = 4
+    }
 }
 
 func oracleExemplar_Livekit_ReconnectResponse() -> Livekit_ReconnectResponse {
-    var m = Livekit_ReconnectResponse()
-    m.iceServers = [oracleExemplar_Livekit_ICEServer()]
-    m.clientConfiguration = oracleExemplar_Livekit_ClientConfiguration()
-    m.serverInfo = oracleExemplar_Livekit_ServerInfo()
-    m.lastMessageSeq = 4
-    return m
+    Livekit_ReconnectResponse.with { m in
+        m.iceServers = [oracleExemplar_Livekit_ICEServer()]
+        m.clientConfiguration = oracleExemplar_Livekit_ClientConfiguration()
+        m.serverInfo = oracleExemplar_Livekit_ServerInfo()
+        m.lastMessageSeq = 4
+    }
 }
 
 func exemplar_Livekit_TrackPublishedResponse() -> LiveKit.Livekit_TrackPublishedResponse {
-    var m = LiveKit.Livekit_TrackPublishedResponse()
-    m.cid = "cid"
-    m.track = exemplar_Livekit_TrackInfo()
-    return m
+    LiveKit.Livekit_TrackPublishedResponse.with { m in
+        m.cid = "cid"
+        m.track = exemplar_Livekit_TrackInfo()
+    }
 }
 
 func oracleExemplar_Livekit_TrackPublishedResponse() -> Livekit_TrackPublishedResponse {
-    var m = Livekit_TrackPublishedResponse()
-    m.cid = "cid"
-    m.track = oracleExemplar_Livekit_TrackInfo()
-    return m
+    Livekit_TrackPublishedResponse.with { m in
+        m.cid = "cid"
+        m.track = oracleExemplar_Livekit_TrackInfo()
+    }
 }
 
 func exemplar_Livekit_TrackUnpublishedResponse() -> LiveKit.Livekit_TrackUnpublishedResponse {
-    var m = LiveKit.Livekit_TrackUnpublishedResponse()
-    m.trackSid = "track_sid"
-    return m
+    LiveKit.Livekit_TrackUnpublishedResponse.with { m in
+        m.trackSid = "track_sid"
+    }
 }
 
 func oracleExemplar_Livekit_TrackUnpublishedResponse() -> Livekit_TrackUnpublishedResponse {
-    var m = Livekit_TrackUnpublishedResponse()
-    m.trackSid = "track_sid"
-    return m
+    Livekit_TrackUnpublishedResponse.with { m in
+        m.trackSid = "track_sid"
+    }
 }
 
 func exemplar_Livekit_SessionDescription() -> LiveKit.Livekit_SessionDescription {
-    var m = LiveKit.Livekit_SessionDescription()
-    m.type = "type"
-    m.sdp = "sdp"
-    m.id = 3
-    m.midToTrackID = ["mid_to_track_id_key": "value"]
-    return m
+    LiveKit.Livekit_SessionDescription.with { m in
+        m.type = "type"
+        m.sdp = "sdp"
+        m.id = 3
+        m.midToTrackID = ["mid_to_track_id_key": "value"]
+    }
 }
 
 func oracleExemplar_Livekit_SessionDescription() -> Livekit_SessionDescription {
-    var m = Livekit_SessionDescription()
-    m.type = "type"
-    m.sdp = "sdp"
-    m.id = 3
-    m.midToTrackID = ["mid_to_track_id_key": "value"]
-    return m
+    Livekit_SessionDescription.with { m in
+        m.type = "type"
+        m.sdp = "sdp"
+        m.id = 3
+        m.midToTrackID = ["mid_to_track_id_key": "value"]
+    }
 }
 
 func exemplar_Livekit_ParticipantUpdate() -> LiveKit.Livekit_ParticipantUpdate {
-    var m = LiveKit.Livekit_ParticipantUpdate()
-    m.participants = [exemplar_Livekit_ParticipantInfo()]
-    return m
+    LiveKit.Livekit_ParticipantUpdate.with { m in
+        m.participants = [exemplar_Livekit_ParticipantInfo()]
+    }
 }
 
 func oracleExemplar_Livekit_ParticipantUpdate() -> Livekit_ParticipantUpdate {
-    var m = Livekit_ParticipantUpdate()
-    m.participants = [oracleExemplar_Livekit_ParticipantInfo()]
-    return m
+    Livekit_ParticipantUpdate.with { m in
+        m.participants = [oracleExemplar_Livekit_ParticipantInfo()]
+    }
 }
 
 func exemplar_Livekit_UpdateSubscription() -> LiveKit.Livekit_UpdateSubscription {
-    var m = LiveKit.Livekit_UpdateSubscription()
-    m.trackSids = ["track_sids_0", "track_sids_1"]
-    m.subscribe = true
-    m.participantTracks = [exemplar_Livekit_ParticipantTracks()]
-    return m
+    LiveKit.Livekit_UpdateSubscription.with { m in
+        m.trackSids = ["track_sids_0", "track_sids_1"]
+        m.subscribe = true
+        m.participantTracks = [exemplar_Livekit_ParticipantTracks()]
+    }
 }
 
 func oracleExemplar_Livekit_UpdateSubscription() -> Livekit_UpdateSubscription {
-    var m = Livekit_UpdateSubscription()
-    m.trackSids = ["track_sids_0", "track_sids_1"]
-    m.subscribe = true
-    m.participantTracks = [oracleExemplar_Livekit_ParticipantTracks()]
-    return m
+    Livekit_UpdateSubscription.with { m in
+        m.trackSids = ["track_sids_0", "track_sids_1"]
+        m.subscribe = true
+        m.participantTracks = [oracleExemplar_Livekit_ParticipantTracks()]
+    }
 }
 
 func exemplar_Livekit_UpdateDataSubscription() -> LiveKit.Livekit_UpdateDataSubscription {
-    var m = LiveKit.Livekit_UpdateDataSubscription()
-    m.updates = [exemplar_Livekit_UpdateDataSubscription_Update()]
-    return m
+    LiveKit.Livekit_UpdateDataSubscription.with { m in
+        m.updates = [exemplar_Livekit_UpdateDataSubscription_Update()]
+    }
 }
 
 func oracleExemplar_Livekit_UpdateDataSubscription() -> Livekit_UpdateDataSubscription {
-    var m = Livekit_UpdateDataSubscription()
-    m.updates = [oracleExemplar_Livekit_UpdateDataSubscription_Update()]
-    return m
+    Livekit_UpdateDataSubscription.with { m in
+        m.updates = [oracleExemplar_Livekit_UpdateDataSubscription_Update()]
+    }
 }
 
 func exemplar_Livekit_UpdateDataSubscription_Update() -> LiveKit.Livekit_UpdateDataSubscription.Update {
-    var m = LiveKit.Livekit_UpdateDataSubscription.Update()
-    m.trackSid = "track_sid"
-    m.subscribe = true
-    m.options = exemplar_Livekit_DataTrackSubscriptionOptions()
-    return m
+    LiveKit.Livekit_UpdateDataSubscription.Update.with { m in
+        m.trackSid = "track_sid"
+        m.subscribe = true
+        m.options = exemplar_Livekit_DataTrackSubscriptionOptions()
+    }
 }
 
 func oracleExemplar_Livekit_UpdateDataSubscription_Update() -> Livekit_UpdateDataSubscription.Update {
-    var m = Livekit_UpdateDataSubscription.Update()
-    m.trackSid = "track_sid"
-    m.subscribe = true
-    m.options = oracleExemplar_Livekit_DataTrackSubscriptionOptions()
-    return m
+    Livekit_UpdateDataSubscription.Update.with { m in
+        m.trackSid = "track_sid"
+        m.subscribe = true
+        m.options = oracleExemplar_Livekit_DataTrackSubscriptionOptions()
+    }
 }
 
 func exemplar_Livekit_UpdateTrackSettings() -> LiveKit.Livekit_UpdateTrackSettings {
-    var m = LiveKit.Livekit_UpdateTrackSettings()
-    m.trackSids = ["track_sids_0", "track_sids_1"]
-    m.disabled = true
-    m.quality = .medium
-    m.width = 5
-    m.height = 6
-    m.fps = 7
-    m.priority = 8
-    return m
+    LiveKit.Livekit_UpdateTrackSettings.with { m in
+        m.trackSids = ["track_sids_0", "track_sids_1"]
+        m.disabled = true
+        m.quality = .medium
+        m.width = 5
+        m.height = 6
+        m.fps = 7
+        m.priority = 8
+    }
 }
 
 func oracleExemplar_Livekit_UpdateTrackSettings() -> Livekit_UpdateTrackSettings {
-    var m = Livekit_UpdateTrackSettings()
-    m.trackSids = ["track_sids_0", "track_sids_1"]
-    m.disabled = true
-    m.quality = .medium
-    m.width = 5
-    m.height = 6
-    m.fps = 7
-    m.priority = 8
-    return m
+    Livekit_UpdateTrackSettings.with { m in
+        m.trackSids = ["track_sids_0", "track_sids_1"]
+        m.disabled = true
+        m.quality = .medium
+        m.width = 5
+        m.height = 6
+        m.fps = 7
+        m.priority = 8
+    }
 }
 
 func exemplar_Livekit_UpdateLocalAudioTrack() -> LiveKit.Livekit_UpdateLocalAudioTrack {
-    var m = LiveKit.Livekit_UpdateLocalAudioTrack()
-    m.trackSid = "track_sid"
-    m.features = [.tfNoDtx]
-    return m
+    LiveKit.Livekit_UpdateLocalAudioTrack.with { m in
+        m.trackSid = "track_sid"
+        m.features = [.tfNoDtx]
+    }
 }
 
 func oracleExemplar_Livekit_UpdateLocalAudioTrack() -> Livekit_UpdateLocalAudioTrack {
-    var m = Livekit_UpdateLocalAudioTrack()
-    m.trackSid = "track_sid"
-    m.features = [.tfNoDtx]
-    return m
+    Livekit_UpdateLocalAudioTrack.with { m in
+        m.trackSid = "track_sid"
+        m.features = [.tfNoDtx]
+    }
 }
 
 func exemplar_Livekit_UpdateLocalVideoTrack() -> LiveKit.Livekit_UpdateLocalVideoTrack {
-    var m = LiveKit.Livekit_UpdateLocalVideoTrack()
-    m.trackSid = "track_sid"
-    m.width = 2
-    m.height = 3
-    return m
+    LiveKit.Livekit_UpdateLocalVideoTrack.with { m in
+        m.trackSid = "track_sid"
+        m.width = 2
+        m.height = 3
+    }
 }
 
 func oracleExemplar_Livekit_UpdateLocalVideoTrack() -> Livekit_UpdateLocalVideoTrack {
-    var m = Livekit_UpdateLocalVideoTrack()
-    m.trackSid = "track_sid"
-    m.width = 2
-    m.height = 3
-    return m
+    Livekit_UpdateLocalVideoTrack.with { m in
+        m.trackSid = "track_sid"
+        m.width = 2
+        m.height = 3
+    }
 }
 
 func exemplar_Livekit_LeaveRequest() -> LiveKit.Livekit_LeaveRequest {
-    var m = LiveKit.Livekit_LeaveRequest()
-    m.canReconnect = true
-    m.reason = .clientInitiated
-    m.action = .resume
-    m.regions = exemplar_Livekit_RegionSettings()
-    return m
+    LiveKit.Livekit_LeaveRequest.with { m in
+        m.canReconnect = true
+        m.reason = .clientInitiated
+        m.action = .resume
+        m.regions = exemplar_Livekit_RegionSettings()
+    }
 }
 
 func oracleExemplar_Livekit_LeaveRequest() -> Livekit_LeaveRequest {
-    var m = Livekit_LeaveRequest()
-    m.canReconnect = true
-    m.reason = .clientInitiated
-    m.action = .resume
-    m.regions = oracleExemplar_Livekit_RegionSettings()
-    return m
+    Livekit_LeaveRequest.with { m in
+        m.canReconnect = true
+        m.reason = .clientInitiated
+        m.action = .resume
+        m.regions = oracleExemplar_Livekit_RegionSettings()
+    }
 }
 
 func exemplar_Livekit_UpdateVideoLayers() -> LiveKit.Livekit_UpdateVideoLayers {
-    var m = LiveKit.Livekit_UpdateVideoLayers()
-    m.trackSid = "track_sid"
-    m.layers = [exemplar_Livekit_VideoLayer()]
-    return m
+    LiveKit.Livekit_UpdateVideoLayers.with { m in
+        m.trackSid = "track_sid"
+        m.layers = [exemplar_Livekit_VideoLayer()]
+    }
 }
 
 func oracleExemplar_Livekit_UpdateVideoLayers() -> Livekit_UpdateVideoLayers {
-    var m = Livekit_UpdateVideoLayers()
-    m.trackSid = "track_sid"
-    m.layers = [oracleExemplar_Livekit_VideoLayer()]
-    return m
+    Livekit_UpdateVideoLayers.with { m in
+        m.trackSid = "track_sid"
+        m.layers = [oracleExemplar_Livekit_VideoLayer()]
+    }
 }
 
 func exemplar_Livekit_UpdateParticipantMetadata() -> LiveKit.Livekit_UpdateParticipantMetadata {
-    var m = LiveKit.Livekit_UpdateParticipantMetadata()
-    m.metadata = "metadata"
-    m.name = "name"
-    m.attributes = ["attributes_key": "value"]
-    m.requestID = 4
-    return m
+    LiveKit.Livekit_UpdateParticipantMetadata.with { m in
+        m.metadata = "metadata"
+        m.name = "name"
+        m.attributes = ["attributes_key": "value"]
+        m.requestID = 4
+    }
 }
 
 func oracleExemplar_Livekit_UpdateParticipantMetadata() -> Livekit_UpdateParticipantMetadata {
-    var m = Livekit_UpdateParticipantMetadata()
-    m.metadata = "metadata"
-    m.name = "name"
-    m.attributes = ["attributes_key": "value"]
-    m.requestID = 4
-    return m
+    Livekit_UpdateParticipantMetadata.with { m in
+        m.metadata = "metadata"
+        m.name = "name"
+        m.attributes = ["attributes_key": "value"]
+        m.requestID = 4
+    }
 }
 
 func exemplar_Livekit_ICEServer() -> LiveKit.Livekit_ICEServer {
-    var m = LiveKit.Livekit_ICEServer()
-    m.urls = ["urls_0", "urls_1"]
-    m.username = "username"
-    m.credential = "credential"
-    return m
+    LiveKit.Livekit_ICEServer.with { m in
+        m.urls = ["urls_0", "urls_1"]
+        m.username = "username"
+        m.credential = "credential"
+    }
 }
 
 func oracleExemplar_Livekit_ICEServer() -> Livekit_ICEServer {
-    var m = Livekit_ICEServer()
-    m.urls = ["urls_0", "urls_1"]
-    m.username = "username"
-    m.credential = "credential"
-    return m
+    Livekit_ICEServer.with { m in
+        m.urls = ["urls_0", "urls_1"]
+        m.username = "username"
+        m.credential = "credential"
+    }
 }
 
 func exemplar_Livekit_SpeakersChanged() -> LiveKit.Livekit_SpeakersChanged {
-    var m = LiveKit.Livekit_SpeakersChanged()
-    m.speakers = [exemplar_Livekit_SpeakerInfo()]
-    return m
+    LiveKit.Livekit_SpeakersChanged.with { m in
+        m.speakers = [exemplar_Livekit_SpeakerInfo()]
+    }
 }
 
 func oracleExemplar_Livekit_SpeakersChanged() -> Livekit_SpeakersChanged {
-    var m = Livekit_SpeakersChanged()
-    m.speakers = [oracleExemplar_Livekit_SpeakerInfo()]
-    return m
+    Livekit_SpeakersChanged.with { m in
+        m.speakers = [oracleExemplar_Livekit_SpeakerInfo()]
+    }
 }
 
 func exemplar_Livekit_RoomUpdate() -> LiveKit.Livekit_RoomUpdate {
-    var m = LiveKit.Livekit_RoomUpdate()
-    m.room = exemplar_Livekit_Room()
-    return m
+    LiveKit.Livekit_RoomUpdate.with { m in
+        m.room = exemplar_Livekit_Room()
+    }
 }
 
 func oracleExemplar_Livekit_RoomUpdate() -> Livekit_RoomUpdate {
-    var m = Livekit_RoomUpdate()
-    m.room = oracleExemplar_Livekit_Room()
-    return m
+    Livekit_RoomUpdate.with { m in
+        m.room = oracleExemplar_Livekit_Room()
+    }
 }
 
 func exemplar_Livekit_ConnectionQualityInfo() -> LiveKit.Livekit_ConnectionQualityInfo {
-    var m = LiveKit.Livekit_ConnectionQualityInfo()
-    m.participantSid = "participant_sid"
-    m.quality = .good
-    m.score = 3
-    return m
+    LiveKit.Livekit_ConnectionQualityInfo.with { m in
+        m.participantSid = "participant_sid"
+        m.quality = .good
+        m.score = 3
+    }
 }
 
 func oracleExemplar_Livekit_ConnectionQualityInfo() -> Livekit_ConnectionQualityInfo {
-    var m = Livekit_ConnectionQualityInfo()
-    m.participantSid = "participant_sid"
-    m.quality = .good
-    m.score = 3
-    return m
+    Livekit_ConnectionQualityInfo.with { m in
+        m.participantSid = "participant_sid"
+        m.quality = .good
+        m.score = 3
+    }
 }
 
 func exemplar_Livekit_ConnectionQualityUpdate() -> LiveKit.Livekit_ConnectionQualityUpdate {
-    var m = LiveKit.Livekit_ConnectionQualityUpdate()
-    m.updates = [exemplar_Livekit_ConnectionQualityInfo()]
-    return m
+    LiveKit.Livekit_ConnectionQualityUpdate.with { m in
+        m.updates = [exemplar_Livekit_ConnectionQualityInfo()]
+    }
 }
 
 func oracleExemplar_Livekit_ConnectionQualityUpdate() -> Livekit_ConnectionQualityUpdate {
-    var m = Livekit_ConnectionQualityUpdate()
-    m.updates = [oracleExemplar_Livekit_ConnectionQualityInfo()]
-    return m
+    Livekit_ConnectionQualityUpdate.with { m in
+        m.updates = [oracleExemplar_Livekit_ConnectionQualityInfo()]
+    }
 }
 
 func exemplar_Livekit_StreamStateInfo() -> LiveKit.Livekit_StreamStateInfo {
-    var m = LiveKit.Livekit_StreamStateInfo()
-    m.participantSid = "participant_sid"
-    m.trackSid = "track_sid"
-    m.state = .paused
-    return m
+    LiveKit.Livekit_StreamStateInfo.with { m in
+        m.participantSid = "participant_sid"
+        m.trackSid = "track_sid"
+        m.state = .paused
+    }
 }
 
 func oracleExemplar_Livekit_StreamStateInfo() -> Livekit_StreamStateInfo {
-    var m = Livekit_StreamStateInfo()
-    m.participantSid = "participant_sid"
-    m.trackSid = "track_sid"
-    m.state = .paused
-    return m
+    Livekit_StreamStateInfo.with { m in
+        m.participantSid = "participant_sid"
+        m.trackSid = "track_sid"
+        m.state = .paused
+    }
 }
 
 func exemplar_Livekit_StreamStateUpdate() -> LiveKit.Livekit_StreamStateUpdate {
-    var m = LiveKit.Livekit_StreamStateUpdate()
-    m.streamStates = [exemplar_Livekit_StreamStateInfo()]
-    return m
+    LiveKit.Livekit_StreamStateUpdate.with { m in
+        m.streamStates = [exemplar_Livekit_StreamStateInfo()]
+    }
 }
 
 func oracleExemplar_Livekit_StreamStateUpdate() -> Livekit_StreamStateUpdate {
-    var m = Livekit_StreamStateUpdate()
-    m.streamStates = [oracleExemplar_Livekit_StreamStateInfo()]
-    return m
+    Livekit_StreamStateUpdate.with { m in
+        m.streamStates = [oracleExemplar_Livekit_StreamStateInfo()]
+    }
 }
 
 func exemplar_Livekit_SubscribedQuality() -> LiveKit.Livekit_SubscribedQuality {
-    var m = LiveKit.Livekit_SubscribedQuality()
-    m.quality = .medium
-    m.enabled = true
-    return m
+    LiveKit.Livekit_SubscribedQuality.with { m in
+        m.quality = .medium
+        m.enabled = true
+    }
 }
 
 func oracleExemplar_Livekit_SubscribedQuality() -> Livekit_SubscribedQuality {
-    var m = Livekit_SubscribedQuality()
-    m.quality = .medium
-    m.enabled = true
-    return m
+    Livekit_SubscribedQuality.with { m in
+        m.quality = .medium
+        m.enabled = true
+    }
 }
 
 func exemplar_Livekit_SubscribedCodec() -> LiveKit.Livekit_SubscribedCodec {
-    var m = LiveKit.Livekit_SubscribedCodec()
-    m.codec = "codec"
-    m.qualities = [exemplar_Livekit_SubscribedQuality()]
-    return m
+    LiveKit.Livekit_SubscribedCodec.with { m in
+        m.codec = "codec"
+        m.qualities = [exemplar_Livekit_SubscribedQuality()]
+    }
 }
 
 func oracleExemplar_Livekit_SubscribedCodec() -> Livekit_SubscribedCodec {
-    var m = Livekit_SubscribedCodec()
-    m.codec = "codec"
-    m.qualities = [oracleExemplar_Livekit_SubscribedQuality()]
-    return m
+    Livekit_SubscribedCodec.with { m in
+        m.codec = "codec"
+        m.qualities = [oracleExemplar_Livekit_SubscribedQuality()]
+    }
 }
 
 func exemplar_Livekit_SubscribedQualityUpdate() -> LiveKit.Livekit_SubscribedQualityUpdate {
-    var m = LiveKit.Livekit_SubscribedQualityUpdate()
-    m.trackSid = "track_sid"
-    m.subscribedQualities = [exemplar_Livekit_SubscribedQuality()]
-    m.subscribedCodecs = [exemplar_Livekit_SubscribedCodec()]
-    return m
+    LiveKit.Livekit_SubscribedQualityUpdate.with { m in
+        m.trackSid = "track_sid"
+        m.subscribedQualities = [exemplar_Livekit_SubscribedQuality()]
+        m.subscribedCodecs = [exemplar_Livekit_SubscribedCodec()]
+    }
 }
 
 func oracleExemplar_Livekit_SubscribedQualityUpdate() -> Livekit_SubscribedQualityUpdate {
-    var m = Livekit_SubscribedQualityUpdate()
-    m.trackSid = "track_sid"
-    m.subscribedQualities = [oracleExemplar_Livekit_SubscribedQuality()]
-    m.subscribedCodecs = [oracleExemplar_Livekit_SubscribedCodec()]
-    return m
+    Livekit_SubscribedQualityUpdate.with { m in
+        m.trackSid = "track_sid"
+        m.subscribedQualities = [oracleExemplar_Livekit_SubscribedQuality()]
+        m.subscribedCodecs = [oracleExemplar_Livekit_SubscribedCodec()]
+    }
 }
 
 func exemplar_Livekit_SubscribedAudioCodecUpdate() -> LiveKit.Livekit_SubscribedAudioCodecUpdate {
-    var m = LiveKit.Livekit_SubscribedAudioCodecUpdate()
-    m.trackSid = "track_sid"
-    m.subscribedAudioCodecs = [exemplar_Livekit_SubscribedAudioCodec()]
-    return m
+    LiveKit.Livekit_SubscribedAudioCodecUpdate.with { m in
+        m.trackSid = "track_sid"
+        m.subscribedAudioCodecs = [exemplar_Livekit_SubscribedAudioCodec()]
+    }
 }
 
 func oracleExemplar_Livekit_SubscribedAudioCodecUpdate() -> Livekit_SubscribedAudioCodecUpdate {
-    var m = Livekit_SubscribedAudioCodecUpdate()
-    m.trackSid = "track_sid"
-    m.subscribedAudioCodecs = [oracleExemplar_Livekit_SubscribedAudioCodec()]
-    return m
+    Livekit_SubscribedAudioCodecUpdate.with { m in
+        m.trackSid = "track_sid"
+        m.subscribedAudioCodecs = [oracleExemplar_Livekit_SubscribedAudioCodec()]
+    }
 }
 
 func exemplar_Livekit_TrackPermission() -> LiveKit.Livekit_TrackPermission {
-    var m = LiveKit.Livekit_TrackPermission()
-    m.participantSid = "participant_sid"
-    m.allTracks = true
-    m.trackSids = ["track_sids_0", "track_sids_1"]
-    m.participantIdentity = "participant_identity"
-    return m
+    LiveKit.Livekit_TrackPermission.with { m in
+        m.participantSid = "participant_sid"
+        m.allTracks = true
+        m.trackSids = ["track_sids_0", "track_sids_1"]
+        m.participantIdentity = "participant_identity"
+    }
 }
 
 func oracleExemplar_Livekit_TrackPermission() -> Livekit_TrackPermission {
-    var m = Livekit_TrackPermission()
-    m.participantSid = "participant_sid"
-    m.allTracks = true
-    m.trackSids = ["track_sids_0", "track_sids_1"]
-    m.participantIdentity = "participant_identity"
-    return m
+    Livekit_TrackPermission.with { m in
+        m.participantSid = "participant_sid"
+        m.allTracks = true
+        m.trackSids = ["track_sids_0", "track_sids_1"]
+        m.participantIdentity = "participant_identity"
+    }
 }
 
 func exemplar_Livekit_SubscriptionPermission() -> LiveKit.Livekit_SubscriptionPermission {
-    var m = LiveKit.Livekit_SubscriptionPermission()
-    m.allParticipants = true
-    m.trackPermissions = [exemplar_Livekit_TrackPermission()]
-    return m
+    LiveKit.Livekit_SubscriptionPermission.with { m in
+        m.allParticipants = true
+        m.trackPermissions = [exemplar_Livekit_TrackPermission()]
+    }
 }
 
 func oracleExemplar_Livekit_SubscriptionPermission() -> Livekit_SubscriptionPermission {
-    var m = Livekit_SubscriptionPermission()
-    m.allParticipants = true
-    m.trackPermissions = [oracleExemplar_Livekit_TrackPermission()]
-    return m
+    Livekit_SubscriptionPermission.with { m in
+        m.allParticipants = true
+        m.trackPermissions = [oracleExemplar_Livekit_TrackPermission()]
+    }
 }
 
 func exemplar_Livekit_SubscriptionPermissionUpdate() -> LiveKit.Livekit_SubscriptionPermissionUpdate {
-    var m = LiveKit.Livekit_SubscriptionPermissionUpdate()
-    m.participantSid = "participant_sid"
-    m.trackSid = "track_sid"
-    m.allowed = true
-    return m
+    LiveKit.Livekit_SubscriptionPermissionUpdate.with { m in
+        m.participantSid = "participant_sid"
+        m.trackSid = "track_sid"
+        m.allowed = true
+    }
 }
 
 func oracleExemplar_Livekit_SubscriptionPermissionUpdate() -> Livekit_SubscriptionPermissionUpdate {
-    var m = Livekit_SubscriptionPermissionUpdate()
-    m.participantSid = "participant_sid"
-    m.trackSid = "track_sid"
-    m.allowed = true
-    return m
+    Livekit_SubscriptionPermissionUpdate.with { m in
+        m.participantSid = "participant_sid"
+        m.trackSid = "track_sid"
+        m.allowed = true
+    }
 }
 
 func exemplar_Livekit_RoomMovedResponse() -> LiveKit.Livekit_RoomMovedResponse {
-    var m = LiveKit.Livekit_RoomMovedResponse()
-    m.room = exemplar_Livekit_Room()
-    m.token = "token"
-    m.participant = exemplar_Livekit_ParticipantInfo()
-    m.otherParticipants = [exemplar_Livekit_ParticipantInfo()]
-    return m
+    LiveKit.Livekit_RoomMovedResponse.with { m in
+        m.room = exemplar_Livekit_Room()
+        m.token = "token"
+        m.participant = exemplar_Livekit_ParticipantInfo()
+        m.otherParticipants = [exemplar_Livekit_ParticipantInfo()]
+    }
 }
 
 func oracleExemplar_Livekit_RoomMovedResponse() -> Livekit_RoomMovedResponse {
-    var m = Livekit_RoomMovedResponse()
-    m.room = oracleExemplar_Livekit_Room()
-    m.token = "token"
-    m.participant = oracleExemplar_Livekit_ParticipantInfo()
-    m.otherParticipants = [oracleExemplar_Livekit_ParticipantInfo()]
-    return m
+    Livekit_RoomMovedResponse.with { m in
+        m.room = oracleExemplar_Livekit_Room()
+        m.token = "token"
+        m.participant = oracleExemplar_Livekit_ParticipantInfo()
+        m.otherParticipants = [oracleExemplar_Livekit_ParticipantInfo()]
+    }
 }
 
 func exemplar_Livekit_SyncState() -> LiveKit.Livekit_SyncState {
-    var m = LiveKit.Livekit_SyncState()
-    m.answer = exemplar_Livekit_SessionDescription()
-    m.subscription = exemplar_Livekit_UpdateSubscription()
-    m.publishTracks = [exemplar_Livekit_TrackPublishedResponse()]
-    m.dataChannels = [exemplar_Livekit_DataChannelInfo()]
-    m.offer = exemplar_Livekit_SessionDescription()
-    m.trackSidsDisabled = ["track_sids_disabled_0", "track_sids_disabled_1"]
-    m.datachannelReceiveStates = [exemplar_Livekit_DataChannelReceiveState()]
-    m.publishDataTracks = [exemplar_Livekit_PublishDataTrackResponse()]
-    return m
+    LiveKit.Livekit_SyncState.with { m in
+        m.answer = exemplar_Livekit_SessionDescription()
+        m.subscription = exemplar_Livekit_UpdateSubscription()
+        m.publishTracks = [exemplar_Livekit_TrackPublishedResponse()]
+        m.dataChannels = [exemplar_Livekit_DataChannelInfo()]
+        m.offer = exemplar_Livekit_SessionDescription()
+        m.trackSidsDisabled = ["track_sids_disabled_0", "track_sids_disabled_1"]
+        m.datachannelReceiveStates = [exemplar_Livekit_DataChannelReceiveState()]
+        m.publishDataTracks = [exemplar_Livekit_PublishDataTrackResponse()]
+    }
 }
 
 func oracleExemplar_Livekit_SyncState() -> Livekit_SyncState {
-    var m = Livekit_SyncState()
-    m.answer = oracleExemplar_Livekit_SessionDescription()
-    m.subscription = oracleExemplar_Livekit_UpdateSubscription()
-    m.publishTracks = [oracleExemplar_Livekit_TrackPublishedResponse()]
-    m.dataChannels = [oracleExemplar_Livekit_DataChannelInfo()]
-    m.offer = oracleExemplar_Livekit_SessionDescription()
-    m.trackSidsDisabled = ["track_sids_disabled_0", "track_sids_disabled_1"]
-    m.datachannelReceiveStates = [oracleExemplar_Livekit_DataChannelReceiveState()]
-    m.publishDataTracks = [oracleExemplar_Livekit_PublishDataTrackResponse()]
-    return m
+    Livekit_SyncState.with { m in
+        m.answer = oracleExemplar_Livekit_SessionDescription()
+        m.subscription = oracleExemplar_Livekit_UpdateSubscription()
+        m.publishTracks = [oracleExemplar_Livekit_TrackPublishedResponse()]
+        m.dataChannels = [oracleExemplar_Livekit_DataChannelInfo()]
+        m.offer = oracleExemplar_Livekit_SessionDescription()
+        m.trackSidsDisabled = ["track_sids_disabled_0", "track_sids_disabled_1"]
+        m.datachannelReceiveStates = [oracleExemplar_Livekit_DataChannelReceiveState()]
+        m.publishDataTracks = [oracleExemplar_Livekit_PublishDataTrackResponse()]
+    }
 }
 
 func exemplar_Livekit_DataChannelReceiveState() -> LiveKit.Livekit_DataChannelReceiveState {
-    var m = LiveKit.Livekit_DataChannelReceiveState()
-    m.publisherSid = "publisher_sid"
-    m.lastSeq = 2
-    return m
+    LiveKit.Livekit_DataChannelReceiveState.with { m in
+        m.publisherSid = "publisher_sid"
+        m.lastSeq = 2
+    }
 }
 
 func oracleExemplar_Livekit_DataChannelReceiveState() -> Livekit_DataChannelReceiveState {
-    var m = Livekit_DataChannelReceiveState()
-    m.publisherSid = "publisher_sid"
-    m.lastSeq = 2
-    return m
+    Livekit_DataChannelReceiveState.with { m in
+        m.publisherSid = "publisher_sid"
+        m.lastSeq = 2
+    }
 }
 
 func exemplar_Livekit_DataChannelInfo() -> LiveKit.Livekit_DataChannelInfo {
-    var m = LiveKit.Livekit_DataChannelInfo()
-    m.label = "label"
-    m.id = 2
-    m.target = .subscriber
-    return m
+    LiveKit.Livekit_DataChannelInfo.with { m in
+        m.label = "label"
+        m.id = 2
+        m.target = .subscriber
+    }
 }
 
 func oracleExemplar_Livekit_DataChannelInfo() -> Livekit_DataChannelInfo {
-    var m = Livekit_DataChannelInfo()
-    m.label = "label"
-    m.id = 2
-    m.target = .subscriber
-    return m
+    Livekit_DataChannelInfo.with { m in
+        m.label = "label"
+        m.id = 2
+        m.target = .subscriber
+    }
 }
 
 func exemplar_Livekit_SimulateScenario() -> LiveKit.Livekit_SimulateScenario {
-    var m = LiveKit.Livekit_SimulateScenario()
-    m.speakerUpdate = 1
-    return m
+    LiveKit.Livekit_SimulateScenario.with { m in
+        m.speakerUpdate = 1
+    }
 }
 
 func oracleExemplar_Livekit_SimulateScenario() -> Livekit_SimulateScenario {
-    var m = Livekit_SimulateScenario()
-    m.speakerUpdate = 1
-    return m
+    Livekit_SimulateScenario.with { m in
+        m.speakerUpdate = 1
+    }
 }
 
 func exemplar_Livekit_Ping() -> LiveKit.Livekit_Ping {
-    var m = LiveKit.Livekit_Ping()
-    m.timestamp = 1
-    m.rtt = 2
-    return m
+    LiveKit.Livekit_Ping.with { m in
+        m.timestamp = 1
+        m.rtt = 2
+    }
 }
 
 func oracleExemplar_Livekit_Ping() -> Livekit_Ping {
-    var m = Livekit_Ping()
-    m.timestamp = 1
-    m.rtt = 2
-    return m
+    Livekit_Ping.with { m in
+        m.timestamp = 1
+        m.rtt = 2
+    }
 }
 
 func exemplar_Livekit_Pong() -> LiveKit.Livekit_Pong {
-    var m = LiveKit.Livekit_Pong()
-    m.lastPingTimestamp = 1
-    m.timestamp = 2
-    return m
+    LiveKit.Livekit_Pong.with { m in
+        m.lastPingTimestamp = 1
+        m.timestamp = 2
+    }
 }
 
 func oracleExemplar_Livekit_Pong() -> Livekit_Pong {
-    var m = Livekit_Pong()
-    m.lastPingTimestamp = 1
-    m.timestamp = 2
-    return m
+    Livekit_Pong.with { m in
+        m.lastPingTimestamp = 1
+        m.timestamp = 2
+    }
 }
 
 func exemplar_Livekit_RegionSettings() -> LiveKit.Livekit_RegionSettings {
-    var m = LiveKit.Livekit_RegionSettings()
-    m.regions = [exemplar_Livekit_RegionInfo()]
-    return m
+    LiveKit.Livekit_RegionSettings.with { m in
+        m.regions = [exemplar_Livekit_RegionInfo()]
+    }
 }
 
 func oracleExemplar_Livekit_RegionSettings() -> Livekit_RegionSettings {
-    var m = Livekit_RegionSettings()
-    m.regions = [oracleExemplar_Livekit_RegionInfo()]
-    return m
+    Livekit_RegionSettings.with { m in
+        m.regions = [oracleExemplar_Livekit_RegionInfo()]
+    }
 }
 
 func exemplar_Livekit_RegionInfo() -> LiveKit.Livekit_RegionInfo {
-    var m = LiveKit.Livekit_RegionInfo()
-    m.region = "region"
-    m.url = "url"
-    m.distance = 3
-    return m
+    LiveKit.Livekit_RegionInfo.with { m in
+        m.region = "region"
+        m.url = "url"
+        m.distance = 3
+    }
 }
 
 func oracleExemplar_Livekit_RegionInfo() -> Livekit_RegionInfo {
-    var m = Livekit_RegionInfo()
-    m.region = "region"
-    m.url = "url"
-    m.distance = 3
-    return m
+    Livekit_RegionInfo.with { m in
+        m.region = "region"
+        m.url = "url"
+        m.distance = 3
+    }
 }
 
 func exemplar_Livekit_SubscriptionResponse() -> LiveKit.Livekit_SubscriptionResponse {
-    var m = LiveKit.Livekit_SubscriptionResponse()
-    m.trackSid = "track_sid"
-    m.err = .seCodecUnsupported
-    return m
+    LiveKit.Livekit_SubscriptionResponse.with { m in
+        m.trackSid = "track_sid"
+        m.err = .seCodecUnsupported
+    }
 }
 
 func oracleExemplar_Livekit_SubscriptionResponse() -> Livekit_SubscriptionResponse {
-    var m = Livekit_SubscriptionResponse()
-    m.trackSid = "track_sid"
-    m.err = .seCodecUnsupported
-    return m
+    Livekit_SubscriptionResponse.with { m in
+        m.trackSid = "track_sid"
+        m.err = .seCodecUnsupported
+    }
 }
 
 func exemplar_Livekit_RequestResponse() -> LiveKit.Livekit_RequestResponse {
-    var m = LiveKit.Livekit_RequestResponse()
-    m.requestID = 1
-    m.reason = .notFound
-    m.message = "message"
-    m.trickle = exemplar_Livekit_TrickleRequest()
-    return m
+    LiveKit.Livekit_RequestResponse.with { m in
+        m.requestID = 1
+        m.reason = .notFound
+        m.message = "message"
+        m.trickle = exemplar_Livekit_TrickleRequest()
+    }
 }
 
 func oracleExemplar_Livekit_RequestResponse() -> Livekit_RequestResponse {
-    var m = Livekit_RequestResponse()
-    m.requestID = 1
-    m.reason = .notFound
-    m.message = "message"
-    m.trickle = oracleExemplar_Livekit_TrickleRequest()
-    return m
+    Livekit_RequestResponse.with { m in
+        m.requestID = 1
+        m.reason = .notFound
+        m.message = "message"
+        m.trickle = oracleExemplar_Livekit_TrickleRequest()
+    }
 }
 
 func exemplar_Livekit_TrackSubscribed() -> LiveKit.Livekit_TrackSubscribed {
-    var m = LiveKit.Livekit_TrackSubscribed()
-    m.trackSid = "track_sid"
-    return m
+    LiveKit.Livekit_TrackSubscribed.with { m in
+        m.trackSid = "track_sid"
+    }
 }
 
 func oracleExemplar_Livekit_TrackSubscribed() -> Livekit_TrackSubscribed {
-    var m = Livekit_TrackSubscribed()
-    m.trackSid = "track_sid"
-    return m
+    Livekit_TrackSubscribed.with { m in
+        m.trackSid = "track_sid"
+    }
 }
 
 func exemplar_Livekit_ConnectionSettings() -> LiveKit.Livekit_ConnectionSettings {
-    var m = LiveKit.Livekit_ConnectionSettings()
-    m.autoSubscribe = true
-    m.adaptiveStream = true
-    m.subscriberAllowPause = true
-    m.disableIceLite = true
-    m.autoSubscribeDataTrack = true
-    return m
+    LiveKit.Livekit_ConnectionSettings.with { m in
+        m.autoSubscribe = true
+        m.adaptiveStream = true
+        m.subscriberAllowPause = true
+        m.disableIceLite = true
+        m.autoSubscribeDataTrack = true
+    }
 }
 
 func oracleExemplar_Livekit_ConnectionSettings() -> Livekit_ConnectionSettings {
-    var m = Livekit_ConnectionSettings()
-    m.autoSubscribe = true
-    m.adaptiveStream = true
-    m.subscriberAllowPause = true
-    m.disableIceLite = true
-    m.autoSubscribeDataTrack = true
-    return m
+    Livekit_ConnectionSettings.with { m in
+        m.autoSubscribe = true
+        m.adaptiveStream = true
+        m.subscriberAllowPause = true
+        m.disableIceLite = true
+        m.autoSubscribeDataTrack = true
+    }
 }
 
 func exemplar_Livekit_JoinRequest() -> LiveKit.Livekit_JoinRequest {
-    var m = LiveKit.Livekit_JoinRequest()
-    m.clientInfo = exemplar_Livekit_ClientInfo()
-    m.connectionSettings = exemplar_Livekit_ConnectionSettings()
-    m.metadata = "metadata"
-    m.participantAttributes = ["participant_attributes_key": "value"]
-    m.addTrackRequests = [exemplar_Livekit_AddTrackRequest()]
-    m.publisherOffer = exemplar_Livekit_SessionDescription()
-    m.reconnect = true
-    m.reconnectReason = .rrSignalDisconnected
-    m.participantSid = "participant_sid"
-    m.syncState = exemplar_Livekit_SyncState()
-    return m
+    LiveKit.Livekit_JoinRequest.with { m in
+        m.clientInfo = exemplar_Livekit_ClientInfo()
+        m.connectionSettings = exemplar_Livekit_ConnectionSettings()
+        m.metadata = "metadata"
+        m.participantAttributes = ["participant_attributes_key": "value"]
+        m.addTrackRequests = [exemplar_Livekit_AddTrackRequest()]
+        m.publisherOffer = exemplar_Livekit_SessionDescription()
+        m.reconnect = true
+        m.reconnectReason = .rrSignalDisconnected
+        m.participantSid = "participant_sid"
+        m.syncState = exemplar_Livekit_SyncState()
+    }
 }
 
 func oracleExemplar_Livekit_JoinRequest() -> Livekit_JoinRequest {
-    var m = Livekit_JoinRequest()
-    m.clientInfo = oracleExemplar_Livekit_ClientInfo()
-    m.connectionSettings = oracleExemplar_Livekit_ConnectionSettings()
-    m.metadata = "metadata"
-    m.participantAttributes = ["participant_attributes_key": "value"]
-    m.addTrackRequests = [oracleExemplar_Livekit_AddTrackRequest()]
-    m.publisherOffer = oracleExemplar_Livekit_SessionDescription()
-    m.reconnect = true
-    m.reconnectReason = .rrSignalDisconnected
-    m.participantSid = "participant_sid"
-    m.syncState = oracleExemplar_Livekit_SyncState()
-    return m
+    Livekit_JoinRequest.with { m in
+        m.clientInfo = oracleExemplar_Livekit_ClientInfo()
+        m.connectionSettings = oracleExemplar_Livekit_ConnectionSettings()
+        m.metadata = "metadata"
+        m.participantAttributes = ["participant_attributes_key": "value"]
+        m.addTrackRequests = [oracleExemplar_Livekit_AddTrackRequest()]
+        m.publisherOffer = oracleExemplar_Livekit_SessionDescription()
+        m.reconnect = true
+        m.reconnectReason = .rrSignalDisconnected
+        m.participantSid = "participant_sid"
+        m.syncState = oracleExemplar_Livekit_SyncState()
+    }
 }
 
 func exemplar_Livekit_WrappedJoinRequest() -> LiveKit.Livekit_WrappedJoinRequest {
-    var m = LiveKit.Livekit_WrappedJoinRequest()
-    m.compression = .gzip
-    m.joinRequest = Data("join_request".utf8)
-    return m
+    LiveKit.Livekit_WrappedJoinRequest.with { m in
+        m.compression = .gzip
+        m.joinRequest = Data("join_request".utf8)
+    }
 }
 
 func oracleExemplar_Livekit_WrappedJoinRequest() -> Livekit_WrappedJoinRequest {
-    var m = Livekit_WrappedJoinRequest()
-    m.compression = .gzip
-    m.joinRequest = Data("join_request".utf8)
-    return m
+    Livekit_WrappedJoinRequest.with { m in
+        m.compression = .gzip
+        m.joinRequest = Data("join_request".utf8)
+    }
 }
 
 func exemplar_Livekit_MediaSectionsRequirement() -> LiveKit.Livekit_MediaSectionsRequirement {
-    var m = LiveKit.Livekit_MediaSectionsRequirement()
-    m.numAudios = 1
-    m.numVideos = 2
-    return m
+    LiveKit.Livekit_MediaSectionsRequirement.with { m in
+        m.numAudios = 1
+        m.numVideos = 2
+    }
 }
 
 func oracleExemplar_Livekit_MediaSectionsRequirement() -> Livekit_MediaSectionsRequirement {
-    var m = Livekit_MediaSectionsRequirement()
-    m.numAudios = 1
-    m.numVideos = 2
-    return m
+    Livekit_MediaSectionsRequirement.with { m in
+        m.numAudios = 1
+        m.numVideos = 2
+    }
 }
 
 let conformanceExemplars: [ConformanceExemplar] = [
