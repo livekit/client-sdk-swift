@@ -67,16 +67,6 @@ package func lkSetData(_ slot: inout UnsafeMutablePointer<pb_bytes_array_t>?, _ 
     slot = lkAllocBytes(value)
 }
 
-/// Borrow a bytes field without copying into `Data`.
-package func withLkData<R, E: Error>(
-    _ pointer: UnsafeMutablePointer<pb_bytes_array_t>?,
-    _ body: (UnsafeRawBufferPointer?) throws(E) -> R,
-) throws(E) -> R {
-    guard let pointer else { return try body(nil) }
-    return try body(UnsafeRawBufferPointer(start: lkBytesBase(pointer),
-                                           count: Int(pointer.pointee.size)))
-}
-
 func lkAllocBytes(_ value: Data) -> UnsafeMutablePointer<pb_bytes_array_t>? {
     let header = lkBytesHeader
     // SAFETY: at least one byte is always allocated so the flexible array
@@ -118,8 +108,8 @@ package func lkSetEnumPointer<C: RawRepresentable>(
 //
 // nanopb nests a submessage inside (or pointed to from) its parent's
 // allocation, while protobuf messages are independent values — so crossing that
-// boundary copies, via an encode/decode round trip. Signalling messages are
-// small; hot paths can use the zero-copy readers instead.
+// boundary copies, via an encode/decode round trip. Reading a submessage does
+// not: the getter hands out a view. Signalling messages are small either way.
 
 package func lkMessage<M: NanopbMessage>(_ pointer: UnsafeMutablePointer<M.Storage>?) -> M {
     guard let pointer else { return M._empty }
@@ -139,8 +129,6 @@ package func lkMessage<M: NanopbMessage>(copying pointer: UnsafePointer<M.Storag
     return message
 }
 
-/// Address of a struct member inside a malloc'd allocation — the anchor for
-/// zero-copy views into inline submessage fields.
 /// Replace a pointer submessage field.
 package func lkSetMessage<M: NanopbMessage>(
     _ slot: inout UnsafeMutablePointer<M.Storage>?, _ value: M,
@@ -318,34 +306,17 @@ package func lkViews<M: NanopbMessage>(
     return (0 ..< Int(count)).map { M(_sharing: base + $0, owner: owner) }
 }
 
-// MARK: - Spans
+// MARK: - Borrowing primitives (currently unused)
 
-#if compiler(>=6.2)
-// `Span` and `RawSpan` are Swift 6.2 stdlib types that back-deploy to
-// macOS 10.14.4 / iOS 12.2, so only the compiler floor gates them, not the
-// deployment target. They give the closure body a bounds-checked view instead
-// of a raw pointer; returning one would additionally need a lifetime
-// annotation (`@_lifetime`), which is still experimental, so the borrow stays
-// scoped to the call.
-
-/// Borrow a bytes field as a bounds-checked `RawSpan`.
-package func withLkSpan<R, E: Error>(
-    _ pointer: UnsafeMutablePointer<pb_bytes_array_t>?,
-    _ body: (RawSpan) throws(E) -> R,
-) throws(E) -> R {
-    try withLkData(pointer) { (buffer: UnsafeRawBufferPointer?) throws(E) -> R in
-        try body(unsafe RawSpan(_unsafeBytes: buffer ?? UnsafeRawBufferPointer(start: nil, count: 0)))
-    }
-}
-
-/// Borrow a repeated scalar field as a bounds-checked `Span`.
-package func withLkSpan<C: BitwiseCopyable, R, E: Error>(
-    _ count: pb_size_t,
-    _ base: UnsafeMutablePointer<C>?,
-    _ body: (Span<C>) throws(E) -> R,
-) throws(E) -> R {
-    try withLkRepeated(count, base) { (buffer: UnsafeBufferPointer<C>) throws(E) -> R in
-        try body(unsafe Span(_unsafeElements: buffer))
-    }
-}
-#endif
+//
+// Nothing borrows a scalar field today: submessage and repeated-submessage
+// reads are already zero-copy views, and everything else copies out at the
+// API boundary anyway. Two shapes were built and removed once measured to be
+// dead — re-add them here if a hot path ever needs one:
+//
+//   - `withLkData(_:_:)` / `withLkBytes(_:_:)`, closure-scoped borrows handing
+//     the body an `UnsafeRawBufferPointer` into nanopb's allocation.
+//   - `withLkSpan(_:_:)` behind `#if compiler(>=6.2)`, the same borrow but
+//     bounds-checked; `Span`/`RawSpan` back-deploy to iOS 12.2, so only the
+//     compiler floor gates them. Returning a span rather than scoping it to
+//     the call additionally needs `@_lifetime`, still experimental.
