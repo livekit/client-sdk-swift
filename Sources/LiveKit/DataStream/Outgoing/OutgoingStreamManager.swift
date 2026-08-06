@@ -16,6 +16,12 @@
 
 import Foundation
 
+// Extending the generic builder needs the runtime module by name; the facades
+// themselves are re-exported through LiveKit.
+#if !COCOAPODS && !LK_XCFRAMEWORK
+import LiveKitNanopb
+#endif
+
 /// Manages state of outgoing data streams.
 actor OutgoingStreamManager: Loggable {
     typealias PacketHandler = @Sendable (Livekit_DataPacket) async throws -> Void
@@ -282,7 +288,7 @@ extension Livekit_DataStream.Header {
     }
 }
 
-extension Livekit_DataStream.Header.Builder {
+extension NanopbBuilder where M == Livekit_DataStream.Header {
     // Mirrors `Livekit_DataStream.Header.timestampDate`; setters live on the builder.
     var timestampDate: Date {
         get { Date(timeIntervalSince1970: TimeInterval(timestamp) / TimeInterval(1000)) }

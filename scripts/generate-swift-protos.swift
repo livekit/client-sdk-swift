@@ -175,7 +175,7 @@ struct GenerateSwiftProtos: ParsableCommand {
                 .components(separatedBy: "\n").enumerated()
             {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
-                if trimmed.hasPrefix("struct Builder: ~Copyable") {
+                if trimmed.hasPrefix("extension NanopbBuilder where M ==") {
                     insideBuilder = true
                     builderDepth = depth
                 }
@@ -373,6 +373,7 @@ enum AccessorSplitter {
                 .replacingOccurrences(of: "_ensureUnique(); ", with: "")
                 .replacingOccurrences(of: "mutating func", with: "func")
                 .replacingOccurrences(of: "set {", with: "nonmutating set {")
+                .replacingOccurrences(of: "owner: _owner", with: "owner: _box")
         }
     }
 
@@ -815,6 +816,13 @@ extension Emitter {
 /// coverage of every field is mechanical, so it can't rot as protos change.
 extension Emitter {
     func emit(_ message: Descriptor, depth: Int) -> String {
+        let parts = emitParts(message, depth: depth)
+        return parts.body + parts.extensions
+    }
+
+    /// `extension NanopbBuilder where M == ...` cannot nest inside a struct, so
+    /// nested messages hand their extensions up to be written at file scope.
+    private func emitParts(_ message: Descriptor, depth: Int) -> (body: String, extensions: String) {
         let pad = String(repeating: "    ", count: depth)
         let type = namer.relativeName(message: message)
         let storage = cName(message)
@@ -834,18 +842,45 @@ extension Emitter {
         for line in members.message {
             out += line.isEmpty ? "\n" : "\(pad)    \(line)\n"
         }
+        var extensions = ""
         for child in message.messages {
-            out += emit(child, depth: depth + 1)
+            let parts = emitParts(child, depth: depth + 1)
+            out += parts.body
+            extensions += parts.extensions
         }
         for enumType in message.enums {
             out += emit(enum: enumType, depth: depth + 1)
         }
-        out += Self.builderHeader(type: type, pad: pad)
-        for line in members.builder {
-            out += line.isEmpty ? "\n" : "\(pad)        \(line)\n"
+        out += "\(pad)}\n\n"
+
+        guard !members.builder.isEmpty else { return (out, extensions) }
+        let full = Self.local(namer.fullName(message: message))
+        var ext = "extension NanopbBuilder where M == \(full) {\n"
+        // The extension is on the builder, so the message's nested types are
+        // not in scope. They cannot be aliased in either: every constrained
+        // extension would add the same name to `NanopbBuilder`, so `OneOf_Value`
+        // would mean six different things. Qualify the references instead.
+        var nestedNames = Self.realOneofs(of: message).map { namer.relativeName(oneof: $0) }
+        nestedNames += message.enums.map { namer.relativeName(enum: $0) }
+        nestedNames += message.messages.map { namer.relativeName(message: $0) }
+        let qualify: (String) -> String = { line in
+            var line = line
+            for name in nestedNames {
+                guard let regex = try? NSRegularExpression(
+                    pattern: "(?<![\\.\\w])\(NSRegularExpression.escapedPattern(for: name))(?![\\w])",
+                ) else { continue }
+                line = regex.stringByReplacingMatches(
+                    in: line, range: NSRange(line.startIndex..., in: line),
+                    withTemplate: "\(full).\(name)",
+                )
+            }
+            return line
         }
-        out += Self.factories(type: type, pad: pad)
-        return out
+        for line in members.builder {
+            ext += line.isEmpty ? "\n" : "    \(qualify(line))\n"
+        }
+        ext += "}\n\n"
+        return (out, extensions + ext)
     }
 
     private static func messageHeader(type: String, storage: String, pad: String) -> String {
@@ -876,24 +911,6 @@ extension Emitter {
         \(pad)        _owner = owner
         \(pad)        _pointer = pointer
         \(pad)    }
-
-
-        """
-    }
-
-    private static func builderHeader(type: String, pad: String) -> String {
-        """
-        \(pad)    /// Mutation lives here. `~Copyable` means the compiler proves there is
-        \(pad)    /// never a second live handle to this storage, so no uniqueness check is
-        \(pad)    /// needed and `build()` publishes storage nothing can still mutate.
-        \(pad)    struct Builder: ~Copyable {
-        \(pad)        let _box: NanopbBox<Storage>
-        \(pad)        var _owner: NanopbAnyBox { _box }
-        \(pad)        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
-
-        \(pad)        init() { _box = NanopbBox(zero: \(type).zero, descriptor: \(type).descriptor) }
-        \(pad)        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        \(pad)        consuming func build() -> \(type) { \(type)(_owning: _box) }
 
 
         """

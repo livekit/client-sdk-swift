@@ -53,49 +53,18 @@ struct Google_Protobuf_Timestamp: NanopbMessage, @unchecked Sendable {
     }
     var hasNanos: Bool { _pointer.pointee.nanos != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Google_Protobuf_Timestamp.zero, descriptor: Google_Protobuf_Timestamp.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Google_Protobuf_Timestamp { Google_Protobuf_Timestamp(_owning: _box) }
-
-        var seconds: Int64 {
-            get { _pointer.pointee.seconds?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.seconds, newValue) }
-        }
-
-        var nanos: Int32 {
-            get { _pointer.pointee.nanos?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.nanos, newValue) }
-        }
-
+extension NanopbBuilder where M == Google_Protobuf_Timestamp {
+    var seconds: Int64 {
+        get { _pointer.pointee.seconds?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.seconds, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var nanos: Int32 {
+        get { _pointer.pointee.nanos?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.nanos, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
-    }
 }
 

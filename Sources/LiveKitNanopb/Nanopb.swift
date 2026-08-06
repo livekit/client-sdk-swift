@@ -118,6 +118,35 @@ package final class NanopbBox<Storage>: NanopbAnyBox, @unchecked Sendable {
     }
 }
 
+// MARK: - Builder
+
+/// The only way to mutate a message. One generic builder serves every message
+/// type; the generated code adds just the field setters in a constrained
+/// extension (`extension NanopbBuilder where M == Livekit_Room`), which is
+/// what SE-0427 noncopyable generics makes possible.
+///
+/// `~Copyable` means the compiler proves there is never a second live handle
+/// to this storage, so no uniqueness check is needed, and `build()` consumes
+/// the builder so nothing can write to storage after it is published.
+///
+/// `_pointer` is *stored*, not computed off `_box`: as a computed property it
+/// crashes the Swift 6.1 SIL verifier (fine from 6.2), and 6.1 is the floor.
+package struct NanopbBuilder<M: NanopbMessage>: ~Copyable {
+    package let _box: NanopbBox<M.Storage>
+    package let _pointer: UnsafeMutablePointer<M.Storage>
+
+    package init() {
+        self.init(_adopting: NanopbBox(zero: M.zero, descriptor: M.descriptor))
+    }
+
+    package init(_adopting box: NanopbBox<M.Storage>) {
+        _box = box
+        _pointer = box.pointer
+    }
+
+    package consuming func build() -> M { M(_owning: _box) }
+}
+
 // MARK: - Protocols
 
 /// An immutable protobuf message whose storage and wire format are nanopb's.
@@ -141,6 +170,7 @@ package protocol NanopbMessage: Equatable, Hashable, Sendable {
     var _pointer: UnsafeMutablePointer<Storage> { get set }
 
     init()
+    init(_owning box: NanopbBox<Storage>)
     /// Shared empty value handed out for absent submessage fields.
     static var _empty: Self { get }
     /// A view into storage owned by `owner` — zero-copy.
@@ -148,6 +178,29 @@ package protocol NanopbMessage: Equatable, Hashable, Sendable {
 }
 
 package extension NanopbMessage {
+    typealias Builder = NanopbBuilder<Self>
+
+    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
+        var builder = Builder()
+        try populate(&builder)
+        return builder.build()
+    }
+
+    /// This message with `populate` applied. `consuming` ends the caller's
+    /// ownership, so when nothing else holds the storage the mutation happens
+    /// in place; otherwise it copies once for the whole batch, not per field.
+    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
+        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
+            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
+            try populate(&builder)
+            return builder.build()
+        }
+        var builder = Builder()
+        lkOverwrite(builder._pointer, with: self)
+        try populate(&builder)
+        return builder.build()
+    }
+
     /// A value that owns its own storage, copying out of its parent only if
     /// this one is a view — the same contract as Rust's `Cow::into_owned`.
     ///

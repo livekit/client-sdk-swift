@@ -112,114 +112,83 @@ struct Livekit_Room: NanopbMessage, @unchecked Sendable {
     }
     var hasCreationTimeMs: Bool { _pointer.pointee.creation_time_ms != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_Room.zero, descriptor: Livekit_Room.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_Room { Livekit_Room(_owning: _box) }
-
-        var sid: String {
-            get { lkString(_pointer.pointee.sid) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
-        }
-
-        var name: String {
-            get { lkString(_pointer.pointee.name) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.name, newValue) }
-        }
-
-        var emptyTimeout: UInt32 {
-            get { _pointer.pointee.empty_timeout?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.empty_timeout, newValue) }
-        }
-
-        var maxParticipants: UInt32 {
-            get { _pointer.pointee.max_participants?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.max_participants, newValue) }
-        }
-
-        var creationTime: Int64 {
-            get { _pointer.pointee.creation_time?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.creation_time, newValue) }
-        }
-
-        var turnPassword: String {
-            get { lkString(_pointer.pointee.turn_password) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.turn_password, newValue) }
-        }
-
-        var enabledCodecs: [Livekit_Codec] {
-            get { lkViews(_pointer.pointee.enabled_codecs_count, _pointer.pointee.enabled_codecs, owner: _owner) }
-            nonmutating set {
-                var count = _pointer.pointee.enabled_codecs_count, base = _pointer.pointee.enabled_codecs
-                lkSetRepeatedMessages(&count, &base, newValue)
-                _pointer.pointee.enabled_codecs_count = count; _pointer.pointee.enabled_codecs = base
-            }
-        }
-
-        var metadata: String {
-            get { lkString(_pointer.pointee.metadata) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.metadata, newValue) }
-        }
-
-        var numParticipants: UInt32 {
-            get { _pointer.pointee.num_participants?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.num_participants, newValue) }
-        }
-
-        var activeRecording: Bool {
-            get { _pointer.pointee.active_recording?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.active_recording, newValue) }
-        }
-
-        var numPublishers: UInt32 {
-            get { _pointer.pointee.num_publishers?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.num_publishers, newValue) }
-        }
-
-        var version: Livekit_TimedVersion {
-            get { _pointer.pointee.version.map { Livekit_TimedVersion(_sharing: $0, owner: _owner) } ?? Livekit_TimedVersion._empty }
-            nonmutating set { lkSetMessage(&_pointer.pointee.version, newValue) }
-        }
-
-        var departureTimeout: UInt32 {
-            get { _pointer.pointee.departure_timeout?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.departure_timeout, newValue) }
-        }
-
-        var creationTimeMs: Int64 {
-            get { _pointer.pointee.creation_time_ms?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.creation_time_ms, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_Room {
+    var sid: String {
+        get { lkString(_pointer.pointee.sid) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var name: String {
+        get { lkString(_pointer.pointee.name) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.name, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var emptyTimeout: UInt32 {
+        get { _pointer.pointee.empty_timeout?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.empty_timeout, newValue) }
     }
+
+    var maxParticipants: UInt32 {
+        get { _pointer.pointee.max_participants?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.max_participants, newValue) }
+    }
+
+    var creationTime: Int64 {
+        get { _pointer.pointee.creation_time?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.creation_time, newValue) }
+    }
+
+    var turnPassword: String {
+        get { lkString(_pointer.pointee.turn_password) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.turn_password, newValue) }
+    }
+
+    var enabledCodecs: [Livekit_Codec] {
+        get { lkViews(_pointer.pointee.enabled_codecs_count, _pointer.pointee.enabled_codecs, owner: _box) }
+        nonmutating set {
+            var count = _pointer.pointee.enabled_codecs_count, base = _pointer.pointee.enabled_codecs
+            lkSetRepeatedMessages(&count, &base, newValue)
+            _pointer.pointee.enabled_codecs_count = count; _pointer.pointee.enabled_codecs = base
+        }
+    }
+
+    var metadata: String {
+        get { lkString(_pointer.pointee.metadata) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.metadata, newValue) }
+    }
+
+    var numParticipants: UInt32 {
+        get { _pointer.pointee.num_participants?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.num_participants, newValue) }
+    }
+
+    var activeRecording: Bool {
+        get { _pointer.pointee.active_recording?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.active_recording, newValue) }
+    }
+
+    var numPublishers: UInt32 {
+        get { _pointer.pointee.num_publishers?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.num_publishers, newValue) }
+    }
+
+    var version: Livekit_TimedVersion {
+        get { _pointer.pointee.version.map { Livekit_TimedVersion(_sharing: $0, owner: _box) } ?? Livekit_TimedVersion._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.version, newValue) }
+    }
+
+    var departureTimeout: UInt32 {
+        get { _pointer.pointee.departure_timeout?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.departure_timeout, newValue) }
+    }
+
+    var creationTimeMs: Int64 {
+        get { _pointer.pointee.creation_time_ms?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.creation_time_ms, newValue) }
+    }
+
 }
 
 struct Livekit_Codec: NanopbMessage, @unchecked Sendable {
@@ -259,50 +228,19 @@ struct Livekit_Codec: NanopbMessage, @unchecked Sendable {
     }
     var hasFmtpLine: Bool { _pointer.pointee.fmtp_line != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_Codec.zero, descriptor: Livekit_Codec.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_Codec { Livekit_Codec(_owning: _box) }
-
-        var mime: String {
-            get { lkString(_pointer.pointee.mime) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.mime, newValue) }
-        }
-
-        var fmtpLine: String {
-            get { lkString(_pointer.pointee.fmtp_line) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.fmtp_line, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_Codec {
+    var mime: String {
+        get { lkString(_pointer.pointee.mime) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.mime, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var fmtpLine: String {
+        get { lkString(_pointer.pointee.fmtp_line) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.fmtp_line, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
-    }
 }
 
 struct Livekit_ParticipantPermission: NanopbMessage, @unchecked Sendable {
@@ -381,94 +319,63 @@ struct Livekit_ParticipantPermission: NanopbMessage, @unchecked Sendable {
     }
     var hasCanManageAgentSession: Bool { _pointer.pointee.can_manage_agent_session != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_ParticipantPermission.zero, descriptor: Livekit_ParticipantPermission.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_ParticipantPermission { Livekit_ParticipantPermission(_owning: _box) }
-
-        var canSubscribe: Bool {
-            get { _pointer.pointee.can_subscribe?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.can_subscribe, newValue) }
-        }
-
-        var canPublish: Bool {
-            get { _pointer.pointee.can_publish?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.can_publish, newValue) }
-        }
-
-        var canPublishData: Bool {
-            get { _pointer.pointee.can_publish_data?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.can_publish_data, newValue) }
-        }
-
-        var hidden: Bool {
-            get { _pointer.pointee.hidden?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.hidden, newValue) }
-        }
-
-        var recorder: Bool {
-            get { _pointer.pointee.recorder?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.recorder, newValue) }
-        }
-
-        var canPublishSources: [Livekit_TrackSource] {
-            get { lkRepeatedEnum(_pointer.pointee.can_publish_sources_count, _pointer.pointee.can_publish_sources) }
-            nonmutating set {
-                var count = _pointer.pointee.can_publish_sources_count, base = _pointer.pointee.can_publish_sources
-                lkSetRepeatedEnum(&count, &base, newValue)
-                _pointer.pointee.can_publish_sources_count = count; _pointer.pointee.can_publish_sources = base
-            }
-        }
-
-        var canUpdateMetadata: Bool {
-            get { _pointer.pointee.can_update_metadata?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.can_update_metadata, newValue) }
-        }
-
-        var agent: Bool {
-            get { _pointer.pointee.agent?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.agent, newValue) }
-        }
-
-        var canSubscribeMetrics: Bool {
-            get { _pointer.pointee.can_subscribe_metrics?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.can_subscribe_metrics, newValue) }
-        }
-
-        var canManageAgentSession: Bool {
-            get { _pointer.pointee.can_manage_agent_session?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.can_manage_agent_session, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_ParticipantPermission {
+    var canSubscribe: Bool {
+        get { _pointer.pointee.can_subscribe?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.can_subscribe, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var canPublish: Bool {
+        get { _pointer.pointee.can_publish?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.can_publish, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var canPublishData: Bool {
+        get { _pointer.pointee.can_publish_data?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.can_publish_data, newValue) }
     }
+
+    var hidden: Bool {
+        get { _pointer.pointee.hidden?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.hidden, newValue) }
+    }
+
+    var recorder: Bool {
+        get { _pointer.pointee.recorder?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.recorder, newValue) }
+    }
+
+    var canPublishSources: [Livekit_TrackSource] {
+        get { lkRepeatedEnum(_pointer.pointee.can_publish_sources_count, _pointer.pointee.can_publish_sources) }
+        nonmutating set {
+            var count = _pointer.pointee.can_publish_sources_count, base = _pointer.pointee.can_publish_sources
+            lkSetRepeatedEnum(&count, &base, newValue)
+            _pointer.pointee.can_publish_sources_count = count; _pointer.pointee.can_publish_sources = base
+        }
+    }
+
+    var canUpdateMetadata: Bool {
+        get { _pointer.pointee.can_update_metadata?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.can_update_metadata, newValue) }
+    }
+
+    var agent: Bool {
+        get { _pointer.pointee.agent?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.agent, newValue) }
+    }
+
+    var canSubscribeMetrics: Bool {
+        get { _pointer.pointee.can_subscribe_metrics?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.can_subscribe_metrics, newValue) }
+    }
+
+    var canManageAgentSession: Bool {
+        get { _pointer.pointee.can_manage_agent_session?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.can_manage_agent_session, newValue) }
+    }
+
 }
 
 struct Livekit_ParticipantInfo: NanopbMessage, @unchecked Sendable {
@@ -625,50 +532,6 @@ struct Livekit_ParticipantInfo: NanopbMessage, @unchecked Sendable {
         }
         var hasValue: Bool { _pointer.pointee.value != nil }
 
-        /// Mutation lives here. `~Copyable` means the compiler proves there is
-        /// never a second live handle to this storage, so no uniqueness check is
-        /// needed and `build()` publishes storage nothing can still mutate.
-        struct Builder: ~Copyable {
-            let _box: NanopbBox<Storage>
-            var _owner: NanopbAnyBox { _box }
-            var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
-
-            init() { _box = NanopbBox(zero: AttributesEntry.zero, descriptor: AttributesEntry.descriptor) }
-            init(_adopting box: NanopbBox<Storage>) { _box = box }
-            consuming func build() -> AttributesEntry { AttributesEntry(_owning: _box) }
-
-            var key: String {
-                get { lkString(_pointer.pointee.key) ?? "" }
-                nonmutating set { lkSetString(&_pointer.pointee.key, newValue) }
-            }
-
-            var value: String {
-                get { lkString(_pointer.pointee.value) ?? "" }
-                nonmutating set { lkSetString(&_pointer.pointee.value, newValue) }
-            }
-
-        }
-
-        static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-            var builder = Builder()
-            try populate(&builder)
-            return builder.build()
-        }
-
-        /// This message with `populate` applied. `consuming` ends the caller's
-        /// ownership, so when nothing else holds the storage the mutation happens
-        /// in place; otherwise it copies once for the whole batch, not per field.
-        consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-            if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-                var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-                try populate(&builder)
-                return builder.build()
-            }
-            var builder = Builder()
-            lkOverwrite(builder._pointer, with: self)
-            try populate(&builder)
-            return builder.build()
-        }
     }
 
     enum State: NanopbEnum, CaseIterable {
@@ -785,156 +648,138 @@ struct Livekit_ParticipantInfo: NanopbMessage, @unchecked Sendable {
         }
     }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_ParticipantInfo.zero, descriptor: Livekit_ParticipantInfo.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_ParticipantInfo { Livekit_ParticipantInfo(_owning: _box) }
-
-        var sid: String {
-            get { lkString(_pointer.pointee.sid) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
-        }
-
-        var identity: String {
-            get { lkString(_pointer.pointee.identity) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.identity, newValue) }
-        }
-
-        var state: Livekit_ParticipantInfo.State {
-            get { _pointer.pointee.state.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo.State() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.state, newValue) }
-        }
-
-        var tracks: [Livekit_TrackInfo] {
-            get { lkViews(_pointer.pointee.tracks_count, _pointer.pointee.tracks, owner: _owner) }
-            nonmutating set {
-                var count = _pointer.pointee.tracks_count, base = _pointer.pointee.tracks
-                lkSetRepeatedMessages(&count, &base, newValue)
-                _pointer.pointee.tracks_count = count; _pointer.pointee.tracks = base
-            }
-        }
-
-        var metadata: String {
-            get { lkString(_pointer.pointee.metadata) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.metadata, newValue) }
-        }
-
-        var joinedAt: Int64 {
-            get { _pointer.pointee.joined_at?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.joined_at, newValue) }
-        }
-
-        var name: String {
-            get { lkString(_pointer.pointee.name) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.name, newValue) }
-        }
-
-        var version: UInt32 {
-            get { _pointer.pointee.version?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.version, newValue) }
-        }
-
-        var permission: Livekit_ParticipantPermission {
-            get { _pointer.pointee.permission.map { Livekit_ParticipantPermission(_sharing: $0, owner: _owner) } ?? Livekit_ParticipantPermission._empty }
-            nonmutating set { lkSetMessage(&_pointer.pointee.permission, newValue) }
-        }
-
-        var region: String {
-            get { lkString(_pointer.pointee.region) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.region, newValue) }
-        }
-
-        var isPublisher: Bool {
-            get { _pointer.pointee.is_publisher?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.is_publisher, newValue) }
-        }
-
-        var kind: Livekit_ParticipantInfo.Kind {
-            get { _pointer.pointee.kind.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo.Kind() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.kind, newValue) }
-        }
-
-        var attributes: [String: String] {
-            get {
-                var out: [String: String] = [:]
-                for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _owner) as [Livekit_ParticipantInfo.AttributesEntry] {
-                    out[entry.key] = entry.value
-                }
-                return out
-            }
-            nonmutating set {
-                // sorted for deterministic encoding (bytes-based Equatable)
-                let entries = newValue.sorted { $0.key < $1.key }.map { pair in
-                    Livekit_ParticipantInfo.AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
-                }
-                var count = _pointer.pointee.attributes_count, base = _pointer.pointee.attributes
-                lkSetRepeatedMessages(&count, &base, entries)
-                _pointer.pointee.attributes_count = count; _pointer.pointee.attributes = base
-            }
-        }
-
-        var disconnectReason: Livekit_DisconnectReason {
-            get { _pointer.pointee.disconnect_reason.map { lkEnum($0.pointee) } ?? Livekit_DisconnectReason() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.disconnect_reason, newValue) }
-        }
-
-        var joinedAtMs: Int64 {
-            get { _pointer.pointee.joined_at_ms?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.joined_at_ms, newValue) }
-        }
-
-        var kindDetails: [Livekit_ParticipantInfo.KindDetail] {
-            get { lkRepeatedEnum(_pointer.pointee.kind_details_count, _pointer.pointee.kind_details) }
-            nonmutating set {
-                var count = _pointer.pointee.kind_details_count, base = _pointer.pointee.kind_details
-                lkSetRepeatedEnum(&count, &base, newValue)
-                _pointer.pointee.kind_details_count = count; _pointer.pointee.kind_details = base
-            }
-        }
-
-        var dataTracks: [Livekit_DataTrackInfo] {
-            get { lkViews(_pointer.pointee.data_tracks_count, _pointer.pointee.data_tracks, owner: _owner) }
-            nonmutating set {
-                var count = _pointer.pointee.data_tracks_count, base = _pointer.pointee.data_tracks
-                lkSetRepeatedMessages(&count, &base, newValue)
-                _pointer.pointee.data_tracks_count = count; _pointer.pointee.data_tracks = base
-            }
-        }
-
-        var clientProtocol: Int32 {
-            get { _pointer.pointee.client_protocol?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.client_protocol, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_ParticipantInfo.AttributesEntry {
+    var key: String {
+        get { lkString(_pointer.pointee.key) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.key, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var value: String {
+        get { lkString(_pointer.pointee.value) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.value, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+}
+
+extension NanopbBuilder where M == Livekit_ParticipantInfo {
+    var sid: String {
+        get { lkString(_pointer.pointee.sid) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
     }
+
+    var identity: String {
+        get { lkString(_pointer.pointee.identity) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.identity, newValue) }
+    }
+
+    var state: Livekit_ParticipantInfo.State {
+        get { _pointer.pointee.state.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo.State() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.state, newValue) }
+    }
+
+    var tracks: [Livekit_TrackInfo] {
+        get { lkViews(_pointer.pointee.tracks_count, _pointer.pointee.tracks, owner: _box) }
+        nonmutating set {
+            var count = _pointer.pointee.tracks_count, base = _pointer.pointee.tracks
+            lkSetRepeatedMessages(&count, &base, newValue)
+            _pointer.pointee.tracks_count = count; _pointer.pointee.tracks = base
+        }
+    }
+
+    var metadata: String {
+        get { lkString(_pointer.pointee.metadata) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.metadata, newValue) }
+    }
+
+    var joinedAt: Int64 {
+        get { _pointer.pointee.joined_at?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.joined_at, newValue) }
+    }
+
+    var name: String {
+        get { lkString(_pointer.pointee.name) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.name, newValue) }
+    }
+
+    var version: UInt32 {
+        get { _pointer.pointee.version?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.version, newValue) }
+    }
+
+    var permission: Livekit_ParticipantPermission {
+        get { _pointer.pointee.permission.map { Livekit_ParticipantPermission(_sharing: $0, owner: _box) } ?? Livekit_ParticipantPermission._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.permission, newValue) }
+    }
+
+    var region: String {
+        get { lkString(_pointer.pointee.region) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.region, newValue) }
+    }
+
+    var isPublisher: Bool {
+        get { _pointer.pointee.is_publisher?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.is_publisher, newValue) }
+    }
+
+    var kind: Livekit_ParticipantInfo.Kind {
+        get { _pointer.pointee.kind.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo.Kind() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.kind, newValue) }
+    }
+
+    var attributes: [String: String] {
+        get {
+            var out: [String: String] = [:]
+            for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _box) as [Livekit_ParticipantInfo.AttributesEntry] {
+                out[entry.key] = entry.value
+            }
+            return out
+        }
+        nonmutating set {
+            // sorted for deterministic encoding (bytes-based Equatable)
+            let entries = newValue.sorted { $0.key < $1.key }.map { pair in
+                Livekit_ParticipantInfo.AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
+            }
+            var count = _pointer.pointee.attributes_count, base = _pointer.pointee.attributes
+            lkSetRepeatedMessages(&count, &base, entries)
+            _pointer.pointee.attributes_count = count; _pointer.pointee.attributes = base
+        }
+    }
+
+    var disconnectReason: Livekit_DisconnectReason {
+        get { _pointer.pointee.disconnect_reason.map { lkEnum($0.pointee) } ?? Livekit_DisconnectReason() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.disconnect_reason, newValue) }
+    }
+
+    var joinedAtMs: Int64 {
+        get { _pointer.pointee.joined_at_ms?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.joined_at_ms, newValue) }
+    }
+
+    var kindDetails: [Livekit_ParticipantInfo.KindDetail] {
+        get { lkRepeatedEnum(_pointer.pointee.kind_details_count, _pointer.pointee.kind_details) }
+        nonmutating set {
+            var count = _pointer.pointee.kind_details_count, base = _pointer.pointee.kind_details
+            lkSetRepeatedEnum(&count, &base, newValue)
+            _pointer.pointee.kind_details_count = count; _pointer.pointee.kind_details = base
+        }
+    }
+
+    var dataTracks: [Livekit_DataTrackInfo] {
+        get { lkViews(_pointer.pointee.data_tracks_count, _pointer.pointee.data_tracks, owner: _box) }
+        nonmutating set {
+            var count = _pointer.pointee.data_tracks_count, base = _pointer.pointee.data_tracks
+            lkSetRepeatedMessages(&count, &base, newValue)
+            _pointer.pointee.data_tracks_count = count; _pointer.pointee.data_tracks = base
+        }
+    }
+
+    var clientProtocol: Int32 {
+        get { _pointer.pointee.client_protocol?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.client_protocol, newValue) }
+    }
+
 }
 
 struct Livekit_Encryption: NanopbMessage, @unchecked Sendable {
@@ -995,40 +840,6 @@ struct Livekit_Encryption: NanopbMessage, @unchecked Sendable {
         }
     }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
-
-        init() { _box = NanopbBox(zero: Livekit_Encryption.zero, descriptor: Livekit_Encryption.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_Encryption { Livekit_Encryption(_owning: _box) }
-
-    }
-
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
-    }
-
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
-    }
 }
 
 struct Livekit_SimulcastCodecInfo: NanopbMessage, @unchecked Sendable {
@@ -1087,74 +898,43 @@ struct Livekit_SimulcastCodecInfo: NanopbMessage, @unchecked Sendable {
     }
     var hasSdpCid: Bool { _pointer.pointee.sdp_cid != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_SimulcastCodecInfo.zero, descriptor: Livekit_SimulcastCodecInfo.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_SimulcastCodecInfo { Livekit_SimulcastCodecInfo(_owning: _box) }
-
-        var mimeType: String {
-            get { lkString(_pointer.pointee.mime_type) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.mime_type, newValue) }
-        }
-
-        var mid: String {
-            get { lkString(_pointer.pointee.mid) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.mid, newValue) }
-        }
-
-        var cid: String {
-            get { lkString(_pointer.pointee.cid) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.cid, newValue) }
-        }
-
-        var layers: [Livekit_VideoLayer] {
-            get { lkViews(_pointer.pointee.layers_count, _pointer.pointee.layers, owner: _owner) }
-            nonmutating set {
-                var count = _pointer.pointee.layers_count, base = _pointer.pointee.layers
-                lkSetRepeatedMessages(&count, &base, newValue)
-                _pointer.pointee.layers_count = count; _pointer.pointee.layers = base
-            }
-        }
-
-        var videoLayerMode: Livekit_VideoLayer.Mode {
-            get { _pointer.pointee.video_layer_mode.map { lkEnum($0.pointee) } ?? Livekit_VideoLayer.Mode() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.video_layer_mode, newValue) }
-        }
-
-        var sdpCid: String {
-            get { lkString(_pointer.pointee.sdp_cid) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.sdp_cid, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_SimulcastCodecInfo {
+    var mimeType: String {
+        get { lkString(_pointer.pointee.mime_type) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.mime_type, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var mid: String {
+        get { lkString(_pointer.pointee.mid) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.mid, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var cid: String {
+        get { lkString(_pointer.pointee.cid) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.cid, newValue) }
     }
+
+    var layers: [Livekit_VideoLayer] {
+        get { lkViews(_pointer.pointee.layers_count, _pointer.pointee.layers, owner: _box) }
+        nonmutating set {
+            var count = _pointer.pointee.layers_count, base = _pointer.pointee.layers
+            lkSetRepeatedMessages(&count, &base, newValue)
+            _pointer.pointee.layers_count = count; _pointer.pointee.layers = base
+        }
+    }
+
+    var videoLayerMode: Livekit_VideoLayer.Mode {
+        get { _pointer.pointee.video_layer_mode.map { lkEnum($0.pointee) } ?? Livekit_VideoLayer.Mode() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.video_layer_mode, newValue) }
+    }
+
+    var sdpCid: String {
+        get { lkString(_pointer.pointee.sdp_cid) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.sdp_cid, newValue) }
+    }
+
 }
 
 struct Livekit_TrackInfo: NanopbMessage, @unchecked Sendable {
@@ -1285,161 +1065,130 @@ struct Livekit_TrackInfo: NanopbMessage, @unchecked Sendable {
         lkRepeatedEnum(_pointer.pointee.packet_trailer_features_count, _pointer.pointee.packet_trailer_features)
     }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_TrackInfo.zero, descriptor: Livekit_TrackInfo.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_TrackInfo { Livekit_TrackInfo(_owning: _box) }
-
-        var sid: String {
-            get { lkString(_pointer.pointee.sid) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
-        }
-
-        var type: Livekit_TrackType {
-            get { _pointer.pointee.type.map { lkEnum($0.pointee) } ?? Livekit_TrackType() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.type, newValue) }
-        }
-
-        var name: String {
-            get { lkString(_pointer.pointee.name) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.name, newValue) }
-        }
-
-        var muted: Bool {
-            get { _pointer.pointee.muted?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.muted, newValue) }
-        }
-
-        var width: UInt32 {
-            get { _pointer.pointee.width?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.width, newValue) }
-        }
-
-        var height: UInt32 {
-            get { _pointer.pointee.height?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.height, newValue) }
-        }
-
-        var simulcast: Bool {
-            get { _pointer.pointee.simulcast?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.simulcast, newValue) }
-        }
-
-        var disableDtx: Bool {
-            get { _pointer.pointee.disable_dtx?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.disable_dtx, newValue) }
-        }
-
-        var source: Livekit_TrackSource {
-            get { _pointer.pointee.source.map { lkEnum($0.pointee) } ?? Livekit_TrackSource() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.source, newValue) }
-        }
-
-        var layers: [Livekit_VideoLayer] {
-            get { lkViews(_pointer.pointee.layers_count, _pointer.pointee.layers, owner: _owner) }
-            nonmutating set {
-                var count = _pointer.pointee.layers_count, base = _pointer.pointee.layers
-                lkSetRepeatedMessages(&count, &base, newValue)
-                _pointer.pointee.layers_count = count; _pointer.pointee.layers = base
-            }
-        }
-
-        var mimeType: String {
-            get { lkString(_pointer.pointee.mime_type) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.mime_type, newValue) }
-        }
-
-        var mid: String {
-            get { lkString(_pointer.pointee.mid) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.mid, newValue) }
-        }
-
-        var codecs: [Livekit_SimulcastCodecInfo] {
-            get { lkViews(_pointer.pointee.codecs_count, _pointer.pointee.codecs, owner: _owner) }
-            nonmutating set {
-                var count = _pointer.pointee.codecs_count, base = _pointer.pointee.codecs
-                lkSetRepeatedMessages(&count, &base, newValue)
-                _pointer.pointee.codecs_count = count; _pointer.pointee.codecs = base
-            }
-        }
-
-        var stereo: Bool {
-            get { _pointer.pointee.stereo?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.stereo, newValue) }
-        }
-
-        var disableRed: Bool {
-            get { _pointer.pointee.disable_red?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.disable_red, newValue) }
-        }
-
-        var encryption: Livekit_Encryption.TypeEnum {
-            get { _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption, newValue) }
-        }
-
-        var stream: String {
-            get { lkString(_pointer.pointee.stream) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.stream, newValue) }
-        }
-
-        var version: Livekit_TimedVersion {
-            get { _pointer.pointee.version.map { Livekit_TimedVersion(_sharing: $0, owner: _owner) } ?? Livekit_TimedVersion._empty }
-            nonmutating set { lkSetMessage(&_pointer.pointee.version, newValue) }
-        }
-
-        var audioFeatures: [Livekit_AudioTrackFeature] {
-            get { lkRepeatedEnum(_pointer.pointee.audio_features_count, _pointer.pointee.audio_features) }
-            nonmutating set {
-                var count = _pointer.pointee.audio_features_count, base = _pointer.pointee.audio_features
-                lkSetRepeatedEnum(&count, &base, newValue)
-                _pointer.pointee.audio_features_count = count; _pointer.pointee.audio_features = base
-            }
-        }
-
-        var backupCodecPolicy: Livekit_BackupCodecPolicy {
-            get { _pointer.pointee.backup_codec_policy.map { lkEnum($0.pointee) } ?? Livekit_BackupCodecPolicy() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.backup_codec_policy, newValue) }
-        }
-
-        var packetTrailerFeatures: [Livekit_PacketTrailerFeature] {
-            get { lkRepeatedEnum(_pointer.pointee.packet_trailer_features_count, _pointer.pointee.packet_trailer_features) }
-            nonmutating set {
-                var count = _pointer.pointee.packet_trailer_features_count, base = _pointer.pointee.packet_trailer_features
-                lkSetRepeatedEnum(&count, &base, newValue)
-                _pointer.pointee.packet_trailer_features_count = count; _pointer.pointee.packet_trailer_features = base
-            }
-        }
-
+extension NanopbBuilder where M == Livekit_TrackInfo {
+    var sid: String {
+        get { lkString(_pointer.pointee.sid) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var type: Livekit_TrackType {
+        get { _pointer.pointee.type.map { lkEnum($0.pointee) } ?? Livekit_TrackType() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.type, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var name: String {
+        get { lkString(_pointer.pointee.name) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.name, newValue) }
     }
+
+    var muted: Bool {
+        get { _pointer.pointee.muted?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.muted, newValue) }
+    }
+
+    var width: UInt32 {
+        get { _pointer.pointee.width?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.width, newValue) }
+    }
+
+    var height: UInt32 {
+        get { _pointer.pointee.height?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.height, newValue) }
+    }
+
+    var simulcast: Bool {
+        get { _pointer.pointee.simulcast?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.simulcast, newValue) }
+    }
+
+    var disableDtx: Bool {
+        get { _pointer.pointee.disable_dtx?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.disable_dtx, newValue) }
+    }
+
+    var source: Livekit_TrackSource {
+        get { _pointer.pointee.source.map { lkEnum($0.pointee) } ?? Livekit_TrackSource() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.source, newValue) }
+    }
+
+    var layers: [Livekit_VideoLayer] {
+        get { lkViews(_pointer.pointee.layers_count, _pointer.pointee.layers, owner: _box) }
+        nonmutating set {
+            var count = _pointer.pointee.layers_count, base = _pointer.pointee.layers
+            lkSetRepeatedMessages(&count, &base, newValue)
+            _pointer.pointee.layers_count = count; _pointer.pointee.layers = base
+        }
+    }
+
+    var mimeType: String {
+        get { lkString(_pointer.pointee.mime_type) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.mime_type, newValue) }
+    }
+
+    var mid: String {
+        get { lkString(_pointer.pointee.mid) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.mid, newValue) }
+    }
+
+    var codecs: [Livekit_SimulcastCodecInfo] {
+        get { lkViews(_pointer.pointee.codecs_count, _pointer.pointee.codecs, owner: _box) }
+        nonmutating set {
+            var count = _pointer.pointee.codecs_count, base = _pointer.pointee.codecs
+            lkSetRepeatedMessages(&count, &base, newValue)
+            _pointer.pointee.codecs_count = count; _pointer.pointee.codecs = base
+        }
+    }
+
+    var stereo: Bool {
+        get { _pointer.pointee.stereo?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.stereo, newValue) }
+    }
+
+    var disableRed: Bool {
+        get { _pointer.pointee.disable_red?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.disable_red, newValue) }
+    }
+
+    var encryption: Livekit_Encryption.TypeEnum {
+        get { _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption, newValue) }
+    }
+
+    var stream: String {
+        get { lkString(_pointer.pointee.stream) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.stream, newValue) }
+    }
+
+    var version: Livekit_TimedVersion {
+        get { _pointer.pointee.version.map { Livekit_TimedVersion(_sharing: $0, owner: _box) } ?? Livekit_TimedVersion._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.version, newValue) }
+    }
+
+    var audioFeatures: [Livekit_AudioTrackFeature] {
+        get { lkRepeatedEnum(_pointer.pointee.audio_features_count, _pointer.pointee.audio_features) }
+        nonmutating set {
+            var count = _pointer.pointee.audio_features_count, base = _pointer.pointee.audio_features
+            lkSetRepeatedEnum(&count, &base, newValue)
+            _pointer.pointee.audio_features_count = count; _pointer.pointee.audio_features = base
+        }
+    }
+
+    var backupCodecPolicy: Livekit_BackupCodecPolicy {
+        get { _pointer.pointee.backup_codec_policy.map { lkEnum($0.pointee) } ?? Livekit_BackupCodecPolicy() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.backup_codec_policy, newValue) }
+    }
+
+    var packetTrailerFeatures: [Livekit_PacketTrailerFeature] {
+        get { lkRepeatedEnum(_pointer.pointee.packet_trailer_features_count, _pointer.pointee.packet_trailer_features) }
+        nonmutating set {
+            var count = _pointer.pointee.packet_trailer_features_count, base = _pointer.pointee.packet_trailer_features
+            lkSetRepeatedEnum(&count, &base, newValue)
+            _pointer.pointee.packet_trailer_features_count = count; _pointer.pointee.packet_trailer_features = base
+        }
+    }
+
 }
 
 struct Livekit_DataTrackInfo: NanopbMessage, @unchecked Sendable {
@@ -1489,60 +1238,29 @@ struct Livekit_DataTrackInfo: NanopbMessage, @unchecked Sendable {
     }
     var hasEncryption: Bool { _pointer.pointee.encryption != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_DataTrackInfo.zero, descriptor: Livekit_DataTrackInfo.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_DataTrackInfo { Livekit_DataTrackInfo(_owning: _box) }
-
-        var pubHandle: UInt32 {
-            get { _pointer.pointee.pub_handle?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.pub_handle, newValue) }
-        }
-
-        var sid: String {
-            get { lkString(_pointer.pointee.sid) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
-        }
-
-        var name: String {
-            get { lkString(_pointer.pointee.name) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.name, newValue) }
-        }
-
-        var encryption: Livekit_Encryption.TypeEnum {
-            get { _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_DataTrackInfo {
+    var pubHandle: UInt32 {
+        get { _pointer.pointee.pub_handle?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.pub_handle, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var sid: String {
+        get { lkString(_pointer.pointee.sid) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var name: String {
+        get { lkString(_pointer.pointee.name) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.name, newValue) }
     }
+
+    var encryption: Livekit_Encryption.TypeEnum {
+        get { _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption, newValue) }
+    }
+
 }
 
 struct Livekit_DataTrackSubscriptionOptions: NanopbMessage, @unchecked Sendable {
@@ -1577,45 +1295,14 @@ struct Livekit_DataTrackSubscriptionOptions: NanopbMessage, @unchecked Sendable 
     }
     var hasTargetFps: Bool { _pointer.pointee.target_fps != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_DataTrackSubscriptionOptions.zero, descriptor: Livekit_DataTrackSubscriptionOptions.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_DataTrackSubscriptionOptions { Livekit_DataTrackSubscriptionOptions(_owning: _box) }
-
-        var targetFps: UInt32 {
-            get { _pointer.pointee.target_fps?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.target_fps, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_DataTrackSubscriptionOptions {
+    var targetFps: UInt32 {
+        get { _pointer.pointee.target_fps?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.target_fps, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
-    }
-
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
-    }
 }
 
 struct Livekit_VideoLayer: NanopbMessage, @unchecked Sendable {
@@ -1719,80 +1406,49 @@ struct Livekit_VideoLayer: NanopbMessage, @unchecked Sendable {
         }
     }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_VideoLayer.zero, descriptor: Livekit_VideoLayer.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_VideoLayer { Livekit_VideoLayer(_owning: _box) }
-
-        var quality: Livekit_VideoQuality {
-            get { _pointer.pointee.quality.map { lkEnum($0.pointee) } ?? Livekit_VideoQuality() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.quality, newValue) }
-        }
-
-        var width: UInt32 {
-            get { _pointer.pointee.width?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.width, newValue) }
-        }
-
-        var height: UInt32 {
-            get { _pointer.pointee.height?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.height, newValue) }
-        }
-
-        var bitrate: UInt32 {
-            get { _pointer.pointee.bitrate?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.bitrate, newValue) }
-        }
-
-        var ssrc: UInt32 {
-            get { _pointer.pointee.ssrc?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.ssrc, newValue) }
-        }
-
-        var spatialLayer: Int32 {
-            get { _pointer.pointee.spatial_layer?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.spatial_layer, newValue) }
-        }
-
-        var rid: String {
-            get { lkString(_pointer.pointee.rid) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.rid, newValue) }
-        }
-
-        var repairSsrc: UInt32 {
-            get { _pointer.pointee.repair_ssrc?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.repair_ssrc, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_VideoLayer {
+    var quality: Livekit_VideoQuality {
+        get { _pointer.pointee.quality.map { lkEnum($0.pointee) } ?? Livekit_VideoQuality() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.quality, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var width: UInt32 {
+        get { _pointer.pointee.width?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.width, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var height: UInt32 {
+        get { _pointer.pointee.height?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.height, newValue) }
     }
+
+    var bitrate: UInt32 {
+        get { _pointer.pointee.bitrate?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.bitrate, newValue) }
+    }
+
+    var ssrc: UInt32 {
+        get { _pointer.pointee.ssrc?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.ssrc, newValue) }
+    }
+
+    var spatialLayer: Int32 {
+        get { _pointer.pointee.spatial_layer?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.spatial_layer, newValue) }
+    }
+
+    var rid: String {
+        get { lkString(_pointer.pointee.rid) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.rid, newValue) }
+    }
+
+    var repairSsrc: UInt32 {
+        get { _pointer.pointee.repair_ssrc?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.repair_ssrc, newValue) }
+    }
+
 }
 
 struct Livekit_DataPacket: NanopbMessage, @unchecked Sendable {
@@ -1960,287 +1616,256 @@ struct Livekit_DataPacket: NanopbMessage, @unchecked Sendable {
         }
     }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_DataPacket.zero, descriptor: Livekit_DataPacket.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_DataPacket { Livekit_DataPacket(_owning: _box) }
+extension NanopbBuilder where M == Livekit_DataPacket {
+    var kind: Livekit_DataPacket.Kind {
+        get { _pointer.pointee.kind.map { lkEnum($0.pointee) } ?? Livekit_DataPacket.Kind() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.kind, newValue) }
+    }
 
-        var kind: Livekit_DataPacket.Kind {
-            get { _pointer.pointee.kind.map { lkEnum($0.pointee) } ?? Livekit_DataPacket.Kind() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.kind, newValue) }
-        }
+    var participantIdentity: String {
+        get { lkString(_pointer.pointee.participant_identity) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.participant_identity, newValue) }
+    }
 
-        var participantIdentity: String {
-            get { lkString(_pointer.pointee.participant_identity) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.participant_identity, newValue) }
+    var destinationIdentities: [String] {
+        get { lkRepeated(_pointer.pointee.destination_identities_count, _pointer.pointee.destination_identities) }
+        nonmutating set {
+            var count = _pointer.pointee.destination_identities_count, base = _pointer.pointee.destination_identities
+            lkSetRepeated(&count, &base, newValue)
+            _pointer.pointee.destination_identities_count = count; _pointer.pointee.destination_identities = base
         }
+    }
 
-        var destinationIdentities: [String] {
-            get { lkRepeated(_pointer.pointee.destination_identities_count, _pointer.pointee.destination_identities) }
-            nonmutating set {
-                var count = _pointer.pointee.destination_identities_count, base = _pointer.pointee.destination_identities
-                lkSetRepeated(&count, &base, newValue)
-                _pointer.pointee.destination_identities_count = count; _pointer.pointee.destination_identities = base
-            }
-        }
+    var sequence: UInt32 {
+        get { _pointer.pointee.sequence?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.sequence, newValue) }
+    }
 
-        var sequence: UInt32 {
-            get { _pointer.pointee.sequence?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.sequence, newValue) }
-        }
+    var participantSid: String {
+        get { lkString(_pointer.pointee.participant_sid) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.participant_sid, newValue) }
+    }
 
-        var participantSid: String {
-            get { lkString(_pointer.pointee.participant_sid) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.participant_sid, newValue) }
-        }
-
-        var value: OneOf_Value? {
-            get {
-                switch _pointer.pointee.which_value {
-                case pb_size_t(livekit_DataPacket_user_tag):
-                    return .user(_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _owner) } ?? Livekit_UserPacket._empty)
-                case pb_size_t(livekit_DataPacket_speaker_tag):
-                    return .speaker(_pointer.pointee.value.speaker.map { Livekit_ActiveSpeakerUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ActiveSpeakerUpdate._empty)
-                case pb_size_t(livekit_DataPacket_sip_dtmf_tag):
-                    return .sipDtmf(_pointer.pointee.value.sip_dtmf.map { Livekit_SipDTMF(_sharing: $0, owner: _owner) } ?? Livekit_SipDTMF._empty)
-                case pb_size_t(livekit_DataPacket_transcription_tag):
-                    return .transcription(_pointer.pointee.value.transcription.map { Livekit_Transcription(_sharing: $0, owner: _owner) } ?? Livekit_Transcription._empty)
-                case pb_size_t(livekit_DataPacket_metrics_tag):
-                    return .metrics(_pointer.pointee.value.metrics.map { Livekit_MetricsBatch(_sharing: $0, owner: _owner) } ?? Livekit_MetricsBatch._empty)
-                case pb_size_t(livekit_DataPacket_chat_message_tag):
-                    return .chatMessage(_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _owner) } ?? Livekit_ChatMessage._empty)
-                case pb_size_t(livekit_DataPacket_rpc_request_tag):
-                    return .rpcRequest(_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _owner) } ?? Livekit_RpcRequest._empty)
-                case pb_size_t(livekit_DataPacket_rpc_ack_tag):
-                    return .rpcAck(_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _owner) } ?? Livekit_RpcAck._empty)
-                case pb_size_t(livekit_DataPacket_rpc_response_tag):
-                    return .rpcResponse(_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse._empty)
-                case pb_size_t(livekit_DataPacket_stream_header_tag):
-                    return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Header._empty)
-                case pb_size_t(livekit_DataPacket_stream_chunk_tag):
-                    return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Chunk._empty)
-                case pb_size_t(livekit_DataPacket_stream_trailer_tag):
-                    return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Trailer._empty)
-                case pb_size_t(livekit_DataPacket_encrypted_packet_tag):
-                    return .encryptedPacket(_pointer.pointee.value.encrypted_packet.map { Livekit_EncryptedPacket(_sharing: $0, owner: _owner) } ?? Livekit_EncryptedPacket._empty)
-                default: return nil
-                }
-            }
-            nonmutating set {
-                _clearValue()
-                switch newValue {
-                case let .user(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_user_tag)
-                    lkSetMessage(&_pointer.pointee.value.user, value)
-                case let .speaker(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_speaker_tag)
-                    lkSetMessage(&_pointer.pointee.value.speaker, value)
-                case let .sipDtmf(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_sip_dtmf_tag)
-                    lkSetMessage(&_pointer.pointee.value.sip_dtmf, value)
-                case let .transcription(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_transcription_tag)
-                    lkSetMessage(&_pointer.pointee.value.transcription, value)
-                case let .metrics(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_metrics_tag)
-                    lkSetMessage(&_pointer.pointee.value.metrics, value)
-                case let .chatMessage(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_chat_message_tag)
-                    lkSetMessage(&_pointer.pointee.value.chat_message, value)
-                case let .rpcRequest(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_request_tag)
-                    lkSetMessage(&_pointer.pointee.value.rpc_request, value)
-                case let .rpcAck(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_ack_tag)
-                    lkSetMessage(&_pointer.pointee.value.rpc_ack, value)
-                case let .rpcResponse(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_response_tag)
-                    lkSetMessage(&_pointer.pointee.value.rpc_response, value)
-                case let .streamHeader(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_header_tag)
-                    lkSetMessage(&_pointer.pointee.value.stream_header, value)
-                case let .streamChunk(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_chunk_tag)
-                    lkSetMessage(&_pointer.pointee.value.stream_chunk, value)
-                case let .streamTrailer(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_trailer_tag)
-                    lkSetMessage(&_pointer.pointee.value.stream_trailer, value)
-                case let .encryptedPacket(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_encrypted_packet_tag)
-                    lkSetMessage(&_pointer.pointee.value.encrypted_packet, value)
-                case nil: break
-                }
-            }
-        }
-        var user: Livekit_UserPacket {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_user_tag) ? (_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _owner) } ?? Livekit_UserPacket._empty) : Livekit_UserPacket() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_user_tag)
-                lkSetMessage(&_pointer.pointee.value.user, newValue)
-            }
-        }
-        var speaker: Livekit_ActiveSpeakerUpdate {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_speaker_tag) ? (_pointer.pointee.value.speaker.map { Livekit_ActiveSpeakerUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ActiveSpeakerUpdate._empty) : Livekit_ActiveSpeakerUpdate() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_speaker_tag)
-                lkSetMessage(&_pointer.pointee.value.speaker, newValue)
-            }
-        }
-        var sipDtmf: Livekit_SipDTMF {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_sip_dtmf_tag) ? (_pointer.pointee.value.sip_dtmf.map { Livekit_SipDTMF(_sharing: $0, owner: _owner) } ?? Livekit_SipDTMF._empty) : Livekit_SipDTMF() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_sip_dtmf_tag)
-                lkSetMessage(&_pointer.pointee.value.sip_dtmf, newValue)
-            }
-        }
-        var transcription: Livekit_Transcription {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_transcription_tag) ? (_pointer.pointee.value.transcription.map { Livekit_Transcription(_sharing: $0, owner: _owner) } ?? Livekit_Transcription._empty) : Livekit_Transcription() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_transcription_tag)
-                lkSetMessage(&_pointer.pointee.value.transcription, newValue)
-            }
-        }
-        var metrics: Livekit_MetricsBatch {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_metrics_tag) ? (_pointer.pointee.value.metrics.map { Livekit_MetricsBatch(_sharing: $0, owner: _owner) } ?? Livekit_MetricsBatch._empty) : Livekit_MetricsBatch() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_metrics_tag)
-                lkSetMessage(&_pointer.pointee.value.metrics, newValue)
-            }
-        }
-        var chatMessage: Livekit_ChatMessage {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_chat_message_tag) ? (_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _owner) } ?? Livekit_ChatMessage._empty) : Livekit_ChatMessage() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_chat_message_tag)
-                lkSetMessage(&_pointer.pointee.value.chat_message, newValue)
-            }
-        }
-        var rpcRequest: Livekit_RpcRequest {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_request_tag) ? (_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _owner) } ?? Livekit_RpcRequest._empty) : Livekit_RpcRequest() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_request_tag)
-                lkSetMessage(&_pointer.pointee.value.rpc_request, newValue)
-            }
-        }
-        var rpcAck: Livekit_RpcAck {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_ack_tag) ? (_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _owner) } ?? Livekit_RpcAck._empty) : Livekit_RpcAck() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_ack_tag)
-                lkSetMessage(&_pointer.pointee.value.rpc_ack, newValue)
-            }
-        }
-        var rpcResponse: Livekit_RpcResponse {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse._empty) : Livekit_RpcResponse() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_response_tag)
-                lkSetMessage(&_pointer.pointee.value.rpc_response, newValue)
-            }
-        }
-        var streamHeader: Livekit_DataStream.Header {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Header._empty) : Livekit_DataStream.Header() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_header_tag)
-                lkSetMessage(&_pointer.pointee.value.stream_header, newValue)
-            }
-        }
-        var streamChunk: Livekit_DataStream.Chunk {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Chunk._empty) : Livekit_DataStream.Chunk() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_chunk_tag)
-                lkSetMessage(&_pointer.pointee.value.stream_chunk, newValue)
-            }
-        }
-        var streamTrailer: Livekit_DataStream.Trailer {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Trailer._empty) : Livekit_DataStream.Trailer() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_trailer_tag)
-                lkSetMessage(&_pointer.pointee.value.stream_trailer, newValue)
-            }
-        }
-        var encryptedPacket: Livekit_EncryptedPacket {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_encrypted_packet_tag) ? (_pointer.pointee.value.encrypted_packet.map { Livekit_EncryptedPacket(_sharing: $0, owner: _owner) } ?? Livekit_EncryptedPacket._empty) : Livekit_EncryptedPacket() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_encrypted_packet_tag)
-                lkSetMessage(&_pointer.pointee.value.encrypted_packet, newValue)
-            }
-        }
-        private func _clearValue() {
+    var value: Livekit_DataPacket.OneOf_Value? {
+        get {
             switch _pointer.pointee.which_value {
             case pb_size_t(livekit_DataPacket_user_tag):
-                lkRelease(message: &_pointer.pointee.value.user, Livekit_UserPacket.descriptor)
+                return .user(_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _box) } ?? Livekit_UserPacket._empty)
             case pb_size_t(livekit_DataPacket_speaker_tag):
-                lkRelease(message: &_pointer.pointee.value.speaker, Livekit_ActiveSpeakerUpdate.descriptor)
+                return .speaker(_pointer.pointee.value.speaker.map { Livekit_ActiveSpeakerUpdate(_sharing: $0, owner: _box) } ?? Livekit_ActiveSpeakerUpdate._empty)
             case pb_size_t(livekit_DataPacket_sip_dtmf_tag):
-                lkRelease(message: &_pointer.pointee.value.sip_dtmf, Livekit_SipDTMF.descriptor)
+                return .sipDtmf(_pointer.pointee.value.sip_dtmf.map { Livekit_SipDTMF(_sharing: $0, owner: _box) } ?? Livekit_SipDTMF._empty)
             case pb_size_t(livekit_DataPacket_transcription_tag):
-                lkRelease(message: &_pointer.pointee.value.transcription, Livekit_Transcription.descriptor)
+                return .transcription(_pointer.pointee.value.transcription.map { Livekit_Transcription(_sharing: $0, owner: _box) } ?? Livekit_Transcription._empty)
             case pb_size_t(livekit_DataPacket_metrics_tag):
-                lkRelease(message: &_pointer.pointee.value.metrics, Livekit_MetricsBatch.descriptor)
+                return .metrics(_pointer.pointee.value.metrics.map { Livekit_MetricsBatch(_sharing: $0, owner: _box) } ?? Livekit_MetricsBatch._empty)
             case pb_size_t(livekit_DataPacket_chat_message_tag):
-                lkRelease(message: &_pointer.pointee.value.chat_message, Livekit_ChatMessage.descriptor)
+                return .chatMessage(_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _box) } ?? Livekit_ChatMessage._empty)
             case pb_size_t(livekit_DataPacket_rpc_request_tag):
-                lkRelease(message: &_pointer.pointee.value.rpc_request, Livekit_RpcRequest.descriptor)
+                return .rpcRequest(_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _box) } ?? Livekit_RpcRequest._empty)
             case pb_size_t(livekit_DataPacket_rpc_ack_tag):
-                lkRelease(message: &_pointer.pointee.value.rpc_ack, Livekit_RpcAck.descriptor)
+                return .rpcAck(_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _box) } ?? Livekit_RpcAck._empty)
             case pb_size_t(livekit_DataPacket_rpc_response_tag):
-                lkRelease(message: &_pointer.pointee.value.rpc_response, Livekit_RpcResponse.descriptor)
+                return .rpcResponse(_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _box) } ?? Livekit_RpcResponse._empty)
             case pb_size_t(livekit_DataPacket_stream_header_tag):
-                lkRelease(message: &_pointer.pointee.value.stream_header, Livekit_DataStream.Header.descriptor)
+                return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Header._empty)
             case pb_size_t(livekit_DataPacket_stream_chunk_tag):
-                lkRelease(message: &_pointer.pointee.value.stream_chunk, Livekit_DataStream.Chunk.descriptor)
+                return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Chunk._empty)
             case pb_size_t(livekit_DataPacket_stream_trailer_tag):
-                lkRelease(message: &_pointer.pointee.value.stream_trailer, Livekit_DataStream.Trailer.descriptor)
+                return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Trailer._empty)
             case pb_size_t(livekit_DataPacket_encrypted_packet_tag):
-                lkRelease(message: &_pointer.pointee.value.encrypted_packet, Livekit_EncryptedPacket.descriptor)
-            default: break
+                return .encryptedPacket(_pointer.pointee.value.encrypted_packet.map { Livekit_EncryptedPacket(_sharing: $0, owner: _box) } ?? Livekit_EncryptedPacket._empty)
+            default: return nil
             }
-            _pointer.pointee.which_value = 0
-            // zero the union: stale bits from a previous variant would otherwise
-            // be misread as a pointer by the next variant's setter
-            _pointer.pointee.value = .init()
         }
-
-    }
-
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
-    }
-
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
+        nonmutating set {
+            _clearValue()
+            switch newValue {
+            case let .user(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_user_tag)
+                lkSetMessage(&_pointer.pointee.value.user, value)
+            case let .speaker(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_speaker_tag)
+                lkSetMessage(&_pointer.pointee.value.speaker, value)
+            case let .sipDtmf(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_sip_dtmf_tag)
+                lkSetMessage(&_pointer.pointee.value.sip_dtmf, value)
+            case let .transcription(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_transcription_tag)
+                lkSetMessage(&_pointer.pointee.value.transcription, value)
+            case let .metrics(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_metrics_tag)
+                lkSetMessage(&_pointer.pointee.value.metrics, value)
+            case let .chatMessage(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_chat_message_tag)
+                lkSetMessage(&_pointer.pointee.value.chat_message, value)
+            case let .rpcRequest(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_request_tag)
+                lkSetMessage(&_pointer.pointee.value.rpc_request, value)
+            case let .rpcAck(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_ack_tag)
+                lkSetMessage(&_pointer.pointee.value.rpc_ack, value)
+            case let .rpcResponse(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_response_tag)
+                lkSetMessage(&_pointer.pointee.value.rpc_response, value)
+            case let .streamHeader(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_header_tag)
+                lkSetMessage(&_pointer.pointee.value.stream_header, value)
+            case let .streamChunk(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_chunk_tag)
+                lkSetMessage(&_pointer.pointee.value.stream_chunk, value)
+            case let .streamTrailer(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_trailer_tag)
+                lkSetMessage(&_pointer.pointee.value.stream_trailer, value)
+            case let .encryptedPacket(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_encrypted_packet_tag)
+                lkSetMessage(&_pointer.pointee.value.encrypted_packet, value)
+            case nil: break
+            }
         }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
     }
+    var user: Livekit_UserPacket {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_user_tag) ? (_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _box) } ?? Livekit_UserPacket._empty) : Livekit_UserPacket() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_user_tag)
+            lkSetMessage(&_pointer.pointee.value.user, newValue)
+        }
+    }
+    var speaker: Livekit_ActiveSpeakerUpdate {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_speaker_tag) ? (_pointer.pointee.value.speaker.map { Livekit_ActiveSpeakerUpdate(_sharing: $0, owner: _box) } ?? Livekit_ActiveSpeakerUpdate._empty) : Livekit_ActiveSpeakerUpdate() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_speaker_tag)
+            lkSetMessage(&_pointer.pointee.value.speaker, newValue)
+        }
+    }
+    var sipDtmf: Livekit_SipDTMF {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_sip_dtmf_tag) ? (_pointer.pointee.value.sip_dtmf.map { Livekit_SipDTMF(_sharing: $0, owner: _box) } ?? Livekit_SipDTMF._empty) : Livekit_SipDTMF() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_sip_dtmf_tag)
+            lkSetMessage(&_pointer.pointee.value.sip_dtmf, newValue)
+        }
+    }
+    var transcription: Livekit_Transcription {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_transcription_tag) ? (_pointer.pointee.value.transcription.map { Livekit_Transcription(_sharing: $0, owner: _box) } ?? Livekit_Transcription._empty) : Livekit_Transcription() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_transcription_tag)
+            lkSetMessage(&_pointer.pointee.value.transcription, newValue)
+        }
+    }
+    var metrics: Livekit_MetricsBatch {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_metrics_tag) ? (_pointer.pointee.value.metrics.map { Livekit_MetricsBatch(_sharing: $0, owner: _box) } ?? Livekit_MetricsBatch._empty) : Livekit_MetricsBatch() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_metrics_tag)
+            lkSetMessage(&_pointer.pointee.value.metrics, newValue)
+        }
+    }
+    var chatMessage: Livekit_ChatMessage {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_chat_message_tag) ? (_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _box) } ?? Livekit_ChatMessage._empty) : Livekit_ChatMessage() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_chat_message_tag)
+            lkSetMessage(&_pointer.pointee.value.chat_message, newValue)
+        }
+    }
+    var rpcRequest: Livekit_RpcRequest {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_request_tag) ? (_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _box) } ?? Livekit_RpcRequest._empty) : Livekit_RpcRequest() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_request_tag)
+            lkSetMessage(&_pointer.pointee.value.rpc_request, newValue)
+        }
+    }
+    var rpcAck: Livekit_RpcAck {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_ack_tag) ? (_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _box) } ?? Livekit_RpcAck._empty) : Livekit_RpcAck() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_ack_tag)
+            lkSetMessage(&_pointer.pointee.value.rpc_ack, newValue)
+        }
+    }
+    var rpcResponse: Livekit_RpcResponse {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _box) } ?? Livekit_RpcResponse._empty) : Livekit_RpcResponse() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_response_tag)
+            lkSetMessage(&_pointer.pointee.value.rpc_response, newValue)
+        }
+    }
+    var streamHeader: Livekit_DataStream.Header {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Header._empty) : Livekit_DataStream.Header() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_header_tag)
+            lkSetMessage(&_pointer.pointee.value.stream_header, newValue)
+        }
+    }
+    var streamChunk: Livekit_DataStream.Chunk {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Chunk._empty) : Livekit_DataStream.Chunk() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_chunk_tag)
+            lkSetMessage(&_pointer.pointee.value.stream_chunk, newValue)
+        }
+    }
+    var streamTrailer: Livekit_DataStream.Trailer {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Trailer._empty) : Livekit_DataStream.Trailer() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_trailer_tag)
+            lkSetMessage(&_pointer.pointee.value.stream_trailer, newValue)
+        }
+    }
+    var encryptedPacket: Livekit_EncryptedPacket {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_encrypted_packet_tag) ? (_pointer.pointee.value.encrypted_packet.map { Livekit_EncryptedPacket(_sharing: $0, owner: _box) } ?? Livekit_EncryptedPacket._empty) : Livekit_EncryptedPacket() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_encrypted_packet_tag)
+            lkSetMessage(&_pointer.pointee.value.encrypted_packet, newValue)
+        }
+    }
+    private func _clearValue() {
+        switch _pointer.pointee.which_value {
+        case pb_size_t(livekit_DataPacket_user_tag):
+            lkRelease(message: &_pointer.pointee.value.user, Livekit_UserPacket.descriptor)
+        case pb_size_t(livekit_DataPacket_speaker_tag):
+            lkRelease(message: &_pointer.pointee.value.speaker, Livekit_ActiveSpeakerUpdate.descriptor)
+        case pb_size_t(livekit_DataPacket_sip_dtmf_tag):
+            lkRelease(message: &_pointer.pointee.value.sip_dtmf, Livekit_SipDTMF.descriptor)
+        case pb_size_t(livekit_DataPacket_transcription_tag):
+            lkRelease(message: &_pointer.pointee.value.transcription, Livekit_Transcription.descriptor)
+        case pb_size_t(livekit_DataPacket_metrics_tag):
+            lkRelease(message: &_pointer.pointee.value.metrics, Livekit_MetricsBatch.descriptor)
+        case pb_size_t(livekit_DataPacket_chat_message_tag):
+            lkRelease(message: &_pointer.pointee.value.chat_message, Livekit_ChatMessage.descriptor)
+        case pb_size_t(livekit_DataPacket_rpc_request_tag):
+            lkRelease(message: &_pointer.pointee.value.rpc_request, Livekit_RpcRequest.descriptor)
+        case pb_size_t(livekit_DataPacket_rpc_ack_tag):
+            lkRelease(message: &_pointer.pointee.value.rpc_ack, Livekit_RpcAck.descriptor)
+        case pb_size_t(livekit_DataPacket_rpc_response_tag):
+            lkRelease(message: &_pointer.pointee.value.rpc_response, Livekit_RpcResponse.descriptor)
+        case pb_size_t(livekit_DataPacket_stream_header_tag):
+            lkRelease(message: &_pointer.pointee.value.stream_header, Livekit_DataStream.Header.descriptor)
+        case pb_size_t(livekit_DataPacket_stream_chunk_tag):
+            lkRelease(message: &_pointer.pointee.value.stream_chunk, Livekit_DataStream.Chunk.descriptor)
+        case pb_size_t(livekit_DataPacket_stream_trailer_tag):
+            lkRelease(message: &_pointer.pointee.value.stream_trailer, Livekit_DataStream.Trailer.descriptor)
+        case pb_size_t(livekit_DataPacket_encrypted_packet_tag):
+            lkRelease(message: &_pointer.pointee.value.encrypted_packet, Livekit_EncryptedPacket.descriptor)
+        default: break
+        }
+        _pointer.pointee.which_value = 0
+        // zero the union: stale bits from a previous variant would otherwise
+        // be misread as a pointer by the next variant's setter
+        _pointer.pointee.value = .init()
+    }
+
 }
 
 struct Livekit_EncryptedPacket: NanopbMessage, @unchecked Sendable {
@@ -2290,60 +1915,29 @@ struct Livekit_EncryptedPacket: NanopbMessage, @unchecked Sendable {
     }
     var hasEncryptedValue: Bool { _pointer.pointee.encrypted_value != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_EncryptedPacket.zero, descriptor: Livekit_EncryptedPacket.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_EncryptedPacket { Livekit_EncryptedPacket(_owning: _box) }
-
-        var encryptionType: Livekit_Encryption.TypeEnum {
-            get { _pointer.pointee.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption_type, newValue) }
-        }
-
-        var iv: Data {
-            get { lkData(_pointer.pointee.iv) }
-            nonmutating set { lkSetData(&_pointer.pointee.iv, newValue) }
-        }
-
-        var keyIndex: UInt32 {
-            get { _pointer.pointee.key_index?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.key_index, newValue) }
-        }
-
-        var encryptedValue: Data {
-            get { lkData(_pointer.pointee.encrypted_value) }
-            nonmutating set { lkSetData(&_pointer.pointee.encrypted_value, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_EncryptedPacket {
+    var encryptionType: Livekit_Encryption.TypeEnum {
+        get { _pointer.pointee.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption_type, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var iv: Data {
+        get { lkData(_pointer.pointee.iv) }
+        nonmutating set { lkSetData(&_pointer.pointee.iv, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var keyIndex: UInt32 {
+        get { _pointer.pointee.key_index?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.key_index, newValue) }
     }
+
+    var encryptedValue: Data {
+        get { lkData(_pointer.pointee.encrypted_value) }
+        nonmutating set { lkSetData(&_pointer.pointee.encrypted_value, newValue) }
+    }
+
 }
 
 struct Livekit_EncryptedPacketPayload: NanopbMessage, @unchecked Sendable {
@@ -2429,183 +2023,152 @@ struct Livekit_EncryptedPacketPayload: NanopbMessage, @unchecked Sendable {
         _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Trailer._empty) : Livekit_DataStream.Trailer()
     }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_EncryptedPacketPayload.zero, descriptor: Livekit_EncryptedPacketPayload.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_EncryptedPacketPayload { Livekit_EncryptedPacketPayload(_owning: _box) }
-
-        var value: OneOf_Value? {
-            get {
-                switch _pointer.pointee.which_value {
-                case pb_size_t(livekit_EncryptedPacketPayload_user_tag):
-                    return .user(_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _owner) } ?? Livekit_UserPacket._empty)
-                case pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag):
-                    return .chatMessage(_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _owner) } ?? Livekit_ChatMessage._empty)
-                case pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag):
-                    return .rpcRequest(_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _owner) } ?? Livekit_RpcRequest._empty)
-                case pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag):
-                    return .rpcAck(_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _owner) } ?? Livekit_RpcAck._empty)
-                case pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag):
-                    return .rpcResponse(_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse._empty)
-                case pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag):
-                    return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Header._empty)
-                case pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag):
-                    return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Chunk._empty)
-                case pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag):
-                    return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Trailer._empty)
-                default: return nil
-                }
-            }
-            nonmutating set {
-                _clearValue()
-                switch newValue {
-                case let .user(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_user_tag)
-                    lkSetMessage(&_pointer.pointee.value.user, value)
-                case let .chatMessage(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag)
-                    lkSetMessage(&_pointer.pointee.value.chat_message, value)
-                case let .rpcRequest(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag)
-                    lkSetMessage(&_pointer.pointee.value.rpc_request, value)
-                case let .rpcAck(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag)
-                    lkSetMessage(&_pointer.pointee.value.rpc_ack, value)
-                case let .rpcResponse(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag)
-                    lkSetMessage(&_pointer.pointee.value.rpc_response, value)
-                case let .streamHeader(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag)
-                    lkSetMessage(&_pointer.pointee.value.stream_header, value)
-                case let .streamChunk(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag)
-                    lkSetMessage(&_pointer.pointee.value.stream_chunk, value)
-                case let .streamTrailer(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag)
-                    lkSetMessage(&_pointer.pointee.value.stream_trailer, value)
-                case nil: break
-                }
-            }
-        }
-        var user: Livekit_UserPacket {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_user_tag) ? (_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _owner) } ?? Livekit_UserPacket._empty) : Livekit_UserPacket() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_user_tag)
-                lkSetMessage(&_pointer.pointee.value.user, newValue)
-            }
-        }
-        var chatMessage: Livekit_ChatMessage {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag) ? (_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _owner) } ?? Livekit_ChatMessage._empty) : Livekit_ChatMessage() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag)
-                lkSetMessage(&_pointer.pointee.value.chat_message, newValue)
-            }
-        }
-        var rpcRequest: Livekit_RpcRequest {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag) ? (_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _owner) } ?? Livekit_RpcRequest._empty) : Livekit_RpcRequest() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag)
-                lkSetMessage(&_pointer.pointee.value.rpc_request, newValue)
-            }
-        }
-        var rpcAck: Livekit_RpcAck {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag) ? (_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _owner) } ?? Livekit_RpcAck._empty) : Livekit_RpcAck() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag)
-                lkSetMessage(&_pointer.pointee.value.rpc_ack, newValue)
-            }
-        }
-        var rpcResponse: Livekit_RpcResponse {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse._empty) : Livekit_RpcResponse() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag)
-                lkSetMessage(&_pointer.pointee.value.rpc_response, newValue)
-            }
-        }
-        var streamHeader: Livekit_DataStream.Header {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Header._empty) : Livekit_DataStream.Header() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag)
-                lkSetMessage(&_pointer.pointee.value.stream_header, newValue)
-            }
-        }
-        var streamChunk: Livekit_DataStream.Chunk {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Chunk._empty) : Livekit_DataStream.Chunk() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag)
-                lkSetMessage(&_pointer.pointee.value.stream_chunk, newValue)
-            }
-        }
-        var streamTrailer: Livekit_DataStream.Trailer {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Trailer._empty) : Livekit_DataStream.Trailer() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag)
-                lkSetMessage(&_pointer.pointee.value.stream_trailer, newValue)
-            }
-        }
-        private func _clearValue() {
+extension NanopbBuilder where M == Livekit_EncryptedPacketPayload {
+    var value: Livekit_EncryptedPacketPayload.OneOf_Value? {
+        get {
             switch _pointer.pointee.which_value {
             case pb_size_t(livekit_EncryptedPacketPayload_user_tag):
-                lkRelease(message: &_pointer.pointee.value.user, Livekit_UserPacket.descriptor)
+                return .user(_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _box) } ?? Livekit_UserPacket._empty)
             case pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag):
-                lkRelease(message: &_pointer.pointee.value.chat_message, Livekit_ChatMessage.descriptor)
+                return .chatMessage(_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _box) } ?? Livekit_ChatMessage._empty)
             case pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag):
-                lkRelease(message: &_pointer.pointee.value.rpc_request, Livekit_RpcRequest.descriptor)
+                return .rpcRequest(_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _box) } ?? Livekit_RpcRequest._empty)
             case pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag):
-                lkRelease(message: &_pointer.pointee.value.rpc_ack, Livekit_RpcAck.descriptor)
+                return .rpcAck(_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _box) } ?? Livekit_RpcAck._empty)
             case pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag):
-                lkRelease(message: &_pointer.pointee.value.rpc_response, Livekit_RpcResponse.descriptor)
+                return .rpcResponse(_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _box) } ?? Livekit_RpcResponse._empty)
             case pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag):
-                lkRelease(message: &_pointer.pointee.value.stream_header, Livekit_DataStream.Header.descriptor)
+                return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Header._empty)
             case pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag):
-                lkRelease(message: &_pointer.pointee.value.stream_chunk, Livekit_DataStream.Chunk.descriptor)
+                return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Chunk._empty)
             case pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag):
-                lkRelease(message: &_pointer.pointee.value.stream_trailer, Livekit_DataStream.Trailer.descriptor)
-            default: break
+                return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Trailer._empty)
+            default: return nil
             }
-            _pointer.pointee.which_value = 0
-            // zero the union: stale bits from a previous variant would otherwise
-            // be misread as a pointer by the next variant's setter
-            _pointer.pointee.value = .init()
         }
-
-    }
-
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
-    }
-
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
+        nonmutating set {
+            _clearValue()
+            switch newValue {
+            case let .user(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_user_tag)
+                lkSetMessage(&_pointer.pointee.value.user, value)
+            case let .chatMessage(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag)
+                lkSetMessage(&_pointer.pointee.value.chat_message, value)
+            case let .rpcRequest(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag)
+                lkSetMessage(&_pointer.pointee.value.rpc_request, value)
+            case let .rpcAck(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag)
+                lkSetMessage(&_pointer.pointee.value.rpc_ack, value)
+            case let .rpcResponse(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag)
+                lkSetMessage(&_pointer.pointee.value.rpc_response, value)
+            case let .streamHeader(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag)
+                lkSetMessage(&_pointer.pointee.value.stream_header, value)
+            case let .streamChunk(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag)
+                lkSetMessage(&_pointer.pointee.value.stream_chunk, value)
+            case let .streamTrailer(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag)
+                lkSetMessage(&_pointer.pointee.value.stream_trailer, value)
+            case nil: break
+            }
         }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
     }
+    var user: Livekit_UserPacket {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_user_tag) ? (_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _box) } ?? Livekit_UserPacket._empty) : Livekit_UserPacket() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_user_tag)
+            lkSetMessage(&_pointer.pointee.value.user, newValue)
+        }
+    }
+    var chatMessage: Livekit_ChatMessage {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag) ? (_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _box) } ?? Livekit_ChatMessage._empty) : Livekit_ChatMessage() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag)
+            lkSetMessage(&_pointer.pointee.value.chat_message, newValue)
+        }
+    }
+    var rpcRequest: Livekit_RpcRequest {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag) ? (_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _box) } ?? Livekit_RpcRequest._empty) : Livekit_RpcRequest() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag)
+            lkSetMessage(&_pointer.pointee.value.rpc_request, newValue)
+        }
+    }
+    var rpcAck: Livekit_RpcAck {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag) ? (_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _box) } ?? Livekit_RpcAck._empty) : Livekit_RpcAck() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag)
+            lkSetMessage(&_pointer.pointee.value.rpc_ack, newValue)
+        }
+    }
+    var rpcResponse: Livekit_RpcResponse {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _box) } ?? Livekit_RpcResponse._empty) : Livekit_RpcResponse() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag)
+            lkSetMessage(&_pointer.pointee.value.rpc_response, newValue)
+        }
+    }
+    var streamHeader: Livekit_DataStream.Header {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Header._empty) : Livekit_DataStream.Header() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag)
+            lkSetMessage(&_pointer.pointee.value.stream_header, newValue)
+        }
+    }
+    var streamChunk: Livekit_DataStream.Chunk {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Chunk._empty) : Livekit_DataStream.Chunk() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag)
+            lkSetMessage(&_pointer.pointee.value.stream_chunk, newValue)
+        }
+    }
+    var streamTrailer: Livekit_DataStream.Trailer {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Trailer._empty) : Livekit_DataStream.Trailer() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag)
+            lkSetMessage(&_pointer.pointee.value.stream_trailer, newValue)
+        }
+    }
+    private func _clearValue() {
+        switch _pointer.pointee.which_value {
+        case pb_size_t(livekit_EncryptedPacketPayload_user_tag):
+            lkRelease(message: &_pointer.pointee.value.user, Livekit_UserPacket.descriptor)
+        case pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag):
+            lkRelease(message: &_pointer.pointee.value.chat_message, Livekit_ChatMessage.descriptor)
+        case pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag):
+            lkRelease(message: &_pointer.pointee.value.rpc_request, Livekit_RpcRequest.descriptor)
+        case pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag):
+            lkRelease(message: &_pointer.pointee.value.rpc_ack, Livekit_RpcAck.descriptor)
+        case pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag):
+            lkRelease(message: &_pointer.pointee.value.rpc_response, Livekit_RpcResponse.descriptor)
+        case pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag):
+            lkRelease(message: &_pointer.pointee.value.stream_header, Livekit_DataStream.Header.descriptor)
+        case pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag):
+            lkRelease(message: &_pointer.pointee.value.stream_chunk, Livekit_DataStream.Chunk.descriptor)
+        case pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag):
+            lkRelease(message: &_pointer.pointee.value.stream_trailer, Livekit_DataStream.Trailer.descriptor)
+        default: break
+        }
+        _pointer.pointee.which_value = 0
+        // zero the union: stale bits from a previous variant would otherwise
+        // be misread as a pointer by the next variant's setter
+        _pointer.pointee.value = .init()
+    }
+
 }
 
 struct Livekit_ActiveSpeakerUpdate: NanopbMessage, @unchecked Sendable {
@@ -2639,49 +2202,18 @@ struct Livekit_ActiveSpeakerUpdate: NanopbMessage, @unchecked Sendable {
         lkViews(_pointer.pointee.speakers_count, _pointer.pointee.speakers, owner: _owner)
     }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_ActiveSpeakerUpdate.zero, descriptor: Livekit_ActiveSpeakerUpdate.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_ActiveSpeakerUpdate { Livekit_ActiveSpeakerUpdate(_owning: _box) }
-
-        var speakers: [Livekit_SpeakerInfo] {
-            get { lkViews(_pointer.pointee.speakers_count, _pointer.pointee.speakers, owner: _owner) }
-            nonmutating set {
-                var count = _pointer.pointee.speakers_count, base = _pointer.pointee.speakers
-                lkSetRepeatedMessages(&count, &base, newValue)
-                _pointer.pointee.speakers_count = count; _pointer.pointee.speakers = base
-            }
+extension NanopbBuilder where M == Livekit_ActiveSpeakerUpdate {
+    var speakers: [Livekit_SpeakerInfo] {
+        get { lkViews(_pointer.pointee.speakers_count, _pointer.pointee.speakers, owner: _box) }
+        nonmutating set {
+            var count = _pointer.pointee.speakers_count, base = _pointer.pointee.speakers
+            lkSetRepeatedMessages(&count, &base, newValue)
+            _pointer.pointee.speakers_count = count; _pointer.pointee.speakers = base
         }
-
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
-    }
-
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
-    }
 }
 
 struct Livekit_SpeakerInfo: NanopbMessage, @unchecked Sendable {
@@ -2726,55 +2258,24 @@ struct Livekit_SpeakerInfo: NanopbMessage, @unchecked Sendable {
     }
     var hasActive: Bool { _pointer.pointee.active != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_SpeakerInfo.zero, descriptor: Livekit_SpeakerInfo.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_SpeakerInfo { Livekit_SpeakerInfo(_owning: _box) }
-
-        var sid: String {
-            get { lkString(_pointer.pointee.sid) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
-        }
-
-        var level: Float {
-            get { _pointer.pointee.level?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.level, newValue) }
-        }
-
-        var active: Bool {
-            get { _pointer.pointee.active?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.active, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_SpeakerInfo {
+    var sid: String {
+        get { lkString(_pointer.pointee.sid) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var level: Float {
+        get { _pointer.pointee.level?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.level, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var active: Bool {
+        get { _pointer.pointee.active?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.active, newValue) }
     }
+
 }
 
 struct Livekit_UserPacket: NanopbMessage, @unchecked Sendable {
@@ -2852,98 +2353,67 @@ struct Livekit_UserPacket: NanopbMessage, @unchecked Sendable {
     }
     var hasNonce: Bool { _pointer.pointee.nonce != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_UserPacket.zero, descriptor: Livekit_UserPacket.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_UserPacket { Livekit_UserPacket(_owning: _box) }
-
-        var participantSid: String {
-            get { lkString(_pointer.pointee.participant_sid) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.participant_sid, newValue) }
-        }
-
-        var payload: Data {
-            get { lkData(_pointer.pointee.payload) }
-            nonmutating set { lkSetData(&_pointer.pointee.payload, newValue) }
-        }
-
-        var destinationSids: [String] {
-            get { lkRepeated(_pointer.pointee.destination_sids_count, _pointer.pointee.destination_sids) }
-            nonmutating set {
-                var count = _pointer.pointee.destination_sids_count, base = _pointer.pointee.destination_sids
-                lkSetRepeated(&count, &base, newValue)
-                _pointer.pointee.destination_sids_count = count; _pointer.pointee.destination_sids = base
-            }
-        }
-
-        var topic: String {
-            get { lkString(_pointer.pointee.topic) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.topic, newValue) }
-        }
-
-        var participantIdentity: String {
-            get { lkString(_pointer.pointee.participant_identity) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.participant_identity, newValue) }
-        }
-
-        var destinationIdentities: [String] {
-            get { lkRepeated(_pointer.pointee.destination_identities_count, _pointer.pointee.destination_identities) }
-            nonmutating set {
-                var count = _pointer.pointee.destination_identities_count, base = _pointer.pointee.destination_identities
-                lkSetRepeated(&count, &base, newValue)
-                _pointer.pointee.destination_identities_count = count; _pointer.pointee.destination_identities = base
-            }
-        }
-
-        var id: String {
-            get { lkString(_pointer.pointee.id) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.id, newValue) }
-        }
-
-        var startTime: UInt64 {
-            get { _pointer.pointee.start_time?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.start_time, newValue) }
-        }
-
-        var endTime: UInt64 {
-            get { _pointer.pointee.end_time?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.end_time, newValue) }
-        }
-
-        var nonce: Data {
-            get { lkData(_pointer.pointee.nonce) }
-            nonmutating set { lkSetData(&_pointer.pointee.nonce, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_UserPacket {
+    var participantSid: String {
+        get { lkString(_pointer.pointee.participant_sid) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.participant_sid, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var payload: Data {
+        get { lkData(_pointer.pointee.payload) }
+        nonmutating set { lkSetData(&_pointer.pointee.payload, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
+    var destinationSids: [String] {
+        get { lkRepeated(_pointer.pointee.destination_sids_count, _pointer.pointee.destination_sids) }
+        nonmutating set {
+            var count = _pointer.pointee.destination_sids_count, base = _pointer.pointee.destination_sids
+            lkSetRepeated(&count, &base, newValue)
+            _pointer.pointee.destination_sids_count = count; _pointer.pointee.destination_sids = base
         }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
     }
+
+    var topic: String {
+        get { lkString(_pointer.pointee.topic) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.topic, newValue) }
+    }
+
+    var participantIdentity: String {
+        get { lkString(_pointer.pointee.participant_identity) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.participant_identity, newValue) }
+    }
+
+    var destinationIdentities: [String] {
+        get { lkRepeated(_pointer.pointee.destination_identities_count, _pointer.pointee.destination_identities) }
+        nonmutating set {
+            var count = _pointer.pointee.destination_identities_count, base = _pointer.pointee.destination_identities
+            lkSetRepeated(&count, &base, newValue)
+            _pointer.pointee.destination_identities_count = count; _pointer.pointee.destination_identities = base
+        }
+    }
+
+    var id: String {
+        get { lkString(_pointer.pointee.id) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.id, newValue) }
+    }
+
+    var startTime: UInt64 {
+        get { _pointer.pointee.start_time?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.start_time, newValue) }
+    }
+
+    var endTime: UInt64 {
+        get { _pointer.pointee.end_time?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.end_time, newValue) }
+    }
+
+    var nonce: Data {
+        get { lkData(_pointer.pointee.nonce) }
+        nonmutating set { lkSetData(&_pointer.pointee.nonce, newValue) }
+    }
+
 }
 
 struct Livekit_SipDTMF: NanopbMessage, @unchecked Sendable {
@@ -2983,50 +2453,19 @@ struct Livekit_SipDTMF: NanopbMessage, @unchecked Sendable {
     }
     var hasDigit: Bool { _pointer.pointee.digit != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_SipDTMF.zero, descriptor: Livekit_SipDTMF.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_SipDTMF { Livekit_SipDTMF(_owning: _box) }
-
-        var code: UInt32 {
-            get { _pointer.pointee.code?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.code, newValue) }
-        }
-
-        var digit: String {
-            get { lkString(_pointer.pointee.digit) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.digit, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_SipDTMF {
+    var code: UInt32 {
+        get { _pointer.pointee.code?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.code, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var digit: String {
+        get { lkString(_pointer.pointee.digit) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.digit, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
-    }
 }
 
 struct Livekit_Transcription: NanopbMessage, @unchecked Sendable {
@@ -3070,59 +2509,28 @@ struct Livekit_Transcription: NanopbMessage, @unchecked Sendable {
         lkViews(_pointer.pointee.segments_count, _pointer.pointee.segments, owner: _owner)
     }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_Transcription.zero, descriptor: Livekit_Transcription.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_Transcription { Livekit_Transcription(_owning: _box) }
-
-        var transcribedParticipantIdentity: String {
-            get { lkString(_pointer.pointee.transcribed_participant_identity) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.transcribed_participant_identity, newValue) }
-        }
-
-        var trackID: String {
-            get { lkString(_pointer.pointee.track_id) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.track_id, newValue) }
-        }
-
-        var segments: [Livekit_TranscriptionSegment] {
-            get { lkViews(_pointer.pointee.segments_count, _pointer.pointee.segments, owner: _owner) }
-            nonmutating set {
-                var count = _pointer.pointee.segments_count, base = _pointer.pointee.segments
-                lkSetRepeatedMessages(&count, &base, newValue)
-                _pointer.pointee.segments_count = count; _pointer.pointee.segments = base
-            }
-        }
-
+extension NanopbBuilder where M == Livekit_Transcription {
+    var transcribedParticipantIdentity: String {
+        get { lkString(_pointer.pointee.transcribed_participant_identity) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.transcribed_participant_identity, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var trackID: String {
+        get { lkString(_pointer.pointee.track_id) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.track_id, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
+    var segments: [Livekit_TranscriptionSegment] {
+        get { lkViews(_pointer.pointee.segments_count, _pointer.pointee.segments, owner: _box) }
+        nonmutating set {
+            var count = _pointer.pointee.segments_count, base = _pointer.pointee.segments
+            lkSetRepeatedMessages(&count, &base, newValue)
+            _pointer.pointee.segments_count = count; _pointer.pointee.segments = base
         }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
     }
+
 }
 
 struct Livekit_TranscriptionSegment: NanopbMessage, @unchecked Sendable {
@@ -3182,70 +2590,39 @@ struct Livekit_TranscriptionSegment: NanopbMessage, @unchecked Sendable {
     }
     var hasLanguage: Bool { _pointer.pointee.language != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_TranscriptionSegment.zero, descriptor: Livekit_TranscriptionSegment.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_TranscriptionSegment { Livekit_TranscriptionSegment(_owning: _box) }
-
-        var id: String {
-            get { lkString(_pointer.pointee.id) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.id, newValue) }
-        }
-
-        var text: String {
-            get { lkString(_pointer.pointee.text) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.text, newValue) }
-        }
-
-        var startTime: UInt64 {
-            get { _pointer.pointee.start_time?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.start_time, newValue) }
-        }
-
-        var endTime: UInt64 {
-            get { _pointer.pointee.end_time?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.end_time, newValue) }
-        }
-
-        var final: Bool {
-            get { _pointer.pointee.final?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.final, newValue) }
-        }
-
-        var language: String {
-            get { lkString(_pointer.pointee.language) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.language, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_TranscriptionSegment {
+    var id: String {
+        get { lkString(_pointer.pointee.id) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.id, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var text: String {
+        get { lkString(_pointer.pointee.text) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.text, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var startTime: UInt64 {
+        get { _pointer.pointee.start_time?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.start_time, newValue) }
     }
+
+    var endTime: UInt64 {
+        get { _pointer.pointee.end_time?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.end_time, newValue) }
+    }
+
+    var final: Bool {
+        get { _pointer.pointee.final?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.final, newValue) }
+    }
+
+    var language: String {
+        get { lkString(_pointer.pointee.language) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.language, newValue) }
+    }
+
 }
 
 struct Livekit_ChatMessage: NanopbMessage, @unchecked Sendable {
@@ -3305,70 +2682,39 @@ struct Livekit_ChatMessage: NanopbMessage, @unchecked Sendable {
     }
     var hasGenerated: Bool { _pointer.pointee.generated != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_ChatMessage.zero, descriptor: Livekit_ChatMessage.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_ChatMessage { Livekit_ChatMessage(_owning: _box) }
-
-        var id: String {
-            get { lkString(_pointer.pointee.id) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.id, newValue) }
-        }
-
-        var timestamp: Int64 {
-            get { _pointer.pointee.timestamp?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.timestamp, newValue) }
-        }
-
-        var editTimestamp: Int64 {
-            get { _pointer.pointee.edit_timestamp?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.edit_timestamp, newValue) }
-        }
-
-        var message: String {
-            get { lkString(_pointer.pointee.message) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.message, newValue) }
-        }
-
-        var deleted: Bool {
-            get { _pointer.pointee.deleted?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.deleted, newValue) }
-        }
-
-        var generated: Bool {
-            get { _pointer.pointee.generated?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.generated, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_ChatMessage {
+    var id: String {
+        get { lkString(_pointer.pointee.id) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.id, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var timestamp: Int64 {
+        get { _pointer.pointee.timestamp?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.timestamp, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var editTimestamp: Int64 {
+        get { _pointer.pointee.edit_timestamp?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.edit_timestamp, newValue) }
     }
+
+    var message: String {
+        get { lkString(_pointer.pointee.message) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.message, newValue) }
+    }
+
+    var deleted: Bool {
+        get { _pointer.pointee.deleted?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.deleted, newValue) }
+    }
+
+    var generated: Bool {
+        get { _pointer.pointee.generated?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.generated, newValue) }
+    }
+
 }
 
 struct Livekit_RpcRequest: NanopbMessage, @unchecked Sendable {
@@ -3428,70 +2774,39 @@ struct Livekit_RpcRequest: NanopbMessage, @unchecked Sendable {
     }
     var hasCompressedPayload: Bool { _pointer.pointee.compressed_payload != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_RpcRequest.zero, descriptor: Livekit_RpcRequest.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_RpcRequest { Livekit_RpcRequest(_owning: _box) }
-
-        var id: String {
-            get { lkString(_pointer.pointee.id) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.id, newValue) }
-        }
-
-        var method: String {
-            get { lkString(_pointer.pointee.method) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.method, newValue) }
-        }
-
-        var payload: String {
-            get { lkString(_pointer.pointee.payload) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.payload, newValue) }
-        }
-
-        var responseTimeoutMs: UInt32 {
-            get { _pointer.pointee.response_timeout_ms?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.response_timeout_ms, newValue) }
-        }
-
-        var version: UInt32 {
-            get { _pointer.pointee.version?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.version, newValue) }
-        }
-
-        var compressedPayload: Data {
-            get { lkData(_pointer.pointee.compressed_payload) }
-            nonmutating set { lkSetData(&_pointer.pointee.compressed_payload, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_RpcRequest {
+    var id: String {
+        get { lkString(_pointer.pointee.id) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.id, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var method: String {
+        get { lkString(_pointer.pointee.method) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.method, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var payload: String {
+        get { lkString(_pointer.pointee.payload) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.payload, newValue) }
     }
+
+    var responseTimeoutMs: UInt32 {
+        get { _pointer.pointee.response_timeout_ms?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.response_timeout_ms, newValue) }
+    }
+
+    var version: UInt32 {
+        get { _pointer.pointee.version?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.version, newValue) }
+    }
+
+    var compressedPayload: Data {
+        get { lkData(_pointer.pointee.compressed_payload) }
+        nonmutating set { lkSetData(&_pointer.pointee.compressed_payload, newValue) }
+    }
+
 }
 
 struct Livekit_RpcAck: NanopbMessage, @unchecked Sendable {
@@ -3526,45 +2841,14 @@ struct Livekit_RpcAck: NanopbMessage, @unchecked Sendable {
     }
     var hasRequestID: Bool { _pointer.pointee.request_id != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_RpcAck.zero, descriptor: Livekit_RpcAck.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_RpcAck { Livekit_RpcAck(_owning: _box) }
-
-        var requestID: String {
-            get { lkString(_pointer.pointee.request_id) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.request_id, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_RpcAck {
+    var requestID: String {
+        get { lkString(_pointer.pointee.request_id) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.request_id, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
-    }
-
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
-    }
 }
 
 struct Livekit_RpcResponse: NanopbMessage, @unchecked Sendable {
@@ -3625,113 +2909,82 @@ struct Livekit_RpcResponse: NanopbMessage, @unchecked Sendable {
         _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_compressed_payload_tag) ? (lkData(_pointer.pointee.value.compressed_payload)) : Data()
     }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_RpcResponse.zero, descriptor: Livekit_RpcResponse.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_RpcResponse { Livekit_RpcResponse(_owning: _box) }
+extension NanopbBuilder where M == Livekit_RpcResponse {
+    var requestID: String {
+        get { lkString(_pointer.pointee.request_id) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.request_id, newValue) }
+    }
 
-        var requestID: String {
-            get { lkString(_pointer.pointee.request_id) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.request_id, newValue) }
-        }
-
-        var value: OneOf_Value? {
-            get {
-                switch _pointer.pointee.which_value {
-                case pb_size_t(livekit_RpcResponse_payload_tag):
-                    return .payload(lkString(_pointer.pointee.value.payload) ?? "")
-                case pb_size_t(livekit_RpcResponse_error_tag):
-                    return .error(_pointer.pointee.value.error.map { Livekit_RpcError(_sharing: $0, owner: _owner) } ?? Livekit_RpcError._empty)
-                case pb_size_t(livekit_RpcResponse_compressed_payload_tag):
-                    return .compressedPayload(lkData(_pointer.pointee.value.compressed_payload))
-                default: return nil
-                }
-            }
-            nonmutating set {
-                _clearValue()
-                switch newValue {
-                case let .payload(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_payload_tag)
-                    lkSetString(&_pointer.pointee.value.payload, value)
-                case let .error(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_error_tag)
-                    lkSetMessage(&_pointer.pointee.value.error, value)
-                case let .compressedPayload(value):
-                    _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_compressed_payload_tag)
-                    lkSetData(&_pointer.pointee.value.compressed_payload, value)
-                case nil: break
-                }
-            }
-        }
-        var payload: String {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_payload_tag) ? (lkString(_pointer.pointee.value.payload) ?? "") : "" }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_payload_tag)
-                lkSetString(&_pointer.pointee.value.payload, newValue)
-            }
-        }
-        var error: Livekit_RpcError {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_error_tag) ? (_pointer.pointee.value.error.map { Livekit_RpcError(_sharing: $0, owner: _owner) } ?? Livekit_RpcError._empty) : Livekit_RpcError() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_error_tag)
-                lkSetMessage(&_pointer.pointee.value.error, newValue)
-            }
-        }
-        var compressedPayload: Data {
-            get { _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_compressed_payload_tag) ? (lkData(_pointer.pointee.value.compressed_payload)) : Data() }
-            nonmutating set {
-                _clearValue()
-                _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_compressed_payload_tag)
-                lkSetData(&_pointer.pointee.value.compressed_payload, newValue)
-            }
-        }
-        private func _clearValue() {
+    var value: Livekit_RpcResponse.OneOf_Value? {
+        get {
             switch _pointer.pointee.which_value {
             case pb_size_t(livekit_RpcResponse_payload_tag):
-                lkFree(&_pointer.pointee.value.payload)
+                return .payload(lkString(_pointer.pointee.value.payload) ?? "")
             case pb_size_t(livekit_RpcResponse_error_tag):
-                lkRelease(message: &_pointer.pointee.value.error, Livekit_RpcError.descriptor)
+                return .error(_pointer.pointee.value.error.map { Livekit_RpcError(_sharing: $0, owner: _box) } ?? Livekit_RpcError._empty)
             case pb_size_t(livekit_RpcResponse_compressed_payload_tag):
-                lkFree(&_pointer.pointee.value.compressed_payload)
-            default: break
+                return .compressedPayload(lkData(_pointer.pointee.value.compressed_payload))
+            default: return nil
             }
-            _pointer.pointee.which_value = 0
-            // zero the union: stale bits from a previous variant would otherwise
-            // be misread as a pointer by the next variant's setter
-            _pointer.pointee.value = .init()
         }
-
-    }
-
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
-    }
-
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
+        nonmutating set {
+            _clearValue()
+            switch newValue {
+            case let .payload(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_payload_tag)
+                lkSetString(&_pointer.pointee.value.payload, value)
+            case let .error(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_error_tag)
+                lkSetMessage(&_pointer.pointee.value.error, value)
+            case let .compressedPayload(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_compressed_payload_tag)
+                lkSetData(&_pointer.pointee.value.compressed_payload, value)
+            case nil: break
+            }
         }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
     }
+    var payload: String {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_payload_tag) ? (lkString(_pointer.pointee.value.payload) ?? "") : "" }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_payload_tag)
+            lkSetString(&_pointer.pointee.value.payload, newValue)
+        }
+    }
+    var error: Livekit_RpcError {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_error_tag) ? (_pointer.pointee.value.error.map { Livekit_RpcError(_sharing: $0, owner: _box) } ?? Livekit_RpcError._empty) : Livekit_RpcError() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_error_tag)
+            lkSetMessage(&_pointer.pointee.value.error, newValue)
+        }
+    }
+    var compressedPayload: Data {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_compressed_payload_tag) ? (lkData(_pointer.pointee.value.compressed_payload)) : Data() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_compressed_payload_tag)
+            lkSetData(&_pointer.pointee.value.compressed_payload, newValue)
+        }
+    }
+    private func _clearValue() {
+        switch _pointer.pointee.which_value {
+        case pb_size_t(livekit_RpcResponse_payload_tag):
+            lkFree(&_pointer.pointee.value.payload)
+        case pb_size_t(livekit_RpcResponse_error_tag):
+            lkRelease(message: &_pointer.pointee.value.error, Livekit_RpcError.descriptor)
+        case pb_size_t(livekit_RpcResponse_compressed_payload_tag):
+            lkFree(&_pointer.pointee.value.compressed_payload)
+        default: break
+        }
+        _pointer.pointee.which_value = 0
+        // zero the union: stale bits from a previous variant would otherwise
+        // be misread as a pointer by the next variant's setter
+        _pointer.pointee.value = .init()
+    }
+
 }
 
 struct Livekit_RpcError: NanopbMessage, @unchecked Sendable {
@@ -3776,55 +3029,24 @@ struct Livekit_RpcError: NanopbMessage, @unchecked Sendable {
     }
     var hasData: Bool { _pointer.pointee.data != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_RpcError.zero, descriptor: Livekit_RpcError.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_RpcError { Livekit_RpcError(_owning: _box) }
-
-        var code: UInt32 {
-            get { _pointer.pointee.code?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.code, newValue) }
-        }
-
-        var message: String {
-            get { lkString(_pointer.pointee.message) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.message, newValue) }
-        }
-
-        var data: String {
-            get { lkString(_pointer.pointee.data) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.data, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_RpcError {
+    var code: UInt32 {
+        get { _pointer.pointee.code?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.code, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var message: String {
+        get { lkString(_pointer.pointee.message) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.message, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var data: String {
+        get { lkString(_pointer.pointee.data) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.data, newValue) }
     }
+
 }
 
 struct Livekit_ParticipantTracks: NanopbMessage, @unchecked Sendable {
@@ -3863,54 +3085,23 @@ struct Livekit_ParticipantTracks: NanopbMessage, @unchecked Sendable {
         lkRepeated(_pointer.pointee.track_sids_count, _pointer.pointee.track_sids)
     }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_ParticipantTracks.zero, descriptor: Livekit_ParticipantTracks.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_ParticipantTracks { Livekit_ParticipantTracks(_owning: _box) }
-
-        var participantSid: String {
-            get { lkString(_pointer.pointee.participant_sid) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.participant_sid, newValue) }
-        }
-
-        var trackSids: [String] {
-            get { lkRepeated(_pointer.pointee.track_sids_count, _pointer.pointee.track_sids) }
-            nonmutating set {
-                var count = _pointer.pointee.track_sids_count, base = _pointer.pointee.track_sids
-                lkSetRepeated(&count, &base, newValue)
-                _pointer.pointee.track_sids_count = count; _pointer.pointee.track_sids = base
-            }
-        }
-
+extension NanopbBuilder where M == Livekit_ParticipantTracks {
+    var participantSid: String {
+        get { lkString(_pointer.pointee.participant_sid) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.participant_sid, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var trackSids: [String] {
+        get { lkRepeated(_pointer.pointee.track_sids_count, _pointer.pointee.track_sids) }
+        nonmutating set {
+            var count = _pointer.pointee.track_sids_count, base = _pointer.pointee.track_sids
+            lkSetRepeated(&count, &base, newValue)
+            _pointer.pointee.track_sids_count = count; _pointer.pointee.track_sids = base
+        }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
-    }
 }
 
 struct Livekit_ServerInfo: NanopbMessage, @unchecked Sendable {
@@ -4003,75 +3194,44 @@ struct Livekit_ServerInfo: NanopbMessage, @unchecked Sendable {
         }
     }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_ServerInfo.zero, descriptor: Livekit_ServerInfo.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_ServerInfo { Livekit_ServerInfo(_owning: _box) }
-
-        var edition: Livekit_ServerInfo.Edition {
-            get { _pointer.pointee.edition.map { lkEnum($0.pointee) } ?? Livekit_ServerInfo.Edition() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.edition, newValue) }
-        }
-
-        var version: String {
-            get { lkString(_pointer.pointee.version) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.version, newValue) }
-        }
-
-        var `protocol`: Int32 {
-            get { _pointer.pointee.`protocol`?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.`protocol`, newValue) }
-        }
-
-        var region: String {
-            get { lkString(_pointer.pointee.region) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.region, newValue) }
-        }
-
-        var nodeID: String {
-            get { lkString(_pointer.pointee.node_id) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.node_id, newValue) }
-        }
-
-        var debugInfo: String {
-            get { lkString(_pointer.pointee.debug_info) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.debug_info, newValue) }
-        }
-
-        var agentProtocol: Int32 {
-            get { _pointer.pointee.agent_protocol?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.agent_protocol, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_ServerInfo {
+    var edition: Livekit_ServerInfo.Edition {
+        get { _pointer.pointee.edition.map { lkEnum($0.pointee) } ?? Livekit_ServerInfo.Edition() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.edition, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var version: String {
+        get { lkString(_pointer.pointee.version) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.version, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var `protocol`: Int32 {
+        get { _pointer.pointee.`protocol`?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.`protocol`, newValue) }
     }
+
+    var region: String {
+        get { lkString(_pointer.pointee.region) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.region, newValue) }
+    }
+
+    var nodeID: String {
+        get { lkString(_pointer.pointee.node_id) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.node_id, newValue) }
+    }
+
+    var debugInfo: String {
+        get { lkString(_pointer.pointee.debug_info) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.debug_info, newValue) }
+    }
+
+    var agentProtocol: Int32 {
+        get { _pointer.pointee.agent_protocol?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.agent_protocol, newValue) }
+    }
+
 }
 
 struct Livekit_ClientInfo: NanopbMessage, @unchecked Sendable {
@@ -4260,109 +3420,78 @@ struct Livekit_ClientInfo: NanopbMessage, @unchecked Sendable {
         }
     }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_ClientInfo.zero, descriptor: Livekit_ClientInfo.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_ClientInfo { Livekit_ClientInfo(_owning: _box) }
-
-        var sdk: Livekit_ClientInfo.SDK {
-            get { _pointer.pointee.sdk.map { lkEnum($0.pointee) } ?? Livekit_ClientInfo.SDK() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.sdk, newValue) }
-        }
-
-        var version: String {
-            get { lkString(_pointer.pointee.version) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.version, newValue) }
-        }
-
-        var `protocol`: Int32 {
-            get { _pointer.pointee.`protocol`?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.`protocol`, newValue) }
-        }
-
-        var os: String {
-            get { lkString(_pointer.pointee.os) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.os, newValue) }
-        }
-
-        var osVersion: String {
-            get { lkString(_pointer.pointee.os_version) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.os_version, newValue) }
-        }
-
-        var deviceModel: String {
-            get { lkString(_pointer.pointee.device_model) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.device_model, newValue) }
-        }
-
-        var browser: String {
-            get { lkString(_pointer.pointee.browser) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.browser, newValue) }
-        }
-
-        var browserVersion: String {
-            get { lkString(_pointer.pointee.browser_version) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.browser_version, newValue) }
-        }
-
-        var address: String {
-            get { lkString(_pointer.pointee.address) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.address, newValue) }
-        }
-
-        var network: String {
-            get { lkString(_pointer.pointee.network) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.network, newValue) }
-        }
-
-        var otherSdks: String {
-            get { lkString(_pointer.pointee.other_sdks) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.other_sdks, newValue) }
-        }
-
-        var clientProtocol: Int32 {
-            get { _pointer.pointee.client_protocol?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.client_protocol, newValue) }
-        }
-
-        var capabilities: [Livekit_ClientInfo.Capability] {
-            get { lkRepeatedEnum(_pointer.pointee.capabilities_count, _pointer.pointee.capabilities) }
-            nonmutating set {
-                var count = _pointer.pointee.capabilities_count, base = _pointer.pointee.capabilities
-                lkSetRepeatedEnum(&count, &base, newValue)
-                _pointer.pointee.capabilities_count = count; _pointer.pointee.capabilities = base
-            }
-        }
-
+extension NanopbBuilder where M == Livekit_ClientInfo {
+    var sdk: Livekit_ClientInfo.SDK {
+        get { _pointer.pointee.sdk.map { lkEnum($0.pointee) } ?? Livekit_ClientInfo.SDK() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.sdk, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var version: String {
+        get { lkString(_pointer.pointee.version) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.version, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var `protocol`: Int32 {
+        get { _pointer.pointee.`protocol`?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.`protocol`, newValue) }
     }
+
+    var os: String {
+        get { lkString(_pointer.pointee.os) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.os, newValue) }
+    }
+
+    var osVersion: String {
+        get { lkString(_pointer.pointee.os_version) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.os_version, newValue) }
+    }
+
+    var deviceModel: String {
+        get { lkString(_pointer.pointee.device_model) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.device_model, newValue) }
+    }
+
+    var browser: String {
+        get { lkString(_pointer.pointee.browser) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.browser, newValue) }
+    }
+
+    var browserVersion: String {
+        get { lkString(_pointer.pointee.browser_version) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.browser_version, newValue) }
+    }
+
+    var address: String {
+        get { lkString(_pointer.pointee.address) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.address, newValue) }
+    }
+
+    var network: String {
+        get { lkString(_pointer.pointee.network) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.network, newValue) }
+    }
+
+    var otherSdks: String {
+        get { lkString(_pointer.pointee.other_sdks) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.other_sdks, newValue) }
+    }
+
+    var clientProtocol: Int32 {
+        get { _pointer.pointee.client_protocol?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.client_protocol, newValue) }
+    }
+
+    var capabilities: [Livekit_ClientInfo.Capability] {
+        get { lkRepeatedEnum(_pointer.pointee.capabilities_count, _pointer.pointee.capabilities) }
+        nonmutating set {
+            var count = _pointer.pointee.capabilities_count, base = _pointer.pointee.capabilities
+            lkSetRepeatedEnum(&count, &base, newValue)
+            _pointer.pointee.capabilities_count = count; _pointer.pointee.capabilities = base
+        }
+    }
+
 }
 
 struct Livekit_ClientConfiguration: NanopbMessage, @unchecked Sendable {
@@ -4417,65 +3546,34 @@ struct Livekit_ClientConfiguration: NanopbMessage, @unchecked Sendable {
     }
     var hasForceRelay: Bool { _pointer.pointee.force_relay != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_ClientConfiguration.zero, descriptor: Livekit_ClientConfiguration.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_ClientConfiguration { Livekit_ClientConfiguration(_owning: _box) }
-
-        var video: Livekit_VideoConfiguration {
-            get { _pointer.pointee.video.map { Livekit_VideoConfiguration(_sharing: $0, owner: _owner) } ?? Livekit_VideoConfiguration._empty }
-            nonmutating set { lkSetMessage(&_pointer.pointee.video, newValue) }
-        }
-
-        var screen: Livekit_VideoConfiguration {
-            get { _pointer.pointee.screen.map { Livekit_VideoConfiguration(_sharing: $0, owner: _owner) } ?? Livekit_VideoConfiguration._empty }
-            nonmutating set { lkSetMessage(&_pointer.pointee.screen, newValue) }
-        }
-
-        var resumeConnection: Livekit_ClientConfigSetting {
-            get { _pointer.pointee.resume_connection.map { lkEnum($0.pointee) } ?? Livekit_ClientConfigSetting() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.resume_connection, newValue) }
-        }
-
-        var disabledCodecs: Livekit_DisabledCodecs {
-            get { _pointer.pointee.disabled_codecs.map { Livekit_DisabledCodecs(_sharing: $0, owner: _owner) } ?? Livekit_DisabledCodecs._empty }
-            nonmutating set { lkSetMessage(&_pointer.pointee.disabled_codecs, newValue) }
-        }
-
-        var forceRelay: Livekit_ClientConfigSetting {
-            get { _pointer.pointee.force_relay.map { lkEnum($0.pointee) } ?? Livekit_ClientConfigSetting() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.force_relay, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_ClientConfiguration {
+    var video: Livekit_VideoConfiguration {
+        get { _pointer.pointee.video.map { Livekit_VideoConfiguration(_sharing: $0, owner: _box) } ?? Livekit_VideoConfiguration._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.video, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var screen: Livekit_VideoConfiguration {
+        get { _pointer.pointee.screen.map { Livekit_VideoConfiguration(_sharing: $0, owner: _box) } ?? Livekit_VideoConfiguration._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.screen, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var resumeConnection: Livekit_ClientConfigSetting {
+        get { _pointer.pointee.resume_connection.map { lkEnum($0.pointee) } ?? Livekit_ClientConfigSetting() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.resume_connection, newValue) }
     }
+
+    var disabledCodecs: Livekit_DisabledCodecs {
+        get { _pointer.pointee.disabled_codecs.map { Livekit_DisabledCodecs(_sharing: $0, owner: _box) } ?? Livekit_DisabledCodecs._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.disabled_codecs, newValue) }
+    }
+
+    var forceRelay: Livekit_ClientConfigSetting {
+        get { _pointer.pointee.force_relay.map { lkEnum($0.pointee) } ?? Livekit_ClientConfigSetting() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.force_relay, newValue) }
+    }
+
 }
 
 struct Livekit_VideoConfiguration: NanopbMessage, @unchecked Sendable {
@@ -4510,45 +3608,14 @@ struct Livekit_VideoConfiguration: NanopbMessage, @unchecked Sendable {
     }
     var hasHardwareEncoder: Bool { _pointer.pointee.hardware_encoder != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_VideoConfiguration.zero, descriptor: Livekit_VideoConfiguration.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_VideoConfiguration { Livekit_VideoConfiguration(_owning: _box) }
-
-        var hardwareEncoder: Livekit_ClientConfigSetting {
-            get { _pointer.pointee.hardware_encoder.map { lkEnum($0.pointee) } ?? Livekit_ClientConfigSetting() }
-            nonmutating set { lkSetEnumPointer(&_pointer.pointee.hardware_encoder, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_VideoConfiguration {
+    var hardwareEncoder: Livekit_ClientConfigSetting {
+        get { _pointer.pointee.hardware_encoder.map { lkEnum($0.pointee) } ?? Livekit_ClientConfigSetting() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.hardware_encoder, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
-    }
-
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
-    }
 }
 
 struct Livekit_DisabledCodecs: NanopbMessage, @unchecked Sendable {
@@ -4586,58 +3653,27 @@ struct Livekit_DisabledCodecs: NanopbMessage, @unchecked Sendable {
         lkViews(_pointer.pointee.publish_count, _pointer.pointee.publish, owner: _owner)
     }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_DisabledCodecs.zero, descriptor: Livekit_DisabledCodecs.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_DisabledCodecs { Livekit_DisabledCodecs(_owning: _box) }
-
-        var codecs: [Livekit_Codec] {
-            get { lkViews(_pointer.pointee.codecs_count, _pointer.pointee.codecs, owner: _owner) }
-            nonmutating set {
-                var count = _pointer.pointee.codecs_count, base = _pointer.pointee.codecs
-                lkSetRepeatedMessages(&count, &base, newValue)
-                _pointer.pointee.codecs_count = count; _pointer.pointee.codecs = base
-            }
+extension NanopbBuilder where M == Livekit_DisabledCodecs {
+    var codecs: [Livekit_Codec] {
+        get { lkViews(_pointer.pointee.codecs_count, _pointer.pointee.codecs, owner: _box) }
+        nonmutating set {
+            var count = _pointer.pointee.codecs_count, base = _pointer.pointee.codecs
+            lkSetRepeatedMessages(&count, &base, newValue)
+            _pointer.pointee.codecs_count = count; _pointer.pointee.codecs = base
         }
-
-        var publish: [Livekit_Codec] {
-            get { lkViews(_pointer.pointee.publish_count, _pointer.pointee.publish, owner: _owner) }
-            nonmutating set {
-                var count = _pointer.pointee.publish_count, base = _pointer.pointee.publish
-                lkSetRepeatedMessages(&count, &base, newValue)
-                _pointer.pointee.publish_count = count; _pointer.pointee.publish = base
-            }
-        }
-
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var publish: [Livekit_Codec] {
+        get { lkViews(_pointer.pointee.publish_count, _pointer.pointee.publish, owner: _box) }
+        nonmutating set {
+            var count = _pointer.pointee.publish_count, base = _pointer.pointee.publish
+            lkSetRepeatedMessages(&count, &base, newValue)
+            _pointer.pointee.publish_count = count; _pointer.pointee.publish = base
+        }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
-    }
 }
 
 struct Livekit_TimedVersion: NanopbMessage, @unchecked Sendable {
@@ -4677,50 +3713,19 @@ struct Livekit_TimedVersion: NanopbMessage, @unchecked Sendable {
     }
     var hasTicks: Bool { _pointer.pointee.ticks != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_TimedVersion.zero, descriptor: Livekit_TimedVersion.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_TimedVersion { Livekit_TimedVersion(_owning: _box) }
-
-        var unixMicro: Int64 {
-            get { _pointer.pointee.unix_micro?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.unix_micro, newValue) }
-        }
-
-        var ticks: Int32 {
-            get { _pointer.pointee.ticks?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.ticks, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_TimedVersion {
+    var unixMicro: Int64 {
+        get { _pointer.pointee.unix_micro?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.unix_micro, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var ticks: Int32 {
+        get { _pointer.pointee.ticks?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.ticks, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
-    }
 }
 
 struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
@@ -4801,69 +3806,6 @@ struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
         }
         var hasGenerated: Bool { _pointer.pointee.generated != nil }
 
-        /// Mutation lives here. `~Copyable` means the compiler proves there is
-        /// never a second live handle to this storage, so no uniqueness check is
-        /// needed and `build()` publishes storage nothing can still mutate.
-        struct Builder: ~Copyable {
-            let _box: NanopbBox<Storage>
-            var _owner: NanopbAnyBox { _box }
-            var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
-
-            init() { _box = NanopbBox(zero: TextHeader.zero, descriptor: TextHeader.descriptor) }
-            init(_adopting box: NanopbBox<Storage>) { _box = box }
-            consuming func build() -> TextHeader { TextHeader(_owning: _box) }
-
-            var operationType: Livekit_DataStream.OperationType {
-                get { _pointer.pointee.operation_type.map { lkEnum($0.pointee) } ?? Livekit_DataStream.OperationType() }
-                nonmutating set { lkSetEnumPointer(&_pointer.pointee.operation_type, newValue) }
-            }
-
-            var version: Int32 {
-                get { _pointer.pointee.version?.pointee ?? 0 }
-                nonmutating set { lkSetValue(&_pointer.pointee.version, newValue) }
-            }
-
-            var replyToStreamID: String {
-                get { lkString(_pointer.pointee.reply_to_stream_id) ?? "" }
-                nonmutating set { lkSetString(&_pointer.pointee.reply_to_stream_id, newValue) }
-            }
-
-            var attachedStreamIds: [String] {
-                get { lkRepeated(_pointer.pointee.attached_stream_ids_count, _pointer.pointee.attached_stream_ids) }
-                nonmutating set {
-                    var count = _pointer.pointee.attached_stream_ids_count, base = _pointer.pointee.attached_stream_ids
-                    lkSetRepeated(&count, &base, newValue)
-                    _pointer.pointee.attached_stream_ids_count = count; _pointer.pointee.attached_stream_ids = base
-                }
-            }
-
-            var generated: Bool {
-                get { _pointer.pointee.generated?.pointee ?? false }
-                nonmutating set { lkSetValue(&_pointer.pointee.generated, newValue) }
-            }
-
-        }
-
-        static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-            var builder = Builder()
-            try populate(&builder)
-            return builder.build()
-        }
-
-        /// This message with `populate` applied. `consuming` ends the caller's
-        /// ownership, so when nothing else holds the storage the mutation happens
-        /// in place; otherwise it copies once for the whole batch, not per field.
-        consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-            if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-                var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-                try populate(&builder)
-                return builder.build()
-            }
-            var builder = Builder()
-            lkOverwrite(builder._pointer, with: self)
-            try populate(&builder)
-            return builder.build()
-        }
     }
 
     struct ByteHeader: NanopbMessage, @unchecked Sendable {
@@ -4898,45 +3840,6 @@ struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
         }
         var hasName: Bool { _pointer.pointee.name != nil }
 
-        /// Mutation lives here. `~Copyable` means the compiler proves there is
-        /// never a second live handle to this storage, so no uniqueness check is
-        /// needed and `build()` publishes storage nothing can still mutate.
-        struct Builder: ~Copyable {
-            let _box: NanopbBox<Storage>
-            var _owner: NanopbAnyBox { _box }
-            var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
-
-            init() { _box = NanopbBox(zero: ByteHeader.zero, descriptor: ByteHeader.descriptor) }
-            init(_adopting box: NanopbBox<Storage>) { _box = box }
-            consuming func build() -> ByteHeader { ByteHeader(_owning: _box) }
-
-            var name: String {
-                get { lkString(_pointer.pointee.name) ?? "" }
-                nonmutating set { lkSetString(&_pointer.pointee.name, newValue) }
-            }
-
-        }
-
-        static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-            var builder = Builder()
-            try populate(&builder)
-            return builder.build()
-        }
-
-        /// This message with `populate` applied. `consuming` ends the caller's
-        /// ownership, so when nothing else holds the storage the mutation happens
-        /// in place; otherwise it copies once for the whole batch, not per field.
-        consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-            if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-                var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-                try populate(&builder)
-                return builder.build()
-            }
-            var builder = Builder()
-            lkOverwrite(builder._pointer, with: self)
-            try populate(&builder)
-            return builder.build()
-        }
     }
 
     struct Header: NanopbMessage, @unchecked Sendable {
@@ -5061,188 +3964,8 @@ struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
             }
             var hasValue: Bool { _pointer.pointee.value != nil }
 
-            /// Mutation lives here. `~Copyable` means the compiler proves there is
-            /// never a second live handle to this storage, so no uniqueness check is
-            /// needed and `build()` publishes storage nothing can still mutate.
-            struct Builder: ~Copyable {
-                let _box: NanopbBox<Storage>
-                var _owner: NanopbAnyBox { _box }
-                var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
-
-                init() { _box = NanopbBox(zero: AttributesEntry.zero, descriptor: AttributesEntry.descriptor) }
-                init(_adopting box: NanopbBox<Storage>) { _box = box }
-                consuming func build() -> AttributesEntry { AttributesEntry(_owning: _box) }
-
-                var key: String {
-                    get { lkString(_pointer.pointee.key) ?? "" }
-                    nonmutating set { lkSetString(&_pointer.pointee.key, newValue) }
-                }
-
-                var value: String {
-                    get { lkString(_pointer.pointee.value) ?? "" }
-                    nonmutating set { lkSetString(&_pointer.pointee.value, newValue) }
-                }
-
-            }
-
-            static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-                var builder = Builder()
-                try populate(&builder)
-                return builder.build()
-            }
-
-            /// This message with `populate` applied. `consuming` ends the caller's
-            /// ownership, so when nothing else holds the storage the mutation happens
-            /// in place; otherwise it copies once for the whole batch, not per field.
-            consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-                if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-                    var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-                    try populate(&builder)
-                    return builder.build()
-                }
-                var builder = Builder()
-                lkOverwrite(builder._pointer, with: self)
-                try populate(&builder)
-                return builder.build()
-            }
         }
 
-        /// Mutation lives here. `~Copyable` means the compiler proves there is
-        /// never a second live handle to this storage, so no uniqueness check is
-        /// needed and `build()` publishes storage nothing can still mutate.
-        struct Builder: ~Copyable {
-            let _box: NanopbBox<Storage>
-            var _owner: NanopbAnyBox { _box }
-            var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
-
-            init() { _box = NanopbBox(zero: Header.zero, descriptor: Header.descriptor) }
-            init(_adopting box: NanopbBox<Storage>) { _box = box }
-            consuming func build() -> Header { Header(_owning: _box) }
-
-            var streamID: String {
-                get { lkString(_pointer.pointee.stream_id) ?? "" }
-                nonmutating set { lkSetString(&_pointer.pointee.stream_id, newValue) }
-            }
-
-            var timestamp: Int64 {
-                get { _pointer.pointee.timestamp?.pointee ?? 0 }
-                nonmutating set { lkSetValue(&_pointer.pointee.timestamp, newValue) }
-            }
-
-            var topic: String {
-                get { lkString(_pointer.pointee.topic) ?? "" }
-                nonmutating set { lkSetString(&_pointer.pointee.topic, newValue) }
-            }
-
-            var mimeType: String {
-                get { lkString(_pointer.pointee.mime_type) ?? "" }
-                nonmutating set { lkSetString(&_pointer.pointee.mime_type, newValue) }
-            }
-
-            var totalLength: UInt64 {
-                get { _pointer.pointee.total_length?.pointee ?? 0 }
-                nonmutating set { lkSetValue(&_pointer.pointee.total_length, newValue) }
-            }
-
-            var encryptionType: Livekit_Encryption.TypeEnum {
-                get { _pointer.pointee.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
-                nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption_type, newValue) }
-            }
-
-            var attributes: [String: String] {
-                get {
-                    var out: [String: String] = [:]
-                    for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _owner) as [Livekit_DataStream.Header.AttributesEntry] {
-                        out[entry.key] = entry.value
-                    }
-                    return out
-                }
-                nonmutating set {
-                    // sorted for deterministic encoding (bytes-based Equatable)
-                    let entries = newValue.sorted { $0.key < $1.key }.map { pair in
-                        Livekit_DataStream.Header.AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
-                    }
-                    var count = _pointer.pointee.attributes_count, base = _pointer.pointee.attributes
-                    lkSetRepeatedMessages(&count, &base, entries)
-                    _pointer.pointee.attributes_count = count; _pointer.pointee.attributes = base
-                }
-            }
-
-            var contentHeader: OneOf_ContentHeader? {
-                get {
-                    switch _pointer.pointee.which_content_header {
-                    case pb_size_t(livekit_DataStream_Header_text_header_tag):
-                        return .textHeader(_pointer.pointee.content_header.text_header.map { Livekit_DataStream.TextHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.TextHeader._empty)
-                    case pb_size_t(livekit_DataStream_Header_byte_header_tag):
-                        return .byteHeader(_pointer.pointee.content_header.byte_header.map { Livekit_DataStream.ByteHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.ByteHeader._empty)
-                    default: return nil
-                    }
-                }
-                nonmutating set {
-                    _clearContentHeader()
-                    switch newValue {
-                    case let .textHeader(value):
-                        _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_text_header_tag)
-                        lkSetMessage(&_pointer.pointee.content_header.text_header, value)
-                    case let .byteHeader(value):
-                        _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_byte_header_tag)
-                        lkSetMessage(&_pointer.pointee.content_header.byte_header, value)
-                    case nil: break
-                    }
-                }
-            }
-            var textHeader: Livekit_DataStream.TextHeader {
-                get { _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_text_header_tag) ? (_pointer.pointee.content_header.text_header.map { Livekit_DataStream.TextHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.TextHeader._empty) : Livekit_DataStream.TextHeader() }
-                nonmutating set {
-                    _clearContentHeader()
-                    _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_text_header_tag)
-                    lkSetMessage(&_pointer.pointee.content_header.text_header, newValue)
-                }
-            }
-            var byteHeader: Livekit_DataStream.ByteHeader {
-                get { _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_byte_header_tag) ? (_pointer.pointee.content_header.byte_header.map { Livekit_DataStream.ByteHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.ByteHeader._empty) : Livekit_DataStream.ByteHeader() }
-                nonmutating set {
-                    _clearContentHeader()
-                    _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_byte_header_tag)
-                    lkSetMessage(&_pointer.pointee.content_header.byte_header, newValue)
-                }
-            }
-            private func _clearContentHeader() {
-                switch _pointer.pointee.which_content_header {
-                case pb_size_t(livekit_DataStream_Header_text_header_tag):
-                    lkRelease(message: &_pointer.pointee.content_header.text_header, Livekit_DataStream.TextHeader.descriptor)
-                case pb_size_t(livekit_DataStream_Header_byte_header_tag):
-                    lkRelease(message: &_pointer.pointee.content_header.byte_header, Livekit_DataStream.ByteHeader.descriptor)
-                default: break
-                }
-                _pointer.pointee.which_content_header = 0
-                // zero the union: stale bits from a previous variant would otherwise
-                // be misread as a pointer by the next variant's setter
-                _pointer.pointee.content_header = .init()
-            }
-
-        }
-
-        static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-            var builder = Builder()
-            try populate(&builder)
-            return builder.build()
-        }
-
-        /// This message with `populate` applied. `consuming` ends the caller's
-        /// ownership, so when nothing else holds the storage the mutation happens
-        /// in place; otherwise it copies once for the whole batch, not per field.
-        consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-            if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-                var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-                try populate(&builder)
-                return builder.build()
-            }
-            var builder = Builder()
-            lkOverwrite(builder._pointer, with: self)
-            try populate(&builder)
-            return builder.build()
-        }
     }
 
     struct Chunk: NanopbMessage, @unchecked Sendable {
@@ -5297,65 +4020,6 @@ struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
         }
         var hasIv: Bool { _pointer.pointee.iv != nil }
 
-        /// Mutation lives here. `~Copyable` means the compiler proves there is
-        /// never a second live handle to this storage, so no uniqueness check is
-        /// needed and `build()` publishes storage nothing can still mutate.
-        struct Builder: ~Copyable {
-            let _box: NanopbBox<Storage>
-            var _owner: NanopbAnyBox { _box }
-            var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
-
-            init() { _box = NanopbBox(zero: Chunk.zero, descriptor: Chunk.descriptor) }
-            init(_adopting box: NanopbBox<Storage>) { _box = box }
-            consuming func build() -> Chunk { Chunk(_owning: _box) }
-
-            var streamID: String {
-                get { lkString(_pointer.pointee.stream_id) ?? "" }
-                nonmutating set { lkSetString(&_pointer.pointee.stream_id, newValue) }
-            }
-
-            var chunkIndex: UInt64 {
-                get { _pointer.pointee.chunk_index?.pointee ?? 0 }
-                nonmutating set { lkSetValue(&_pointer.pointee.chunk_index, newValue) }
-            }
-
-            var content: Data {
-                get { lkData(_pointer.pointee.content) }
-                nonmutating set { lkSetData(&_pointer.pointee.content, newValue) }
-            }
-
-            var version: Int32 {
-                get { _pointer.pointee.version?.pointee ?? 0 }
-                nonmutating set { lkSetValue(&_pointer.pointee.version, newValue) }
-            }
-
-            var iv: Data {
-                get { lkData(_pointer.pointee.iv) }
-                nonmutating set { lkSetData(&_pointer.pointee.iv, newValue) }
-            }
-
-        }
-
-        static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-            var builder = Builder()
-            try populate(&builder)
-            return builder.build()
-        }
-
-        /// This message with `populate` applied. `consuming` ends the caller's
-        /// ownership, so when nothing else holds the storage the mutation happens
-        /// in place; otherwise it copies once for the whole batch, not per field.
-        consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-            if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-                var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-                try populate(&builder)
-                return builder.build()
-            }
-            var builder = Builder()
-            lkOverwrite(builder._pointer, with: self)
-            try populate(&builder)
-            return builder.build()
-        }
     }
 
     struct Trailer: NanopbMessage, @unchecked Sendable {
@@ -5440,115 +4104,8 @@ struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
             }
             var hasValue: Bool { _pointer.pointee.value != nil }
 
-            /// Mutation lives here. `~Copyable` means the compiler proves there is
-            /// never a second live handle to this storage, so no uniqueness check is
-            /// needed and `build()` publishes storage nothing can still mutate.
-            struct Builder: ~Copyable {
-                let _box: NanopbBox<Storage>
-                var _owner: NanopbAnyBox { _box }
-                var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
-
-                init() { _box = NanopbBox(zero: AttributesEntry.zero, descriptor: AttributesEntry.descriptor) }
-                init(_adopting box: NanopbBox<Storage>) { _box = box }
-                consuming func build() -> AttributesEntry { AttributesEntry(_owning: _box) }
-
-                var key: String {
-                    get { lkString(_pointer.pointee.key) ?? "" }
-                    nonmutating set { lkSetString(&_pointer.pointee.key, newValue) }
-                }
-
-                var value: String {
-                    get { lkString(_pointer.pointee.value) ?? "" }
-                    nonmutating set { lkSetString(&_pointer.pointee.value, newValue) }
-                }
-
-            }
-
-            static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-                var builder = Builder()
-                try populate(&builder)
-                return builder.build()
-            }
-
-            /// This message with `populate` applied. `consuming` ends the caller's
-            /// ownership, so when nothing else holds the storage the mutation happens
-            /// in place; otherwise it copies once for the whole batch, not per field.
-            consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-                if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-                    var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-                    try populate(&builder)
-                    return builder.build()
-                }
-                var builder = Builder()
-                lkOverwrite(builder._pointer, with: self)
-                try populate(&builder)
-                return builder.build()
-            }
         }
 
-        /// Mutation lives here. `~Copyable` means the compiler proves there is
-        /// never a second live handle to this storage, so no uniqueness check is
-        /// needed and `build()` publishes storage nothing can still mutate.
-        struct Builder: ~Copyable {
-            let _box: NanopbBox<Storage>
-            var _owner: NanopbAnyBox { _box }
-            var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
-
-            init() { _box = NanopbBox(zero: Trailer.zero, descriptor: Trailer.descriptor) }
-            init(_adopting box: NanopbBox<Storage>) { _box = box }
-            consuming func build() -> Trailer { Trailer(_owning: _box) }
-
-            var streamID: String {
-                get { lkString(_pointer.pointee.stream_id) ?? "" }
-                nonmutating set { lkSetString(&_pointer.pointee.stream_id, newValue) }
-            }
-
-            var reason: String {
-                get { lkString(_pointer.pointee.reason) ?? "" }
-                nonmutating set { lkSetString(&_pointer.pointee.reason, newValue) }
-            }
-
-            var attributes: [String: String] {
-                get {
-                    var out: [String: String] = [:]
-                    for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _owner) as [Livekit_DataStream.Trailer.AttributesEntry] {
-                        out[entry.key] = entry.value
-                    }
-                    return out
-                }
-                nonmutating set {
-                    // sorted for deterministic encoding (bytes-based Equatable)
-                    let entries = newValue.sorted { $0.key < $1.key }.map { pair in
-                        Livekit_DataStream.Trailer.AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
-                    }
-                    var count = _pointer.pointee.attributes_count, base = _pointer.pointee.attributes
-                    lkSetRepeatedMessages(&count, &base, entries)
-                    _pointer.pointee.attributes_count = count; _pointer.pointee.attributes = base
-                }
-            }
-
-        }
-
-        static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-            var builder = Builder()
-            try populate(&builder)
-            return builder.build()
-        }
-
-        /// This message with `populate` applied. `consuming` ends the caller's
-        /// ownership, so when nothing else holds the storage the mutation happens
-        /// in place; otherwise it copies once for the whole batch, not per field.
-        consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-            if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-                var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-                try populate(&builder)
-                return builder.build()
-            }
-            var builder = Builder()
-            lkOverwrite(builder._pointer, with: self)
-            try populate(&builder)
-            return builder.build()
-        }
     }
 
     enum OperationType: NanopbEnum, CaseIterable {
@@ -5585,40 +4142,237 @@ struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
         }
     }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_DataStream.zero, descriptor: Livekit_DataStream.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_DataStream { Livekit_DataStream(_owning: _box) }
-
+extension NanopbBuilder where M == Livekit_DataStream.TextHeader {
+    var operationType: Livekit_DataStream.OperationType {
+        get { _pointer.pointee.operation_type.map { lkEnum($0.pointee) } ?? Livekit_DataStream.OperationType() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.operation_type, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var version: Int32 {
+        get { _pointer.pointee.version?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.version, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
+    var replyToStreamID: String {
+        get { lkString(_pointer.pointee.reply_to_stream_id) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.reply_to_stream_id, newValue) }
+    }
+
+    var attachedStreamIds: [String] {
+        get { lkRepeated(_pointer.pointee.attached_stream_ids_count, _pointer.pointee.attached_stream_ids) }
+        nonmutating set {
+            var count = _pointer.pointee.attached_stream_ids_count, base = _pointer.pointee.attached_stream_ids
+            lkSetRepeated(&count, &base, newValue)
+            _pointer.pointee.attached_stream_ids_count = count; _pointer.pointee.attached_stream_ids = base
         }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
     }
+
+    var generated: Bool {
+        get { _pointer.pointee.generated?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.generated, newValue) }
+    }
+
+}
+
+extension NanopbBuilder where M == Livekit_DataStream.ByteHeader {
+    var name: String {
+        get { lkString(_pointer.pointee.name) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.name, newValue) }
+    }
+
+}
+
+extension NanopbBuilder where M == Livekit_DataStream.Header.AttributesEntry {
+    var key: String {
+        get { lkString(_pointer.pointee.key) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.key, newValue) }
+    }
+
+    var value: String {
+        get { lkString(_pointer.pointee.value) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.value, newValue) }
+    }
+
+}
+
+extension NanopbBuilder where M == Livekit_DataStream.Header {
+    var streamID: String {
+        get { lkString(_pointer.pointee.stream_id) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.stream_id, newValue) }
+    }
+
+    var timestamp: Int64 {
+        get { _pointer.pointee.timestamp?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.timestamp, newValue) }
+    }
+
+    var topic: String {
+        get { lkString(_pointer.pointee.topic) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.topic, newValue) }
+    }
+
+    var mimeType: String {
+        get { lkString(_pointer.pointee.mime_type) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.mime_type, newValue) }
+    }
+
+    var totalLength: UInt64 {
+        get { _pointer.pointee.total_length?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.total_length, newValue) }
+    }
+
+    var encryptionType: Livekit_Encryption.TypeEnum {
+        get { _pointer.pointee.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption_type, newValue) }
+    }
+
+    var attributes: [String: String] {
+        get {
+            var out: [String: String] = [:]
+            for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _box) as [Livekit_DataStream.Header.AttributesEntry] {
+                out[entry.key] = entry.value
+            }
+            return out
+        }
+        nonmutating set {
+            // sorted for deterministic encoding (bytes-based Equatable)
+            let entries = newValue.sorted { $0.key < $1.key }.map { pair in
+                Livekit_DataStream.Header.AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
+            }
+            var count = _pointer.pointee.attributes_count, base = _pointer.pointee.attributes
+            lkSetRepeatedMessages(&count, &base, entries)
+            _pointer.pointee.attributes_count = count; _pointer.pointee.attributes = base
+        }
+    }
+
+    var contentHeader: Livekit_DataStream.Header.OneOf_ContentHeader? {
+        get {
+            switch _pointer.pointee.which_content_header {
+            case pb_size_t(livekit_DataStream_Header_text_header_tag):
+                return .textHeader(_pointer.pointee.content_header.text_header.map { Livekit_DataStream.TextHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream.TextHeader._empty)
+            case pb_size_t(livekit_DataStream_Header_byte_header_tag):
+                return .byteHeader(_pointer.pointee.content_header.byte_header.map { Livekit_DataStream.ByteHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream.ByteHeader._empty)
+            default: return nil
+            }
+        }
+        nonmutating set {
+            _clearContentHeader()
+            switch newValue {
+            case let .textHeader(value):
+                _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_text_header_tag)
+                lkSetMessage(&_pointer.pointee.content_header.text_header, value)
+            case let .byteHeader(value):
+                _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_byte_header_tag)
+                lkSetMessage(&_pointer.pointee.content_header.byte_header, value)
+            case nil: break
+            }
+        }
+    }
+    var textHeader: Livekit_DataStream.TextHeader {
+        get { _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_text_header_tag) ? (_pointer.pointee.content_header.text_header.map { Livekit_DataStream.TextHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream.TextHeader._empty) : Livekit_DataStream.TextHeader() }
+        nonmutating set {
+            _clearContentHeader()
+            _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_text_header_tag)
+            lkSetMessage(&_pointer.pointee.content_header.text_header, newValue)
+        }
+    }
+    var byteHeader: Livekit_DataStream.ByteHeader {
+        get { _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_byte_header_tag) ? (_pointer.pointee.content_header.byte_header.map { Livekit_DataStream.ByteHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream.ByteHeader._empty) : Livekit_DataStream.ByteHeader() }
+        nonmutating set {
+            _clearContentHeader()
+            _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_byte_header_tag)
+            lkSetMessage(&_pointer.pointee.content_header.byte_header, newValue)
+        }
+    }
+    private func _clearContentHeader() {
+        switch _pointer.pointee.which_content_header {
+        case pb_size_t(livekit_DataStream_Header_text_header_tag):
+            lkRelease(message: &_pointer.pointee.content_header.text_header, Livekit_DataStream.TextHeader.descriptor)
+        case pb_size_t(livekit_DataStream_Header_byte_header_tag):
+            lkRelease(message: &_pointer.pointee.content_header.byte_header, Livekit_DataStream.ByteHeader.descriptor)
+        default: break
+        }
+        _pointer.pointee.which_content_header = 0
+        // zero the union: stale bits from a previous variant would otherwise
+        // be misread as a pointer by the next variant's setter
+        _pointer.pointee.content_header = .init()
+    }
+
+}
+
+extension NanopbBuilder where M == Livekit_DataStream.Chunk {
+    var streamID: String {
+        get { lkString(_pointer.pointee.stream_id) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.stream_id, newValue) }
+    }
+
+    var chunkIndex: UInt64 {
+        get { _pointer.pointee.chunk_index?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.chunk_index, newValue) }
+    }
+
+    var content: Data {
+        get { lkData(_pointer.pointee.content) }
+        nonmutating set { lkSetData(&_pointer.pointee.content, newValue) }
+    }
+
+    var version: Int32 {
+        get { _pointer.pointee.version?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.version, newValue) }
+    }
+
+    var iv: Data {
+        get { lkData(_pointer.pointee.iv) }
+        nonmutating set { lkSetData(&_pointer.pointee.iv, newValue) }
+    }
+
+}
+
+extension NanopbBuilder where M == Livekit_DataStream.Trailer.AttributesEntry {
+    var key: String {
+        get { lkString(_pointer.pointee.key) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.key, newValue) }
+    }
+
+    var value: String {
+        get { lkString(_pointer.pointee.value) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.value, newValue) }
+    }
+
+}
+
+extension NanopbBuilder where M == Livekit_DataStream.Trailer {
+    var streamID: String {
+        get { lkString(_pointer.pointee.stream_id) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.stream_id, newValue) }
+    }
+
+    var reason: String {
+        get { lkString(_pointer.pointee.reason) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.reason, newValue) }
+    }
+
+    var attributes: [String: String] {
+        get {
+            var out: [String: String] = [:]
+            for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _box) as [Livekit_DataStream.Trailer.AttributesEntry] {
+                out[entry.key] = entry.value
+            }
+            return out
+        }
+        nonmutating set {
+            // sorted for deterministic encoding (bytes-based Equatable)
+            let entries = newValue.sorted { $0.key < $1.key }.map { pair in
+                Livekit_DataStream.Trailer.AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
+            }
+            var count = _pointer.pointee.attributes_count, base = _pointer.pointee.attributes
+            lkSetRepeatedMessages(&count, &base, entries)
+            _pointer.pointee.attributes_count = count; _pointer.pointee.attributes = base
+        }
+    }
+
 }
 
 struct Livekit_SubscribedAudioCodec: NanopbMessage, @unchecked Sendable {
@@ -5658,50 +4412,19 @@ struct Livekit_SubscribedAudioCodec: NanopbMessage, @unchecked Sendable {
     }
     var hasEnabled: Bool { _pointer.pointee.enabled != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_SubscribedAudioCodec.zero, descriptor: Livekit_SubscribedAudioCodec.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_SubscribedAudioCodec { Livekit_SubscribedAudioCodec(_owning: _box) }
-
-        var codec: String {
-            get { lkString(_pointer.pointee.codec) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.codec, newValue) }
-        }
-
-        var enabled: Bool {
-            get { _pointer.pointee.enabled?.pointee ?? false }
-            nonmutating set { lkSetValue(&_pointer.pointee.enabled, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_SubscribedAudioCodec {
+    var codec: String {
+        get { lkString(_pointer.pointee.codec) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.codec, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var enabled: Bool {
+        get { _pointer.pointee.enabled?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.enabled, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
-    }
 }
 
 enum Livekit_BackupCodecPolicy: NanopbEnum, CaseIterable {

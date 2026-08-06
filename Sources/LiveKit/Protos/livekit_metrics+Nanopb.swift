@@ -65,77 +65,46 @@ struct Livekit_MetricsBatch: NanopbMessage, @unchecked Sendable {
         lkViews(_pointer.pointee.events_count, _pointer.pointee.events, owner: _owner)
     }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_MetricsBatch.zero, descriptor: Livekit_MetricsBatch.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_MetricsBatch { Livekit_MetricsBatch(_owning: _box) }
-
-        var timestampMs: Int64 {
-            get { _pointer.pointee.timestamp_ms?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.timestamp_ms, newValue) }
-        }
-
-        var normalizedTimestamp: Google_Protobuf_Timestamp {
-            get { _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty }
-            nonmutating set { lkSetMessage(&_pointer.pointee.normalized_timestamp, newValue) }
-        }
-
-        var strData: [String] {
-            get { lkRepeated(_pointer.pointee.str_data_count, _pointer.pointee.str_data) }
-            nonmutating set {
-                var count = _pointer.pointee.str_data_count, base = _pointer.pointee.str_data
-                lkSetRepeated(&count, &base, newValue)
-                _pointer.pointee.str_data_count = count; _pointer.pointee.str_data = base
-            }
-        }
-
-        var timeSeries: [Livekit_TimeSeriesMetric] {
-            get { lkViews(_pointer.pointee.time_series_count, _pointer.pointee.time_series, owner: _owner) }
-            nonmutating set {
-                var count = _pointer.pointee.time_series_count, base = _pointer.pointee.time_series
-                lkSetRepeatedMessages(&count, &base, newValue)
-                _pointer.pointee.time_series_count = count; _pointer.pointee.time_series = base
-            }
-        }
-
-        var events: [Livekit_EventMetric] {
-            get { lkViews(_pointer.pointee.events_count, _pointer.pointee.events, owner: _owner) }
-            nonmutating set {
-                var count = _pointer.pointee.events_count, base = _pointer.pointee.events
-                lkSetRepeatedMessages(&count, &base, newValue)
-                _pointer.pointee.events_count = count; _pointer.pointee.events = base
-            }
-        }
-
+extension NanopbBuilder where M == Livekit_MetricsBatch {
+    var timestampMs: Int64 {
+        get { _pointer.pointee.timestamp_ms?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.timestamp_ms, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var normalizedTimestamp: Google_Protobuf_Timestamp {
+        get { _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _box) } ?? Google_Protobuf_Timestamp._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.normalized_timestamp, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
+    var strData: [String] {
+        get { lkRepeated(_pointer.pointee.str_data_count, _pointer.pointee.str_data) }
+        nonmutating set {
+            var count = _pointer.pointee.str_data_count, base = _pointer.pointee.str_data
+            lkSetRepeated(&count, &base, newValue)
+            _pointer.pointee.str_data_count = count; _pointer.pointee.str_data = base
         }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
     }
+
+    var timeSeries: [Livekit_TimeSeriesMetric] {
+        get { lkViews(_pointer.pointee.time_series_count, _pointer.pointee.time_series, owner: _box) }
+        nonmutating set {
+            var count = _pointer.pointee.time_series_count, base = _pointer.pointee.time_series
+            lkSetRepeatedMessages(&count, &base, newValue)
+            _pointer.pointee.time_series_count = count; _pointer.pointee.time_series = base
+        }
+    }
+
+    var events: [Livekit_EventMetric] {
+        get { lkViews(_pointer.pointee.events_count, _pointer.pointee.events, owner: _box) }
+        nonmutating set {
+            var count = _pointer.pointee.events_count, base = _pointer.pointee.events
+            lkSetRepeatedMessages(&count, &base, newValue)
+            _pointer.pointee.events_count = count; _pointer.pointee.events = base
+        }
+    }
+
 }
 
 struct Livekit_TimeSeriesMetric: NanopbMessage, @unchecked Sendable {
@@ -189,69 +158,38 @@ struct Livekit_TimeSeriesMetric: NanopbMessage, @unchecked Sendable {
     }
     var hasRid: Bool { _pointer.pointee.rid != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_TimeSeriesMetric.zero, descriptor: Livekit_TimeSeriesMetric.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_TimeSeriesMetric { Livekit_TimeSeriesMetric(_owning: _box) }
-
-        var label: UInt32 {
-            get { _pointer.pointee.label?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.label, newValue) }
-        }
-
-        var participantIdentity: UInt32 {
-            get { _pointer.pointee.participant_identity?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.participant_identity, newValue) }
-        }
-
-        var trackSid: UInt32 {
-            get { _pointer.pointee.track_sid?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.track_sid, newValue) }
-        }
-
-        var samples: [Livekit_MetricSample] {
-            get { lkViews(_pointer.pointee.samples_count, _pointer.pointee.samples, owner: _owner) }
-            nonmutating set {
-                var count = _pointer.pointee.samples_count, base = _pointer.pointee.samples
-                lkSetRepeatedMessages(&count, &base, newValue)
-                _pointer.pointee.samples_count = count; _pointer.pointee.samples = base
-            }
-        }
-
-        var rid: UInt32 {
-            get { _pointer.pointee.rid?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.rid, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_TimeSeriesMetric {
+    var label: UInt32 {
+        get { _pointer.pointee.label?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.label, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var participantIdentity: UInt32 {
+        get { _pointer.pointee.participant_identity?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.participant_identity, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var trackSid: UInt32 {
+        get { _pointer.pointee.track_sid?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.track_sid, newValue) }
     }
+
+    var samples: [Livekit_MetricSample] {
+        get { lkViews(_pointer.pointee.samples_count, _pointer.pointee.samples, owner: _box) }
+        nonmutating set {
+            var count = _pointer.pointee.samples_count, base = _pointer.pointee.samples
+            lkSetRepeatedMessages(&count, &base, newValue)
+            _pointer.pointee.samples_count = count; _pointer.pointee.samples = base
+        }
+    }
+
+    var rid: UInt32 {
+        get { _pointer.pointee.rid?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.rid, newValue) }
+    }
+
 }
 
 struct Livekit_MetricSample: NanopbMessage, @unchecked Sendable {
@@ -296,55 +234,24 @@ struct Livekit_MetricSample: NanopbMessage, @unchecked Sendable {
     }
     var hasValue: Bool { _pointer.pointee.value != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_MetricSample.zero, descriptor: Livekit_MetricSample.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_MetricSample { Livekit_MetricSample(_owning: _box) }
-
-        var timestampMs: Int64 {
-            get { _pointer.pointee.timestamp_ms?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.timestamp_ms, newValue) }
-        }
-
-        var normalizedTimestamp: Google_Protobuf_Timestamp {
-            get { _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty }
-            nonmutating set { lkSetMessage(&_pointer.pointee.normalized_timestamp, newValue) }
-        }
-
-        var value: Float {
-            get { _pointer.pointee.value?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.value, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_MetricSample {
+    var timestampMs: Int64 {
+        get { _pointer.pointee.timestamp_ms?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.timestamp_ms, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var normalizedTimestamp: Google_Protobuf_Timestamp {
+        get { _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _box) } ?? Google_Protobuf_Timestamp._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.normalized_timestamp, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var value: Float {
+        get { _pointer.pointee.value?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.value, newValue) }
     }
+
 }
 
 struct Livekit_EventMetric: NanopbMessage, @unchecked Sendable {
@@ -419,85 +326,54 @@ struct Livekit_EventMetric: NanopbMessage, @unchecked Sendable {
     }
     var hasRid: Bool { _pointer.pointee.rid != nil }
 
-    /// Mutation lives here. `~Copyable` means the compiler proves there is
-    /// never a second live handle to this storage, so no uniqueness check is
-    /// needed and `build()` publishes storage nothing can still mutate.
-    struct Builder: ~Copyable {
-        let _box: NanopbBox<Storage>
-        var _owner: NanopbAnyBox { _box }
-        var _pointer: UnsafeMutablePointer<Storage> { _box.pointer }
+}
 
-        init() { _box = NanopbBox(zero: Livekit_EventMetric.zero, descriptor: Livekit_EventMetric.descriptor) }
-        init(_adopting box: NanopbBox<Storage>) { _box = box }
-        consuming func build() -> Livekit_EventMetric { Livekit_EventMetric(_owning: _box) }
-
-        var label: UInt32 {
-            get { _pointer.pointee.label?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.label, newValue) }
-        }
-
-        var participantIdentity: UInt32 {
-            get { _pointer.pointee.participant_identity?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.participant_identity, newValue) }
-        }
-
-        var trackSid: UInt32 {
-            get { _pointer.pointee.track_sid?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.track_sid, newValue) }
-        }
-
-        var startTimestampMs: Int64 {
-            get { _pointer.pointee.start_timestamp_ms?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.start_timestamp_ms, newValue) }
-        }
-
-        var endTimestampMs: Int64 {
-            get { _pointer.pointee.end_timestamp_ms?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.end_timestamp_ms, newValue) }
-        }
-
-        var normalizedStartTimestamp: Google_Protobuf_Timestamp {
-            get { _pointer.pointee.normalized_start_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty }
-            nonmutating set { lkSetMessage(&_pointer.pointee.normalized_start_timestamp, newValue) }
-        }
-
-        var normalizedEndTimestamp: Google_Protobuf_Timestamp {
-            get { _pointer.pointee.normalized_end_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty }
-            nonmutating set { lkSetMessage(&_pointer.pointee.normalized_end_timestamp, newValue) }
-        }
-
-        var metadata: String {
-            get { lkString(_pointer.pointee.metadata) ?? "" }
-            nonmutating set { lkSetString(&_pointer.pointee.metadata, newValue) }
-        }
-
-        var rid: UInt32 {
-            get { _pointer.pointee.rid?.pointee ?? 0 }
-            nonmutating set { lkSetValue(&_pointer.pointee.rid, newValue) }
-        }
-
+extension NanopbBuilder where M == Livekit_EventMetric {
+    var label: UInt32 {
+        get { _pointer.pointee.label?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.label, newValue) }
     }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        var builder = Builder()
-        try populate(&builder)
-        return builder.build()
+    var participantIdentity: UInt32 {
+        get { _pointer.pointee.participant_identity?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.participant_identity, newValue) }
     }
 
-    /// This message with `populate` applied. `consuming` ends the caller's
-    /// ownership, so when nothing else holds the storage the mutation happens
-    /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
-        if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
-            try populate(&builder)
-            return builder.build()
-        }
-        var builder = Builder()
-        lkOverwrite(builder._pointer, with: self)
-        try populate(&builder)
-        return builder.build()
+    var trackSid: UInt32 {
+        get { _pointer.pointee.track_sid?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.track_sid, newValue) }
     }
+
+    var startTimestampMs: Int64 {
+        get { _pointer.pointee.start_timestamp_ms?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.start_timestamp_ms, newValue) }
+    }
+
+    var endTimestampMs: Int64 {
+        get { _pointer.pointee.end_timestamp_ms?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.end_timestamp_ms, newValue) }
+    }
+
+    var normalizedStartTimestamp: Google_Protobuf_Timestamp {
+        get { _pointer.pointee.normalized_start_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _box) } ?? Google_Protobuf_Timestamp._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.normalized_start_timestamp, newValue) }
+    }
+
+    var normalizedEndTimestamp: Google_Protobuf_Timestamp {
+        get { _pointer.pointee.normalized_end_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _box) } ?? Google_Protobuf_Timestamp._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.normalized_end_timestamp, newValue) }
+    }
+
+    var metadata: String {
+        get { lkString(_pointer.pointee.metadata) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.metadata, newValue) }
+    }
+
+    var rid: UInt32 {
+        get { _pointer.pointee.rid?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.rid, newValue) }
+    }
+
 }
 
 enum Livekit_MetricLabel: NanopbEnum, CaseIterable {

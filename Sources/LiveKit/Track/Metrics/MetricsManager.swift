@@ -16,6 +16,12 @@
 
 import Foundation
 
+// Extending the generic builder needs the runtime module by name; the facades
+// themselves are re-exported through LiveKit.
+#if !COCOAPODS && !LK_XCFRAMEWORK
+import LiveKitNanopb
+#endif
+
 // MARK: - Triggers
 
 extension MetricsManager: RoomDelegate {
@@ -118,7 +124,7 @@ private extension Livekit_MetricsBatch {
 }
 
 // Mutation helpers live on the builder; the message itself is immutable.
-private extension Livekit_MetricsBatch.Builder {
+private extension NanopbBuilder where M == Livekit_MetricsBatch {
     func addOutboundMetrics(from statistics: [OutboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
         for stat in statistics where stat.kind == "video" {
             if let durations = stat.qualityLimitationDurations {

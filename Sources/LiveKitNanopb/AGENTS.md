@@ -36,8 +36,18 @@ Three layers:
    `NanopbMessage` protocol (wire format, equality, `owned()`), and the `lk*` field
    accessors the generated code calls.
 3. **Generated facades** — one Swift struct per message the SDK references
-   (type-level pruning), with read-only computed properties over the C struct,
-   plus a nested `Builder: ~Copyable` carrying every setter.
+   (type-level pruning), with read-only computed properties over the C struct.
+   Setters live in `extension NanopbBuilder where M == Livekit_X`, so the
+   builder itself is written once in the runtime rather than 107 times; that
+   constrained extension on a `~Copyable` generic is SE-0427. It costs ~2 KB
+   of specialisation metadata and saves ~26% of the generated source.
+
+   Two constraints the shape has to respect. `NanopbBuilder._pointer` is
+   *stored*: as a computed property off `_box` it crashes the Swift 6.1 SIL
+   verifier, and 6.1 is the floor. And the message's nested types are not in
+   scope inside the extension — they cannot be aliased in either, since every
+   constrained extension would add the same name to `NanopbBuilder`, so the
+   generator fully qualifies them.
 
 A message value is a `struct` holding `_owner: NanopbAnyBox` (lifetime) and
 `_pointer` (a nanopb C struct in a malloc'd, address-stable allocation). It is
