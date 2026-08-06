@@ -171,20 +171,37 @@ package func lkMemberPointer<S, M>(
 package func lkSetMessage<M: NanopbMessage>(
     _ slot: inout UnsafeMutablePointer<M.Storage>?, _ value: M,
 ) {
-    lkRelease(message: &slot, M.descriptor)
+    // SAFETY: as in `lkSetRepeatedMessages`, `value` may be a view into the
+    // storage this replaces, so it is copied before the old slot is released.
     guard let raw = malloc(MemoryLayout<M.Storage>.size) else { return }
     let pointer = raw.bindMemory(to: M.Storage.self, capacity: 1)
     pointer.initialize(to: M.zero)
     lkOverwrite(pointer, with: value)
+    lkRelease(message: &slot, M.descriptor)
     slot = pointer
 }
 
 /// Replace an inline submessage field.
 package func lkSetMessage<M: NanopbMessage>(inline slot: inout M.Storage, _ value: M) {
+    // SAFETY: `value` may be a view into `slot`, so serialise it before the
+    // release; the bytes are independent of the storage being freed.
+    let encoded = try? nanopbEncodedBytes(value._pointer, M.descriptor)
     var descriptor = M.descriptor
     withUnsafeMutablePointer(to: &slot) { lk_pb_release(&descriptor, UnsafeMutableRawPointer($0)) }
     slot = M.zero
-    withUnsafeMutablePointer(to: &slot) { lkOverwrite($0, with: value) }
+    guard let encoded else { return }
+
+    var failure: NanopbError?
+    withUnsafeMutablePointer(to: &slot) { destination in
+        encoded.withUnsafeBytes { buffer in
+            do throws(NanopbError) {
+                try nanopbDecode(into: destination, M.descriptor, buffer)
+            } catch {
+                failure = error
+            }
+        }
+    }
+    if let failure { nanopbReportFailure("message overwrite", failure) }
 }
 
 package func lkOverwrite<M: NanopbMessage>(_ pointer: UnsafeMutablePointer<M.Storage>, with value: M) {
@@ -295,6 +312,20 @@ package func lkRepeatedMessages<M: NanopbMessage>(
 package func lkSetRepeatedMessages<M: NanopbMessage>(
     _ count: inout pb_size_t, _ base: inout UnsafeMutablePointer<M.Storage>?, _ values: [M],
 ) {
+    // SAFETY: `values` may alias the array being replaced — the getter hands
+    // out views into it, so `field.append(x)` reads views and assigns them
+    // straight back. Copy into fresh storage *first*; releasing the old array
+    // up front would free the bytes those views are read from.
+    var fresh: UnsafeMutablePointer<M.Storage>?
+    if !values.isEmpty, let raw = malloc(MemoryLayout<M.Storage>.stride * values.count) {
+        let pointer = raw.bindMemory(to: M.Storage.self, capacity: values.count)
+        for (index, value) in values.enumerated() {
+            let slot = pointer.advanced(by: index)
+            slot.initialize(to: M.zero)
+            lkOverwrite(slot, with: value)
+        }
+        fresh = pointer
+    }
     // SAFETY: each element owns nested allocations, so every one must be
     // released with its descriptor before the array itself is freed —
     // freeing the array alone would leak the whole subtree.
@@ -304,19 +335,9 @@ package func lkSetRepeatedMessages<M: NanopbMessage>(
             lk_pb_release(&descriptor, UnsafeMutableRawPointer(old.advanced(by: index)))
         }
         free(old)
-        base = nil
-        count = 0
     }
-    guard !values.isEmpty,
-          let raw = malloc(MemoryLayout<M.Storage>.stride * values.count) else { return }
-    let pointer = raw.bindMemory(to: M.Storage.self, capacity: values.count)
-    for (index, value) in values.enumerated() {
-        let slot = pointer.advanced(by: index)
-        slot.initialize(to: M.zero)
-        lkOverwrite(slot, with: value)
-    }
-    base = pointer
-    count = pb_size_t(values.count)
+    base = fresh
+    count = fresh == nil ? 0 : pb_size_t(values.count)
 }
 
 package func lkCount(_ count: pb_size_t) -> Int { Int(count) }

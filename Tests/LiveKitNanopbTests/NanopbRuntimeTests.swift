@@ -21,6 +21,15 @@ import Testing
 // The oracle target compiles its own `Livekit_Room`, so the nanopb-backed type
 // is module-qualified as `LiveKit.Livekit_Room` throughout. Messages are
 // immutable: they are built with `.with { }` and derived with `.modifying { }`.
+/// Observes whether a box is still alive without contributing a strong
+/// reference, which would itself defeat the uniqueness it is checking.
+/// A plain `weak let` local would be neater but needs Swift 6.2.
+private final class BoxWatch {
+    private weak var box: AnyObject?
+    var isAlive: Bool { box != nil }
+    init(_ box: AnyObject?) { self.box = box }
+}
+
 @Suite("nanopb runtime")
 struct NanopbRuntimeTests {
     @Test("round-trips scalars, strings and presence")
@@ -179,7 +188,7 @@ struct NanopbRuntimeTests {
         let packet = LiveKit.Livekit_DataPacket.with {
             $0.user = .with { $0.payload = Data(repeating: 0xAB, count: 4096) }
         }
-        weak var box: AnyObject? = packet._owner
+        let box = BoxWatch(packet._owner)
 
         // Handing the value to a `consuming` parameter is what real callers
         // such as `Room.send(dataPacket:)` do.
@@ -188,7 +197,7 @@ struct NanopbRuntimeTests {
         }
         let stamped = stamp(packet)
 
-        #expect(box != nil, "unique `modifying` reallocated instead of mutating in place")
+        #expect(box.isAlive, "unique `modifying` reallocated instead of mutating in place")
         #expect(stamped.participantIdentity == "id")
         #expect(stamped.user.payload.count == 4096)
     }
@@ -201,5 +210,43 @@ struct NanopbRuntimeTests {
         #expect(boxesDiffer, "a shared value must not be mutated in place")
         #expect(original.sid == "RM_a")
         #expect(derived.sid == "RM_b")
+    }
+
+    // `field.append(x)` is a get-modify-set: the getter hands out views into
+    // the field's own array, so the setter is handed values that alias the
+    // storage it is about to release. Freeing first read from freed memory —
+    // it crashed MetricsManager's stats path once copy-on-write stopped
+    // reallocating on every setter call and masking it.
+    @Test("appending to a repeated submessage field does not read freed storage")
+    func repeatedAppendAliasesItsOwnStorage() throws {
+        let batch = LiveKit.Livekit_MetricsBatch.with { batch in
+            for index in 0 ..< 32 {
+                batch.timeSeries.append(.with {
+                    $0.label = UInt32(index)
+                    $0.samples = [.with { $0.value = Float(index) }]
+                })
+            }
+            batch.strData = ["a", "b"]
+        }
+
+        #expect(batch.timeSeries.count == 32)
+        #expect(batch.timeSeries[31].label == 31)
+        #expect(batch.timeSeries[31].samples.first?.value == 31)
+
+        // the oracle stands in for the receiving side
+        let oracle = try Livekit_MetricsBatch(serializedBytes: batch.serializedBytes())
+        #expect(oracle.timeSeries.count == 32)
+        #expect(oracle.timeSeries[31].label == 31)
+    }
+
+    @Test("assigning a submessage field from itself does not read freed storage")
+    func submessageSelfAssignment() {
+        let room = LiveKit.Livekit_Room.with { room in
+            room.version = .with { $0.unixMicro = 99 }
+            room.version = room.version // aliases the slot being replaced
+            room.sid = "RM_alias"
+        }
+        #expect(room.version.unixMicro == 99)
+        #expect(room.sid == "RM_alias")
     }
 }
