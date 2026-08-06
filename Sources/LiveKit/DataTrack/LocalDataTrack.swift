@@ -81,6 +81,9 @@ public extension LocalDataTrack {
             do {
                 try tryPush(frame: frame)
             } catch let error as DataTrackPushFrameError {
+                // The track can be unpublished between the check above and the push; end the
+                // send as documented rather than surfacing an error.
+                if case .trackUnpublished = error { break }
                 guard case .queueFull = error else { throw error }
                 switch onQueueFull {
                 case .throw: throw error
