@@ -14,158 +14,72 @@
  * limitations under the License.
  */
 
-import Darwin
 import Foundation
 @testable import LiveKit
 import Testing
 
-// Every setter in this layer frees one allocation and makes another, and
-// `NanopbBox.deinit` is the only thing that frees a message's tree. Nothing
-// else checks that: TSan finds races, the fuzzer finds crashes, and ASan on
-// Darwin does not ship LeakSanitizer, so a setter that stopped freeing would
-// pass the entire suite.
+// There are two layers to leak from, and only one is worth asserting on here.
 //
-// These churn one operation many times and compare live heap before and after.
+// The *box* is a Swift object, so ARC settles it and a `weak` reference proves
+// it deallocated. That is exact — no sampling, no thresholds — and it covers
+// the mistake this design is most exposed to: a view quietly pinning the whole
+// allocation it was carved out of.
 //
-// `malloc_zone_statistics` is process-wide, so the sample also sees whatever
-// other suites have live at that instant. `.serialized` removes the
-// interference within this suite, and the threshold is set well above
-// cross-suite noise: a leak of ~1 KB per iteration shows up as ~2 MB, verified
-// by deleting a `free` and watching every test here fail by 1.7–2.5 MB.
-@Suite("nanopb leaks", .serialized)
+// The *fields* are C allocations — the `malloc`/`strdup`/`free` calls in
+// NanopbAccessors plus nanopb's own — with no Swift object attached, so ARC
+// cannot see them. Measuring those by sampling process heap was tried and
+// removed: `malloc_zone_statistics` is process-wide, other suites allocate
+// concurrently, and it failed roughly one run in three. Autorelease pools and
+// a min-over-rounds estimate got it green locally, but a threshold that
+// depends on what else is running is not a test.
+//
+// The exact version, if that coverage is wanted: `pb.h` explicitly sanctions
+// overriding `pb_realloc` / `pb_free`, so routing those and this layer's
+// `malloc` through a counted allocator would make the C side countable with no
+// sampling at all. That is a production change for a test-only signal, so it
+// is deliberately not taken.
+@Suite("message ownership")
 struct LeakTests {
-    private static let iterations = 2000
-    private static let rounds = 3
-    /// Well above per-round noise, well below the ~2 MB a real leak produces.
-    private static let tolerance = 512 * 1024
-
-    private static func liveBytes() -> Int {
-        var stats = malloc_statistics_t()
-        malloc_zone_statistics(malloc_default_zone(), &stats)
-        return Int(stats.size_in_use)
-    }
-
-    /// Measures heap growth across `iterations` runs of `body`, and reports the
-    /// smallest growth seen over several rounds.
-    ///
-    /// Two sources of false positives to defeat. `Data` and `String` can park
-    /// objects in an autorelease pool that drains later, so each round runs
-    /// inside its own pool. And the counter is process-wide, so a round can
-    /// catch another suite mid-allocation — that noise varies per round while a
-    /// real leak recurs in every one, so the minimum is the honest estimate.
-    private static func churn(_ label: String, _ body: () throws -> Void) rethrows {
-        try autoreleasepool { try body() } // settle one-time allocations
-
-        var smallest = Int.max
-        for _ in 0 ..< rounds {
-            let growth = try autoreleasepool { () throws -> Int in
-                let before = liveBytes()
-                for _ in 0 ..< iterations {
-                    try body()
-                }
-                return liveBytes() - before
-            }
-            smallest = min(smallest, growth)
-            if smallest < tolerance { break } // already conclusive
-        }
-        #expect(
-            smallest < tolerance,
-            "\(label) grew the heap by \(smallest) bytes over \(iterations) iterations",
-        )
-    }
-
-    @Test("replacing a string field frees the old allocation")
-    func stringReplacement() {
-        let payload = String(repeating: "x", count: 1024)
-        Self.churn("string replacement") {
-            _ = LiveKit.Livekit_ParticipantInfo.with {
-                $0.metadata = payload
-                $0.metadata = payload // second write must free the first
-                $0.identity = payload
-            }
-        }
-    }
-
-    @Test("replacing a bytes field frees the old allocation")
-    func bytesReplacement() {
-        let payload = Data(repeating: 0xAB, count: 1024)
-        Self.churn("bytes replacement") {
-            _ = LiveKit.Livekit_UserPacket.with {
-                $0.payload = payload
-                $0.payload = payload
-            }
-        }
-    }
-
-    @Test("switching oneof variants releases the previous payload")
-    func oneofSwitching() {
-        let payload = Data(repeating: 0xCD, count: 1024)
-        let text = String(repeating: "y", count: 512)
-        Self.churn("oneof switching") {
-            _ = LiveKit.Livekit_DataPacket.with {
-                // each write releases the previous variant, which has a
-                // different layout — the descriptor has to match the *old* one
-                $0.user = .with { $0.payload = payload }
-                $0.chatMessage = .with { $0.message = text }
-                $0.sipDtmf = .with { $0.digit = text }
-                $0.user = .with { $0.payload = payload }
-            }
-        }
-    }
-
-    @Test("replacing a repeated submessage field frees the old array")
-    func repeatedMessageReplacement() {
-        let layers = (0 ..< 8).map { index in
-            LiveKit.Livekit_VideoLayer.with { $0.width = UInt32(index); $0.height = UInt32(index) }
-        }
-        Self.churn("repeated submessage replacement") {
-            _ = LiveKit.Livekit_TrackInfo.with {
-                $0.layers = layers
-                $0.layers = layers
-            }
-        }
-    }
-
-    @Test("appending to a repeated field through its own getter does not leak")
-    func repeatedSelfAppend() {
-        // the aliasing case the setter copies-before-releasing for
-        Self.churn("repeated self-append") {
-            var info = LiveKit.Livekit_TrackInfo.with {
-                $0.layers = [.with { $0.width = 1 }]
-            }
-            for _ in 0 ..< 4 {
-                info = info.modifying { $0.layers += $0.layers }
-            }
-        }
-    }
-
-    @Test("decoding then dropping a message releases its whole tree")
-    func decodeLifecycle() throws {
+    @Test("promoting a submessage with owned() lets the parent go")
+    func ownedReleasesTheParent() throws {
+        // The point of `owned()` is that a view stops pinning the allocation
+        // it was carved out of. That only shows up if the promoted value
+        // outlives the parent *value* — hold the promotions, drop the parents,
+        // and every parent box must be gone.
         let bytes = try LiveKit.Livekit_DataPacket.with {
-            $0.participantIdentity = String(repeating: "p", count: 256)
-            $0.destinationIdentities = (0 ..< 8).map { "identity-\($0)" }
-            $0.user = .with {
-                $0.payload = Data(repeating: 0xEF, count: 1024)
-                $0.topic = String(repeating: "t", count: 256)
-            }
+            $0.user = .with { $0.payload = Data(repeating: 0x22, count: 64) }
         }.serializedBytes()
 
-        try Self.churn("decode lifecycle") {
-            let packet = try LiveKit.Livekit_DataPacket(serializedBytes: bytes)
-            _ = packet.user.payload.count
-            _ = packet.destinationIdentities.count
+        var promoted: [LiveKit.Livekit_UserPacket] = []
+        var parents: [BoxWatch] = []
+        for _ in 0 ..< 100 {
+            let decoded = try LiveKit.Livekit_DataPacket(serializedBytes: bytes)
+            parents.append(BoxWatch(decoded._owner))
+            promoted.append(decoded.user.owned())
         }
+
+        #expect(parents.allSatisfy { !$0.isAlive }, "owned() left the parent pinned")
+        #expect(promoted.allSatisfy { $0.payload.count == 64 }, "promoted value lost its storage")
     }
 
-    @Test("copying out of a parent with owned() does not retain the parent")
-    func ownedCopy() throws {
+    @Test("a view without owned() does pin its parent")
+    func viewPinsTheParent() throws {
+        // the other half of the contract, so the test above cannot pass by
+        // accident if views stopped retaining parents at all
         let bytes = try LiveKit.Livekit_DataPacket.with {
-            $0.user = .with { $0.payload = Data(repeating: 0x11, count: 2048) }
+            $0.user = .with { $0.payload = Data(repeating: 0x33, count: 64) }
         }.serializedBytes()
 
-        try Self.churn("owned copy") {
-            let packet = try LiveKit.Livekit_DataPacket(serializedBytes: bytes)
-            _ = packet.user.owned()
+        var view: LiveKit.Livekit_UserPacket?
+        var parent: BoxWatch?
+        do {
+            let decoded = try LiveKit.Livekit_DataPacket(serializedBytes: bytes)
+            parent = BoxWatch(decoded._owner)
+            view = decoded.user
         }
+        #expect(parent?.isAlive == true, "a live view failed to keep its parent alive")
+        #expect(view?.payload.count == 64)
+        view = nil
+        #expect(parent?.isAlive == false, "dropping the view left the parent alive")
     }
 }

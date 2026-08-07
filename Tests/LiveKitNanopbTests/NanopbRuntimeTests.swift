@@ -23,8 +23,10 @@ import Testing
 // immutable: they are built with `.with { }` and derived with `.modifying { }`.
 /// Observes whether a box is still alive without contributing a strong
 /// reference, which would itself defeat the uniqueness it is checking.
-/// A plain `weak let` local would be neater but needs Swift 6.2.
-private final class BoxWatch {
+/// Watches a box without retaining it — a strong `let` would keep the box
+/// alive and make the very thing under test unobservable. Shared with
+/// `LeakTests`; a plain `weak let` local would be neater but needs Swift 6.2.
+final class BoxWatch {
     private weak var box: AnyObject?
     var isAlive: Bool { box != nil }
     init(_ box: AnyObject?) { self.box = box }
