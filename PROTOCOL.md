@@ -24,6 +24,21 @@ references the type.
   you can so it mutates in place instead of copying. Nested writes need an
   explicit submessage: `$0.a = .with { $0.b = c }`.
 
+- **Patching a field onto already-encoded bytes**: protobuf defines
+  concatenation as merge, and a singular scalar takes the *last* occurrence, so
+  appending an encoded message that carries only that field overwrites it
+  without touching the rest. `DataChannelPair.makeRequest` stamps the reliable
+  sequence this way rather than deriving a new packet with `modifying`, which
+  would re-encode the whole payload to write four bytes. Safe on the receiving
+  side too: for a duplicate singular field nanopb reuses the allocation
+  (`allocate_field` → `pb_realloc`) and releases first for submessages, so
+  there is nothing to leak. Pinned by `NanopbRuntimeTests.concatenationMerge`,
+  which asserts the merge through the SwiftProtobuf oracle as well as the
+  facade — the oracle stands in for every other SDK's parser, and agreeing with
+  ourselves would prove nothing. Note this cannot distinguish "unset" from
+  "explicitly zero" (presence *is* the pointer), so a field patched this way
+  can't meaningfully carry a deliberate zero.
+
 - **Nested type names are flat**: `Livekit_DataPacket_Kind`, not
   `Livekit_DataPacket.Kind`. Every message is the same generic type, and
   constrained extensions of one generic cannot each declare a member of the
