@@ -252,11 +252,12 @@ their zone-sentinel trick, sound here only because messages are immutable.
 
 Reachable improvements once the floor moves:
 
-- `Span`/`RawSpan` borrows already exist behind `#if compiler(>=6.2)`
-  (`withLkSpan`); they hand the closure a bounds-checked view instead of a raw
-  pointer, and back-deploy to iOS 12.2, so only the compiler gates them.
-  Nothing calls them yet — they are kept as the proven shape for the first hot
-  path that needs one, not as an API to reach for by default.
+- `Span`/`RawSpan` borrows hand a closure a bounds-checked view instead of a
+  raw pointer, and back-deploy to iOS 12.2, so only the compiler floor gates
+  them. A `withLkSpan` was built behind `#if compiler(>=6.2)` and removed once
+  measured to be dead — the shape is recorded in the *Borrowing primitives*
+  comment at the end of `NanopbAccessors.swift`, to re-add if a hot path ever
+  needs one.
 - Making views `~Escapable` with `@_lifetime` would turn "stored a view and
   pinned the parent allocation" from a memory-growth bug into a compile error.
   Apple's port does exactly this for its `Zone` projection, but it needs
@@ -291,9 +292,11 @@ Reachable improvements once the floor moves:
   There is deliberately **no** per-field borrow accessor. The generator used to
   emit one for every string and bytes field, 128 of them, and not a single call
   site ever used one; the receive path hands consumers a `Data` anyway, so the
-  copy happens at the API boundary regardless. `withLkData` / `withLkRepeated`
-  remain as runtime primitives if a real hot path ever needs one, and the
-  generator can re-emit wrappers on demand the same way it prunes types.
+  copy happens at the API boundary regardless. `withLkRepeated` remains as a
+  runtime primitive; the scalar borrows (`withLkData`, `withLkSpan`) were
+  removed, with their shapes kept in a comment at the end of
+  `NanopbAccessors.swift`. The generator can re-emit wrappers on demand the
+  same way it prunes types.
 - **`package` access everywhere**: `LiveKitNanopb` is SDK plumbing, never
   public API. In single-module builds (CocoaPods, xcframework) these sources compile
   into the product directly — see the `#if LK_XCFRAMEWORK / #elseif !COCOAPODS`
