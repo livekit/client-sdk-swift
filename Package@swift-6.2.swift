@@ -41,7 +41,6 @@ let package = Package(
         .target(
             name: "LiveKitNanopb",
             dependencies: ["CLiveKitProto"],
-            exclude: ["AGENTS.md", "CLAUDE.md"],
         ),
         .target(
             name: "LKObjCHelpers",

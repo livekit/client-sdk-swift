@@ -1,10 +1,11 @@
 # Protocol Layer (protobuf)
 
-The wire protocol is nanopb-based: `Sources/CLiveKitProto` holds the vendored
-nanopb runtime plus generated C structs, and `Sources/LiveKit/Protos` holds
-generated *immutable* Swift facades over them (runtime in
-`Sources/LiveKitNanopb`). SwiftProtobuf is linked only by the test target, as an
-independent "oracle" implementation to verify against.
+The wire protocol is nanopb-based. Vendored nanopb runtime and generated C in
+`Sources/CLiveKitProto`, a fixed-cost Swift runtime in `Sources/LiveKitNanopb`,
+generated *immutable* facades in `Sources/LiveKit/Protos`, and the generator in
+`scripts/generate-swift-protos.swift` — run it with `make proto`. SwiftProtobuf
+is linked only by the test target, as an independent "oracle" implementation to
+verify against.
 
 The schema contributes **no Swift types**: every message is the one generic
 `NanopbMsg<Storage>`, and `Livekit_Room` is a typealias for
@@ -64,8 +65,8 @@ references the type.
 
 SwiftProtobuf links a ~1.1 MB runtime plus heavy per-message generated code
 regardless of how little of it the SDK uses. nanopb keeps the wire format in
-compact C field tables, and this target is a fixed-cost (~700 line) bridge that
-does not grow with the number of messages. The migration cut the SDK's
+compact C field tables, and `LiveKitNanopb` is a fixed-cost (~700 line) bridge
+that does not grow with the number of messages. The migration cut the SDK's
 download-size contribution by ~1.7 MB. A stripped fork of SwiftProtobuf was
 evaluated and bottoms out ~2.3× larger (see PR #1081 discussion) — the overhead
 is structural (per-message metadata, codec logic), not trimmable.
@@ -89,7 +90,7 @@ Three layers:
    `pb_*` → `lk_pb_*` symbol renames live in `lk_pb_config.h` /
    `lk_pb_rename.h` (see those headers for the Firebase-collision and
    SwiftPM-importer rationale).
-2. **`LiveKitNanopb`** (this target) — `NanopbBox` ownership, the generic
+2. **`LiveKitNanopb`** — `NanopbBox` ownership, the generic
    `NanopbMsg<Storage>` (wire format, equality, `with` / `modifying` /
    `owned()`), the `NanopbStorage` protocol each C struct conforms to, and the
    `lk*` field accessors the generated code calls.
@@ -195,8 +196,8 @@ justification is immutability, and the compiler enforces most of it:
   reads through views into a shared parent.
 - `modifying` writes in place only after `isKnownUniquelyReferenced` proves no
   other value — copy or view — can observe the storage.
-- Nothing in this target adds locks; safety comes from the type system, not
-  synchronization.
+- Nothing in `LiveKitNanopb` adds locks; safety comes from the type system,
+  not synchronization.
 
 `Tests/LiveKitNanopbTests/ConcurrencyStressTests` exercises the claim under
 TSan (shared reads, concurrent `modifying` on copies, view lifetime, view
@@ -212,8 +213,8 @@ swift test --filter 'Nanopb|Conformance|ConcurrencyStress' --sanitize=thread
 
 The unsafe surface is the C boundary: `NanopbBox`'s allocation, the `lk*`
 accessors, and the pointer reads in the generated facades. Nothing unsafe is
-reachable from public API — every declaration here is `package`, and no public
-type exposes a pointer.
+reachable from public API — every declaration in `LiveKitNanopb` is `package`,
+and no public type exposes a pointer.
 
 Each site that carries an invariant the code cannot show for itself has a
 `// SAFETY:` comment, the convention Apple's TrueType-hinting port uses
@@ -223,7 +224,7 @@ unsafe operation; state the invariant, not what the line does.
 Swift 6.2's strict memory safety (`.strictMemorySafety()`, `unsafe` expression
 markers, `@safe`) is **not** adopted: the markers are 6.2 syntax, a 6.1
 compiler rejects them, and they cannot be `#if`-guarded per expression, so
-adopting them means moving the floor off Swift 6.1. Compiling this target with
+adopting them means moving the floor off Swift 6.1. Compiling `LiveKitNanopb` with
 `-strict-memory-safety` today reports ~11,200 warnings, ~5,400 of them in
 generated code (the generator would have to emit the markers). Revisit when the
 minimum toolchain reaches 6.2.
@@ -278,8 +279,8 @@ Reachable improvements once the floor moves:
   copy happens at the API boundary regardless. `withLkData` / `withLkRepeated`
   remain as runtime primitives if a real hot path ever needs one, and the
   generator can re-emit wrappers on demand the same way it prunes types.
-- **`package` access everywhere**: this target is SDK plumbing, never public
-  API. In single-module builds (CocoaPods, xcframework) these sources compile
+- **`package` access everywhere**: `LiveKitNanopb` is SDK plumbing, never
+  public API. In single-module builds (CocoaPods, xcframework) these sources compile
   into the product directly — see the `#if LK_XCFRAMEWORK / #elseif !COCOAPODS`
   import guards at the top of each file, and keep them on any new file.
 
