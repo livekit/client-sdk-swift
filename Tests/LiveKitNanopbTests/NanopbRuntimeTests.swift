@@ -85,6 +85,30 @@ struct NanopbRuntimeTests {
         #expect(room.version.ticks == 7)
     }
 
+    @Test("assigning a oneof variant from its own storage does not read freed memory")
+    func oneofVariantSelfAssignment() {
+        // A message variant's getter hands out a view into the union, so the
+        // incoming value can point at the allocation the clear is about to
+        // free. Same hazard as `submessageSelfAssignment`, one level down.
+        let packet = LiveKit.Livekit_DataPacket.with {
+            $0.user = .with { $0.payload = Data(repeating: 0xAB, count: 512); $0.topic = "t" }
+        }
+
+        let viaVariant = packet.modifying { $0.user = $0.user }
+        #expect(viaVariant.user.payload == Data(repeating: 0xAB, count: 512))
+        #expect(viaVariant.user.topic == "t")
+
+        let viaProperty = packet.modifying { $0.value = $0.value }
+        #expect(viaProperty.user.payload == Data(repeating: 0xAB, count: 512))
+
+        // switching to a different variant sourced from the old one
+        let switched = packet.modifying { builder in
+            let payload = builder.user.payload
+            builder.chatMessage = .with { $0.message = "\(payload.count)" }
+        }
+        #expect(switched.chatMessage.message == "512")
+    }
+
     @Test("oneof: set, read, switch variant")
     func oneof() throws {
         let ping = LiveKit.Livekit_SignalRequest.with { $0.ping = 99 }

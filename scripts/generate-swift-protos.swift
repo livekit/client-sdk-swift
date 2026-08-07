@@ -670,6 +670,17 @@ extension Emitter {
         out.append("    }")
         out.append("    set {")
         out.append("        _ensureUnique()")
+        // detach every submessage payload before the clear frees what it may
+        // be a view into; see `ownIncoming`
+        let detachable = ctx.variants.filter { !Self.ownIncoming($0).isEmpty }
+        if !detachable.isEmpty {
+            out.append("        let newValue: \(ctx.enumName)? = switch newValue {")
+            for variant in detachable {
+                out.append("        case let .\(ctx.caseName(variant))(value): .\(ctx.caseName(variant))(value.owned())")
+            }
+            out.append("        default: newValue")
+            out.append("        }")
+        }
         out.append("        \(ctx.clearName)()")
         out.append("        switch newValue {")
         for variant in ctx.variants {
@@ -692,6 +703,7 @@ extension Emitter {
             out.append("    get { \(ctx.which) == \(ctx.tag(variant)) ? (\(read(variant, in: ctx.oneof))) : \(defaultValue(variant)) }")
             out.append("    set {")
             out.append("        _ensureUnique()")
+            out += Self.ownIncoming(variant).map { "        \($0)" }
             out.append("        \(ctx.clearName)()")
             out.append("        \(ctx.which) = \(ctx.tag(variant))")
             out.append("        \(write(variant, in: ctx.oneof, from: "newValue"))")
@@ -699,6 +711,23 @@ extension Emitter {
             out.append("}")
         }
         return out
+    }
+
+    /// Detaches an incoming submessage from the storage it may be a view into,
+    /// *before* that storage is released.
+    ///
+    /// A message variant's getter hands out a zero-copy view into the union, so
+    /// `$0.user = $0.user` — or any assignment sourced from the same message —
+    /// arrives pointing at the allocation the clear is about to free, and
+    /// encoding it afterwards reads freed memory. `owned()` is a no-op when the
+    /// value already owns its storage, so the common case costs nothing. The
+    /// scalar, string and bytes variants need no such step: their getters copy
+    /// out to Swift values, which own themselves.
+    static func ownIncoming(_ variant: FieldDescriptor) -> [String] {
+        switch variant.type {
+        case .message, .group: ["let newValue = newValue.owned()"]
+        default: []
+        }
     }
 
     /// Releases the live variant with the right layout before switching.

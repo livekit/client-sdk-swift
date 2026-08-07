@@ -1289,6 +1289,22 @@ extension Livekit_DataPacket.Builder {
             }
         }
         nonmutating set {
+            let newValue: Livekit_DataPacket_OneOf_Value? = switch newValue {
+            case let .user(value): .user(value.owned())
+            case let .speaker(value): .speaker(value.owned())
+            case let .sipDtmf(value): .sipDtmf(value.owned())
+            case let .transcription(value): .transcription(value.owned())
+            case let .metrics(value): .metrics(value.owned())
+            case let .chatMessage(value): .chatMessage(value.owned())
+            case let .rpcRequest(value): .rpcRequest(value.owned())
+            case let .rpcAck(value): .rpcAck(value.owned())
+            case let .rpcResponse(value): .rpcResponse(value.owned())
+            case let .streamHeader(value): .streamHeader(value.owned())
+            case let .streamChunk(value): .streamChunk(value.owned())
+            case let .streamTrailer(value): .streamTrailer(value.owned())
+            case let .encryptedPacket(value): .encryptedPacket(value.owned())
+            default: newValue
+            }
             _clearValue()
             switch newValue {
             case let .user(value):
@@ -1337,6 +1353,7 @@ extension Livekit_DataPacket.Builder {
     var user: Livekit_UserPacket {
         get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_user_tag) ? (_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _box) } ?? Livekit_UserPacket._empty) : Livekit_UserPacket() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_user_tag)
             lkSetMessage(&_pointer.pointee.value.user, newValue)
@@ -1345,6 +1362,7 @@ extension Livekit_DataPacket.Builder {
     var speaker: Livekit_ActiveSpeakerUpdate {
         get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_speaker_tag) ? (_pointer.pointee.value.speaker.map { Livekit_ActiveSpeakerUpdate(_sharing: $0, owner: _box) } ?? Livekit_ActiveSpeakerUpdate._empty) : Livekit_ActiveSpeakerUpdate() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_speaker_tag)
             lkSetMessage(&_pointer.pointee.value.speaker, newValue)
@@ -1353,6 +1371,7 @@ extension Livekit_DataPacket.Builder {
     var sipDtmf: Livekit_SipDTMF {
         get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_sip_dtmf_tag) ? (_pointer.pointee.value.sip_dtmf.map { Livekit_SipDTMF(_sharing: $0, owner: _box) } ?? Livekit_SipDTMF._empty) : Livekit_SipDTMF() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_sip_dtmf_tag)
             lkSetMessage(&_pointer.pointee.value.sip_dtmf, newValue)
@@ -1361,6 +1380,7 @@ extension Livekit_DataPacket.Builder {
     var transcription: Livekit_Transcription {
         get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_transcription_tag) ? (_pointer.pointee.value.transcription.map { Livekit_Transcription(_sharing: $0, owner: _box) } ?? Livekit_Transcription._empty) : Livekit_Transcription() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_transcription_tag)
             lkSetMessage(&_pointer.pointee.value.transcription, newValue)
@@ -1369,6 +1389,7 @@ extension Livekit_DataPacket.Builder {
     var metrics: Livekit_MetricsBatch {
         get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_metrics_tag) ? (_pointer.pointee.value.metrics.map { Livekit_MetricsBatch(_sharing: $0, owner: _box) } ?? Livekit_MetricsBatch._empty) : Livekit_MetricsBatch() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_metrics_tag)
             lkSetMessage(&_pointer.pointee.value.metrics, newValue)
@@ -1377,6 +1398,7 @@ extension Livekit_DataPacket.Builder {
     var chatMessage: Livekit_ChatMessage {
         get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_chat_message_tag) ? (_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _box) } ?? Livekit_ChatMessage._empty) : Livekit_ChatMessage() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_chat_message_tag)
             lkSetMessage(&_pointer.pointee.value.chat_message, newValue)
@@ -1385,6 +1407,7 @@ extension Livekit_DataPacket.Builder {
     var rpcRequest: Livekit_RpcRequest {
         get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_request_tag) ? (_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _box) } ?? Livekit_RpcRequest._empty) : Livekit_RpcRequest() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_request_tag)
             lkSetMessage(&_pointer.pointee.value.rpc_request, newValue)
@@ -1393,6 +1416,7 @@ extension Livekit_DataPacket.Builder {
     var rpcAck: Livekit_RpcAck {
         get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_ack_tag) ? (_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _box) } ?? Livekit_RpcAck._empty) : Livekit_RpcAck() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_ack_tag)
             lkSetMessage(&_pointer.pointee.value.rpc_ack, newValue)
@@ -1401,6 +1425,7 @@ extension Livekit_DataPacket.Builder {
     var rpcResponse: Livekit_RpcResponse {
         get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _box) } ?? Livekit_RpcResponse._empty) : Livekit_RpcResponse() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_response_tag)
             lkSetMessage(&_pointer.pointee.value.rpc_response, newValue)
@@ -1409,6 +1434,7 @@ extension Livekit_DataPacket.Builder {
     var streamHeader: Livekit_DataStream_Header {
         get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Header._empty) : Livekit_DataStream_Header() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_header_tag)
             lkSetMessage(&_pointer.pointee.value.stream_header, newValue)
@@ -1417,6 +1443,7 @@ extension Livekit_DataPacket.Builder {
     var streamChunk: Livekit_DataStream_Chunk {
         get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Chunk._empty) : Livekit_DataStream_Chunk() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_chunk_tag)
             lkSetMessage(&_pointer.pointee.value.stream_chunk, newValue)
@@ -1425,6 +1452,7 @@ extension Livekit_DataPacket.Builder {
     var streamTrailer: Livekit_DataStream_Trailer {
         get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Trailer._empty) : Livekit_DataStream_Trailer() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_trailer_tag)
             lkSetMessage(&_pointer.pointee.value.stream_trailer, newValue)
@@ -1433,6 +1461,7 @@ extension Livekit_DataPacket.Builder {
     var encryptedPacket: Livekit_EncryptedPacket {
         get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_encrypted_packet_tag) ? (_pointer.pointee.value.encrypted_packet.map { Livekit_EncryptedPacket(_sharing: $0, owner: _box) } ?? Livekit_EncryptedPacket._empty) : Livekit_EncryptedPacket() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_encrypted_packet_tag)
             lkSetMessage(&_pointer.pointee.value.encrypted_packet, newValue)
@@ -1616,6 +1645,17 @@ extension Livekit_EncryptedPacketPayload.Builder {
             }
         }
         nonmutating set {
+            let newValue: Livekit_EncryptedPacketPayload_OneOf_Value? = switch newValue {
+            case let .user(value): .user(value.owned())
+            case let .chatMessage(value): .chatMessage(value.owned())
+            case let .rpcRequest(value): .rpcRequest(value.owned())
+            case let .rpcAck(value): .rpcAck(value.owned())
+            case let .rpcResponse(value): .rpcResponse(value.owned())
+            case let .streamHeader(value): .streamHeader(value.owned())
+            case let .streamChunk(value): .streamChunk(value.owned())
+            case let .streamTrailer(value): .streamTrailer(value.owned())
+            default: newValue
+            }
             _clearValue()
             switch newValue {
             case let .user(value):
@@ -1649,6 +1689,7 @@ extension Livekit_EncryptedPacketPayload.Builder {
     var user: Livekit_UserPacket {
         get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_user_tag) ? (_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _box) } ?? Livekit_UserPacket._empty) : Livekit_UserPacket() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_user_tag)
             lkSetMessage(&_pointer.pointee.value.user, newValue)
@@ -1657,6 +1698,7 @@ extension Livekit_EncryptedPacketPayload.Builder {
     var chatMessage: Livekit_ChatMessage {
         get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag) ? (_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _box) } ?? Livekit_ChatMessage._empty) : Livekit_ChatMessage() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag)
             lkSetMessage(&_pointer.pointee.value.chat_message, newValue)
@@ -1665,6 +1707,7 @@ extension Livekit_EncryptedPacketPayload.Builder {
     var rpcRequest: Livekit_RpcRequest {
         get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag) ? (_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _box) } ?? Livekit_RpcRequest._empty) : Livekit_RpcRequest() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag)
             lkSetMessage(&_pointer.pointee.value.rpc_request, newValue)
@@ -1673,6 +1716,7 @@ extension Livekit_EncryptedPacketPayload.Builder {
     var rpcAck: Livekit_RpcAck {
         get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag) ? (_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _box) } ?? Livekit_RpcAck._empty) : Livekit_RpcAck() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag)
             lkSetMessage(&_pointer.pointee.value.rpc_ack, newValue)
@@ -1681,6 +1725,7 @@ extension Livekit_EncryptedPacketPayload.Builder {
     var rpcResponse: Livekit_RpcResponse {
         get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _box) } ?? Livekit_RpcResponse._empty) : Livekit_RpcResponse() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag)
             lkSetMessage(&_pointer.pointee.value.rpc_response, newValue)
@@ -1689,6 +1734,7 @@ extension Livekit_EncryptedPacketPayload.Builder {
     var streamHeader: Livekit_DataStream_Header {
         get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Header._empty) : Livekit_DataStream_Header() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag)
             lkSetMessage(&_pointer.pointee.value.stream_header, newValue)
@@ -1697,6 +1743,7 @@ extension Livekit_EncryptedPacketPayload.Builder {
     var streamChunk: Livekit_DataStream_Chunk {
         get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Chunk._empty) : Livekit_DataStream_Chunk() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag)
             lkSetMessage(&_pointer.pointee.value.stream_chunk, newValue)
@@ -1705,6 +1752,7 @@ extension Livekit_EncryptedPacketPayload.Builder {
     var streamTrailer: Livekit_DataStream_Trailer {
         get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Trailer._empty) : Livekit_DataStream_Trailer() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag)
             lkSetMessage(&_pointer.pointee.value.stream_trailer, newValue)
@@ -2288,6 +2336,10 @@ extension Livekit_RpcResponse.Builder {
             }
         }
         nonmutating set {
+            let newValue: Livekit_RpcResponse_OneOf_Value? = switch newValue {
+            case let .error(value): .error(value.owned())
+            default: newValue
+            }
             _clearValue()
             switch newValue {
             case let .payload(value):
@@ -2314,6 +2366,7 @@ extension Livekit_RpcResponse.Builder {
     var error: Livekit_RpcError {
         get { _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_error_tag) ? (_pointer.pointee.value.error.map { Livekit_RpcError(_sharing: $0, owner: _box) } ?? Livekit_RpcError._empty) : Livekit_RpcError() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_error_tag)
             lkSetMessage(&_pointer.pointee.value.error, newValue)
@@ -3088,6 +3141,11 @@ extension Livekit_DataStream_Header.Builder {
             }
         }
         nonmutating set {
+            let newValue: Livekit_DataStream_Header_OneOf_ContentHeader? = switch newValue {
+            case let .textHeader(value): .textHeader(value.owned())
+            case let .byteHeader(value): .byteHeader(value.owned())
+            default: newValue
+            }
             _clearContentHeader()
             switch newValue {
             case let .textHeader(value):
@@ -3103,6 +3161,7 @@ extension Livekit_DataStream_Header.Builder {
     var textHeader: Livekit_DataStream_TextHeader {
         get { _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_text_header_tag) ? (_pointer.pointee.content_header.text_header.map { Livekit_DataStream_TextHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream_TextHeader._empty) : Livekit_DataStream_TextHeader() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearContentHeader()
             _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_text_header_tag)
             lkSetMessage(&_pointer.pointee.content_header.text_header, newValue)
@@ -3111,6 +3170,7 @@ extension Livekit_DataStream_Header.Builder {
     var byteHeader: Livekit_DataStream_ByteHeader {
         get { _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_byte_header_tag) ? (_pointer.pointee.content_header.byte_header.map { Livekit_DataStream_ByteHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream_ByteHeader._empty) : Livekit_DataStream_ByteHeader() }
         nonmutating set {
+            let newValue = newValue.owned()
             _clearContentHeader()
             _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_byte_header_tag)
             lkSetMessage(&_pointer.pointee.content_header.byte_header, newValue)
