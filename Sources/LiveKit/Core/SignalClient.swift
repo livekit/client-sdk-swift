@@ -322,7 +322,9 @@ private extension SignalClient {
 
         switch message {
         case let .join(joinResponse):
-            _state.mutate { $0.lastJoinResponse = joinResponse }
+            // owned: the oneof getter hands out a view into the decoded
+            // `SignalResponse`, and this is kept for the whole session
+            _state.mutate { $0.lastJoinResponse = joinResponse.owned() }
             _delegate.notifyDetached { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
             _connectResponseCompleter.resume(returning: .join(joinResponse))
             await _restartPingTimer()

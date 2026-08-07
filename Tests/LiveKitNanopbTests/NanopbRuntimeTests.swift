@@ -155,6 +155,33 @@ struct NanopbRuntimeTests {
         #expect(back.user.payload == Data(repeating: 0xAB, count: 1000))
     }
 
+    @Test("an enum value this build does not know survives a round trip")
+    func unknownEnumRoundTrips() throws {
+        // proto3 enums are open, and `Track.Kind.none` already maps to a value
+        // outside the schema — the setter must not drop it, and it has to come
+        // back off the wire unchanged rather than collapsing to the zero case.
+        let unknown = LiveKit.Livekit_TrackType(rawValue: 10)
+        let info = LiveKit.Livekit_TrackInfo.with { $0.type = unknown }
+        #expect(info.type.rawValue == 10)
+
+        let back = try LiveKit.Livekit_TrackInfo(serializedBytes: info.serializedBytes())
+        #expect(back.type.rawValue == 10)
+        #expect(back.type == unknown)
+    }
+
+    @Test("modifying a value read from an absent submessage cannot write through the shared box")
+    func sharedEmptyIsNeverMutated() {
+        // an absent submessage hands out `Storage._emptyBox`, one allocation
+        // shared process-wide; `modifying` has to copy off it, or every later
+        // reader of any absent submessage of that type sees the mutation
+        let absent = LiveKit.Livekit_DataPacket().user
+        let derived = absent.modifying { $0.topic = "mutated" }
+
+        #expect(derived.topic == "mutated")
+        #expect(LiveKit.Livekit_DataPacket().user.topic.isEmpty)
+        #expect(LiveKit.Livekit_UserPacket().topic.isEmpty)
+    }
+
     @Test("owned() frees a view from its parent's allocation")
     func ownedView() {
         let response = LiveKit.Livekit_SignalResponse.with { response in

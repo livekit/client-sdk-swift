@@ -167,6 +167,21 @@ package protocol NanopbStorage {
     static var descriptor: pb_msgdesc_t { get }
     /// Shared, permanently-empty storage handed out for absent submessages.
     static var _emptyBox: NanopbBox<Self> { get }
+    /// Rendering for logs.
+    ///
+    /// Messages share one `CustomStringConvertible` conformance, so there is
+    /// exactly one witness and every dynamic use — interpolation,
+    /// `String(describing:)` — lands on it. A member on a constrained
+    /// extension would only be reachable where the concrete type is known
+    /// statically, which is not where logging happens. Per-message detail
+    /// therefore has to hang off the storage type, which is what varies.
+    static func _describe(_ message: NanopbMsg<Self>) -> String
+}
+
+package extension NanopbStorage {
+    /// Most messages are never logged individually; the type name is enough to
+    /// identify one inside a larger log line.
+    static func _describe(_: NanopbMsg<Self>) -> String { "\(Self.self)" }
 }
 
 // MARK: - Message
@@ -312,73 +327,11 @@ package struct NanopbMsg<S: NanopbStorage>: Equatable, Hashable, @unchecked Send
 /// `init(rawValue:)` and no `UNRECOGNIZED` payload.
 package protocol NanopbEnum: RawRepresentable, Hashable, Sendable where RawValue == Int {
     init()
+    /// Non-failable on purpose, and not redundant with `RawRepresentable`'s
+    /// `init?`: it is what forces every conformer to accept a value this build
+    /// has never heard of, so an unknown enum arriving on the wire survives a
+    /// decode/encode round trip instead of collapsing to the zero case.
+    /// Generic call sites still resolve to `init?`, whose failure branch is
+    /// therefore unreachable.
     init(rawValue: Int)
-}
-
-// MARK: - Wire-format primitives
-
-package func nanopbDecode(
-    into pointer: UnsafeMutablePointer<some Any>,
-    _ descriptor: pb_msgdesc_t,
-    _ bytes: UnsafeRawBufferPointer,
-) throws(NanopbError) {
-    var descriptor = descriptor
-    // SAFETY: nanopb reads at most `bytes.count` bytes from the buffer, and
-    // the buffer outlives the call because the caller owns it for the
-    // duration of `withUnsafeBytes`.
-    var stream = lk_pb_istream_from_buffer(
-        bytes.baseAddress?.assumingMemoryBound(to: UInt8.self), bytes.count,
-    )
-    guard lk_pb_decode(&stream, &descriptor, UnsafeMutableRawPointer(pointer)) else {
-        throw NanopbError.decodeFailed(stream.errmsg.map { String(cString: $0) } ?? "unknown")
-    }
-}
-
-package func nanopbEncodedSize(
-    _ pointer: UnsafePointer<some Any>, _ descriptor: pb_msgdesc_t,
-) throws(NanopbError) -> Int {
-    var descriptor = descriptor
-    var size = 0
-    guard lk_pb_get_encoded_size(&size, &descriptor, UnsafeRawPointer(pointer)) else {
-        throw NanopbError.encodeFailed("size")
-    }
-    return size
-}
-
-package func nanopbEncode(
-    _ pointer: UnsafePointer<some Any>,
-    _ descriptor: pb_msgdesc_t,
-    into buffer: UnsafeMutableRawBufferPointer,
-) throws(NanopbError) -> Int {
-    var descriptor = descriptor
-    // SAFETY: the stream is capped at `buffer.count`, so nanopb fails the
-    // encode rather than overrunning if the size estimate was short.
-    var stream = lk_pb_ostream_from_buffer(
-        buffer.baseAddress?.assumingMemoryBound(to: UInt8.self), buffer.count,
-    )
-    guard lk_pb_encode(&stream, &descriptor, UnsafeRawPointer(pointer)) else {
-        throw NanopbError.encodeFailed("encode")
-    }
-    return stream.bytes_written
-}
-
-package func nanopbEncodedBytes(
-    _ pointer: UnsafePointer<some Any>, _ descriptor: pb_msgdesc_t,
-) throws(NanopbError) -> [UInt8] {
-    let size = try nanopbEncodedSize(pointer, descriptor)
-    var out = [UInt8](repeating: 0, count: size)
-    // `withUnsafeMutableBytes` is untyped `rethrows`, which would erase
-    // NanopbError back to `any Error`; capture and rethrow to keep the type.
-    var failure: NanopbError?
-    var written = 0
-    out.withUnsafeMutableBytes { buffer in
-        do throws(NanopbError) {
-            written = try nanopbEncode(pointer, descriptor, into: buffer)
-        } catch {
-            failure = error
-        }
-    }
-    if let failure { throw failure }
-    if written != size { out.removeLast(size - written) }
-    return out
 }

@@ -86,7 +86,11 @@ func lkAllocBytes(_ value: Data) -> UnsafeMutablePointer<pb_bytes_array_t>? {
 /// Scalar stored behind a pointer (proto3 `optional`).
 package func lkSetValue<T>(_ slot: inout UnsafeMutablePointer<T>?, _ value: T) {
     if let old = slot { free(old) }
-    guard let raw = malloc(MemoryLayout<T>.size) else { slot = nil; return }
+    guard let raw = malloc(MemoryLayout<T>.size) else {
+        nanopbReportFailure("scalar allocation", NanopbError.allocationFailed)
+        slot = nil
+        return
+    }
     let pointer = raw.bindMemory(to: T.self, capacity: 1)
     pointer.initialize(to: value)
     slot = pointer
@@ -135,7 +139,10 @@ package func lkSetMessage<S: NanopbStorage>(
 ) {
     // SAFETY: as in `lkSetRepeatedMessages`, `value` may be a view into the
     // storage this replaces, so it is copied before the old slot is released.
-    guard let raw = malloc(MemoryLayout<S>.size) else { return }
+    guard let raw = malloc(MemoryLayout<S>.size) else {
+        nanopbReportFailure("submessage allocation", NanopbError.allocationFailed)
+        return
+    }
     let pointer = raw.bindMemory(to: S.self, capacity: 1)
     pointer.initialize(to: S())
     lkOverwrite(pointer, with: value)
@@ -146,12 +153,19 @@ package func lkSetMessage<S: NanopbStorage>(
 /// Replace an inline submessage field.
 package func lkSetMessage<S: NanopbStorage>(inline slot: inout S, _ value: NanopbMsg<S>) {
     // SAFETY: `value` may be a view into `slot`, so serialise it before the
-    // release; the bytes are independent of the storage being freed.
-    let encoded = try? nanopbEncodedBytes(value._pointer, S.descriptor)
+    // release; the bytes are independent of the storage being freed. Bail
+    // before releasing if that fails, so the destination is left as it was
+    // rather than emptied — the contract the rest of the setters keep.
+    let encoded: [UInt8]
+    do {
+        encoded = try nanopbEncodedBytes(value._pointer, S.descriptor)
+    } catch {
+        nanopbReportFailure("message overwrite", error)
+        return
+    }
     var descriptor = S.descriptor
     withUnsafeMutablePointer(to: &slot) { lk_pb_release(&descriptor, UnsafeMutableRawPointer($0)) }
     slot = S()
-    guard let encoded else { return }
 
     var failure: NanopbError?
     withUnsafeMutablePointer(to: &slot) { destination in
