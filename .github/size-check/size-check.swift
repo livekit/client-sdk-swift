@@ -26,8 +26,10 @@ import ShellOut // JohnSundell/ShellOut ~> 2.3
 // Builds an empty iOS app and a LiveKit "hello world" app (via xcodegen),
 // archives both unsigned for the arm64 device slice, and reports the SDK's
 // size impact (uncompressed `.app` delta = benchmark, compressed IPA = info)
-// plus a frameworks-vs-compiled-Swift breakdown. A non-zero `--baseline`
-// enforces a budget: the delta must stay within `baseline * (1 + tolerance%)`.
+// plus a frameworks-vs-compiled-Swift breakdown. A non-zero `--baseline` is a
+// hard budget: the delta must not exceed it. There is no tolerance band — a
+// size increase is either intended, in which case the baseline moves in the
+// same commit, or it is a regression.
 
 struct SizeCheck: ParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Measure the LiveKit SDK's iOS app-size impact.")
@@ -35,14 +37,11 @@ struct SizeCheck: ParsableCommand {
     @Option(help: "Directory containing project.yml and the test apps.")
     var root = ".github/size-check"
 
-    @Option(help: "Budget for the .app delta, in MB. 0 disables the gate.")
+    @Option(help: "Hard budget for the .app delta, in MB. 0 disables the gate.")
     var baseline = 0.0
 
-    @Option(help: "Allowed growth over the baseline, in percent.")
-    var tolerance = 5.0
-
-    /// Outcome relative to the baseline: at/under it, within tolerance, or over.
-    enum BudgetStatus { case ok, warning, over }
+    /// Outcome relative to the baseline.
+    enum BudgetStatus { case ok, over }
 
     func run() throws {
         let project = "\(root)/SizeCheck.xcodeproj"
@@ -59,8 +58,6 @@ struct SizeCheck: ParsableCommand {
         switch report.status {
         case .ok:
             break
-        case .warning:
-            print("::warning::LiveKit SDK app-size delta \(mb(report.appDelta)) is above the baseline (still within the +\(Int(tolerance))% tolerance).")
         case .over:
             print("::error::LiveKit SDK app-size delta \(mb(report.appDelta)) exceeds the baseline budget — see the job summary.")
             throw ExitCode.failure
@@ -117,7 +114,7 @@ struct SizeCheck: ParsableCommand {
         let appDelta, ipaDelta, exec: Int
         let frameworks: [(name: String, bytes: Int)]
         let attribution: [(label: String, bytes: Int)]
-        let baselineBytes, limit: Int
+        let baselineBytes: Int
         let status: BudgetStatus
     }
 
@@ -129,7 +126,6 @@ struct SizeCheck: ParsableCommand {
 
         let appDelta = bundleBytes(livekitApp) - bundleBytes(emptyApp)
         let baselineBytes = Int(baseline * 1_048_576)
-        let limit = Int(Double(baselineBytes) * (1 + tolerance / 100))
         let metrics = Metrics(
             emptyApp: bundleBytes(emptyApp),
             livekitApp: bundleBytes(livekitApp),
@@ -141,17 +137,14 @@ struct SizeCheck: ParsableCommand {
             frameworks: frameworkBinaries(in: livekitApp),
             attribution: linkMapAttribution(buildPath: build.path),
             baselineBytes: baselineBytes,
-            limit: limit,
-            status: budgetStatus(appDelta: appDelta, baselineBytes: baselineBytes, limit: limit),
+            status: budgetStatus(appDelta: appDelta, baselineBytes: baselineBytes),
         )
         return Report(markdown: render(metrics), appDelta: appDelta, status: metrics.status)
     }
 
-    private func budgetStatus(appDelta: Int, baselineBytes: Int, limit: Int) -> BudgetStatus {
+    private func budgetStatus(appDelta: Int, baselineBytes: Int) -> BudgetStatus {
         guard baselineBytes > 0 else { return .ok }
-        if appDelta > limit { return .over }
-        if appDelta > baselineBytes { return .warning }
-        return .ok
+        return appDelta > baselineBytes ? .over : .ok
     }
 
     private func render(_ m: Metrics) -> String {
@@ -182,13 +175,8 @@ struct SizeCheck: ParsableCommand {
         }
         line()
         if m.baselineBytes > 0 {
-            let verdict = switch m.status {
-            case .ok: "✅ within baseline"
-            case .warning: "⚠️ above baseline, within +\(Int(tolerance))% tolerance"
-            case .over: "❌ over budget"
-            }
-            line("**Budget:** baseline \(mb(m.baselineBytes)) · +\(Int(tolerance))% → \(mb(m.limit)) · "
-                + "measured **\(mb(m.appDelta))** — \(verdict)")
+            let verdict = m.status == .ok ? "✅ within budget" : "❌ over budget"
+            line("**Budget:** \(mb(m.baselineBytes)) · measured **\(mb(m.appDelta))** — \(verdict)")
             line()
         }
         line("<sub>Benchmark = uncompressed `.app` delta. Frameworks are included whole "
