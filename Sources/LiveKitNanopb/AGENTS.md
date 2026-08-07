@@ -9,7 +9,7 @@ Layer* section of the root `AGENTS.md` for the update/validation workflow.
 
 SwiftProtobuf links a ~1.1 MB runtime plus heavy per-message generated code
 regardless of how little of it the SDK uses. nanopb keeps the wire format in
-compact C field tables, and this target is a fixed-cost (~600 line) bridge that
+compact C field tables, and this target is a fixed-cost (~700 line) bridge that
 does not grow with the number of messages. The migration cut the SDK's
 download-size contribution by ~1.7 MB. A stripped fork of SwiftProtobuf was
 evaluated and bottoms out ~2.3× larger (see PR #1081 discussion) — the overhead
@@ -18,9 +18,11 @@ is structural (per-message metadata, codec logic), not trimmable.
 The facades keep protoc-gen-swift's shape where it costs nothing (`Livekit_Room`,
 `.with {}`, `serializedBytes()`, `Equatable`/`Hashable`/`Sendable` value types),
 so most SDK call sites are unchanged, and `Tests/LiveKitNanopbTests` can assert
-byte-identical encoding against SwiftProtobuf as an independent oracle. The one
-deliberate departure: **messages are immutable**. `msg.field = x` does not
-compile; you build with `.with { }` or derive with `.modifying { }`.
+byte-identical encoding against SwiftProtobuf as an independent oracle. Three
+deliberate departures: **messages are immutable** (`msg.field = x` does not
+compile — build with `.with { }`, derive with `.modifying { }`), **nested type
+names are flat** (`Livekit_DataPacket_Kind`), and **enums are open**
+(`RawRepresentable` structs, so a `switch` needs a `default`).
 
 ## Design
 
@@ -32,26 +34,53 @@ Three layers:
    `pb_*` → `lk_pb_*` symbol renames live in `lk_pb_config.h` /
    `lk_pb_rename.h` (see those headers for the Firebase-collision and
    SwiftPM-importer rationale).
-2. **`LiveKitNanopb`** (this target) — `NanopbBox` ownership, the
-   `NanopbMessage` protocol (wire format, equality, `owned()`), and the `lk*` field
-   accessors the generated code calls.
-3. **Generated facades** — one Swift struct per message the SDK references
-   (type-level pruning), with read-only computed properties over the C struct.
-   Setters live in `extension NanopbBuilder where M == Livekit_X`, so the
-   builder itself is written once in the runtime rather than 107 times; that
-   constrained extension on a `~Copyable` generic is SE-0427. It costs ~2 KB
-   of specialisation metadata and saves ~26% of the generated source.
+2. **`LiveKitNanopb`** (this target) — `NanopbBox` ownership, the generic
+   `NanopbMsg<Storage>` (wire format, equality, `with` / `modifying` /
+   `owned()`), the `NanopbStorage` protocol each C struct conforms to, and the
+   `lk*` field accessors the generated code calls.
+3. **Generated facades** — for each message the SDK references (type-level
+   pruning): a one-line `NanopbStorage` conformance on the imported C struct,
+   a typealias, and the field accessors. No Swift *type* per message.
 
-   Two constraints the shape has to respect. `NanopbBuilder._pointer` is
-   *stored*: as a computed property off `_box` it crashes the Swift 6.1 SIL
-   verifier, and 6.1 is the floor. And the message's nested types are not in
-   scope inside the extension — they cannot be aliased in either, since every
-   constrained extension would add the same name to `NanopbBuilder`, so the
-   generator fully qualifies them.
+   ```swift
+   extension livekit_Room: NanopbStorage {
+       package static var descriptor: pb_msgdesc_t { livekit_Room_msg }
+       package static let _emptyBox = NanopbBox<livekit_Room>(zero: .init(), descriptor: livekit_Room_msg)
+   }
+   typealias Livekit_Room = NanopbMsg<livekit_Room>
+   extension Livekit_Room { /* getters */ }
+   extension Livekit_Room.Builder { /* setters */ }
+   ```
 
-A message value is a `struct` holding `_owner: NanopbAnyBox` (lifetime) and
-`_pointer` (a nanopb C struct in a malloc'd, address-stable allocation). It is
-in one of two states:
+   **Why one generic type is the whole point.** A nominal Swift type's metadata
+   and conformance records live in sections the runtime must be able to
+   enumerate, so the linker keeps them even when nothing references the type —
+   measured on a dead-stripped link with a single exported symbol, message types
+   the workload never touched still carried 79–205 live symbols each. Accessor
+   *code* strips; types do not. Collapsing 107 nominal types into one took the
+   facades from 214,686 to 89,627 bytes.
+
+   Extending through the typealias (`extension Livekit_Room`) is exactly
+   `extension NanopbMsg where S == livekit_Room`; Swift resolves a typealias
+   that binds a generic's parameters. Prefer the typealias form — it keeps the
+   C struct name out of everything but the conformance.
+
+   Three constraints the shape has to respect:
+
+   - `NanopbBuilder._pointer` is *stored*: as a computed property off `_box` it
+     crashes the Swift 6.1 SIL verifier, and 6.1 is the floor.
+   - **Nested types are flattened** to file scope (`Livekit_DataPacket_Kind`),
+     because constrained extensions of one generic cannot each declare a member
+     of the same name — six `OneOf_Value` declarations would collide. A message
+     that carries *only* nested types is emitted as a caseless enum namespace
+     instead of a typealias, which keeps `Livekit_DataStream.Header` compiling.
+   - `_empty` lives on the storage conformance as `_emptyBox`, because Swift
+     forbids stored statics in a generic type and a computed `Self()` would
+     allocate on every read of an absent submessage.
+
+A message value is `NanopbMsg<Storage>`, holding `_owner: NanopbAnyBox`
+(lifetime) and `_pointer` (a nanopb C struct in a malloc'd, address-stable
+allocation). It is in one of two states:
 
 - **Owning**: `_owner` is its own `NanopbBox`; `box.pointer == _pointer`.
 - **View**: `_pointer` aims at a nested C struct *inside another message's
@@ -164,6 +193,14 @@ Reachable improvements once the floor moves:
 
 ## Tradeoffs (deliberate)
 
+- **Enums are `RawRepresentable` structs, not Swift enums**: proto3 enums are
+  open, so an unknown wire value is an ordinary value rather than a special
+  case. That removes the `UNRECOGNIZED(Int)` payload and the switch-based
+  `rawValue` / `init?(rawValue:)` pair (~660 lines), and makes the failable
+  init honest — it never could fail. The cost is that a `switch` over one needs
+  a `default`, which an open enum always required semantically. `CaseIterable`
+  is not emitted; nothing used `allCases`.
+
 - **Equality/hashing via canonical bytes**: nanopb encodes deterministically
   except map *entry order* is preserved, so equal maps built in different
   orders compare unequal. The SDK uses equality for change detection, where a
@@ -194,7 +231,8 @@ Reachable improvements once the floor moves:
 ## Invariants to preserve when editing
 
 1. Setters exist only on `Builder`, never on a message — the generator's
-   `verifyBuilderInvariant` fails the build otherwise.
+   `verifyBuilderInvariant` fails the build otherwise. It keys on the emitted
+   `extension <Type>.Builder {` header, so keep that spelling.
 2. Every `free`/`lk_pb_release` matches the allocation's actual layout —
    especially oneof switches (release with the old variant's descriptor).
 3. New runtime symbols from a nanopb upgrade must be added to

@@ -307,9 +307,12 @@ package struct NanopbMsg<S: NanopbStorage>: Equatable, Hashable, @unchecked Send
     }
 }
 
-/// A protobuf enum. Mirrors SwiftProtobuf's open-enum shape (`UNRECOGNIZED`).
+/// A protobuf enum. proto3 enums are open, so an unknown wire value is a
+/// perfectly good value rather than a special case — hence a non-failable
+/// `init(rawValue:)` and no `UNRECOGNIZED` payload.
 package protocol NanopbEnum: RawRepresentable, Hashable, Sendable where RawValue == Int {
     init()
+    init(rawValue: Int)
 }
 
 // MARK: - Wire-format primitives

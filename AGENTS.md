@@ -64,17 +64,37 @@ Dependencies: LiveKitWebRTC, LiveKitUniFFI. (SwiftProtobuf is test-only — see 
 
 The wire protocol is nanopb-based: `Sources/CLiveKitProto` holds the vendored
 nanopb runtime plus generated C structs, and `Sources/LiveKit/Protos` holds
-generated *immutable* Swift facades over them, each with a nested
-`Builder: ~Copyable` that carries every setter (runtime in
+generated *immutable* Swift facades over them (runtime in
 `Sources/LiveKitNanopb` — design, memory and concurrency semantics in its
 `AGENTS.md`). SwiftProtobuf is linked only by the test target, as an
 independent "oracle" implementation to verify against.
+
+The schema contributes **no Swift types**: every message is the one generic
+`NanopbMsg<Storage>`, and `Livekit_Room` is a typealias for
+`NanopbMsg<livekit_Room>`. Only field accessors are generated, in extensions
+written through that typealias (`extension Livekit_Room`,
+`extension Livekit_Room.Builder`). That is the shape that costs least — a
+nominal type's metadata and conformance records are emitted into sections the
+runtime must enumerate, so the linker keeps them whether or not anything
+references the type.
 
 - **Building messages**: `Livekit_X.with { $0.field = ... }`; messages have no
   setters, so `msg.field = x` does not compile. To derive one message from
   another use `msg.modifying { ... }`, and mark the parameter `consuming` where
   you can so it mutates in place instead of copying. Nested writes need an
   explicit submessage: `$0.a = .with { $0.b = c }`.
+
+- **Nested type names are flat**: `Livekit_DataPacket_Kind`, not
+  `Livekit_DataPacket.Kind`. Every message is the same generic type, and
+  constrained extensions of one generic cannot each declare a member of the
+  same name. Parents that only ever *were* namespaces (`Livekit_DataStream`,
+  `Livekit_Encryption`) keep the dotted spelling through a caseless enum.
+
+- **Enums are open**: a proto enum is a `RawRepresentable` struct with static
+  members, not a Swift `enum`, because proto3 enums are open — a peer can send
+  a value this build has never heard of. `case .reliable` still pattern-matches,
+  but a `switch` needs a `default`, and an unknown value is
+  `Livekit_TrackType(rawValue: 10)` rather than a distinct `UNRECOGNIZED` case.
 
 - **Updating protos**: bump the `protocol` submodule, run `make proto`, commit
   everything it changes (C files, facades, test oracle, conformance

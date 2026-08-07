@@ -48,7 +48,7 @@ extension ParticipantState {
             self = .active
         case .disconnected:
             self = .disconnected
-        case .UNRECOGNIZED:
+        default:
             self = .unknown
         }
     }
