@@ -19,6 +19,19 @@ import Foundation
 internal import LiveKitWebRTC
 
 extension LKRTCRtpSender: Loggable {
+    /// Sets the degradation preference on this sender.
+    ///
+    /// Degradation preference is a property of the sender, not of the track, so every sender
+    /// publishing a track needs it applied separately. A backup codec publishes over its own
+    /// sender, which would otherwise let WebRTC resolve a preference implicitly from the native
+    /// source and diverge from the primary encoder.
+    func set(degradationPreference: LKRTCDegradationPreference) {
+        // Changing params directly doesn't work so we need to update params and set it back to sender.parameters
+        let _parameters = parameters
+        _parameters.degradationPreference = NSNumber(value: degradationPreference.rawValue)
+        parameters = _parameters
+    }
+
     // ...
     func _set(subscribedQualities qualities: [Livekit_SubscribedQuality]) {
         let _parameters = parameters

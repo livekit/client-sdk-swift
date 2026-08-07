@@ -42,4 +42,24 @@ extension DegradationPreference {
         case .balanced: .balanced
         }
     }
+
+    /// Resolves this preference for a track published under `source`.
+    ///
+    /// ``DegradationPreference/auto`` picks a default based on the source:
+    /// - Camera: ``DegradationPreference/maintainFramerate`` (smoother video for real-time communication)
+    /// - Screen share: ``DegradationPreference/maintainResolution`` (clarity is critical for reading text/UI)
+    /// - Other/unknown: ``DegradationPreference/balanced``
+    ///
+    /// Any other source means the application declined to declare a motion-vs-detail intent,
+    /// so this falls back to balanced, the preference the WebRTC spec mandates as the default.
+    func resolve(for source: Track.Source) -> LKRTCDegradationPreference {
+        if let explicit = toRTCType() {
+            return explicit
+        }
+        switch source {
+        case .camera: return .maintainFramerate
+        case .screenShareVideo: return .maintainResolution
+        default: return .balanced
+        }
+    }
 }
