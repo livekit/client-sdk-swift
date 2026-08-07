@@ -21,7 +21,7 @@ extension livekit_Room: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_Room>(zero: livekit_Room(), descriptor: livekit_Room_msg)
 }
 typealias Livekit_Room = NanopbMsg<livekit_Room>
-extension NanopbMsg where S == livekit_Room {
+extension Livekit_Room {
     var sid: String {
         lkString(_pointer.pointee.sid) ?? ""
     }
@@ -93,7 +93,7 @@ extension NanopbMsg where S == livekit_Room {
 
 }
 
-extension NanopbBuilder where S == livekit_Room {
+extension Livekit_Room.Builder {
     var sid: String {
         get { lkString(_pointer.pointee.sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
@@ -175,7 +175,7 @@ extension livekit_Codec: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_Codec>(zero: livekit_Codec(), descriptor: livekit_Codec_msg)
 }
 typealias Livekit_Codec = NanopbMsg<livekit_Codec>
-extension NanopbMsg where S == livekit_Codec {
+extension Livekit_Codec {
     var mime: String {
         lkString(_pointer.pointee.mime) ?? ""
     }
@@ -188,7 +188,7 @@ extension NanopbMsg where S == livekit_Codec {
 
 }
 
-extension NanopbBuilder where S == livekit_Codec {
+extension Livekit_Codec.Builder {
     var mime: String {
         get { lkString(_pointer.pointee.mime) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.mime, newValue) }
@@ -206,7 +206,7 @@ extension livekit_ParticipantPermission: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_ParticipantPermission>(zero: livekit_ParticipantPermission(), descriptor: livekit_ParticipantPermission_msg)
 }
 typealias Livekit_ParticipantPermission = NanopbMsg<livekit_ParticipantPermission>
-extension NanopbMsg where S == livekit_ParticipantPermission {
+extension Livekit_ParticipantPermission {
     var canSubscribe: Bool {
         _pointer.pointee.can_subscribe?.pointee ?? false
     }
@@ -258,7 +258,7 @@ extension NanopbMsg where S == livekit_ParticipantPermission {
 
 }
 
-extension NanopbBuilder where S == livekit_ParticipantPermission {
+extension Livekit_ParticipantPermission.Builder {
     var canSubscribe: Bool {
         get { _pointer.pointee.can_subscribe?.pointee ?? false }
         nonmutating set { lkSetValue(&_pointer.pointee.can_subscribe, newValue) }
@@ -320,7 +320,7 @@ extension livekit_ParticipantInfo: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_ParticipantInfo>(zero: livekit_ParticipantInfo(), descriptor: livekit_ParticipantInfo_msg)
 }
 typealias Livekit_ParticipantInfo = NanopbMsg<livekit_ParticipantInfo>
-extension NanopbMsg where S == livekit_ParticipantInfo {
+extension Livekit_ParticipantInfo {
     var sid: String {
         lkString(_pointer.pointee.sid) ?? ""
     }
@@ -418,7 +418,7 @@ extension livekit_ParticipantInfo_AttributesEntry: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_ParticipantInfo_AttributesEntry>(zero: livekit_ParticipantInfo_AttributesEntry(), descriptor: livekit_ParticipantInfo_AttributesEntry_msg)
 }
 typealias Livekit_ParticipantInfo_AttributesEntry = NanopbMsg<livekit_ParticipantInfo_AttributesEntry>
-extension NanopbMsg where S == livekit_ParticipantInfo_AttributesEntry {
+extension Livekit_ParticipantInfo_AttributesEntry {
     var key: String {
         lkString(_pointer.pointee.key) ?? ""
     }
@@ -431,7 +431,7 @@ extension NanopbMsg where S == livekit_ParticipantInfo_AttributesEntry {
 
 }
 
-extension NanopbBuilder where S == livekit_ParticipantInfo_AttributesEntry {
+extension Livekit_ParticipantInfo_AttributesEntry.Builder {
     var key: String {
         get { lkString(_pointer.pointee.key) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.key, newValue) }
@@ -558,7 +558,7 @@ enum Livekit_ParticipantInfo_KindDetail: NanopbEnum, CaseIterable {
     }
 }
 
-extension NanopbBuilder where S == livekit_ParticipantInfo {
+extension Livekit_ParticipantInfo.Builder {
     var sid: String {
         get { lkString(_pointer.pointee.sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
@@ -717,7 +717,7 @@ extension livekit_SimulcastCodecInfo: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_SimulcastCodecInfo>(zero: livekit_SimulcastCodecInfo(), descriptor: livekit_SimulcastCodecInfo_msg)
 }
 typealias Livekit_SimulcastCodecInfo = NanopbMsg<livekit_SimulcastCodecInfo>
-extension NanopbMsg where S == livekit_SimulcastCodecInfo {
+extension Livekit_SimulcastCodecInfo {
     var mimeType: String {
         lkString(_pointer.pointee.mime_type) ?? ""
     }
@@ -749,7 +749,7 @@ extension NanopbMsg where S == livekit_SimulcastCodecInfo {
 
 }
 
-extension NanopbBuilder where S == livekit_SimulcastCodecInfo {
+extension Livekit_SimulcastCodecInfo.Builder {
     var mimeType: String {
         get { lkString(_pointer.pointee.mime_type) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.mime_type, newValue) }
@@ -791,7 +791,7 @@ extension livekit_TrackInfo: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_TrackInfo>(zero: livekit_TrackInfo(), descriptor: livekit_TrackInfo_msg)
 }
 typealias Livekit_TrackInfo = NanopbMsg<livekit_TrackInfo>
-extension NanopbMsg where S == livekit_TrackInfo {
+extension Livekit_TrackInfo {
     var sid: String {
         lkString(_pointer.pointee.sid) ?? ""
     }
@@ -895,7 +895,7 @@ extension NanopbMsg where S == livekit_TrackInfo {
 
 }
 
-extension NanopbBuilder where S == livekit_TrackInfo {
+extension Livekit_TrackInfo.Builder {
     var sid: String {
         get { lkString(_pointer.pointee.sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
@@ -1024,7 +1024,7 @@ extension livekit_DataTrackInfo: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_DataTrackInfo>(zero: livekit_DataTrackInfo(), descriptor: livekit_DataTrackInfo_msg)
 }
 typealias Livekit_DataTrackInfo = NanopbMsg<livekit_DataTrackInfo>
-extension NanopbMsg where S == livekit_DataTrackInfo {
+extension Livekit_DataTrackInfo {
     var pubHandle: UInt32 {
         _pointer.pointee.pub_handle?.pointee ?? 0
     }
@@ -1047,7 +1047,7 @@ extension NanopbMsg where S == livekit_DataTrackInfo {
 
 }
 
-extension NanopbBuilder where S == livekit_DataTrackInfo {
+extension Livekit_DataTrackInfo.Builder {
     var pubHandle: UInt32 {
         get { _pointer.pointee.pub_handle?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.pub_handle, newValue) }
@@ -1075,7 +1075,7 @@ extension livekit_DataTrackSubscriptionOptions: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_DataTrackSubscriptionOptions>(zero: livekit_DataTrackSubscriptionOptions(), descriptor: livekit_DataTrackSubscriptionOptions_msg)
 }
 typealias Livekit_DataTrackSubscriptionOptions = NanopbMsg<livekit_DataTrackSubscriptionOptions>
-extension NanopbMsg where S == livekit_DataTrackSubscriptionOptions {
+extension Livekit_DataTrackSubscriptionOptions {
     var targetFps: UInt32 {
         _pointer.pointee.target_fps?.pointee ?? 0
     }
@@ -1083,7 +1083,7 @@ extension NanopbMsg where S == livekit_DataTrackSubscriptionOptions {
 
 }
 
-extension NanopbBuilder where S == livekit_DataTrackSubscriptionOptions {
+extension Livekit_DataTrackSubscriptionOptions.Builder {
     var targetFps: UInt32 {
         get { _pointer.pointee.target_fps?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.target_fps, newValue) }
@@ -1096,7 +1096,7 @@ extension livekit_VideoLayer: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_VideoLayer>(zero: livekit_VideoLayer(), descriptor: livekit_VideoLayer_msg)
 }
 typealias Livekit_VideoLayer = NanopbMsg<livekit_VideoLayer>
-extension NanopbMsg where S == livekit_VideoLayer {
+extension Livekit_VideoLayer {
     var quality: Livekit_VideoQuality {
         _pointer.pointee.quality.map { lkEnum($0.pointee) } ?? Livekit_VideoQuality()
     }
@@ -1173,7 +1173,7 @@ enum Livekit_VideoLayer_Mode: NanopbEnum, CaseIterable {
     }
 }
 
-extension NanopbBuilder where S == livekit_VideoLayer {
+extension Livekit_VideoLayer.Builder {
     var quality: Livekit_VideoQuality {
         get { _pointer.pointee.quality.map { lkEnum($0.pointee) } ?? Livekit_VideoQuality() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.quality, newValue) }
@@ -1237,7 +1237,7 @@ extension livekit_DataPacket: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_DataPacket>(zero: livekit_DataPacket(), descriptor: livekit_DataPacket_msg)
 }
 typealias Livekit_DataPacket = NanopbMsg<livekit_DataPacket>
-extension NanopbMsg where S == livekit_DataPacket {
+extension Livekit_DataPacket {
     var kind: Livekit_DataPacket_Kind {
         _pointer.pointee.kind.map { lkEnum($0.pointee) } ?? Livekit_DataPacket_Kind()
     }
@@ -1363,7 +1363,7 @@ enum Livekit_DataPacket_Kind: NanopbEnum, CaseIterable {
     }
 }
 
-extension NanopbBuilder where S == livekit_DataPacket {
+extension Livekit_DataPacket.Builder {
     var kind: Livekit_DataPacket_Kind {
         get { _pointer.pointee.kind.map { lkEnum($0.pointee) } ?? Livekit_DataPacket_Kind() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.kind, newValue) }
@@ -1618,7 +1618,7 @@ extension livekit_EncryptedPacket: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_EncryptedPacket>(zero: livekit_EncryptedPacket(), descriptor: livekit_EncryptedPacket_msg)
 }
 typealias Livekit_EncryptedPacket = NanopbMsg<livekit_EncryptedPacket>
-extension NanopbMsg where S == livekit_EncryptedPacket {
+extension Livekit_EncryptedPacket {
     var encryptionType: Livekit_Encryption_TypeEnum {
         _pointer.pointee.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum()
     }
@@ -1641,7 +1641,7 @@ extension NanopbMsg where S == livekit_EncryptedPacket {
 
 }
 
-extension NanopbBuilder where S == livekit_EncryptedPacket {
+extension Livekit_EncryptedPacket.Builder {
     var encryptionType: Livekit_Encryption_TypeEnum {
         get { _pointer.pointee.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption_type, newValue) }
@@ -1680,7 +1680,7 @@ extension livekit_EncryptedPacketPayload: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_EncryptedPacketPayload>(zero: livekit_EncryptedPacketPayload(), descriptor: livekit_EncryptedPacketPayload_msg)
 }
 typealias Livekit_EncryptedPacketPayload = NanopbMsg<livekit_EncryptedPacketPayload>
-extension NanopbMsg where S == livekit_EncryptedPacketPayload {
+extension Livekit_EncryptedPacketPayload {
     var value: Livekit_EncryptedPacketPayload_OneOf_Value? {
         switch _pointer.pointee.which_value {
         case pb_size_t(livekit_EncryptedPacketPayload_user_tag):
@@ -1729,7 +1729,7 @@ extension NanopbMsg where S == livekit_EncryptedPacketPayload {
 
 }
 
-extension NanopbBuilder where S == livekit_EncryptedPacketPayload {
+extension Livekit_EncryptedPacketPayload.Builder {
     var value: Livekit_EncryptedPacketPayload_OneOf_Value? {
         get {
             switch _pointer.pointee.which_value {
@@ -1880,14 +1880,14 @@ extension livekit_ActiveSpeakerUpdate: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_ActiveSpeakerUpdate>(zero: livekit_ActiveSpeakerUpdate(), descriptor: livekit_ActiveSpeakerUpdate_msg)
 }
 typealias Livekit_ActiveSpeakerUpdate = NanopbMsg<livekit_ActiveSpeakerUpdate>
-extension NanopbMsg where S == livekit_ActiveSpeakerUpdate {
+extension Livekit_ActiveSpeakerUpdate {
     var speakers: [Livekit_SpeakerInfo] {
         lkViews(_pointer.pointee.speakers_count, _pointer.pointee.speakers, owner: _owner)
     }
 
 }
 
-extension NanopbBuilder where S == livekit_ActiveSpeakerUpdate {
+extension Livekit_ActiveSpeakerUpdate.Builder {
     var speakers: [Livekit_SpeakerInfo] {
         get { lkViews(_pointer.pointee.speakers_count, _pointer.pointee.speakers, owner: _box) }
         nonmutating set {
@@ -1904,7 +1904,7 @@ extension livekit_SpeakerInfo: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_SpeakerInfo>(zero: livekit_SpeakerInfo(), descriptor: livekit_SpeakerInfo_msg)
 }
 typealias Livekit_SpeakerInfo = NanopbMsg<livekit_SpeakerInfo>
-extension NanopbMsg where S == livekit_SpeakerInfo {
+extension Livekit_SpeakerInfo {
     var sid: String {
         lkString(_pointer.pointee.sid) ?? ""
     }
@@ -1922,7 +1922,7 @@ extension NanopbMsg where S == livekit_SpeakerInfo {
 
 }
 
-extension NanopbBuilder where S == livekit_SpeakerInfo {
+extension Livekit_SpeakerInfo.Builder {
     var sid: String {
         get { lkString(_pointer.pointee.sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
@@ -1945,7 +1945,7 @@ extension livekit_UserPacket: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_UserPacket>(zero: livekit_UserPacket(), descriptor: livekit_UserPacket_msg)
 }
 typealias Livekit_UserPacket = NanopbMsg<livekit_UserPacket>
-extension NanopbMsg where S == livekit_UserPacket {
+extension Livekit_UserPacket {
     var participantSid: String {
         lkString(_pointer.pointee.participant_sid) ?? ""
     }
@@ -1996,7 +1996,7 @@ extension NanopbMsg where S == livekit_UserPacket {
 
 }
 
-extension NanopbBuilder where S == livekit_UserPacket {
+extension Livekit_UserPacket.Builder {
     var participantSid: String {
         get { lkString(_pointer.pointee.participant_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.participant_sid, newValue) }
@@ -2062,7 +2062,7 @@ extension livekit_SipDTMF: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_SipDTMF>(zero: livekit_SipDTMF(), descriptor: livekit_SipDTMF_msg)
 }
 typealias Livekit_SipDTMF = NanopbMsg<livekit_SipDTMF>
-extension NanopbMsg where S == livekit_SipDTMF {
+extension Livekit_SipDTMF {
     var code: UInt32 {
         _pointer.pointee.code?.pointee ?? 0
     }
@@ -2075,7 +2075,7 @@ extension NanopbMsg where S == livekit_SipDTMF {
 
 }
 
-extension NanopbBuilder where S == livekit_SipDTMF {
+extension Livekit_SipDTMF.Builder {
     var code: UInt32 {
         get { _pointer.pointee.code?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.code, newValue) }
@@ -2093,7 +2093,7 @@ extension livekit_Transcription: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_Transcription>(zero: livekit_Transcription(), descriptor: livekit_Transcription_msg)
 }
 typealias Livekit_Transcription = NanopbMsg<livekit_Transcription>
-extension NanopbMsg where S == livekit_Transcription {
+extension Livekit_Transcription {
     var transcribedParticipantIdentity: String {
         lkString(_pointer.pointee.transcribed_participant_identity) ?? ""
     }
@@ -2110,7 +2110,7 @@ extension NanopbMsg where S == livekit_Transcription {
 
 }
 
-extension NanopbBuilder where S == livekit_Transcription {
+extension Livekit_Transcription.Builder {
     var transcribedParticipantIdentity: String {
         get { lkString(_pointer.pointee.transcribed_participant_identity) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.transcribed_participant_identity, newValue) }
@@ -2137,7 +2137,7 @@ extension livekit_TranscriptionSegment: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_TranscriptionSegment>(zero: livekit_TranscriptionSegment(), descriptor: livekit_TranscriptionSegment_msg)
 }
 typealias Livekit_TranscriptionSegment = NanopbMsg<livekit_TranscriptionSegment>
-extension NanopbMsg where S == livekit_TranscriptionSegment {
+extension Livekit_TranscriptionSegment {
     var id: String {
         lkString(_pointer.pointee.id) ?? ""
     }
@@ -2170,7 +2170,7 @@ extension NanopbMsg where S == livekit_TranscriptionSegment {
 
 }
 
-extension NanopbBuilder where S == livekit_TranscriptionSegment {
+extension Livekit_TranscriptionSegment.Builder {
     var id: String {
         get { lkString(_pointer.pointee.id) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.id, newValue) }
@@ -2208,7 +2208,7 @@ extension livekit_ChatMessage: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_ChatMessage>(zero: livekit_ChatMessage(), descriptor: livekit_ChatMessage_msg)
 }
 typealias Livekit_ChatMessage = NanopbMsg<livekit_ChatMessage>
-extension NanopbMsg where S == livekit_ChatMessage {
+extension Livekit_ChatMessage {
     var id: String {
         lkString(_pointer.pointee.id) ?? ""
     }
@@ -2241,7 +2241,7 @@ extension NanopbMsg where S == livekit_ChatMessage {
 
 }
 
-extension NanopbBuilder where S == livekit_ChatMessage {
+extension Livekit_ChatMessage.Builder {
     var id: String {
         get { lkString(_pointer.pointee.id) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.id, newValue) }
@@ -2279,7 +2279,7 @@ extension livekit_RpcRequest: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_RpcRequest>(zero: livekit_RpcRequest(), descriptor: livekit_RpcRequest_msg)
 }
 typealias Livekit_RpcRequest = NanopbMsg<livekit_RpcRequest>
-extension NanopbMsg where S == livekit_RpcRequest {
+extension Livekit_RpcRequest {
     var id: String {
         lkString(_pointer.pointee.id) ?? ""
     }
@@ -2312,7 +2312,7 @@ extension NanopbMsg where S == livekit_RpcRequest {
 
 }
 
-extension NanopbBuilder where S == livekit_RpcRequest {
+extension Livekit_RpcRequest.Builder {
     var id: String {
         get { lkString(_pointer.pointee.id) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.id, newValue) }
@@ -2350,7 +2350,7 @@ extension livekit_RpcAck: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_RpcAck>(zero: livekit_RpcAck(), descriptor: livekit_RpcAck_msg)
 }
 typealias Livekit_RpcAck = NanopbMsg<livekit_RpcAck>
-extension NanopbMsg where S == livekit_RpcAck {
+extension Livekit_RpcAck {
     var requestID: String {
         lkString(_pointer.pointee.request_id) ?? ""
     }
@@ -2358,7 +2358,7 @@ extension NanopbMsg where S == livekit_RpcAck {
 
 }
 
-extension NanopbBuilder where S == livekit_RpcAck {
+extension Livekit_RpcAck.Builder {
     var requestID: String {
         get { lkString(_pointer.pointee.request_id) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.request_id, newValue) }
@@ -2377,7 +2377,7 @@ extension livekit_RpcResponse: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_RpcResponse>(zero: livekit_RpcResponse(), descriptor: livekit_RpcResponse_msg)
 }
 typealias Livekit_RpcResponse = NanopbMsg<livekit_RpcResponse>
-extension NanopbMsg where S == livekit_RpcResponse {
+extension Livekit_RpcResponse {
     var requestID: String {
         lkString(_pointer.pointee.request_id) ?? ""
     }
@@ -2406,7 +2406,7 @@ extension NanopbMsg where S == livekit_RpcResponse {
 
 }
 
-extension NanopbBuilder where S == livekit_RpcResponse {
+extension Livekit_RpcResponse.Builder {
     var requestID: String {
         get { lkString(_pointer.pointee.request_id) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.request_id, newValue) }
@@ -2487,7 +2487,7 @@ extension livekit_RpcError: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_RpcError>(zero: livekit_RpcError(), descriptor: livekit_RpcError_msg)
 }
 typealias Livekit_RpcError = NanopbMsg<livekit_RpcError>
-extension NanopbMsg where S == livekit_RpcError {
+extension Livekit_RpcError {
     var code: UInt32 {
         _pointer.pointee.code?.pointee ?? 0
     }
@@ -2505,7 +2505,7 @@ extension NanopbMsg where S == livekit_RpcError {
 
 }
 
-extension NanopbBuilder where S == livekit_RpcError {
+extension Livekit_RpcError.Builder {
     var code: UInt32 {
         get { _pointer.pointee.code?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.code, newValue) }
@@ -2528,7 +2528,7 @@ extension livekit_ParticipantTracks: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_ParticipantTracks>(zero: livekit_ParticipantTracks(), descriptor: livekit_ParticipantTracks_msg)
 }
 typealias Livekit_ParticipantTracks = NanopbMsg<livekit_ParticipantTracks>
-extension NanopbMsg where S == livekit_ParticipantTracks {
+extension Livekit_ParticipantTracks {
     var participantSid: String {
         lkString(_pointer.pointee.participant_sid) ?? ""
     }
@@ -2540,7 +2540,7 @@ extension NanopbMsg where S == livekit_ParticipantTracks {
 
 }
 
-extension NanopbBuilder where S == livekit_ParticipantTracks {
+extension Livekit_ParticipantTracks.Builder {
     var participantSid: String {
         get { lkString(_pointer.pointee.participant_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.participant_sid, newValue) }
@@ -2562,7 +2562,7 @@ extension livekit_ServerInfo: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_ServerInfo>(zero: livekit_ServerInfo(), descriptor: livekit_ServerInfo_msg)
 }
 typealias Livekit_ServerInfo = NanopbMsg<livekit_ServerInfo>
-extension NanopbMsg where S == livekit_ServerInfo {
+extension Livekit_ServerInfo {
     var edition: Livekit_ServerInfo_Edition {
         _pointer.pointee.edition.map { lkEnum($0.pointee) } ?? Livekit_ServerInfo_Edition()
     }
@@ -2628,7 +2628,7 @@ enum Livekit_ServerInfo_Edition: NanopbEnum, CaseIterable {
     }
 }
 
-extension NanopbBuilder where S == livekit_ServerInfo {
+extension Livekit_ServerInfo.Builder {
     var edition: Livekit_ServerInfo_Edition {
         get { _pointer.pointee.edition.map { lkEnum($0.pointee) } ?? Livekit_ServerInfo_Edition() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.edition, newValue) }
@@ -2671,7 +2671,7 @@ extension livekit_ClientInfo: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_ClientInfo>(zero: livekit_ClientInfo(), descriptor: livekit_ClientInfo_msg)
 }
 typealias Livekit_ClientInfo = NanopbMsg<livekit_ClientInfo>
-extension NanopbMsg where S == livekit_ClientInfo {
+extension Livekit_ClientInfo {
     var sdk: Livekit_ClientInfo_SDK {
         _pointer.pointee.sdk.map { lkEnum($0.pointee) } ?? Livekit_ClientInfo_SDK()
     }
@@ -2833,7 +2833,7 @@ enum Livekit_ClientInfo_Capability: NanopbEnum, CaseIterable {
     }
 }
 
-extension NanopbBuilder where S == livekit_ClientInfo {
+extension Livekit_ClientInfo.Builder {
     var sdk: Livekit_ClientInfo_SDK {
         get { _pointer.pointee.sdk.map { lkEnum($0.pointee) } ?? Livekit_ClientInfo_SDK() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.sdk, newValue) }
@@ -2910,7 +2910,7 @@ extension livekit_ClientConfiguration: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_ClientConfiguration>(zero: livekit_ClientConfiguration(), descriptor: livekit_ClientConfiguration_msg)
 }
 typealias Livekit_ClientConfiguration = NanopbMsg<livekit_ClientConfiguration>
-extension NanopbMsg where S == livekit_ClientConfiguration {
+extension Livekit_ClientConfiguration {
     var video: Livekit_VideoConfiguration {
         _pointer.pointee.video.map { Livekit_VideoConfiguration(_sharing: $0, owner: _owner) } ?? Livekit_VideoConfiguration._empty
     }
@@ -2938,7 +2938,7 @@ extension NanopbMsg where S == livekit_ClientConfiguration {
 
 }
 
-extension NanopbBuilder where S == livekit_ClientConfiguration {
+extension Livekit_ClientConfiguration.Builder {
     var video: Livekit_VideoConfiguration {
         get { _pointer.pointee.video.map { Livekit_VideoConfiguration(_sharing: $0, owner: _box) } ?? Livekit_VideoConfiguration._empty }
         nonmutating set { lkSetMessage(&_pointer.pointee.video, newValue) }
@@ -2971,7 +2971,7 @@ extension livekit_VideoConfiguration: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_VideoConfiguration>(zero: livekit_VideoConfiguration(), descriptor: livekit_VideoConfiguration_msg)
 }
 typealias Livekit_VideoConfiguration = NanopbMsg<livekit_VideoConfiguration>
-extension NanopbMsg where S == livekit_VideoConfiguration {
+extension Livekit_VideoConfiguration {
     var hardwareEncoder: Livekit_ClientConfigSetting {
         _pointer.pointee.hardware_encoder.map { lkEnum($0.pointee) } ?? Livekit_ClientConfigSetting()
     }
@@ -2979,7 +2979,7 @@ extension NanopbMsg where S == livekit_VideoConfiguration {
 
 }
 
-extension NanopbBuilder where S == livekit_VideoConfiguration {
+extension Livekit_VideoConfiguration.Builder {
     var hardwareEncoder: Livekit_ClientConfigSetting {
         get { _pointer.pointee.hardware_encoder.map { lkEnum($0.pointee) } ?? Livekit_ClientConfigSetting() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.hardware_encoder, newValue) }
@@ -2992,7 +2992,7 @@ extension livekit_DisabledCodecs: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_DisabledCodecs>(zero: livekit_DisabledCodecs(), descriptor: livekit_DisabledCodecs_msg)
 }
 typealias Livekit_DisabledCodecs = NanopbMsg<livekit_DisabledCodecs>
-extension NanopbMsg where S == livekit_DisabledCodecs {
+extension Livekit_DisabledCodecs {
     var codecs: [Livekit_Codec] {
         lkViews(_pointer.pointee.codecs_count, _pointer.pointee.codecs, owner: _owner)
     }
@@ -3003,7 +3003,7 @@ extension NanopbMsg where S == livekit_DisabledCodecs {
 
 }
 
-extension NanopbBuilder where S == livekit_DisabledCodecs {
+extension Livekit_DisabledCodecs.Builder {
     var codecs: [Livekit_Codec] {
         get { lkViews(_pointer.pointee.codecs_count, _pointer.pointee.codecs, owner: _box) }
         nonmutating set {
@@ -3029,7 +3029,7 @@ extension livekit_TimedVersion: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_TimedVersion>(zero: livekit_TimedVersion(), descriptor: livekit_TimedVersion_msg)
 }
 typealias Livekit_TimedVersion = NanopbMsg<livekit_TimedVersion>
-extension NanopbMsg where S == livekit_TimedVersion {
+extension Livekit_TimedVersion {
     var unixMicro: Int64 {
         _pointer.pointee.unix_micro?.pointee ?? 0
     }
@@ -3042,7 +3042,7 @@ extension NanopbMsg where S == livekit_TimedVersion {
 
 }
 
-extension NanopbBuilder where S == livekit_TimedVersion {
+extension Livekit_TimedVersion.Builder {
     var unixMicro: Int64 {
         get { _pointer.pointee.unix_micro?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.unix_micro, newValue) }
@@ -3069,7 +3069,7 @@ extension livekit_DataStream_TextHeader: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_DataStream_TextHeader>(zero: livekit_DataStream_TextHeader(), descriptor: livekit_DataStream_TextHeader_msg)
 }
 typealias Livekit_DataStream_TextHeader = NanopbMsg<livekit_DataStream_TextHeader>
-extension NanopbMsg where S == livekit_DataStream_TextHeader {
+extension Livekit_DataStream_TextHeader {
     var operationType: Livekit_DataStream_OperationType {
         _pointer.pointee.operation_type.map { lkEnum($0.pointee) } ?? Livekit_DataStream_OperationType()
     }
@@ -3096,7 +3096,7 @@ extension NanopbMsg where S == livekit_DataStream_TextHeader {
 
 }
 
-extension NanopbBuilder where S == livekit_DataStream_TextHeader {
+extension Livekit_DataStream_TextHeader.Builder {
     var operationType: Livekit_DataStream_OperationType {
         get { _pointer.pointee.operation_type.map { lkEnum($0.pointee) } ?? Livekit_DataStream_OperationType() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.operation_type, newValue) }
@@ -3133,7 +3133,7 @@ extension livekit_DataStream_ByteHeader: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_DataStream_ByteHeader>(zero: livekit_DataStream_ByteHeader(), descriptor: livekit_DataStream_ByteHeader_msg)
 }
 typealias Livekit_DataStream_ByteHeader = NanopbMsg<livekit_DataStream_ByteHeader>
-extension NanopbMsg where S == livekit_DataStream_ByteHeader {
+extension Livekit_DataStream_ByteHeader {
     var name: String {
         lkString(_pointer.pointee.name) ?? ""
     }
@@ -3141,7 +3141,7 @@ extension NanopbMsg where S == livekit_DataStream_ByteHeader {
 
 }
 
-extension NanopbBuilder where S == livekit_DataStream_ByteHeader {
+extension Livekit_DataStream_ByteHeader.Builder {
     var name: String {
         get { lkString(_pointer.pointee.name) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.name, newValue) }
@@ -3159,7 +3159,7 @@ extension livekit_DataStream_Header: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_DataStream_Header>(zero: livekit_DataStream_Header(), descriptor: livekit_DataStream_Header_msg)
 }
 typealias Livekit_DataStream_Header = NanopbMsg<livekit_DataStream_Header>
-extension NanopbMsg where S == livekit_DataStream_Header {
+extension Livekit_DataStream_Header {
     var streamID: String {
         lkString(_pointer.pointee.stream_id) ?? ""
     }
@@ -3221,7 +3221,7 @@ extension livekit_DataStream_Header_AttributesEntry: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_DataStream_Header_AttributesEntry>(zero: livekit_DataStream_Header_AttributesEntry(), descriptor: livekit_DataStream_Header_AttributesEntry_msg)
 }
 typealias Livekit_DataStream_Header_AttributesEntry = NanopbMsg<livekit_DataStream_Header_AttributesEntry>
-extension NanopbMsg where S == livekit_DataStream_Header_AttributesEntry {
+extension Livekit_DataStream_Header_AttributesEntry {
     var key: String {
         lkString(_pointer.pointee.key) ?? ""
     }
@@ -3234,7 +3234,7 @@ extension NanopbMsg where S == livekit_DataStream_Header_AttributesEntry {
 
 }
 
-extension NanopbBuilder where S == livekit_DataStream_Header_AttributesEntry {
+extension Livekit_DataStream_Header_AttributesEntry.Builder {
     var key: String {
         get { lkString(_pointer.pointee.key) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.key, newValue) }
@@ -3247,7 +3247,7 @@ extension NanopbBuilder where S == livekit_DataStream_Header_AttributesEntry {
 
 }
 
-extension NanopbBuilder where S == livekit_DataStream_Header {
+extension Livekit_DataStream_Header.Builder {
     var streamID: String {
         get { lkString(_pointer.pointee.stream_id) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.stream_id, newValue) }
@@ -3357,7 +3357,7 @@ extension livekit_DataStream_Chunk: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_DataStream_Chunk>(zero: livekit_DataStream_Chunk(), descriptor: livekit_DataStream_Chunk_msg)
 }
 typealias Livekit_DataStream_Chunk = NanopbMsg<livekit_DataStream_Chunk>
-extension NanopbMsg where S == livekit_DataStream_Chunk {
+extension Livekit_DataStream_Chunk {
     var streamID: String {
         lkString(_pointer.pointee.stream_id) ?? ""
     }
@@ -3385,7 +3385,7 @@ extension NanopbMsg where S == livekit_DataStream_Chunk {
 
 }
 
-extension NanopbBuilder where S == livekit_DataStream_Chunk {
+extension Livekit_DataStream_Chunk.Builder {
     var streamID: String {
         get { lkString(_pointer.pointee.stream_id) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.stream_id, newValue) }
@@ -3418,7 +3418,7 @@ extension livekit_DataStream_Trailer: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_DataStream_Trailer>(zero: livekit_DataStream_Trailer(), descriptor: livekit_DataStream_Trailer_msg)
 }
 typealias Livekit_DataStream_Trailer = NanopbMsg<livekit_DataStream_Trailer>
-extension NanopbMsg where S == livekit_DataStream_Trailer {
+extension Livekit_DataStream_Trailer {
     var streamID: String {
         lkString(_pointer.pointee.stream_id) ?? ""
     }
@@ -3444,7 +3444,7 @@ extension livekit_DataStream_Trailer_AttributesEntry: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_DataStream_Trailer_AttributesEntry>(zero: livekit_DataStream_Trailer_AttributesEntry(), descriptor: livekit_DataStream_Trailer_AttributesEntry_msg)
 }
 typealias Livekit_DataStream_Trailer_AttributesEntry = NanopbMsg<livekit_DataStream_Trailer_AttributesEntry>
-extension NanopbMsg where S == livekit_DataStream_Trailer_AttributesEntry {
+extension Livekit_DataStream_Trailer_AttributesEntry {
     var key: String {
         lkString(_pointer.pointee.key) ?? ""
     }
@@ -3457,7 +3457,7 @@ extension NanopbMsg where S == livekit_DataStream_Trailer_AttributesEntry {
 
 }
 
-extension NanopbBuilder where S == livekit_DataStream_Trailer_AttributesEntry {
+extension Livekit_DataStream_Trailer_AttributesEntry.Builder {
     var key: String {
         get { lkString(_pointer.pointee.key) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.key, newValue) }
@@ -3470,7 +3470,7 @@ extension NanopbBuilder where S == livekit_DataStream_Trailer_AttributesEntry {
 
 }
 
-extension NanopbBuilder where S == livekit_DataStream_Trailer {
+extension Livekit_DataStream_Trailer.Builder {
     var streamID: String {
         get { lkString(_pointer.pointee.stream_id) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.stream_id, newValue) }
@@ -3541,7 +3541,7 @@ extension livekit_SubscribedAudioCodec: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_SubscribedAudioCodec>(zero: livekit_SubscribedAudioCodec(), descriptor: livekit_SubscribedAudioCodec_msg)
 }
 typealias Livekit_SubscribedAudioCodec = NanopbMsg<livekit_SubscribedAudioCodec>
-extension NanopbMsg where S == livekit_SubscribedAudioCodec {
+extension Livekit_SubscribedAudioCodec {
     var codec: String {
         lkString(_pointer.pointee.codec) ?? ""
     }
@@ -3554,7 +3554,7 @@ extension NanopbMsg where S == livekit_SubscribedAudioCodec {
 
 }
 
-extension NanopbBuilder where S == livekit_SubscribedAudioCodec {
+extension Livekit_SubscribedAudioCodec.Builder {
     var codec: String {
         get { lkString(_pointer.pointee.codec) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.codec, newValue) }

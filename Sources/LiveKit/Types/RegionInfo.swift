@@ -14,12 +14,6 @@
  * limitations under the License.
  */
 
-#if LK_XCFRAMEWORK
-internal import CLiveKitProto
-#elseif !COCOAPODS
-import CLiveKitProto
-import LiveKitNanopb
-#endif
 import Foundation
 
 @objcMembers
@@ -55,7 +49,7 @@ public class RegionInfo: NSObject, @unchecked Sendable {
     }
 }
 
-extension NanopbMsg where S == livekit_RegionInfo {
+extension Livekit_RegionInfo {
     func toLKType() -> RegionInfo? {
         RegionInfo(region: region,
                    url: url,

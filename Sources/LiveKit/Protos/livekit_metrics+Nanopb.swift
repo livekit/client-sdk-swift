@@ -21,7 +21,7 @@ extension livekit_MetricsBatch: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_MetricsBatch>(zero: livekit_MetricsBatch(), descriptor: livekit_MetricsBatch_msg)
 }
 typealias Livekit_MetricsBatch = NanopbMsg<livekit_MetricsBatch>
-extension NanopbMsg where S == livekit_MetricsBatch {
+extension Livekit_MetricsBatch {
     var timestampMs: Int64 {
         _pointer.pointee.timestamp_ms?.pointee ?? 0
     }
@@ -46,7 +46,7 @@ extension NanopbMsg where S == livekit_MetricsBatch {
 
 }
 
-extension NanopbBuilder where S == livekit_MetricsBatch {
+extension Livekit_MetricsBatch.Builder {
     var timestampMs: Int64 {
         get { _pointer.pointee.timestamp_ms?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.timestamp_ms, newValue) }
@@ -91,7 +91,7 @@ extension livekit_TimeSeriesMetric: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_TimeSeriesMetric>(zero: livekit_TimeSeriesMetric(), descriptor: livekit_TimeSeriesMetric_msg)
 }
 typealias Livekit_TimeSeriesMetric = NanopbMsg<livekit_TimeSeriesMetric>
-extension NanopbMsg where S == livekit_TimeSeriesMetric {
+extension Livekit_TimeSeriesMetric {
     var label: UInt32 {
         _pointer.pointee.label?.pointee ?? 0
     }
@@ -118,7 +118,7 @@ extension NanopbMsg where S == livekit_TimeSeriesMetric {
 
 }
 
-extension NanopbBuilder where S == livekit_TimeSeriesMetric {
+extension Livekit_TimeSeriesMetric.Builder {
     var label: UInt32 {
         get { _pointer.pointee.label?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.label, newValue) }
@@ -155,7 +155,7 @@ extension livekit_MetricSample: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_MetricSample>(zero: livekit_MetricSample(), descriptor: livekit_MetricSample_msg)
 }
 typealias Livekit_MetricSample = NanopbMsg<livekit_MetricSample>
-extension NanopbMsg where S == livekit_MetricSample {
+extension Livekit_MetricSample {
     var timestampMs: Int64 {
         _pointer.pointee.timestamp_ms?.pointee ?? 0
     }
@@ -173,7 +173,7 @@ extension NanopbMsg where S == livekit_MetricSample {
 
 }
 
-extension NanopbBuilder where S == livekit_MetricSample {
+extension Livekit_MetricSample.Builder {
     var timestampMs: Int64 {
         get { _pointer.pointee.timestamp_ms?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.timestamp_ms, newValue) }
@@ -196,7 +196,7 @@ extension livekit_EventMetric: NanopbStorage {
     package static let _emptyBox = NanopbBox<livekit_EventMetric>(zero: livekit_EventMetric(), descriptor: livekit_EventMetric_msg)
 }
 typealias Livekit_EventMetric = NanopbMsg<livekit_EventMetric>
-extension NanopbMsg where S == livekit_EventMetric {
+extension Livekit_EventMetric {
     var label: UInt32 {
         _pointer.pointee.label?.pointee ?? 0
     }
@@ -244,7 +244,7 @@ extension NanopbMsg where S == livekit_EventMetric {
 
 }
 
-extension NanopbBuilder where S == livekit_EventMetric {
+extension Livekit_EventMetric.Builder {
     var label: UInt32 {
         get { _pointer.pointee.label?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.label, newValue) }

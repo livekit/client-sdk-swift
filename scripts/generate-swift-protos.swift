@@ -175,7 +175,7 @@ struct GenerateSwiftProtos: ParsableCommand {
                 .components(separatedBy: "\n").enumerated()
             {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
-                if trimmed.hasPrefix("extension NanopbBuilder where S ==") {
+                if trimmed.hasPrefix("extension "), trimmed.hasSuffix(".Builder {") {
                     insideBuilder = true
                     builderDepth = depth
                 }
@@ -858,7 +858,7 @@ extension Emitter {
 
         if !isNamespace {
             out += Self.storageConformance(flat: flat, storage: storage)
-            out += Self.block("extension NanopbMsg where S == \(storage)", members.message)
+            out += Self.block("extension \(flat)", members.message)
         }
 
         var extensions = ""
@@ -871,7 +871,7 @@ extension Emitter {
         }
         if isNamespace { out += namespaceEnum(flat: flat, of: message) }
 
-        return (out, extensions + Self.block("extension NanopbBuilder where S == \(storage)", members.builder))
+        return (out, extensions + Self.block("extension \(flat).Builder", members.builder))
     }
 
     private static func storageConformance(flat: String, storage: String) -> String {

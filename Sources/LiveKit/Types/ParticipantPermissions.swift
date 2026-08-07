@@ -14,12 +14,6 @@
  * limitations under the License.
  */
 
-#if LK_XCFRAMEWORK
-internal import CLiveKitProto
-#elseif !COCOAPODS
-import CLiveKitProto
-import LiveKitNanopb
-#endif
 import Foundation
 
 @objcMembers
@@ -102,7 +96,7 @@ public class ParticipantPermissions: NSObject, @unchecked Sendable {
     }
 }
 
-extension NanopbMsg where S == livekit_ParticipantPermission {
+extension Livekit_ParticipantPermission {
     func toLKType() -> ParticipantPermissions {
         ParticipantPermissions(canSubscribe: canSubscribe,
                                canPublish: canPublish,

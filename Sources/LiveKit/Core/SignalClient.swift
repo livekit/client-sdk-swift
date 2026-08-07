@@ -16,12 +16,6 @@
 
 // swiftlint:disable file_length
 
-#if LK_XCFRAMEWORK
-internal import CLiveKitProto
-#elseif !COCOAPODS
-import CLiveKitProto
-import LiveKitNanopb
-#endif
 import Foundation
 
 internal import LiveKitWebRTC
@@ -729,7 +723,7 @@ private extension SignalClient {
     }
 }
 
-extension NanopbMsg where S == livekit_SignalRequest {
+extension Livekit_SignalRequest {
     func canBeQueued() -> Bool {
         switch message {
         case .syncState, .trickle, .offer, .answer, .simulate, .leave: false

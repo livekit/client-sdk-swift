@@ -14,12 +14,6 @@
  * limitations under the License.
  */
 
-#if LK_XCFRAMEWORK
-internal import CLiveKitProto
-#elseif !COCOAPODS
-import CLiveKitProto
-import LiveKitNanopb
-#endif
 internal import LiveKitWebRTC
 
 extension LKRTCSessionDescription {
@@ -38,7 +32,7 @@ extension LKRTCSessionDescription {
     }
 }
 
-extension NanopbMsg where S == livekit_SessionDescription {
+extension Livekit_SessionDescription {
     func toRTCType() -> (LKRTCSessionDescription, UInt32) {
         var sdpType: LKRTCSdpType
         switch type {

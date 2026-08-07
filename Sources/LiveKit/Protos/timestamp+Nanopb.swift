@@ -21,7 +21,7 @@ extension google_protobuf_Timestamp: NanopbStorage {
     package static let _emptyBox = NanopbBox<google_protobuf_Timestamp>(zero: google_protobuf_Timestamp(), descriptor: google_protobuf_Timestamp_msg)
 }
 typealias Google_Protobuf_Timestamp = NanopbMsg<google_protobuf_Timestamp>
-extension NanopbMsg where S == google_protobuf_Timestamp {
+extension Google_Protobuf_Timestamp {
     var seconds: Int64 {
         _pointer.pointee.seconds?.pointee ?? 0
     }
@@ -34,7 +34,7 @@ extension NanopbMsg where S == google_protobuf_Timestamp {
 
 }
 
-extension NanopbBuilder where S == google_protobuf_Timestamp {
+extension Google_Protobuf_Timestamp.Builder {
     var seconds: Int64 {
         get { _pointer.pointee.seconds?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.seconds, newValue) }

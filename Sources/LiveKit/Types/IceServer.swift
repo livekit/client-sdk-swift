@@ -14,12 +14,6 @@
  * limitations under the License.
  */
 
-#if LK_XCFRAMEWORK
-internal import CLiveKitProto
-#elseif !COCOAPODS
-import CLiveKitProto
-import LiveKitNanopb
-#endif
 import Foundation
 
 internal import LiveKitWebRTC
@@ -49,7 +43,7 @@ extension IceServer {
     }
 }
 
-extension NanopbMsg where S == livekit_ICEServer {
+extension Livekit_ICEServer {
     func toRTCType() -> LKRTCIceServer {
         let rtcUsername = !username.isEmpty ? username : nil
         let rtcCredential = !credential.isEmpty ? credential : nil

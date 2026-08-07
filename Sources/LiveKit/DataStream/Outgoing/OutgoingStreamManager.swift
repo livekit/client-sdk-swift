@@ -14,12 +14,6 @@
  * limitations under the License.
  */
 
-#if LK_XCFRAMEWORK
-internal import CLiveKitProto
-#elseif !COCOAPODS
-import CLiveKitProto
-import LiveKitNanopb
-#endif
 import Foundation
 
 // Extending the generic builder needs the runtime module by name; the facades
@@ -291,7 +285,7 @@ extension Livekit_DataStream.Header {
     }
 }
 
-extension NanopbBuilder where S == livekit_DataStream_Header {
+extension Livekit_DataStream_Header.Builder {
     // Mirrors `Livekit_DataStream.Header.timestampDate`; setters live on the builder.
     var timestampDate: Date {
         get { Date(timeIntervalSince1970: TimeInterval(timestamp) / TimeInterval(1000)) }
