@@ -16,33 +16,12 @@ import CLiveKitProto
 import LiveKitNanopb
 #endif
 
-struct Livekit_MetricsBatch: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_MetricsBatch
-    static var descriptor: pb_msgdesc_t { livekit_MetricsBatch_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_MetricsBatch()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_MetricsBatch: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_MetricsBatch_msg }
+    package static let _emptyBox = NanopbBox<livekit_MetricsBatch>(zero: livekit_MetricsBatch(), descriptor: livekit_MetricsBatch_msg)
+}
+typealias Livekit_MetricsBatch = NanopbMsg<livekit_MetricsBatch>
+extension NanopbMsg where S == livekit_MetricsBatch {
     var timestampMs: Int64 {
         _pointer.pointee.timestamp_ms?.pointee ?? 0
     }
@@ -67,7 +46,7 @@ struct Livekit_MetricsBatch: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_MetricsBatch {
+extension NanopbBuilder where S == livekit_MetricsBatch {
     var timestampMs: Int64 {
         get { _pointer.pointee.timestamp_ms?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.timestamp_ms, newValue) }
@@ -107,33 +86,12 @@ extension NanopbBuilder where M == Livekit_MetricsBatch {
 
 }
 
-struct Livekit_TimeSeriesMetric: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_TimeSeriesMetric
-    static var descriptor: pb_msgdesc_t { livekit_TimeSeriesMetric_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_TimeSeriesMetric()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_TimeSeriesMetric: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_TimeSeriesMetric_msg }
+    package static let _emptyBox = NanopbBox<livekit_TimeSeriesMetric>(zero: livekit_TimeSeriesMetric(), descriptor: livekit_TimeSeriesMetric_msg)
+}
+typealias Livekit_TimeSeriesMetric = NanopbMsg<livekit_TimeSeriesMetric>
+extension NanopbMsg where S == livekit_TimeSeriesMetric {
     var label: UInt32 {
         _pointer.pointee.label?.pointee ?? 0
     }
@@ -160,7 +118,7 @@ struct Livekit_TimeSeriesMetric: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_TimeSeriesMetric {
+extension NanopbBuilder where S == livekit_TimeSeriesMetric {
     var label: UInt32 {
         get { _pointer.pointee.label?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.label, newValue) }
@@ -192,33 +150,12 @@ extension NanopbBuilder where M == Livekit_TimeSeriesMetric {
 
 }
 
-struct Livekit_MetricSample: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_MetricSample
-    static var descriptor: pb_msgdesc_t { livekit_MetricSample_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_MetricSample()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_MetricSample: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_MetricSample_msg }
+    package static let _emptyBox = NanopbBox<livekit_MetricSample>(zero: livekit_MetricSample(), descriptor: livekit_MetricSample_msg)
+}
+typealias Livekit_MetricSample = NanopbMsg<livekit_MetricSample>
+extension NanopbMsg where S == livekit_MetricSample {
     var timestampMs: Int64 {
         _pointer.pointee.timestamp_ms?.pointee ?? 0
     }
@@ -236,7 +173,7 @@ struct Livekit_MetricSample: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_MetricSample {
+extension NanopbBuilder where S == livekit_MetricSample {
     var timestampMs: Int64 {
         get { _pointer.pointee.timestamp_ms?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.timestamp_ms, newValue) }
@@ -254,33 +191,12 @@ extension NanopbBuilder where M == Livekit_MetricSample {
 
 }
 
-struct Livekit_EventMetric: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_EventMetric
-    static var descriptor: pb_msgdesc_t { livekit_EventMetric_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_EventMetric()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_EventMetric: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_EventMetric_msg }
+    package static let _emptyBox = NanopbBox<livekit_EventMetric>(zero: livekit_EventMetric(), descriptor: livekit_EventMetric_msg)
+}
+typealias Livekit_EventMetric = NanopbMsg<livekit_EventMetric>
+extension NanopbMsg where S == livekit_EventMetric {
     var label: UInt32 {
         _pointer.pointee.label?.pointee ?? 0
     }
@@ -328,7 +244,7 @@ struct Livekit_EventMetric: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_EventMetric {
+extension NanopbBuilder where S == livekit_EventMetric {
     var label: UInt32 {
         get { _pointer.pointee.label?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.label, newValue) }

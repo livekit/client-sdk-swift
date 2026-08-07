@@ -245,10 +245,6 @@ func oracleExemplar_Livekit_ParticipantInfo() -> Livekit_ParticipantInfo {
     }
 }
 
-func exemplar_Livekit_Encryption() -> LiveKit.Livekit_Encryption { LiveKit.Livekit_Encryption() }
-
-func oracleExemplar_Livekit_Encryption() -> Livekit_Encryption { Livekit_Encryption() }
-
 func exemplar_Livekit_SimulcastCodecInfo() -> LiveKit.Livekit_SimulcastCodecInfo {
     LiveKit.Livekit_SimulcastCodecInfo.with { m in
         m.mimeType = "mime_type"
@@ -761,12 +757,8 @@ func oracleExemplar_Livekit_TimedVersion() -> Livekit_TimedVersion {
     }
 }
 
-func exemplar_Livekit_DataStream() -> LiveKit.Livekit_DataStream { LiveKit.Livekit_DataStream() }
-
-func oracleExemplar_Livekit_DataStream() -> Livekit_DataStream { Livekit_DataStream() }
-
-func exemplar_Livekit_DataStream_TextHeader() -> LiveKit.Livekit_DataStream.TextHeader {
-    LiveKit.Livekit_DataStream.TextHeader.with { m in
+func exemplar_Livekit_DataStream_TextHeader() -> LiveKit.Livekit_DataStream_TextHeader {
+    LiveKit.Livekit_DataStream_TextHeader.with { m in
         m.operationType = .update
         m.version = 2
         m.replyToStreamID = "reply_to_stream_id"
@@ -785,8 +777,8 @@ func oracleExemplar_Livekit_DataStream_TextHeader() -> Livekit_DataStream.TextHe
     }
 }
 
-func exemplar_Livekit_DataStream_ByteHeader() -> LiveKit.Livekit_DataStream.ByteHeader {
-    LiveKit.Livekit_DataStream.ByteHeader.with { m in
+func exemplar_Livekit_DataStream_ByteHeader() -> LiveKit.Livekit_DataStream_ByteHeader {
+    LiveKit.Livekit_DataStream_ByteHeader.with { m in
         m.name = "name"
     }
 }
@@ -797,8 +789,8 @@ func oracleExemplar_Livekit_DataStream_ByteHeader() -> Livekit_DataStream.ByteHe
     }
 }
 
-func exemplar_Livekit_DataStream_Header() -> LiveKit.Livekit_DataStream.Header {
-    LiveKit.Livekit_DataStream.Header.with { m in
+func exemplar_Livekit_DataStream_Header() -> LiveKit.Livekit_DataStream_Header {
+    LiveKit.Livekit_DataStream_Header.with { m in
         m.streamID = "stream_id"
         m.timestamp = 2
         m.topic = "topic"
@@ -823,8 +815,8 @@ func oracleExemplar_Livekit_DataStream_Header() -> Livekit_DataStream.Header {
     }
 }
 
-func exemplar_Livekit_DataStream_Chunk() -> LiveKit.Livekit_DataStream.Chunk {
-    LiveKit.Livekit_DataStream.Chunk.with { m in
+func exemplar_Livekit_DataStream_Chunk() -> LiveKit.Livekit_DataStream_Chunk {
+    LiveKit.Livekit_DataStream_Chunk.with { m in
         m.streamID = "stream_id"
         m.chunkIndex = 2
         m.content = Data("content".utf8)
@@ -843,8 +835,8 @@ func oracleExemplar_Livekit_DataStream_Chunk() -> Livekit_DataStream.Chunk {
     }
 }
 
-func exemplar_Livekit_DataStream_Trailer() -> LiveKit.Livekit_DataStream.Trailer {
-    LiveKit.Livekit_DataStream.Trailer.with { m in
+func exemplar_Livekit_DataStream_Trailer() -> LiveKit.Livekit_DataStream_Trailer {
+    LiveKit.Livekit_DataStream_Trailer.with { m in
         m.streamID = "stream_id"
         m.reason = "reason"
         m.attributes = ["attributes_key": "value"]
@@ -1025,8 +1017,8 @@ func oracleExemplar_Livekit_DataTrackSubscriberHandles() -> Livekit_DataTrackSub
     }
 }
 
-func exemplar_Livekit_DataTrackSubscriberHandles_PublishedDataTrack() -> LiveKit.Livekit_DataTrackSubscriberHandles.PublishedDataTrack {
-    LiveKit.Livekit_DataTrackSubscriberHandles.PublishedDataTrack.with { m in
+func exemplar_Livekit_DataTrackSubscriberHandles_PublishedDataTrack() -> LiveKit.Livekit_DataTrackSubscriberHandles_PublishedDataTrack {
+    LiveKit.Livekit_DataTrackSubscriberHandles_PublishedDataTrack.with { m in
         m.publisherIdentity = "publisher_identity"
         m.publisherSid = "publisher_sid"
         m.trackSid = "track_sid"
@@ -1213,8 +1205,8 @@ func oracleExemplar_Livekit_UpdateDataSubscription() -> Livekit_UpdateDataSubscr
     }
 }
 
-func exemplar_Livekit_UpdateDataSubscription_Update() -> LiveKit.Livekit_UpdateDataSubscription.Update {
-    LiveKit.Livekit_UpdateDataSubscription.Update.with { m in
+func exemplar_Livekit_UpdateDataSubscription_Update() -> LiveKit.Livekit_UpdateDataSubscription_Update {
+    LiveKit.Livekit_UpdateDataSubscription_Update.with { m in
         m.trackSid = "track_sid"
         m.subscribe = true
         m.options = exemplar_Livekit_DataTrackSubscriptionOptions()
@@ -1855,12 +1847,6 @@ let conformanceExemplars: [ConformanceExemplar] = [
         reencode: { try LiveKit.Livekit_ParticipantInfo(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
-        name: "Livekit_Encryption",
-        facade: { try exemplar_Livekit_Encryption().serializedData() },
-        oracle: { try oracleExemplar_Livekit_Encryption().serializedData() },
-        reencode: { try LiveKit.Livekit_Encryption(serializedData: $0).serializedData() },
-    ),
-    ConformanceExemplar(
         name: "Livekit_SimulcastCodecInfo",
         facade: { try exemplar_Livekit_SimulcastCodecInfo().serializedData() },
         oracle: { try oracleExemplar_Livekit_SimulcastCodecInfo().serializedData() },
@@ -2017,40 +2003,34 @@ let conformanceExemplars: [ConformanceExemplar] = [
         reencode: { try LiveKit.Livekit_TimedVersion(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
-        name: "Livekit_DataStream",
-        facade: { try exemplar_Livekit_DataStream().serializedData() },
-        oracle: { try oracleExemplar_Livekit_DataStream().serializedData() },
-        reencode: { try LiveKit.Livekit_DataStream(serializedData: $0).serializedData() },
-    ),
-    ConformanceExemplar(
         name: "Livekit_DataStream_TextHeader",
         facade: { try exemplar_Livekit_DataStream_TextHeader().serializedData() },
         oracle: { try oracleExemplar_Livekit_DataStream_TextHeader().serializedData() },
-        reencode: { try LiveKit.Livekit_DataStream.TextHeader(serializedData: $0).serializedData() },
+        reencode: { try LiveKit.Livekit_DataStream_TextHeader(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
         name: "Livekit_DataStream_ByteHeader",
         facade: { try exemplar_Livekit_DataStream_ByteHeader().serializedData() },
         oracle: { try oracleExemplar_Livekit_DataStream_ByteHeader().serializedData() },
-        reencode: { try LiveKit.Livekit_DataStream.ByteHeader(serializedData: $0).serializedData() },
+        reencode: { try LiveKit.Livekit_DataStream_ByteHeader(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
         name: "Livekit_DataStream_Header",
         facade: { try exemplar_Livekit_DataStream_Header().serializedData() },
         oracle: { try oracleExemplar_Livekit_DataStream_Header().serializedData() },
-        reencode: { try LiveKit.Livekit_DataStream.Header(serializedData: $0).serializedData() },
+        reencode: { try LiveKit.Livekit_DataStream_Header(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
         name: "Livekit_DataStream_Chunk",
         facade: { try exemplar_Livekit_DataStream_Chunk().serializedData() },
         oracle: { try oracleExemplar_Livekit_DataStream_Chunk().serializedData() },
-        reencode: { try LiveKit.Livekit_DataStream.Chunk(serializedData: $0).serializedData() },
+        reencode: { try LiveKit.Livekit_DataStream_Chunk(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
         name: "Livekit_DataStream_Trailer",
         facade: { try exemplar_Livekit_DataStream_Trailer().serializedData() },
         oracle: { try oracleExemplar_Livekit_DataStream_Trailer().serializedData() },
-        reencode: { try LiveKit.Livekit_DataStream.Trailer(serializedData: $0).serializedData() },
+        reencode: { try LiveKit.Livekit_DataStream_Trailer(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
         name: "Livekit_SubscribedAudioCodec",
@@ -2116,7 +2096,7 @@ let conformanceExemplars: [ConformanceExemplar] = [
         name: "Livekit_DataTrackSubscriberHandles_PublishedDataTrack",
         facade: { try exemplar_Livekit_DataTrackSubscriberHandles_PublishedDataTrack().serializedData() },
         oracle: { try oracleExemplar_Livekit_DataTrackSubscriberHandles_PublishedDataTrack().serializedData() },
-        reencode: { try LiveKit.Livekit_DataTrackSubscriberHandles.PublishedDataTrack(serializedData: $0).serializedData() },
+        reencode: { try LiveKit.Livekit_DataTrackSubscriberHandles_PublishedDataTrack(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
         name: "Livekit_TrickleRequest",
@@ -2182,7 +2162,7 @@ let conformanceExemplars: [ConformanceExemplar] = [
         name: "Livekit_UpdateDataSubscription_Update",
         facade: { try exemplar_Livekit_UpdateDataSubscription_Update().serializedData() },
         oracle: { try oracleExemplar_Livekit_UpdateDataSubscription_Update().serializedData() },
-        reencode: { try LiveKit.Livekit_UpdateDataSubscription.Update(serializedData: $0).serializedData() },
+        reencode: { try LiveKit.Livekit_UpdateDataSubscription_Update(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
         name: "Livekit_UpdateTrackSettings",
@@ -2549,15 +2529,15 @@ let oneofVariantExemplars: [ConformanceExemplar] = [
     ),
     ConformanceExemplar(
         name: "Livekit_DataStream_Header.content_header.textHeader",
-        facade: { try LiveKit.Livekit_DataStream.Header.with { $0.textHeader = exemplar_Livekit_DataStream_TextHeader() }.serializedData() },
+        facade: { try LiveKit.Livekit_DataStream_Header.with { $0.textHeader = exemplar_Livekit_DataStream_TextHeader() }.serializedData() },
         oracle: { try Livekit_DataStream.Header.with { $0.textHeader = oracleExemplar_Livekit_DataStream_TextHeader() }.serializedData() },
-        reencode: { try LiveKit.Livekit_DataStream.Header(serializedData: $0).serializedData() },
+        reencode: { try LiveKit.Livekit_DataStream_Header(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
         name: "Livekit_DataStream_Header.content_header.byteHeader",
-        facade: { try LiveKit.Livekit_DataStream.Header.with { $0.byteHeader = exemplar_Livekit_DataStream_ByteHeader() }.serializedData() },
+        facade: { try LiveKit.Livekit_DataStream_Header.with { $0.byteHeader = exemplar_Livekit_DataStream_ByteHeader() }.serializedData() },
         oracle: { try Livekit_DataStream.Header.with { $0.byteHeader = oracleExemplar_Livekit_DataStream_ByteHeader() }.serializedData() },
-        reencode: { try LiveKit.Livekit_DataStream.Header(serializedData: $0).serializedData() },
+        reencode: { try LiveKit.Livekit_DataStream_Header(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
         name: "Livekit_SignalRequest.message.offer",

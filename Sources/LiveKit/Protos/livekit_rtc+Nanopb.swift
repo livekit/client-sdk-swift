@@ -16,56 +16,36 @@ import CLiveKitProto
 import LiveKitNanopb
 #endif
 
-struct Livekit_SignalRequest: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SignalRequest
-    static var descriptor: pb_msgdesc_t { livekit_SignalRequest_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SignalRequest()
+enum Livekit_SignalRequest_OneOf_Message: Equatable {
+    case offer(Livekit_SessionDescription)
+    case answer(Livekit_SessionDescription)
+    case trickle(Livekit_TrickleRequest)
+    case addTrack(Livekit_AddTrackRequest)
+    case mute(Livekit_MuteTrackRequest)
+    case subscription(Livekit_UpdateSubscription)
+    case trackSetting(Livekit_UpdateTrackSettings)
+    case leave(Livekit_LeaveRequest)
+    case updateLayers(Livekit_UpdateVideoLayers)
+    case subscriptionPermission(Livekit_SubscriptionPermission)
+    case syncState(Livekit_SyncState)
+    case simulate(Livekit_SimulateScenario)
+    case ping(Int64)
+    case updateMetadata(Livekit_UpdateParticipantMetadata)
+    case pingReq(Livekit_Ping)
+    case updateAudioTrack(Livekit_UpdateLocalAudioTrack)
+    case updateVideoTrack(Livekit_UpdateLocalVideoTrack)
+    case publishDataTrackRequest(Livekit_PublishDataTrackRequest)
+    case unpublishDataTrackRequest(Livekit_UnpublishDataTrackRequest)
+    case updateDataSubscription(Livekit_UpdateDataSubscription)
+}
 
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
-    enum OneOf_Message: Equatable {
-        case offer(Livekit_SessionDescription)
-        case answer(Livekit_SessionDescription)
-        case trickle(Livekit_TrickleRequest)
-        case addTrack(Livekit_AddTrackRequest)
-        case mute(Livekit_MuteTrackRequest)
-        case subscription(Livekit_UpdateSubscription)
-        case trackSetting(Livekit_UpdateTrackSettings)
-        case leave(Livekit_LeaveRequest)
-        case updateLayers(Livekit_UpdateVideoLayers)
-        case subscriptionPermission(Livekit_SubscriptionPermission)
-        case syncState(Livekit_SyncState)
-        case simulate(Livekit_SimulateScenario)
-        case ping(Int64)
-        case updateMetadata(Livekit_UpdateParticipantMetadata)
-        case pingReq(Livekit_Ping)
-        case updateAudioTrack(Livekit_UpdateLocalAudioTrack)
-        case updateVideoTrack(Livekit_UpdateLocalVideoTrack)
-        case publishDataTrackRequest(Livekit_PublishDataTrackRequest)
-        case unpublishDataTrackRequest(Livekit_UnpublishDataTrackRequest)
-        case updateDataSubscription(Livekit_UpdateDataSubscription)
-    }
-    var message: OneOf_Message? {
+extension livekit_SignalRequest: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SignalRequest_msg }
+    package static let _emptyBox = NanopbBox<livekit_SignalRequest>(zero: livekit_SignalRequest(), descriptor: livekit_SignalRequest_msg)
+}
+typealias Livekit_SignalRequest = NanopbMsg<livekit_SignalRequest>
+extension NanopbMsg where S == livekit_SignalRequest {
+    var message: Livekit_SignalRequest_OneOf_Message? {
         switch _pointer.pointee.which_message {
         case pb_size_t(livekit_SignalRequest_offer_tag):
             return .offer(_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty)
@@ -173,8 +153,8 @@ struct Livekit_SignalRequest: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_SignalRequest {
-    var message: Livekit_SignalRequest.OneOf_Message? {
+extension NanopbBuilder where S == livekit_SignalRequest {
+    var message: Livekit_SignalRequest_OneOf_Message? {
         get {
             switch _pointer.pointee.which_message {
             case pb_size_t(livekit_SignalRequest_offer_tag):
@@ -499,64 +479,44 @@ extension NanopbBuilder where M == Livekit_SignalRequest {
 
 }
 
-struct Livekit_SignalResponse: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SignalResponse
-    static var descriptor: pb_msgdesc_t { livekit_SignalResponse_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SignalResponse()
+enum Livekit_SignalResponse_OneOf_Message: Equatable {
+    case join(Livekit_JoinResponse)
+    case answer(Livekit_SessionDescription)
+    case offer(Livekit_SessionDescription)
+    case trickle(Livekit_TrickleRequest)
+    case update(Livekit_ParticipantUpdate)
+    case trackPublished(Livekit_TrackPublishedResponse)
+    case leave(Livekit_LeaveRequest)
+    case mute(Livekit_MuteTrackRequest)
+    case speakersChanged(Livekit_SpeakersChanged)
+    case roomUpdate(Livekit_RoomUpdate)
+    case connectionQuality(Livekit_ConnectionQualityUpdate)
+    case streamStateUpdate(Livekit_StreamStateUpdate)
+    case subscribedQualityUpdate(Livekit_SubscribedQualityUpdate)
+    case subscriptionPermissionUpdate(Livekit_SubscriptionPermissionUpdate)
+    case refreshToken(String)
+    case trackUnpublished(Livekit_TrackUnpublishedResponse)
+    case pong(Int64)
+    case reconnect(Livekit_ReconnectResponse)
+    case pongResp(Livekit_Pong)
+    case subscriptionResponse(Livekit_SubscriptionResponse)
+    case requestResponse(Livekit_RequestResponse)
+    case trackSubscribed(Livekit_TrackSubscribed)
+    case roomMoved(Livekit_RoomMovedResponse)
+    case mediaSectionsRequirement(Livekit_MediaSectionsRequirement)
+    case subscribedAudioCodecUpdate(Livekit_SubscribedAudioCodecUpdate)
+    case publishDataTrackResponse(Livekit_PublishDataTrackResponse)
+    case unpublishDataTrackResponse(Livekit_UnpublishDataTrackResponse)
+    case dataTrackSubscriberHandles(Livekit_DataTrackSubscriberHandles)
+}
 
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
-    enum OneOf_Message: Equatable {
-        case join(Livekit_JoinResponse)
-        case answer(Livekit_SessionDescription)
-        case offer(Livekit_SessionDescription)
-        case trickle(Livekit_TrickleRequest)
-        case update(Livekit_ParticipantUpdate)
-        case trackPublished(Livekit_TrackPublishedResponse)
-        case leave(Livekit_LeaveRequest)
-        case mute(Livekit_MuteTrackRequest)
-        case speakersChanged(Livekit_SpeakersChanged)
-        case roomUpdate(Livekit_RoomUpdate)
-        case connectionQuality(Livekit_ConnectionQualityUpdate)
-        case streamStateUpdate(Livekit_StreamStateUpdate)
-        case subscribedQualityUpdate(Livekit_SubscribedQualityUpdate)
-        case subscriptionPermissionUpdate(Livekit_SubscriptionPermissionUpdate)
-        case refreshToken(String)
-        case trackUnpublished(Livekit_TrackUnpublishedResponse)
-        case pong(Int64)
-        case reconnect(Livekit_ReconnectResponse)
-        case pongResp(Livekit_Pong)
-        case subscriptionResponse(Livekit_SubscriptionResponse)
-        case requestResponse(Livekit_RequestResponse)
-        case trackSubscribed(Livekit_TrackSubscribed)
-        case roomMoved(Livekit_RoomMovedResponse)
-        case mediaSectionsRequirement(Livekit_MediaSectionsRequirement)
-        case subscribedAudioCodecUpdate(Livekit_SubscribedAudioCodecUpdate)
-        case publishDataTrackResponse(Livekit_PublishDataTrackResponse)
-        case unpublishDataTrackResponse(Livekit_UnpublishDataTrackResponse)
-        case dataTrackSubscriberHandles(Livekit_DataTrackSubscriberHandles)
-    }
-    var message: OneOf_Message? {
+extension livekit_SignalResponse: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SignalResponse_msg }
+    package static let _emptyBox = NanopbBox<livekit_SignalResponse>(zero: livekit_SignalResponse(), descriptor: livekit_SignalResponse_msg)
+}
+typealias Livekit_SignalResponse = NanopbMsg<livekit_SignalResponse>
+extension NanopbMsg where S == livekit_SignalResponse {
+    var message: Livekit_SignalResponse_OneOf_Message? {
         switch _pointer.pointee.which_message {
         case pb_size_t(livekit_SignalResponse_join_tag):
             return .join(_pointer.pointee.message.join.map { Livekit_JoinResponse(_sharing: $0, owner: _owner) } ?? Livekit_JoinResponse._empty)
@@ -704,8 +664,8 @@ struct Livekit_SignalResponse: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_SignalResponse {
-    var message: Livekit_SignalResponse.OneOf_Message? {
+extension NanopbBuilder where S == livekit_SignalResponse {
+    var message: Livekit_SignalResponse_OneOf_Message? {
         get {
             switch _pointer.pointee.which_message {
             case pb_size_t(livekit_SignalResponse_join_tag):
@@ -1150,33 +1110,12 @@ extension NanopbBuilder where M == Livekit_SignalResponse {
 
 }
 
-struct Livekit_SimulcastCodec: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SimulcastCodec
-    static var descriptor: pb_msgdesc_t { livekit_SimulcastCodec_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SimulcastCodec()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_SimulcastCodec: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SimulcastCodec_msg }
+    package static let _emptyBox = NanopbBox<livekit_SimulcastCodec>(zero: livekit_SimulcastCodec(), descriptor: livekit_SimulcastCodec_msg)
+}
+typealias Livekit_SimulcastCodec = NanopbMsg<livekit_SimulcastCodec>
+extension NanopbMsg where S == livekit_SimulcastCodec {
     var codec: String {
         lkString(_pointer.pointee.codec) ?? ""
     }
@@ -1191,14 +1130,14 @@ struct Livekit_SimulcastCodec: NanopbMessage, @unchecked Sendable {
         lkViews(_pointer.pointee.layers_count, _pointer.pointee.layers, owner: _owner)
     }
 
-    var videoLayerMode: Livekit_VideoLayer.Mode {
-        _pointer.pointee.video_layer_mode.map { lkEnum($0.pointee) } ?? Livekit_VideoLayer.Mode()
+    var videoLayerMode: Livekit_VideoLayer_Mode {
+        _pointer.pointee.video_layer_mode.map { lkEnum($0.pointee) } ?? Livekit_VideoLayer_Mode()
     }
     var hasVideoLayerMode: Bool { _pointer.pointee.video_layer_mode != nil }
 
 }
 
-extension NanopbBuilder where M == Livekit_SimulcastCodec {
+extension NanopbBuilder where S == livekit_SimulcastCodec {
     var codec: String {
         get { lkString(_pointer.pointee.codec) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.codec, newValue) }
@@ -1218,40 +1157,19 @@ extension NanopbBuilder where M == Livekit_SimulcastCodec {
         }
     }
 
-    var videoLayerMode: Livekit_VideoLayer.Mode {
-        get { _pointer.pointee.video_layer_mode.map { lkEnum($0.pointee) } ?? Livekit_VideoLayer.Mode() }
+    var videoLayerMode: Livekit_VideoLayer_Mode {
+        get { _pointer.pointee.video_layer_mode.map { lkEnum($0.pointee) } ?? Livekit_VideoLayer_Mode() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.video_layer_mode, newValue) }
     }
 
 }
 
-struct Livekit_AddTrackRequest: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_AddTrackRequest
-    static var descriptor: pb_msgdesc_t { livekit_AddTrackRequest_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_AddTrackRequest()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_AddTrackRequest: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_AddTrackRequest_msg }
+    package static let _emptyBox = NanopbBox<livekit_AddTrackRequest>(zero: livekit_AddTrackRequest(), descriptor: livekit_AddTrackRequest_msg)
+}
+typealias Livekit_AddTrackRequest = NanopbMsg<livekit_AddTrackRequest>
+extension NanopbMsg where S == livekit_AddTrackRequest {
     var cid: String {
         lkString(_pointer.pointee.cid) ?? ""
     }
@@ -1315,8 +1233,8 @@ struct Livekit_AddTrackRequest: NanopbMessage, @unchecked Sendable {
     }
     var hasDisableRed: Bool { _pointer.pointee.disable_red != nil }
 
-    var encryption: Livekit_Encryption.TypeEnum {
-        _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum()
+    var encryption: Livekit_Encryption_TypeEnum {
+        _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum()
     }
     var hasEncryption: Bool { _pointer.pointee.encryption != nil }
 
@@ -1340,7 +1258,7 @@ struct Livekit_AddTrackRequest: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_AddTrackRequest {
+extension NanopbBuilder where S == livekit_AddTrackRequest {
     var cid: String {
         get { lkString(_pointer.pointee.cid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.cid, newValue) }
@@ -1414,8 +1332,8 @@ extension NanopbBuilder where M == Livekit_AddTrackRequest {
         nonmutating set { lkSetValue(&_pointer.pointee.disable_red, newValue) }
     }
 
-    var encryption: Livekit_Encryption.TypeEnum {
-        get { _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
+    var encryption: Livekit_Encryption_TypeEnum {
+        get { _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption, newValue) }
     }
 
@@ -1449,33 +1367,12 @@ extension NanopbBuilder where M == Livekit_AddTrackRequest {
 
 }
 
-struct Livekit_PublishDataTrackRequest: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_PublishDataTrackRequest
-    static var descriptor: pb_msgdesc_t { livekit_PublishDataTrackRequest_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_PublishDataTrackRequest()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_PublishDataTrackRequest: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_PublishDataTrackRequest_msg }
+    package static let _emptyBox = NanopbBox<livekit_PublishDataTrackRequest>(zero: livekit_PublishDataTrackRequest(), descriptor: livekit_PublishDataTrackRequest_msg)
+}
+typealias Livekit_PublishDataTrackRequest = NanopbMsg<livekit_PublishDataTrackRequest>
+extension NanopbMsg where S == livekit_PublishDataTrackRequest {
     var pubHandle: UInt32 {
         _pointer.pointee.pub_handle?.pointee ?? 0
     }
@@ -1486,14 +1383,14 @@ struct Livekit_PublishDataTrackRequest: NanopbMessage, @unchecked Sendable {
     }
     var hasName: Bool { _pointer.pointee.name != nil }
 
-    var encryption: Livekit_Encryption.TypeEnum {
-        _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum()
+    var encryption: Livekit_Encryption_TypeEnum {
+        _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum()
     }
     var hasEncryption: Bool { _pointer.pointee.encryption != nil }
 
 }
 
-extension NanopbBuilder where M == Livekit_PublishDataTrackRequest {
+extension NanopbBuilder where S == livekit_PublishDataTrackRequest {
     var pubHandle: UInt32 {
         get { _pointer.pointee.pub_handle?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.pub_handle, newValue) }
@@ -1504,40 +1401,19 @@ extension NanopbBuilder where M == Livekit_PublishDataTrackRequest {
         nonmutating set { lkSetString(&_pointer.pointee.name, newValue) }
     }
 
-    var encryption: Livekit_Encryption.TypeEnum {
-        get { _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
+    var encryption: Livekit_Encryption_TypeEnum {
+        get { _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption, newValue) }
     }
 
 }
 
-struct Livekit_PublishDataTrackResponse: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_PublishDataTrackResponse
-    static var descriptor: pb_msgdesc_t { livekit_PublishDataTrackResponse_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_PublishDataTrackResponse()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_PublishDataTrackResponse: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_PublishDataTrackResponse_msg }
+    package static let _emptyBox = NanopbBox<livekit_PublishDataTrackResponse>(zero: livekit_PublishDataTrackResponse(), descriptor: livekit_PublishDataTrackResponse_msg)
+}
+typealias Livekit_PublishDataTrackResponse = NanopbMsg<livekit_PublishDataTrackResponse>
+extension NanopbMsg where S == livekit_PublishDataTrackResponse {
     var info: Livekit_DataTrackInfo {
         _pointer.pointee.info.map { Livekit_DataTrackInfo(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackInfo._empty
     }
@@ -1545,7 +1421,7 @@ struct Livekit_PublishDataTrackResponse: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_PublishDataTrackResponse {
+extension NanopbBuilder where S == livekit_PublishDataTrackResponse {
     var info: Livekit_DataTrackInfo {
         get { _pointer.pointee.info.map { Livekit_DataTrackInfo(_sharing: $0, owner: _box) } ?? Livekit_DataTrackInfo._empty }
         nonmutating set { lkSetMessage(&_pointer.pointee.info, newValue) }
@@ -1553,33 +1429,12 @@ extension NanopbBuilder where M == Livekit_PublishDataTrackResponse {
 
 }
 
-struct Livekit_UnpublishDataTrackRequest: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_UnpublishDataTrackRequest
-    static var descriptor: pb_msgdesc_t { livekit_UnpublishDataTrackRequest_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_UnpublishDataTrackRequest()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_UnpublishDataTrackRequest: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_UnpublishDataTrackRequest_msg }
+    package static let _emptyBox = NanopbBox<livekit_UnpublishDataTrackRequest>(zero: livekit_UnpublishDataTrackRequest(), descriptor: livekit_UnpublishDataTrackRequest_msg)
+}
+typealias Livekit_UnpublishDataTrackRequest = NanopbMsg<livekit_UnpublishDataTrackRequest>
+extension NanopbMsg where S == livekit_UnpublishDataTrackRequest {
     var pubHandle: UInt32 {
         _pointer.pointee.pub_handle?.pointee ?? 0
     }
@@ -1587,7 +1442,7 @@ struct Livekit_UnpublishDataTrackRequest: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_UnpublishDataTrackRequest {
+extension NanopbBuilder where S == livekit_UnpublishDataTrackRequest {
     var pubHandle: UInt32 {
         get { _pointer.pointee.pub_handle?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.pub_handle, newValue) }
@@ -1595,33 +1450,12 @@ extension NanopbBuilder where M == Livekit_UnpublishDataTrackRequest {
 
 }
 
-struct Livekit_UnpublishDataTrackResponse: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_UnpublishDataTrackResponse
-    static var descriptor: pb_msgdesc_t { livekit_UnpublishDataTrackResponse_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_UnpublishDataTrackResponse()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_UnpublishDataTrackResponse: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_UnpublishDataTrackResponse_msg }
+    package static let _emptyBox = NanopbBox<livekit_UnpublishDataTrackResponse>(zero: livekit_UnpublishDataTrackResponse(), descriptor: livekit_UnpublishDataTrackResponse_msg)
+}
+typealias Livekit_UnpublishDataTrackResponse = NanopbMsg<livekit_UnpublishDataTrackResponse>
+extension NanopbMsg where S == livekit_UnpublishDataTrackResponse {
     var info: Livekit_DataTrackInfo {
         _pointer.pointee.info.map { Livekit_DataTrackInfo(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackInfo._empty
     }
@@ -1629,7 +1463,7 @@ struct Livekit_UnpublishDataTrackResponse: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_UnpublishDataTrackResponse {
+extension NanopbBuilder where S == livekit_UnpublishDataTrackResponse {
     var info: Livekit_DataTrackInfo {
         get { _pointer.pointee.info.map { Livekit_DataTrackInfo(_sharing: $0, owner: _box) } ?? Livekit_DataTrackInfo._empty }
         nonmutating set { lkSetMessage(&_pointer.pointee.info, newValue) }
@@ -1637,127 +1471,46 @@ extension NanopbBuilder where M == Livekit_UnpublishDataTrackResponse {
 
 }
 
-struct Livekit_DataTrackSubscriberHandles: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_DataTrackSubscriberHandles
-    static var descriptor: pb_msgdesc_t { livekit_DataTrackSubscriberHandles_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_DataTrackSubscriberHandles()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
-    var subHandles: [UInt32: Livekit_DataTrackSubscriberHandles.PublishedDataTrack] {
-        var out: [UInt32: Livekit_DataTrackSubscriberHandles.PublishedDataTrack] = [:]
-        for entry in lkViews(_pointer.pointee.sub_handles_count, _pointer.pointee.sub_handles, owner: _owner) as [Livekit_DataTrackSubscriberHandles.SubHandlesEntry] {
+extension livekit_DataTrackSubscriberHandles: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataTrackSubscriberHandles_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataTrackSubscriberHandles>(zero: livekit_DataTrackSubscriberHandles(), descriptor: livekit_DataTrackSubscriberHandles_msg)
+}
+typealias Livekit_DataTrackSubscriberHandles = NanopbMsg<livekit_DataTrackSubscriberHandles>
+extension NanopbMsg where S == livekit_DataTrackSubscriberHandles {
+    var subHandles: [UInt32: Livekit_DataTrackSubscriberHandles_PublishedDataTrack] {
+        var out: [UInt32: Livekit_DataTrackSubscriberHandles_PublishedDataTrack] = [:]
+        for entry in lkViews(_pointer.pointee.sub_handles_count, _pointer.pointee.sub_handles, owner: _owner) as [Livekit_DataTrackSubscriberHandles_SubHandlesEntry] {
             out[entry.key] = entry.value
         }
         return out
     }
 
-    struct PublishedDataTrack: NanopbMessage, @unchecked Sendable {
-        typealias Storage = livekit_DataTrackSubscriberHandles_PublishedDataTrack
-        static var descriptor: pb_msgdesc_t { livekit_DataTrackSubscriberHandles_PublishedDataTrack_msg }
-        static var zero: Storage { Storage() }
-        /// Shared value returned when a submessage field is absent. Safe to
-        /// share because messages are immutable; `modifying` sees the static
-        /// reference, so it copies rather than writing through it.
-        static let _empty = PublishedDataTrack()
+}
 
-        var _owner: NanopbAnyBox
-        var _pointer: UnsafeMutablePointer<Storage>
-
-        init() {
-            self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-        }
-
-        init(_owning box: NanopbBox<Storage>) {
-            _owner = box
-            _pointer = box.pointer
-        }
-
-        /// Zero-copy view into `owner`'s storage.
-        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-            _owner = owner
-            _pointer = pointer
-        }
-
-        var publisherIdentity: String {
-            lkString(_pointer.pointee.publisher_identity) ?? ""
-        }
-        var hasPublisherIdentity: Bool { _pointer.pointee.publisher_identity != nil }
-
-        var publisherSid: String {
-            lkString(_pointer.pointee.publisher_sid) ?? ""
-        }
-        var hasPublisherSid: Bool { _pointer.pointee.publisher_sid != nil }
-
-        var trackSid: String {
-            lkString(_pointer.pointee.track_sid) ?? ""
-        }
-        var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
-
+extension livekit_DataTrackSubscriberHandles_PublishedDataTrack: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataTrackSubscriberHandles_PublishedDataTrack_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataTrackSubscriberHandles_PublishedDataTrack>(zero: livekit_DataTrackSubscriberHandles_PublishedDataTrack(), descriptor: livekit_DataTrackSubscriberHandles_PublishedDataTrack_msg)
+}
+typealias Livekit_DataTrackSubscriberHandles_PublishedDataTrack = NanopbMsg<livekit_DataTrackSubscriberHandles_PublishedDataTrack>
+extension NanopbMsg where S == livekit_DataTrackSubscriberHandles_PublishedDataTrack {
+    var publisherIdentity: String {
+        lkString(_pointer.pointee.publisher_identity) ?? ""
     }
+    var hasPublisherIdentity: Bool { _pointer.pointee.publisher_identity != nil }
 
-    struct SubHandlesEntry: NanopbMessage, @unchecked Sendable {
-        typealias Storage = livekit_DataTrackSubscriberHandles_SubHandlesEntry
-        static var descriptor: pb_msgdesc_t { livekit_DataTrackSubscriberHandles_SubHandlesEntry_msg }
-        static var zero: Storage { Storage() }
-        /// Shared value returned when a submessage field is absent. Safe to
-        /// share because messages are immutable; `modifying` sees the static
-        /// reference, so it copies rather than writing through it.
-        static let _empty = SubHandlesEntry()
-
-        var _owner: NanopbAnyBox
-        var _pointer: UnsafeMutablePointer<Storage>
-
-        init() {
-            self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-        }
-
-        init(_owning box: NanopbBox<Storage>) {
-            _owner = box
-            _pointer = box.pointer
-        }
-
-        /// Zero-copy view into `owner`'s storage.
-        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-            _owner = owner
-            _pointer = pointer
-        }
-
-        var key: UInt32 {
-            _pointer.pointee.key?.pointee ?? 0
-        }
-        var hasKey: Bool { _pointer.pointee.key != nil }
-
-        var value: Livekit_DataTrackSubscriberHandles.PublishedDataTrack {
-            _pointer.pointee.value.map { Livekit_DataTrackSubscriberHandles.PublishedDataTrack(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriberHandles.PublishedDataTrack._empty
-        }
-        var hasValue: Bool { _pointer.pointee.value != nil }
-
+    var publisherSid: String {
+        lkString(_pointer.pointee.publisher_sid) ?? ""
     }
+    var hasPublisherSid: Bool { _pointer.pointee.publisher_sid != nil }
+
+    var trackSid: String {
+        lkString(_pointer.pointee.track_sid) ?? ""
+    }
+    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
 
 }
 
-extension NanopbBuilder where M == Livekit_DataTrackSubscriberHandles.PublishedDataTrack {
+extension NanopbBuilder where S == livekit_DataTrackSubscriberHandles_PublishedDataTrack {
     var publisherIdentity: String {
         get { lkString(_pointer.pointee.publisher_identity) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.publisher_identity, newValue) }
@@ -1775,24 +1528,42 @@ extension NanopbBuilder where M == Livekit_DataTrackSubscriberHandles.PublishedD
 
 }
 
-extension NanopbBuilder where M == Livekit_DataTrackSubscriberHandles.SubHandlesEntry {
+extension livekit_DataTrackSubscriberHandles_SubHandlesEntry: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataTrackSubscriberHandles_SubHandlesEntry_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataTrackSubscriberHandles_SubHandlesEntry>(zero: livekit_DataTrackSubscriberHandles_SubHandlesEntry(), descriptor: livekit_DataTrackSubscriberHandles_SubHandlesEntry_msg)
+}
+typealias Livekit_DataTrackSubscriberHandles_SubHandlesEntry = NanopbMsg<livekit_DataTrackSubscriberHandles_SubHandlesEntry>
+extension NanopbMsg where S == livekit_DataTrackSubscriberHandles_SubHandlesEntry {
+    var key: UInt32 {
+        _pointer.pointee.key?.pointee ?? 0
+    }
+    var hasKey: Bool { _pointer.pointee.key != nil }
+
+    var value: Livekit_DataTrackSubscriberHandles_PublishedDataTrack {
+        _pointer.pointee.value.map { Livekit_DataTrackSubscriberHandles_PublishedDataTrack(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriberHandles_PublishedDataTrack._empty
+    }
+    var hasValue: Bool { _pointer.pointee.value != nil }
+
+}
+
+extension NanopbBuilder where S == livekit_DataTrackSubscriberHandles_SubHandlesEntry {
     var key: UInt32 {
         get { _pointer.pointee.key?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.key, newValue) }
     }
 
-    var value: Livekit_DataTrackSubscriberHandles.PublishedDataTrack {
-        get { _pointer.pointee.value.map { Livekit_DataTrackSubscriberHandles.PublishedDataTrack(_sharing: $0, owner: _box) } ?? Livekit_DataTrackSubscriberHandles.PublishedDataTrack._empty }
+    var value: Livekit_DataTrackSubscriberHandles_PublishedDataTrack {
+        get { _pointer.pointee.value.map { Livekit_DataTrackSubscriberHandles_PublishedDataTrack(_sharing: $0, owner: _box) } ?? Livekit_DataTrackSubscriberHandles_PublishedDataTrack._empty }
         nonmutating set { lkSetMessage(&_pointer.pointee.value, newValue) }
     }
 
 }
 
-extension NanopbBuilder where M == Livekit_DataTrackSubscriberHandles {
-    var subHandles: [UInt32: Livekit_DataTrackSubscriberHandles.PublishedDataTrack] {
+extension NanopbBuilder where S == livekit_DataTrackSubscriberHandles {
+    var subHandles: [UInt32: Livekit_DataTrackSubscriberHandles_PublishedDataTrack] {
         get {
-            var out: [UInt32: Livekit_DataTrackSubscriberHandles.PublishedDataTrack] = [:]
-            for entry in lkViews(_pointer.pointee.sub_handles_count, _pointer.pointee.sub_handles, owner: _box) as [Livekit_DataTrackSubscriberHandles.SubHandlesEntry] {
+            var out: [UInt32: Livekit_DataTrackSubscriberHandles_PublishedDataTrack] = [:]
+            for entry in lkViews(_pointer.pointee.sub_handles_count, _pointer.pointee.sub_handles, owner: _box) as [Livekit_DataTrackSubscriberHandles_SubHandlesEntry] {
                 out[entry.key] = entry.value
             }
             return out
@@ -1800,7 +1571,7 @@ extension NanopbBuilder where M == Livekit_DataTrackSubscriberHandles {
         nonmutating set {
             // sorted for deterministic encoding (bytes-based Equatable)
             let entries = newValue.sorted { $0.key < $1.key }.map { pair in
-                Livekit_DataTrackSubscriberHandles.SubHandlesEntry.with { $0.key = pair.key; $0.value = pair.value }
+                Livekit_DataTrackSubscriberHandles_SubHandlesEntry.with { $0.key = pair.key; $0.value = pair.value }
             }
             var count = _pointer.pointee.sub_handles_count, base = _pointer.pointee.sub_handles
             lkSetRepeatedMessages(&count, &base, entries)
@@ -1810,33 +1581,12 @@ extension NanopbBuilder where M == Livekit_DataTrackSubscriberHandles {
 
 }
 
-struct Livekit_TrickleRequest: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_TrickleRequest
-    static var descriptor: pb_msgdesc_t { livekit_TrickleRequest_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_TrickleRequest()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_TrickleRequest: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_TrickleRequest_msg }
+    package static let _emptyBox = NanopbBox<livekit_TrickleRequest>(zero: livekit_TrickleRequest(), descriptor: livekit_TrickleRequest_msg)
+}
+typealias Livekit_TrickleRequest = NanopbMsg<livekit_TrickleRequest>
+extension NanopbMsg where S == livekit_TrickleRequest {
     var candidateInit: String {
         lkString(_pointer.pointee.candidateInit) ?? ""
     }
@@ -1854,7 +1604,7 @@ struct Livekit_TrickleRequest: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_TrickleRequest {
+extension NanopbBuilder where S == livekit_TrickleRequest {
     var candidateInit: String {
         get { lkString(_pointer.pointee.candidateInit) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.candidateInit, newValue) }
@@ -1872,33 +1622,12 @@ extension NanopbBuilder where M == Livekit_TrickleRequest {
 
 }
 
-struct Livekit_MuteTrackRequest: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_MuteTrackRequest
-    static var descriptor: pb_msgdesc_t { livekit_MuteTrackRequest_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_MuteTrackRequest()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_MuteTrackRequest: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_MuteTrackRequest_msg }
+    package static let _emptyBox = NanopbBox<livekit_MuteTrackRequest>(zero: livekit_MuteTrackRequest(), descriptor: livekit_MuteTrackRequest_msg)
+}
+typealias Livekit_MuteTrackRequest = NanopbMsg<livekit_MuteTrackRequest>
+extension NanopbMsg where S == livekit_MuteTrackRequest {
     var sid: String {
         lkString(_pointer.pointee.sid) ?? ""
     }
@@ -1911,7 +1640,7 @@ struct Livekit_MuteTrackRequest: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_MuteTrackRequest {
+extension NanopbBuilder where S == livekit_MuteTrackRequest {
     var sid: String {
         get { lkString(_pointer.pointee.sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
@@ -1924,33 +1653,12 @@ extension NanopbBuilder where M == Livekit_MuteTrackRequest {
 
 }
 
-struct Livekit_JoinResponse: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_JoinResponse
-    static var descriptor: pb_msgdesc_t { livekit_JoinResponse_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_JoinResponse()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_JoinResponse: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_JoinResponse_msg }
+    package static let _emptyBox = NanopbBox<livekit_JoinResponse>(zero: livekit_JoinResponse(), descriptor: livekit_JoinResponse_msg)
+}
+typealias Livekit_JoinResponse = NanopbMsg<livekit_JoinResponse>
+extension NanopbMsg where S == livekit_JoinResponse {
     var room: Livekit_Room {
         _pointer.pointee.room.map { Livekit_Room(_sharing: $0, owner: _owner) } ?? Livekit_Room._empty
     }
@@ -2025,7 +1733,7 @@ struct Livekit_JoinResponse: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_JoinResponse {
+extension NanopbBuilder where S == livekit_JoinResponse {
     var room: Livekit_Room {
         get { _pointer.pointee.room.map { Livekit_Room(_sharing: $0, owner: _box) } ?? Livekit_Room._empty }
         nonmutating set { lkSetMessage(&_pointer.pointee.room, newValue) }
@@ -2115,33 +1823,12 @@ extension NanopbBuilder where M == Livekit_JoinResponse {
 
 }
 
-struct Livekit_ReconnectResponse: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_ReconnectResponse
-    static var descriptor: pb_msgdesc_t { livekit_ReconnectResponse_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_ReconnectResponse()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_ReconnectResponse: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_ReconnectResponse_msg }
+    package static let _emptyBox = NanopbBox<livekit_ReconnectResponse>(zero: livekit_ReconnectResponse(), descriptor: livekit_ReconnectResponse_msg)
+}
+typealias Livekit_ReconnectResponse = NanopbMsg<livekit_ReconnectResponse>
+extension NanopbMsg where S == livekit_ReconnectResponse {
     var iceServers: [Livekit_ICEServer] {
         lkViews(_pointer.pointee.ice_servers_count, _pointer.pointee.ice_servers, owner: _owner)
     }
@@ -2163,7 +1850,7 @@ struct Livekit_ReconnectResponse: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_ReconnectResponse {
+extension NanopbBuilder where S == livekit_ReconnectResponse {
     var iceServers: [Livekit_ICEServer] {
         get { lkViews(_pointer.pointee.ice_servers_count, _pointer.pointee.ice_servers, owner: _box) }
         nonmutating set {
@@ -2190,33 +1877,12 @@ extension NanopbBuilder where M == Livekit_ReconnectResponse {
 
 }
 
-struct Livekit_TrackPublishedResponse: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_TrackPublishedResponse
-    static var descriptor: pb_msgdesc_t { livekit_TrackPublishedResponse_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_TrackPublishedResponse()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_TrackPublishedResponse: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_TrackPublishedResponse_msg }
+    package static let _emptyBox = NanopbBox<livekit_TrackPublishedResponse>(zero: livekit_TrackPublishedResponse(), descriptor: livekit_TrackPublishedResponse_msg)
+}
+typealias Livekit_TrackPublishedResponse = NanopbMsg<livekit_TrackPublishedResponse>
+extension NanopbMsg where S == livekit_TrackPublishedResponse {
     var cid: String {
         lkString(_pointer.pointee.cid) ?? ""
     }
@@ -2229,7 +1895,7 @@ struct Livekit_TrackPublishedResponse: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_TrackPublishedResponse {
+extension NanopbBuilder where S == livekit_TrackPublishedResponse {
     var cid: String {
         get { lkString(_pointer.pointee.cid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.cid, newValue) }
@@ -2242,33 +1908,12 @@ extension NanopbBuilder where M == Livekit_TrackPublishedResponse {
 
 }
 
-struct Livekit_TrackUnpublishedResponse: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_TrackUnpublishedResponse
-    static var descriptor: pb_msgdesc_t { livekit_TrackUnpublishedResponse_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_TrackUnpublishedResponse()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_TrackUnpublishedResponse: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_TrackUnpublishedResponse_msg }
+    package static let _emptyBox = NanopbBox<livekit_TrackUnpublishedResponse>(zero: livekit_TrackUnpublishedResponse(), descriptor: livekit_TrackUnpublishedResponse_msg)
+}
+typealias Livekit_TrackUnpublishedResponse = NanopbMsg<livekit_TrackUnpublishedResponse>
+extension NanopbMsg where S == livekit_TrackUnpublishedResponse {
     var trackSid: String {
         lkString(_pointer.pointee.track_sid) ?? ""
     }
@@ -2276,7 +1921,7 @@ struct Livekit_TrackUnpublishedResponse: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_TrackUnpublishedResponse {
+extension NanopbBuilder where S == livekit_TrackUnpublishedResponse {
     var trackSid: String {
         get { lkString(_pointer.pointee.track_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.track_sid, newValue) }
@@ -2284,33 +1929,12 @@ extension NanopbBuilder where M == Livekit_TrackUnpublishedResponse {
 
 }
 
-struct Livekit_SessionDescription: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SessionDescription
-    static var descriptor: pb_msgdesc_t { livekit_SessionDescription_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SessionDescription()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_SessionDescription: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SessionDescription_msg }
+    package static let _emptyBox = NanopbBox<livekit_SessionDescription>(zero: livekit_SessionDescription(), descriptor: livekit_SessionDescription_msg)
+}
+typealias Livekit_SessionDescription = NanopbMsg<livekit_SessionDescription>
+extension NanopbMsg where S == livekit_SessionDescription {
     var type: String {
         lkString(_pointer.pointee.type) ?? ""
     }
@@ -2328,54 +1952,33 @@ struct Livekit_SessionDescription: NanopbMessage, @unchecked Sendable {
 
     var midToTrackID: [String: String] {
         var out: [String: String] = [:]
-        for entry in lkViews(_pointer.pointee.mid_to_track_id_count, _pointer.pointee.mid_to_track_id, owner: _owner) as [Livekit_SessionDescription.MidToTrackIdEntry] {
+        for entry in lkViews(_pointer.pointee.mid_to_track_id_count, _pointer.pointee.mid_to_track_id, owner: _owner) as [Livekit_SessionDescription_MidToTrackIdEntry] {
             out[entry.key] = entry.value
         }
         return out
     }
 
-    struct MidToTrackIdEntry: NanopbMessage, @unchecked Sendable {
-        typealias Storage = livekit_SessionDescription_MidToTrackIdEntry
-        static var descriptor: pb_msgdesc_t { livekit_SessionDescription_MidToTrackIdEntry_msg }
-        static var zero: Storage { Storage() }
-        /// Shared value returned when a submessage field is absent. Safe to
-        /// share because messages are immutable; `modifying` sees the static
-        /// reference, so it copies rather than writing through it.
-        static let _empty = MidToTrackIdEntry()
+}
 
-        var _owner: NanopbAnyBox
-        var _pointer: UnsafeMutablePointer<Storage>
-
-        init() {
-            self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-        }
-
-        init(_owning box: NanopbBox<Storage>) {
-            _owner = box
-            _pointer = box.pointer
-        }
-
-        /// Zero-copy view into `owner`'s storage.
-        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-            _owner = owner
-            _pointer = pointer
-        }
-
-        var key: String {
-            lkString(_pointer.pointee.key) ?? ""
-        }
-        var hasKey: Bool { _pointer.pointee.key != nil }
-
-        var value: String {
-            lkString(_pointer.pointee.value) ?? ""
-        }
-        var hasValue: Bool { _pointer.pointee.value != nil }
-
+extension livekit_SessionDescription_MidToTrackIdEntry: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SessionDescription_MidToTrackIdEntry_msg }
+    package static let _emptyBox = NanopbBox<livekit_SessionDescription_MidToTrackIdEntry>(zero: livekit_SessionDescription_MidToTrackIdEntry(), descriptor: livekit_SessionDescription_MidToTrackIdEntry_msg)
+}
+typealias Livekit_SessionDescription_MidToTrackIdEntry = NanopbMsg<livekit_SessionDescription_MidToTrackIdEntry>
+extension NanopbMsg where S == livekit_SessionDescription_MidToTrackIdEntry {
+    var key: String {
+        lkString(_pointer.pointee.key) ?? ""
     }
+    var hasKey: Bool { _pointer.pointee.key != nil }
+
+    var value: String {
+        lkString(_pointer.pointee.value) ?? ""
+    }
+    var hasValue: Bool { _pointer.pointee.value != nil }
 
 }
 
-extension NanopbBuilder where M == Livekit_SessionDescription.MidToTrackIdEntry {
+extension NanopbBuilder where S == livekit_SessionDescription_MidToTrackIdEntry {
     var key: String {
         get { lkString(_pointer.pointee.key) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.key, newValue) }
@@ -2388,7 +1991,7 @@ extension NanopbBuilder where M == Livekit_SessionDescription.MidToTrackIdEntry 
 
 }
 
-extension NanopbBuilder where M == Livekit_SessionDescription {
+extension NanopbBuilder where S == livekit_SessionDescription {
     var type: String {
         get { lkString(_pointer.pointee.type) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.type, newValue) }
@@ -2407,7 +2010,7 @@ extension NanopbBuilder where M == Livekit_SessionDescription {
     var midToTrackID: [String: String] {
         get {
             var out: [String: String] = [:]
-            for entry in lkViews(_pointer.pointee.mid_to_track_id_count, _pointer.pointee.mid_to_track_id, owner: _box) as [Livekit_SessionDescription.MidToTrackIdEntry] {
+            for entry in lkViews(_pointer.pointee.mid_to_track_id_count, _pointer.pointee.mid_to_track_id, owner: _box) as [Livekit_SessionDescription_MidToTrackIdEntry] {
                 out[entry.key] = entry.value
             }
             return out
@@ -2415,7 +2018,7 @@ extension NanopbBuilder where M == Livekit_SessionDescription {
         nonmutating set {
             // sorted for deterministic encoding (bytes-based Equatable)
             let entries = newValue.sorted { $0.key < $1.key }.map { pair in
-                Livekit_SessionDescription.MidToTrackIdEntry.with { $0.key = pair.key; $0.value = pair.value }
+                Livekit_SessionDescription_MidToTrackIdEntry.with { $0.key = pair.key; $0.value = pair.value }
             }
             var count = _pointer.pointee.mid_to_track_id_count, base = _pointer.pointee.mid_to_track_id
             lkSetRepeatedMessages(&count, &base, entries)
@@ -2425,40 +2028,19 @@ extension NanopbBuilder where M == Livekit_SessionDescription {
 
 }
 
-struct Livekit_ParticipantUpdate: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_ParticipantUpdate
-    static var descriptor: pb_msgdesc_t { livekit_ParticipantUpdate_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_ParticipantUpdate()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_ParticipantUpdate: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_ParticipantUpdate_msg }
+    package static let _emptyBox = NanopbBox<livekit_ParticipantUpdate>(zero: livekit_ParticipantUpdate(), descriptor: livekit_ParticipantUpdate_msg)
+}
+typealias Livekit_ParticipantUpdate = NanopbMsg<livekit_ParticipantUpdate>
+extension NanopbMsg where S == livekit_ParticipantUpdate {
     var participants: [Livekit_ParticipantInfo] {
         lkViews(_pointer.pointee.participants_count, _pointer.pointee.participants, owner: _owner)
     }
 
 }
 
-extension NanopbBuilder where M == Livekit_ParticipantUpdate {
+extension NanopbBuilder where S == livekit_ParticipantUpdate {
     var participants: [Livekit_ParticipantInfo] {
         get { lkViews(_pointer.pointee.participants_count, _pointer.pointee.participants, owner: _box) }
         nonmutating set {
@@ -2470,33 +2052,12 @@ extension NanopbBuilder where M == Livekit_ParticipantUpdate {
 
 }
 
-struct Livekit_UpdateSubscription: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_UpdateSubscription
-    static var descriptor: pb_msgdesc_t { livekit_UpdateSubscription_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_UpdateSubscription()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_UpdateSubscription: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_UpdateSubscription_msg }
+    package static let _emptyBox = NanopbBox<livekit_UpdateSubscription>(zero: livekit_UpdateSubscription(), descriptor: livekit_UpdateSubscription_msg)
+}
+typealias Livekit_UpdateSubscription = NanopbMsg<livekit_UpdateSubscription>
+extension NanopbMsg where S == livekit_UpdateSubscription {
     var trackSids: [String] {
         lkRepeated(_pointer.pointee.track_sids_count, _pointer.pointee.track_sids)
     }
@@ -2512,7 +2073,7 @@ struct Livekit_UpdateSubscription: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_UpdateSubscription {
+extension NanopbBuilder where S == livekit_UpdateSubscription {
     var trackSids: [String] {
         get { lkRepeated(_pointer.pointee.track_sids_count, _pointer.pointee.track_sids) }
         nonmutating set {
@@ -2538,84 +2099,42 @@ extension NanopbBuilder where M == Livekit_UpdateSubscription {
 
 }
 
-struct Livekit_UpdateDataSubscription: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_UpdateDataSubscription
-    static var descriptor: pb_msgdesc_t { livekit_UpdateDataSubscription_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_UpdateDataSubscription()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
-    var updates: [Livekit_UpdateDataSubscription.Update] {
+extension livekit_UpdateDataSubscription: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_UpdateDataSubscription_msg }
+    package static let _emptyBox = NanopbBox<livekit_UpdateDataSubscription>(zero: livekit_UpdateDataSubscription(), descriptor: livekit_UpdateDataSubscription_msg)
+}
+typealias Livekit_UpdateDataSubscription = NanopbMsg<livekit_UpdateDataSubscription>
+extension NanopbMsg where S == livekit_UpdateDataSubscription {
+    var updates: [Livekit_UpdateDataSubscription_Update] {
         lkViews(_pointer.pointee.updates_count, _pointer.pointee.updates, owner: _owner)
-    }
-
-    struct Update: NanopbMessage, @unchecked Sendable {
-        typealias Storage = livekit_UpdateDataSubscription_Update
-        static var descriptor: pb_msgdesc_t { livekit_UpdateDataSubscription_Update_msg }
-        static var zero: Storage { Storage() }
-        /// Shared value returned when a submessage field is absent. Safe to
-        /// share because messages are immutable; `modifying` sees the static
-        /// reference, so it copies rather than writing through it.
-        static let _empty = Update()
-
-        var _owner: NanopbAnyBox
-        var _pointer: UnsafeMutablePointer<Storage>
-
-        init() {
-            self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-        }
-
-        init(_owning box: NanopbBox<Storage>) {
-            _owner = box
-            _pointer = box.pointer
-        }
-
-        /// Zero-copy view into `owner`'s storage.
-        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-            _owner = owner
-            _pointer = pointer
-        }
-
-        var trackSid: String {
-            lkString(_pointer.pointee.track_sid) ?? ""
-        }
-        var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
-
-        var subscribe: Bool {
-            _pointer.pointee.subscribe?.pointee ?? false
-        }
-        var hasSubscribe: Bool { _pointer.pointee.subscribe != nil }
-
-        var options: Livekit_DataTrackSubscriptionOptions {
-            _pointer.pointee.options.map { Livekit_DataTrackSubscriptionOptions(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriptionOptions._empty
-        }
-        var hasOptions: Bool { _pointer.pointee.options != nil }
-
     }
 
 }
 
-extension NanopbBuilder where M == Livekit_UpdateDataSubscription.Update {
+extension livekit_UpdateDataSubscription_Update: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_UpdateDataSubscription_Update_msg }
+    package static let _emptyBox = NanopbBox<livekit_UpdateDataSubscription_Update>(zero: livekit_UpdateDataSubscription_Update(), descriptor: livekit_UpdateDataSubscription_Update_msg)
+}
+typealias Livekit_UpdateDataSubscription_Update = NanopbMsg<livekit_UpdateDataSubscription_Update>
+extension NanopbMsg where S == livekit_UpdateDataSubscription_Update {
+    var trackSid: String {
+        lkString(_pointer.pointee.track_sid) ?? ""
+    }
+    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
+
+    var subscribe: Bool {
+        _pointer.pointee.subscribe?.pointee ?? false
+    }
+    var hasSubscribe: Bool { _pointer.pointee.subscribe != nil }
+
+    var options: Livekit_DataTrackSubscriptionOptions {
+        _pointer.pointee.options.map { Livekit_DataTrackSubscriptionOptions(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriptionOptions._empty
+    }
+    var hasOptions: Bool { _pointer.pointee.options != nil }
+
+}
+
+extension NanopbBuilder where S == livekit_UpdateDataSubscription_Update {
     var trackSid: String {
         get { lkString(_pointer.pointee.track_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.track_sid, newValue) }
@@ -2633,8 +2152,8 @@ extension NanopbBuilder where M == Livekit_UpdateDataSubscription.Update {
 
 }
 
-extension NanopbBuilder where M == Livekit_UpdateDataSubscription {
-    var updates: [Livekit_UpdateDataSubscription.Update] {
+extension NanopbBuilder where S == livekit_UpdateDataSubscription {
+    var updates: [Livekit_UpdateDataSubscription_Update] {
         get { lkViews(_pointer.pointee.updates_count, _pointer.pointee.updates, owner: _box) }
         nonmutating set {
             var count = _pointer.pointee.updates_count, base = _pointer.pointee.updates
@@ -2645,33 +2164,12 @@ extension NanopbBuilder where M == Livekit_UpdateDataSubscription {
 
 }
 
-struct Livekit_UpdateTrackSettings: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_UpdateTrackSettings
-    static var descriptor: pb_msgdesc_t { livekit_UpdateTrackSettings_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_UpdateTrackSettings()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_UpdateTrackSettings: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_UpdateTrackSettings_msg }
+    package static let _emptyBox = NanopbBox<livekit_UpdateTrackSettings>(zero: livekit_UpdateTrackSettings(), descriptor: livekit_UpdateTrackSettings_msg)
+}
+typealias Livekit_UpdateTrackSettings = NanopbMsg<livekit_UpdateTrackSettings>
+extension NanopbMsg where S == livekit_UpdateTrackSettings {
     var trackSids: [String] {
         lkRepeated(_pointer.pointee.track_sids_count, _pointer.pointee.track_sids)
     }
@@ -2708,7 +2206,7 @@ struct Livekit_UpdateTrackSettings: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_UpdateTrackSettings {
+extension NanopbBuilder where S == livekit_UpdateTrackSettings {
     var trackSids: [String] {
         get { lkRepeated(_pointer.pointee.track_sids_count, _pointer.pointee.track_sids) }
         nonmutating set {
@@ -2750,33 +2248,12 @@ extension NanopbBuilder where M == Livekit_UpdateTrackSettings {
 
 }
 
-struct Livekit_UpdateLocalAudioTrack: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_UpdateLocalAudioTrack
-    static var descriptor: pb_msgdesc_t { livekit_UpdateLocalAudioTrack_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_UpdateLocalAudioTrack()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_UpdateLocalAudioTrack: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_UpdateLocalAudioTrack_msg }
+    package static let _emptyBox = NanopbBox<livekit_UpdateLocalAudioTrack>(zero: livekit_UpdateLocalAudioTrack(), descriptor: livekit_UpdateLocalAudioTrack_msg)
+}
+typealias Livekit_UpdateLocalAudioTrack = NanopbMsg<livekit_UpdateLocalAudioTrack>
+extension NanopbMsg where S == livekit_UpdateLocalAudioTrack {
     var trackSid: String {
         lkString(_pointer.pointee.track_sid) ?? ""
     }
@@ -2788,7 +2265,7 @@ struct Livekit_UpdateLocalAudioTrack: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_UpdateLocalAudioTrack {
+extension NanopbBuilder where S == livekit_UpdateLocalAudioTrack {
     var trackSid: String {
         get { lkString(_pointer.pointee.track_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.track_sid, newValue) }
@@ -2805,33 +2282,12 @@ extension NanopbBuilder where M == Livekit_UpdateLocalAudioTrack {
 
 }
 
-struct Livekit_UpdateLocalVideoTrack: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_UpdateLocalVideoTrack
-    static var descriptor: pb_msgdesc_t { livekit_UpdateLocalVideoTrack_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_UpdateLocalVideoTrack()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_UpdateLocalVideoTrack: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_UpdateLocalVideoTrack_msg }
+    package static let _emptyBox = NanopbBox<livekit_UpdateLocalVideoTrack>(zero: livekit_UpdateLocalVideoTrack(), descriptor: livekit_UpdateLocalVideoTrack_msg)
+}
+typealias Livekit_UpdateLocalVideoTrack = NanopbMsg<livekit_UpdateLocalVideoTrack>
+extension NanopbMsg where S == livekit_UpdateLocalVideoTrack {
     var trackSid: String {
         lkString(_pointer.pointee.track_sid) ?? ""
     }
@@ -2849,7 +2305,7 @@ struct Livekit_UpdateLocalVideoTrack: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_UpdateLocalVideoTrack {
+extension NanopbBuilder where S == livekit_UpdateLocalVideoTrack {
     var trackSid: String {
         get { lkString(_pointer.pointee.track_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.track_sid, newValue) }
@@ -2867,33 +2323,12 @@ extension NanopbBuilder where M == Livekit_UpdateLocalVideoTrack {
 
 }
 
-struct Livekit_LeaveRequest: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_LeaveRequest
-    static var descriptor: pb_msgdesc_t { livekit_LeaveRequest_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_LeaveRequest()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_LeaveRequest: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_LeaveRequest_msg }
+    package static let _emptyBox = NanopbBox<livekit_LeaveRequest>(zero: livekit_LeaveRequest(), descriptor: livekit_LeaveRequest_msg)
+}
+typealias Livekit_LeaveRequest = NanopbMsg<livekit_LeaveRequest>
+extension NanopbMsg where S == livekit_LeaveRequest {
     var canReconnect: Bool {
         _pointer.pointee.can_reconnect?.pointee ?? false
     }
@@ -2904,8 +2339,8 @@ struct Livekit_LeaveRequest: NanopbMessage, @unchecked Sendable {
     }
     var hasReason: Bool { _pointer.pointee.reason != nil }
 
-    var action: Livekit_LeaveRequest.Action {
-        _pointer.pointee.action.map { lkEnum($0.pointee) } ?? Livekit_LeaveRequest.Action()
+    var action: Livekit_LeaveRequest_Action {
+        _pointer.pointee.action.map { lkEnum($0.pointee) } ?? Livekit_LeaveRequest_Action()
     }
     var hasAction: Bool { _pointer.pointee.action != nil }
 
@@ -2914,40 +2349,40 @@ struct Livekit_LeaveRequest: NanopbMessage, @unchecked Sendable {
     }
     var hasRegions: Bool { _pointer.pointee.regions != nil }
 
-    enum Action: NanopbEnum, CaseIterable {
-        case disconnect
-        case resume
-        case reconnect
-        case UNRECOGNIZED(Int)
+}
 
-        init() { self = .disconnect }
+enum Livekit_LeaveRequest_Action: NanopbEnum, CaseIterable {
+    case disconnect
+    case resume
+    case reconnect
+    case UNRECOGNIZED(Int)
 
-        init?(rawValue: Int) {
-            switch rawValue {
-            case 0: self = .disconnect
-            case 1: self = .resume
-            case 2: self = .reconnect
-            default: self = .UNRECOGNIZED(rawValue)
-            }
-        }
+    init() { self = .disconnect }
 
-        var rawValue: Int {
-            switch self {
-            case .disconnect: 0
-            case .resume: 1
-            case .reconnect: 2
-            case let .UNRECOGNIZED(value): value
-            }
-        }
-
-        static var allCases: [Action] {
-            [.disconnect, .resume, .reconnect]
+    init?(rawValue: Int) {
+        switch rawValue {
+        case 0: self = .disconnect
+        case 1: self = .resume
+        case 2: self = .reconnect
+        default: self = .UNRECOGNIZED(rawValue)
         }
     }
 
+    var rawValue: Int {
+        switch self {
+        case .disconnect: 0
+        case .resume: 1
+        case .reconnect: 2
+        case let .UNRECOGNIZED(value): value
+        }
+    }
+
+    static var allCases: [Livekit_LeaveRequest_Action] {
+        [.disconnect, .resume, .reconnect]
+    }
 }
 
-extension NanopbBuilder where M == Livekit_LeaveRequest {
+extension NanopbBuilder where S == livekit_LeaveRequest {
     var canReconnect: Bool {
         get { _pointer.pointee.can_reconnect?.pointee ?? false }
         nonmutating set { lkSetValue(&_pointer.pointee.can_reconnect, newValue) }
@@ -2958,8 +2393,8 @@ extension NanopbBuilder where M == Livekit_LeaveRequest {
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.reason, newValue) }
     }
 
-    var action: Livekit_LeaveRequest.Action {
-        get { _pointer.pointee.action.map { lkEnum($0.pointee) } ?? Livekit_LeaveRequest.Action() }
+    var action: Livekit_LeaveRequest_Action {
+        get { _pointer.pointee.action.map { lkEnum($0.pointee) } ?? Livekit_LeaveRequest_Action() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.action, newValue) }
     }
 
@@ -2970,33 +2405,12 @@ extension NanopbBuilder where M == Livekit_LeaveRequest {
 
 }
 
-struct Livekit_UpdateVideoLayers: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_UpdateVideoLayers
-    static var descriptor: pb_msgdesc_t { livekit_UpdateVideoLayers_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_UpdateVideoLayers()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_UpdateVideoLayers: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_UpdateVideoLayers_msg }
+    package static let _emptyBox = NanopbBox<livekit_UpdateVideoLayers>(zero: livekit_UpdateVideoLayers(), descriptor: livekit_UpdateVideoLayers_msg)
+}
+typealias Livekit_UpdateVideoLayers = NanopbMsg<livekit_UpdateVideoLayers>
+extension NanopbMsg where S == livekit_UpdateVideoLayers {
     var trackSid: String {
         lkString(_pointer.pointee.track_sid) ?? ""
     }
@@ -3008,7 +2422,7 @@ struct Livekit_UpdateVideoLayers: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_UpdateVideoLayers {
+extension NanopbBuilder where S == livekit_UpdateVideoLayers {
     var trackSid: String {
         get { lkString(_pointer.pointee.track_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.track_sid, newValue) }
@@ -3025,33 +2439,12 @@ extension NanopbBuilder where M == Livekit_UpdateVideoLayers {
 
 }
 
-struct Livekit_UpdateParticipantMetadata: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_UpdateParticipantMetadata
-    static var descriptor: pb_msgdesc_t { livekit_UpdateParticipantMetadata_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_UpdateParticipantMetadata()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_UpdateParticipantMetadata: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_UpdateParticipantMetadata_msg }
+    package static let _emptyBox = NanopbBox<livekit_UpdateParticipantMetadata>(zero: livekit_UpdateParticipantMetadata(), descriptor: livekit_UpdateParticipantMetadata_msg)
+}
+typealias Livekit_UpdateParticipantMetadata = NanopbMsg<livekit_UpdateParticipantMetadata>
+extension NanopbMsg where S == livekit_UpdateParticipantMetadata {
     var metadata: String {
         lkString(_pointer.pointee.metadata) ?? ""
     }
@@ -3064,7 +2457,7 @@ struct Livekit_UpdateParticipantMetadata: NanopbMessage, @unchecked Sendable {
 
     var attributes: [String: String] {
         var out: [String: String] = [:]
-        for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _owner) as [Livekit_UpdateParticipantMetadata.AttributesEntry] {
+        for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _owner) as [Livekit_UpdateParticipantMetadata_AttributesEntry] {
             out[entry.key] = entry.value
         }
         return out
@@ -3075,48 +2468,27 @@ struct Livekit_UpdateParticipantMetadata: NanopbMessage, @unchecked Sendable {
     }
     var hasRequestID: Bool { _pointer.pointee.request_id != nil }
 
-    struct AttributesEntry: NanopbMessage, @unchecked Sendable {
-        typealias Storage = livekit_UpdateParticipantMetadata_AttributesEntry
-        static var descriptor: pb_msgdesc_t { livekit_UpdateParticipantMetadata_AttributesEntry_msg }
-        static var zero: Storage { Storage() }
-        /// Shared value returned when a submessage field is absent. Safe to
-        /// share because messages are immutable; `modifying` sees the static
-        /// reference, so it copies rather than writing through it.
-        static let _empty = AttributesEntry()
+}
 
-        var _owner: NanopbAnyBox
-        var _pointer: UnsafeMutablePointer<Storage>
-
-        init() {
-            self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-        }
-
-        init(_owning box: NanopbBox<Storage>) {
-            _owner = box
-            _pointer = box.pointer
-        }
-
-        /// Zero-copy view into `owner`'s storage.
-        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-            _owner = owner
-            _pointer = pointer
-        }
-
-        var key: String {
-            lkString(_pointer.pointee.key) ?? ""
-        }
-        var hasKey: Bool { _pointer.pointee.key != nil }
-
-        var value: String {
-            lkString(_pointer.pointee.value) ?? ""
-        }
-        var hasValue: Bool { _pointer.pointee.value != nil }
-
+extension livekit_UpdateParticipantMetadata_AttributesEntry: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_UpdateParticipantMetadata_AttributesEntry_msg }
+    package static let _emptyBox = NanopbBox<livekit_UpdateParticipantMetadata_AttributesEntry>(zero: livekit_UpdateParticipantMetadata_AttributesEntry(), descriptor: livekit_UpdateParticipantMetadata_AttributesEntry_msg)
+}
+typealias Livekit_UpdateParticipantMetadata_AttributesEntry = NanopbMsg<livekit_UpdateParticipantMetadata_AttributesEntry>
+extension NanopbMsg where S == livekit_UpdateParticipantMetadata_AttributesEntry {
+    var key: String {
+        lkString(_pointer.pointee.key) ?? ""
     }
+    var hasKey: Bool { _pointer.pointee.key != nil }
+
+    var value: String {
+        lkString(_pointer.pointee.value) ?? ""
+    }
+    var hasValue: Bool { _pointer.pointee.value != nil }
 
 }
 
-extension NanopbBuilder where M == Livekit_UpdateParticipantMetadata.AttributesEntry {
+extension NanopbBuilder where S == livekit_UpdateParticipantMetadata_AttributesEntry {
     var key: String {
         get { lkString(_pointer.pointee.key) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.key, newValue) }
@@ -3129,7 +2501,7 @@ extension NanopbBuilder where M == Livekit_UpdateParticipantMetadata.AttributesE
 
 }
 
-extension NanopbBuilder where M == Livekit_UpdateParticipantMetadata {
+extension NanopbBuilder where S == livekit_UpdateParticipantMetadata {
     var metadata: String {
         get { lkString(_pointer.pointee.metadata) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.metadata, newValue) }
@@ -3143,7 +2515,7 @@ extension NanopbBuilder where M == Livekit_UpdateParticipantMetadata {
     var attributes: [String: String] {
         get {
             var out: [String: String] = [:]
-            for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _box) as [Livekit_UpdateParticipantMetadata.AttributesEntry] {
+            for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _box) as [Livekit_UpdateParticipantMetadata_AttributesEntry] {
                 out[entry.key] = entry.value
             }
             return out
@@ -3151,7 +2523,7 @@ extension NanopbBuilder where M == Livekit_UpdateParticipantMetadata {
         nonmutating set {
             // sorted for deterministic encoding (bytes-based Equatable)
             let entries = newValue.sorted { $0.key < $1.key }.map { pair in
-                Livekit_UpdateParticipantMetadata.AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
+                Livekit_UpdateParticipantMetadata_AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
             }
             var count = _pointer.pointee.attributes_count, base = _pointer.pointee.attributes
             lkSetRepeatedMessages(&count, &base, entries)
@@ -3166,33 +2538,12 @@ extension NanopbBuilder where M == Livekit_UpdateParticipantMetadata {
 
 }
 
-struct Livekit_ICEServer: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_ICEServer
-    static var descriptor: pb_msgdesc_t { livekit_ICEServer_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_ICEServer()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_ICEServer: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_ICEServer_msg }
+    package static let _emptyBox = NanopbBox<livekit_ICEServer>(zero: livekit_ICEServer(), descriptor: livekit_ICEServer_msg)
+}
+typealias Livekit_ICEServer = NanopbMsg<livekit_ICEServer>
+extension NanopbMsg where S == livekit_ICEServer {
     var urls: [String] {
         lkRepeated(_pointer.pointee.urls_count, _pointer.pointee.urls)
     }
@@ -3209,7 +2560,7 @@ struct Livekit_ICEServer: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_ICEServer {
+extension NanopbBuilder where S == livekit_ICEServer {
     var urls: [String] {
         get { lkRepeated(_pointer.pointee.urls_count, _pointer.pointee.urls) }
         nonmutating set {
@@ -3231,40 +2582,19 @@ extension NanopbBuilder where M == Livekit_ICEServer {
 
 }
 
-struct Livekit_SpeakersChanged: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SpeakersChanged
-    static var descriptor: pb_msgdesc_t { livekit_SpeakersChanged_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SpeakersChanged()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_SpeakersChanged: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SpeakersChanged_msg }
+    package static let _emptyBox = NanopbBox<livekit_SpeakersChanged>(zero: livekit_SpeakersChanged(), descriptor: livekit_SpeakersChanged_msg)
+}
+typealias Livekit_SpeakersChanged = NanopbMsg<livekit_SpeakersChanged>
+extension NanopbMsg where S == livekit_SpeakersChanged {
     var speakers: [Livekit_SpeakerInfo] {
         lkViews(_pointer.pointee.speakers_count, _pointer.pointee.speakers, owner: _owner)
     }
 
 }
 
-extension NanopbBuilder where M == Livekit_SpeakersChanged {
+extension NanopbBuilder where S == livekit_SpeakersChanged {
     var speakers: [Livekit_SpeakerInfo] {
         get { lkViews(_pointer.pointee.speakers_count, _pointer.pointee.speakers, owner: _box) }
         nonmutating set {
@@ -3276,33 +2606,12 @@ extension NanopbBuilder where M == Livekit_SpeakersChanged {
 
 }
 
-struct Livekit_RoomUpdate: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_RoomUpdate
-    static var descriptor: pb_msgdesc_t { livekit_RoomUpdate_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_RoomUpdate()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_RoomUpdate: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_RoomUpdate_msg }
+    package static let _emptyBox = NanopbBox<livekit_RoomUpdate>(zero: livekit_RoomUpdate(), descriptor: livekit_RoomUpdate_msg)
+}
+typealias Livekit_RoomUpdate = NanopbMsg<livekit_RoomUpdate>
+extension NanopbMsg where S == livekit_RoomUpdate {
     var room: Livekit_Room {
         _pointer.pointee.room.map { Livekit_Room(_sharing: $0, owner: _owner) } ?? Livekit_Room._empty
     }
@@ -3310,7 +2619,7 @@ struct Livekit_RoomUpdate: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_RoomUpdate {
+extension NanopbBuilder where S == livekit_RoomUpdate {
     var room: Livekit_Room {
         get { _pointer.pointee.room.map { Livekit_Room(_sharing: $0, owner: _box) } ?? Livekit_Room._empty }
         nonmutating set { lkSetMessage(&_pointer.pointee.room, newValue) }
@@ -3318,33 +2627,12 @@ extension NanopbBuilder where M == Livekit_RoomUpdate {
 
 }
 
-struct Livekit_ConnectionQualityInfo: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_ConnectionQualityInfo
-    static var descriptor: pb_msgdesc_t { livekit_ConnectionQualityInfo_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_ConnectionQualityInfo()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_ConnectionQualityInfo: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_ConnectionQualityInfo_msg }
+    package static let _emptyBox = NanopbBox<livekit_ConnectionQualityInfo>(zero: livekit_ConnectionQualityInfo(), descriptor: livekit_ConnectionQualityInfo_msg)
+}
+typealias Livekit_ConnectionQualityInfo = NanopbMsg<livekit_ConnectionQualityInfo>
+extension NanopbMsg where S == livekit_ConnectionQualityInfo {
     var participantSid: String {
         lkString(_pointer.pointee.participant_sid) ?? ""
     }
@@ -3362,7 +2650,7 @@ struct Livekit_ConnectionQualityInfo: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_ConnectionQualityInfo {
+extension NanopbBuilder where S == livekit_ConnectionQualityInfo {
     var participantSid: String {
         get { lkString(_pointer.pointee.participant_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.participant_sid, newValue) }
@@ -3380,40 +2668,19 @@ extension NanopbBuilder where M == Livekit_ConnectionQualityInfo {
 
 }
 
-struct Livekit_ConnectionQualityUpdate: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_ConnectionQualityUpdate
-    static var descriptor: pb_msgdesc_t { livekit_ConnectionQualityUpdate_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_ConnectionQualityUpdate()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_ConnectionQualityUpdate: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_ConnectionQualityUpdate_msg }
+    package static let _emptyBox = NanopbBox<livekit_ConnectionQualityUpdate>(zero: livekit_ConnectionQualityUpdate(), descriptor: livekit_ConnectionQualityUpdate_msg)
+}
+typealias Livekit_ConnectionQualityUpdate = NanopbMsg<livekit_ConnectionQualityUpdate>
+extension NanopbMsg where S == livekit_ConnectionQualityUpdate {
     var updates: [Livekit_ConnectionQualityInfo] {
         lkViews(_pointer.pointee.updates_count, _pointer.pointee.updates, owner: _owner)
     }
 
 }
 
-extension NanopbBuilder where M == Livekit_ConnectionQualityUpdate {
+extension NanopbBuilder where S == livekit_ConnectionQualityUpdate {
     var updates: [Livekit_ConnectionQualityInfo] {
         get { lkViews(_pointer.pointee.updates_count, _pointer.pointee.updates, owner: _box) }
         nonmutating set {
@@ -3425,33 +2692,12 @@ extension NanopbBuilder where M == Livekit_ConnectionQualityUpdate {
 
 }
 
-struct Livekit_StreamStateInfo: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_StreamStateInfo
-    static var descriptor: pb_msgdesc_t { livekit_StreamStateInfo_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_StreamStateInfo()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_StreamStateInfo: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_StreamStateInfo_msg }
+    package static let _emptyBox = NanopbBox<livekit_StreamStateInfo>(zero: livekit_StreamStateInfo(), descriptor: livekit_StreamStateInfo_msg)
+}
+typealias Livekit_StreamStateInfo = NanopbMsg<livekit_StreamStateInfo>
+extension NanopbMsg where S == livekit_StreamStateInfo {
     var participantSid: String {
         lkString(_pointer.pointee.participant_sid) ?? ""
     }
@@ -3469,7 +2715,7 @@ struct Livekit_StreamStateInfo: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_StreamStateInfo {
+extension NanopbBuilder where S == livekit_StreamStateInfo {
     var participantSid: String {
         get { lkString(_pointer.pointee.participant_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.participant_sid, newValue) }
@@ -3487,40 +2733,19 @@ extension NanopbBuilder where M == Livekit_StreamStateInfo {
 
 }
 
-struct Livekit_StreamStateUpdate: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_StreamStateUpdate
-    static var descriptor: pb_msgdesc_t { livekit_StreamStateUpdate_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_StreamStateUpdate()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_StreamStateUpdate: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_StreamStateUpdate_msg }
+    package static let _emptyBox = NanopbBox<livekit_StreamStateUpdate>(zero: livekit_StreamStateUpdate(), descriptor: livekit_StreamStateUpdate_msg)
+}
+typealias Livekit_StreamStateUpdate = NanopbMsg<livekit_StreamStateUpdate>
+extension NanopbMsg where S == livekit_StreamStateUpdate {
     var streamStates: [Livekit_StreamStateInfo] {
         lkViews(_pointer.pointee.stream_states_count, _pointer.pointee.stream_states, owner: _owner)
     }
 
 }
 
-extension NanopbBuilder where M == Livekit_StreamStateUpdate {
+extension NanopbBuilder where S == livekit_StreamStateUpdate {
     var streamStates: [Livekit_StreamStateInfo] {
         get { lkViews(_pointer.pointee.stream_states_count, _pointer.pointee.stream_states, owner: _box) }
         nonmutating set {
@@ -3532,33 +2757,12 @@ extension NanopbBuilder where M == Livekit_StreamStateUpdate {
 
 }
 
-struct Livekit_SubscribedQuality: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SubscribedQuality
-    static var descriptor: pb_msgdesc_t { livekit_SubscribedQuality_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SubscribedQuality()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_SubscribedQuality: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SubscribedQuality_msg }
+    package static let _emptyBox = NanopbBox<livekit_SubscribedQuality>(zero: livekit_SubscribedQuality(), descriptor: livekit_SubscribedQuality_msg)
+}
+typealias Livekit_SubscribedQuality = NanopbMsg<livekit_SubscribedQuality>
+extension NanopbMsg where S == livekit_SubscribedQuality {
     var quality: Livekit_VideoQuality {
         _pointer.pointee.quality.map { lkEnum($0.pointee) } ?? Livekit_VideoQuality()
     }
@@ -3571,7 +2775,7 @@ struct Livekit_SubscribedQuality: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_SubscribedQuality {
+extension NanopbBuilder where S == livekit_SubscribedQuality {
     var quality: Livekit_VideoQuality {
         get { _pointer.pointee.quality.map { lkEnum($0.pointee) } ?? Livekit_VideoQuality() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.quality, newValue) }
@@ -3584,33 +2788,12 @@ extension NanopbBuilder where M == Livekit_SubscribedQuality {
 
 }
 
-struct Livekit_SubscribedCodec: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SubscribedCodec
-    static var descriptor: pb_msgdesc_t { livekit_SubscribedCodec_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SubscribedCodec()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_SubscribedCodec: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SubscribedCodec_msg }
+    package static let _emptyBox = NanopbBox<livekit_SubscribedCodec>(zero: livekit_SubscribedCodec(), descriptor: livekit_SubscribedCodec_msg)
+}
+typealias Livekit_SubscribedCodec = NanopbMsg<livekit_SubscribedCodec>
+extension NanopbMsg where S == livekit_SubscribedCodec {
     var codec: String {
         lkString(_pointer.pointee.codec) ?? ""
     }
@@ -3622,7 +2805,7 @@ struct Livekit_SubscribedCodec: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_SubscribedCodec {
+extension NanopbBuilder where S == livekit_SubscribedCodec {
     var codec: String {
         get { lkString(_pointer.pointee.codec) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.codec, newValue) }
@@ -3639,33 +2822,12 @@ extension NanopbBuilder where M == Livekit_SubscribedCodec {
 
 }
 
-struct Livekit_SubscribedQualityUpdate: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SubscribedQualityUpdate
-    static var descriptor: pb_msgdesc_t { livekit_SubscribedQualityUpdate_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SubscribedQualityUpdate()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_SubscribedQualityUpdate: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SubscribedQualityUpdate_msg }
+    package static let _emptyBox = NanopbBox<livekit_SubscribedQualityUpdate>(zero: livekit_SubscribedQualityUpdate(), descriptor: livekit_SubscribedQualityUpdate_msg)
+}
+typealias Livekit_SubscribedQualityUpdate = NanopbMsg<livekit_SubscribedQualityUpdate>
+extension NanopbMsg where S == livekit_SubscribedQualityUpdate {
     var trackSid: String {
         lkString(_pointer.pointee.track_sid) ?? ""
     }
@@ -3681,7 +2843,7 @@ struct Livekit_SubscribedQualityUpdate: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_SubscribedQualityUpdate {
+extension NanopbBuilder where S == livekit_SubscribedQualityUpdate {
     var trackSid: String {
         get { lkString(_pointer.pointee.track_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.track_sid, newValue) }
@@ -3707,33 +2869,12 @@ extension NanopbBuilder where M == Livekit_SubscribedQualityUpdate {
 
 }
 
-struct Livekit_SubscribedAudioCodecUpdate: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SubscribedAudioCodecUpdate
-    static var descriptor: pb_msgdesc_t { livekit_SubscribedAudioCodecUpdate_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SubscribedAudioCodecUpdate()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_SubscribedAudioCodecUpdate: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SubscribedAudioCodecUpdate_msg }
+    package static let _emptyBox = NanopbBox<livekit_SubscribedAudioCodecUpdate>(zero: livekit_SubscribedAudioCodecUpdate(), descriptor: livekit_SubscribedAudioCodecUpdate_msg)
+}
+typealias Livekit_SubscribedAudioCodecUpdate = NanopbMsg<livekit_SubscribedAudioCodecUpdate>
+extension NanopbMsg where S == livekit_SubscribedAudioCodecUpdate {
     var trackSid: String {
         lkString(_pointer.pointee.track_sid) ?? ""
     }
@@ -3745,7 +2886,7 @@ struct Livekit_SubscribedAudioCodecUpdate: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_SubscribedAudioCodecUpdate {
+extension NanopbBuilder where S == livekit_SubscribedAudioCodecUpdate {
     var trackSid: String {
         get { lkString(_pointer.pointee.track_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.track_sid, newValue) }
@@ -3762,33 +2903,12 @@ extension NanopbBuilder where M == Livekit_SubscribedAudioCodecUpdate {
 
 }
 
-struct Livekit_TrackPermission: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_TrackPermission
-    static var descriptor: pb_msgdesc_t { livekit_TrackPermission_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_TrackPermission()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_TrackPermission: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_TrackPermission_msg }
+    package static let _emptyBox = NanopbBox<livekit_TrackPermission>(zero: livekit_TrackPermission(), descriptor: livekit_TrackPermission_msg)
+}
+typealias Livekit_TrackPermission = NanopbMsg<livekit_TrackPermission>
+extension NanopbMsg where S == livekit_TrackPermission {
     var participantSid: String {
         lkString(_pointer.pointee.participant_sid) ?? ""
     }
@@ -3810,7 +2930,7 @@ struct Livekit_TrackPermission: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_TrackPermission {
+extension NanopbBuilder where S == livekit_TrackPermission {
     var participantSid: String {
         get { lkString(_pointer.pointee.participant_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.participant_sid, newValue) }
@@ -3837,33 +2957,12 @@ extension NanopbBuilder where M == Livekit_TrackPermission {
 
 }
 
-struct Livekit_SubscriptionPermission: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SubscriptionPermission
-    static var descriptor: pb_msgdesc_t { livekit_SubscriptionPermission_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SubscriptionPermission()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_SubscriptionPermission: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SubscriptionPermission_msg }
+    package static let _emptyBox = NanopbBox<livekit_SubscriptionPermission>(zero: livekit_SubscriptionPermission(), descriptor: livekit_SubscriptionPermission_msg)
+}
+typealias Livekit_SubscriptionPermission = NanopbMsg<livekit_SubscriptionPermission>
+extension NanopbMsg where S == livekit_SubscriptionPermission {
     var allParticipants: Bool {
         _pointer.pointee.all_participants?.pointee ?? false
     }
@@ -3875,7 +2974,7 @@ struct Livekit_SubscriptionPermission: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_SubscriptionPermission {
+extension NanopbBuilder where S == livekit_SubscriptionPermission {
     var allParticipants: Bool {
         get { _pointer.pointee.all_participants?.pointee ?? false }
         nonmutating set { lkSetValue(&_pointer.pointee.all_participants, newValue) }
@@ -3892,33 +2991,12 @@ extension NanopbBuilder where M == Livekit_SubscriptionPermission {
 
 }
 
-struct Livekit_SubscriptionPermissionUpdate: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SubscriptionPermissionUpdate
-    static var descriptor: pb_msgdesc_t { livekit_SubscriptionPermissionUpdate_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SubscriptionPermissionUpdate()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_SubscriptionPermissionUpdate: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SubscriptionPermissionUpdate_msg }
+    package static let _emptyBox = NanopbBox<livekit_SubscriptionPermissionUpdate>(zero: livekit_SubscriptionPermissionUpdate(), descriptor: livekit_SubscriptionPermissionUpdate_msg)
+}
+typealias Livekit_SubscriptionPermissionUpdate = NanopbMsg<livekit_SubscriptionPermissionUpdate>
+extension NanopbMsg where S == livekit_SubscriptionPermissionUpdate {
     var participantSid: String {
         lkString(_pointer.pointee.participant_sid) ?? ""
     }
@@ -3936,7 +3014,7 @@ struct Livekit_SubscriptionPermissionUpdate: NanopbMessage, @unchecked Sendable 
 
 }
 
-extension NanopbBuilder where M == Livekit_SubscriptionPermissionUpdate {
+extension NanopbBuilder where S == livekit_SubscriptionPermissionUpdate {
     var participantSid: String {
         get { lkString(_pointer.pointee.participant_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.participant_sid, newValue) }
@@ -3954,33 +3032,12 @@ extension NanopbBuilder where M == Livekit_SubscriptionPermissionUpdate {
 
 }
 
-struct Livekit_RoomMovedResponse: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_RoomMovedResponse
-    static var descriptor: pb_msgdesc_t { livekit_RoomMovedResponse_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_RoomMovedResponse()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_RoomMovedResponse: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_RoomMovedResponse_msg }
+    package static let _emptyBox = NanopbBox<livekit_RoomMovedResponse>(zero: livekit_RoomMovedResponse(), descriptor: livekit_RoomMovedResponse_msg)
+}
+typealias Livekit_RoomMovedResponse = NanopbMsg<livekit_RoomMovedResponse>
+extension NanopbMsg where S == livekit_RoomMovedResponse {
     var room: Livekit_Room {
         _pointer.pointee.room.map { Livekit_Room(_sharing: $0, owner: _owner) } ?? Livekit_Room._empty
     }
@@ -4002,7 +3059,7 @@ struct Livekit_RoomMovedResponse: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_RoomMovedResponse {
+extension NanopbBuilder where S == livekit_RoomMovedResponse {
     var room: Livekit_Room {
         get { _pointer.pointee.room.map { Livekit_Room(_sharing: $0, owner: _box) } ?? Livekit_Room._empty }
         nonmutating set { lkSetMessage(&_pointer.pointee.room, newValue) }
@@ -4029,33 +3086,12 @@ extension NanopbBuilder where M == Livekit_RoomMovedResponse {
 
 }
 
-struct Livekit_SyncState: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SyncState
-    static var descriptor: pb_msgdesc_t { livekit_SyncState_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SyncState()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_SyncState: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SyncState_msg }
+    package static let _emptyBox = NanopbBox<livekit_SyncState>(zero: livekit_SyncState(), descriptor: livekit_SyncState_msg)
+}
+typealias Livekit_SyncState = NanopbMsg<livekit_SyncState>
+extension NanopbMsg where S == livekit_SyncState {
     var answer: Livekit_SessionDescription {
         _pointer.pointee.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty
     }
@@ -4093,7 +3129,7 @@ struct Livekit_SyncState: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_SyncState {
+extension NanopbBuilder where S == livekit_SyncState {
     var answer: Livekit_SessionDescription {
         get { _pointer.pointee.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _box) } ?? Livekit_SessionDescription._empty }
         nonmutating set { lkSetMessage(&_pointer.pointee.answer, newValue) }
@@ -4156,33 +3192,12 @@ extension NanopbBuilder where M == Livekit_SyncState {
 
 }
 
-struct Livekit_DataChannelReceiveState: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_DataChannelReceiveState
-    static var descriptor: pb_msgdesc_t { livekit_DataChannelReceiveState_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_DataChannelReceiveState()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_DataChannelReceiveState: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataChannelReceiveState_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataChannelReceiveState>(zero: livekit_DataChannelReceiveState(), descriptor: livekit_DataChannelReceiveState_msg)
+}
+typealias Livekit_DataChannelReceiveState = NanopbMsg<livekit_DataChannelReceiveState>
+extension NanopbMsg where S == livekit_DataChannelReceiveState {
     var publisherSid: String {
         lkString(_pointer.pointee.publisher_sid) ?? ""
     }
@@ -4195,7 +3210,7 @@ struct Livekit_DataChannelReceiveState: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_DataChannelReceiveState {
+extension NanopbBuilder where S == livekit_DataChannelReceiveState {
     var publisherSid: String {
         get { lkString(_pointer.pointee.publisher_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.publisher_sid, newValue) }
@@ -4208,33 +3223,12 @@ extension NanopbBuilder where M == Livekit_DataChannelReceiveState {
 
 }
 
-struct Livekit_DataChannelInfo: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_DataChannelInfo
-    static var descriptor: pb_msgdesc_t { livekit_DataChannelInfo_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_DataChannelInfo()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_DataChannelInfo: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataChannelInfo_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataChannelInfo>(zero: livekit_DataChannelInfo(), descriptor: livekit_DataChannelInfo_msg)
+}
+typealias Livekit_DataChannelInfo = NanopbMsg<livekit_DataChannelInfo>
+extension NanopbMsg where S == livekit_DataChannelInfo {
     var label: String {
         lkString(_pointer.pointee.label) ?? ""
     }
@@ -4252,7 +3246,7 @@ struct Livekit_DataChannelInfo: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_DataChannelInfo {
+extension NanopbBuilder where S == livekit_DataChannelInfo {
     var label: String {
         get { lkString(_pointer.pointee.label) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.label, newValue) }
@@ -4270,45 +3264,25 @@ extension NanopbBuilder where M == Livekit_DataChannelInfo {
 
 }
 
-struct Livekit_SimulateScenario: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SimulateScenario
-    static var descriptor: pb_msgdesc_t { livekit_SimulateScenario_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SimulateScenario()
+enum Livekit_SimulateScenario_OneOf_Scenario: Equatable {
+    case speakerUpdate(Int32)
+    case nodeFailure(Bool)
+    case migration(Bool)
+    case serverLeave(Bool)
+    case switchCandidateProtocol(Livekit_CandidateProtocol)
+    case subscriberBandwidth(Int64)
+    case disconnectSignalOnResume(Bool)
+    case disconnectSignalOnResumeNoMessages(Bool)
+    case leaveRequestFullReconnect(Bool)
+}
 
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
-    enum OneOf_Scenario: Equatable {
-        case speakerUpdate(Int32)
-        case nodeFailure(Bool)
-        case migration(Bool)
-        case serverLeave(Bool)
-        case switchCandidateProtocol(Livekit_CandidateProtocol)
-        case subscriberBandwidth(Int64)
-        case disconnectSignalOnResume(Bool)
-        case disconnectSignalOnResumeNoMessages(Bool)
-        case leaveRequestFullReconnect(Bool)
-    }
-    var scenario: OneOf_Scenario? {
+extension livekit_SimulateScenario: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SimulateScenario_msg }
+    package static let _emptyBox = NanopbBox<livekit_SimulateScenario>(zero: livekit_SimulateScenario(), descriptor: livekit_SimulateScenario_msg)
+}
+typealias Livekit_SimulateScenario = NanopbMsg<livekit_SimulateScenario>
+extension NanopbMsg where S == livekit_SimulateScenario {
+    var scenario: Livekit_SimulateScenario_OneOf_Scenario? {
         switch _pointer.pointee.which_scenario {
         case pb_size_t(livekit_SimulateScenario_speaker_update_tag):
             return .speakerUpdate(_pointer.pointee.scenario.speaker_update?.pointee ?? 0)
@@ -4361,8 +3335,8 @@ struct Livekit_SimulateScenario: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_SimulateScenario {
-    var scenario: Livekit_SimulateScenario.OneOf_Scenario? {
+extension NanopbBuilder where S == livekit_SimulateScenario {
+    var scenario: Livekit_SimulateScenario_OneOf_Scenario? {
         get {
             switch _pointer.pointee.which_scenario {
             case pb_size_t(livekit_SimulateScenario_speaker_update_tag):
@@ -4522,33 +3496,12 @@ extension NanopbBuilder where M == Livekit_SimulateScenario {
 
 }
 
-struct Livekit_Ping: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_Ping
-    static var descriptor: pb_msgdesc_t { livekit_Ping_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_Ping()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_Ping: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_Ping_msg }
+    package static let _emptyBox = NanopbBox<livekit_Ping>(zero: livekit_Ping(), descriptor: livekit_Ping_msg)
+}
+typealias Livekit_Ping = NanopbMsg<livekit_Ping>
+extension NanopbMsg where S == livekit_Ping {
     var timestamp: Int64 {
         _pointer.pointee.timestamp?.pointee ?? 0
     }
@@ -4561,7 +3514,7 @@ struct Livekit_Ping: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_Ping {
+extension NanopbBuilder where S == livekit_Ping {
     var timestamp: Int64 {
         get { _pointer.pointee.timestamp?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.timestamp, newValue) }
@@ -4574,33 +3527,12 @@ extension NanopbBuilder where M == Livekit_Ping {
 
 }
 
-struct Livekit_Pong: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_Pong
-    static var descriptor: pb_msgdesc_t { livekit_Pong_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_Pong()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_Pong: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_Pong_msg }
+    package static let _emptyBox = NanopbBox<livekit_Pong>(zero: livekit_Pong(), descriptor: livekit_Pong_msg)
+}
+typealias Livekit_Pong = NanopbMsg<livekit_Pong>
+extension NanopbMsg where S == livekit_Pong {
     var lastPingTimestamp: Int64 {
         _pointer.pointee.last_ping_timestamp?.pointee ?? 0
     }
@@ -4613,7 +3545,7 @@ struct Livekit_Pong: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_Pong {
+extension NanopbBuilder where S == livekit_Pong {
     var lastPingTimestamp: Int64 {
         get { _pointer.pointee.last_ping_timestamp?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.last_ping_timestamp, newValue) }
@@ -4626,40 +3558,19 @@ extension NanopbBuilder where M == Livekit_Pong {
 
 }
 
-struct Livekit_RegionSettings: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_RegionSettings
-    static var descriptor: pb_msgdesc_t { livekit_RegionSettings_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_RegionSettings()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_RegionSettings: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_RegionSettings_msg }
+    package static let _emptyBox = NanopbBox<livekit_RegionSettings>(zero: livekit_RegionSettings(), descriptor: livekit_RegionSettings_msg)
+}
+typealias Livekit_RegionSettings = NanopbMsg<livekit_RegionSettings>
+extension NanopbMsg where S == livekit_RegionSettings {
     var regions: [Livekit_RegionInfo] {
         lkViews(_pointer.pointee.regions_count, _pointer.pointee.regions, owner: _owner)
     }
 
 }
 
-extension NanopbBuilder where M == Livekit_RegionSettings {
+extension NanopbBuilder where S == livekit_RegionSettings {
     var regions: [Livekit_RegionInfo] {
         get { lkViews(_pointer.pointee.regions_count, _pointer.pointee.regions, owner: _box) }
         nonmutating set {
@@ -4671,33 +3582,12 @@ extension NanopbBuilder where M == Livekit_RegionSettings {
 
 }
 
-struct Livekit_RegionInfo: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_RegionInfo
-    static var descriptor: pb_msgdesc_t { livekit_RegionInfo_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_RegionInfo()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_RegionInfo: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_RegionInfo_msg }
+    package static let _emptyBox = NanopbBox<livekit_RegionInfo>(zero: livekit_RegionInfo(), descriptor: livekit_RegionInfo_msg)
+}
+typealias Livekit_RegionInfo = NanopbMsg<livekit_RegionInfo>
+extension NanopbMsg where S == livekit_RegionInfo {
     var region: String {
         lkString(_pointer.pointee.region) ?? ""
     }
@@ -4715,7 +3605,7 @@ struct Livekit_RegionInfo: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_RegionInfo {
+extension NanopbBuilder where S == livekit_RegionInfo {
     var region: String {
         get { lkString(_pointer.pointee.region) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.region, newValue) }
@@ -4733,33 +3623,12 @@ extension NanopbBuilder where M == Livekit_RegionInfo {
 
 }
 
-struct Livekit_SubscriptionResponse: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SubscriptionResponse
-    static var descriptor: pb_msgdesc_t { livekit_SubscriptionResponse_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SubscriptionResponse()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_SubscriptionResponse: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SubscriptionResponse_msg }
+    package static let _emptyBox = NanopbBox<livekit_SubscriptionResponse>(zero: livekit_SubscriptionResponse(), descriptor: livekit_SubscriptionResponse_msg)
+}
+typealias Livekit_SubscriptionResponse = NanopbMsg<livekit_SubscriptionResponse>
+extension NanopbMsg where S == livekit_SubscriptionResponse {
     var trackSid: String {
         lkString(_pointer.pointee.track_sid) ?? ""
     }
@@ -4772,7 +3641,7 @@ struct Livekit_SubscriptionResponse: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_SubscriptionResponse {
+extension NanopbBuilder where S == livekit_SubscriptionResponse {
     var trackSid: String {
         get { lkString(_pointer.pointee.track_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.track_sid, newValue) }
@@ -4785,40 +3654,30 @@ extension NanopbBuilder where M == Livekit_SubscriptionResponse {
 
 }
 
-struct Livekit_RequestResponse: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_RequestResponse
-    static var descriptor: pb_msgdesc_t { livekit_RequestResponse_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_RequestResponse()
+enum Livekit_RequestResponse_OneOf_Request: Equatable {
+    case trickle(Livekit_TrickleRequest)
+    case addTrack(Livekit_AddTrackRequest)
+    case mute(Livekit_MuteTrackRequest)
+    case updateMetadata(Livekit_UpdateParticipantMetadata)
+    case updateAudioTrack(Livekit_UpdateLocalAudioTrack)
+    case updateVideoTrack(Livekit_UpdateLocalVideoTrack)
+    case publishDataTrack(Livekit_PublishDataTrackRequest)
+    case unpublishDataTrack(Livekit_UnpublishDataTrackRequest)
+}
 
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_RequestResponse: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_RequestResponse_msg }
+    package static let _emptyBox = NanopbBox<livekit_RequestResponse>(zero: livekit_RequestResponse(), descriptor: livekit_RequestResponse_msg)
+}
+typealias Livekit_RequestResponse = NanopbMsg<livekit_RequestResponse>
+extension NanopbMsg where S == livekit_RequestResponse {
     var requestID: UInt32 {
         _pointer.pointee.request_id?.pointee ?? 0
     }
     var hasRequestID: Bool { _pointer.pointee.request_id != nil }
 
-    var reason: Livekit_RequestResponse.Reason {
-        _pointer.pointee.reason.map { lkEnum($0.pointee) } ?? Livekit_RequestResponse.Reason()
+    var reason: Livekit_RequestResponse_Reason {
+        _pointer.pointee.reason.map { lkEnum($0.pointee) } ?? Livekit_RequestResponse_Reason()
     }
     var hasReason: Bool { _pointer.pointee.reason != nil }
 
@@ -4827,17 +3686,7 @@ struct Livekit_RequestResponse: NanopbMessage, @unchecked Sendable {
     }
     var hasMessage: Bool { _pointer.pointee.message != nil }
 
-    enum OneOf_Request: Equatable {
-        case trickle(Livekit_TrickleRequest)
-        case addTrack(Livekit_AddTrackRequest)
-        case mute(Livekit_MuteTrackRequest)
-        case updateMetadata(Livekit_UpdateParticipantMetadata)
-        case updateAudioTrack(Livekit_UpdateLocalAudioTrack)
-        case updateVideoTrack(Livekit_UpdateLocalVideoTrack)
-        case publishDataTrack(Livekit_PublishDataTrackRequest)
-        case unpublishDataTrack(Livekit_UnpublishDataTrackRequest)
-    }
-    var request: OneOf_Request? {
+    var request: Livekit_RequestResponse_OneOf_Request? {
         switch _pointer.pointee.which_request {
         case pb_size_t(livekit_RequestResponse_trickle_tag):
             return .trickle(_pointer.pointee.request.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty)
@@ -4883,71 +3732,71 @@ struct Livekit_RequestResponse: NanopbMessage, @unchecked Sendable {
         _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_unpublish_data_track_tag) ? (_pointer.pointee.request.unpublish_data_track.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackRequest._empty) : Livekit_UnpublishDataTrackRequest()
     }
 
-    enum Reason: NanopbEnum, CaseIterable {
-        case ok
-        case notFound
-        case notAllowed
-        case limitExceeded
-        case queued
-        case unsupportedType
-        case unclassifiedError
-        case invalidHandle
-        case invalidName
-        case duplicateHandle
-        case duplicateName
-        case UNRECOGNIZED(Int)
+}
 
-        init() { self = .ok }
+enum Livekit_RequestResponse_Reason: NanopbEnum, CaseIterable {
+    case ok
+    case notFound
+    case notAllowed
+    case limitExceeded
+    case queued
+    case unsupportedType
+    case unclassifiedError
+    case invalidHandle
+    case invalidName
+    case duplicateHandle
+    case duplicateName
+    case UNRECOGNIZED(Int)
 
-        init?(rawValue: Int) {
-            switch rawValue {
-            case 0: self = .ok
-            case 1: self = .notFound
-            case 2: self = .notAllowed
-            case 3: self = .limitExceeded
-            case 4: self = .queued
-            case 5: self = .unsupportedType
-            case 6: self = .unclassifiedError
-            case 7: self = .invalidHandle
-            case 8: self = .invalidName
-            case 9: self = .duplicateHandle
-            case 10: self = .duplicateName
-            default: self = .UNRECOGNIZED(rawValue)
-            }
-        }
+    init() { self = .ok }
 
-        var rawValue: Int {
-            switch self {
-            case .ok: 0
-            case .notFound: 1
-            case .notAllowed: 2
-            case .limitExceeded: 3
-            case .queued: 4
-            case .unsupportedType: 5
-            case .unclassifiedError: 6
-            case .invalidHandle: 7
-            case .invalidName: 8
-            case .duplicateHandle: 9
-            case .duplicateName: 10
-            case let .UNRECOGNIZED(value): value
-            }
-        }
-
-        static var allCases: [Reason] {
-            [.ok, .notFound, .notAllowed, .limitExceeded, .queued, .unsupportedType, .unclassifiedError, .invalidHandle, .invalidName, .duplicateHandle, .duplicateName]
+    init?(rawValue: Int) {
+        switch rawValue {
+        case 0: self = .ok
+        case 1: self = .notFound
+        case 2: self = .notAllowed
+        case 3: self = .limitExceeded
+        case 4: self = .queued
+        case 5: self = .unsupportedType
+        case 6: self = .unclassifiedError
+        case 7: self = .invalidHandle
+        case 8: self = .invalidName
+        case 9: self = .duplicateHandle
+        case 10: self = .duplicateName
+        default: self = .UNRECOGNIZED(rawValue)
         }
     }
 
+    var rawValue: Int {
+        switch self {
+        case .ok: 0
+        case .notFound: 1
+        case .notAllowed: 2
+        case .limitExceeded: 3
+        case .queued: 4
+        case .unsupportedType: 5
+        case .unclassifiedError: 6
+        case .invalidHandle: 7
+        case .invalidName: 8
+        case .duplicateHandle: 9
+        case .duplicateName: 10
+        case let .UNRECOGNIZED(value): value
+        }
+    }
+
+    static var allCases: [Livekit_RequestResponse_Reason] {
+        [.ok, .notFound, .notAllowed, .limitExceeded, .queued, .unsupportedType, .unclassifiedError, .invalidHandle, .invalidName, .duplicateHandle, .duplicateName]
+    }
 }
 
-extension NanopbBuilder where M == Livekit_RequestResponse {
+extension NanopbBuilder where S == livekit_RequestResponse {
     var requestID: UInt32 {
         get { _pointer.pointee.request_id?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.request_id, newValue) }
     }
 
-    var reason: Livekit_RequestResponse.Reason {
-        get { _pointer.pointee.reason.map { lkEnum($0.pointee) } ?? Livekit_RequestResponse.Reason() }
+    var reason: Livekit_RequestResponse_Reason {
+        get { _pointer.pointee.reason.map { lkEnum($0.pointee) } ?? Livekit_RequestResponse_Reason() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.reason, newValue) }
     }
 
@@ -4956,7 +3805,7 @@ extension NanopbBuilder where M == Livekit_RequestResponse {
         nonmutating set { lkSetString(&_pointer.pointee.message, newValue) }
     }
 
-    var request: Livekit_RequestResponse.OneOf_Request? {
+    var request: Livekit_RequestResponse_OneOf_Request? {
         get {
             switch _pointer.pointee.which_request {
             case pb_size_t(livekit_RequestResponse_trickle_tag):
@@ -5101,33 +3950,12 @@ extension NanopbBuilder where M == Livekit_RequestResponse {
 
 }
 
-struct Livekit_TrackSubscribed: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_TrackSubscribed
-    static var descriptor: pb_msgdesc_t { livekit_TrackSubscribed_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_TrackSubscribed()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_TrackSubscribed: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_TrackSubscribed_msg }
+    package static let _emptyBox = NanopbBox<livekit_TrackSubscribed>(zero: livekit_TrackSubscribed(), descriptor: livekit_TrackSubscribed_msg)
+}
+typealias Livekit_TrackSubscribed = NanopbMsg<livekit_TrackSubscribed>
+extension NanopbMsg where S == livekit_TrackSubscribed {
     var trackSid: String {
         lkString(_pointer.pointee.track_sid) ?? ""
     }
@@ -5135,7 +3963,7 @@ struct Livekit_TrackSubscribed: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_TrackSubscribed {
+extension NanopbBuilder where S == livekit_TrackSubscribed {
     var trackSid: String {
         get { lkString(_pointer.pointee.track_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.track_sid, newValue) }
@@ -5143,33 +3971,12 @@ extension NanopbBuilder where M == Livekit_TrackSubscribed {
 
 }
 
-struct Livekit_ConnectionSettings: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_ConnectionSettings
-    static var descriptor: pb_msgdesc_t { livekit_ConnectionSettings_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_ConnectionSettings()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_ConnectionSettings: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_ConnectionSettings_msg }
+    package static let _emptyBox = NanopbBox<livekit_ConnectionSettings>(zero: livekit_ConnectionSettings(), descriptor: livekit_ConnectionSettings_msg)
+}
+typealias Livekit_ConnectionSettings = NanopbMsg<livekit_ConnectionSettings>
+extension NanopbMsg where S == livekit_ConnectionSettings {
     var autoSubscribe: Bool {
         _pointer.pointee.auto_subscribe?.pointee ?? false
     }
@@ -5197,7 +4004,7 @@ struct Livekit_ConnectionSettings: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_ConnectionSettings {
+extension NanopbBuilder where S == livekit_ConnectionSettings {
     var autoSubscribe: Bool {
         get { _pointer.pointee.auto_subscribe?.pointee ?? false }
         nonmutating set { lkSetValue(&_pointer.pointee.auto_subscribe, newValue) }
@@ -5225,33 +4032,12 @@ extension NanopbBuilder where M == Livekit_ConnectionSettings {
 
 }
 
-struct Livekit_JoinRequest: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_JoinRequest
-    static var descriptor: pb_msgdesc_t { livekit_JoinRequest_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_JoinRequest()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_JoinRequest: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_JoinRequest_msg }
+    package static let _emptyBox = NanopbBox<livekit_JoinRequest>(zero: livekit_JoinRequest(), descriptor: livekit_JoinRequest_msg)
+}
+typealias Livekit_JoinRequest = NanopbMsg<livekit_JoinRequest>
+extension NanopbMsg where S == livekit_JoinRequest {
     var clientInfo: Livekit_ClientInfo {
         _pointer.pointee.client_info.map { Livekit_ClientInfo(_sharing: $0, owner: _owner) } ?? Livekit_ClientInfo._empty
     }
@@ -5269,7 +4055,7 @@ struct Livekit_JoinRequest: NanopbMessage, @unchecked Sendable {
 
     var participantAttributes: [String: String] {
         var out: [String: String] = [:]
-        for entry in lkViews(_pointer.pointee.participant_attributes_count, _pointer.pointee.participant_attributes, owner: _owner) as [Livekit_JoinRequest.ParticipantAttributesEntry] {
+        for entry in lkViews(_pointer.pointee.participant_attributes_count, _pointer.pointee.participant_attributes, owner: _owner) as [Livekit_JoinRequest_ParticipantAttributesEntry] {
             out[entry.key] = entry.value
         }
         return out
@@ -5304,48 +4090,27 @@ struct Livekit_JoinRequest: NanopbMessage, @unchecked Sendable {
     }
     var hasSyncState: Bool { _pointer.pointee.sync_state != nil }
 
-    struct ParticipantAttributesEntry: NanopbMessage, @unchecked Sendable {
-        typealias Storage = livekit_JoinRequest_ParticipantAttributesEntry
-        static var descriptor: pb_msgdesc_t { livekit_JoinRequest_ParticipantAttributesEntry_msg }
-        static var zero: Storage { Storage() }
-        /// Shared value returned when a submessage field is absent. Safe to
-        /// share because messages are immutable; `modifying` sees the static
-        /// reference, so it copies rather than writing through it.
-        static let _empty = ParticipantAttributesEntry()
+}
 
-        var _owner: NanopbAnyBox
-        var _pointer: UnsafeMutablePointer<Storage>
-
-        init() {
-            self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-        }
-
-        init(_owning box: NanopbBox<Storage>) {
-            _owner = box
-            _pointer = box.pointer
-        }
-
-        /// Zero-copy view into `owner`'s storage.
-        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-            _owner = owner
-            _pointer = pointer
-        }
-
-        var key: String {
-            lkString(_pointer.pointee.key) ?? ""
-        }
-        var hasKey: Bool { _pointer.pointee.key != nil }
-
-        var value: String {
-            lkString(_pointer.pointee.value) ?? ""
-        }
-        var hasValue: Bool { _pointer.pointee.value != nil }
-
+extension livekit_JoinRequest_ParticipantAttributesEntry: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_JoinRequest_ParticipantAttributesEntry_msg }
+    package static let _emptyBox = NanopbBox<livekit_JoinRequest_ParticipantAttributesEntry>(zero: livekit_JoinRequest_ParticipantAttributesEntry(), descriptor: livekit_JoinRequest_ParticipantAttributesEntry_msg)
+}
+typealias Livekit_JoinRequest_ParticipantAttributesEntry = NanopbMsg<livekit_JoinRequest_ParticipantAttributesEntry>
+extension NanopbMsg where S == livekit_JoinRequest_ParticipantAttributesEntry {
+    var key: String {
+        lkString(_pointer.pointee.key) ?? ""
     }
+    var hasKey: Bool { _pointer.pointee.key != nil }
+
+    var value: String {
+        lkString(_pointer.pointee.value) ?? ""
+    }
+    var hasValue: Bool { _pointer.pointee.value != nil }
 
 }
 
-extension NanopbBuilder where M == Livekit_JoinRequest.ParticipantAttributesEntry {
+extension NanopbBuilder where S == livekit_JoinRequest_ParticipantAttributesEntry {
     var key: String {
         get { lkString(_pointer.pointee.key) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.key, newValue) }
@@ -5358,7 +4123,7 @@ extension NanopbBuilder where M == Livekit_JoinRequest.ParticipantAttributesEntr
 
 }
 
-extension NanopbBuilder where M == Livekit_JoinRequest {
+extension NanopbBuilder where S == livekit_JoinRequest {
     var clientInfo: Livekit_ClientInfo {
         get { _pointer.pointee.client_info.map { Livekit_ClientInfo(_sharing: $0, owner: _box) } ?? Livekit_ClientInfo._empty }
         nonmutating set { lkSetMessage(&_pointer.pointee.client_info, newValue) }
@@ -5377,7 +4142,7 @@ extension NanopbBuilder where M == Livekit_JoinRequest {
     var participantAttributes: [String: String] {
         get {
             var out: [String: String] = [:]
-            for entry in lkViews(_pointer.pointee.participant_attributes_count, _pointer.pointee.participant_attributes, owner: _box) as [Livekit_JoinRequest.ParticipantAttributesEntry] {
+            for entry in lkViews(_pointer.pointee.participant_attributes_count, _pointer.pointee.participant_attributes, owner: _box) as [Livekit_JoinRequest_ParticipantAttributesEntry] {
                 out[entry.key] = entry.value
             }
             return out
@@ -5385,7 +4150,7 @@ extension NanopbBuilder where M == Livekit_JoinRequest {
         nonmutating set {
             // sorted for deterministic encoding (bytes-based Equatable)
             let entries = newValue.sorted { $0.key < $1.key }.map { pair in
-                Livekit_JoinRequest.ParticipantAttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
+                Livekit_JoinRequest_ParticipantAttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
             }
             var count = _pointer.pointee.participant_attributes_count, base = _pointer.pointee.participant_attributes
             lkSetRepeatedMessages(&count, &base, entries)
@@ -5429,35 +4194,14 @@ extension NanopbBuilder where M == Livekit_JoinRequest {
 
 }
 
-struct Livekit_WrappedJoinRequest: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_WrappedJoinRequest
-    static var descriptor: pb_msgdesc_t { livekit_WrappedJoinRequest_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_WrappedJoinRequest()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
-    var compression: Livekit_WrappedJoinRequest.Compression {
-        _pointer.pointee.compression.map { lkEnum($0.pointee) } ?? Livekit_WrappedJoinRequest.Compression()
+extension livekit_WrappedJoinRequest: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_WrappedJoinRequest_msg }
+    package static let _emptyBox = NanopbBox<livekit_WrappedJoinRequest>(zero: livekit_WrappedJoinRequest(), descriptor: livekit_WrappedJoinRequest_msg)
+}
+typealias Livekit_WrappedJoinRequest = NanopbMsg<livekit_WrappedJoinRequest>
+extension NanopbMsg where S == livekit_WrappedJoinRequest {
+    var compression: Livekit_WrappedJoinRequest_Compression {
+        _pointer.pointee.compression.map { lkEnum($0.pointee) } ?? Livekit_WrappedJoinRequest_Compression()
     }
     var hasCompression: Bool { _pointer.pointee.compression != nil }
 
@@ -5466,39 +4210,39 @@ struct Livekit_WrappedJoinRequest: NanopbMessage, @unchecked Sendable {
     }
     var hasJoinRequest: Bool { _pointer.pointee.join_request != nil }
 
-    enum Compression: NanopbEnum, CaseIterable {
-        case none
-        case gzip
-        case UNRECOGNIZED(Int)
+}
 
-        init() { self = .none }
+enum Livekit_WrappedJoinRequest_Compression: NanopbEnum, CaseIterable {
+    case none
+    case gzip
+    case UNRECOGNIZED(Int)
 
-        init?(rawValue: Int) {
-            switch rawValue {
-            case 0: self = .none
-            case 1: self = .gzip
-            default: self = .UNRECOGNIZED(rawValue)
-            }
-        }
+    init() { self = .none }
 
-        var rawValue: Int {
-            switch self {
-            case .none: 0
-            case .gzip: 1
-            case let .UNRECOGNIZED(value): value
-            }
-        }
-
-        static var allCases: [Compression] {
-            [.none, .gzip]
+    init?(rawValue: Int) {
+        switch rawValue {
+        case 0: self = .none
+        case 1: self = .gzip
+        default: self = .UNRECOGNIZED(rawValue)
         }
     }
 
+    var rawValue: Int {
+        switch self {
+        case .none: 0
+        case .gzip: 1
+        case let .UNRECOGNIZED(value): value
+        }
+    }
+
+    static var allCases: [Livekit_WrappedJoinRequest_Compression] {
+        [.none, .gzip]
+    }
 }
 
-extension NanopbBuilder where M == Livekit_WrappedJoinRequest {
-    var compression: Livekit_WrappedJoinRequest.Compression {
-        get { _pointer.pointee.compression.map { lkEnum($0.pointee) } ?? Livekit_WrappedJoinRequest.Compression() }
+extension NanopbBuilder where S == livekit_WrappedJoinRequest {
+    var compression: Livekit_WrappedJoinRequest_Compression {
+        get { _pointer.pointee.compression.map { lkEnum($0.pointee) } ?? Livekit_WrappedJoinRequest_Compression() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.compression, newValue) }
     }
 
@@ -5509,33 +4253,12 @@ extension NanopbBuilder where M == Livekit_WrappedJoinRequest {
 
 }
 
-struct Livekit_MediaSectionsRequirement: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_MediaSectionsRequirement
-    static var descriptor: pb_msgdesc_t { livekit_MediaSectionsRequirement_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_MediaSectionsRequirement()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_MediaSectionsRequirement: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_MediaSectionsRequirement_msg }
+    package static let _emptyBox = NanopbBox<livekit_MediaSectionsRequirement>(zero: livekit_MediaSectionsRequirement(), descriptor: livekit_MediaSectionsRequirement_msg)
+}
+typealias Livekit_MediaSectionsRequirement = NanopbMsg<livekit_MediaSectionsRequirement>
+extension NanopbMsg where S == livekit_MediaSectionsRequirement {
     var numAudios: UInt32 {
         _pointer.pointee.num_audios?.pointee ?? 0
     }
@@ -5548,7 +4271,7 @@ struct Livekit_MediaSectionsRequirement: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_MediaSectionsRequirement {
+extension NanopbBuilder where S == livekit_MediaSectionsRequirement {
     var numAudios: UInt32 {
         get { _pointer.pointee.num_audios?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.num_audios, newValue) }

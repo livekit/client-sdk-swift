@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
+#if LK_XCFRAMEWORK
+internal import CLiveKitProto
+#elseif !COCOAPODS
+import CLiveKitProto
+import LiveKitNanopb
+#endif
 import Foundation
 
 // Extending the generic builder needs the runtime module by name; the facades
 // themselves are re-exported through LiveKit.
-#if !COCOAPODS && !LK_XCFRAMEWORK
-import LiveKitNanopb
-#endif
 
 // MARK: - Triggers
 
@@ -108,7 +111,7 @@ actor MetricsManager: Loggable {
 
 // MARK: - Statistics -> protobufs
 
-private extension Livekit_MetricsBatch {
+private extension NanopbMsg where S == livekit_MetricsBatch {
     init(statistics: TrackStatistics, identity: Participant.Identity?) {
         self = .with { batch in
             var strings = OrderedSet<String>()
@@ -124,7 +127,7 @@ private extension Livekit_MetricsBatch {
 }
 
 // Mutation helpers live on the builder; the message itself is immutable.
-private extension NanopbBuilder where M == Livekit_MetricsBatch {
+private extension NanopbBuilder where S == livekit_MetricsBatch {
     func addOutboundMetrics(from statistics: [OutboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
         for stat in statistics where stat.kind == "video" {
             if let durations = stat.qualityLimitationDurations {

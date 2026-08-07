@@ -14,13 +14,19 @@
  * limitations under the License.
  */
 
+#if LK_XCFRAMEWORK
+internal import CLiveKitProto
+#elseif !COCOAPODS
+import CLiveKitProto
+import LiveKitNanopb
+#endif
 import Foundation
 
 internal import LiveKitWebRTC
 
 // MARK: - EncryptedPacket
 
-extension Livekit_EncryptedPacket {
+extension NanopbMsg where S == livekit_EncryptedPacket {
     init(rtcPacket: LKRTCEncryptedPacket) {
         self = .with {
             $0.encryptionType = .gcm
@@ -41,7 +47,7 @@ extension Livekit_EncryptedPacket {
 
 // MARK: - EncryptedPacketPayload
 
-extension Livekit_EncryptedPacketPayload {
+extension NanopbMsg where S == livekit_EncryptedPacketPayload {
     init?(dataPacket: Livekit_DataPacket) {
         switch dataPacket.value {
         case let .user(user):
@@ -91,7 +97,7 @@ extension Livekit_EncryptedPacketPayload {
 
 // MARK: - DataPacket
 
-extension Livekit_DataPacket {
+extension NanopbMsg where S == livekit_DataPacket {
     // Skip the default value returned from protobufs
     var encryptedPacketOrNil: Livekit_EncryptedPacket? {
         switch value {

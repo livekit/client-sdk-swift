@@ -16,33 +16,12 @@ import CLiveKitProto
 import LiveKitNanopb
 #endif
 
-struct Google_Protobuf_Timestamp: NanopbMessage, @unchecked Sendable {
-    typealias Storage = google_protobuf_Timestamp
-    static var descriptor: pb_msgdesc_t { google_protobuf_Timestamp_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Google_Protobuf_Timestamp()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension google_protobuf_Timestamp: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { google_protobuf_Timestamp_msg }
+    package static let _emptyBox = NanopbBox<google_protobuf_Timestamp>(zero: google_protobuf_Timestamp(), descriptor: google_protobuf_Timestamp_msg)
+}
+typealias Google_Protobuf_Timestamp = NanopbMsg<google_protobuf_Timestamp>
+extension NanopbMsg where S == google_protobuf_Timestamp {
     var seconds: Int64 {
         _pointer.pointee.seconds?.pointee ?? 0
     }
@@ -55,7 +34,7 @@ struct Google_Protobuf_Timestamp: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Google_Protobuf_Timestamp {
+extension NanopbBuilder where S == google_protobuf_Timestamp {
     var seconds: Int64 {
         get { _pointer.pointee.seconds?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.seconds, newValue) }

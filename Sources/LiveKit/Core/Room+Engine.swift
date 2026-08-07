@@ -61,7 +61,7 @@ extension Room {
         _state.mutate { $0.hasPublished = true }
     }
 
-    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws {
+    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket_Kind) async throws {
         try await send(dataPacket: .with {
             $0.user = userPacket
             $0.kind = kind

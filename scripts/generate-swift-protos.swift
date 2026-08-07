@@ -175,7 +175,7 @@ struct GenerateSwiftProtos: ParsableCommand {
                 .components(separatedBy: "\n").enumerated()
             {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
-                if trimmed.hasPrefix("extension NanopbBuilder where M ==") {
+                if trimmed.hasPrefix("extension NanopbBuilder where S ==") {
                     insideBuilder = true
                     builderDepth = depth
                 }
@@ -463,7 +463,7 @@ struct Emitter {
         case .bytes:
             return emitBytes(names, slot)
         case .enum:
-            let type = Self.local(namer.fullName(enum: field.enumType!))
+            let type = Self.flat(namer.fullName(enum: field.enumType!))
             return [
                 "var \(names.name): \(type) {",
                 "    get { \(slot).map { lkEnum($0.pointee) } ?? \(type)() }",
@@ -472,7 +472,7 @@ struct Emitter {
                 "var \(names.has): Bool { \(slot) != nil }",
             ]
         case .message, .group:
-            let type = Self.local(namer.fullName(message: field.messageType!))
+            let type = Self.flat(namer.fullName(message: field.messageType!))
             return [
                 "var \(names.name): \(type) {",
                 "    get { \(slot).map { \(type)(_sharing: $0, owner: _owner) } ?? \(type)._empty }",
@@ -536,12 +536,12 @@ struct Emitter {
             return accessor("String", get: "lkRepeated(\(count), \(base))", set: "lkSetRepeated")
         case .enum:
             return accessor(
-                Self.local(namer.fullName(enum: field.enumType!)),
+                Self.flat(namer.fullName(enum: field.enumType!)),
                 get: "lkRepeatedEnum(\(count), \(base))", set: "lkSetRepeatedEnum",
             )
         case .message, .group:
             return accessor(
-                Self.local(namer.fullName(message: field.messageType!)),
+                Self.flat(namer.fullName(message: field.messageType!)),
                 get: "lkViews(\(count), \(base), owner: _owner)", set: "lkSetRepeatedMessages",
             )
         default:
@@ -555,7 +555,7 @@ struct Emitter {
     private func emitMap(_ field: FieldDescriptor) -> [String] {
         let names = namer.messagePropertyNames(field: field, prefixed: "", includeHasAndClear: false)
         let entry = field.messageType!
-        let entryType = Self.local(namer.fullName(message: entry))
+        let entryType = Self.flat(namer.fullName(message: entry))
         let count = "_pointer.pointee.\(field.name)_count"
         let base = "_pointer.pointee.\(Self.escaped(field.name))"
         let key = entry.fields.first { $0.name == "key" }!
@@ -564,8 +564,8 @@ struct Emitter {
         let valueType: String = switch value.type {
         case .string: "String"
         case .bytes: "Data"
-        case .enum: Self.local(namer.fullName(enum: value.enumType!))
-        case .message: Self.local(namer.fullName(message: value.messageType!))
+        case .enum: Self.flat(namer.fullName(enum: value.enumType!))
+        case .message: Self.flat(namer.fullName(message: value.messageType!))
         default: scalar(value.type)!.swift
         }
         return [
@@ -620,14 +620,16 @@ extension Emitter {
     }
 
     private func context(oneof: OneofDescriptor, of message: Descriptor) -> OneofContext {
-        let enumName = namer.relativeName(oneof: oneof)
+        // hoisted to file scope, so it carries the parent's flattened name
+        let relative = namer.relativeName(oneof: oneof)
+        let enumName = "\(Self.flat(namer.fullName(message: message)))_\(relative)"
         let storage = cName(message)
         let namer = namer
         return OneofContext(
             oneof: oneof,
             enumName: enumName,
             property: namer.messagePropertyName(oneof: oneof, prefixed: "").name,
-            clearName: "_clear\(enumName.dropFirst("OneOf_".count))",
+            clearName: "_clear\(relative.dropFirst("OneOf_".count))",
             which: "_pointer.pointee.which_\(oneof.name)",
             tag: { "pb_size_t(\(storage)_\($0.name)_tag)" },
             caseName: {
@@ -705,7 +707,7 @@ extension Emitter {
             out.append("    case \(ctx.tag(variant)):")
             switch variant.type {
             case .message, .group:
-                let type = Self.local(namer.fullName(message: variant.messageType!))
+                let type = Self.flat(namer.fullName(message: variant.messageType!))
                 out.append("        lkRelease(message: &\(slot), \(type).descriptor)")
             default:
                 out.append("        lkFree(&\(slot))")
@@ -727,10 +729,10 @@ extension Emitter {
         case .string: return "lkString(\(slot)) ?? \"\""
         case .bytes: return "lkData(\(slot))"
         case .enum:
-            let type = Self.local(namer.fullName(enum: variant.enumType!))
+            let type = Self.flat(namer.fullName(enum: variant.enumType!))
             return "\(slot).map { lkEnum($0.pointee) as \(type) } ?? \(type)()"
         case .message, .group:
-            let type = Self.local(namer.fullName(message: variant.messageType!))
+            let type = Self.flat(namer.fullName(message: variant.messageType!))
             return "\(slot).map { \(type)(_sharing: $0, owner: _owner) } ?? \(type)._empty"
         default:
             return "\(slot)?.pointee ?? \(scalar(variant.type)!.zero)"
@@ -754,8 +756,8 @@ extension Emitter {
         switch variant.type {
         case .string: "String"
         case .bytes: "Data"
-        case .enum: Self.local(namer.fullName(enum: variant.enumType!))
-        case .message, .group: Self.local(namer.fullName(message: variant.messageType!))
+        case .enum: Self.flat(namer.fullName(enum: variant.enumType!))
+        case .message, .group: Self.flat(namer.fullName(message: variant.messageType!))
         default: scalar(variant.type)!.swift
         }
     }
@@ -764,8 +766,8 @@ extension Emitter {
         switch variant.type {
         case .string: "\"\""
         case .bytes: "Data()"
-        case .enum: "\(Self.local(namer.fullName(enum: variant.enumType!)))()"
-        case .message, .group: "\(Self.local(namer.fullName(message: variant.messageType!)))()"
+        case .enum: "\(Self.flat(namer.fullName(enum: variant.enumType!)))()"
+        case .message, .group: "\(Self.flat(namer.fullName(message: variant.messageType!)))()"
         default: scalar(variant.type)!.zero
         }
     }
@@ -774,9 +776,9 @@ extension Emitter {
 // MARK: - Enums
 
 extension Emitter {
-    func emit(enum enumType: EnumDescriptor, depth: Int) -> String {
-        let pad = String(repeating: "    ", count: depth)
-        let type = namer.relativeName(enum: enumType)
+    func emit(enum enumType: EnumDescriptor, depth _: Int = 0) -> String {
+        let pad = ""
+        let type = Self.flat(namer.fullName(enum: enumType))
         let values = namer.uniquelyNamedValues(enum: enumType)
         let names = values.map { namer.relativeName(enumValue: $0) }
         let first = names.first ?? "unknown"
@@ -820,11 +822,12 @@ extension Emitter {
         return parts.body + parts.extensions
     }
 
-    /// `extension NanopbBuilder where M == ...` cannot nest inside a struct, so
-    /// nested messages hand their extensions up to be written at file scope.
-    private func emitParts(_ message: Descriptor, depth: Int) -> (body: String, extensions: String) {
-        let pad = String(repeating: "    ", count: depth)
-        let type = namer.relativeName(message: message)
+    /// Every schema type is emitted flat: nothing nests, because constrained
+    /// extensions of one generic type cannot each declare a member of the same
+    /// name (six `OneOf_Value` declarations would collide). Nested names are
+    /// flattened — `Livekit_DataStream.Header` becomes `Livekit_DataStream_Header`.
+    private func emitParts(_ message: Descriptor, depth _: Int = 0) -> (body: String, extensions: String) {
+        let flat = Self.flat(namer.fullName(message: message))
         let storage = cName(message)
 
         var members = AccessorSplitter.SplitAccessors()
@@ -834,86 +837,79 @@ extension Emitter {
         {
             members.append(AccessorSplitter.split(emit(field, of: message)))
         }
+        var hoisted = ""
         for oneof in Self.realOneofs(of: message) {
-            members.append(AccessorSplitter.split(emit(oneof: oneof, of: message)))
+            var lines = emit(oneof: oneof, of: message)
+            // peel the payload enum off the front: it is a type, not an accessor
+            if let end = lines.firstIndex(of: "}"), lines.first?.hasPrefix("enum ") == true {
+                hoisted += lines[...end].joined(separator: "\n") + "\n\n"
+                lines = Array(lines[(end + 1)...])
+            }
+            members.append(AccessorSplitter.split(lines))
         }
 
-        var out = Self.messageHeader(type: type, storage: storage, pad: pad)
-        for line in members.message {
-            out += line.isEmpty ? "\n" : "\(pad)    \(line)\n"
+        var out = hoisted
+        // A message carrying only nested types (`message DataStream { message
+        // Header { … } }`) is a namespace, never a value. Emitting it as a
+        // caseless enum instead of a typealias is what keeps
+        // `Livekit_DataStream.Header` compiling after the flattening.
+        let isNamespace = members.message.allSatisfy(\.isEmpty)
+            && (!message.messages.isEmpty || !message.enums.isEmpty)
+
+        if !isNamespace {
+            out += Self.storageConformance(flat: flat, storage: storage)
+            out += Self.block("extension NanopbMsg where S == \(storage)", members.message)
         }
+
         var extensions = ""
         for child in message.messages {
-            let parts = emitParts(child, depth: depth + 1)
-            out += parts.body
-            extensions += parts.extensions
+            let parts = emitParts(child)
+            extensions += parts.body + parts.extensions
         }
         for enumType in message.enums {
-            out += emit(enum: enumType, depth: depth + 1)
+            extensions += emit(enum: enumType)
         }
-        out += "\(pad)}\n\n"
+        if isNamespace { out += namespaceEnum(flat: flat, of: message) }
 
-        guard !members.builder.isEmpty else { return (out, extensions) }
-        let full = Self.local(namer.fullName(message: message))
-        var ext = "extension NanopbBuilder where M == \(full) {\n"
-        // The extension is on the builder, so the message's nested types are
-        // not in scope. They cannot be aliased in either: every constrained
-        // extension would add the same name to `NanopbBuilder`, so `OneOf_Value`
-        // would mean six different things. Qualify the references instead.
-        var nestedNames = Self.realOneofs(of: message).map { namer.relativeName(oneof: $0) }
-        nestedNames += message.enums.map { namer.relativeName(enum: $0) }
-        nestedNames += message.messages.map { namer.relativeName(message: $0) }
-        let qualify: (String) -> String = { line in
-            var line = line
-            for name in nestedNames {
-                guard let regex = try? NSRegularExpression(
-                    pattern: "(?<![\\.\\w])\(NSRegularExpression.escapedPattern(for: name))(?![\\w])",
-                ) else { continue }
-                line = regex.stringByReplacingMatches(
-                    in: line, range: NSRange(line.startIndex..., in: line),
-                    withTemplate: "\(full).\(name)",
-                )
-            }
-            return line
-        }
-        for line in members.builder {
-            ext += line.isEmpty ? "\n" : "    \(qualify(line))\n"
-        }
-        ext += "}\n\n"
-        return (out, extensions + ext)
+        return (out, extensions + Self.block("extension NanopbBuilder where S == \(storage)", members.builder))
     }
 
-    private static func messageHeader(type: String, storage: String, pad: String) -> String {
+    private static func storageConformance(flat: String, storage: String) -> String {
         """
-        \(pad)struct \(type): NanopbMessage, @unchecked Sendable {
-        \(pad)    typealias Storage = \(storage)
-        \(pad)    static var descriptor: pb_msgdesc_t { \(storage)_msg }
-        \(pad)    static var zero: Storage { Storage() }
-        \(pad)    /// Shared value returned when a submessage field is absent. Safe to
-        \(pad)    /// share because messages are immutable; `modifying` sees the static
-        \(pad)    /// reference, so it copies rather than writing through it.
-        \(pad)    static let _empty = \(type)()
-
-        \(pad)    var _owner: NanopbAnyBox
-        \(pad)    var _pointer: UnsafeMutablePointer<Storage>
-
-        \(pad)    init() {
-        \(pad)        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-        \(pad)    }
-
-        \(pad)    init(_owning box: NanopbBox<Storage>) {
-        \(pad)        _owner = box
-        \(pad)        _pointer = box.pointer
-        \(pad)    }
-
-        \(pad)    /// Zero-copy view into `owner`'s storage.
-        \(pad)    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        \(pad)        _owner = owner
-        \(pad)        _pointer = pointer
-        \(pad)    }
-
+        extension \(storage): NanopbStorage {
+            package static var descriptor: pb_msgdesc_t { \(storage)_msg }
+            package static let _emptyBox = NanopbBox<\(storage)>(zero: \(storage)(), descriptor: \(storage)_msg)
+        }
+        typealias \(flat) = NanopbMsg<\(storage)>
 
         """
+    }
+
+    /// The old dotted spelling, kept alive for parents that only ever were a
+    /// namespace.
+    private func namespaceEnum(flat: String, of message: Descriptor) -> String {
+        var out = "enum \(flat) {\n"
+        for child in message.messages {
+            out += "    typealias \(namer.relativeName(message: child)) = \(Self.flat(namer.fullName(message: child)))\n"
+        }
+        for enumType in message.enums {
+            out += "    typealias \(namer.relativeName(enum: enumType)) = \(Self.flat(namer.fullName(enum: enumType)))\n"
+        }
+        return out + "}\n\n"
+    }
+
+    private static func block(_ header: String, _ lines: [String]) -> String {
+        guard !lines.allSatisfy(\.isEmpty) else { return "" }
+        var out = "\(header) {\n"
+        for line in lines {
+            out += line.isEmpty ? "\n" : "    \(line)\n"
+        }
+        return out + "}\n\n"
+    }
+
+    /// `Livekit_DataStream.Header` -> `Livekit_DataStream_Header`.
+    static func flat(_ name: String) -> String {
+        local(name).replacingOccurrences(of: ".", with: "_")
     }
 
     private static func factories(type _: String, pad: String) -> String {
@@ -1005,6 +1001,9 @@ struct ExemplarEmitter {
                 collect(message, into: &messages)
             }
         }
+        // A message with no fields of its own is emitted as a caseless enum
+        // namespace, not a value type, so it has no exemplar to build.
+        messages = messages.filter { !$0.fields.isEmpty }
         for message in messages {
             graph.add(message)
         }
@@ -1042,7 +1041,7 @@ struct ExemplarEmitter {
     }
 
     private func facadeType(_ message: Descriptor) -> String {
-        "LiveKit.\(Emitter.local(namer.fullName(message: message)))"
+        "LiveKit.\(Emitter.flat(namer.fullName(message: message)))"
     }
 
     /// The oracle type as protoc-gen-swift names it — well-known types stay

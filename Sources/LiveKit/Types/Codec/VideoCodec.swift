@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
+#if LK_XCFRAMEWORK
+internal import CLiveKitProto
+#elseif !COCOAPODS
+import CLiveKitProto
+import LiveKitNanopb
+#endif
 import Foundation
 
 @objcMembers
@@ -74,7 +80,7 @@ public final class VideoCodec: NSObject, Codec {
     }
 }
 
-extension Livekit_SubscribedCodec {
+extension NanopbMsg where S == livekit_SubscribedCodec {
     func toVideoCodec() -> VideoCodec? {
         VideoCodec.from(name: codec)
     }

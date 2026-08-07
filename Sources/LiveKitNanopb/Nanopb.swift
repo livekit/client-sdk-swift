@@ -122,7 +122,7 @@ package final class NanopbBox<Storage>: NanopbAnyBox, @unchecked Sendable {
 
 /// The only way to mutate a message. One generic builder serves every message
 /// type; the generated code adds just the field setters in a constrained
-/// extension (`extension NanopbBuilder where M == Livekit_Room`), which is
+/// extension (`extension NanopbBuilder where S == livekit_Room`), which is
 /// what SE-0427 noncopyable generics makes possible.
 ///
 /// `~Copyable` means the compiler proves there is never a second live handle
@@ -131,56 +131,92 @@ package final class NanopbBox<Storage>: NanopbAnyBox, @unchecked Sendable {
 ///
 /// `_pointer` is *stored*, not computed off `_box`: as a computed property it
 /// crashes the Swift 6.1 SIL verifier (fine from 6.2), and 6.1 is the floor.
-package struct NanopbBuilder<M: NanopbMessage>: ~Copyable {
-    package let _box: NanopbBox<M.Storage>
-    package let _pointer: UnsafeMutablePointer<M.Storage>
+package struct NanopbBuilder<S: NanopbStorage>: ~Copyable {
+    package let _box: NanopbBox<S>
+    package let _pointer: UnsafeMutablePointer<S>
 
     package init() {
-        self.init(_adopting: NanopbBox(zero: M.zero, descriptor: M.descriptor))
+        self.init(_adopting: NanopbBox(zero: S(), descriptor: S.descriptor))
     }
 
-    package init(_adopting box: NanopbBox<M.Storage>) {
+    package init(_adopting box: NanopbBox<S>) {
         _box = box
         _pointer = box.pointer
     }
 
-    package consuming func build() -> M { M(_owning: _box) }
+    package consuming func build() -> NanopbMsg<S> { NanopbMsg(_owning: _box) }
 }
 
-// MARK: - Protocols
+// MARK: - Storage
+
+/// What the generic message needs to know about one schema type.
+///
+/// The generated code's entire per-message contribution is a conformance to
+/// this plus one accessor per field, so the schema adds no Swift *types* —
+/// which is what actually costs binary size, since a nominal type's metadata
+/// and conformance records survive dead-stripping even when unreferenced.
+///
+/// Imported C structs synthesise `init()`, so conformances get it for free.
+///
+/// `_emptyBox` lives here rather than on `NanopbMsg` because Swift forbids
+/// stored statics in a generic type, and a computed `Self()` would allocate on
+/// every read of an absent submessage.
+package protocol NanopbStorage {
+    init()
+    /// nanopb's field table for this struct.
+    static var descriptor: pb_msgdesc_t { get }
+    /// Shared, permanently-empty storage handed out for absent submessages.
+    static var _emptyBox: NanopbBox<Self> { get }
+}
+
+// MARK: - Message
 
 /// An immutable protobuf message whose storage and wire format are nanopb's.
 ///
-/// A value either owns its allocation (`_owner` is its own box) or is a *view*
-/// sharing a parent message's box, pointing directly at the nested C struct.
-/// Reads are pointer reads either way. Messages have no setters: each generated
-/// type carries a noncopyable `Builder` that owns fresh storage, and `with` /
-/// `modifying` are the only ways to produce a populated value.
-package protocol NanopbMessage: Equatable, Hashable, Sendable {
-    associatedtype Storage
-
-    /// nanopb's field table for `Storage`.
-    static var descriptor: pb_msgdesc_t { get }
-    /// A zeroed `Storage`, i.e. nanopb's `<T>_init_zero`.
-    static var zero: Storage { get }
-
+/// One type serves the whole schema: `Livekit_Room` is a typealias for
+/// `NanopbMsg<livekit_Room>`, and the generated code adds field accessors in a
+/// constrained extension. A value is in one of two states:
+///
+/// - **Owning**: `_owner` is its own `NanopbBox`; `box.pointer == _pointer`.
+/// - **View**: `_pointer` aims at a nested C struct *inside another message's
+///   allocation*, and `_owner` is that parent's box. Submessage and repeated
+///   getters return views — reads are zero-copy pointer reads.
+///
+/// Messages have no setters: mutation goes through the noncopyable `Builder`,
+/// and `with` / `modifying` are the only ways to produce a populated value.
+package struct NanopbMsg<S: NanopbStorage>: Equatable, Hashable, @unchecked Sendable {
     /// Keeps `_pointer`'s allocation alive: this value's own box, or the box
     /// of the message this value is a view into.
-    var _owner: NanopbAnyBox { get set }
-    var _pointer: UnsafeMutablePointer<Storage> { get set }
+    package var _owner: NanopbAnyBox
+    package var _pointer: UnsafeMutablePointer<S>
 
-    init()
-    init(_owning box: NanopbBox<Storage>)
-    /// Shared empty value handed out for absent submessage fields.
-    static var _empty: Self { get }
-    /// A view into storage owned by `owner` — zero-copy.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox)
-}
+    package init() {
+        self.init(_owning: NanopbBox(zero: S(), descriptor: S.descriptor))
+    }
 
-package extension NanopbMessage {
-    typealias Builder = NanopbBuilder<Self>
+    package init(_owning box: NanopbBox<S>) {
+        _owner = box
+        _pointer = box.pointer
+    }
 
-    static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
+    /// Zero-copy view into `owner`'s storage.
+    package init(_sharing pointer: UnsafeMutablePointer<S>, owner: NanopbAnyBox) {
+        _owner = owner
+        _pointer = pointer
+    }
+
+    /// Shared value returned when a submessage field is absent. Safe to share
+    /// because messages are immutable; `modifying` sees the shared reference,
+    /// so it copies rather than writing through it.
+    package static var _empty: Self { Self(_owning: S._emptyBox) }
+
+    /// Forwarded so generated accessors can name the descriptor through the
+    /// message type, as they did when every message was a nominal type.
+    package static var descriptor: pb_msgdesc_t { S.descriptor }
+
+    package typealias Builder = NanopbBuilder<S>
+
+    package static func with(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
         var builder = Builder()
         try populate(&builder)
         return builder.build()
@@ -189,9 +225,9 @@ package extension NanopbMessage {
     /// This message with `populate` applied. `consuming` ends the caller's
     /// ownership, so when nothing else holds the storage the mutation happens
     /// in place; otherwise it copies once for the whole batch, not per field.
-    consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
+    package consuming func modifying(_ populate: (inout Builder) throws -> Void) rethrows -> Self {
         if _ownsItsStorage, isKnownUniquelyReferenced(&_owner) {
-            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<Storage>.self))
+            var builder = Builder(_adopting: unsafeDowncast(_owner, to: NanopbBox<S>.self))
             try populate(&builder)
             return builder.build()
         }
@@ -208,24 +244,24 @@ package extension NanopbMessage {
     /// is the box of the whole decoded message, so storing a view long-term
     /// keeps that entire allocation alive (as `Substring` does to its
     /// `String`). Call this when promoting a decoded sub-message into
-    /// long-lived state. Values that already own their storage cost nothing.
-    func owned() -> Self {
+    /// long-lived state. Owning values cost nothing.
+    package func owned() -> Self {
         if _ownsItsStorage { return self }
         return lkMessage(copying: _pointer)
     }
 
     /// True when `_owner` is this value's own box rather than a parent's,
     /// tested without retaining the box.
-    var _ownsItsStorage: Bool {
-        // SAFETY: compares addresses only. A `NanopbBox<Storage>` downcast
-        // would hold a second reference across `modifying`'s uniqueness
-        // check and make it always fail.
+    package var _ownsItsStorage: Bool {
+        // SAFETY: compares addresses only. A `NanopbBox<S>` downcast would
+        // hold a second reference across `modifying`'s uniqueness check and
+        // make it always fail.
         _owner.rawPointer == UnsafeMutableRawPointer(_pointer)
     }
 
     // MARK: Wire format
 
-    init(serializedBytes bytes: some Collection<UInt8>) throws(NanopbError) {
+    package init(serializedBytes bytes: some Collection<UInt8>) throws(NanopbError) {
         self.init()
         let array = Array(bytes)
         // see `nanopbEncodedBytes` on why the error is captured rather than
@@ -233,7 +269,7 @@ package extension NanopbMessage {
         var failure: NanopbError?
         array.withUnsafeBytes { buffer in
             do throws(NanopbError) {
-                try nanopbDecode(into: _pointer, Self.descriptor, buffer)
+                try nanopbDecode(into: _pointer, S.descriptor, buffer)
             } catch {
                 failure = error
             }
@@ -241,15 +277,15 @@ package extension NanopbMessage {
         if let failure { throw failure }
     }
 
-    init(serializedData data: Data) throws(NanopbError) {
+    package init(serializedData data: Data) throws(NanopbError) {
         try self.init(serializedBytes: data)
     }
 
-    func serializedBytes() throws(NanopbError) -> [UInt8] {
-        try nanopbEncodedBytes(_pointer, Self.descriptor)
+    package func serializedBytes() throws(NanopbError) -> [UInt8] {
+        try nanopbEncodedBytes(_pointer, S.descriptor)
     }
 
-    func serializedData() throws(NanopbError) -> Data {
+    package func serializedData() throws(NanopbError) -> Data {
         try Data(serializedBytes())
     }
 
@@ -261,12 +297,12 @@ package extension NanopbMessage {
     // compare unequal. The SDK uses equality for change detection, where a
     // false "changed" is benign.
 
-    static func == (lhs: Self, rhs: Self) -> Bool {
+    package static func == (lhs: Self, rhs: Self) -> Bool {
         if lhs._pointer == rhs._pointer { return true }
         return (try? lhs.serializedBytes()) == (try? rhs.serializedBytes())
     }
 
-    func hash(into hasher: inout Hasher) {
+    package func hash(into hasher: inout Hasher) {
         hasher.combine((try? serializedBytes()) ?? [])
     }
 }

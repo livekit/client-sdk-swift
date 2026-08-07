@@ -18,8 +18,15 @@ import Foundation
 @testable import LiveKit
 import LiveKitNanopb
 
-private extension NanopbMessage {
+/// Lets the comparator recognise a nanopb-backed message at runtime. Every
+/// message is now the same generic type, so there is no per-message type to
+/// test against — and this conformance is test-only, so the SDK pays nothing.
+private protocol ReflectableStorage {
     /// Dereferences the C storage so Mirror sees the proto fields.
+    var _reflectedStorage: Any { get }
+}
+
+extension NanopbMsg: ReflectableStorage {
     var _reflectedStorage: Any { _pointer.pointee }
 }
 
@@ -68,7 +75,7 @@ enum Comparator {
     static func extractFields(from instance: some Any, excludedFields: Set<String> = []) -> [FieldInfo] {
         // nanopb-backed facades keep proto fields in a C struct behind an
         // owner/pointer pair; reflect the pointed-to storage instead.
-        if let message = instance as? any NanopbMessage {
+        if let message = instance as? any ReflectableStorage {
             return extractNanopbFields(
                 from: message._reflectedStorage, excludedFields: excludedFields,
             )

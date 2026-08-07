@@ -531,7 +531,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Send
 
-    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws {
+    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket_Kind) async throws {
         try await send(dataPacket: .with {
             $0.kind = kind // TODO: field is deprecated
             $0.user = userPacket
@@ -701,7 +701,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
 // MARK: - Extensions
 
 private extension DataChannelPair.ChannelKind {
-    init(_ packetKind: Livekit_DataPacket.Kind) {
+    init(_ packetKind: Livekit_DataPacket_Kind) {
         guard case .lossy = packetKind else {
             self = .reliable
             return

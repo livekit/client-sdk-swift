@@ -14,10 +14,24 @@
  * limitations under the License.
  */
 
+#if LK_XCFRAMEWORK
+internal import CLiveKitProto
+#elseif !COCOAPODS
+import CLiveKitProto
+import LiveKitNanopb
+#endif
 import AVFoundation
 import Foundation
 
 internal import LiveKitWebRTC
+
+// One conformance for every message: the type is generic now, so a per-message
+// `extension Livekit_X: CustomStringConvertible` would be a redeclaration.
+// Constrained extensions below still provide specialised descriptions — those
+// shadow this one wherever the concrete type is known statically.
+extension NanopbMsg: CustomStringConvertible {
+    package var description: String { "\(S.self)" }
+}
 
 extension TrackSettings: CustomStringConvertible {
     public var description: String {
@@ -25,8 +39,8 @@ extension TrackSettings: CustomStringConvertible {
     }
 }
 
-extension Livekit_VideoLayer: CustomStringConvertible {
-    public var description: String {
+package extension NanopbMsg where S == livekit_VideoLayer {
+    var description: String {
         "VideoLayer(quality: \(quality), dimensions: \(width)x\(height), bitrate: \(bitrate))"
     }
 }
@@ -37,14 +51,14 @@ public extension TrackPublication {
     }
 }
 
-extension Livekit_AddTrackRequest: CustomStringConvertible {
-    public var description: String {
+package extension NanopbMsg where S == livekit_AddTrackRequest {
+    var description: String {
         "AddTrackRequest(cid: \(cid), name: \(name), type: \(type), source: \(source), width: \(width), height: \(height), muted: \(muted))"
     }
 }
 
-extension Livekit_TrackInfo: CustomStringConvertible {
-    public var description: String {
+package extension NanopbMsg where S == livekit_TrackInfo {
+    var description: String {
         "TrackInfo(sid: \(sid), " +
             "name: \(name), " +
             "type: \(type), " +
@@ -58,20 +72,20 @@ extension Livekit_TrackInfo: CustomStringConvertible {
     }
 }
 
-extension Livekit_SubscribedQuality: CustomStringConvertible {
-    public var description: String {
+package extension NanopbMsg where S == livekit_SubscribedQuality {
+    var description: String {
         "SubscribedQuality(quality: \(quality), enabled: \(enabled))"
     }
 }
 
-extension Livekit_SubscribedCodec: CustomStringConvertible {
-    public var description: String {
+package extension NanopbMsg where S == livekit_SubscribedCodec {
+    var description: String {
         "SubscribedCodec(codec: \(codec), qualities: \(qualities.map { String(describing: $0) }.joined(separator: ", "))"
     }
 }
 
-extension Livekit_ServerInfo: CustomStringConvertible {
-    public var description: String {
+package extension NanopbMsg where S == livekit_ServerInfo {
+    var description: String {
         "ServerInfo(edition: \(edition), " +
             "version: \(version), " +
             "protocol: \(`protocol`), " +
@@ -148,7 +162,7 @@ extension ReconnectMode: CustomStringConvertible {
     }
 }
 
-extension Livekit_SignalResponse: CustomStringConvertible {
+extension NanopbMsg where S == livekit_SignalResponse {
     var description: String {
         "Livekit_SignalResponse(\(String(describing: message)))"
     }

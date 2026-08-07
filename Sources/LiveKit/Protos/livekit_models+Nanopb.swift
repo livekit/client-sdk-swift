@@ -16,33 +16,12 @@ import CLiveKitProto
 import LiveKitNanopb
 #endif
 
-struct Livekit_Room: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_Room
-    static var descriptor: pb_msgdesc_t { livekit_Room_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_Room()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_Room: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_Room_msg }
+    package static let _emptyBox = NanopbBox<livekit_Room>(zero: livekit_Room(), descriptor: livekit_Room_msg)
+}
+typealias Livekit_Room = NanopbMsg<livekit_Room>
+extension NanopbMsg where S == livekit_Room {
     var sid: String {
         lkString(_pointer.pointee.sid) ?? ""
     }
@@ -114,7 +93,7 @@ struct Livekit_Room: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_Room {
+extension NanopbBuilder where S == livekit_Room {
     var sid: String {
         get { lkString(_pointer.pointee.sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
@@ -191,33 +170,12 @@ extension NanopbBuilder where M == Livekit_Room {
 
 }
 
-struct Livekit_Codec: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_Codec
-    static var descriptor: pb_msgdesc_t { livekit_Codec_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_Codec()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_Codec: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_Codec_msg }
+    package static let _emptyBox = NanopbBox<livekit_Codec>(zero: livekit_Codec(), descriptor: livekit_Codec_msg)
+}
+typealias Livekit_Codec = NanopbMsg<livekit_Codec>
+extension NanopbMsg where S == livekit_Codec {
     var mime: String {
         lkString(_pointer.pointee.mime) ?? ""
     }
@@ -230,7 +188,7 @@ struct Livekit_Codec: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_Codec {
+extension NanopbBuilder where S == livekit_Codec {
     var mime: String {
         get { lkString(_pointer.pointee.mime) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.mime, newValue) }
@@ -243,33 +201,12 @@ extension NanopbBuilder where M == Livekit_Codec {
 
 }
 
-struct Livekit_ParticipantPermission: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_ParticipantPermission
-    static var descriptor: pb_msgdesc_t { livekit_ParticipantPermission_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_ParticipantPermission()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_ParticipantPermission: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_ParticipantPermission_msg }
+    package static let _emptyBox = NanopbBox<livekit_ParticipantPermission>(zero: livekit_ParticipantPermission(), descriptor: livekit_ParticipantPermission_msg)
+}
+typealias Livekit_ParticipantPermission = NanopbMsg<livekit_ParticipantPermission>
+extension NanopbMsg where S == livekit_ParticipantPermission {
     var canSubscribe: Bool {
         _pointer.pointee.can_subscribe?.pointee ?? false
     }
@@ -321,7 +258,7 @@ struct Livekit_ParticipantPermission: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_ParticipantPermission {
+extension NanopbBuilder where S == livekit_ParticipantPermission {
     var canSubscribe: Bool {
         get { _pointer.pointee.can_subscribe?.pointee ?? false }
         nonmutating set { lkSetValue(&_pointer.pointee.can_subscribe, newValue) }
@@ -378,33 +315,12 @@ extension NanopbBuilder where M == Livekit_ParticipantPermission {
 
 }
 
-struct Livekit_ParticipantInfo: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_ParticipantInfo
-    static var descriptor: pb_msgdesc_t { livekit_ParticipantInfo_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_ParticipantInfo()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_ParticipantInfo: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_ParticipantInfo_msg }
+    package static let _emptyBox = NanopbBox<livekit_ParticipantInfo>(zero: livekit_ParticipantInfo(), descriptor: livekit_ParticipantInfo_msg)
+}
+typealias Livekit_ParticipantInfo = NanopbMsg<livekit_ParticipantInfo>
+extension NanopbMsg where S == livekit_ParticipantInfo {
     var sid: String {
         lkString(_pointer.pointee.sid) ?? ""
     }
@@ -415,8 +331,8 @@ struct Livekit_ParticipantInfo: NanopbMessage, @unchecked Sendable {
     }
     var hasIdentity: Bool { _pointer.pointee.identity != nil }
 
-    var state: Livekit_ParticipantInfo.State {
-        _pointer.pointee.state.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo.State()
+    var state: Livekit_ParticipantInfo_State {
+        _pointer.pointee.state.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo_State()
     }
     var hasState: Bool { _pointer.pointee.state != nil }
 
@@ -459,14 +375,14 @@ struct Livekit_ParticipantInfo: NanopbMessage, @unchecked Sendable {
     }
     var hasIsPublisher: Bool { _pointer.pointee.is_publisher != nil }
 
-    var kind: Livekit_ParticipantInfo.Kind {
-        _pointer.pointee.kind.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo.Kind()
+    var kind: Livekit_ParticipantInfo_Kind {
+        _pointer.pointee.kind.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo_Kind()
     }
     var hasKind: Bool { _pointer.pointee.kind != nil }
 
     var attributes: [String: String] {
         var out: [String: String] = [:]
-        for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _owner) as [Livekit_ParticipantInfo.AttributesEntry] {
+        for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _owner) as [Livekit_ParticipantInfo_AttributesEntry] {
             out[entry.key] = entry.value
         }
         return out
@@ -482,7 +398,7 @@ struct Livekit_ParticipantInfo: NanopbMessage, @unchecked Sendable {
     }
     var hasJoinedAtMs: Bool { _pointer.pointee.joined_at_ms != nil }
 
-    var kindDetails: [Livekit_ParticipantInfo.KindDetail] {
+    var kindDetails: [Livekit_ParticipantInfo_KindDetail] {
         lkRepeatedEnum(_pointer.pointee.kind_details_count, _pointer.pointee.kind_details)
     }
 
@@ -495,162 +411,27 @@ struct Livekit_ParticipantInfo: NanopbMessage, @unchecked Sendable {
     }
     var hasClientProtocol: Bool { _pointer.pointee.client_protocol != nil }
 
-    struct AttributesEntry: NanopbMessage, @unchecked Sendable {
-        typealias Storage = livekit_ParticipantInfo_AttributesEntry
-        static var descriptor: pb_msgdesc_t { livekit_ParticipantInfo_AttributesEntry_msg }
-        static var zero: Storage { Storage() }
-        /// Shared value returned when a submessage field is absent. Safe to
-        /// share because messages are immutable; `modifying` sees the static
-        /// reference, so it copies rather than writing through it.
-        static let _empty = AttributesEntry()
+}
 
-        var _owner: NanopbAnyBox
-        var _pointer: UnsafeMutablePointer<Storage>
-
-        init() {
-            self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-        }
-
-        init(_owning box: NanopbBox<Storage>) {
-            _owner = box
-            _pointer = box.pointer
-        }
-
-        /// Zero-copy view into `owner`'s storage.
-        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-            _owner = owner
-            _pointer = pointer
-        }
-
-        var key: String {
-            lkString(_pointer.pointee.key) ?? ""
-        }
-        var hasKey: Bool { _pointer.pointee.key != nil }
-
-        var value: String {
-            lkString(_pointer.pointee.value) ?? ""
-        }
-        var hasValue: Bool { _pointer.pointee.value != nil }
-
+extension livekit_ParticipantInfo_AttributesEntry: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_ParticipantInfo_AttributesEntry_msg }
+    package static let _emptyBox = NanopbBox<livekit_ParticipantInfo_AttributesEntry>(zero: livekit_ParticipantInfo_AttributesEntry(), descriptor: livekit_ParticipantInfo_AttributesEntry_msg)
+}
+typealias Livekit_ParticipantInfo_AttributesEntry = NanopbMsg<livekit_ParticipantInfo_AttributesEntry>
+extension NanopbMsg where S == livekit_ParticipantInfo_AttributesEntry {
+    var key: String {
+        lkString(_pointer.pointee.key) ?? ""
     }
+    var hasKey: Bool { _pointer.pointee.key != nil }
 
-    enum State: NanopbEnum, CaseIterable {
-        case joining
-        case joined
-        case active
-        case disconnected
-        case UNRECOGNIZED(Int)
-
-        init() { self = .joining }
-
-        init?(rawValue: Int) {
-            switch rawValue {
-            case 0: self = .joining
-            case 1: self = .joined
-            case 2: self = .active
-            case 3: self = .disconnected
-            default: self = .UNRECOGNIZED(rawValue)
-            }
-        }
-
-        var rawValue: Int {
-            switch self {
-            case .joining: 0
-            case .joined: 1
-            case .active: 2
-            case .disconnected: 3
-            case let .UNRECOGNIZED(value): value
-            }
-        }
-
-        static var allCases: [State] {
-            [.joining, .joined, .active, .disconnected]
-        }
+    var value: String {
+        lkString(_pointer.pointee.value) ?? ""
     }
-
-    enum Kind: NanopbEnum, CaseIterable {
-        case standard
-        case ingress
-        case egress
-        case sip
-        case agent
-        case connector
-        case bridge
-        case UNRECOGNIZED(Int)
-
-        init() { self = .standard }
-
-        init?(rawValue: Int) {
-            switch rawValue {
-            case 0: self = .standard
-            case 1: self = .ingress
-            case 2: self = .egress
-            case 3: self = .sip
-            case 4: self = .agent
-            case 7: self = .connector
-            case 8: self = .bridge
-            default: self = .UNRECOGNIZED(rawValue)
-            }
-        }
-
-        var rawValue: Int {
-            switch self {
-            case .standard: 0
-            case .ingress: 1
-            case .egress: 2
-            case .sip: 3
-            case .agent: 4
-            case .connector: 7
-            case .bridge: 8
-            case let .UNRECOGNIZED(value): value
-            }
-        }
-
-        static var allCases: [Kind] {
-            [.standard, .ingress, .egress, .sip, .agent, .connector, .bridge]
-        }
-    }
-
-    enum KindDetail: NanopbEnum, CaseIterable {
-        case cloudAgent
-        case forwarded
-        case connectorWhatsapp
-        case connectorTwilio
-        case bridgeRtsp
-        case UNRECOGNIZED(Int)
-
-        init() { self = .cloudAgent }
-
-        init?(rawValue: Int) {
-            switch rawValue {
-            case 0: self = .cloudAgent
-            case 1: self = .forwarded
-            case 2: self = .connectorWhatsapp
-            case 3: self = .connectorTwilio
-            case 4: self = .bridgeRtsp
-            default: self = .UNRECOGNIZED(rawValue)
-            }
-        }
-
-        var rawValue: Int {
-            switch self {
-            case .cloudAgent: 0
-            case .forwarded: 1
-            case .connectorWhatsapp: 2
-            case .connectorTwilio: 3
-            case .bridgeRtsp: 4
-            case let .UNRECOGNIZED(value): value
-            }
-        }
-
-        static var allCases: [KindDetail] {
-            [.cloudAgent, .forwarded, .connectorWhatsapp, .connectorTwilio, .bridgeRtsp]
-        }
-    }
+    var hasValue: Bool { _pointer.pointee.value != nil }
 
 }
 
-extension NanopbBuilder where M == Livekit_ParticipantInfo.AttributesEntry {
+extension NanopbBuilder where S == livekit_ParticipantInfo_AttributesEntry {
     var key: String {
         get { lkString(_pointer.pointee.key) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.key, newValue) }
@@ -663,7 +444,121 @@ extension NanopbBuilder where M == Livekit_ParticipantInfo.AttributesEntry {
 
 }
 
-extension NanopbBuilder where M == Livekit_ParticipantInfo {
+enum Livekit_ParticipantInfo_State: NanopbEnum, CaseIterable {
+    case joining
+    case joined
+    case active
+    case disconnected
+    case UNRECOGNIZED(Int)
+
+    init() { self = .joining }
+
+    init?(rawValue: Int) {
+        switch rawValue {
+        case 0: self = .joining
+        case 1: self = .joined
+        case 2: self = .active
+        case 3: self = .disconnected
+        default: self = .UNRECOGNIZED(rawValue)
+        }
+    }
+
+    var rawValue: Int {
+        switch self {
+        case .joining: 0
+        case .joined: 1
+        case .active: 2
+        case .disconnected: 3
+        case let .UNRECOGNIZED(value): value
+        }
+    }
+
+    static var allCases: [Livekit_ParticipantInfo_State] {
+        [.joining, .joined, .active, .disconnected]
+    }
+}
+
+enum Livekit_ParticipantInfo_Kind: NanopbEnum, CaseIterable {
+    case standard
+    case ingress
+    case egress
+    case sip
+    case agent
+    case connector
+    case bridge
+    case UNRECOGNIZED(Int)
+
+    init() { self = .standard }
+
+    init?(rawValue: Int) {
+        switch rawValue {
+        case 0: self = .standard
+        case 1: self = .ingress
+        case 2: self = .egress
+        case 3: self = .sip
+        case 4: self = .agent
+        case 7: self = .connector
+        case 8: self = .bridge
+        default: self = .UNRECOGNIZED(rawValue)
+        }
+    }
+
+    var rawValue: Int {
+        switch self {
+        case .standard: 0
+        case .ingress: 1
+        case .egress: 2
+        case .sip: 3
+        case .agent: 4
+        case .connector: 7
+        case .bridge: 8
+        case let .UNRECOGNIZED(value): value
+        }
+    }
+
+    static var allCases: [Livekit_ParticipantInfo_Kind] {
+        [.standard, .ingress, .egress, .sip, .agent, .connector, .bridge]
+    }
+}
+
+enum Livekit_ParticipantInfo_KindDetail: NanopbEnum, CaseIterable {
+    case cloudAgent
+    case forwarded
+    case connectorWhatsapp
+    case connectorTwilio
+    case bridgeRtsp
+    case UNRECOGNIZED(Int)
+
+    init() { self = .cloudAgent }
+
+    init?(rawValue: Int) {
+        switch rawValue {
+        case 0: self = .cloudAgent
+        case 1: self = .forwarded
+        case 2: self = .connectorWhatsapp
+        case 3: self = .connectorTwilio
+        case 4: self = .bridgeRtsp
+        default: self = .UNRECOGNIZED(rawValue)
+        }
+    }
+
+    var rawValue: Int {
+        switch self {
+        case .cloudAgent: 0
+        case .forwarded: 1
+        case .connectorWhatsapp: 2
+        case .connectorTwilio: 3
+        case .bridgeRtsp: 4
+        case let .UNRECOGNIZED(value): value
+        }
+    }
+
+    static var allCases: [Livekit_ParticipantInfo_KindDetail] {
+        [.cloudAgent, .forwarded, .connectorWhatsapp, .connectorTwilio, .bridgeRtsp]
+    }
+}
+
+extension NanopbBuilder where S == livekit_ParticipantInfo {
     var sid: String {
         get { lkString(_pointer.pointee.sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
@@ -674,8 +569,8 @@ extension NanopbBuilder where M == Livekit_ParticipantInfo {
         nonmutating set { lkSetString(&_pointer.pointee.identity, newValue) }
     }
 
-    var state: Livekit_ParticipantInfo.State {
-        get { _pointer.pointee.state.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo.State() }
+    var state: Livekit_ParticipantInfo_State {
+        get { _pointer.pointee.state.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo_State() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.state, newValue) }
     }
 
@@ -723,15 +618,15 @@ extension NanopbBuilder where M == Livekit_ParticipantInfo {
         nonmutating set { lkSetValue(&_pointer.pointee.is_publisher, newValue) }
     }
 
-    var kind: Livekit_ParticipantInfo.Kind {
-        get { _pointer.pointee.kind.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo.Kind() }
+    var kind: Livekit_ParticipantInfo_Kind {
+        get { _pointer.pointee.kind.map { lkEnum($0.pointee) } ?? Livekit_ParticipantInfo_Kind() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.kind, newValue) }
     }
 
     var attributes: [String: String] {
         get {
             var out: [String: String] = [:]
-            for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _box) as [Livekit_ParticipantInfo.AttributesEntry] {
+            for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _box) as [Livekit_ParticipantInfo_AttributesEntry] {
                 out[entry.key] = entry.value
             }
             return out
@@ -739,7 +634,7 @@ extension NanopbBuilder where M == Livekit_ParticipantInfo {
         nonmutating set {
             // sorted for deterministic encoding (bytes-based Equatable)
             let entries = newValue.sorted { $0.key < $1.key }.map { pair in
-                Livekit_ParticipantInfo.AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
+                Livekit_ParticipantInfo_AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
             }
             var count = _pointer.pointee.attributes_count, base = _pointer.pointee.attributes
             lkSetRepeatedMessages(&count, &base, entries)
@@ -757,7 +652,7 @@ extension NanopbBuilder where M == Livekit_ParticipantInfo {
         nonmutating set { lkSetValue(&_pointer.pointee.joined_at_ms, newValue) }
     }
 
-    var kindDetails: [Livekit_ParticipantInfo.KindDetail] {
+    var kindDetails: [Livekit_ParticipantInfo_KindDetail] {
         get { lkRepeatedEnum(_pointer.pointee.kind_details_count, _pointer.pointee.kind_details) }
         nonmutating set {
             var count = _pointer.pointee.kind_details_count, base = _pointer.pointee.kind_details
@@ -782,93 +677,47 @@ extension NanopbBuilder where M == Livekit_ParticipantInfo {
 
 }
 
-struct Livekit_Encryption: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_Encryption
-    static var descriptor: pb_msgdesc_t { livekit_Encryption_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_Encryption()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
-    enum TypeEnum: NanopbEnum, CaseIterable {
-        case none
-        case gcm
-        case custom
-        case UNRECOGNIZED(Int)
-
-        init() { self = .none }
-
-        init?(rawValue: Int) {
-            switch rawValue {
-            case 0: self = .none
-            case 1: self = .gcm
-            case 2: self = .custom
-            default: self = .UNRECOGNIZED(rawValue)
-            }
-        }
-
-        var rawValue: Int {
-            switch self {
-            case .none: 0
-            case .gcm: 1
-            case .custom: 2
-            case let .UNRECOGNIZED(value): value
-            }
-        }
-
-        static var allCases: [TypeEnum] {
-            [.none, .gcm, .custom]
-        }
-    }
-
+enum Livekit_Encryption {
+    typealias TypeEnum = Livekit_Encryption_TypeEnum
 }
 
-struct Livekit_SimulcastCodecInfo: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SimulcastCodecInfo
-    static var descriptor: pb_msgdesc_t { livekit_SimulcastCodecInfo_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SimulcastCodecInfo()
+enum Livekit_Encryption_TypeEnum: NanopbEnum, CaseIterable {
+    case none
+    case gcm
+    case custom
+    case UNRECOGNIZED(Int)
 
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
+    init() { self = .none }
 
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
+    init?(rawValue: Int) {
+        switch rawValue {
+        case 0: self = .none
+        case 1: self = .gcm
+        case 2: self = .custom
+        default: self = .UNRECOGNIZED(rawValue)
+        }
     }
 
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
+    var rawValue: Int {
+        switch self {
+        case .none: 0
+        case .gcm: 1
+        case .custom: 2
+        case let .UNRECOGNIZED(value): value
+        }
     }
 
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
+    static var allCases: [Livekit_Encryption_TypeEnum] {
+        [.none, .gcm, .custom]
     }
+}
 
+extension livekit_SimulcastCodecInfo: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SimulcastCodecInfo_msg }
+    package static let _emptyBox = NanopbBox<livekit_SimulcastCodecInfo>(zero: livekit_SimulcastCodecInfo(), descriptor: livekit_SimulcastCodecInfo_msg)
+}
+typealias Livekit_SimulcastCodecInfo = NanopbMsg<livekit_SimulcastCodecInfo>
+extension NanopbMsg where S == livekit_SimulcastCodecInfo {
     var mimeType: String {
         lkString(_pointer.pointee.mime_type) ?? ""
     }
@@ -888,8 +737,8 @@ struct Livekit_SimulcastCodecInfo: NanopbMessage, @unchecked Sendable {
         lkViews(_pointer.pointee.layers_count, _pointer.pointee.layers, owner: _owner)
     }
 
-    var videoLayerMode: Livekit_VideoLayer.Mode {
-        _pointer.pointee.video_layer_mode.map { lkEnum($0.pointee) } ?? Livekit_VideoLayer.Mode()
+    var videoLayerMode: Livekit_VideoLayer_Mode {
+        _pointer.pointee.video_layer_mode.map { lkEnum($0.pointee) } ?? Livekit_VideoLayer_Mode()
     }
     var hasVideoLayerMode: Bool { _pointer.pointee.video_layer_mode != nil }
 
@@ -900,7 +749,7 @@ struct Livekit_SimulcastCodecInfo: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_SimulcastCodecInfo {
+extension NanopbBuilder where S == livekit_SimulcastCodecInfo {
     var mimeType: String {
         get { lkString(_pointer.pointee.mime_type) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.mime_type, newValue) }
@@ -925,8 +774,8 @@ extension NanopbBuilder where M == Livekit_SimulcastCodecInfo {
         }
     }
 
-    var videoLayerMode: Livekit_VideoLayer.Mode {
-        get { _pointer.pointee.video_layer_mode.map { lkEnum($0.pointee) } ?? Livekit_VideoLayer.Mode() }
+    var videoLayerMode: Livekit_VideoLayer_Mode {
+        get { _pointer.pointee.video_layer_mode.map { lkEnum($0.pointee) } ?? Livekit_VideoLayer_Mode() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.video_layer_mode, newValue) }
     }
 
@@ -937,33 +786,12 @@ extension NanopbBuilder where M == Livekit_SimulcastCodecInfo {
 
 }
 
-struct Livekit_TrackInfo: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_TrackInfo
-    static var descriptor: pb_msgdesc_t { livekit_TrackInfo_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_TrackInfo()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_TrackInfo: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_TrackInfo_msg }
+    package static let _emptyBox = NanopbBox<livekit_TrackInfo>(zero: livekit_TrackInfo(), descriptor: livekit_TrackInfo_msg)
+}
+typealias Livekit_TrackInfo = NanopbMsg<livekit_TrackInfo>
+extension NanopbMsg where S == livekit_TrackInfo {
     var sid: String {
         lkString(_pointer.pointee.sid) ?? ""
     }
@@ -1037,8 +865,8 @@ struct Livekit_TrackInfo: NanopbMessage, @unchecked Sendable {
     }
     var hasDisableRed: Bool { _pointer.pointee.disable_red != nil }
 
-    var encryption: Livekit_Encryption.TypeEnum {
-        _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum()
+    var encryption: Livekit_Encryption_TypeEnum {
+        _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum()
     }
     var hasEncryption: Bool { _pointer.pointee.encryption != nil }
 
@@ -1067,7 +895,7 @@ struct Livekit_TrackInfo: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_TrackInfo {
+extension NanopbBuilder where S == livekit_TrackInfo {
     var sid: String {
         get { lkString(_pointer.pointee.sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
@@ -1151,8 +979,8 @@ extension NanopbBuilder where M == Livekit_TrackInfo {
         nonmutating set { lkSetValue(&_pointer.pointee.disable_red, newValue) }
     }
 
-    var encryption: Livekit_Encryption.TypeEnum {
-        get { _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
+    var encryption: Livekit_Encryption_TypeEnum {
+        get { _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption, newValue) }
     }
 
@@ -1191,33 +1019,12 @@ extension NanopbBuilder where M == Livekit_TrackInfo {
 
 }
 
-struct Livekit_DataTrackInfo: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_DataTrackInfo
-    static var descriptor: pb_msgdesc_t { livekit_DataTrackInfo_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_DataTrackInfo()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_DataTrackInfo: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataTrackInfo_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataTrackInfo>(zero: livekit_DataTrackInfo(), descriptor: livekit_DataTrackInfo_msg)
+}
+typealias Livekit_DataTrackInfo = NanopbMsg<livekit_DataTrackInfo>
+extension NanopbMsg where S == livekit_DataTrackInfo {
     var pubHandle: UInt32 {
         _pointer.pointee.pub_handle?.pointee ?? 0
     }
@@ -1233,14 +1040,14 @@ struct Livekit_DataTrackInfo: NanopbMessage, @unchecked Sendable {
     }
     var hasName: Bool { _pointer.pointee.name != nil }
 
-    var encryption: Livekit_Encryption.TypeEnum {
-        _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum()
+    var encryption: Livekit_Encryption_TypeEnum {
+        _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum()
     }
     var hasEncryption: Bool { _pointer.pointee.encryption != nil }
 
 }
 
-extension NanopbBuilder where M == Livekit_DataTrackInfo {
+extension NanopbBuilder where S == livekit_DataTrackInfo {
     var pubHandle: UInt32 {
         get { _pointer.pointee.pub_handle?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.pub_handle, newValue) }
@@ -1256,40 +1063,19 @@ extension NanopbBuilder where M == Livekit_DataTrackInfo {
         nonmutating set { lkSetString(&_pointer.pointee.name, newValue) }
     }
 
-    var encryption: Livekit_Encryption.TypeEnum {
-        get { _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
+    var encryption: Livekit_Encryption_TypeEnum {
+        get { _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption, newValue) }
     }
 
 }
 
-struct Livekit_DataTrackSubscriptionOptions: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_DataTrackSubscriptionOptions
-    static var descriptor: pb_msgdesc_t { livekit_DataTrackSubscriptionOptions_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_DataTrackSubscriptionOptions()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_DataTrackSubscriptionOptions: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataTrackSubscriptionOptions_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataTrackSubscriptionOptions>(zero: livekit_DataTrackSubscriptionOptions(), descriptor: livekit_DataTrackSubscriptionOptions_msg)
+}
+typealias Livekit_DataTrackSubscriptionOptions = NanopbMsg<livekit_DataTrackSubscriptionOptions>
+extension NanopbMsg where S == livekit_DataTrackSubscriptionOptions {
     var targetFps: UInt32 {
         _pointer.pointee.target_fps?.pointee ?? 0
     }
@@ -1297,7 +1083,7 @@ struct Livekit_DataTrackSubscriptionOptions: NanopbMessage, @unchecked Sendable 
 
 }
 
-extension NanopbBuilder where M == Livekit_DataTrackSubscriptionOptions {
+extension NanopbBuilder where S == livekit_DataTrackSubscriptionOptions {
     var targetFps: UInt32 {
         get { _pointer.pointee.target_fps?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.target_fps, newValue) }
@@ -1305,33 +1091,12 @@ extension NanopbBuilder where M == Livekit_DataTrackSubscriptionOptions {
 
 }
 
-struct Livekit_VideoLayer: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_VideoLayer
-    static var descriptor: pb_msgdesc_t { livekit_VideoLayer_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_VideoLayer()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_VideoLayer: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_VideoLayer_msg }
+    package static let _emptyBox = NanopbBox<livekit_VideoLayer>(zero: livekit_VideoLayer(), descriptor: livekit_VideoLayer_msg)
+}
+typealias Livekit_VideoLayer = NanopbMsg<livekit_VideoLayer>
+extension NanopbMsg where S == livekit_VideoLayer {
     var quality: Livekit_VideoQuality {
         _pointer.pointee.quality.map { lkEnum($0.pointee) } ?? Livekit_VideoQuality()
     }
@@ -1372,43 +1137,43 @@ struct Livekit_VideoLayer: NanopbMessage, @unchecked Sendable {
     }
     var hasRepairSsrc: Bool { _pointer.pointee.repair_ssrc != nil }
 
-    enum Mode: NanopbEnum, CaseIterable {
-        case unused
-        case oneSpatialLayerPerStream
-        case multipleSpatialLayersPerStream
-        case oneSpatialLayerPerStreamIncompleteRtcpSr
-        case UNRECOGNIZED(Int)
+}
 
-        init() { self = .unused }
+enum Livekit_VideoLayer_Mode: NanopbEnum, CaseIterable {
+    case unused
+    case oneSpatialLayerPerStream
+    case multipleSpatialLayersPerStream
+    case oneSpatialLayerPerStreamIncompleteRtcpSr
+    case UNRECOGNIZED(Int)
 
-        init?(rawValue: Int) {
-            switch rawValue {
-            case 0: self = .unused
-            case 1: self = .oneSpatialLayerPerStream
-            case 2: self = .multipleSpatialLayersPerStream
-            case 3: self = .oneSpatialLayerPerStreamIncompleteRtcpSr
-            default: self = .UNRECOGNIZED(rawValue)
-            }
-        }
+    init() { self = .unused }
 
-        var rawValue: Int {
-            switch self {
-            case .unused: 0
-            case .oneSpatialLayerPerStream: 1
-            case .multipleSpatialLayersPerStream: 2
-            case .oneSpatialLayerPerStreamIncompleteRtcpSr: 3
-            case let .UNRECOGNIZED(value): value
-            }
-        }
-
-        static var allCases: [Mode] {
-            [.unused, .oneSpatialLayerPerStream, .multipleSpatialLayersPerStream, .oneSpatialLayerPerStreamIncompleteRtcpSr]
+    init?(rawValue: Int) {
+        switch rawValue {
+        case 0: self = .unused
+        case 1: self = .oneSpatialLayerPerStream
+        case 2: self = .multipleSpatialLayersPerStream
+        case 3: self = .oneSpatialLayerPerStreamIncompleteRtcpSr
+        default: self = .UNRECOGNIZED(rawValue)
         }
     }
 
+    var rawValue: Int {
+        switch self {
+        case .unused: 0
+        case .oneSpatialLayerPerStream: 1
+        case .multipleSpatialLayersPerStream: 2
+        case .oneSpatialLayerPerStreamIncompleteRtcpSr: 3
+        case let .UNRECOGNIZED(value): value
+        }
+    }
+
+    static var allCases: [Livekit_VideoLayer_Mode] {
+        [.unused, .oneSpatialLayerPerStream, .multipleSpatialLayersPerStream, .oneSpatialLayerPerStreamIncompleteRtcpSr]
+    }
 }
 
-extension NanopbBuilder where M == Livekit_VideoLayer {
+extension NanopbBuilder where S == livekit_VideoLayer {
     var quality: Livekit_VideoQuality {
         get { _pointer.pointee.quality.map { lkEnum($0.pointee) } ?? Livekit_VideoQuality() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.quality, newValue) }
@@ -1451,35 +1216,30 @@ extension NanopbBuilder where M == Livekit_VideoLayer {
 
 }
 
-struct Livekit_DataPacket: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_DataPacket
-    static var descriptor: pb_msgdesc_t { livekit_DataPacket_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_DataPacket()
+enum Livekit_DataPacket_OneOf_Value: Equatable {
+    case user(Livekit_UserPacket)
+    case speaker(Livekit_ActiveSpeakerUpdate)
+    case sipDtmf(Livekit_SipDTMF)
+    case transcription(Livekit_Transcription)
+    case metrics(Livekit_MetricsBatch)
+    case chatMessage(Livekit_ChatMessage)
+    case rpcRequest(Livekit_RpcRequest)
+    case rpcAck(Livekit_RpcAck)
+    case rpcResponse(Livekit_RpcResponse)
+    case streamHeader(Livekit_DataStream_Header)
+    case streamChunk(Livekit_DataStream_Chunk)
+    case streamTrailer(Livekit_DataStream_Trailer)
+    case encryptedPacket(Livekit_EncryptedPacket)
+}
 
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
-    var kind: Livekit_DataPacket.Kind {
-        _pointer.pointee.kind.map { lkEnum($0.pointee) } ?? Livekit_DataPacket.Kind()
+extension livekit_DataPacket: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataPacket_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataPacket>(zero: livekit_DataPacket(), descriptor: livekit_DataPacket_msg)
+}
+typealias Livekit_DataPacket = NanopbMsg<livekit_DataPacket>
+extension NanopbMsg where S == livekit_DataPacket {
+    var kind: Livekit_DataPacket_Kind {
+        _pointer.pointee.kind.map { lkEnum($0.pointee) } ?? Livekit_DataPacket_Kind()
     }
     var hasKind: Bool { _pointer.pointee.kind != nil }
 
@@ -1502,22 +1262,7 @@ struct Livekit_DataPacket: NanopbMessage, @unchecked Sendable {
     }
     var hasParticipantSid: Bool { _pointer.pointee.participant_sid != nil }
 
-    enum OneOf_Value: Equatable {
-        case user(Livekit_UserPacket)
-        case speaker(Livekit_ActiveSpeakerUpdate)
-        case sipDtmf(Livekit_SipDTMF)
-        case transcription(Livekit_Transcription)
-        case metrics(Livekit_MetricsBatch)
-        case chatMessage(Livekit_ChatMessage)
-        case rpcRequest(Livekit_RpcRequest)
-        case rpcAck(Livekit_RpcAck)
-        case rpcResponse(Livekit_RpcResponse)
-        case streamHeader(Livekit_DataStream.Header)
-        case streamChunk(Livekit_DataStream.Chunk)
-        case streamTrailer(Livekit_DataStream.Trailer)
-        case encryptedPacket(Livekit_EncryptedPacket)
-    }
-    var value: OneOf_Value? {
+    var value: Livekit_DataPacket_OneOf_Value? {
         switch _pointer.pointee.which_value {
         case pb_size_t(livekit_DataPacket_user_tag):
             return .user(_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _owner) } ?? Livekit_UserPacket._empty)
@@ -1538,11 +1283,11 @@ struct Livekit_DataPacket: NanopbMessage, @unchecked Sendable {
         case pb_size_t(livekit_DataPacket_rpc_response_tag):
             return .rpcResponse(_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse._empty)
         case pb_size_t(livekit_DataPacket_stream_header_tag):
-            return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Header._empty)
+            return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Header._empty)
         case pb_size_t(livekit_DataPacket_stream_chunk_tag):
-            return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Chunk._empty)
+            return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Chunk._empty)
         case pb_size_t(livekit_DataPacket_stream_trailer_tag):
-            return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Trailer._empty)
+            return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Trailer._empty)
         case pb_size_t(livekit_DataPacket_encrypted_packet_tag):
             return .encryptedPacket(_pointer.pointee.value.encrypted_packet.map { Livekit_EncryptedPacket(_sharing: $0, owner: _owner) } ?? Livekit_EncryptedPacket._empty)
         default: return nil
@@ -1575,52 +1320,52 @@ struct Livekit_DataPacket: NanopbMessage, @unchecked Sendable {
     var rpcResponse: Livekit_RpcResponse {
         _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse._empty) : Livekit_RpcResponse()
     }
-    var streamHeader: Livekit_DataStream.Header {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Header._empty) : Livekit_DataStream.Header()
+    var streamHeader: Livekit_DataStream_Header {
+        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Header._empty) : Livekit_DataStream_Header()
     }
-    var streamChunk: Livekit_DataStream.Chunk {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Chunk._empty) : Livekit_DataStream.Chunk()
+    var streamChunk: Livekit_DataStream_Chunk {
+        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Chunk._empty) : Livekit_DataStream_Chunk()
     }
-    var streamTrailer: Livekit_DataStream.Trailer {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Trailer._empty) : Livekit_DataStream.Trailer()
+    var streamTrailer: Livekit_DataStream_Trailer {
+        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Trailer._empty) : Livekit_DataStream_Trailer()
     }
     var encryptedPacket: Livekit_EncryptedPacket {
         _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_encrypted_packet_tag) ? (_pointer.pointee.value.encrypted_packet.map { Livekit_EncryptedPacket(_sharing: $0, owner: _owner) } ?? Livekit_EncryptedPacket._empty) : Livekit_EncryptedPacket()
     }
 
-    enum Kind: NanopbEnum, CaseIterable {
-        case reliable
-        case lossy
-        case UNRECOGNIZED(Int)
+}
 
-        init() { self = .reliable }
+enum Livekit_DataPacket_Kind: NanopbEnum, CaseIterable {
+    case reliable
+    case lossy
+    case UNRECOGNIZED(Int)
 
-        init?(rawValue: Int) {
-            switch rawValue {
-            case 0: self = .reliable
-            case 1: self = .lossy
-            default: self = .UNRECOGNIZED(rawValue)
-            }
-        }
+    init() { self = .reliable }
 
-        var rawValue: Int {
-            switch self {
-            case .reliable: 0
-            case .lossy: 1
-            case let .UNRECOGNIZED(value): value
-            }
-        }
-
-        static var allCases: [Kind] {
-            [.reliable, .lossy]
+    init?(rawValue: Int) {
+        switch rawValue {
+        case 0: self = .reliable
+        case 1: self = .lossy
+        default: self = .UNRECOGNIZED(rawValue)
         }
     }
 
+    var rawValue: Int {
+        switch self {
+        case .reliable: 0
+        case .lossy: 1
+        case let .UNRECOGNIZED(value): value
+        }
+    }
+
+    static var allCases: [Livekit_DataPacket_Kind] {
+        [.reliable, .lossy]
+    }
 }
 
-extension NanopbBuilder where M == Livekit_DataPacket {
-    var kind: Livekit_DataPacket.Kind {
-        get { _pointer.pointee.kind.map { lkEnum($0.pointee) } ?? Livekit_DataPacket.Kind() }
+extension NanopbBuilder where S == livekit_DataPacket {
+    var kind: Livekit_DataPacket_Kind {
+        get { _pointer.pointee.kind.map { lkEnum($0.pointee) } ?? Livekit_DataPacket_Kind() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.kind, newValue) }
     }
 
@@ -1648,7 +1393,7 @@ extension NanopbBuilder where M == Livekit_DataPacket {
         nonmutating set { lkSetString(&_pointer.pointee.participant_sid, newValue) }
     }
 
-    var value: Livekit_DataPacket.OneOf_Value? {
+    var value: Livekit_DataPacket_OneOf_Value? {
         get {
             switch _pointer.pointee.which_value {
             case pb_size_t(livekit_DataPacket_user_tag):
@@ -1670,11 +1415,11 @@ extension NanopbBuilder where M == Livekit_DataPacket {
             case pb_size_t(livekit_DataPacket_rpc_response_tag):
                 return .rpcResponse(_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _box) } ?? Livekit_RpcResponse._empty)
             case pb_size_t(livekit_DataPacket_stream_header_tag):
-                return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Header._empty)
+                return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Header._empty)
             case pb_size_t(livekit_DataPacket_stream_chunk_tag):
-                return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Chunk._empty)
+                return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Chunk._empty)
             case pb_size_t(livekit_DataPacket_stream_trailer_tag):
-                return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Trailer._empty)
+                return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Trailer._empty)
             case pb_size_t(livekit_DataPacket_encrypted_packet_tag):
                 return .encryptedPacket(_pointer.pointee.value.encrypted_packet.map { Livekit_EncryptedPacket(_sharing: $0, owner: _box) } ?? Livekit_EncryptedPacket._empty)
             default: return nil
@@ -1798,24 +1543,24 @@ extension NanopbBuilder where M == Livekit_DataPacket {
             lkSetMessage(&_pointer.pointee.value.rpc_response, newValue)
         }
     }
-    var streamHeader: Livekit_DataStream.Header {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Header._empty) : Livekit_DataStream.Header() }
+    var streamHeader: Livekit_DataStream_Header {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Header._empty) : Livekit_DataStream_Header() }
         nonmutating set {
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_header_tag)
             lkSetMessage(&_pointer.pointee.value.stream_header, newValue)
         }
     }
-    var streamChunk: Livekit_DataStream.Chunk {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Chunk._empty) : Livekit_DataStream.Chunk() }
+    var streamChunk: Livekit_DataStream_Chunk {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Chunk._empty) : Livekit_DataStream_Chunk() }
         nonmutating set {
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_chunk_tag)
             lkSetMessage(&_pointer.pointee.value.stream_chunk, newValue)
         }
     }
-    var streamTrailer: Livekit_DataStream.Trailer {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Trailer._empty) : Livekit_DataStream.Trailer() }
+    var streamTrailer: Livekit_DataStream_Trailer {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Trailer._empty) : Livekit_DataStream_Trailer() }
         nonmutating set {
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_trailer_tag)
@@ -1851,11 +1596,11 @@ extension NanopbBuilder where M == Livekit_DataPacket {
         case pb_size_t(livekit_DataPacket_rpc_response_tag):
             lkRelease(message: &_pointer.pointee.value.rpc_response, Livekit_RpcResponse.descriptor)
         case pb_size_t(livekit_DataPacket_stream_header_tag):
-            lkRelease(message: &_pointer.pointee.value.stream_header, Livekit_DataStream.Header.descriptor)
+            lkRelease(message: &_pointer.pointee.value.stream_header, Livekit_DataStream_Header.descriptor)
         case pb_size_t(livekit_DataPacket_stream_chunk_tag):
-            lkRelease(message: &_pointer.pointee.value.stream_chunk, Livekit_DataStream.Chunk.descriptor)
+            lkRelease(message: &_pointer.pointee.value.stream_chunk, Livekit_DataStream_Chunk.descriptor)
         case pb_size_t(livekit_DataPacket_stream_trailer_tag):
-            lkRelease(message: &_pointer.pointee.value.stream_trailer, Livekit_DataStream.Trailer.descriptor)
+            lkRelease(message: &_pointer.pointee.value.stream_trailer, Livekit_DataStream_Trailer.descriptor)
         case pb_size_t(livekit_DataPacket_encrypted_packet_tag):
             lkRelease(message: &_pointer.pointee.value.encrypted_packet, Livekit_EncryptedPacket.descriptor)
         default: break
@@ -1868,35 +1613,14 @@ extension NanopbBuilder where M == Livekit_DataPacket {
 
 }
 
-struct Livekit_EncryptedPacket: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_EncryptedPacket
-    static var descriptor: pb_msgdesc_t { livekit_EncryptedPacket_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_EncryptedPacket()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
-    var encryptionType: Livekit_Encryption.TypeEnum {
-        _pointer.pointee.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum()
+extension livekit_EncryptedPacket: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_EncryptedPacket_msg }
+    package static let _emptyBox = NanopbBox<livekit_EncryptedPacket>(zero: livekit_EncryptedPacket(), descriptor: livekit_EncryptedPacket_msg)
+}
+typealias Livekit_EncryptedPacket = NanopbMsg<livekit_EncryptedPacket>
+extension NanopbMsg where S == livekit_EncryptedPacket {
+    var encryptionType: Livekit_Encryption_TypeEnum {
+        _pointer.pointee.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum()
     }
     var hasEncryptionType: Bool { _pointer.pointee.encryption_type != nil }
 
@@ -1917,9 +1641,9 @@ struct Livekit_EncryptedPacket: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_EncryptedPacket {
-    var encryptionType: Livekit_Encryption.TypeEnum {
-        get { _pointer.pointee.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
+extension NanopbBuilder where S == livekit_EncryptedPacket {
+    var encryptionType: Livekit_Encryption_TypeEnum {
+        get { _pointer.pointee.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption_type, newValue) }
     }
 
@@ -1940,44 +1664,24 @@ extension NanopbBuilder where M == Livekit_EncryptedPacket {
 
 }
 
-struct Livekit_EncryptedPacketPayload: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_EncryptedPacketPayload
-    static var descriptor: pb_msgdesc_t { livekit_EncryptedPacketPayload_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_EncryptedPacketPayload()
+enum Livekit_EncryptedPacketPayload_OneOf_Value: Equatable {
+    case user(Livekit_UserPacket)
+    case chatMessage(Livekit_ChatMessage)
+    case rpcRequest(Livekit_RpcRequest)
+    case rpcAck(Livekit_RpcAck)
+    case rpcResponse(Livekit_RpcResponse)
+    case streamHeader(Livekit_DataStream_Header)
+    case streamChunk(Livekit_DataStream_Chunk)
+    case streamTrailer(Livekit_DataStream_Trailer)
+}
 
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
-    enum OneOf_Value: Equatable {
-        case user(Livekit_UserPacket)
-        case chatMessage(Livekit_ChatMessage)
-        case rpcRequest(Livekit_RpcRequest)
-        case rpcAck(Livekit_RpcAck)
-        case rpcResponse(Livekit_RpcResponse)
-        case streamHeader(Livekit_DataStream.Header)
-        case streamChunk(Livekit_DataStream.Chunk)
-        case streamTrailer(Livekit_DataStream.Trailer)
-    }
-    var value: OneOf_Value? {
+extension livekit_EncryptedPacketPayload: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_EncryptedPacketPayload_msg }
+    package static let _emptyBox = NanopbBox<livekit_EncryptedPacketPayload>(zero: livekit_EncryptedPacketPayload(), descriptor: livekit_EncryptedPacketPayload_msg)
+}
+typealias Livekit_EncryptedPacketPayload = NanopbMsg<livekit_EncryptedPacketPayload>
+extension NanopbMsg where S == livekit_EncryptedPacketPayload {
+    var value: Livekit_EncryptedPacketPayload_OneOf_Value? {
         switch _pointer.pointee.which_value {
         case pb_size_t(livekit_EncryptedPacketPayload_user_tag):
             return .user(_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _owner) } ?? Livekit_UserPacket._empty)
@@ -1990,11 +1694,11 @@ struct Livekit_EncryptedPacketPayload: NanopbMessage, @unchecked Sendable {
         case pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag):
             return .rpcResponse(_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse._empty)
         case pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag):
-            return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Header._empty)
+            return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Header._empty)
         case pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag):
-            return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Chunk._empty)
+            return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Chunk._empty)
         case pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag):
-            return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Trailer._empty)
+            return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Trailer._empty)
         default: return nil
         }
     }
@@ -2013,20 +1717,20 @@ struct Livekit_EncryptedPacketPayload: NanopbMessage, @unchecked Sendable {
     var rpcResponse: Livekit_RpcResponse {
         _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse._empty) : Livekit_RpcResponse()
     }
-    var streamHeader: Livekit_DataStream.Header {
-        _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Header._empty) : Livekit_DataStream.Header()
+    var streamHeader: Livekit_DataStream_Header {
+        _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Header._empty) : Livekit_DataStream_Header()
     }
-    var streamChunk: Livekit_DataStream.Chunk {
-        _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Chunk._empty) : Livekit_DataStream.Chunk()
+    var streamChunk: Livekit_DataStream_Chunk {
+        _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Chunk._empty) : Livekit_DataStream_Chunk()
     }
-    var streamTrailer: Livekit_DataStream.Trailer {
-        _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.Trailer._empty) : Livekit_DataStream.Trailer()
+    var streamTrailer: Livekit_DataStream_Trailer {
+        _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Trailer._empty) : Livekit_DataStream_Trailer()
     }
 
 }
 
-extension NanopbBuilder where M == Livekit_EncryptedPacketPayload {
-    var value: Livekit_EncryptedPacketPayload.OneOf_Value? {
+extension NanopbBuilder where S == livekit_EncryptedPacketPayload {
+    var value: Livekit_EncryptedPacketPayload_OneOf_Value? {
         get {
             switch _pointer.pointee.which_value {
             case pb_size_t(livekit_EncryptedPacketPayload_user_tag):
@@ -2040,11 +1744,11 @@ extension NanopbBuilder where M == Livekit_EncryptedPacketPayload {
             case pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag):
                 return .rpcResponse(_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _box) } ?? Livekit_RpcResponse._empty)
             case pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag):
-                return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Header._empty)
+                return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Header._empty)
             case pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag):
-                return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Chunk._empty)
+                return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Chunk._empty)
             case pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag):
-                return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Trailer._empty)
+                return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Trailer._empty)
             default: return nil
             }
         }
@@ -2119,24 +1823,24 @@ extension NanopbBuilder where M == Livekit_EncryptedPacketPayload {
             lkSetMessage(&_pointer.pointee.value.rpc_response, newValue)
         }
     }
-    var streamHeader: Livekit_DataStream.Header {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream.Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Header._empty) : Livekit_DataStream.Header() }
+    var streamHeader: Livekit_DataStream_Header {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Header._empty) : Livekit_DataStream_Header() }
         nonmutating set {
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag)
             lkSetMessage(&_pointer.pointee.value.stream_header, newValue)
         }
     }
-    var streamChunk: Livekit_DataStream.Chunk {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream.Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Chunk._empty) : Livekit_DataStream.Chunk() }
+    var streamChunk: Livekit_DataStream_Chunk {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Chunk._empty) : Livekit_DataStream_Chunk() }
         nonmutating set {
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag)
             lkSetMessage(&_pointer.pointee.value.stream_chunk, newValue)
         }
     }
-    var streamTrailer: Livekit_DataStream.Trailer {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream.Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream.Trailer._empty) : Livekit_DataStream.Trailer() }
+    var streamTrailer: Livekit_DataStream_Trailer {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Trailer._empty) : Livekit_DataStream_Trailer() }
         nonmutating set {
             _clearValue()
             _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag)
@@ -2156,11 +1860,11 @@ extension NanopbBuilder where M == Livekit_EncryptedPacketPayload {
         case pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag):
             lkRelease(message: &_pointer.pointee.value.rpc_response, Livekit_RpcResponse.descriptor)
         case pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag):
-            lkRelease(message: &_pointer.pointee.value.stream_header, Livekit_DataStream.Header.descriptor)
+            lkRelease(message: &_pointer.pointee.value.stream_header, Livekit_DataStream_Header.descriptor)
         case pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag):
-            lkRelease(message: &_pointer.pointee.value.stream_chunk, Livekit_DataStream.Chunk.descriptor)
+            lkRelease(message: &_pointer.pointee.value.stream_chunk, Livekit_DataStream_Chunk.descriptor)
         case pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag):
-            lkRelease(message: &_pointer.pointee.value.stream_trailer, Livekit_DataStream.Trailer.descriptor)
+            lkRelease(message: &_pointer.pointee.value.stream_trailer, Livekit_DataStream_Trailer.descriptor)
         default: break
         }
         _pointer.pointee.which_value = 0
@@ -2171,40 +1875,19 @@ extension NanopbBuilder where M == Livekit_EncryptedPacketPayload {
 
 }
 
-struct Livekit_ActiveSpeakerUpdate: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_ActiveSpeakerUpdate
-    static var descriptor: pb_msgdesc_t { livekit_ActiveSpeakerUpdate_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_ActiveSpeakerUpdate()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_ActiveSpeakerUpdate: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_ActiveSpeakerUpdate_msg }
+    package static let _emptyBox = NanopbBox<livekit_ActiveSpeakerUpdate>(zero: livekit_ActiveSpeakerUpdate(), descriptor: livekit_ActiveSpeakerUpdate_msg)
+}
+typealias Livekit_ActiveSpeakerUpdate = NanopbMsg<livekit_ActiveSpeakerUpdate>
+extension NanopbMsg where S == livekit_ActiveSpeakerUpdate {
     var speakers: [Livekit_SpeakerInfo] {
         lkViews(_pointer.pointee.speakers_count, _pointer.pointee.speakers, owner: _owner)
     }
 
 }
 
-extension NanopbBuilder where M == Livekit_ActiveSpeakerUpdate {
+extension NanopbBuilder where S == livekit_ActiveSpeakerUpdate {
     var speakers: [Livekit_SpeakerInfo] {
         get { lkViews(_pointer.pointee.speakers_count, _pointer.pointee.speakers, owner: _box) }
         nonmutating set {
@@ -2216,33 +1899,12 @@ extension NanopbBuilder where M == Livekit_ActiveSpeakerUpdate {
 
 }
 
-struct Livekit_SpeakerInfo: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SpeakerInfo
-    static var descriptor: pb_msgdesc_t { livekit_SpeakerInfo_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SpeakerInfo()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_SpeakerInfo: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SpeakerInfo_msg }
+    package static let _emptyBox = NanopbBox<livekit_SpeakerInfo>(zero: livekit_SpeakerInfo(), descriptor: livekit_SpeakerInfo_msg)
+}
+typealias Livekit_SpeakerInfo = NanopbMsg<livekit_SpeakerInfo>
+extension NanopbMsg where S == livekit_SpeakerInfo {
     var sid: String {
         lkString(_pointer.pointee.sid) ?? ""
     }
@@ -2260,7 +1922,7 @@ struct Livekit_SpeakerInfo: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_SpeakerInfo {
+extension NanopbBuilder where S == livekit_SpeakerInfo {
     var sid: String {
         get { lkString(_pointer.pointee.sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.sid, newValue) }
@@ -2278,33 +1940,12 @@ extension NanopbBuilder where M == Livekit_SpeakerInfo {
 
 }
 
-struct Livekit_UserPacket: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_UserPacket
-    static var descriptor: pb_msgdesc_t { livekit_UserPacket_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_UserPacket()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_UserPacket: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_UserPacket_msg }
+    package static let _emptyBox = NanopbBox<livekit_UserPacket>(zero: livekit_UserPacket(), descriptor: livekit_UserPacket_msg)
+}
+typealias Livekit_UserPacket = NanopbMsg<livekit_UserPacket>
+extension NanopbMsg where S == livekit_UserPacket {
     var participantSid: String {
         lkString(_pointer.pointee.participant_sid) ?? ""
     }
@@ -2355,7 +1996,7 @@ struct Livekit_UserPacket: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_UserPacket {
+extension NanopbBuilder where S == livekit_UserPacket {
     var participantSid: String {
         get { lkString(_pointer.pointee.participant_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.participant_sid, newValue) }
@@ -2416,33 +2057,12 @@ extension NanopbBuilder where M == Livekit_UserPacket {
 
 }
 
-struct Livekit_SipDTMF: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SipDTMF
-    static var descriptor: pb_msgdesc_t { livekit_SipDTMF_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SipDTMF()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_SipDTMF: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SipDTMF_msg }
+    package static let _emptyBox = NanopbBox<livekit_SipDTMF>(zero: livekit_SipDTMF(), descriptor: livekit_SipDTMF_msg)
+}
+typealias Livekit_SipDTMF = NanopbMsg<livekit_SipDTMF>
+extension NanopbMsg where S == livekit_SipDTMF {
     var code: UInt32 {
         _pointer.pointee.code?.pointee ?? 0
     }
@@ -2455,7 +2075,7 @@ struct Livekit_SipDTMF: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_SipDTMF {
+extension NanopbBuilder where S == livekit_SipDTMF {
     var code: UInt32 {
         get { _pointer.pointee.code?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.code, newValue) }
@@ -2468,33 +2088,12 @@ extension NanopbBuilder where M == Livekit_SipDTMF {
 
 }
 
-struct Livekit_Transcription: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_Transcription
-    static var descriptor: pb_msgdesc_t { livekit_Transcription_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_Transcription()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_Transcription: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_Transcription_msg }
+    package static let _emptyBox = NanopbBox<livekit_Transcription>(zero: livekit_Transcription(), descriptor: livekit_Transcription_msg)
+}
+typealias Livekit_Transcription = NanopbMsg<livekit_Transcription>
+extension NanopbMsg where S == livekit_Transcription {
     var transcribedParticipantIdentity: String {
         lkString(_pointer.pointee.transcribed_participant_identity) ?? ""
     }
@@ -2511,7 +2110,7 @@ struct Livekit_Transcription: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_Transcription {
+extension NanopbBuilder where S == livekit_Transcription {
     var transcribedParticipantIdentity: String {
         get { lkString(_pointer.pointee.transcribed_participant_identity) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.transcribed_participant_identity, newValue) }
@@ -2533,33 +2132,12 @@ extension NanopbBuilder where M == Livekit_Transcription {
 
 }
 
-struct Livekit_TranscriptionSegment: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_TranscriptionSegment
-    static var descriptor: pb_msgdesc_t { livekit_TranscriptionSegment_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_TranscriptionSegment()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_TranscriptionSegment: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_TranscriptionSegment_msg }
+    package static let _emptyBox = NanopbBox<livekit_TranscriptionSegment>(zero: livekit_TranscriptionSegment(), descriptor: livekit_TranscriptionSegment_msg)
+}
+typealias Livekit_TranscriptionSegment = NanopbMsg<livekit_TranscriptionSegment>
+extension NanopbMsg where S == livekit_TranscriptionSegment {
     var id: String {
         lkString(_pointer.pointee.id) ?? ""
     }
@@ -2592,7 +2170,7 @@ struct Livekit_TranscriptionSegment: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_TranscriptionSegment {
+extension NanopbBuilder where S == livekit_TranscriptionSegment {
     var id: String {
         get { lkString(_pointer.pointee.id) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.id, newValue) }
@@ -2625,33 +2203,12 @@ extension NanopbBuilder where M == Livekit_TranscriptionSegment {
 
 }
 
-struct Livekit_ChatMessage: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_ChatMessage
-    static var descriptor: pb_msgdesc_t { livekit_ChatMessage_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_ChatMessage()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_ChatMessage: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_ChatMessage_msg }
+    package static let _emptyBox = NanopbBox<livekit_ChatMessage>(zero: livekit_ChatMessage(), descriptor: livekit_ChatMessage_msg)
+}
+typealias Livekit_ChatMessage = NanopbMsg<livekit_ChatMessage>
+extension NanopbMsg where S == livekit_ChatMessage {
     var id: String {
         lkString(_pointer.pointee.id) ?? ""
     }
@@ -2684,7 +2241,7 @@ struct Livekit_ChatMessage: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_ChatMessage {
+extension NanopbBuilder where S == livekit_ChatMessage {
     var id: String {
         get { lkString(_pointer.pointee.id) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.id, newValue) }
@@ -2717,33 +2274,12 @@ extension NanopbBuilder where M == Livekit_ChatMessage {
 
 }
 
-struct Livekit_RpcRequest: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_RpcRequest
-    static var descriptor: pb_msgdesc_t { livekit_RpcRequest_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_RpcRequest()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_RpcRequest: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_RpcRequest_msg }
+    package static let _emptyBox = NanopbBox<livekit_RpcRequest>(zero: livekit_RpcRequest(), descriptor: livekit_RpcRequest_msg)
+}
+typealias Livekit_RpcRequest = NanopbMsg<livekit_RpcRequest>
+extension NanopbMsg where S == livekit_RpcRequest {
     var id: String {
         lkString(_pointer.pointee.id) ?? ""
     }
@@ -2776,7 +2312,7 @@ struct Livekit_RpcRequest: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_RpcRequest {
+extension NanopbBuilder where S == livekit_RpcRequest {
     var id: String {
         get { lkString(_pointer.pointee.id) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.id, newValue) }
@@ -2809,33 +2345,12 @@ extension NanopbBuilder where M == Livekit_RpcRequest {
 
 }
 
-struct Livekit_RpcAck: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_RpcAck
-    static var descriptor: pb_msgdesc_t { livekit_RpcAck_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_RpcAck()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_RpcAck: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_RpcAck_msg }
+    package static let _emptyBox = NanopbBox<livekit_RpcAck>(zero: livekit_RpcAck(), descriptor: livekit_RpcAck_msg)
+}
+typealias Livekit_RpcAck = NanopbMsg<livekit_RpcAck>
+extension NanopbMsg where S == livekit_RpcAck {
     var requestID: String {
         lkString(_pointer.pointee.request_id) ?? ""
     }
@@ -2843,7 +2358,7 @@ struct Livekit_RpcAck: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_RpcAck {
+extension NanopbBuilder where S == livekit_RpcAck {
     var requestID: String {
         get { lkString(_pointer.pointee.request_id) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.request_id, newValue) }
@@ -2851,44 +2366,24 @@ extension NanopbBuilder where M == Livekit_RpcAck {
 
 }
 
-struct Livekit_RpcResponse: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_RpcResponse
-    static var descriptor: pb_msgdesc_t { livekit_RpcResponse_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_RpcResponse()
+enum Livekit_RpcResponse_OneOf_Value: Equatable {
+    case payload(String)
+    case error(Livekit_RpcError)
+    case compressedPayload(Data)
+}
 
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_RpcResponse: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_RpcResponse_msg }
+    package static let _emptyBox = NanopbBox<livekit_RpcResponse>(zero: livekit_RpcResponse(), descriptor: livekit_RpcResponse_msg)
+}
+typealias Livekit_RpcResponse = NanopbMsg<livekit_RpcResponse>
+extension NanopbMsg where S == livekit_RpcResponse {
     var requestID: String {
         lkString(_pointer.pointee.request_id) ?? ""
     }
     var hasRequestID: Bool { _pointer.pointee.request_id != nil }
 
-    enum OneOf_Value: Equatable {
-        case payload(String)
-        case error(Livekit_RpcError)
-        case compressedPayload(Data)
-    }
-    var value: OneOf_Value? {
+    var value: Livekit_RpcResponse_OneOf_Value? {
         switch _pointer.pointee.which_value {
         case pb_size_t(livekit_RpcResponse_payload_tag):
             return .payload(lkString(_pointer.pointee.value.payload) ?? "")
@@ -2911,13 +2406,13 @@ struct Livekit_RpcResponse: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_RpcResponse {
+extension NanopbBuilder where S == livekit_RpcResponse {
     var requestID: String {
         get { lkString(_pointer.pointee.request_id) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.request_id, newValue) }
     }
 
-    var value: Livekit_RpcResponse.OneOf_Value? {
+    var value: Livekit_RpcResponse_OneOf_Value? {
         get {
             switch _pointer.pointee.which_value {
             case pb_size_t(livekit_RpcResponse_payload_tag):
@@ -2987,33 +2482,12 @@ extension NanopbBuilder where M == Livekit_RpcResponse {
 
 }
 
-struct Livekit_RpcError: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_RpcError
-    static var descriptor: pb_msgdesc_t { livekit_RpcError_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_RpcError()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_RpcError: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_RpcError_msg }
+    package static let _emptyBox = NanopbBox<livekit_RpcError>(zero: livekit_RpcError(), descriptor: livekit_RpcError_msg)
+}
+typealias Livekit_RpcError = NanopbMsg<livekit_RpcError>
+extension NanopbMsg where S == livekit_RpcError {
     var code: UInt32 {
         _pointer.pointee.code?.pointee ?? 0
     }
@@ -3031,7 +2505,7 @@ struct Livekit_RpcError: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_RpcError {
+extension NanopbBuilder where S == livekit_RpcError {
     var code: UInt32 {
         get { _pointer.pointee.code?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.code, newValue) }
@@ -3049,33 +2523,12 @@ extension NanopbBuilder where M == Livekit_RpcError {
 
 }
 
-struct Livekit_ParticipantTracks: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_ParticipantTracks
-    static var descriptor: pb_msgdesc_t { livekit_ParticipantTracks_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_ParticipantTracks()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_ParticipantTracks: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_ParticipantTracks_msg }
+    package static let _emptyBox = NanopbBox<livekit_ParticipantTracks>(zero: livekit_ParticipantTracks(), descriptor: livekit_ParticipantTracks_msg)
+}
+typealias Livekit_ParticipantTracks = NanopbMsg<livekit_ParticipantTracks>
+extension NanopbMsg where S == livekit_ParticipantTracks {
     var participantSid: String {
         lkString(_pointer.pointee.participant_sid) ?? ""
     }
@@ -3087,7 +2540,7 @@ struct Livekit_ParticipantTracks: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_ParticipantTracks {
+extension NanopbBuilder where S == livekit_ParticipantTracks {
     var participantSid: String {
         get { lkString(_pointer.pointee.participant_sid) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.participant_sid, newValue) }
@@ -3104,35 +2557,14 @@ extension NanopbBuilder where M == Livekit_ParticipantTracks {
 
 }
 
-struct Livekit_ServerInfo: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_ServerInfo
-    static var descriptor: pb_msgdesc_t { livekit_ServerInfo_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_ServerInfo()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
-    var edition: Livekit_ServerInfo.Edition {
-        _pointer.pointee.edition.map { lkEnum($0.pointee) } ?? Livekit_ServerInfo.Edition()
+extension livekit_ServerInfo: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_ServerInfo_msg }
+    package static let _emptyBox = NanopbBox<livekit_ServerInfo>(zero: livekit_ServerInfo(), descriptor: livekit_ServerInfo_msg)
+}
+typealias Livekit_ServerInfo = NanopbMsg<livekit_ServerInfo>
+extension NanopbMsg where S == livekit_ServerInfo {
+    var edition: Livekit_ServerInfo_Edition {
+        _pointer.pointee.edition.map { lkEnum($0.pointee) } ?? Livekit_ServerInfo_Edition()
     }
     var hasEdition: Bool { _pointer.pointee.edition != nil }
 
@@ -3166,39 +2598,39 @@ struct Livekit_ServerInfo: NanopbMessage, @unchecked Sendable {
     }
     var hasAgentProtocol: Bool { _pointer.pointee.agent_protocol != nil }
 
-    enum Edition: NanopbEnum, CaseIterable {
-        case standard
-        case cloud
-        case UNRECOGNIZED(Int)
+}
 
-        init() { self = .standard }
+enum Livekit_ServerInfo_Edition: NanopbEnum, CaseIterable {
+    case standard
+    case cloud
+    case UNRECOGNIZED(Int)
 
-        init?(rawValue: Int) {
-            switch rawValue {
-            case 0: self = .standard
-            case 1: self = .cloud
-            default: self = .UNRECOGNIZED(rawValue)
-            }
-        }
+    init() { self = .standard }
 
-        var rawValue: Int {
-            switch self {
-            case .standard: 0
-            case .cloud: 1
-            case let .UNRECOGNIZED(value): value
-            }
-        }
-
-        static var allCases: [Edition] {
-            [.standard, .cloud]
+    init?(rawValue: Int) {
+        switch rawValue {
+        case 0: self = .standard
+        case 1: self = .cloud
+        default: self = .UNRECOGNIZED(rawValue)
         }
     }
 
+    var rawValue: Int {
+        switch self {
+        case .standard: 0
+        case .cloud: 1
+        case let .UNRECOGNIZED(value): value
+        }
+    }
+
+    static var allCases: [Livekit_ServerInfo_Edition] {
+        [.standard, .cloud]
+    }
 }
 
-extension NanopbBuilder where M == Livekit_ServerInfo {
-    var edition: Livekit_ServerInfo.Edition {
-        get { _pointer.pointee.edition.map { lkEnum($0.pointee) } ?? Livekit_ServerInfo.Edition() }
+extension NanopbBuilder where S == livekit_ServerInfo {
+    var edition: Livekit_ServerInfo_Edition {
+        get { _pointer.pointee.edition.map { lkEnum($0.pointee) } ?? Livekit_ServerInfo_Edition() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.edition, newValue) }
     }
 
@@ -3234,35 +2666,14 @@ extension NanopbBuilder where M == Livekit_ServerInfo {
 
 }
 
-struct Livekit_ClientInfo: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_ClientInfo
-    static var descriptor: pb_msgdesc_t { livekit_ClientInfo_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_ClientInfo()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
-    var sdk: Livekit_ClientInfo.SDK {
-        _pointer.pointee.sdk.map { lkEnum($0.pointee) } ?? Livekit_ClientInfo.SDK()
+extension livekit_ClientInfo: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_ClientInfo_msg }
+    package static let _emptyBox = NanopbBox<livekit_ClientInfo>(zero: livekit_ClientInfo(), descriptor: livekit_ClientInfo_msg)
+}
+typealias Livekit_ClientInfo = NanopbMsg<livekit_ClientInfo>
+extension NanopbMsg where S == livekit_ClientInfo {
+    var sdk: Livekit_ClientInfo_SDK {
+        _pointer.pointee.sdk.map { lkEnum($0.pointee) } ?? Livekit_ClientInfo_SDK()
     }
     var hasSdk: Bool { _pointer.pointee.sdk != nil }
 
@@ -3321,110 +2732,110 @@ struct Livekit_ClientInfo: NanopbMessage, @unchecked Sendable {
     }
     var hasClientProtocol: Bool { _pointer.pointee.client_protocol != nil }
 
-    var capabilities: [Livekit_ClientInfo.Capability] {
+    var capabilities: [Livekit_ClientInfo_Capability] {
         lkRepeatedEnum(_pointer.pointee.capabilities_count, _pointer.pointee.capabilities)
-    }
-
-    enum SDK: NanopbEnum, CaseIterable {
-        case unknown
-        case js
-        case swift
-        case android
-        case flutter
-        case go
-        case unity
-        case reactNative
-        case rust
-        case python
-        case cpp
-        case unityWeb
-        case node
-        case unreal
-        case esp32
-        case UNRECOGNIZED(Int)
-
-        init() { self = .unknown }
-
-        init?(rawValue: Int) {
-            switch rawValue {
-            case 0: self = .unknown
-            case 1: self = .js
-            case 2: self = .swift
-            case 3: self = .android
-            case 4: self = .flutter
-            case 5: self = .go
-            case 6: self = .unity
-            case 7: self = .reactNative
-            case 8: self = .rust
-            case 9: self = .python
-            case 10: self = .cpp
-            case 11: self = .unityWeb
-            case 12: self = .node
-            case 13: self = .unreal
-            case 14: self = .esp32
-            default: self = .UNRECOGNIZED(rawValue)
-            }
-        }
-
-        var rawValue: Int {
-            switch self {
-            case .unknown: 0
-            case .js: 1
-            case .swift: 2
-            case .android: 3
-            case .flutter: 4
-            case .go: 5
-            case .unity: 6
-            case .reactNative: 7
-            case .rust: 8
-            case .python: 9
-            case .cpp: 10
-            case .unityWeb: 11
-            case .node: 12
-            case .unreal: 13
-            case .esp32: 14
-            case let .UNRECOGNIZED(value): value
-            }
-        }
-
-        static var allCases: [SDK] {
-            [.unknown, .js, .swift, .android, .flutter, .go, .unity, .reactNative, .rust, .python, .cpp, .unityWeb, .node, .unreal, .esp32]
-        }
-    }
-
-    enum Capability: NanopbEnum, CaseIterable {
-        case capUnused
-        case capPacketTrailer
-        case UNRECOGNIZED(Int)
-
-        init() { self = .capUnused }
-
-        init?(rawValue: Int) {
-            switch rawValue {
-            case 0: self = .capUnused
-            case 1: self = .capPacketTrailer
-            default: self = .UNRECOGNIZED(rawValue)
-            }
-        }
-
-        var rawValue: Int {
-            switch self {
-            case .capUnused: 0
-            case .capPacketTrailer: 1
-            case let .UNRECOGNIZED(value): value
-            }
-        }
-
-        static var allCases: [Capability] {
-            [.capUnused, .capPacketTrailer]
-        }
     }
 
 }
 
-extension NanopbBuilder where M == Livekit_ClientInfo {
-    var sdk: Livekit_ClientInfo.SDK {
-        get { _pointer.pointee.sdk.map { lkEnum($0.pointee) } ?? Livekit_ClientInfo.SDK() }
+enum Livekit_ClientInfo_SDK: NanopbEnum, CaseIterable {
+    case unknown
+    case js
+    case swift
+    case android
+    case flutter
+    case go
+    case unity
+    case reactNative
+    case rust
+    case python
+    case cpp
+    case unityWeb
+    case node
+    case unreal
+    case esp32
+    case UNRECOGNIZED(Int)
+
+    init() { self = .unknown }
+
+    init?(rawValue: Int) {
+        switch rawValue {
+        case 0: self = .unknown
+        case 1: self = .js
+        case 2: self = .swift
+        case 3: self = .android
+        case 4: self = .flutter
+        case 5: self = .go
+        case 6: self = .unity
+        case 7: self = .reactNative
+        case 8: self = .rust
+        case 9: self = .python
+        case 10: self = .cpp
+        case 11: self = .unityWeb
+        case 12: self = .node
+        case 13: self = .unreal
+        case 14: self = .esp32
+        default: self = .UNRECOGNIZED(rawValue)
+        }
+    }
+
+    var rawValue: Int {
+        switch self {
+        case .unknown: 0
+        case .js: 1
+        case .swift: 2
+        case .android: 3
+        case .flutter: 4
+        case .go: 5
+        case .unity: 6
+        case .reactNative: 7
+        case .rust: 8
+        case .python: 9
+        case .cpp: 10
+        case .unityWeb: 11
+        case .node: 12
+        case .unreal: 13
+        case .esp32: 14
+        case let .UNRECOGNIZED(value): value
+        }
+    }
+
+    static var allCases: [Livekit_ClientInfo_SDK] {
+        [.unknown, .js, .swift, .android, .flutter, .go, .unity, .reactNative, .rust, .python, .cpp, .unityWeb, .node, .unreal, .esp32]
+    }
+}
+
+enum Livekit_ClientInfo_Capability: NanopbEnum, CaseIterable {
+    case capUnused
+    case capPacketTrailer
+    case UNRECOGNIZED(Int)
+
+    init() { self = .capUnused }
+
+    init?(rawValue: Int) {
+        switch rawValue {
+        case 0: self = .capUnused
+        case 1: self = .capPacketTrailer
+        default: self = .UNRECOGNIZED(rawValue)
+        }
+    }
+
+    var rawValue: Int {
+        switch self {
+        case .capUnused: 0
+        case .capPacketTrailer: 1
+        case let .UNRECOGNIZED(value): value
+        }
+    }
+
+    static var allCases: [Livekit_ClientInfo_Capability] {
+        [.capUnused, .capPacketTrailer]
+    }
+}
+
+extension NanopbBuilder where S == livekit_ClientInfo {
+    var sdk: Livekit_ClientInfo_SDK {
+        get { _pointer.pointee.sdk.map { lkEnum($0.pointee) } ?? Livekit_ClientInfo_SDK() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.sdk, newValue) }
     }
 
@@ -3483,7 +2894,7 @@ extension NanopbBuilder where M == Livekit_ClientInfo {
         nonmutating set { lkSetValue(&_pointer.pointee.client_protocol, newValue) }
     }
 
-    var capabilities: [Livekit_ClientInfo.Capability] {
+    var capabilities: [Livekit_ClientInfo_Capability] {
         get { lkRepeatedEnum(_pointer.pointee.capabilities_count, _pointer.pointee.capabilities) }
         nonmutating set {
             var count = _pointer.pointee.capabilities_count, base = _pointer.pointee.capabilities
@@ -3494,33 +2905,12 @@ extension NanopbBuilder where M == Livekit_ClientInfo {
 
 }
 
-struct Livekit_ClientConfiguration: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_ClientConfiguration
-    static var descriptor: pb_msgdesc_t { livekit_ClientConfiguration_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_ClientConfiguration()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_ClientConfiguration: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_ClientConfiguration_msg }
+    package static let _emptyBox = NanopbBox<livekit_ClientConfiguration>(zero: livekit_ClientConfiguration(), descriptor: livekit_ClientConfiguration_msg)
+}
+typealias Livekit_ClientConfiguration = NanopbMsg<livekit_ClientConfiguration>
+extension NanopbMsg where S == livekit_ClientConfiguration {
     var video: Livekit_VideoConfiguration {
         _pointer.pointee.video.map { Livekit_VideoConfiguration(_sharing: $0, owner: _owner) } ?? Livekit_VideoConfiguration._empty
     }
@@ -3548,7 +2938,7 @@ struct Livekit_ClientConfiguration: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_ClientConfiguration {
+extension NanopbBuilder where S == livekit_ClientConfiguration {
     var video: Livekit_VideoConfiguration {
         get { _pointer.pointee.video.map { Livekit_VideoConfiguration(_sharing: $0, owner: _box) } ?? Livekit_VideoConfiguration._empty }
         nonmutating set { lkSetMessage(&_pointer.pointee.video, newValue) }
@@ -3576,33 +2966,12 @@ extension NanopbBuilder where M == Livekit_ClientConfiguration {
 
 }
 
-struct Livekit_VideoConfiguration: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_VideoConfiguration
-    static var descriptor: pb_msgdesc_t { livekit_VideoConfiguration_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_VideoConfiguration()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_VideoConfiguration: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_VideoConfiguration_msg }
+    package static let _emptyBox = NanopbBox<livekit_VideoConfiguration>(zero: livekit_VideoConfiguration(), descriptor: livekit_VideoConfiguration_msg)
+}
+typealias Livekit_VideoConfiguration = NanopbMsg<livekit_VideoConfiguration>
+extension NanopbMsg where S == livekit_VideoConfiguration {
     var hardwareEncoder: Livekit_ClientConfigSetting {
         _pointer.pointee.hardware_encoder.map { lkEnum($0.pointee) } ?? Livekit_ClientConfigSetting()
     }
@@ -3610,7 +2979,7 @@ struct Livekit_VideoConfiguration: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_VideoConfiguration {
+extension NanopbBuilder where S == livekit_VideoConfiguration {
     var hardwareEncoder: Livekit_ClientConfigSetting {
         get { _pointer.pointee.hardware_encoder.map { lkEnum($0.pointee) } ?? Livekit_ClientConfigSetting() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.hardware_encoder, newValue) }
@@ -3618,33 +2987,12 @@ extension NanopbBuilder where M == Livekit_VideoConfiguration {
 
 }
 
-struct Livekit_DisabledCodecs: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_DisabledCodecs
-    static var descriptor: pb_msgdesc_t { livekit_DisabledCodecs_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_DisabledCodecs()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_DisabledCodecs: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DisabledCodecs_msg }
+    package static let _emptyBox = NanopbBox<livekit_DisabledCodecs>(zero: livekit_DisabledCodecs(), descriptor: livekit_DisabledCodecs_msg)
+}
+typealias Livekit_DisabledCodecs = NanopbMsg<livekit_DisabledCodecs>
+extension NanopbMsg where S == livekit_DisabledCodecs {
     var codecs: [Livekit_Codec] {
         lkViews(_pointer.pointee.codecs_count, _pointer.pointee.codecs, owner: _owner)
     }
@@ -3655,7 +3003,7 @@ struct Livekit_DisabledCodecs: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_DisabledCodecs {
+extension NanopbBuilder where S == livekit_DisabledCodecs {
     var codecs: [Livekit_Codec] {
         get { lkViews(_pointer.pointee.codecs_count, _pointer.pointee.codecs, owner: _box) }
         nonmutating set {
@@ -3676,33 +3024,12 @@ extension NanopbBuilder where M == Livekit_DisabledCodecs {
 
 }
 
-struct Livekit_TimedVersion: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_TimedVersion
-    static var descriptor: pb_msgdesc_t { livekit_TimedVersion_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_TimedVersion()
-
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
-
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-    }
-
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
-    }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
+extension livekit_TimedVersion: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_TimedVersion_msg }
+    package static let _emptyBox = NanopbBox<livekit_TimedVersion>(zero: livekit_TimedVersion(), descriptor: livekit_TimedVersion_msg)
+}
+typealias Livekit_TimedVersion = NanopbMsg<livekit_TimedVersion>
+extension NanopbMsg where S == livekit_TimedVersion {
     var unixMicro: Int64 {
         _pointer.pointee.unix_micro?.pointee ?? 0
     }
@@ -3715,7 +3042,7 @@ struct Livekit_TimedVersion: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_TimedVersion {
+extension NanopbBuilder where S == livekit_TimedVersion {
     var unixMicro: Int64 {
         get { _pointer.pointee.unix_micro?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.unix_micro, newValue) }
@@ -3728,425 +3055,50 @@ extension NanopbBuilder where M == Livekit_TimedVersion {
 
 }
 
-struct Livekit_DataStream: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_DataStream
-    static var descriptor: pb_msgdesc_t { livekit_DataStream_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_DataStream()
+enum Livekit_DataStream {
+    typealias TextHeader = Livekit_DataStream_TextHeader
+    typealias ByteHeader = Livekit_DataStream_ByteHeader
+    typealias Header = Livekit_DataStream_Header
+    typealias Chunk = Livekit_DataStream_Chunk
+    typealias Trailer = Livekit_DataStream_Trailer
+    typealias OperationType = Livekit_DataStream_OperationType
+}
 
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
+extension livekit_DataStream_TextHeader: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataStream_TextHeader_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataStream_TextHeader>(zero: livekit_DataStream_TextHeader(), descriptor: livekit_DataStream_TextHeader_msg)
+}
+typealias Livekit_DataStream_TextHeader = NanopbMsg<livekit_DataStream_TextHeader>
+extension NanopbMsg where S == livekit_DataStream_TextHeader {
+    var operationType: Livekit_DataStream_OperationType {
+        _pointer.pointee.operation_type.map { lkEnum($0.pointee) } ?? Livekit_DataStream_OperationType()
+    }
+    var hasOperationType: Bool { _pointer.pointee.operation_type != nil }
 
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
+    var version: Int32 {
+        _pointer.pointee.version?.pointee ?? 0
+    }
+    var hasVersion: Bool { _pointer.pointee.version != nil }
+
+    var replyToStreamID: String {
+        lkString(_pointer.pointee.reply_to_stream_id) ?? ""
+    }
+    var hasReplyToStreamID: Bool { _pointer.pointee.reply_to_stream_id != nil }
+
+    var attachedStreamIds: [String] {
+        lkRepeated(_pointer.pointee.attached_stream_ids_count, _pointer.pointee.attached_stream_ids)
     }
 
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
+    var generated: Bool {
+        _pointer.pointee.generated?.pointee ?? false
     }
-
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
-    }
-
-    struct TextHeader: NanopbMessage, @unchecked Sendable {
-        typealias Storage = livekit_DataStream_TextHeader
-        static var descriptor: pb_msgdesc_t { livekit_DataStream_TextHeader_msg }
-        static var zero: Storage { Storage() }
-        /// Shared value returned when a submessage field is absent. Safe to
-        /// share because messages are immutable; `modifying` sees the static
-        /// reference, so it copies rather than writing through it.
-        static let _empty = TextHeader()
-
-        var _owner: NanopbAnyBox
-        var _pointer: UnsafeMutablePointer<Storage>
-
-        init() {
-            self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-        }
-
-        init(_owning box: NanopbBox<Storage>) {
-            _owner = box
-            _pointer = box.pointer
-        }
-
-        /// Zero-copy view into `owner`'s storage.
-        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-            _owner = owner
-            _pointer = pointer
-        }
-
-        var operationType: Livekit_DataStream.OperationType {
-            _pointer.pointee.operation_type.map { lkEnum($0.pointee) } ?? Livekit_DataStream.OperationType()
-        }
-        var hasOperationType: Bool { _pointer.pointee.operation_type != nil }
-
-        var version: Int32 {
-            _pointer.pointee.version?.pointee ?? 0
-        }
-        var hasVersion: Bool { _pointer.pointee.version != nil }
-
-        var replyToStreamID: String {
-            lkString(_pointer.pointee.reply_to_stream_id) ?? ""
-        }
-        var hasReplyToStreamID: Bool { _pointer.pointee.reply_to_stream_id != nil }
-
-        var attachedStreamIds: [String] {
-            lkRepeated(_pointer.pointee.attached_stream_ids_count, _pointer.pointee.attached_stream_ids)
-        }
-
-        var generated: Bool {
-            _pointer.pointee.generated?.pointee ?? false
-        }
-        var hasGenerated: Bool { _pointer.pointee.generated != nil }
-
-    }
-
-    struct ByteHeader: NanopbMessage, @unchecked Sendable {
-        typealias Storage = livekit_DataStream_ByteHeader
-        static var descriptor: pb_msgdesc_t { livekit_DataStream_ByteHeader_msg }
-        static var zero: Storage { Storage() }
-        /// Shared value returned when a submessage field is absent. Safe to
-        /// share because messages are immutable; `modifying` sees the static
-        /// reference, so it copies rather than writing through it.
-        static let _empty = ByteHeader()
-
-        var _owner: NanopbAnyBox
-        var _pointer: UnsafeMutablePointer<Storage>
-
-        init() {
-            self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-        }
-
-        init(_owning box: NanopbBox<Storage>) {
-            _owner = box
-            _pointer = box.pointer
-        }
-
-        /// Zero-copy view into `owner`'s storage.
-        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-            _owner = owner
-            _pointer = pointer
-        }
-
-        var name: String {
-            lkString(_pointer.pointee.name) ?? ""
-        }
-        var hasName: Bool { _pointer.pointee.name != nil }
-
-    }
-
-    struct Header: NanopbMessage, @unchecked Sendable {
-        typealias Storage = livekit_DataStream_Header
-        static var descriptor: pb_msgdesc_t { livekit_DataStream_Header_msg }
-        static var zero: Storage { Storage() }
-        /// Shared value returned when a submessage field is absent. Safe to
-        /// share because messages are immutable; `modifying` sees the static
-        /// reference, so it copies rather than writing through it.
-        static let _empty = Header()
-
-        var _owner: NanopbAnyBox
-        var _pointer: UnsafeMutablePointer<Storage>
-
-        init() {
-            self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-        }
-
-        init(_owning box: NanopbBox<Storage>) {
-            _owner = box
-            _pointer = box.pointer
-        }
-
-        /// Zero-copy view into `owner`'s storage.
-        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-            _owner = owner
-            _pointer = pointer
-        }
-
-        var streamID: String {
-            lkString(_pointer.pointee.stream_id) ?? ""
-        }
-        var hasStreamID: Bool { _pointer.pointee.stream_id != nil }
-
-        var timestamp: Int64 {
-            _pointer.pointee.timestamp?.pointee ?? 0
-        }
-        var hasTimestamp: Bool { _pointer.pointee.timestamp != nil }
-
-        var topic: String {
-            lkString(_pointer.pointee.topic) ?? ""
-        }
-        var hasTopic: Bool { _pointer.pointee.topic != nil }
-
-        var mimeType: String {
-            lkString(_pointer.pointee.mime_type) ?? ""
-        }
-        var hasMimeType: Bool { _pointer.pointee.mime_type != nil }
-
-        var totalLength: UInt64 {
-            _pointer.pointee.total_length?.pointee ?? 0
-        }
-        var hasTotalLength: Bool { _pointer.pointee.total_length != nil }
-
-        var encryptionType: Livekit_Encryption.TypeEnum {
-            _pointer.pointee.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum()
-        }
-        var hasEncryptionType: Bool { _pointer.pointee.encryption_type != nil }
-
-        var attributes: [String: String] {
-            var out: [String: String] = [:]
-            for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _owner) as [Livekit_DataStream.Header.AttributesEntry] {
-                out[entry.key] = entry.value
-            }
-            return out
-        }
-
-        enum OneOf_ContentHeader: Equatable {
-            case textHeader(Livekit_DataStream.TextHeader)
-            case byteHeader(Livekit_DataStream.ByteHeader)
-        }
-        var contentHeader: OneOf_ContentHeader? {
-            switch _pointer.pointee.which_content_header {
-            case pb_size_t(livekit_DataStream_Header_text_header_tag):
-                return .textHeader(_pointer.pointee.content_header.text_header.map { Livekit_DataStream.TextHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.TextHeader._empty)
-            case pb_size_t(livekit_DataStream_Header_byte_header_tag):
-                return .byteHeader(_pointer.pointee.content_header.byte_header.map { Livekit_DataStream.ByteHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.ByteHeader._empty)
-            default: return nil
-            }
-        }
-        var textHeader: Livekit_DataStream.TextHeader {
-            _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_text_header_tag) ? (_pointer.pointee.content_header.text_header.map { Livekit_DataStream.TextHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.TextHeader._empty) : Livekit_DataStream.TextHeader()
-        }
-        var byteHeader: Livekit_DataStream.ByteHeader {
-            _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_byte_header_tag) ? (_pointer.pointee.content_header.byte_header.map { Livekit_DataStream.ByteHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream.ByteHeader._empty) : Livekit_DataStream.ByteHeader()
-        }
-
-        struct AttributesEntry: NanopbMessage, @unchecked Sendable {
-            typealias Storage = livekit_DataStream_Header_AttributesEntry
-            static var descriptor: pb_msgdesc_t { livekit_DataStream_Header_AttributesEntry_msg }
-            static var zero: Storage { Storage() }
-            /// Shared value returned when a submessage field is absent. Safe to
-            /// share because messages are immutable; `modifying` sees the static
-            /// reference, so it copies rather than writing through it.
-            static let _empty = AttributesEntry()
-
-            var _owner: NanopbAnyBox
-            var _pointer: UnsafeMutablePointer<Storage>
-
-            init() {
-                self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-            }
-
-            init(_owning box: NanopbBox<Storage>) {
-                _owner = box
-                _pointer = box.pointer
-            }
-
-            /// Zero-copy view into `owner`'s storage.
-            init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-                _owner = owner
-                _pointer = pointer
-            }
-
-            var key: String {
-                lkString(_pointer.pointee.key) ?? ""
-            }
-            var hasKey: Bool { _pointer.pointee.key != nil }
-
-            var value: String {
-                lkString(_pointer.pointee.value) ?? ""
-            }
-            var hasValue: Bool { _pointer.pointee.value != nil }
-
-        }
-
-    }
-
-    struct Chunk: NanopbMessage, @unchecked Sendable {
-        typealias Storage = livekit_DataStream_Chunk
-        static var descriptor: pb_msgdesc_t { livekit_DataStream_Chunk_msg }
-        static var zero: Storage { Storage() }
-        /// Shared value returned when a submessage field is absent. Safe to
-        /// share because messages are immutable; `modifying` sees the static
-        /// reference, so it copies rather than writing through it.
-        static let _empty = Chunk()
-
-        var _owner: NanopbAnyBox
-        var _pointer: UnsafeMutablePointer<Storage>
-
-        init() {
-            self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-        }
-
-        init(_owning box: NanopbBox<Storage>) {
-            _owner = box
-            _pointer = box.pointer
-        }
-
-        /// Zero-copy view into `owner`'s storage.
-        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-            _owner = owner
-            _pointer = pointer
-        }
-
-        var streamID: String {
-            lkString(_pointer.pointee.stream_id) ?? ""
-        }
-        var hasStreamID: Bool { _pointer.pointee.stream_id != nil }
-
-        var chunkIndex: UInt64 {
-            _pointer.pointee.chunk_index?.pointee ?? 0
-        }
-        var hasChunkIndex: Bool { _pointer.pointee.chunk_index != nil }
-
-        var content: Data {
-            lkData(_pointer.pointee.content)
-        }
-        var hasContent: Bool { _pointer.pointee.content != nil }
-
-        var version: Int32 {
-            _pointer.pointee.version?.pointee ?? 0
-        }
-        var hasVersion: Bool { _pointer.pointee.version != nil }
-
-        var iv: Data {
-            lkData(_pointer.pointee.iv)
-        }
-        var hasIv: Bool { _pointer.pointee.iv != nil }
-
-    }
-
-    struct Trailer: NanopbMessage, @unchecked Sendable {
-        typealias Storage = livekit_DataStream_Trailer
-        static var descriptor: pb_msgdesc_t { livekit_DataStream_Trailer_msg }
-        static var zero: Storage { Storage() }
-        /// Shared value returned when a submessage field is absent. Safe to
-        /// share because messages are immutable; `modifying` sees the static
-        /// reference, so it copies rather than writing through it.
-        static let _empty = Trailer()
-
-        var _owner: NanopbAnyBox
-        var _pointer: UnsafeMutablePointer<Storage>
-
-        init() {
-            self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-        }
-
-        init(_owning box: NanopbBox<Storage>) {
-            _owner = box
-            _pointer = box.pointer
-        }
-
-        /// Zero-copy view into `owner`'s storage.
-        init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-            _owner = owner
-            _pointer = pointer
-        }
-
-        var streamID: String {
-            lkString(_pointer.pointee.stream_id) ?? ""
-        }
-        var hasStreamID: Bool { _pointer.pointee.stream_id != nil }
-
-        var reason: String {
-            lkString(_pointer.pointee.reason) ?? ""
-        }
-        var hasReason: Bool { _pointer.pointee.reason != nil }
-
-        var attributes: [String: String] {
-            var out: [String: String] = [:]
-            for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _owner) as [Livekit_DataStream.Trailer.AttributesEntry] {
-                out[entry.key] = entry.value
-            }
-            return out
-        }
-
-        struct AttributesEntry: NanopbMessage, @unchecked Sendable {
-            typealias Storage = livekit_DataStream_Trailer_AttributesEntry
-            static var descriptor: pb_msgdesc_t { livekit_DataStream_Trailer_AttributesEntry_msg }
-            static var zero: Storage { Storage() }
-            /// Shared value returned when a submessage field is absent. Safe to
-            /// share because messages are immutable; `modifying` sees the static
-            /// reference, so it copies rather than writing through it.
-            static let _empty = AttributesEntry()
-
-            var _owner: NanopbAnyBox
-            var _pointer: UnsafeMutablePointer<Storage>
-
-            init() {
-                self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
-            }
-
-            init(_owning box: NanopbBox<Storage>) {
-                _owner = box
-                _pointer = box.pointer
-            }
-
-            /// Zero-copy view into `owner`'s storage.
-            init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-                _owner = owner
-                _pointer = pointer
-            }
-
-            var key: String {
-                lkString(_pointer.pointee.key) ?? ""
-            }
-            var hasKey: Bool { _pointer.pointee.key != nil }
-
-            var value: String {
-                lkString(_pointer.pointee.value) ?? ""
-            }
-            var hasValue: Bool { _pointer.pointee.value != nil }
-
-        }
-
-    }
-
-    enum OperationType: NanopbEnum, CaseIterable {
-        case create
-        case update
-        case delete
-        case reaction
-        case UNRECOGNIZED(Int)
-
-        init() { self = .create }
-
-        init?(rawValue: Int) {
-            switch rawValue {
-            case 0: self = .create
-            case 1: self = .update
-            case 2: self = .delete
-            case 3: self = .reaction
-            default: self = .UNRECOGNIZED(rawValue)
-            }
-        }
-
-        var rawValue: Int {
-            switch self {
-            case .create: 0
-            case .update: 1
-            case .delete: 2
-            case .reaction: 3
-            case let .UNRECOGNIZED(value): value
-            }
-        }
-
-        static var allCases: [OperationType] {
-            [.create, .update, .delete, .reaction]
-        }
-    }
+    var hasGenerated: Bool { _pointer.pointee.generated != nil }
 
 }
 
-extension NanopbBuilder where M == Livekit_DataStream.TextHeader {
-    var operationType: Livekit_DataStream.OperationType {
-        get { _pointer.pointee.operation_type.map { lkEnum($0.pointee) } ?? Livekit_DataStream.OperationType() }
+extension NanopbBuilder where S == livekit_DataStream_TextHeader {
+    var operationType: Livekit_DataStream_OperationType {
+        get { _pointer.pointee.operation_type.map { lkEnum($0.pointee) } ?? Livekit_DataStream_OperationType() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.operation_type, newValue) }
     }
 
@@ -4176,7 +3128,20 @@ extension NanopbBuilder where M == Livekit_DataStream.TextHeader {
 
 }
 
-extension NanopbBuilder where M == Livekit_DataStream.ByteHeader {
+extension livekit_DataStream_ByteHeader: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataStream_ByteHeader_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataStream_ByteHeader>(zero: livekit_DataStream_ByteHeader(), descriptor: livekit_DataStream_ByteHeader_msg)
+}
+typealias Livekit_DataStream_ByteHeader = NanopbMsg<livekit_DataStream_ByteHeader>
+extension NanopbMsg where S == livekit_DataStream_ByteHeader {
+    var name: String {
+        lkString(_pointer.pointee.name) ?? ""
+    }
+    var hasName: Bool { _pointer.pointee.name != nil }
+
+}
+
+extension NanopbBuilder where S == livekit_DataStream_ByteHeader {
     var name: String {
         get { lkString(_pointer.pointee.name) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.name, newValue) }
@@ -4184,7 +3149,92 @@ extension NanopbBuilder where M == Livekit_DataStream.ByteHeader {
 
 }
 
-extension NanopbBuilder where M == Livekit_DataStream.Header.AttributesEntry {
+enum Livekit_DataStream_Header_OneOf_ContentHeader: Equatable {
+    case textHeader(Livekit_DataStream_TextHeader)
+    case byteHeader(Livekit_DataStream_ByteHeader)
+}
+
+extension livekit_DataStream_Header: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataStream_Header_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataStream_Header>(zero: livekit_DataStream_Header(), descriptor: livekit_DataStream_Header_msg)
+}
+typealias Livekit_DataStream_Header = NanopbMsg<livekit_DataStream_Header>
+extension NanopbMsg where S == livekit_DataStream_Header {
+    var streamID: String {
+        lkString(_pointer.pointee.stream_id) ?? ""
+    }
+    var hasStreamID: Bool { _pointer.pointee.stream_id != nil }
+
+    var timestamp: Int64 {
+        _pointer.pointee.timestamp?.pointee ?? 0
+    }
+    var hasTimestamp: Bool { _pointer.pointee.timestamp != nil }
+
+    var topic: String {
+        lkString(_pointer.pointee.topic) ?? ""
+    }
+    var hasTopic: Bool { _pointer.pointee.topic != nil }
+
+    var mimeType: String {
+        lkString(_pointer.pointee.mime_type) ?? ""
+    }
+    var hasMimeType: Bool { _pointer.pointee.mime_type != nil }
+
+    var totalLength: UInt64 {
+        _pointer.pointee.total_length?.pointee ?? 0
+    }
+    var hasTotalLength: Bool { _pointer.pointee.total_length != nil }
+
+    var encryptionType: Livekit_Encryption_TypeEnum {
+        _pointer.pointee.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum()
+    }
+    var hasEncryptionType: Bool { _pointer.pointee.encryption_type != nil }
+
+    var attributes: [String: String] {
+        var out: [String: String] = [:]
+        for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _owner) as [Livekit_DataStream_Header_AttributesEntry] {
+            out[entry.key] = entry.value
+        }
+        return out
+    }
+
+    var contentHeader: Livekit_DataStream_Header_OneOf_ContentHeader? {
+        switch _pointer.pointee.which_content_header {
+        case pb_size_t(livekit_DataStream_Header_text_header_tag):
+            return .textHeader(_pointer.pointee.content_header.text_header.map { Livekit_DataStream_TextHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_TextHeader._empty)
+        case pb_size_t(livekit_DataStream_Header_byte_header_tag):
+            return .byteHeader(_pointer.pointee.content_header.byte_header.map { Livekit_DataStream_ByteHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_ByteHeader._empty)
+        default: return nil
+        }
+    }
+    var textHeader: Livekit_DataStream_TextHeader {
+        _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_text_header_tag) ? (_pointer.pointee.content_header.text_header.map { Livekit_DataStream_TextHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_TextHeader._empty) : Livekit_DataStream_TextHeader()
+    }
+    var byteHeader: Livekit_DataStream_ByteHeader {
+        _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_byte_header_tag) ? (_pointer.pointee.content_header.byte_header.map { Livekit_DataStream_ByteHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_ByteHeader._empty) : Livekit_DataStream_ByteHeader()
+    }
+
+}
+
+extension livekit_DataStream_Header_AttributesEntry: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataStream_Header_AttributesEntry_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataStream_Header_AttributesEntry>(zero: livekit_DataStream_Header_AttributesEntry(), descriptor: livekit_DataStream_Header_AttributesEntry_msg)
+}
+typealias Livekit_DataStream_Header_AttributesEntry = NanopbMsg<livekit_DataStream_Header_AttributesEntry>
+extension NanopbMsg where S == livekit_DataStream_Header_AttributesEntry {
+    var key: String {
+        lkString(_pointer.pointee.key) ?? ""
+    }
+    var hasKey: Bool { _pointer.pointee.key != nil }
+
+    var value: String {
+        lkString(_pointer.pointee.value) ?? ""
+    }
+    var hasValue: Bool { _pointer.pointee.value != nil }
+
+}
+
+extension NanopbBuilder where S == livekit_DataStream_Header_AttributesEntry {
     var key: String {
         get { lkString(_pointer.pointee.key) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.key, newValue) }
@@ -4197,7 +3247,7 @@ extension NanopbBuilder where M == Livekit_DataStream.Header.AttributesEntry {
 
 }
 
-extension NanopbBuilder where M == Livekit_DataStream.Header {
+extension NanopbBuilder where S == livekit_DataStream_Header {
     var streamID: String {
         get { lkString(_pointer.pointee.stream_id) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.stream_id, newValue) }
@@ -4223,15 +3273,15 @@ extension NanopbBuilder where M == Livekit_DataStream.Header {
         nonmutating set { lkSetValue(&_pointer.pointee.total_length, newValue) }
     }
 
-    var encryptionType: Livekit_Encryption.TypeEnum {
-        get { _pointer.pointee.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption.TypeEnum() }
+    var encryptionType: Livekit_Encryption_TypeEnum {
+        get { _pointer.pointee.encryption_type.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption_type, newValue) }
     }
 
     var attributes: [String: String] {
         get {
             var out: [String: String] = [:]
-            for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _box) as [Livekit_DataStream.Header.AttributesEntry] {
+            for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _box) as [Livekit_DataStream_Header_AttributesEntry] {
                 out[entry.key] = entry.value
             }
             return out
@@ -4239,7 +3289,7 @@ extension NanopbBuilder where M == Livekit_DataStream.Header {
         nonmutating set {
             // sorted for deterministic encoding (bytes-based Equatable)
             let entries = newValue.sorted { $0.key < $1.key }.map { pair in
-                Livekit_DataStream.Header.AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
+                Livekit_DataStream_Header_AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
             }
             var count = _pointer.pointee.attributes_count, base = _pointer.pointee.attributes
             lkSetRepeatedMessages(&count, &base, entries)
@@ -4247,13 +3297,13 @@ extension NanopbBuilder where M == Livekit_DataStream.Header {
         }
     }
 
-    var contentHeader: Livekit_DataStream.Header.OneOf_ContentHeader? {
+    var contentHeader: Livekit_DataStream_Header_OneOf_ContentHeader? {
         get {
             switch _pointer.pointee.which_content_header {
             case pb_size_t(livekit_DataStream_Header_text_header_tag):
-                return .textHeader(_pointer.pointee.content_header.text_header.map { Livekit_DataStream.TextHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream.TextHeader._empty)
+                return .textHeader(_pointer.pointee.content_header.text_header.map { Livekit_DataStream_TextHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream_TextHeader._empty)
             case pb_size_t(livekit_DataStream_Header_byte_header_tag):
-                return .byteHeader(_pointer.pointee.content_header.byte_header.map { Livekit_DataStream.ByteHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream.ByteHeader._empty)
+                return .byteHeader(_pointer.pointee.content_header.byte_header.map { Livekit_DataStream_ByteHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream_ByteHeader._empty)
             default: return nil
             }
         }
@@ -4270,16 +3320,16 @@ extension NanopbBuilder where M == Livekit_DataStream.Header {
             }
         }
     }
-    var textHeader: Livekit_DataStream.TextHeader {
-        get { _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_text_header_tag) ? (_pointer.pointee.content_header.text_header.map { Livekit_DataStream.TextHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream.TextHeader._empty) : Livekit_DataStream.TextHeader() }
+    var textHeader: Livekit_DataStream_TextHeader {
+        get { _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_text_header_tag) ? (_pointer.pointee.content_header.text_header.map { Livekit_DataStream_TextHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream_TextHeader._empty) : Livekit_DataStream_TextHeader() }
         nonmutating set {
             _clearContentHeader()
             _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_text_header_tag)
             lkSetMessage(&_pointer.pointee.content_header.text_header, newValue)
         }
     }
-    var byteHeader: Livekit_DataStream.ByteHeader {
-        get { _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_byte_header_tag) ? (_pointer.pointee.content_header.byte_header.map { Livekit_DataStream.ByteHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream.ByteHeader._empty) : Livekit_DataStream.ByteHeader() }
+    var byteHeader: Livekit_DataStream_ByteHeader {
+        get { _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_byte_header_tag) ? (_pointer.pointee.content_header.byte_header.map { Livekit_DataStream_ByteHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream_ByteHeader._empty) : Livekit_DataStream_ByteHeader() }
         nonmutating set {
             _clearContentHeader()
             _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_byte_header_tag)
@@ -4289,9 +3339,9 @@ extension NanopbBuilder where M == Livekit_DataStream.Header {
     private func _clearContentHeader() {
         switch _pointer.pointee.which_content_header {
         case pb_size_t(livekit_DataStream_Header_text_header_tag):
-            lkRelease(message: &_pointer.pointee.content_header.text_header, Livekit_DataStream.TextHeader.descriptor)
+            lkRelease(message: &_pointer.pointee.content_header.text_header, Livekit_DataStream_TextHeader.descriptor)
         case pb_size_t(livekit_DataStream_Header_byte_header_tag):
-            lkRelease(message: &_pointer.pointee.content_header.byte_header, Livekit_DataStream.ByteHeader.descriptor)
+            lkRelease(message: &_pointer.pointee.content_header.byte_header, Livekit_DataStream_ByteHeader.descriptor)
         default: break
         }
         _pointer.pointee.which_content_header = 0
@@ -4302,7 +3352,40 @@ extension NanopbBuilder where M == Livekit_DataStream.Header {
 
 }
 
-extension NanopbBuilder where M == Livekit_DataStream.Chunk {
+extension livekit_DataStream_Chunk: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataStream_Chunk_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataStream_Chunk>(zero: livekit_DataStream_Chunk(), descriptor: livekit_DataStream_Chunk_msg)
+}
+typealias Livekit_DataStream_Chunk = NanopbMsg<livekit_DataStream_Chunk>
+extension NanopbMsg where S == livekit_DataStream_Chunk {
+    var streamID: String {
+        lkString(_pointer.pointee.stream_id) ?? ""
+    }
+    var hasStreamID: Bool { _pointer.pointee.stream_id != nil }
+
+    var chunkIndex: UInt64 {
+        _pointer.pointee.chunk_index?.pointee ?? 0
+    }
+    var hasChunkIndex: Bool { _pointer.pointee.chunk_index != nil }
+
+    var content: Data {
+        lkData(_pointer.pointee.content)
+    }
+    var hasContent: Bool { _pointer.pointee.content != nil }
+
+    var version: Int32 {
+        _pointer.pointee.version?.pointee ?? 0
+    }
+    var hasVersion: Bool { _pointer.pointee.version != nil }
+
+    var iv: Data {
+        lkData(_pointer.pointee.iv)
+    }
+    var hasIv: Bool { _pointer.pointee.iv != nil }
+
+}
+
+extension NanopbBuilder where S == livekit_DataStream_Chunk {
     var streamID: String {
         get { lkString(_pointer.pointee.stream_id) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.stream_id, newValue) }
@@ -4330,7 +3413,51 @@ extension NanopbBuilder where M == Livekit_DataStream.Chunk {
 
 }
 
-extension NanopbBuilder where M == Livekit_DataStream.Trailer.AttributesEntry {
+extension livekit_DataStream_Trailer: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataStream_Trailer_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataStream_Trailer>(zero: livekit_DataStream_Trailer(), descriptor: livekit_DataStream_Trailer_msg)
+}
+typealias Livekit_DataStream_Trailer = NanopbMsg<livekit_DataStream_Trailer>
+extension NanopbMsg where S == livekit_DataStream_Trailer {
+    var streamID: String {
+        lkString(_pointer.pointee.stream_id) ?? ""
+    }
+    var hasStreamID: Bool { _pointer.pointee.stream_id != nil }
+
+    var reason: String {
+        lkString(_pointer.pointee.reason) ?? ""
+    }
+    var hasReason: Bool { _pointer.pointee.reason != nil }
+
+    var attributes: [String: String] {
+        var out: [String: String] = [:]
+        for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _owner) as [Livekit_DataStream_Trailer_AttributesEntry] {
+            out[entry.key] = entry.value
+        }
+        return out
+    }
+
+}
+
+extension livekit_DataStream_Trailer_AttributesEntry: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataStream_Trailer_AttributesEntry_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataStream_Trailer_AttributesEntry>(zero: livekit_DataStream_Trailer_AttributesEntry(), descriptor: livekit_DataStream_Trailer_AttributesEntry_msg)
+}
+typealias Livekit_DataStream_Trailer_AttributesEntry = NanopbMsg<livekit_DataStream_Trailer_AttributesEntry>
+extension NanopbMsg where S == livekit_DataStream_Trailer_AttributesEntry {
+    var key: String {
+        lkString(_pointer.pointee.key) ?? ""
+    }
+    var hasKey: Bool { _pointer.pointee.key != nil }
+
+    var value: String {
+        lkString(_pointer.pointee.value) ?? ""
+    }
+    var hasValue: Bool { _pointer.pointee.value != nil }
+
+}
+
+extension NanopbBuilder where S == livekit_DataStream_Trailer_AttributesEntry {
     var key: String {
         get { lkString(_pointer.pointee.key) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.key, newValue) }
@@ -4343,7 +3470,7 @@ extension NanopbBuilder where M == Livekit_DataStream.Trailer.AttributesEntry {
 
 }
 
-extension NanopbBuilder where M == Livekit_DataStream.Trailer {
+extension NanopbBuilder where S == livekit_DataStream_Trailer {
     var streamID: String {
         get { lkString(_pointer.pointee.stream_id) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.stream_id, newValue) }
@@ -4357,7 +3484,7 @@ extension NanopbBuilder where M == Livekit_DataStream.Trailer {
     var attributes: [String: String] {
         get {
             var out: [String: String] = [:]
-            for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _box) as [Livekit_DataStream.Trailer.AttributesEntry] {
+            for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _box) as [Livekit_DataStream_Trailer_AttributesEntry] {
                 out[entry.key] = entry.value
             }
             return out
@@ -4365,7 +3492,7 @@ extension NanopbBuilder where M == Livekit_DataStream.Trailer {
         nonmutating set {
             // sorted for deterministic encoding (bytes-based Equatable)
             let entries = newValue.sorted { $0.key < $1.key }.map { pair in
-                Livekit_DataStream.Trailer.AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
+                Livekit_DataStream_Trailer_AttributesEntry.with { $0.key = pair.key; $0.value = pair.value }
             }
             var count = _pointer.pointee.attributes_count, base = _pointer.pointee.attributes
             lkSetRepeatedMessages(&count, &base, entries)
@@ -4375,33 +3502,46 @@ extension NanopbBuilder where M == Livekit_DataStream.Trailer {
 
 }
 
-struct Livekit_SubscribedAudioCodec: NanopbMessage, @unchecked Sendable {
-    typealias Storage = livekit_SubscribedAudioCodec
-    static var descriptor: pb_msgdesc_t { livekit_SubscribedAudioCodec_msg }
-    static var zero: Storage { Storage() }
-    /// Shared value returned when a submessage field is absent. Safe to
-    /// share because messages are immutable; `modifying` sees the static
-    /// reference, so it copies rather than writing through it.
-    static let _empty = Livekit_SubscribedAudioCodec()
+enum Livekit_DataStream_OperationType: NanopbEnum, CaseIterable {
+    case create
+    case update
+    case delete
+    case reaction
+    case UNRECOGNIZED(Int)
 
-    var _owner: NanopbAnyBox
-    var _pointer: UnsafeMutablePointer<Storage>
+    init() { self = .create }
 
-    init() {
-        self.init(_owning: NanopbBox(zero: Self.zero, descriptor: Self.descriptor))
+    init?(rawValue: Int) {
+        switch rawValue {
+        case 0: self = .create
+        case 1: self = .update
+        case 2: self = .delete
+        case 3: self = .reaction
+        default: self = .UNRECOGNIZED(rawValue)
+        }
     }
 
-    init(_owning box: NanopbBox<Storage>) {
-        _owner = box
-        _pointer = box.pointer
+    var rawValue: Int {
+        switch self {
+        case .create: 0
+        case .update: 1
+        case .delete: 2
+        case .reaction: 3
+        case let .UNRECOGNIZED(value): value
+        }
     }
 
-    /// Zero-copy view into `owner`'s storage.
-    init(_sharing pointer: UnsafeMutablePointer<Storage>, owner: NanopbAnyBox) {
-        _owner = owner
-        _pointer = pointer
+    static var allCases: [Livekit_DataStream_OperationType] {
+        [.create, .update, .delete, .reaction]
     }
+}
 
+extension livekit_SubscribedAudioCodec: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_SubscribedAudioCodec_msg }
+    package static let _emptyBox = NanopbBox<livekit_SubscribedAudioCodec>(zero: livekit_SubscribedAudioCodec(), descriptor: livekit_SubscribedAudioCodec_msg)
+}
+typealias Livekit_SubscribedAudioCodec = NanopbMsg<livekit_SubscribedAudioCodec>
+extension NanopbMsg where S == livekit_SubscribedAudioCodec {
     var codec: String {
         lkString(_pointer.pointee.codec) ?? ""
     }
@@ -4414,7 +3554,7 @@ struct Livekit_SubscribedAudioCodec: NanopbMessage, @unchecked Sendable {
 
 }
 
-extension NanopbBuilder where M == Livekit_SubscribedAudioCodec {
+extension NanopbBuilder where S == livekit_SubscribedAudioCodec {
     var codec: String {
         get { lkString(_pointer.pointee.codec) ?? "" }
         nonmutating set { lkSetString(&_pointer.pointee.codec, newValue) }

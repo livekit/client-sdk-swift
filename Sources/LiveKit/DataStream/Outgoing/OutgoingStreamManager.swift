@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
+#if LK_XCFRAMEWORK
+internal import CLiveKitProto
+#elseif !COCOAPODS
+import CLiveKitProto
+import LiveKitNanopb
+#endif
 import Foundation
 
 // Extending the generic builder needs the runtime module by name; the facades
 // themselves are re-exported through LiveKit.
-#if !COCOAPODS && !LK_XCFRAMEWORK
-import LiveKitNanopb
-#endif
 
 /// Manages state of outgoing data streams.
 actor OutgoingStreamManager: Loggable {
@@ -278,7 +281,7 @@ extension Livekit_DataStream.Header {
             }
             $0.attributes = streamInfo.attributes
             $0.encryptionType = streamInfo.encryptionType.toPBType()
-            $0.contentHeader = Livekit_DataStream.Header.OneOf_ContentHeader(streamInfo)
+            $0.contentHeader = Livekit_DataStream_Header_OneOf_ContentHeader(streamInfo)
         }
     }
 
@@ -288,7 +291,7 @@ extension Livekit_DataStream.Header {
     }
 }
 
-extension NanopbBuilder where M == Livekit_DataStream.Header {
+extension NanopbBuilder where S == livekit_DataStream_Header {
     // Mirrors `Livekit_DataStream.Header.timestampDate`; setters live on the builder.
     var timestampDate: Date {
         get { Date(timeIntervalSince1970: TimeInterval(timestamp) / TimeInterval(1000)) }
@@ -296,7 +299,7 @@ extension NanopbBuilder where M == Livekit_DataStream.Header {
     }
 }
 
-extension Livekit_DataStream.Header.OneOf_ContentHeader {
+extension Livekit_DataStream_Header_OneOf_ContentHeader {
     init?(_ streamInfo: StreamInfo) {
         if let textStreamInfo = streamInfo as? TextStreamInfo {
             self = .textHeader(Livekit_DataStream.TextHeader.with {
