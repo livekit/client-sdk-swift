@@ -80,7 +80,7 @@ references the type.
 
 SwiftProtobuf links a ~1.1 MB runtime plus heavy per-message generated code
 regardless of how little of it the SDK uses. nanopb keeps the wire format in
-compact C field tables, and `LiveKitNanopb` is a fixed-cost (~700 line) bridge
+compact C field tables, and `LiveKitNanopb` is a fixed-cost (~770 line) bridge
 that does not grow with the number of messages. The migration cut the SDK's
 download-size contribution by ~1.7 MB. A stripped fork of SwiftProtobuf was
 evaluated and bottoms out ~2.3× larger (see PR #1081 discussion) — the overhead
@@ -129,7 +129,7 @@ Three layers:
    measured on a dead-stripped link with a single exported symbol, message types
    the workload never touched still carried 79–205 live symbols each. Accessor
    *code* strips; types do not. Collapsing 107 nominal types into one took the
-   facades from 214,686 to 89,627 bytes.
+   facades from 214,686 to 90,867 bytes.
 
    Extending through the typealias (`extension Livekit_Room`) is exactly
    `extension NanopbMsg where S == livekit_Room`; Swift resolves a typealias
@@ -148,6 +148,14 @@ Three layers:
    - `_empty` lives on the storage conformance as `_emptyBox`, because Swift
      forbids stored statics in a generic type and a computed `Self()` would
      allocate on every read of an absent submessage.
+   - **Anything per-message that must survive dynamic dispatch belongs on
+     `NanopbStorage`, not a constrained extension.** Messages share one
+     conformance, so there is one witness for each protocol; a member on
+     `extension Livekit_TrackInfo` only binds where the concrete type is known
+     statically. `CustomStringConvertible` learned this the hard way — the
+     per-message `description`s were unreachable from interpolation until they
+     moved onto a `_describe` hook, and every log line rendered
+     `_livekit_TrackInfo`.
 
 A message value is `NanopbMsg<Storage>`, holding `_owner: NanopbAnyBox`
 (lifetime) and `_pointer` (a nanopb C struct in a malloc'd, address-stable
@@ -271,7 +279,9 @@ Reachable improvements once the floor moves:
   `rawValue` / `init?(rawValue:)` pair (~660 lines), and makes the failable
   init honest — it never could fail. The cost is that a `switch` over one needs
   a `default`, which an open enum always required semantically. `CaseIterable`
-  is not emitted; nothing used `allCases`.
+  is not emitted; nothing used `allCases`. Enum values render as
+  `Livekit_VideoQuality(rawValue: 2)` in logs rather than `high` — naming them
+  costs a switch per enum, and the raw value identifies them well enough.
 
 - **Equality/hashing via canonical bytes**: nanopb encodes deterministically
   except map *entry order* is preserved, so equal maps built in different
