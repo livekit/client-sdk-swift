@@ -62,64 +62,15 @@ Dependencies: LiveKitWebRTC, LiveKitUniFFI. (SwiftProtobuf is test-only — see 
 
 ## Protocol Layer (protobuf)
 
-The wire protocol is nanopb-based: `Sources/CLiveKitProto` holds the vendored
-nanopb runtime plus generated C structs, and `Sources/LiveKit/Protos` holds
-generated *immutable* Swift facades over them (runtime in
-`Sources/LiveKitNanopb` — design, memory and concurrency semantics in its
-`AGENTS.md`). SwiftProtobuf is linked only by the test target, as an
-independent "oracle" implementation to verify against.
+The wire protocol is nanopb-based, not SwiftProtobuf: generated C in
+`Sources/CLiveKitProto`, a fixed-cost Swift runtime in `Sources/LiveKitNanopb`,
+and generated facades in `Sources/LiveKit/Protos`. Every message is the one
+generic `NanopbMsg<Storage>`, so the schema contributes no Swift types;
+`Livekit_Room` is a typealias. Messages are immutable — build with `.with { }`.
 
-The schema contributes **no Swift types**: every message is the one generic
-`NanopbMsg<Storage>`, and `Livekit_Room` is a typealias for
-`NanopbMsg<livekit_Room>`. Only field accessors are generated, in extensions
-written through that typealias (`extension Livekit_Room`,
-`extension Livekit_Room.Builder`). That is the shape that costs least — a
-nominal type's metadata and conformance records are emitted into sections the
-runtime must enumerate, so the linker keeps them whether or not anything
-references the type.
-
-- **Building messages**: `Livekit_X.with { $0.field = ... }`; messages have no
-  setters, so `msg.field = x` does not compile. To derive one message from
-  another use `msg.modifying { ... }`, and mark the parameter `consuming` where
-  you can so it mutates in place instead of copying. Nested writes need an
-  explicit submessage: `$0.a = .with { $0.b = c }`.
-
-- **Nested type names are flat**: `Livekit_DataPacket_Kind`, not
-  `Livekit_DataPacket.Kind`. Every message is the same generic type, and
-  constrained extensions of one generic cannot each declare a member of the
-  same name. Parents that only ever *were* namespaces (`Livekit_DataStream`,
-  `Livekit_Encryption`) keep the dotted spelling through a caseless enum.
-
-- **Enums are open**: a proto enum is a `RawRepresentable` struct with static
-  members, not a Swift `enum`, because proto3 enums are open — a peer can send
-  a value this build has never heard of. `case .reliable` still pattern-matches,
-  but a `switch` needs a `default`, and an unknown value is
-  `Livekit_TrackType(rawValue: 10)` rather than a distinct `UNRECOGNIZED` case.
-
-- **Updating protos**: bump the `protocol` submodule, run `make proto`, commit
-  everything it changes (C files, facades, test oracle, conformance
-  exemplars). The check-protocol CI job fails if a regeneration is missing.
-- **Never edit generated code**: `Sources/CLiveKitProto/*.pb.*`,
-  `Sources/LiveKit/Protos/`, `Tests/LiveKitNanopbTests/{Oracle,Generated}/`
-  are all `make proto` output (generator: `scripts/generate-swift-protos.swift`).
-- **Using a new proto type in SDK code**: facades are emitted only for types
-  the SDK references (type-level pruning) — spell the `Livekit_X` type in
-  code, re-run `make proto`, and its facade appears.
-- **Validation**: `Tests/LiveKitNanopbTests` asserts byte-identical encoding
-  against the oracle for a generated, fully-populated exemplar of every
-  message and every oneof variant. `ConformanceEdgeCaseTests` pins the known,
-  deliberate differences: explicit zero scalars are encoded (pointer
-  presence), unknown fields are dropped on re-encode, embedded NULs truncate
-  strings.
-- **ABI**: nanopb configuration (`PB_FIELD_32BIT` etc.) lives in
-  `lk_pb_config.h`, included from the vendored `pb.h` — never in build
-  settings: SPM `cSettings` are invisible to the Swift Clang importer and
-  cause silent struct-layout mismatches. `lk_abi_check.c` guards this at
-  compile time.
-- **Symbols**: the vendored runtime's functions are renamed `pb_*` → `lk_pb_*`
-  (`lk_pb_rename.h`) so a second nanopb in the app (e.g. Firebase pods) can't
-  silently bind against ours under static linking. After a nanopb upgrade the
-  rename list must cover every exported symbol.
+**See [PROTOCOL.md](PROTOCOL.md)** for the update workflow, the design and its
+constraints, memory/concurrency semantics, and the invariants to preserve when
+editing. Regenerate with `make proto`; never edit generated files by hand.
 
 ## Compile-Time Flags
 
