@@ -15,7 +15,7 @@
  */
 
 #if LK_XCFRAMEWORK
-internal import CLiveKitProto
+package import CLiveKitProto
 #elseif !COCOAPODS
 import CLiveKitProto
 import LiveKitNanopb

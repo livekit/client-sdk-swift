@@ -218,7 +218,7 @@ struct GenerateSwiftProtos: ParsableCommand {
     // the prebuilt xcframework resolves CLiveKitProto via its modulemap — the
     // internal import keeps it out of the emitted .swiftinterface.
     #if LK_XCFRAMEWORK
-    internal import CLiveKitProto
+    package import CLiveKitProto
     #elseif !COCOAPODS
     import CLiveKitProto
     import LiveKitNanopb
