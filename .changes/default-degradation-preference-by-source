@@ -1,0 +1,1 @@
+patch type="changed" "Resolve the default video degradation preference from the track source (camera maintains framerate, screen share maintains resolution, others balanced) and apply it to the backup codec's sender as well"
