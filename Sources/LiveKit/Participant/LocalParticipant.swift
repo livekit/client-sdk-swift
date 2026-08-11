@@ -822,8 +822,10 @@ extension LocalParticipant {
 
             // At this point at least 1 audio frame should be generated to continue
             if let track = track as? LocalAudioTrack {
-                // Only wait for frames if audio engine is allowed to start
-                if AudioManager.shared.engineAvailability.isInputAvailable {
+                // Externally fed tracks bypass the ADM capture path the frame
+                // watcher observes, and frames only flow once the app pushes
+                // audio, so there is nothing to wait for here.
+                if track.externalSource == nil, AudioManager.shared.engineAvailability.isInputAvailable {
                     log("[Publish] Waiting for audio frame...")
                     try await track.startWaitingForFrames()
                 }
