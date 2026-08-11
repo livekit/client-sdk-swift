@@ -409,10 +409,8 @@ public extension LocalParticipant {
                         try await self.unpublish(publication: publication)
                         // App audio published as a separate track follows the
                         // screen-share video lifecycle.
-                        if source == .screenShareVideo,
-                           let appAudioPublication = self.getTrackPublication(source: .screenShareAudio) as? LocalTrackPublication
-                        {
-                            try await self.unpublish(publication: appAudioPublication)
+                        if source == .screenShareVideo {
+                            try await self.unpublishAppAudioTrackIfNeeded()
                         }
                     }
                     return publication
@@ -489,8 +487,12 @@ public extension LocalParticipant {
     /// Unpublishes the independent app-audio track that follows the
     /// screen-share video lifecycle, if one is published.
     func unpublishAppAudioTrackIfNeeded() async throws {
-        if let appAudioPublication = getTrackPublication(source: .screenShareAudio) as? LocalTrackPublication {
-            try await unpublish(publication: appAudioPublication)
+        // All matching publications, not just the first: a missed cleanup
+        // must not leave stale tracks behind on the next stop.
+        let appAudioPublications = audioTracks.compactMap { $0 as? LocalTrackPublication }
+            .filter { $0.source == .screenShareAudio }
+        for publication in appAudioPublications {
+            try await unpublish(publication: publication)
         }
     }
 
