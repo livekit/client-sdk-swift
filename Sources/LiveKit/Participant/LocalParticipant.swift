@@ -453,9 +453,16 @@ public extension LocalParticipant {
                     let appAudioTrack = self.prepareAppAudioTrack(options: screenShareOptions, videoTrack: localTrack, room: room)
                     let publication = try await self._publish(track: localTrack, options: publishOptions)
                     if let appAudioTrack {
-                        try await self._publish(track: appAudioTrack, options: AudioPublishOptions(encoding: .presetMusicHighQualityStereo,
-                                                                                                   dtx: false,
-                                                                                                   red: false))
+                        do {
+                            try await self._publish(track: appAudioTrack, options: AudioPublishOptions(encoding: .presetMusicHighQualityStereo,
+                                                                                                       dtx: false,
+                                                                                                       red: false))
+                        } catch {
+                            // Screen share continues without app audio. The
+                            // capturer's sink goes away with the track, so
+                            // audio is dropped, not mixed into the mic.
+                            self.log("Failed to publish app audio track: \(error)", .error)
+                        }
                     }
                     return publication
                     #elseif os(macOS)
@@ -470,9 +477,17 @@ public extension LocalParticipant {
                         let appAudioTrack = self.prepareAppAudioTrack(options: screenShareOptions, videoTrack: track, room: room)
                         let publication = try await self._publish(track: track, options: publishOptions)
                         if let appAudioTrack {
-                            try await self._publish(track: appAudioTrack, options: AudioPublishOptions(encoding: .presetMusicHighQualityStereo,
-                                                                                                       dtx: false,
-                                                                                                       red: false))
+                            do {
+                                try await self._publish(track: appAudioTrack, options: AudioPublishOptions(encoding: .presetMusicHighQualityStereo,
+                                                                                                           dtx: false,
+                                                                                                           red: false))
+                            } catch {
+                                // Screen share continues without app audio.
+                                // The capturer's sink goes away with the
+                                // track, so audio is dropped, not mixed into
+                                // the mic.
+                                self.log("Failed to publish app audio track: \(error)", .error)
+                            }
                         }
                         return publication
                     }
