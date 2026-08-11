@@ -102,7 +102,7 @@ import LiveKitTestSupport
 
     /// End-to-end: pushed audio reaches a remote participant as an
     /// independent screen-share-audio track, with the ADM never started.
-    @Test func publishExternalAudioTrack() async throws {
+    @Test(.tags(.e2e)) func publishExternalAudioTrack() async throws {
         try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
             let room1 = rooms[0]
             let room2 = rooms[1]
@@ -155,6 +155,13 @@ import LiveKitTestSupport
                 try? await Task.sleep(nanoseconds: 30_000_000_000)
                 track.remove(audioRenderer: audioFrameWatcher)
             }
+
+            // The headline guarantee: audio flowed remotely while the ADM
+            // recording path never started. Playout may be running since the
+            // subscribing room shares the process, so only capture state is
+            // asserted.
+            #expect(!AudioManager.shared.isRecordingInitialized)
+            #expect(!AudioManager.shared.isRecording)
         }
     }
 }

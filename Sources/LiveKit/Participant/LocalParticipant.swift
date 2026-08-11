@@ -505,12 +505,21 @@ public extension LocalParticipant {
         guard options.appAudio, options.appAudioPublishMode == .separateTrack else { return nil }
         do {
             let source = try ExternalAudioSource()
+            // Only capturers with an app-audio path can feed the source. Bail
+            // instead of publishing a permanently silent track (e.g. iOS
+            // in-app capture, which has no audio handling).
             #if os(iOS)
-            (videoTrack.capturer as? BroadcastScreenCapturer)?.appAudioSink = source
-            #elseif os(macOS)
-            if #available(macOS 12.3, *) {
-                (videoTrack.capturer as? MacOSScreenCapturer)?.appAudioSink = source
+            guard let capturer = videoTrack.capturer as? BroadcastScreenCapturer else {
+                log("App audio as a separate track requires the broadcast extension capturer, skipping app audio track", .warning)
+                return nil
             }
+            capturer.appAudioSink = source
+            #elseif os(macOS)
+            guard #available(macOS 12.3, *), let capturer = videoTrack.capturer as? MacOSScreenCapturer else {
+                log("App audio as a separate track requires the ScreenCaptureKit capturer, skipping app audio track", .warning)
+                return nil
+            }
+            capturer.appAudioSink = source
             #endif
             return LocalAudioTrack.createTrack(externalSource: source,
                                                reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
