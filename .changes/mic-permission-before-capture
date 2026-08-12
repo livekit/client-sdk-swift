@@ -1,0 +1,1 @@
+patch type="fixed" "Request microphone permission before starting audio capture, which WebRTC no longer does itself"

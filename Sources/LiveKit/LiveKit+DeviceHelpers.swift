@@ -82,3 +82,66 @@ public extension LiveKitSDK {
         return granted
     }
 }
+
+extension LiveKitSDK {
+    /// How to handle the current microphone authorization status before starting capture.
+    enum MicrophoneAccessAction: Equatable {
+        /// Already authorized, start capture.
+        case proceed
+        /// Not yet determined. Trigger the system prompt for a later attempt and fail this one.
+        case triggerPromptAndDeny
+        /// Denied or restricted, so no prompt can change the outcome.
+        case deny
+    }
+
+    /// Decides how to handle the given microphone authorization status.
+    ///
+    /// Separated from the request itself so the policy can be tested without real authorization state.
+    static func microphoneAccessAction(for status: AVAuthorizationStatus) -> MicrophoneAccessAction {
+        switch status {
+        case .authorized:
+            return .proceed
+        case .notDetermined:
+            return .triggerPromptAndDeny
+        case .denied, .restricted:
+            return .deny
+        @unknown default:
+            log("Unknown AVAuthorizationStatus", .error)
+            return .deny
+        }
+    }
+
+    /// Ensures microphone authorization before the `AudioDeviceModule` opens the input.
+    ///
+    /// WebRTC's `AudioEngineDevice` stopped requesting microphone permission itself in
+    /// `144.7559.12`, so the SDK triggers the request here.
+    ///
+    /// The request is deliberately not awaited. `AVCaptureDevice.requestAccess` does not call
+    /// back until the user answers, and when no dialog can be presented, for example because
+    /// the app was woken in the background by CallKit, that answer never arrives. Waiting for
+    /// it would reintroduce the hang the upstream change removed, so capture fails fast and the
+    /// next attempt succeeds once permission has been granted.
+    ///
+    /// Apps that want the prompt resolved before the first publish should call
+    /// ``ensureDeviceAccess(for:)`` while foregrounded.
+    ///
+    /// - Throws: ``LiveKitError`` with type `.deviceAccessDenied`, matching what the
+    ///   `AudioDeviceModule` reports when it refuses to enable the input.
+    static func ensureMicrophoneAccessOrThrow() throws {
+        switch microphoneAccessAction(for: AVCaptureDevice.authorizationStatus(for: .audio)) {
+        case .proceed:
+            return
+        case .triggerPromptAndDeny:
+            AVCaptureDevice.requestAccess(for: .audio) { granted in
+                log("Microphone permission request completed, granted: \(granted)")
+            }
+            throw microphoneAccessDeniedError()
+        case .deny:
+            throw microphoneAccessDeniedError()
+        }
+    }
+
+    private static func microphoneAccessDeniedError() -> LiveKitError {
+        LiveKitError(.deviceAccessDenied, message: "Microphone permission is not granted")
+    }
+}
