@@ -16,9 +16,14 @@
 
 import AVFoundation
 
-// Upper bound on waiting for a permission prompt. Long enough for a user to decide, but ensures a
-// prompt the system defers (for example when the app is not active) cannot suspend the caller.
-private let kDeviceAccessRequestTimeout: TimeInterval = 30
+#if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS))
+import UIKit
+#endif
+
+// Whether this process is an app extension, which cannot present a permission dialog. The broadcast
+// upload extension the SDK supports (see `LKSampleHandler`) is headless, so no prompt can appear.
+// Unlike the app active state, this is known exactly rather than inferred.
+private let kIsAppExtension = Bundle.main.bundleURL.pathExtension == "appex"
 
 public extension LiveKitSDK {
     /// Helper method to ensure authorization for video(camera) / audio(microphone) permissions in a single call.
@@ -46,29 +51,22 @@ public extension LiveKitSDK {
     }
 
     /// Requests authorization for the given media types, but only while the app can present the
-    /// system permission dialog, and never blocks indefinitely.
+    /// system permission dialog.
     ///
-    /// On iOS-family platforms this returns `false` without prompting when the app is not active
-    /// (backgrounded or an app extension), so a caller woken in the background (for example by
-    /// CallKit) does not wait on a dialog that cannot appear. On macOS the prompt can be presented
-    /// regardless, so this behaves like ``ensureDeviceAccess(for:)``.
+    /// An app extension always returns `false` without prompting, since it cannot present the dialog.
     ///
-    /// The request is additionally bounded by a timeout: the system defers (rather than fails) a
-    /// prompt it cannot present, so a bounded wait guarantees this always completes and resolves to
-    /// `false` if the prompt never appears.
+    /// On iOS-family platforms this also returns `false` without prompting when the app is not active,
+    /// so a caller woken in the background (for example by CallKit) does not wait on a dialog that
+    /// cannot appear. On macOS the prompt can be presented regardless, so this otherwise behaves like
+    /// ``ensureDeviceAccess(for:)``.
+    ///
     static func ensureDeviceAccessIfForegrounded(for types: Set<AVMediaType>) async -> Bool {
-        #if os(iOS) || os(visionOS) || os(tvOS)
-        guard await AppStateListener.shared.isApplicationActive else { return false }
+        // Checked before reading the application state below, which app extensions must not do.
+        if kIsAppExtension { return false }
+        #if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS))
+        guard await UIApplication.shared.applicationState == .active else { return false }
         #endif
-        // requestAccess has no cancellation-aware continuation, so race it against a timeout via a
-        // detached task rather than a task group (which would await the abandoned request).
-        let completer = AsyncCompleter<Bool>(label: "DeviceAccess", defaultTimeout: kDeviceAccessRequestTimeout)
-        Task.detached {
-            let granted = await ensureDeviceAccess(for: types)
-            completer.resume(returning: granted)
-        }
-        let granted = try? await completer.wait()
-        return granted ?? false
+        return await ensureDeviceAccess(for: types)
     }
 
     /// Blocking version of ``ensureDeviceAccess(for:)`` that uses a `DispatchGroup` to wait for permissions.
@@ -130,6 +128,10 @@ extension LiveKitSDK {
             guard await ensureDeviceAccessIfForegrounded(for: [.audio]) else {
                 // Distinguish "could not present the prompt" from "the user denied it".
                 if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
+                    if kIsAppExtension {
+                        throw LiveKitError(.deviceAccessDenied,
+                                           message: "Microphone permission cannot be requested from an app extension. Request it in the host app before enabling recording.")
+                    }
                     throw LiveKitError(.deviceAccessDenied,
                                        message: "Microphone permission could not be requested. Request it while the app is in the foreground before enabling recording.")
                 }
