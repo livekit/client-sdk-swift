@@ -16,6 +16,10 @@
 
 import AVFoundation
 
+// Upper bound on waiting for a permission prompt. Long enough for a user to decide, but ensures a
+// prompt the system defers (for example when the app is not active) cannot suspend the caller.
+private let kDeviceAccessRequestTimeout: TimeInterval = 30
+
 public extension LiveKitSDK {
     /// Helper method to ensure authorization for video(camera) / audio(microphone) permissions in a single call.
     static func ensureDeviceAccess(for types: Set<AVMediaType>) async -> Bool {
@@ -39,6 +43,32 @@ public extension LiveKitSDK {
         }
 
         return true
+    }
+
+    /// Requests authorization for the given media types, but only while the app can present the
+    /// system permission dialog, and never blocks indefinitely.
+    ///
+    /// On iOS-family platforms this returns `false` without prompting when the app is not active
+    /// (backgrounded or an app extension), so a caller woken in the background (for example by
+    /// CallKit) does not wait on a dialog that cannot appear. On macOS the prompt can be presented
+    /// regardless, so this behaves like ``ensureDeviceAccess(for:)``.
+    ///
+    /// The request is additionally bounded by a timeout: the system defers (rather than fails) a
+    /// prompt it cannot present, so a bounded wait guarantees this always completes and resolves to
+    /// `false` if the prompt never appears.
+    static func ensureDeviceAccessIfForegrounded(for types: Set<AVMediaType>) async -> Bool {
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        guard await AppStateListener.shared.isApplicationActive else { return false }
+        #endif
+        // requestAccess has no cancellation-aware continuation, so race it against a timeout via a
+        // detached task rather than a task group (which would await the abandoned request).
+        let completer = AsyncCompleter<Bool>(label: "DeviceAccess", defaultTimeout: kDeviceAccessRequestTimeout)
+        Task.detached {
+            let granted = await ensureDeviceAccess(for: types)
+            completer.resume(returning: granted)
+        }
+        let granted = try? await completer.wait()
+        return granted ?? false
     }
 
     /// Blocking version of ``ensureDeviceAccess(for:)`` that uses a `DispatchGroup` to wait for permissions.
@@ -84,60 +114,31 @@ public extension LiveKitSDK {
 }
 
 extension LiveKitSDK {
-    /// How to handle the current microphone authorization status before starting capture.
-    enum MicrophoneAccessAction: Equatable {
-        /// Already authorized, start capture.
-        case proceed
-        /// Not yet determined, so ask and wait for the answer.
-        case request
-        /// Denied or restricted, so no prompt can change the outcome.
-        case deny
-    }
-
-    /// Decides how to handle the given microphone authorization status.
+    /// Ensures microphone access is granted before enabling recording.
     ///
-    /// Separated from the request itself so the policy can be tested without real authorization state.
-    static func microphoneAccessAction(for status: AVAuthorizationStatus) -> MicrophoneAccessAction {
-        switch status {
+    /// The WebRTC audio device no longer requests microphone permission implicitly, so the SDK
+    /// requests it here while the app is foregrounded. When permission is undetermined and the app
+    /// cannot present the prompt (backgrounded or app extension), this fails fast instead of blocking.
+    ///
+    /// - Throws: ``LiveKitError`` of type ``LiveKitErrorType/deviceAccessDenied`` when microphone
+    ///   access is denied or restricted, or when permission is undetermined and cannot be requested.
+    static func ensureMicrophoneAccessForRecording() async throws {
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
-            return .proceed
-        case .notDetermined:
-            return .request
-        case .denied, .restricted:
-            return .deny
-        @unknown default:
-            log("Unknown AVAuthorizationStatus", .error)
-            return .deny
-        }
-    }
-
-    /// Ensures microphone authorization before the `AudioDeviceModule` opens the input.
-    ///
-    /// WebRTC's `AudioEngineDevice` stopped requesting microphone permission itself in
-    /// `144.7559.12`, so the SDK requests it here.
-    ///
-    /// Waiting for the answer is safe because this is an async context. The hang in #815 came
-    /// from blocking WebRTC's worker thread on a semaphore, which wedged the audio subsystem.
-    /// Suspending the calling task does not block any thread, so a caller that cannot show the
-    /// dialog, for example an app woken in the background by CallKit, simply stays suspended
-    /// until the prompt is answered and can cancel its own task if it needs to give up.
-    ///
-    /// - Throws: ``LiveKitError`` with type `.deviceAccessDenied`, matching what the
-    ///   `AudioDeviceModule` reports when it refuses to enable the input.
-    static func ensureMicrophoneAccessOrThrow() async throws {
-        switch microphoneAccessAction(for: AVCaptureDevice.authorizationStatus(for: .audio)) {
-        case .proceed:
             return
-        case .request:
-            guard await AVCaptureDevice.requestAccess(for: .audio) else {
-                throw microphoneAccessDeniedError()
+        case .notDetermined:
+            guard await ensureDeviceAccessIfForegrounded(for: [.audio]) else {
+                // Distinguish "could not present the prompt" from "the user denied it".
+                if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
+                    throw LiveKitError(.deviceAccessDenied,
+                                       message: "Microphone permission could not be requested. Request it while the app is in the foreground before enabling recording.")
+                }
+                throw LiveKitError(.deviceAccessDenied, message: "Microphone permission was denied.")
             }
-        case .deny:
-            throw microphoneAccessDeniedError()
+        case .denied, .restricted:
+            throw LiveKitError(.deviceAccessDenied, message: "Microphone permission is not granted.")
+        @unknown default:
+            throw LiveKitError(.deviceAccessDenied, message: "Microphone permission is not granted.")
         }
-    }
-
-    private static func microphoneAccessDeniedError() -> LiveKitError {
-        LiveKitError(.deviceAccessDenied, message: "Microphone permission is not granted")
     }
 }
