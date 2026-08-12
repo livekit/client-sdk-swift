@@ -23,10 +23,8 @@ import Testing
         #expect(LiveKitSDK.microphoneAccessAction(for: .authorized) == .proceed)
     }
 
-    // Capture must not wait on the prompt, so an undetermined status triggers the request
-    // for a later attempt and fails this one. Waiting is what hung a CallKit-woken publish.
-    @Test func notDeterminedTriggersPromptAndDenies() {
-        #expect(LiveKitSDK.microphoneAccessAction(for: .notDetermined) == .triggerPromptAndDeny)
+    @Test func notDeterminedRequests() {
+        #expect(LiveKitSDK.microphoneAccessAction(for: .notDetermined) == .request)
     }
 
     // No prompt can change these, so they must not trigger one.

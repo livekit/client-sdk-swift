@@ -88,8 +88,8 @@ extension LiveKitSDK {
     enum MicrophoneAccessAction: Equatable {
         /// Already authorized, start capture.
         case proceed
-        /// Not yet determined. Trigger the system prompt for a later attempt and fail this one.
-        case triggerPromptAndDeny
+        /// Not yet determined, so ask and wait for the answer.
+        case request
         /// Denied or restricted, so no prompt can change the outcome.
         case deny
     }
@@ -102,7 +102,7 @@ extension LiveKitSDK {
         case .authorized:
             return .proceed
         case .notDetermined:
-            return .triggerPromptAndDeny
+            return .request
         case .denied, .restricted:
             return .deny
         @unknown default:
@@ -114,28 +114,24 @@ extension LiveKitSDK {
     /// Ensures microphone authorization before the `AudioDeviceModule` opens the input.
     ///
     /// WebRTC's `AudioEngineDevice` stopped requesting microphone permission itself in
-    /// `144.7559.12`, so the SDK triggers the request here.
+    /// `144.7559.12`, so the SDK requests it here.
     ///
-    /// The request is deliberately not awaited. `AVCaptureDevice.requestAccess` does not call
-    /// back until the user answers, and when no dialog can be presented, for example because
-    /// the app was woken in the background by CallKit, that answer never arrives. Waiting for
-    /// it would reintroduce the hang the upstream change removed, so capture fails fast and the
-    /// next attempt succeeds once permission has been granted.
-    ///
-    /// Apps that want the prompt resolved before the first publish should call
-    /// ``ensureDeviceAccess(for:)`` while foregrounded.
+    /// Waiting for the answer is safe because this is an async context. The hang in #815 came
+    /// from blocking WebRTC's worker thread on a semaphore, which wedged the audio subsystem.
+    /// Suspending the calling task does not block any thread, so a caller that cannot show the
+    /// dialog, for example an app woken in the background by CallKit, simply stays suspended
+    /// until the prompt is answered and can cancel its own task if it needs to give up.
     ///
     /// - Throws: ``LiveKitError`` with type `.deviceAccessDenied`, matching what the
     ///   `AudioDeviceModule` reports when it refuses to enable the input.
-    static func ensureMicrophoneAccessOrThrow() throws {
+    static func ensureMicrophoneAccessOrThrow() async throws {
         switch microphoneAccessAction(for: AVCaptureDevice.authorizationStatus(for: .audio)) {
         case .proceed:
             return
-        case .triggerPromptAndDeny:
-            AVCaptureDevice.requestAccess(for: .audio) { granted in
-                log("Microphone permission request completed, granted: \(granted)")
+        case .request:
+            guard await AVCaptureDevice.requestAccess(for: .audio) else {
+                throw microphoneAccessDeniedError()
             }
-            throw microphoneAccessDeniedError()
         case .deny:
             throw microphoneAccessDeniedError()
         }

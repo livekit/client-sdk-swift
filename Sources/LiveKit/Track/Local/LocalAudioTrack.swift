@@ -124,7 +124,7 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
         // WebRTC's AudioEngineDevice no longer requests microphone permission itself, so
         // acquire it here before the engine opens the input. Every microphone path reaches
         // this method, both publishing and pre-connect recording.
-        try LiveKitSDK.ensureMicrophoneAccessOrThrow()
+        try await LiveKitSDK.ensureMicrophoneAccessOrThrow()
         // AudioDeviceModule's InitRecording() and StartRecording() automatically get called by WebRTC, but
         // explicitly init & start it early to detect audio engine failures (mic not accessible for some reason, etc.).
         try AudioManager.shared.startLocalRecording(
