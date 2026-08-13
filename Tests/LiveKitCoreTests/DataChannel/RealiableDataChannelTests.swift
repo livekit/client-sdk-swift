@@ -150,7 +150,7 @@ import LiveKitTestSupport
 
                 // Fire every send into the task group at once. Without the
                 // event-loop-side sequence assignment, the AsyncStream yields
-                // would land in a different order than `withSequence` picked
+                // would land in a different order than the sequence stamp picked
                 // numbers, the SFU would drop the laggards, and the receiver
                 // would surface gaps in `_receivedIndices`.
                 try await withThrowingTaskGroup { group in

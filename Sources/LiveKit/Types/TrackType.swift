@@ -37,7 +37,9 @@ extension Track.Kind {
         case .video:
             .video
         default:
-            .UNRECOGNIZED(10)
+            // 10 is outside the schema: proto3 enums are open, so an unknown
+            // value is carried as itself rather than a distinct case
+            Livekit_TrackType(rawValue: 10)
         }
     }
 }

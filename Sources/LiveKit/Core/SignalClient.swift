@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 actor SignalClient: Loggable {
     // MARK: - Types
 
-    typealias AddTrackRequestPopulator = @Sendable (inout Livekit_AddTrackRequest) throws -> Void
+    typealias AddTrackRequestPopulator = @Sendable (inout Livekit_AddTrackRequest.Builder) throws -> Void
 
     enum ConnectResponse {
         case join(Livekit_JoinResponse)
@@ -305,30 +305,23 @@ private extension SignalClient {
     }
 
     func onWebSocketMessage(_ message: URLSessionWebSocketTask.Message) async {
-        let response: Livekit_SignalResponse?
-        // Serialized protobuf bytes for the data track managers: the received payload as-is for
-        // binary messages, re-serialized only when the message arrived as JSON (string).
-        let rawData: Data?
-        switch message {
-        case let .data(data):
-            response = try? Livekit_SignalResponse(serializedBytes: data)
-            rawData = response != nil ? data : nil
-        case let .string(string):
-            response = try? Livekit_SignalResponse(jsonString: string)
-            rawData = try? response?.serializedData()
-        default:
-            response = nil
-            rawData = nil
+        // The server mirrors the client's encoding and this SDK has sent
+        // binary protobuf since 2021, so text (JSON) frames cannot occur
+        // against livekit-server; they are unsupported here (as on Android).
+        if case .string = message {
+            log("Received JSON signal message, unsupported in this version.", .warning)
+            return
         }
 
-        guard let response else {
+        guard case let .data(rawData) = message,
+              let response = try? Livekit_SignalResponse(serializedBytes: rawData)
+        else {
             log("Failed to decode SignalResponse", .warning)
             return
         }
 
-        if let rawData {
-            _rawResponses.yield((epoch: _rawResponseEpoch, data: rawData))
-        }
+        // Serialized protobuf bytes for the data track managers.
+        _rawResponses.yield((epoch: _rawResponseEpoch, data: rawData))
 
         Task.detached {
             let alwaysProcess = switch response.message {
@@ -354,7 +347,9 @@ private extension SignalClient {
 
         switch message {
         case let .join(joinResponse):
-            _state.mutate { $0.lastJoinResponse = joinResponse }
+            // owned: the oneof getter hands out a view into the decoded
+            // `SignalResponse`, and this is kept for the whole session
+            _state.mutate { $0.lastJoinResponse = joinResponse.owned() }
             _delegate.notifyDetached { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
             _connectResponseCompleter.resume(returning: .join(joinResponse))
             await _restartPingTimer()
@@ -510,15 +505,14 @@ extension SignalClient {
                       encryption: Livekit_Encryption.TypeEnum = .none,
                       _ populator: AddTrackRequestPopulator) async throws -> Livekit_TrackInfo
     {
-        var addTrackRequest = Livekit_AddTrackRequest.with {
+        let addTrackRequest = try Livekit_AddTrackRequest.with {
             $0.cid = cid
             $0.name = name
             $0.type = type
             $0.source = source
             $0.encryption = encryption
+            try populator(&$0)
         }
-
-        try populator(&addTrackRequest)
 
         let request = Livekit_SignalRequest.with {
             $0.addTrack = addTrackRequest

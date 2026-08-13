@@ -151,7 +151,7 @@ func addSources(
 
             let bf = PBXBuildFile(file: fileRef)
             switch ext {
-            case "swift", "m":
+            case "swift", "m", "c":
                 pbxProj.add(object: bf)
                 sourcesBP.files?.append(bf)
             case "xcprivacy":
@@ -223,9 +223,17 @@ func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
         "DEFINES_MODULE": "YES",
         "MACH_O_TYPE": "mh_dylib",
         "CLANG_ENABLE_MODULES": "YES",
-        "HEADER_SEARCH_PATHS": "$(inherited) " + (repoRoot + "Sources/LKObjCHelpers/include").string,
+        "HEADER_SEARCH_PATHS": "$(inherited) "
+            + (repoRoot + "Sources/LKObjCHelpers/include").string + " "
+            + (repoRoot + "Sources/CLiveKitProto/include").string,
         "SWIFT_ACTIVE_COMPILATION_CONDITIONS": "LK_XCFRAMEWORK",
-        "SWIFT_INCLUDE_PATHS": "$(inherited) " + (repoRoot + "Sources/LKObjCHelpers").string,
+        // Both C modules resolve via their committed module.modulemap — textual
+        // clang modules compiled into this target, never public framework API.
+        "SWIFT_INCLUDE_PATHS": "$(inherited) "
+            + (repoRoot + "Sources/LKObjCHelpers").string + " "
+            + (repoRoot + "Sources/CLiveKitProto").string,
+        // `package` access (LiveKitNanopb runtime) needs a package identifier.
+        "SWIFT_PACKAGE_NAME": "livekit_client_sdk_swift",
     ])
     pbxProj.add(object: targetConfig)
     let targetConfigList = XCConfigurationList(buildConfigurations: [targetConfig], defaultConfigurationName: "Release")
@@ -275,13 +283,11 @@ private func addPackageDependencies(
 
     let webrtcPkg = try addPkg(url: "https://github.com/livekit/webrtc-xcframework.git", pattern: "webrtc-xcframework")
     let uniffiPkg = try addPkg(url: "https://github.com/livekit/livekit-uniffi-xcframework.git", pattern: "uniffi-xcframework")
-    let protobufPkg = try addPkg(url: "https://github.com/apple/swift-protobuf.git", pattern: "swift-protobuf")
-    project.remotePackages = [webrtcPkg, uniffiPkg, protobufPkg]
+    project.remotePackages = [webrtcPkg, uniffiPkg]
 
     return [
         addDep(name: "LiveKitWebRTC", package: webrtcPkg),
         addDep(name: "LiveKitUniFFI", package: uniffiPkg),
-        addDep(name: "SwiftProtobuf", package: protobufPkg),
     ]
 }
 
@@ -301,6 +307,21 @@ private func addSourceGroups(
     pbxProj.add(object: objcGroup)
     mainGroup.children.append(objcGroup)
     try addSources(dir: repoRoot + "Sources/LKObjCHelpers", group: objcGroup,
+                   sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj)
+
+    // The nanopb runtime compiles into this module (`package` access keeps it
+    // out of the emitted .swiftinterface); the C protocol layer compiles in as
+    // plain C files, imported by Swift via the CLiveKitProto modulemap.
+    let nanopbGroup = PBXGroup(sourceTree: .group, name: "LiveKitNanopb", path: "Sources/LiveKitNanopb")
+    pbxProj.add(object: nanopbGroup)
+    mainGroup.children.append(nanopbGroup)
+    try addSources(dir: repoRoot + "Sources/LiveKitNanopb", group: nanopbGroup,
+                   sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj)
+
+    let cProtoGroup = PBXGroup(sourceTree: .group, name: "CLiveKitProto", path: "Sources/CLiveKitProto")
+    pbxProj.add(object: cProtoGroup)
+    mainGroup.children.append(cProtoGroup)
+    try addSources(dir: repoRoot + "Sources/CLiveKitProto", group: cProtoGroup,
                    sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj)
 
     // Make ObjC headers public

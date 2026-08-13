@@ -22,10 +22,12 @@ internal import LiveKitWebRTC
 
 extension Livekit_EncryptedPacket {
     init(rtcPacket: LKRTCEncryptedPacket) {
-        encryptionType = .gcm
-        iv = rtcPacket.iv
-        keyIndex = rtcPacket.keyIndex
-        encryptedValue = rtcPacket.data
+        self = .with {
+            $0.encryptionType = .gcm
+            $0.iv = rtcPacket.iv
+            $0.keyIndex = rtcPacket.keyIndex
+            $0.encryptedValue = rtcPacket.data
+        }
     }
 
     func toRTCEncryptedPacket() -> LKRTCEncryptedPacket {
@@ -43,44 +45,44 @@ extension Livekit_EncryptedPacketPayload {
     init?(dataPacket: Livekit_DataPacket) {
         switch dataPacket.value {
         case let .user(user):
-            self.user = user
+            self = .with { $0.user = user }
         case let .chatMessage(chatMessage):
-            self.chatMessage = chatMessage
+            self = .with { $0.chatMessage = chatMessage }
         case let .rpcRequest(rpcRequest):
-            self.rpcRequest = rpcRequest
+            self = .with { $0.rpcRequest = rpcRequest }
         case let .rpcAck(rpcAck):
-            self.rpcAck = rpcAck
+            self = .with { $0.rpcAck = rpcAck }
         case let .rpcResponse(rpcResponse):
-            self.rpcResponse = rpcResponse
+            self = .with { $0.rpcResponse = rpcResponse }
         case let .streamHeader(streamHeader):
-            self.streamHeader = streamHeader
+            self = .with { $0.streamHeader = streamHeader }
         case let .streamChunk(streamChunk):
-            self.streamChunk = streamChunk
+            self = .with { $0.streamChunk = streamChunk }
         case let .streamTrailer(streamTrailer):
-            self.streamTrailer = streamTrailer
+            self = .with { $0.streamTrailer = streamTrailer }
         default:
             return nil
         }
     }
 
-    func applyTo(_ dataPacket: inout Livekit_DataPacket) {
+    func applyTo(_ builder: inout Livekit_DataPacket.Builder) {
         switch value {
         case let .user(userPacket):
-            dataPacket.user = userPacket
+            builder.user = userPacket
         case let .chatMessage(chatMessage):
-            dataPacket.chatMessage = chatMessage
+            builder.chatMessage = chatMessage
         case let .rpcRequest(rpcRequest):
-            dataPacket.rpcRequest = rpcRequest
+            builder.rpcRequest = rpcRequest
         case let .rpcAck(rpcAck):
-            dataPacket.rpcAck = rpcAck
+            builder.rpcAck = rpcAck
         case let .rpcResponse(rpcResponse):
-            dataPacket.rpcResponse = rpcResponse
+            builder.rpcResponse = rpcResponse
         case let .streamHeader(streamHeader):
-            dataPacket.streamHeader = streamHeader
+            builder.streamHeader = streamHeader
         case let .streamChunk(streamChunk):
-            dataPacket.streamChunk = streamChunk
+            builder.streamChunk = streamChunk
         case let .streamTrailer(streamTrailer):
-            dataPacket.streamTrailer = streamTrailer
+            builder.streamTrailer = streamTrailer
         case .none:
             break
         }

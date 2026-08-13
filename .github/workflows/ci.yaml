@@ -127,6 +127,7 @@ jobs:
             -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
             APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
             -only-testing:LiveKitCoreTests \
+            -only-testing:LiveKitNanopbTests \
             -only-testing:LiveKitObjCTests \
             -parallel-testing-enabled NO \
             -retry-tests-on-failure -test-iterations 2 \
@@ -239,10 +240,10 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 30
     env:
-      # Budget for the SDK's uncompressed .app delta, in MB. Bump deliberately
-      # when a size increase is intended (see the job summary for the measured value).
-      SIZE_BASELINE_MB: "17.5"
-      SIZE_TOLERANCE_PCT: "5"
+      # Hard budget for the SDK's uncompressed .app delta, in MB — no tolerance
+      # band. Move it deliberately, in the same commit as the change that needs
+      # it (the job summary reports the measured value).
+      SIZE_BASELINE_MB: "16"
     steps:
       - uses: actions/checkout@v7
         with:
@@ -262,8 +263,7 @@ jobs:
       - name: Measure app size
         run: |
           swiftly run +xcode swift-sh .github/size-check/size-check.swift \
-            --baseline "$SIZE_BASELINE_MB" \
-            --tolerance "$SIZE_TOLERANCE_PCT"
+            --baseline "$SIZE_BASELINE_MB"
 
   check-protocol:
     name: Check Protocol

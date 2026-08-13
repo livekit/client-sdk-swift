@@ -20,7 +20,7 @@ import Testing
 
 /// Runs against a real (local, offline) peer connection to prove the fallback premise
 /// on the shipped libwebrtc binary: a rejected `setLocalDescription` reports an error
-/// without poisoning the peer connection, so retrying with the original SDP works.
+/// without poisoning the peer connection, so retrying with less-munged SDP works.
 @Suite(.tags(.media))
 struct TransportMungeFallbackTests {
     private final class StubTransportDelegate: TransportDelegate {
@@ -32,14 +32,19 @@ struct TransportMungeFallbackTests {
         func transportShouldNegotiate(_: Transport) {}
     }
 
-    /// Runs `body` with a live transport, closing it even when `body` throws so a
-    /// failed test doesn't leak a peer connection into the rest of the parallel run.
+    /// Runs `body` with a live transport carrying a receive-only audio transceiver
+    /// (so offers contain a real Opus section for the munges to edit), closing it even
+    /// when `body` throws so a failed test doesn't leak a peer connection into the
+    /// rest of the parallel run.
     private func withTransport(_ body: (Transport) async throws -> Void) async throws {
         let transport = try Transport(config: .liveKitDefault(),
                                       target: .publisher,
                                       primary: true,
                                       delegate: StubTransportDelegate())
         do {
+            let transceiverInit = LKRTCRtpTransceiverInit()
+            transceiverInit.direction = .recvOnly
+            _ = try await transport.addTransceiver(ofType: .audio, transceiverInit: transceiverInit)
             try await body(transport)
         } catch {
             await transport.close()
@@ -60,25 +65,57 @@ struct TransportMungeFallbackTests {
         }
     }
 
-    @Test func fallsBackToOriginalWhenMungedDescriptionIsRejected() async throws {
+    @Test func appliesTheMungedDescriptionWhenAccepted() async throws {
         try await withTransport { transport in
             let offer = try await transport.createOffer()
-            let garbage = RTC.createSessionDescription(type: .offer, sdp: "this is not sdp")
 
-            let applied = try await transport.set(mungedLocalDescription: garbage, fallingBackTo: offer)
+            let applied = try await transport.set(localDescription: offer,
+                                                  munging: [Transport.mungeOpusStereoForAllAudio])
 
-            #expect(applied.sdp == offer.sdp)
+            #expect(applied !== offer)
+            #expect(applied.sdp == Transport.mungeOpusStereoForAllAudio(offer.sdp))
         }
     }
 
-    @Test func appliesMungedDescriptionWhenAccepted() async throws {
+    /// A no-op composition must set the original directly — object identity proves the
+    /// munged path (which would wrap the SDP in a new description) was never taken.
+    @Test func noOpMungesSetTheOriginalDirectly() async throws {
         try await withTransport { transport in
             let offer = try await transport.createOffer()
-            let munged = RTC.createSessionDescription(type: offer.type, sdp: offer.sdp)
 
-            let applied = try await transport.set(mungedLocalDescription: munged, fallingBackTo: offer)
+            let untouched = try await transport.set(localDescription: offer, munging: [])
+            let identity = try await transport.set(localDescription: offer, munging: [{ $0 }])
 
-            #expect(applied === munged)
+            #expect(untouched === offer)
+            #expect(identity === offer)
+        }
+    }
+
+    @Test func fallsBackToTheOriginalWhenEveryMungeIsRejected() async throws {
+        try await withTransport { transport in
+            let offer = try await transport.createOffer()
+
+            let applied = try await transport.set(localDescription: offer,
+                                                  munging: [{ _ in "this is not sdp" }])
+
+            #expect(applied === offer)
+        }
+    }
+
+    /// Munges are dropped from the right on rejection, so a rejected optional munge
+    /// (here: garbage) cannot revert the required one before it (here: stereo, standing
+    /// in for the single-PC direction rewrite).
+    @Test func rejectionDropsOnlyTheTailMunge() async throws {
+        try await withTransport { transport in
+            let offer = try await transport.createOffer()
+
+            let applied = try await transport.set(localDescription: offer, munging: [
+                Transport.mungeOpusStereoForAllAudio,
+                { _ in "this is not sdp" },
+            ])
+
+            #expect(applied.sdp == Transport.mungeOpusStereoForAllAudio(offer.sdp))
+            #expect(applied.sdp != offer.sdp)
         }
     }
 }

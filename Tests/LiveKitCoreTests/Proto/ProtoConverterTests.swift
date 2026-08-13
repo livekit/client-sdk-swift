@@ -16,6 +16,20 @@
 
 import Foundation
 @testable import LiveKit
+import LiveKitNanopb
+
+/// Lets the comparator recognise a nanopb-backed message at runtime. Every
+/// message is now the same generic type, so there is no per-message type to
+/// test against — and this conformance is test-only, so the SDK pays nothing.
+private protocol ReflectableStorage {
+    /// Dereferences the C storage so Mirror sees the proto fields.
+    var _reflectedStorage: Any { get }
+}
+
+extension NanopbMsg: ReflectableStorage {
+    var _reflectedStorage: Any { _pointer.pointee }
+}
+
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -59,6 +73,13 @@ enum Comparator {
     }
 
     static func extractFields(from instance: some Any, excludedFields: Set<String> = []) -> [FieldInfo] {
+        // nanopb-backed facades keep proto fields in a C struct behind an
+        // owner/pointer pair; reflect the pointed-to storage instead.
+        if let message = instance as? any ReflectableStorage {
+            return extractNanopbFields(
+                from: message._reflectedStorage, excludedFields: excludedFields,
+            )
+        }
         let mirror = Mirror(reflecting: instance)
         var fields: [FieldInfo] = []
         var backingFields: Set<String> = []
@@ -101,6 +122,38 @@ enum Comparator {
             fields.append(FieldInfo(name: label, type: typeString, nonOptionalType: nonOptional))
         }
 
+        return fields.sorted { $0.name < $1.name }
+    }
+
+    /// Fields of an imported nanopb C struct, normalised to proto camelCase
+    /// names and Swift-ish types so they compare against SDK declarations.
+    static func extractNanopbFields(from storage: Any, excludedFields: Set<String>) -> [FieldInfo] {
+        var fields: [FieldInfo] = []
+        for child in Mirror(reflecting: storage).children {
+            guard let label = child.label else { continue }
+            if label == "dummy_field" || label.hasPrefix("has_") || label.hasPrefix("which_")
+                || label.hasSuffix("_count")
+            {
+                continue
+            }
+            let parts = label.split(separator: "_").map(String.init)
+            let name = (parts.first ?? label) + parts.dropFirst()
+                .map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined()
+            if excludedFields.contains(name) { continue }
+
+            // Optional<UnsafeMutablePointer<X>> -> X, then C spellings to Swift
+            var type = extractNonOptionalType(from: String(describing: Swift.type(of: child.value)))
+            if type.hasPrefix("UnsafeMutablePointer<"), type.hasSuffix(">") {
+                type = String(type.dropFirst("UnsafeMutablePointer<".count).dropLast())
+            }
+            switch type {
+            case "CChar", "Int8": type = "String"
+            case "pb_bytes_array_t": type = "Data"
+            default:
+                if type.hasPrefix("livekit_") { type = String(type.dropFirst("livekit_".count)) }
+            }
+            fields.append(FieldInfo(name: name, type: type, nonOptionalType: type))
+        }
         return fields.sorted { $0.name < $1.name }
     }
 

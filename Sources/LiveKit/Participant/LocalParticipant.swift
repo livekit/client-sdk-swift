@@ -509,6 +509,12 @@ extension LocalParticipant {
 
         let sender = transceiver.sender
 
+        // The backup codec publishes over its own sender, so it needs the same degradation
+        // preference the primary sender resolved to.
+        let degradationPreference = publishOptions.degradationPreference.resolve(for: track.source)
+        log("[Publish/Backup] set degradationPreference to \(degradationPreference)")
+        sender.set(degradationPreference: degradationPreference)
+
         // Request a new track to the server
         let trackInfo = try await room.signalClient.sendAddTrack(cid: sender.senderId,
                                                                  name: track.name,
@@ -643,7 +649,7 @@ extension LocalParticipant {
                         populator.stream = streamName
                     }
 
-                    self.log("[publish] requesting add track to server with \(populator)...")
+                    self.log("[publish] requesting add track to server: \(populator.width)x\(populator.height), \(populator.layers.count) layer(s)...")
                 }
             } else if track is LocalAudioTrack {
                 // additional params for Audio
@@ -697,13 +703,10 @@ extension LocalParticipant {
                 if track is LocalVideoTrack {
                     let publishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
 
-                    let degradationPreference = publishOptions.degradationPreference.toRTCType() ?? .maintainResolution
+                    let degradationPreference = publishOptions.degradationPreference.resolve(for: track.source)
 
                     self.log("[publish] set degradationPreference to \(degradationPreference)")
-                    let params = transceiver.sender.parameters
-                    params.degradationPreference = NSNumber(value: degradationPreference.rawValue)
-                    // Changing params directly doesn't work so we need to update params and set it back to sender.parameters
-                    transceiver.sender.parameters = params
+                    transceiver.sender.set(degradationPreference: degradationPreference)
 
                     if let preferredCodec = publishOptions.preferredCodec {
                         try transceiver.set(preferredVideoCodec: preferredCodec)

@@ -18,18 +18,17 @@ internal import LiveKitWebRTC
 
 extension LKRTCSessionDescription {
     func toPBType(offerId: UInt32) -> Livekit_SessionDescription {
-        var sd = Livekit_SessionDescription()
-        sd.sdp = sdp
-        sd.id = offerId
+        Livekit_SessionDescription.with {
+            $0.sdp = sdp
+            $0.id = offerId
 
-        switch type {
-        case .answer: sd.type = "answer"
-        case .offer: sd.type = "offer"
-        case .prAnswer: sd.type = "pranswer"
-        default: fatalError("Unknown state \(type)") // This should never happen
+            switch type {
+            case .answer: $0.type = "answer"
+            case .offer: $0.type = "offer"
+            case .prAnswer: $0.type = "pranswer"
+            default: fatalError("Unknown state \(type)") // This should never happen
+            }
         }
-
-        return sd
     }
 }
 

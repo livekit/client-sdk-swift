@@ -254,4 +254,35 @@ struct SDPTests {
         #expect(appendedIndex != nil)
         #expect(appendedIndex.map { $0 + 1 } == videoMLineIndex)
     }
+
+    /// `nack` and `nack pli` are distinct feedback parameters (RFC 4585 §4.2) — the
+    /// value must match exactly, per payload.
+    @Test func rtcpFeedbackMatchesExactValuePerPayload() {
+        let section = SDP(parsing: """
+        v=0
+        m=video 9 UDP/TLS/RTP/SAVPF 96 97
+        a=rtcp-fb:96 nack pli
+        a=rtcp-fb:97 nack
+        """).mediaSections[0]
+
+        #expect(!section.hasRtcpFeedback("nack", forPayload: "96"))
+        #expect(section.hasRtcpFeedback("nack pli", forPayload: "96"))
+        #expect(section.hasRtcpFeedback("nack", forPayload: "97"))
+        #expect(!section.hasRtcpFeedback("nack", forPayload: "98"))
+    }
+
+    @Test func appendsRtcpFeedbackOnce() {
+        var document = SDP(parsing: """
+        v=0
+        m=audio 9 UDP/TLS/RTP/SAVPF 111
+        a=rtpmap:111 opus/48000/2
+        """)
+
+        let appended = document.mediaSections[0].appendRtcpFeedback("nack", forPayload: "111")
+        let appendedAgain = document.mediaSections[0].appendRtcpFeedback("nack", forPayload: "111")
+
+        #expect(appended)
+        #expect(!appendedAgain)
+        #expect(document.mediaSections[0].lines.last == "a=rtcp-fb:111 nack")
+    }
 }
