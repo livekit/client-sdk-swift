@@ -173,7 +173,7 @@ final class DataTracks: NSObject, @unchecked Sendable {
     fileprivate func remoteTrackPublished(_ track: RemoteDataTrack) {
         guard let room else { return }
         _remoteTracks.mutate { $0.append(track) }
-        let identity = Participant.Identity(from: track.publisherIdentity)
+        let identity = track.publisherIdentity
         guard let participant = room.remoteParticipants[identity] else {
             // The callback can race the participant's registration; the track stays in
             // `_remoteTracks` and attaches on the next participant update.
@@ -204,7 +204,7 @@ final class DataTracks: NSObject, @unchecked Sendable {
     private func reattachRemoteTracks() {
         guard let room else { return }
         for track in _remoteTracks.copy() {
-            guard let participant = room.remoteParticipants[Participant.Identity(from: track.publisherIdentity)] else { continue }
+            guard let participant = room.remoteParticipants[track.publisherIdentity] else { continue }
             attach(track, to: participant, in: room)
         }
     }

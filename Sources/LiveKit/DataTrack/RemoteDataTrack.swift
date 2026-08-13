@@ -36,7 +36,12 @@ public final class RemoteDataTrack: NSObject, Sendable {
     @objc public var info: DataTrackInfo { DataTrackInfo(track.info()) }
 
     /// Identity of the participant publishing this track.
-    @objc public var publisherIdentity: String { track.publisherIdentity() }
+    @objc public var publisherIdentity: Participant.Identity { Participant.Identity(from: track.publisherIdentity()) }
+
+    /// Waits until the track is unpublished, by either the publisher or the SFU.
+    @objc public func waitForUnpublish() async {
+        await track.waitForUnpublish()
+    }
 
     /// Subscribes to the track and returns a ``DataTrackStream`` of incoming frames.
     ///
