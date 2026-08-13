@@ -30,7 +30,8 @@ public extension LocalParticipant {
     /// - Throws: ``DataTrackPublishError`` if the track cannot be published.
     func publishDataTrack(name: String) async throws -> LocalDataTrack {
         guard let dataTracks = _room?.dataTracks else {
-            throw LiveKitError(.invalidState, message: "Not connected to a room")
+            // Same error Rust reports for a publish on a disconnected room.
+            throw DataTrackPublishError.disconnected("Not connected to a room")
         }
         return try await dataTracks.publish(name: name)
     }
