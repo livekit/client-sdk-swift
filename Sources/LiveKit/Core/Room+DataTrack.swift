@@ -134,14 +134,24 @@ final class DataTracks: NSObject, @unchecked Sendable {
         handleParticipantUpdate(participants, localIdentity: localIdentity)
     }
 
+    /// Handles the room discarding its transports for a full reconnect: the publisher channel is
+    /// dead, so re-arm the open gate — a publish issued before the replacement channel arrives
+    /// waits for it instead of proceeding against the torn-down transport. (The channel's own
+    /// `.closed` delegate callback re-arms too, but arrives asynchronously from WebRTC's thread.)
+    func handleTransportsTeardown() {
+        _publisherChannelOpen.rearm()
+    }
+
     func handleReconnect(fullReconnect: Bool) {
         // Quick reconnect preserves local publications via sync state, so only a full reconnect
         // republishes. Either way, re-assert subscriptions so the SFU re-issues subscriber handles.
         if fullReconnect {
             local.republishTracks()
             // A data-track-only publisher needs the publisher transport re-established too; the
-            // media republish path only does this when media tracks exist.
-            if _hasPublished.copy(), let room {
+            // media republish path only does this when media tracks exist. Gate waiters are
+            // publishes that arrived during the reconnect window — their own
+            // `ensurePublisherConnected` ran against the torn-down transport and was a no-op.
+            if _hasPublished.copy() || _publisherChannelOpen.waiterCount > 0, let room {
                 Task { try? await room.ensurePublisherConnected() }
             }
         }
@@ -213,8 +223,10 @@ final class DataTracks: NSObject, @unchecked Sendable {
     // MARK: - Channels
 
     func setPublisherChannel(_ channel: LKRTCDataChannel) {
-        // A new channel arrives unopened (e.g. swapped in by a full reconnect); re-arm the gate.
-        _publisherChannelOpen.reset()
+        // A new channel arrives unopened (e.g. swapped in by a full reconnect); re-arm the gate
+        // without cancelling waiters — a publish issued during the reconnect window keeps waiting
+        // for this channel to open.
+        _publisherChannelOpen.rearm()
         _publisherChannel.mutate { $0 = channel }
         channel.delegate = self
         if channel.readyState == .open {
@@ -292,12 +304,18 @@ final class DataTracks: NSObject, @unchecked Sendable {
 
 extension DataTracks: LKRTCDataChannelDelegate {
     func dataChannelDidChangeState(_ dataChannel: LKRTCDataChannel) {
-        if dataChannel === publisherChannel, dataChannel.readyState == .open {
+        guard dataChannel === publisherChannel else { return }
+        if dataChannel.readyState == .open {
             _publisherChannelOpen.resume(returning: ())
             // Drain anything queued while the channel was still opening.
             DispatchQueue.liveKitWebRTC.async { [weak self] in
                 self?.frameSender.pump()
             }
+        } else {
+            // The channel left `.open` (transport teardown or failure): re-arm the gate so a
+            // publish issued before the replacement channel arrives waits instead of proceeding
+            // against a dead transport.
+            _publisherChannelOpen.rearm()
         }
     }
 
@@ -323,7 +341,10 @@ extension Room {
     func cleanUpDataTracks(isFullReconnect: Bool = false) {
         // Session-scoped: keep the subsystem across a full reconnect so its managers can republish;
         // tear it down only on a real disconnect.
-        guard !isFullReconnect else { return }
+        guard !isFullReconnect else {
+            dataTracks?.handleTransportsTeardown()
+            return
+        }
         _dataTracks.mutate { $0 = nil }
     }
 }

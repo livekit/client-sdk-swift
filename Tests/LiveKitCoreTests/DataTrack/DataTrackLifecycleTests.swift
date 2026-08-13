@@ -95,6 +95,36 @@ struct DataTrackLifecycleTests {
         }
     }
 
+    /// A publish issued while a full reconnect is in flight waits for the new publisher channel
+    /// (the open-gate is re-armed on teardown) instead of proceeding against the dead transport.
+    @Test
+    func publishDuringFullReconnect() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let publisher = rooms[0]
+            let subscriber = rooms[1]
+
+            // startReconnect only returns once the reconnect completes, so run it concurrently
+            // and catch the teardown window: transports discarded, replacements not yet up.
+            let reconnect = Task { try await publisher.startReconnect(reason: .debug, nextReconnectMode: .full) }
+            let deadline = Date().addingTimeInterval(10)
+            while publisher._state.transport != nil, Date() < deadline {
+                try await Task.sleep(nanoseconds: 2_000_000)
+            }
+            #expect(publisher._state.transport == nil, "Never observed the reconnect teardown window")
+
+            // The publish must wait for the reconnected channel instead of failing on the dead one.
+            let track = try await publisher.localParticipant.publishDataTrack(name: "during-reconnect")
+            #expect(track.isPublished)
+            try await reconnect.value
+
+            _ = try await subscriber.waitForDataTrack(name: "during-reconnect")
+            _ = track.isPublished // keep the publication alive until the subscriber sees it
+        }
+    }
+
     /// Frames keep flowing across a quick reconnect: `SyncState.publishDataTracks` preserves the
     /// publication and the resumed transports keep the subscription, so the same stream delivers.
     @Test
