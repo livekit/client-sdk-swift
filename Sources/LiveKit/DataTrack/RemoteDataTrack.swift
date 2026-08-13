@@ -45,6 +45,10 @@ public final class RemoteDataTrack: NSObject, Sendable {
 
     /// Subscribes to the track and returns a ``DataTrackStream`` of incoming frames.
     ///
+    /// Subscribing more than once is allowed: the streams share one pipeline, each receives every
+    /// frame from the moment it subscribes (nothing is replayed), and later calls don't change
+    /// the buffer size.
+    ///
     /// - Parameter bufferSize: Maximum number of received frames buffered internally before the
     ///   oldest is dropped. A value of 0 is clamped to 1. In Objective-C this argument is required.
     /// - Throws: ``DataTrackSubscribeError`` if the subscription cannot be established.
