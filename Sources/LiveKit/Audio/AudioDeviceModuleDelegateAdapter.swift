@@ -40,11 +40,13 @@ class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate
         return entryPoint?.engineDidCreate(engine) ?? 0
     }
 
-    func audioDeviceModule(_: LKRTCAudioDeviceModule, willEnableEngine engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool, isVoiceProcessingEnabled _: Bool) -> Int {
-        // isVoiceProcessingEnabled is new in the ADM delegate (webrtc-sdk
-        // PR 275). Ignored for now, exposing it through AudioEngineObserver
-        // is a separate API addition.
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, willEnableEngine engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool, isVoiceProcessingEnabled: Bool) -> Int {
         guard let audioManager else { return 0 }
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        // The session observer configures the AVAudioSession during this transition, so hand it
+        // the voice processing state the ADM resolved before the chain runs.
+        audioManager.audioSession.setPlatformVoiceProcessingActive(isVoiceProcessingEnabled)
+        #endif
         let entryPoint = audioManager.buildEngineObserverChain()
         return entryPoint?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
     }
