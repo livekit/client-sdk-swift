@@ -83,6 +83,32 @@ struct DataTrackTests {
         }
     }
 
+    // MARK: - Without E2EE
+
+    /// Data tracks work without E2EE: the publication is not marked encrypted and frames arrive
+    /// as sent. Pins the no-encryption path, which every other test here skips — `withRooms`
+    /// enables E2EE by default.
+    @Test
+    func publishAndReceiveWithoutE2ee() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(isE2eeEnabled: false, canPublishData: true),
+            RoomTestingOptions(isE2eeEnabled: false, canSubscribe: true),
+        ]) { rooms in
+            let watcher = DataTrackWatcher(expectedName: "plaintext")
+            rooms[1].delegates.add(delegate: watcher)
+
+            let track = try await rooms[0].localParticipant.publishDataTrack(name: "plaintext")
+            let remoteTrack = try await watcher.waitForTrack()
+            #expect(!remoteTrack.info.usesE2ee)
+
+            let stream = try await remoteTrack.subscribe()
+            let payload = Data([0x0B, 0x0E])
+            try track.tryPush(frame: DataTrackFrame(payload: payload))
+            let frame = try #require(await stream.next())
+            #expect(frame.payload == payload)
+        }
+    }
+
     // MARK: - Publish Duplicate Name
 
     @Test

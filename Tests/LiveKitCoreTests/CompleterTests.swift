@@ -38,6 +38,34 @@ struct CompleterTests {
         }
     }
 
+    @Test func completerRearm() async throws {
+        let completer = AsyncCompleter<Void>(label: "rearm-test", defaultTimeout: 1)
+
+        // Resolved: wait returns immediately.
+        completer.resume(returning: ())
+        try await completer.wait()
+
+        // Re-armed: the cached result is cleared, so a new wait blocks (and times out here).
+        completer.rearm()
+        await #expect(throws: LiveKitError.self) {
+            try await completer.wait()
+        }
+
+        // Unlike reset, rearm keeps in-flight waiters: they resume with the next result.
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                try await completer.wait()
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: 100_000_000)
+                completer.rearm() // must not cancel the waiter above
+                try await Task.sleep(nanoseconds: 100_000_000)
+                completer.resume(returning: ())
+            }
+            try await group.waitForAll()
+        }
+    }
+
     @Test func completerCancel() async throws {
         let completer = AsyncCompleter<Void>(label: "cancel-test", defaultTimeout: 30)
         do {

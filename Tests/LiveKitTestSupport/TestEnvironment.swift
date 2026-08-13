@@ -91,7 +91,9 @@ public enum TestEnvironment {
                 clientProtocol: $0.element.clientProtocol ?? ConnectOptions().clientProtocol,
             )
 
-            let encryptionOptions = $0.element.encryptionOptions ?? EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
+            let encryptionOptions = $0.element.isE2eeEnabled
+                ? $0.element.encryptionOptions ?? EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
+                : nil
             let roomOptions = RoomOptions(encryptionOptions: encryptionOptions, reportRemoteTrackStatistics: true, singlePeerConnection: $0.element.singlePeerConnection)
 
             let room = Room(delegate: $0.element.delegate, connectOptions: connectOptions, roomOptions: roomOptions)
