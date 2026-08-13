@@ -23,7 +23,7 @@ internal import LiveKitUniFFI
 ///
 /// The publication follows this object's lifetime: releasing the last reference unpublishes the
 /// track, as does calling ``unpublish()``.
-public final class LocalDataTrack: NSObject, Sendable, FFIBridged {
+public final class LocalDataTrack: NSObject, Sendable {
     private let track: LiveKitUniFFI.LocalDataTrack
 
     init(_ track: LiveKitUniFFI.LocalDataTrack) {

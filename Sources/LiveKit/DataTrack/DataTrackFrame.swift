@@ -19,7 +19,7 @@ import Foundation
 internal import LiveKitUniFFI
 
 /// A single unit of application data sent or received over a data track.
-public final class DataTrackFrame: NSObject, Sendable, FFIBridged {
+public final class DataTrackFrame: NSObject, Sendable {
     /// The application payload carried by this frame.
     @objc public let payload: Data
 
