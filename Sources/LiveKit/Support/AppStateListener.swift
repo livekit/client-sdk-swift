@@ -42,33 +42,10 @@ class AppStateListener: Loggable {
     private let _queue = OperationQueue()
     let delegates = MulticastDelegate<AppStateDelegate>(label: "AppStateDelegate")
 
-    /// Whether the host app is currently active (foregrounded) and can present system UI such as a
-    /// permission prompt.
-    ///
-    /// Defaults to `true` (optimistic): this listener is created lazily, often after launch, so it can
-    /// miss the initial activation and cannot read the current state extension-safely. Callers that
-    /// must not block on a system prompt should still bound their request with a timeout, since a
-    /// prompt is deferred (not failed) when the app turns out not to be active.
-    private(set) var isApplicationActive: Bool = true
-
     private init() {
         let defaultCenter = NotificationCenter.default
 
         #if os(iOS) || os(visionOS) || os(tvOS)
-        defaultCenter.addObserver(forName: UIApplication.didBecomeActiveNotification,
-                                  object: nil,
-                                  queue: .main)
-        { _ in
-            MainActor.assumeIsolated { self.isApplicationActive = true }
-        }
-
-        defaultCenter.addObserver(forName: UIApplication.willResignActiveNotification,
-                                  object: nil,
-                                  queue: .main)
-        { _ in
-            MainActor.assumeIsolated { self.isApplicationActive = false }
-        }
-
         defaultCenter.addObserver(forName: UIApplication.didEnterBackgroundNotification,
                                   object: nil,
                                   queue: _queue)

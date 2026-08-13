@@ -22,8 +22,23 @@ import UIKit
 
 // Whether this process is an app extension, which cannot present a permission dialog. The broadcast
 // upload extension the SDK supports (see `LKSampleHandler`) is headless, so no prompt can appear.
-// Unlike the app active state, this is known exactly rather than inferred.
 private let kIsAppExtension = Bundle.main.bundleURL.pathExtension == "appex"
+
+#if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS))
+// Resolves `UIApplication.shared` through the Objective-C runtime because referencing it directly
+// does not compile with APPLICATION_EXTENSION_API_ONLY=YES, and consumers build this module into
+// broadcast upload extensions. An extension process is prohibited from calling `sharedApplication`,
+// so callers must be guarded by `kIsAppExtension`; the selector itself would resolve there too.
+@MainActor
+private func isApplicationActive() -> Bool {
+    let selector = NSSelectorFromString("sharedApplication")
+    guard UIApplication.responds(to: selector),
+          let shared = UIApplication.perform(selector),
+          let application = shared.takeUnretainedValue() as? UIApplication
+    else { return false }
+    return application.applicationState == .active
+}
+#endif
 
 public extension LiveKitSDK {
     /// Helper method to ensure authorization for video(camera) / audio(microphone) permissions in a single call.
@@ -59,12 +74,10 @@ public extension LiveKitSDK {
     /// so a caller woken in the background (for example by CallKit) does not wait on a dialog that
     /// cannot appear. On macOS the prompt can be presented regardless, so this otherwise behaves like
     /// ``ensureDeviceAccess(for:)``.
-    ///
     static func ensureDeviceAccessIfForegrounded(for types: Set<AVMediaType>) async -> Bool {
-        // Checked before reading the application state below, which app extensions must not do.
         if kIsAppExtension { return false }
         #if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS))
-        guard await UIApplication.shared.applicationState == .active else { return false }
+        guard await isApplicationActive() else { return false }
         #endif
         return await ensureDeviceAccess(for: types)
     }
