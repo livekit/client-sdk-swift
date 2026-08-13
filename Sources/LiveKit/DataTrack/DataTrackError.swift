@@ -91,3 +91,47 @@ public enum DataTrackSubscribeError: Error, Sendable {
         }
     }
 }
+
+// MARK: - LocalizedError
+
+// Surfaces the message carried by every case, so `localizedDescription` is meaningful — this is
+// all Objective-C sees of these errors (the enums can't be @objc).
+
+extension DataTrackPublishError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case let .notAllowed(message),
+             let .duplicateName(message),
+             let .invalidName(message),
+             let .timeout(message),
+             let .limitReached(message),
+             let .disconnected(message),
+             let .invalidSchema(message),
+             let .internalError(message):
+            message
+        }
+    }
+}
+
+extension DataTrackPushFrameError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case let .trackUnpublished(message),
+             let .queueFull(message),
+             let .internalError(message):
+            message
+        }
+    }
+}
+
+extension DataTrackSubscribeError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case let .unpublished(message),
+             let .timeout(message),
+             let .disconnected(message),
+             let .internalError(message):
+            message
+        }
+    }
+}
