@@ -109,7 +109,7 @@ actor SignalClient: Loggable {
     // down in `cleanUp` — so messages still buffered from a dead connection are dropped, not
     // applied to the next.
     private var _rawResponses: AsyncStream<Data>.Continuation?
-    private var _rawResponsesConsumer: Task<Void, Never>?
+    private var _rawResponsesConsumer: AnyTaskCancellable?
 
     init() {
         log()
@@ -121,11 +121,6 @@ actor SignalClient: Loggable {
                 _delegate.notifyDetached { await $0.signalClient(self, didUpdateConnectionState: newState.connectionState, oldState: oldState.connectionState, disconnectError: self.disconnectError) }
             }
         }
-    }
-
-    deinit {
-        _rawResponses?.finish()
-        _rawResponsesConsumer?.cancel()
     }
 
     @discardableResult
@@ -177,15 +172,7 @@ actor SignalClient: Loggable {
                                              connectOptions: connectOptions)
             connectSpan?.record("ws_open")
 
-            // Raw data-track responses for this connection; see the property note.
-            let (rawResponses, rawContinuation) = AsyncStream.makeStream(of: Data.self)
-            _rawResponses = rawContinuation
-            _rawResponsesConsumer = Task { [weak self] in
-                for await data in rawResponses {
-                    guard let self else { break }
-                    try? await _delegate.notifyAsync { await $0.signalClient(self, didReceiveRawResponse: data) }
-                }
-            }
+            armRawResponses()
 
             let messageLoopTask = socket.subscribe(self) { observer, message in
                 await observer.onWebSocketMessage(message)
@@ -283,10 +270,9 @@ actor SignalClient: Loggable {
         await _addTrackCompleters.reset(throwing: disconnectError)
         await _requestQueue.clear()
         await _responseQueue.clear()
-        // Drop raw data-track responses still buffered from this connection. Cancel the consumer
-        // (not just finish) so an undrained backlog is discarded rather than delivered.
+        // Drop raw data-track responses still buffered from this connection (releasing the
+        // consumer cancels it; finishing alone would let it drain the backlog).
         _rawResponses?.finish()
-        _rawResponsesConsumer?.cancel()
         _rawResponses = nil
         _rawResponsesConsumer = nil
 
@@ -308,6 +294,18 @@ private extension SignalClient {
         }
 
         await _requestQueue.processIfResumed(request, elseEnqueue: request.canBeQueued())
+    }
+
+    /// Arms the raw data-track response pipeline for a new connection; see the property note.
+    func armRawResponses() {
+        let (rawResponses, continuation) = AsyncStream.makeStream(of: Data.self)
+        _rawResponses = continuation
+        _rawResponsesConsumer = Task { [weak self] in
+            for await data in rawResponses {
+                guard let self else { break }
+                try? await _delegate.notifyAsync { await $0.signalClient(self, didReceiveRawResponse: data) }
+            }
+        }.cancellable()
     }
 
     func onWebSocketMessage(_ message: URLSessionWebSocketTask.Message) async {

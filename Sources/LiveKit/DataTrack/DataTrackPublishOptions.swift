@@ -18,10 +18,10 @@ import Foundation
 
 /// Options for publishing a data track via
 /// ``LocalParticipant/publishDataTrack(name:options:)``.
-@objc
+@objcMembers
 public final class DataTrackPublishOptions: NSObject, Sendable {
     /// Schema describing the track's frames.
-    @objc public let schema: DataTrackSchemaId?
+    public let schema: DataTrackSchemaId?
     /// Encoding of the track's frames.
     @nonobjc public let frameEncoding: DataTrackFrameEncoding?
     /// The frame encoding as its identifier string; Objective-C sees this as `frameEncoding`.

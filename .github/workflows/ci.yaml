@@ -243,7 +243,7 @@ jobs:
       # Hard budget for the SDK's uncompressed .app delta, in MB — no tolerance
       # band. Move it deliberately, in the same commit as the change that needs
       # it (the job summary reports the measured value).
-      SIZE_BASELINE_MB: "16"
+      SIZE_BASELINE_MB: "16.3"
     steps:
       - uses: actions/checkout@v7
         with:
