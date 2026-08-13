@@ -101,26 +101,17 @@ actor SignalClient: Loggable {
 
     let _state = StateSync(State())
 
-    // Raw data-track responses drain through a single consumer task so the managers see them in
-    // wire order — a detached task per message could reorder e.g. a publish/unpublish response
-    // pair. The path deliberately bypasses `_responseQueue`: the data-track managers own their
-    // reconnect semantics (republish, subscription re-requests, sync state) and consume wire
-    // order directly. Items are stamped with a connection epoch — `cleanUp` advances it — so
-    // messages still buffered from a torn-down connection are dropped, not applied to the next.
-    private let _rawResponses: AsyncStream<(epoch: Int, data: Data)>.Continuation
-    private var _rawResponseEpoch = 0
+    // Raw data-track responses drain through a single consumer task per connection, so the
+    // managers see them in wire order — a detached task per message could reorder e.g. a
+    // publish/unpublish response pair. The path deliberately bypasses `_responseQueue`: the
+    // data-track managers own their reconnect semantics (republish, subscription re-requests,
+    // sync state) and consume wire order directly. Connection-scoped — armed in `connect`, torn
+    // down in `cleanUp` — so messages still buffered from a dead connection are dropped, not
+    // applied to the next.
+    private var _rawResponses: AsyncStream<Data>.Continuation?
+    private var _rawResponsesConsumer: Task<Void, Never>?
 
     init() {
-        let (rawResponses, continuation) = AsyncStream.makeStream(of: (epoch: Int, data: Data).self)
-        _rawResponses = continuation
-        Task { [weak self] in
-            for await item in rawResponses {
-                guard let self else { break }
-                guard await item.epoch == _rawResponseEpoch else { continue }
-                try? await _delegate.notifyAsync { await $0.signalClient(self, didReceiveRawResponse: item.data) }
-            }
-        }
-
         log()
         _state.onDidMutate = { [weak self] newState, oldState in
             guard let self else { return }
@@ -133,7 +124,8 @@ actor SignalClient: Loggable {
     }
 
     deinit {
-        _rawResponses.finish()
+        _rawResponses?.finish()
+        _rawResponsesConsumer?.cancel()
     }
 
     @discardableResult
@@ -184,6 +176,16 @@ actor SignalClient: Loggable {
                                              token: token,
                                              connectOptions: connectOptions)
             connectSpan?.record("ws_open")
+
+            // Raw data-track responses for this connection; see the property note.
+            let (rawResponses, rawContinuation) = AsyncStream.makeStream(of: Data.self)
+            _rawResponses = rawContinuation
+            _rawResponsesConsumer = Task { [weak self] in
+                for await data in rawResponses {
+                    guard let self else { break }
+                    try? await _delegate.notifyAsync { await $0.signalClient(self, didReceiveRawResponse: data) }
+                }
+            }
 
             let messageLoopTask = socket.subscribe(self) { observer, message in
                 await observer.onWebSocketMessage(message)
@@ -281,8 +283,12 @@ actor SignalClient: Loggable {
         await _addTrackCompleters.reset(throwing: disconnectError)
         await _requestQueue.clear()
         await _responseQueue.clear()
-        // Invalidate raw data-track responses still buffered from this connection.
-        _rawResponseEpoch += 1
+        // Drop raw data-track responses still buffered from this connection. Cancel the consumer
+        // (not just finish) so an undrained backlog is discarded rather than delivered.
+        _rawResponses?.finish()
+        _rawResponsesConsumer?.cancel()
+        _rawResponses = nil
+        _rawResponsesConsumer = nil
 
         _state.mutate {
             $0.disconnectError = LiveKitError.from(error: disconnectError)
@@ -321,7 +327,7 @@ private extension SignalClient {
         }
 
         // Serialized protobuf bytes for the data track managers.
-        _rawResponses.yield((epoch: _rawResponseEpoch, data: rawData))
+        _rawResponses?.yield(rawData)
 
         Task.detached {
             let alwaysProcess = switch response.message {
