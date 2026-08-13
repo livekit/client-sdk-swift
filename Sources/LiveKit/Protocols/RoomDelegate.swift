@@ -330,12 +330,4 @@ public protocol RoomDelegate: AnyObject, Sendable {
     /// A remote participant unpublished the data track with the given SID.
     @objc(room:remoteParticipant:didUnpublishDataTrack:) optional
     func room(_ room: Room, participant: RemoteParticipant, didUnpublishDataTrack sid: DataTrack.Sid)
-
-    /// The ``LocalParticipant`` published a data track.
-    @objc(room:localParticipant:didPublishDataTrack:) optional
-    func room(_ room: Room, participant: LocalParticipant, didPublishDataTrack track: LocalDataTrack)
-
-    /// The ``LocalParticipant`` unpublished the data track with the given SID.
-    @objc(room:localParticipant:didUnpublishDataTrack:) optional
-    func room(_ room: Room, participant: LocalParticipant, didUnpublishDataTrack sid: DataTrack.Sid)
 }

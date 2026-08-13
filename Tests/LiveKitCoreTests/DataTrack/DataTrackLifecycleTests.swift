@@ -31,7 +31,7 @@ struct DataTrackLifecycleTests {
         try await TestEnvironment.withRooms([
             RoomTestingOptions(roomName: roomName, canPublishData: true),
         ]) { pubRooms in
-            _ = try await pubRooms[0].localParticipant.publishDataTrack(name: "pre-join")
+            let track = try await pubRooms[0].localParticipant.publishDataTrack(name: "pre-join")
 
             // The subscriber joins *after* the publish; its watcher is the delegate from creation,
             // so it catches the publish delivered during connect (via the JoinResponse). A distinct
@@ -43,31 +43,7 @@ struct DataTrackLifecycleTests {
                 let remoteTrack = try await watcher.waitForTrack()
                 #expect(remoteTrack.info.name == "pre-join")
             }
-        }
-    }
-
-    // MARK: - Publication Lifetime
-
-    /// The SDK retains the publication, so dropping the returned handle does not unpublish it
-    /// (matching JS; the raw Rust handle unpublishes on drop).
-    @Test
-    func retainsPublicationWhenHandleDropped() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canSubscribe: true),
-        ]) { rooms in
-            let subscriber = rooms[1]
-            let watcher = DataTrackWatcher(expectedName: "retained")
-            subscriber.delegates.add(delegate: watcher)
-
-            // Publish and immediately discard the handle.
-            _ = try await rooms[0].localParticipant.publishDataTrack(name: "retained")
-
-            let remoteTrack = try await watcher.waitForTrack()
-            #expect(remoteTrack.info.name == "retained")
-            // Still published a beat later — the dropped handle did not tear it down.
-            try await Task.sleep(nanoseconds: 1_000_000_000)
-            #expect(remoteTrack.isPublished)
+            _ = track.isPublished // keep `track` alive across the subscriber's join
         }
     }
 
@@ -85,7 +61,7 @@ struct DataTrackLifecycleTests {
             let publisher = rooms[0]
             let subscriber = rooms[1]
 
-            _ = try await publisher.localParticipant.publishDataTrack(name: "survives-reconnect")
+            let track = try await publisher.localParticipant.publishDataTrack(name: "survives-reconnect")
             // Confirm the subscriber sees the initial publication.
             let remoteTrack = try await subscriber.waitForDataTrack(name: "survives-reconnect")
             let originalSid = remoteTrack.info.sid
@@ -115,6 +91,7 @@ struct DataTrackLifecycleTests {
             if await (try? recorder.waitFor(.roomRemotePublish, timeout: 2)) != nil {
                 #expect(try await recorder.waitFor(.roomRemoteUnpublish, timeout: 2) == originalSid)
             }
+            _ = track.isPublished // keep the publication alive across the reconnect (dropping it unpublishes)
         }
     }
 

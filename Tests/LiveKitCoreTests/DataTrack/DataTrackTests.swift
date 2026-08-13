@@ -96,6 +96,7 @@ struct DataTrackTests {
             await #expect(throws: DataTrackPublishError.self) {
                 _ = try await room.localParticipant.publishDataTrack(name: "dup")
             }
+            _ = first.isPublished // keep "dup" published while the duplicate attempt runs
         }
     }
 
@@ -246,12 +247,13 @@ struct DataTrackTests {
             let watcher = DataTrackWatcher(expectedName: "attached")
             rooms[1].delegates.add(delegate: watcher)
 
-            _ = try await rooms[0].localParticipant.publishDataTrack(name: "attached")
+            let track = try await rooms[0].localParticipant.publishDataTrack(name: "attached")
             let remoteTrack = try await watcher.waitForTrack()
 
             let publisherIdentity = try #require(rooms[0].localParticipant.identity)
             let publisher = try #require(rooms[1].remoteParticipants[publisherIdentity])
             #expect(publisher.dataTracks[remoteTrack.info.sid] != nil)
+            _ = track.isPublished // keep the publication alive through the assertions (dropping it unpublishes)
         }
     }
 
@@ -289,12 +291,13 @@ struct DataTrackTests {
             let watcher = DataTrackWatcher(expectedName: "on-disconnect")
             subscriber.delegates.add(delegate: watcher)
 
-            // Discarding the handle is safe — the SDK retains the publication until unpublish.
-            _ = try await publisher.localParticipant.publishDataTrack(name: "on-disconnect")
+            let track = try await publisher.localParticipant.publishDataTrack(name: "on-disconnect")
             let remoteTrack = try await watcher.waitForTrack()
 
-            // Full disconnect, not an explicit unpublish.
+            // Full disconnect, not an explicit unpublish (the handle stays alive so the drop
+            // doesn't cause the unpublish itself).
             await publisher.disconnect()
+            _ = track.isPublished
 
             // Bounded wait: cancel the (otherwise unbounded) watcher if nothing arrives in time.
             let unpublishTask = Task { try await watcher.waitForUnpublish() }
@@ -309,8 +312,8 @@ struct DataTrackTests {
         }
     }
 
-    /// Publish/unpublish fires on both delegates (Room + Participant), for the local publisher and
-    /// the remote subscriber — parity with media tracks.
+    /// Publish/unpublish fires on both subscriber-side delegates (Room + Participant). Local
+    /// publications have no delegate events (as in Rust) — the returned handle is the observer.
     @Test
     func publishAndUnpublishNotifyAllDelegates() async throws {
         try await TestEnvironment.withRooms([
@@ -320,30 +323,21 @@ struct DataTrackTests {
             let publisher = rooms[0]
             let subscriber = rooms[1]
 
-            let pubRecorder = DataTrackDelegateRecorder()
-            publisher.delegates.add(delegate: pubRecorder) // local room events
-            publisher.localParticipant.delegates.add(delegate: pubRecorder) // local participant events
-
             // The subscriber already discovered the publisher (withRooms waits), so its
             // RemoteParticipant exists; register before publishing to catch the publish event.
             let publisherIdentity = try #require(publisher.localParticipant.identity)
             let remotePublisher = try #require(subscriber.remoteParticipants[publisherIdentity])
             let subRecorder = DataTrackDelegateRecorder()
-            subscriber.delegates.add(delegate: subRecorder) // remote room events
-            remotePublisher.delegates.add(delegate: subRecorder) // remote participant events
+            subscriber.delegates.add(delegate: subRecorder) // room events
+            remotePublisher.delegates.add(delegate: subRecorder) // participant events
 
             let track = try await publisher.localParticipant.publishDataTrack(name: "delegated")
-            let localSid = track.info.sid
 
-            #expect(try await pubRecorder.waitFor(.roomLocalPublish) == localSid)
-            #expect(try await pubRecorder.waitFor(.participantLocalPublish) == localSid)
             let remoteSid = try await subRecorder.waitFor(.roomRemotePublish)
             #expect(try await subRecorder.waitFor(.participantRemotePublish) == remoteSid)
 
             track.unpublish()
 
-            #expect(try await pubRecorder.waitFor(.roomLocalUnpublish) == localSid)
-            #expect(try await pubRecorder.waitFor(.participantLocalUnpublish) == localSid)
             #expect(try await subRecorder.waitFor(.roomRemoteUnpublish) == remoteSid)
             #expect(try await subRecorder.waitFor(.participantRemoteUnpublish) == remoteSid)
         }

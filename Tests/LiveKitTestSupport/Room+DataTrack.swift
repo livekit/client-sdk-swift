@@ -83,11 +83,10 @@ public final class DataTrackWatcher: NSObject, RoomDelegate, @unchecked Sendable
     }
 }
 
-/// The eight data-track delegate callbacks, across both delegate protocols and both directions.
+/// The data-track delegate callbacks, across both delegate protocols. Remote-only: local
+/// publications have no delegate events (as in Rust) — they're observed via the returned handle.
 public enum DataTrackDelegateEvent: String, Sendable {
-    case roomLocalPublish, roomLocalUnpublish
     case roomRemotePublish, roomRemoteUnpublish
-    case participantLocalPublish, participantLocalUnpublish
     case participantRemotePublish, participantRemoteUnpublish
 }
 
@@ -116,15 +115,11 @@ public final class DataTrackDelegateRecorder: NSObject, RoomDelegate, Participan
 
     // MARK: - RoomDelegate
 
-    public func room(_: Room, participant _: LocalParticipant, didPublishDataTrack track: LocalDataTrack) { record(.roomLocalPublish, track.info.sid) }
-    public func room(_: Room, participant _: LocalParticipant, didUnpublishDataTrack sid: DataTrack.Sid) { record(.roomLocalUnpublish, sid) }
     public func room(_: Room, participant _: RemoteParticipant, didPublishDataTrack track: RemoteDataTrack) { record(.roomRemotePublish, track.info.sid) }
     public func room(_: Room, participant _: RemoteParticipant, didUnpublishDataTrack sid: DataTrack.Sid) { record(.roomRemoteUnpublish, sid) }
 
     // MARK: - ParticipantDelegate
 
-    public func participant(_: LocalParticipant, didPublishDataTrack track: LocalDataTrack) { record(.participantLocalPublish, track.info.sid) }
-    public func participant(_: LocalParticipant, didUnpublishDataTrack sid: DataTrack.Sid) { record(.participantLocalUnpublish, sid) }
     public func participant(_: RemoteParticipant, didPublishDataTrack track: RemoteDataTrack) { record(.participantRemotePublish, track.info.sid) }
     public func participant(_: RemoteParticipant, didUnpublishDataTrack sid: DataTrack.Sid) { record(.participantRemoteUnpublish, sid) }
 }
