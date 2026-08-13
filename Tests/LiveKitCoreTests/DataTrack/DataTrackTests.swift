@@ -83,6 +83,35 @@ struct DataTrackTests {
         }
     }
 
+    // MARK: - Frame Metadata
+
+    /// Publishing with declared frame metadata (schema + encoding) succeeds and frames flow.
+    /// The metadata is sent to the SFU (parity with rust-sdks `DataTrackOptions`), but servers
+    /// don't echo it back in track info yet (as of livekit-server 1.13.5), so the round-trip via
+    /// ``DataTrackInfo/schema``/``DataTrackInfo/frameEncoding`` isn't asserted here.
+    @Test
+    func publishWithFrameMetadata() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let watcher = DataTrackWatcher(expectedName: "typed")
+            rooms[1].delegates.add(delegate: watcher)
+
+            let schema = DataTrackSchemaId(name: "my-schema", encoding: .jsonSchema)
+            let options = DataTrackPublishOptions(schema: schema, frameEncoding: .json)
+            let track = try await rooms[0].localParticipant.publishDataTrack(name: "typed", options: options)
+            #expect(track.isPublished)
+
+            let remoteTrack = try await watcher.waitForTrack()
+            let stream = try await remoteTrack.subscribe()
+            let payload = Data("{}".utf8)
+            try track.tryPush(frame: DataTrackFrame(payload: payload))
+            let frame = try #require(await stream.next())
+            #expect(frame.payload == payload)
+        }
+    }
+
     // MARK: - Without E2EE
 
     /// Data tracks work without E2EE: the publication is not marked encrypted and frames arrive

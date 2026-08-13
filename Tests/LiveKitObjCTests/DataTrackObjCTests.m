@@ -73,11 +73,13 @@
     }];
     [self waitForExpectations:@[connectSub, connectPub] timeout:30];
 
-    // Publish a data track; the subscriber's delegate should observe it.
+    // Publish a data track with frame metadata; the subscriber's delegate should observe it.
     self.trackPublishedExp = [self expectationWithDescription:@"trackPublished"];
     XCTestExpectation *publishExp = [self expectationWithDescription:@"publish"];
     __block LocalDataTrack *localTrack = nil;
-    [pubRoom.localParticipant publishDataTrackWithName:@"objc-dt" completionHandler:^(LocalDataTrack *track, NSError *err) {
+    DataTrackSchemaId *schema = [[DataTrackSchemaId alloc] initWithName:@"objc-schema" encoding:@"jsonschema"];
+    DataTrackPublishOptions *publishOptions = [[DataTrackPublishOptions alloc] initWithSchema:schema frameEncoding:@"json"];
+    [pubRoom.localParticipant publishDataTrackWithName:@"objc-dt" options:publishOptions completionHandler:^(LocalDataTrack *track, NSError *err) {
         XCTAssertNil(err);
         XCTAssertNotNil(track);
         XCTAssertTrue(track.isPublished);

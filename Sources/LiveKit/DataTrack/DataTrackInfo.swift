@@ -27,12 +27,12 @@ public final class DataTrackInfo: NSObject, Sendable {
     public let name: String
     /// Whether the track's frames are end-to-end encrypted.
     public let usesE2ee: Bool
-    /// Schema describing the track's frames, if the publisher declared one. Swift publishers
-    /// cannot declare one yet; publishers on other SDKs can. Not exposed to Objective-C.
-    @nonobjc public let schema: DataTrackSchemaId?
-    /// Encoding of the track's frames, if the publisher declared one. Swift publishers cannot
-    /// declare one yet; publishers on other SDKs can. Not exposed to Objective-C.
+    /// Schema describing the track's frames, if the publisher declared one.
+    public let schema: DataTrackSchemaId?
+    /// Encoding of the track's frames, if the publisher declared one.
     @nonobjc public let frameEncoding: DataTrackFrameEncoding?
+    /// The frame encoding as its identifier string; Objective-C sees this as `frameEncoding`.
+    @objc(frameEncoding) public var frameEncodingIdentifier: String? { frameEncoding?.identifier }
 
     init(_ info: LiveKitUniFFI.DataTrackInfo) {
         sid = DataTrack.Sid(from: info.sid)

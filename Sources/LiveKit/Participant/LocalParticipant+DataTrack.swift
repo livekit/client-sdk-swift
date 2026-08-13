@@ -29,11 +29,19 @@ public extension LocalParticipant {
     /// - Returns: A ``LocalDataTrack`` used to push frames via ``LocalDataTrack/tryPush(frame:)``.
     /// - Throws: ``DataTrackPublishError`` if the track cannot be published.
     func publishDataTrack(name: String) async throws -> LocalDataTrack {
+        try await publishDataTrack(name: name, options: nil)
+    }
+
+    /// Publishes a data track with options declaring the frames' encoding and schema.
+    ///
+    /// See ``publishDataTrack(name:)``; the declared metadata is surfaced to subscribers via
+    /// ``DataTrackInfo``.
+    func publishDataTrack(name: String, options: DataTrackPublishOptions?) async throws -> LocalDataTrack {
         guard let dataTracks = _room?.dataTracks else {
             // Same error Rust reports for a publish on a disconnected room.
             throw DataTrackPublishError.disconnected("Not connected to a room")
         }
-        return try await dataTracks.publish(name: name)
+        return try await dataTracks.publish(name: name, options: options)
     }
 
     /// Publishes a data track for the duration of `body`, then unpublishes it automatically.

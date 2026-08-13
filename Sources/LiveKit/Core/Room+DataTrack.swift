@@ -78,14 +78,17 @@ final class DataTracks: NSObject, @unchecked Sendable {
 
     // MARK: - Publishing
 
-    func publish(name: String) async throws -> LocalDataTrack {
+    func publish(name: String, options: DataTrackPublishOptions? = nil) async throws -> LocalDataTrack {
         // A data-track-only publisher in subscriber-primary mode has no negotiated publisher
         // transport yet — establish it and wait for the channel to open, or frames would be
         // silently dropped (`sendData` on a non-open channel fails).
         try await room?.ensurePublisherConnected()
         try await _publisherChannelOpen.wait()
         do {
-            let track = try await local.publishTrack(options: DataTrackOptions(name: name))
+            let ffiOptions = DataTrackOptions(name: name,
+                                              schema: options?.schema?.ffi,
+                                              frameEncoding: options?.frameEncoding?.ffi)
+            let track = try await local.publishTrack(options: ffiOptions)
             _hasPublished.mutate { $0 = true }
             return LocalDataTrack(track)
         } catch let error as PublishError {
