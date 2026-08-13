@@ -80,10 +80,10 @@ struct DataTrackLifecycleTests {
             #expect(newSid != originalSid)
             #expect(remoteTrack.info.name == "survives-reconnect")
 
-            // The participant's track map follows the SID reassignment.
+            // The participant's name-keyed track map keeps working across the SID rotation.
             let participant = try #require(subscriber.remoteParticipants.values.first)
-            #expect(participant.dataTracks[newSid] === remoteTrack)
-            #expect(participant.dataTracks[originalSid] == nil)
+            #expect(participant.dataTracks["survives-reconnect"] === remoteTrack)
+            #expect(participant.dataTracks.count == 1)
 
             // Depending on whether the SFU signals the publisher's brief departure, the app sees
             // either silent continuity (no events) or a coherent unpublish → publish pair when the
@@ -204,7 +204,7 @@ struct DataTrackLifecycleTests {
             // The surviving track is re-attached to the recreated participant and re-announced.
             #expect(try await recorder.waitFor(.roomRemotePublish) == remoteTrack.info.sid)
             let participant = try #require(subscriber.remoteParticipants.values.first)
-            #expect(participant.dataTracks[remoteTrack.info.sid] === remoteTrack)
+            #expect(participant.dataTracks[remoteTrack.info.name] === remoteTrack)
 
             // Frames keep flowing on the existing stream once the subscription is re-established.
             let payload = Data("after-full-reconnect".utf8)

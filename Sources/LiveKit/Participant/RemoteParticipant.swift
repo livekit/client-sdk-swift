@@ -20,15 +20,13 @@ internal import LiveKitWebRTC
 
 @objcMembers
 public class RemoteParticipant: Participant, @unchecked Sendable {
-    /// Data tracks published by this participant, keyed by track SID.
+    /// Data tracks published by this participant, keyed by track name.
     ///
-    /// SIDs rotate when the publisher republishes after a full reconnect (the track object itself
-    /// survives), so keys are derived from the tracks' current info rather than stored.
-    public var dataTracks: [DataTrack.Sid: RemoteDataTrack] {
-        _dataTracks.copy().reduce(into: [:]) { $0[$1.info.sid] = $1 }
+    /// Names are the stable identifier: a track's SID rotates when the publisher republishes
+    /// after a full reconnect (the track object itself survives).
+    public var dataTracks: [String: RemoteDataTrack] {
+        _state.dataTracks.reduce(into: [:]) { $0[$1.info.name] = $1 }
     }
-
-    private let _dataTracks = StateSync<[RemoteDataTrack]>([])
 
     init(info: Livekit_ParticipantInfo, room: Room, connectionState: ConnectionState) {
         super.init(room: room, sid: Participant.Sid(from: info.sid), identity: Participant.Identity(from: info.identity))
@@ -39,18 +37,18 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
     /// so it stays race-free while the track's SID is being reassigned by the manager.
     @discardableResult
     func addDataTrack(_ track: RemoteDataTrack) -> Bool {
-        _dataTracks.mutate {
-            guard !$0.contains(where: { $0 === track }) else { return false }
-            $0.append(track)
+        _state.mutate {
+            guard !$0.dataTracks.contains(where: { $0 === track }) else { return false }
+            $0.dataTracks.append(track)
             return true
         }
     }
 
     @discardableResult
     func removeDataTrack(sid: DataTrack.Sid) -> RemoteDataTrack? {
-        _dataTracks.mutate {
-            guard let index = $0.firstIndex(where: { $0.info.sid == sid }) else { return nil }
-            return $0.remove(at: index)
+        _state.mutate {
+            guard let index = $0.dataTracks.firstIndex(where: { $0.info.sid == sid }) else { return nil }
+            return $0.dataTracks.remove(at: index)
         }
     }
 
@@ -176,9 +174,9 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
 
         // Data tracks: on disconnect the participant is removed before the async manager callback
         // arrives, so it can't route the unpublish — clear them here, mirroring the media path.
-        let dataTrackSids = _dataTracks.mutate { tracks in
-            let sids = tracks.map(\.info.sid)
-            tracks = []
+        let dataTrackSids = _state.mutate { state in
+            let sids = state.dataTracks.map(\.info.sid)
+            state.dataTracks = []
             return sids
         }
         guard _notify, let room = _room else { return }

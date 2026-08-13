@@ -133,7 +133,7 @@ public extension Room {
         // The publish may have been announced before the watcher registered; checking attached
         // tracks after registration closes the race (an event in between is caught by the watcher).
         for participant in remoteParticipants.values {
-            if let track = participant.dataTracks.values.first(where: { $0.info.name == name }) {
+            if let track = participant.dataTracks[name] {
                 return track
             }
         }

@@ -263,7 +263,7 @@ struct DataTrackTests {
 
             let publisherIdentity = try #require(rooms[0].localParticipant.identity)
             let publisher = try #require(rooms[1].remoteParticipants[publisherIdentity])
-            #expect(publisher.dataTracks[remoteTrack.info.sid] != nil)
+            #expect(publisher.dataTracks["attached"] === remoteTrack)
             _ = track.isPublished // keep the publication alive through the assertions (dropping it unpublishes)
         }
     }
