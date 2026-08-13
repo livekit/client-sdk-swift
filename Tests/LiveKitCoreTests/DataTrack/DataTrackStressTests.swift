@@ -89,7 +89,7 @@ struct DataTrackStressTests {
             var consumers: [Task<Void, Never>] = []
             for (idx, stream) in streams.enumerated() {
                 consumers.append(Task {
-                    for await frame in stream.values {
+                    for await frame in stream {
                         guard frame.payload.count >= 8 else { continue }
                         let parsed = Self.parseFrame(frame.payload, stream: idx)
                         received.mutate { $0.append(parsed) }

@@ -74,7 +74,7 @@ struct DataTrackTests {
             // The channel is unreliable, so tolerate a single dropped frame.
             let expected = scenario.frameCount - 1
             var received = 0
-            for await frame in stream.values {
+            for await frame in stream {
                 #expect(frame.payload == payload, "Payload mismatch on frame \(received)")
                 received += 1
                 if received >= expected { break }
@@ -238,7 +238,7 @@ struct DataTrackTests {
             try await track.send(contentsOf: source)
 
             var received = 0
-            for await frame in stream.values {
+            for await frame in stream {
                 #expect(frame.payload == payload)
                 received += 1
                 if received >= frameCount - 1 { break }

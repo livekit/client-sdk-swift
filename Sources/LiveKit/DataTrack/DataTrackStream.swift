@@ -20,8 +20,9 @@ internal import LiveKitUniFFI
 
 /// A stream of frames received from a subscribed ``RemoteDataTrack``.
 ///
-/// Swift callers can iterate with `for await frame in stream.values`; Objective-C callers use
-/// ``read(onFrame:)``.
+/// An `AsyncSequence`: Swift callers iterate with `for await frame in stream`; Objective-C
+/// callers use ``read(onFrame:)``. The sequence ends when the track is unpublished or the
+/// subscription is cancelled.
 public final class DataTrackStream: NSObject, Sendable {
     private let stream: LiveKitUniFFI.DataTrackStream
 
@@ -37,18 +38,30 @@ public final class DataTrackStream: NSObject, Sendable {
         return DataTrackFrame(frame)
     }
 
-    /// The received frames as an `AsyncStream`, for `for await` iteration. Ends when the track
-    /// is unpublished or the subscription is cancelled.
-    public var values: AsyncStream<DataTrackFrame> {
-        AsyncStream(unfolding: next)
-    }
-
     /// Delivers frames to `onFrame` until the stream ends.
     ///
-    /// Objective-C entry point; Swift callers should prefer `for await frame in stream.values`.
+    /// Objective-C entry point; Swift callers should prefer `for await frame in stream`.
     @objc public func read(onFrame: @escaping @Sendable (DataTrackFrame) -> Void) async {
         while let frame = await next() {
             onFrame(frame)
         }
+    }
+}
+
+// MARK: - AsyncSequence
+
+extension DataTrackStream: AsyncSequence {
+    public typealias Element = DataTrackFrame
+
+    public struct Iterator: AsyncIteratorProtocol {
+        let stream: DataTrackStream
+
+        public mutating func next() async -> DataTrackFrame? {
+            await stream.next()
+        }
+    }
+
+    public func makeAsyncIterator() -> Iterator {
+        Iterator(stream: self)
     }
 }

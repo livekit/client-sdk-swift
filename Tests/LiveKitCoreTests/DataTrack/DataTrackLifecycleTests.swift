@@ -158,7 +158,7 @@ struct DataTrackLifecycleTests {
 
             let received = await withTaskGroup(of: Bool.self) { group in
                 group.addTask {
-                    for await frame in stream.values where frame.payload == payload {
+                    for await frame in stream where frame.payload == payload {
                         return true
                     }
                     return false
@@ -218,7 +218,7 @@ struct DataTrackLifecycleTests {
 
             let received = await withTaskGroup(of: Bool.self) { group in
                 group.addTask {
-                    for await frame in stream.values where frame.payload == payload {
+                    for await frame in stream where frame.payload == payload {
                         return true
                     }
                     return false
