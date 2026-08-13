@@ -101,6 +101,12 @@ actor RTC {
         DispatchQueue.liveKitWebRTC.sync { peerConnectionFactory.audioSource(with: constraints) }
     }
 
+    static func createExternalAudioSource(sampleRate: Int, channels: Int, queueSizeMs: Int) -> LKRTCExternalAudioSource? {
+        DispatchQueue.liveKitWebRTC.sync { peerConnectionFactory.externalAudioSource(withSampleRate: Int32(sampleRate),
+                                                                                     channels: UInt(channels),
+                                                                                     queueSizeMs: Int32(queueSizeMs)) }
+    }
+
     static func createAudioTrack(source: LKRTCAudioSource) -> LKRTCAudioTrack {
         DispatchQueue.liveKitWebRTC.sync { peerConnectionFactory.audioTrack(with: source,
                                                                             trackId: UUID().uuidString) }

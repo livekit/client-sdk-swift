@@ -25,8 +25,14 @@ import UIKit
 internal import LiveKitWebRTC
 
 class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
+    /// Destination for captured app audio; falls back to the mic mixer.
+    weak var appAudioSink: AppAudioSink?
+
     private let appAudio: Bool
+    private let appAudioPublishMode: AppAudioPublishMode
     private var receiver: BroadcastReceiver?
+    // Only written from the incoming-samples loop.
+    private var didWarnMissingAppAudioSink = false
 
     override func startCapture() async throws -> Bool {
         let didStart = try await super.startCapture()
@@ -67,7 +73,7 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
                 for try await sample in receiver.incomingSamples {
                     switch sample {
                     case let .image(buffer, rotation): capture(buffer, rotation: rotation)
-                    case let .audio(buffer): AudioManager.shared.mixer.capture(appAudio: buffer)
+                    case let .audio(buffer): captureAppAudio(buffer)
                     }
                 }
                 log("Broadcast receiver closed", .debug)
@@ -88,8 +94,26 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
         return true
     }
 
+    private func captureAppAudio(_ buffer: AVAudioPCMBuffer) {
+        if let appAudioSink {
+            appAudioSink.capture(appAudio: buffer)
+        } else if appAudioPublishMode == .separateTrack {
+            // The separate app-audio track's sink is gone, e.g. the audio
+            // track failed to publish or was unpublished mid-share. Drop the
+            // buffer instead of silently mixing app audio back into the
+            // microphone track.
+            if !didWarnMissingAppAudioSink {
+                didWarnMissingAppAudioSink = true
+                log("App audio configured as a separate track but no sink is attached, dropping app audio", .warning)
+            }
+        } else {
+            AudioManager.shared.mixer.capture(appAudio: buffer)
+        }
+    }
+
     init(delegate: LKRTCVideoCapturerDelegate, options: ScreenShareCaptureOptions) {
         appAudio = options.appAudio
+        appAudioPublishMode = options.appAudioPublishMode
         super.init(delegate: delegate, options: BufferCaptureOptions(from: options))
     }
 }

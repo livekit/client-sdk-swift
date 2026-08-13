@@ -25,6 +25,10 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     /// ``AudioCaptureOptions`` used to create this track.
     public let captureOptions: AudioCaptureOptions
 
+    /// The ``ExternalAudioSource`` feeding this track, or nil for tracks
+    /// backed by the microphone capture path.
+    public let externalSource: ExternalAudioSource?
+
     // MARK: - Internal
 
     struct FrameWatcherState {
@@ -37,9 +41,11 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
          source: Track.Source,
          track: LKRTCMediaStreamTrack,
          reportStatistics: Bool,
-         captureOptions: AudioCaptureOptions)
+         captureOptions: AudioCaptureOptions,
+         externalSource: ExternalAudioSource? = nil)
     {
         self.captureOptions = captureOptions
+        self.externalSource = externalSource
 
         super.init(name: name,
                    kind: .audio,
@@ -86,6 +92,25 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
                                captureOptions: options)
     }
 
+    /// Creates a track fed by an ``ExternalAudioSource`` instead of the
+    /// microphone, e.g. for publishing app audio during screen share as an
+    /// independent track.
+    public static func createTrack(name: String = Track.screenShareAudioName,
+                                   source: Track.Source = .screenShareAudio,
+                                   externalSource: ExternalAudioSource,
+                                   reportStatistics: Bool = false) -> LocalAudioTrack
+    {
+        let rtcTrack = RTC.createAudioTrack(source: externalSource.rtcSource)
+        rtcTrack.isEnabled = true
+
+        return LocalAudioTrack(name: name,
+                               source: source,
+                               track: rtcTrack,
+                               reportStatistics: reportStatistics,
+                               captureOptions: AudioCaptureOptions(),
+                               externalSource: externalSource)
+    }
+
     public func mute() async throws {
         try await super._mute()
     }
@@ -121,6 +146,9 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     // MARK: - Internal
 
     override func startCapture() async throws {
+        // Externally-fed tracks bypass the AudioDeviceModule entirely, so the
+        // microphone engine must not be started for them.
+        guard externalSource == nil else { return }
         // AudioDeviceModule's InitRecording() and StartRecording() automatically get called by WebRTC, but
         // explicitly init & start it early to detect audio engine failures (mic not accessible for some reason, etc.).
         try AudioManager.shared.startLocalRecording(

@@ -41,6 +41,12 @@ public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
     /// The ``ScreenShareCaptureOptions`` used for this capturer.
     public let options: ScreenShareCaptureOptions
 
+    /// Destination for captured app audio; falls back to the mic mixer.
+    weak var appAudioSink: AppAudioSink?
+
+    // Only written from the SCStream callback queue.
+    private var didWarnMissingAppAudioSink = false
+
     struct State {
         // SCStream
         var scStream: SCStream?
@@ -239,7 +245,20 @@ extension MacOSScreenCapturer: SCStreamOutput {
 
         if case .audio = outputType {
             guard let pcm = sampleBuffer.toAVAudioPCMBuffer() else { return }
-            AudioManager.shared.mixer.capture(appAudio: pcm)
+            if let appAudioSink {
+                appAudioSink.capture(appAudio: pcm)
+            } else if options.appAudioPublishMode == .separateTrack {
+                // The separate app-audio track's sink is gone, e.g. the audio
+                // track failed to publish or was unpublished mid-share. Drop
+                // the buffer instead of silently mixing app audio back into
+                // the microphone track.
+                if !didWarnMissingAppAudioSink {
+                    didWarnMissingAppAudioSink = true
+                    log("App audio configured as a separate track but no sink is attached, dropping app audio", .warning)
+                }
+            } else {
+                AudioManager.shared.mixer.capture(appAudio: pcm)
+            }
         } else if case .screen = outputType {
             // Retrieve the array of metadata attachments from the sample buffer.
             guard let attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer,
@@ -261,7 +280,9 @@ extension MacOSScreenCapturer: SCStreamOutput {
             let newTimer = Task.detached(priority: .utility) { [weak self] in
                 while true {
                     try? await Task.sleep(nanoseconds: UInt64(1 * 1_000_000_000))
-                    if Task.isCancelled { break }
+                    if Task.isCancelled {
+                        break
+                    }
                     guard let self else { break }
                     try await _capturePreviousFrame()
                 }

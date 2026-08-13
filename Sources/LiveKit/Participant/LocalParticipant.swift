@@ -336,7 +336,9 @@ extension LocalParticipant {
 
         for mediaTrack in mediaTracks {
             // Don't re-publish muted tracks
-            if mediaTrack.isMuted { continue }
+            if mediaTrack.isMuted {
+                continue
+            }
             try await _publish(track: mediaTrack, options: mediaTrack.publishOptions)
         }
     }
@@ -405,6 +407,11 @@ public extension LocalParticipant {
                         try await publication.mute()
                     } else {
                         try await self.unpublish(publication: publication)
+                        // App audio published as a separate track follows the
+                        // screen-share video lifecycle.
+                        if source == .screenShareVideo {
+                            try await self.unpublishAppAudioTrackIfNeeded()
+                        }
                     }
                     return publication
                 }
@@ -423,6 +430,7 @@ public extension LocalParticipant {
 
                     let localTrack: LocalVideoTrack
                     let defaultOptions = room._state.roomOptions.defaultScreenShareCaptureOptions
+                    var screenShareOptions = defaultOptions
 
                     if defaultOptions.useBroadcastExtension {
                         if captureOptions != nil {
@@ -437,22 +445,101 @@ public extension LocalParticipant {
                         localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: defaultOptions,
                                                                                         reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
                     } else {
-                        let options = (captureOptions as? ScreenShareCaptureOptions) ?? defaultOptions
-                        localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
+                        screenShareOptions = (captureOptions as? ScreenShareCaptureOptions) ?? defaultOptions
+                        localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: screenShareOptions)
                     }
-                    return try await self._publish(track: localTrack, options: publishOptions)
+                    // Prepared before publishing so the capturer routes app
+                    // audio to the independent track from the first buffer.
+                    let appAudioTrack = self.prepareAppAudioTrack(options: screenShareOptions, videoTrack: localTrack, room: room)
+                    let publication = try await self._publish(track: localTrack, options: publishOptions)
+                    if let appAudioTrack {
+                        do {
+                            try await self._publish(track: appAudioTrack, options: AudioPublishOptions(encoding: .presetMusicHighQualityStereo,
+                                                                                                       dtx: false,
+                                                                                                       red: false))
+                        } catch {
+                            // Screen share continues without app audio. The
+                            // capturer's sink goes away with the track, so
+                            // audio is dropped, not mixed into the mic.
+                            self.log("Failed to publish app audio track: \(error)", .error)
+                        }
+                    }
+                    return publication
                     #elseif os(macOS)
                     if #available(macOS 12.3, *) {
                         let mainDisplay = try await MacOSScreenCapturer.mainDisplaySource()
+                        let screenShareOptions = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions
                         let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
-                                                                                options: (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions,
+                                                                                options: screenShareOptions,
                                                                                 reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
-                        return try await self._publish(track: track, options: publishOptions)
+                        // Prepared before publishing so ScreenCaptureKit audio
+                        // routes to the independent track from the first buffer.
+                        let appAudioTrack = self.prepareAppAudioTrack(options: screenShareOptions, videoTrack: track, room: room)
+                        let publication = try await self._publish(track: track, options: publishOptions)
+                        if let appAudioTrack {
+                            do {
+                                try await self._publish(track: appAudioTrack, options: AudioPublishOptions(encoding: .presetMusicHighQualityStereo,
+                                                                                                           dtx: false,
+                                                                                                           red: false))
+                            } catch {
+                                // Screen share continues without app audio.
+                                // The capturer's sink goes away with the
+                                // track, so audio is dropped, not mixed into
+                                // the mic.
+                                self.log("Failed to publish app audio track: \(error)", .error)
+                            }
+                        }
+                        return publication
                     }
                     #endif
                 }
             }
 
+            return nil
+        }
+    }
+
+    /// Unpublishes the independent app-audio track that follows the
+    /// screen-share video lifecycle, if one is published.
+    func unpublishAppAudioTrackIfNeeded() async throws {
+        // All matching publications, not just the first: a missed cleanup
+        // must not leave stale tracks behind on the next stop.
+        let appAudioPublications = audioTracks.compactMap { $0 as? LocalTrackPublication }
+            .filter { $0.source == .screenShareAudio }
+        for publication in appAudioPublications {
+            try await unpublish(publication: publication)
+        }
+    }
+
+    /// Creates an independent app-audio track and routes the screen-share
+    /// capturer's audio to it, when the capture options request it.
+    private func prepareAppAudioTrack(options: ScreenShareCaptureOptions,
+                                      videoTrack: LocalVideoTrack,
+                                      room: Room) -> LocalAudioTrack?
+    {
+        guard options.appAudio, options.appAudioPublishMode == .separateTrack else { return nil }
+        do {
+            let source = try ExternalAudioSource()
+            // Only capturers with an app-audio path can feed the source. Bail
+            // instead of publishing a permanently silent track (e.g. iOS
+            // in-app capture, which has no audio handling).
+            #if os(iOS)
+            guard let capturer = videoTrack.capturer as? BroadcastScreenCapturer else {
+                log("App audio as a separate track requires the broadcast extension capturer, skipping app audio track", .warning)
+                return nil
+            }
+            capturer.appAudioSink = source
+            #elseif os(macOS)
+            guard #available(macOS 12.3, *), let capturer = videoTrack.capturer as? MacOSScreenCapturer else {
+                log("App audio as a separate track requires the ScreenCaptureKit capturer, skipping app audio track", .warning)
+                return nil
+            }
+            capturer.appAudioSink = source
+            #endif
+            return LocalAudioTrack.createTrack(externalSource: source,
+                                               reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+        } catch {
+            log("Failed to create app audio track: \(error)", .error)
             return nil
         }
     }
@@ -735,8 +822,10 @@ extension LocalParticipant {
 
             // At this point at least 1 audio frame should be generated to continue
             if let track = track as? LocalAudioTrack {
-                // Only wait for frames if audio engine is allowed to start
-                if AudioManager.shared.engineAvailability.isInputAvailable {
+                // Externally fed tracks bypass the ADM capture path the frame
+                // watcher observes, and frames only flow once the app pushes
+                // audio, so there is nothing to wait for here.
+                if track.externalSource == nil, AudioManager.shared.engineAvailability.isInputAvailable {
                     log("[Publish] Waiting for audio frame...")
                     try await track.startWaitingForFrames()
                 }
