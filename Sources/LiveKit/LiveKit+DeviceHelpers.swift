@@ -65,23 +65,6 @@ public extension LiveKitSDK {
         return true
     }
 
-    /// Requests authorization for the given media types, but only while the app can present the
-    /// system permission dialog.
-    ///
-    /// An app extension always returns `false` without prompting, since it cannot present the dialog.
-    ///
-    /// On iOS-family platforms this also returns `false` without prompting when the app is not active,
-    /// so a caller woken in the background (for example by CallKit) does not wait on a dialog that
-    /// cannot appear. On macOS the prompt can be presented regardless, so this otherwise behaves like
-    /// ``ensureDeviceAccess(for:)``.
-    static func ensureDeviceAccessIfForegrounded(for types: Set<AVMediaType>) async -> Bool {
-        if kIsAppExtension { return false }
-        #if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS))
-        guard await isApplicationActive() else { return false }
-        #endif
-        return await ensureDeviceAccess(for: types)
-    }
-
     /// Blocking version of ``ensureDeviceAccess(for:)`` that uses a `DispatchGroup` to wait for permissions.
     ///
     /// - Warning: Requesting `.notDetermined` permission blocks the calling thread until the user responds.
@@ -125,6 +108,23 @@ public extension LiveKitSDK {
 }
 
 extension LiveKitSDK {
+    /// Requests authorization for the given media types, but only while the app can present the
+    /// system permission dialog.
+    ///
+    /// An app extension always returns `false` without prompting, since it cannot present the dialog.
+    ///
+    /// On iOS-family platforms this also returns `false` without prompting when the app is not active,
+    /// so a caller woken in the background (for example by CallKit) does not wait on a dialog that
+    /// cannot appear. On macOS the prompt can be presented regardless, so this otherwise behaves like
+    /// ``ensureDeviceAccess(for:)``.
+    static func ensureDeviceAccessIfForegrounded(for types: Set<AVMediaType>) async -> Bool {
+        if kIsAppExtension { return false }
+        #if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS))
+        guard await isApplicationActive() else { return false }
+        #endif
+        return await ensureDeviceAccess(for: types)
+    }
+
     /// Ensures microphone access is granted before enabling recording.
     ///
     /// The WebRTC audio device no longer requests microphone permission implicitly, so the SDK
