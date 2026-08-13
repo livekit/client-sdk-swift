@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#if !COCOAPODS && !LK_XCFRAMEWORK
+import LiveKitNanopb
+#endif
 import Combine
 import Foundation
 
@@ -96,7 +99,9 @@ public class TrackPublication: NSObject, @unchecked Sendable, ObservableObject, 
             dimensions: info.type == .video ? Dimensions(width: Int32(info.width), height: Int32(info.height)) : nil,
             isMetadataMuted: info.muted,
             encryptionType: info.encryption.toLKType(),
-            latestInfo: info,
+            // owned: `info` is a view into the decoded signal message, which a
+            // stored view would pin for this publication's whole lifetime
+            latestInfo: info.owned(),
             audioTrackFeatures: Set(info.audioFeatures),
         ))
 
@@ -152,8 +157,9 @@ public class TrackPublication: NSObject, @unchecked Sendable, ObservableObject, 
             $0.mimeType = info.mimeType
             $0.dimensions = info.type == .video ? Dimensions(width: Int32(info.width), height: Int32(info.height)) : nil
 
-            // store the whole info
-            $0.latestInfo = info
+            // store the whole info (owned: `info` is a view into the decoded
+            // signal message, which it would otherwise pin in memory)
+            $0.latestInfo = info.owned()
         }
     }
 

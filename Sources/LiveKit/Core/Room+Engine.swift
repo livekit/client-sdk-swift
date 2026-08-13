@@ -61,14 +61,14 @@ extension Room {
         _state.mutate { $0.hasPublished = true }
     }
 
-    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws {
+    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket_Kind) async throws {
         try await send(dataPacket: .with {
             $0.user = userPacket
             $0.kind = kind
         })
     }
 
-    func send(dataPacket packet: Livekit_DataPacket) async throws {
+    func send(dataPacket packet: consuming Livekit_DataPacket) async throws {
         func ensurePublisherConnected() async throws {
             // Only needed when subscriber is primary in dual PC mode
             guard case .subscriberPrimary = _state.transport else {
@@ -103,15 +103,18 @@ extension Room {
             log("publisher data channel is not .open", .error)
         }
 
-        var packet = packet
-        if let identity = localParticipant.identity?.stringValue {
-            packet.participantIdentity = identity
-        }
-        if let sid = localParticipant.sid?.stringValue {
-            packet.participantSid = sid
+        // `modifying` is consuming: with no other owner this stamps in place,
+        // where the per-field setters used to deep-copy the whole payload.
+        let stamped = packet.modifying {
+            if let identity = localParticipant.identity?.stringValue {
+                $0.participantIdentity = identity
+            }
+            if let sid = localParticipant.sid?.stringValue {
+                $0.participantSid = sid
+            }
         }
 
-        try await publisherDataChannel.send(dataPacket: packet)
+        try await publisherDataChannel.send(dataPacket: stamped)
     }
 }
 

@@ -16,6 +16,9 @@
 
 import Foundation
 
+// Extending the generic builder needs the runtime module by name; the facades
+// themselves are re-exported through LiveKit.
+
 // MARK: - Triggers
 
 extension MetricsManager: RoomDelegate {
@@ -87,9 +90,10 @@ actor MetricsManager: Loggable {
         let hash = statistics.hashValue
         guard hash != props.lastSentHash else { return }
 
-        var dataPacket = Livekit_DataPacket()
-        dataPacket.kind = .reliable
-        dataPacket.metrics = Livekit_MetricsBatch(statistics: statistics, identity: props.identity)
+        let dataPacket = Livekit_DataPacket.with {
+            $0.kind = .reliable
+            $0.metrics = Livekit_MetricsBatch(statistics: statistics, identity: props.identity)
+        }
         do {
             try await props.transport(dataPacket)
             trackProperties[sid]?.lastSentHash = hash
@@ -103,17 +107,22 @@ actor MetricsManager: Loggable {
 
 private extension Livekit_MetricsBatch {
     init(statistics: TrackStatistics, identity: Participant.Identity?) {
-        var strings = OrderedSet<String>()
-        defer { strData = strings.elements }
+        self = .with { batch in
+            var strings = OrderedSet<String>()
+            defer { batch.strData = strings.elements }
 
-        addOutboundMetrics(from: statistics.outboundRtpStream, strings: &strings, identity: identity)
-        addInboundMetrics(from: statistics.inboundRtpStream, strings: &strings, identity: identity)
+            batch.addOutboundMetrics(from: statistics.outboundRtpStream, strings: &strings, identity: identity)
+            batch.addInboundMetrics(from: statistics.inboundRtpStream, strings: &strings, identity: identity)
 
-        addRemoteOutboundMetrics(from: statistics.remoteOutboundRtpStream, strings: &strings, identity: identity)
-        addRemoteInboundMetrics(from: statistics.remoteInboundRtpStream, strings: &strings, identity: identity)
+            batch.addRemoteOutboundMetrics(from: statistics.remoteOutboundRtpStream, strings: &strings, identity: identity)
+            batch.addRemoteInboundMetrics(from: statistics.remoteInboundRtpStream, strings: &strings, identity: identity)
+        }
     }
+}
 
-    mutating func addOutboundMetrics(from statistics: [OutboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
+// Mutation helpers live on the builder; the message itself is immutable.
+private extension Livekit_MetricsBatch.Builder {
+    func addOutboundMetrics(from statistics: [OutboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
         for stat in statistics where stat.kind == "video" {
             if let durations = stat.qualityLimitationDurations {
                 addMetric(durations.cpu, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationCpu, strings: &strings, identity: identity, rid: stat.rid)
@@ -123,7 +132,7 @@ private extension Livekit_MetricsBatch {
         }
     }
 
-    mutating func addInboundMetrics(from statistics: [InboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
+    func addInboundMetrics(from statistics: [InboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
         for stat in statistics {
             if stat.kind == "audio" {
                 addMetric(stat.concealedSamples, at: stat.timestamp, label: .clientAudioSubscriberConcealedSamples, strings: &strings, identity: identity, sid: stat.trackIdentifier)
@@ -142,19 +151,19 @@ private extension Livekit_MetricsBatch {
         }
     }
 
-    mutating func addRemoteOutboundMetrics(from statistics: [RemoteOutboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
+    func addRemoteOutboundMetrics(from statistics: [RemoteOutboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
         for stat in statistics {
             addMetric(stat.roundTripTime, at: stat.timestamp, label: .publisherRtt, strings: &strings, identity: identity)
         }
     }
 
-    mutating func addRemoteInboundMetrics(from statistics: [RemoteInboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
+    func addRemoteInboundMetrics(from statistics: [RemoteInboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
         for stat in statistics {
             addMetric(stat.roundTripTime, at: stat.timestamp, label: .subscriberRtt, strings: &strings, identity: identity)
         }
     }
 
-    mutating func addMetric(
+    func addMetric(
         _ value: (some Numeric)?,
         at timestampUs: Double,
         label: Livekit_MetricLabel,
@@ -179,10 +188,10 @@ private extension Livekit_MetricsBatch {
         guard let floatValue = value?.floatValue else { return nil }
         guard floatValue != .zero else { return nil }
 
-        var sample = Livekit_MetricSample()
-        sample.timestampMs = Int64(timestampUs / 1000)
-        sample.value = floatValue
-        return sample
+        return Livekit_MetricSample.with {
+            $0.timestampMs = Int64(timestampUs / 1000)
+            $0.value = floatValue
+        }
     }
 
     func createTimeSeries(
@@ -193,21 +202,20 @@ private extension Livekit_MetricsBatch {
         sid: String? = nil,
         rid: String? = nil,
     ) -> Livekit_TimeSeriesMetric {
-        var timeSeries = Livekit_TimeSeriesMetric()
-        timeSeries.label = UInt32(label.rawValue)
-        timeSeries.samples = samples
+        Livekit_TimeSeriesMetric.with { series in
+            series.label = UInt32(label.rawValue)
+            series.samples = samples
 
-        if let identity {
-            timeSeries.participantIdentity = getOrCreateIndex(in: &strings, inserting: identity.stringValue)
+            if let identity {
+                series.participantIdentity = getOrCreateIndex(in: &strings, inserting: identity.stringValue)
+            }
+            if let sid {
+                series.trackSid = getOrCreateIndex(in: &strings, inserting: sid)
+            }
+            if let rid {
+                series.rid = getOrCreateIndex(in: &strings, inserting: rid)
+            }
         }
-        if let sid {
-            timeSeries.trackSid = getOrCreateIndex(in: &strings, inserting: sid)
-        }
-        if let rid {
-            timeSeries.rid = getOrCreateIndex(in: &strings, inserting: rid)
-        }
-
-        return timeSeries
     }
 
     /// Gets or creates an index for a custom string in the protobuf message

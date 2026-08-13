@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 actor SignalClient: Loggable {
     // MARK: - Types
 
-    typealias AddTrackRequestPopulator = @Sendable (inout Livekit_AddTrackRequest) throws -> Void
+    typealias AddTrackRequestPopulator = @Sendable (inout Livekit_AddTrackRequest.Builder) throws -> Void
 
     enum ConnectResponse {
         case join(Livekit_JoinResponse)
@@ -280,9 +280,16 @@ private extension SignalClient {
     }
 
     func onWebSocketMessage(_ message: URLSessionWebSocketTask.Message) async {
+        // The server mirrors the client's encoding and this SDK has sent
+        // binary protobuf since 2021, so text (JSON) frames cannot occur
+        // against livekit-server; they are unsupported here (as on Android).
+        if case .string = message {
+            log("Received JSON signal message, unsupported in this version.", .warning)
+            return
+        }
+
         let response: Livekit_SignalResponse? = switch message {
         case let .data(data): try? Livekit_SignalResponse(serializedBytes: data)
-        case let .string(string): try? Livekit_SignalResponse(jsonString: string)
         default: nil
         }
 
@@ -315,7 +322,9 @@ private extension SignalClient {
 
         switch message {
         case let .join(joinResponse):
-            _state.mutate { $0.lastJoinResponse = joinResponse }
+            // owned: the oneof getter hands out a view into the decoded
+            // `SignalResponse`, and this is kept for the whole session
+            _state.mutate { $0.lastJoinResponse = joinResponse.owned() }
             _delegate.notifyDetached { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
             _connectResponseCompleter.resume(returning: .join(joinResponse))
             await _restartPingTimer()
@@ -463,15 +472,14 @@ extension SignalClient {
                       encryption: Livekit_Encryption.TypeEnum = .none,
                       _ populator: AddTrackRequestPopulator) async throws -> Livekit_TrackInfo
     {
-        var addTrackRequest = Livekit_AddTrackRequest.with {
+        let addTrackRequest = try Livekit_AddTrackRequest.with {
             $0.cid = cid
             $0.name = name
             $0.type = type
             $0.source = source
             $0.encryption = encryption
+            try populator(&$0)
         }
-
-        try populator(&addTrackRequest)
 
         let request = Livekit_SignalRequest.with {
             $0.addTrack = addTrackRequest

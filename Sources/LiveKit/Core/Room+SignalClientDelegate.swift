@@ -16,6 +16,9 @@
 
 // swiftlint:disable file_length
 
+#if !COCOAPODS && !LK_XCFRAMEWORK
+import LiveKitNanopb
+#endif
 import Foundation
 
 internal import LiveKitWebRTC
@@ -44,7 +47,7 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest.Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?) async {
+    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?) async {
         log("action: \(action), reason: \(reason)")
 
         if let regions, let providedUrl = _state.providedUrl, let regionManager = await regionManager(for: providedUrl) {
@@ -113,7 +116,7 @@ extension Room: SignalClientDelegate {
 
             _state.mutate {
                 $0.apply(roomInfo: joinResponse.room)
-                $0.serverInfo = joinResponse.serverInfo
+                $0.serverInfo = joinResponse.serverInfo.owned()
 
                 localParticipant.set(info: joinResponse.participant, connectionState: $0.connectionState)
                 localParticipant.set(enabledPublishCodecs: joinResponse.enabledPublishCodecs)

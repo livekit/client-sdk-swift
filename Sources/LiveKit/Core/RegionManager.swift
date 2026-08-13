@@ -187,10 +187,42 @@ actor RegionManager: Loggable {
         return data
     }
 
+    /// Cloud region settings arrive as JSON over HTTPS; the nanopb-backed
+    /// protocol layer has no JSON codec, so this endpoint is decoded with a
+    /// Codable mirror of `livekit.RegionSettings`.
+    private struct RegionSettingsJSON: Decodable {
+        struct Region: Decodable {
+            var region: String?
+            var url: String?
+            // proto3 JSON serializes int64 as a string; accept both.
+            var distance: FlexibleInt64?
+        }
+
+        struct FlexibleInt64: Decodable {
+            var value: Int64
+            init(from decoder: Decoder) throws {
+                let container = try decoder.singleValueContainer()
+                if let number = try? container.decode(Int64.self) {
+                    value = number
+                } else {
+                    value = try Int64(container.decode(String.self)) ?? 0
+                }
+            }
+        }
+
+        var regions: [Region]?
+    }
+
     private nonisolated static func parseRegionSettings(data: Data) throws -> [RegionInfo] {
         do {
-            let regionSettings = try Livekit_RegionSettings(jsonUTF8Data: data)
-            let allRegions = regionSettings.regions.compactMap { $0.toLKType() }
+            let json = try JSONDecoder().decode(RegionSettingsJSON.self, from: data)
+            let allRegions = (json.regions ?? []).compactMap { region in
+                Livekit_RegionInfo.with {
+                    $0.region = region.region ?? ""
+                    $0.url = region.url ?? ""
+                    $0.distance = region.distance?.value ?? 0
+                }.toLKType()
+            }
             guard !allRegions.isEmpty else {
                 throw LiveKitError(.regionManager, message: "Fetched region data is empty.")
             }
