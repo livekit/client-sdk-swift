@@ -27,15 +27,25 @@ internal import LiveKitWebRTC
 // AES-GCM data path (LKRTCDataPacketCryptor over the shared BaseKeyProvider), the same path as
 // legacy data channel payloads.
 final class DataTrackCryptor: EncryptionProvider, DecryptionProvider, @unchecked Sendable {
-    private let e2eeManager: E2EEManager
+    // Resolved per call rather than captured: `Room.e2eeManager` is publicly settable, so a
+    // manager assigned after connecting must still be used. Weak — the room owns this indirectly
+    // through the data track subsystem.
+    private weak var room: Room?
 
-    init(e2eeManager: E2EEManager) {
-        self.e2eeManager = e2eeManager
+    init(room: Room) {
+        self.room = room
+    }
+
+    private func requireManager() throws -> E2EEManager {
+        guard let e2eeManager = room?.e2eeManager else {
+            throw LiveKitError(.invalidState, message: "Room has no E2EE manager")
+        }
+        return e2eeManager
     }
 
     func encrypt(payload: Data) throws -> EncryptedPayload {
         do {
-            let packet = try e2eeManager.encrypt(data: payload)
+            let packet = try requireManager().encrypt(data: payload)
             return EncryptedPayload(
                 payload: packet.data,
                 iv: packet.iv,
@@ -53,7 +63,7 @@ final class DataTrackCryptor: EncryptionProvider, DecryptionProvider, @unchecked
             keyIndex: UInt32(payload.keyIndex),
         )
         do {
-            return try e2eeManager.handle(encryptedData: packet, participantIdentity: senderIdentity)
+            return try requireManager().handle(encryptedData: packet, participantIdentity: senderIdentity)
         } catch {
             throw DecryptionError.Failed(message: String(describing: error))
         }

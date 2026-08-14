@@ -38,7 +38,7 @@ final class DataTracks: NSObject, @unchecked Sendable {
     private let _local = StateSync<LocalDataTrackManager?>(nil)
     private let remote: RemoteDataTrackManager
     private let managerDelegate: ManagerDelegate
-    private let cryptor: DataTrackCryptor?
+    private let cryptor: DataTrackCryptor
     private weak var room: Room?
     // Wired in after creation (Engine/TransportDelegate) and read from the Rust callback thread,
     // so they need their own synchronization. The subscriber channel is retained (not just
@@ -68,8 +68,9 @@ final class DataTracks: NSObject, @unchecked Sendable {
         self.room = room
         let managerDelegate = ManagerDelegate(room: room)
         self.managerDelegate = managerDelegate
-        // Reception can always decrypt; only publishing consults the toggle.
-        cryptor = room.e2eeManager.map(DataTrackCryptor.init)
+        // Reception can always decrypt; only publishing consults the toggle. The cryptor resolves
+        // the room's E2EE manager per call, so one assigned after connecting still applies.
+        cryptor = DataTrackCryptor(room: room)
         remote = RemoteDataTrackManager(delegate: managerDelegate, decryptionProvider: cryptor)
         super.init()
         // The UniFFI managers retain their delegate strongly, so it points back here weakly to
