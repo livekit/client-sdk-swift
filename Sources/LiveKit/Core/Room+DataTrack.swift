@@ -157,10 +157,13 @@ final class DataTracks: NSObject, @unchecked Sendable {
     }
 
     func handleRoomMoved(_ participants: [Livekit_ParticipantInfo], localIdentity: String) {
-        // The old room's tracks are gone for good — their unpublish events already fired with the
-        // participant disconnects — so drop them instead of keeping them for re-attach. Then
-        // republish local tracks into the new room and surface its existing publications.
-        _remoteTracks.mutate { $0 = [] }
+        // The old room's tracks are gone for good. Dropped through the unpublish path rather than
+        // cleared outright, so anything the participant teardown didn't already report still
+        // reaches the delegates (and no-ops for participants it already removed). Then republish
+        // local tracks into the new room and surface its existing publications.
+        for track in _remoteTracks.copy() {
+            remoteTrackUnpublished(sid: track.info.sid)
+        }
         _local.copy()?.republishTracks()
         handleParticipantUpdate(participants, localIdentity: localIdentity)
     }
@@ -220,14 +223,20 @@ final class DataTracks: NSObject, @unchecked Sendable {
         // `info` crosses the FFI boundary, so match before taking the lock and remove by identity.
         let unpublished = _remoteTracks.copy().filter { $0.info.sid == sid }
         _remoteTracks.mutate { $0.removeAll { track in unpublished.contains { $0 === track } } }
-        for participant in room.remoteParticipants.values where participant.removeDataTrack(sid: sid) != nil {
+        // Resolved from the track's own publisher, not from wherever it happens to be attached: a
+        // full reconnect detaches tracks from their participants, so a publisher unpublishing in
+        // that window would otherwise vanish with no event. (Rust dispatches unconditionally; the
+        // lookup exists only because the Swift delegates carry a participant.) The removal above
+        // keeps this idempotent.
+        for track in unpublished {
+            guard let participant = room.remoteParticipants[track.publisherIdentity] else { continue }
+            participant.removeDataTrack(sid: sid)
             participant.delegates.notify(label: { "participant.didUnpublishDataTrack" }) {
                 $0.participant?(participant, didUnpublishDataTrack: sid)
             }
             room.delegates.notify(label: { "room.didUnpublishDataTrack" }) {
                 $0.room?(room, participant: participant, didUnpublishDataTrack: sid)
             }
-            return
         }
     }
 

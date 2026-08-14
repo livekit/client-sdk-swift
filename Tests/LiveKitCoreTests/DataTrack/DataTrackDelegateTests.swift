@@ -115,4 +115,26 @@ struct DataTrackDelegateTests {
             #expect(try await subRecorder.waitFor(.participantRemoteUnpublish) == remoteSid)
         }
     }
+
+    /// A full reconnect detaches remote tracks from their participants while the subsystem keeps
+    /// them. A publisher unpublishing in that window must still be reported, or an app that pairs
+    /// publish with unpublish is left with a stale entry for the rest of the session.
+    @Test
+    func unpublishWhileDetachedStillNotifies() async throws {
+        try await TestEnvironment.withPublishedDataTrack(named: "detached-unpublish") { fixture in
+            let recorder = DataTrackDelegateRecorder()
+            fixture.subscriber.delegates.add(delegate: recorder)
+            let expectedSid = fixture.remoteTrack.info.sid
+
+            // Stand in for the reconnect window: detached from the participant, still live.
+            for participant in fixture.subscriber.remoteParticipants.values {
+                participant.detachDataTracks()
+            }
+
+            fixture.track.unpublish()
+
+            let sid = try await recorder.waitFor(.roomRemoteUnpublish)
+            #expect(sid == expectedSid)
+        }
+    }
 }
