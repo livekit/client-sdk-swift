@@ -112,6 +112,12 @@ actor SignalClient: Loggable {
     private var _dataTrackResponses: AsyncStream<Data>.Continuation?
     private var _dataTrackResponsesConsumer: AnyTaskCancellable?
 
+    // Requests the SFU answers by echoing an id, keyed by it. The counter is shared so ids stay
+    // unique per connection; data blobs are the only user today. (Data track publishes also
+    // report failures through `RequestResponse`, but correlate on the echoed request instead.)
+    private var _nextRequestId: UInt32 = 0
+    private var _dataBlobCompleters: [UInt32: AsyncCompleter<Data>] = [:]
+
     init() {
         log()
         _state.onDidMutate = { [weak self] newState, oldState in
@@ -269,6 +275,10 @@ actor SignalClient: Loggable {
         _connectResponseCompleter.reset(throwing: disconnectError)
 
         await _addTrackCompleters.reset(throwing: disconnectError)
+        for completer in _dataBlobCompleters.values {
+            completer.reset(throwing: disconnectError)
+        }
+        _dataBlobCompleters.removeAll()
         await _requestQueue.clear()
         await _responseQueue.clear()
         stopDataTrackResponses()
@@ -449,6 +459,20 @@ private extension SignalClient {
         case let .mediaSectionsRequirement(requirement):
             _delegate.notifyDetached { await $0.signalClient(self, didReceiveMediaSectionsRequirement: requirement) }
 
+        case let .storeDataBlobResponse(response):
+            _dataBlobCompleters[response.requestID]?.resume(returning: Data())
+
+        case let .getDataBlobResponse(response):
+            _dataBlobCompleters[response.requestID]?.resume(returning: response.blob.contents)
+
+        case let .requestResponse(response):
+            // The failure half of the id-correlated requests above. Anything else arriving here
+            // is for a request that reports its own errors (data track publishes) or none.
+            if let completer = _dataBlobCompleters[response.requestID] {
+                let message = response.message.isEmpty ? "Request rejected (reason \(response.reason.rawValue))" : response.message
+                completer.resume(throwing: LiveKitError(.invalidState, message: message))
+            }
+
         case .publishDataTrackResponse, .dataTrackSubscriberHandles:
             // Handled by the data-track subsystem via didReceiveDataTrackResponse.
             break
@@ -478,6 +502,45 @@ extension SignalClient {
 extension SignalClient {
     func sendRequest(_ request: Livekit_SignalRequest) async throws {
         try await _sendRequest(request)
+    }
+
+    /// Stores a blob on the server under `key`, replacing nothing — a key can only be written once.
+    func sendStoreDataBlob(key: Livekit_DataBlobKey, contents: Data) async throws {
+        _ = try await _sendIdCorrelatedRequest { requestId in
+            Livekit_SignalRequest.with {
+                $0.storeDataBlobRequest = Livekit_StoreDataBlobRequest.with {
+                    $0.requestID = requestId
+                    $0.blob = Livekit_DataBlob.with {
+                        $0.key = key
+                        $0.contents = contents
+                    }
+                }
+            }
+        }
+    }
+
+    /// Reads back a blob `participantIdentity` stored under `key`.
+    func sendGetDataBlob(key: Livekit_DataBlobKey, participantIdentity: String) async throws -> Data {
+        try await _sendIdCorrelatedRequest { requestId in
+            Livekit_SignalRequest.with {
+                $0.getDataBlobRequest = Livekit_GetDataBlobRequest.with {
+                    $0.requestID = requestId
+                    $0.participantIdentity = participantIdentity
+                    $0.key = key
+                }
+            }
+        }
+    }
+
+    /// Sends a request the SFU answers by echoing its id, and waits for that answer.
+    private func _sendIdCorrelatedRequest(_ build: (UInt32) -> Livekit_SignalRequest) async throws -> Data {
+        _nextRequestId += 1
+        let requestId = _nextRequestId
+        let completer = AsyncCompleter<Data>(label: "Signal request \(requestId)", defaultTimeout: .defaultDataBlobRequest)
+        _dataBlobCompleters[requestId] = completer
+        defer { _dataBlobCompleters[requestId] = nil }
+        try await _sendRequest(build(requestId))
+        return try await completer.wait()
     }
 
     func send(offer: LKRTCSessionDescription, offerId: UInt32) async throws {

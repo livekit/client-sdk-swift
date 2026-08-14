@@ -52,6 +52,16 @@ public final class DataTrackSchemaId: NSObject, Sendable {
         LiveKitUniFFI.DataTrackSchemaId(name: name, encoding: encoding.ffi)
     }
 
+    /// As a data blob key, for storing and reading back the schema's definition.
+    var blobKey: Livekit_DataBlobKey {
+        Livekit_DataBlobKey.with {
+            $0.schemaID = Livekit_DataTrackSchemaId.with {
+                $0.name = name
+                $0.encoding = encoding.proto
+            }
+        }
+    }
+
     override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
         return name == other.name && encoding == other.encoding
@@ -147,6 +157,22 @@ public enum DataTrackSchemaEncoding: Sendable, Equatable, Hashable {
         case .jsonSchema: .jsonSchema
         case .other: .other
         case let .custom(identifier): .custom(identifier)
+        }
+    }
+
+    var proto: Livekit_DataTrackSchemaEncoding {
+        Livekit_DataTrackSchemaEncoding.with {
+            switch self {
+            case .protobuf: $0.wellKnown = .protobuf
+            case .flatbuffer: $0.wellKnown = .flatbuffer
+            case .ros1Msg: $0.wellKnown = .ros1Msg
+            case .ros2Msg: $0.wellKnown = .ros2Msg
+            case .ros2Idl: $0.wellKnown = .ros2Idl
+            case .omgIdl: $0.wellKnown = .omgIdl
+            case .jsonSchema: $0.wellKnown = .jsonSchema
+            case .other: $0.wellKnown = .unspecified
+            case let .custom(identifier): $0.custom = identifier
+            }
         }
     }
 }

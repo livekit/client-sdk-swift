@@ -44,6 +44,44 @@ public extension LocalParticipant {
         return try await dataTracks.publish(name: name, options: options)
     }
 
+    /// Stores the definition of a data track schema, making it available to subscribers.
+    ///
+    /// Define a schema before publishing any data track that references it, so subscribers can
+    /// resolve it by ID via ``getSchema(_:publishedBy:)``. Treat a definition as write-once —
+    /// whether redefining an existing one is rejected is up to the server.
+    ///
+    /// - Parameters:
+    ///   - id: Identifies the schema; the same ID goes into ``DataTrackPublishOptions``.
+    ///   - definition: The definition, stored as-is. It is neither parsed nor validated against
+    ///     its ``DataTrackSchemaId/encoding``, so it's up to the caller to keep it well-formed.
+    /// - Throws: ``LiveKitError`` if the room is disconnected or the server rejects the schema.
+    func defineSchema(_ id: DataTrackSchemaId, definition: String) async throws {
+        guard let room = _room else {
+            throw LiveKitError(.invalidState, message: "Not connected to a room")
+        }
+        try await room.signalClient.sendStoreDataBlob(key: id.blobKey, contents: Data(definition.utf8))
+    }
+
+    /// Retrieves the definition a participant ``defineSchema(_:definition:)``'d for a schema its
+    /// data tracks reference.
+    ///
+    /// - Parameters:
+    ///   - id: Identifies the schema, as carried by ``DataTrackInfo/schema``.
+    ///   - participant: Identity of the participant that defined it.
+    /// - Throws: ``LiveKitError`` if the room is disconnected, no such schema was defined, or the
+    ///   stored definition is not valid UTF-8.
+    func getSchema(_ id: DataTrackSchemaId, publishedBy participant: Participant.Identity) async throws -> String {
+        guard let room = _room else {
+            throw LiveKitError(.invalidState, message: "Not connected to a room")
+        }
+        let contents = try await room.signalClient.sendGetDataBlob(key: id.blobKey,
+                                                                   participantIdentity: participant.stringValue)
+        guard let definition = String(data: contents, encoding: .utf8) else {
+            throw LiveKitError(.failedToConvertData, message: "Schema definition is not valid UTF-8")
+        }
+        return definition
+    }
+
     /// Publishes a data track for the duration of `body`, then unpublishes it automatically.
     ///
     /// - Parameters:

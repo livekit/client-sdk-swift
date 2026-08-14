@@ -26,10 +26,8 @@ import LiveKitTestSupport
 struct DataTrackPublishTests {
     // MARK: - Frame Metadata
 
-    /// Publishing with declared frame metadata (schema + encoding) succeeds and frames flow.
-    /// The metadata is sent to the SFU (parity with rust-sdks `DataTrackOptions`), but servers
-    /// don't echo it back in track info yet (as of livekit-server 1.13.5), so the round-trip via
-    /// ``DataTrackInfo/schema``/``DataTrackInfo/frameEncoding`` isn't asserted here.
+    /// Publishing with declared frame metadata (schema + encoding) succeeds, the metadata is
+    /// carried to subscribers through the SFU's track info, and frames flow.
     @Test
     func publishWithFrameMetadata() async throws {
         try await TestEnvironment.withRooms([
@@ -102,6 +100,55 @@ struct DataTrackPublishTests {
             let track = try await rooms[0].localParticipant.publishDataTrack(name: "toggled")
             #expect(!track.info.usesE2ee)
             #expect(try await watcher.waitForTrack().info.usesE2ee == false)
+        }
+    }
+
+    // MARK: - Schema Definitions
+
+    /// A publisher stores a schema definition and a subscriber resolves it by the ID carried on
+    /// the track it describes.
+    @Test
+    func defineAndGetSchema() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let publisher = rooms[0]
+            let subscriber = rooms[1]
+
+            let watcher = DataTrackWatcher(expectedName: "described")
+            subscriber.delegates.add(delegate: watcher)
+
+            let schema = DataTrackSchemaId(name: "reading.v1", encoding: .jsonSchema)
+            let definition = #"{"type":"object","properties":{"value":{"type":"number"}}}"#
+            try await publisher.localParticipant.defineSchema(schema, definition: definition)
+
+            let options = DataTrackPublishOptions(schema: schema, frameEncoding: .json)
+            let track = try await publisher.localParticipant.publishDataTrack(name: "described", options: options)
+
+            let remoteTrack = try await watcher.waitForTrack()
+            let declared = try #require(remoteTrack.info.schema)
+            #expect(declared == schema)
+
+            let publisherIdentity = try #require(publisher.localParticipant.identity)
+            let resolved = try await subscriber.localParticipant.getSchema(declared, publishedBy: publisherIdentity)
+            #expect(resolved == definition)
+            _ = track.isPublished // keep the publication alive through the assertions
+        }
+    }
+
+    /// Resolving a schema nobody defined fails rather than hanging.
+    @Test
+    func getUndefinedSchemaThrows() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let publisherIdentity = try #require(rooms[0].localParticipant.identity)
+            let missing = DataTrackSchemaId(name: "missing.v1", encoding: .protobuf)
+            await #expect(throws: LiveKitError.self) {
+                _ = try await rooms[1].localParticipant.getSchema(missing, publishedBy: publisherIdentity)
+            }
         }
     }
 
