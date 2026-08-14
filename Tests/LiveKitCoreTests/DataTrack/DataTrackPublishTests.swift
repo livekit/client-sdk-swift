@@ -85,6 +85,26 @@ struct DataTrackPublishTests {
         }
     }
 
+    /// Whether frames are encrypted is read when the first data track is published, not at
+    /// connect, so a toggle issued after connecting still applies.
+    @Test
+    func encryptionToggleAfterConnectApplies() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let watcher = DataTrackWatcher(expectedName: "toggled")
+            rooms[1].delegates.add(delegate: watcher)
+
+            // `withRooms` connects with E2EE enabled; turn it off before publishing anything.
+            rooms[0].setE2EEEnabled(false)
+
+            let track = try await rooms[0].localParticipant.publishDataTrack(name: "toggled")
+            #expect(!track.info.usesE2ee)
+            #expect(try await watcher.waitForTrack().info.usesE2ee == false)
+        }
+    }
+
     // MARK: - Publish Duplicate Name
 
     @Test

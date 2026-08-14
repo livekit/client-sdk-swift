@@ -333,7 +333,7 @@ private extension SignalClient {
         // FFI boundary just to be rejected as an unsupported type. `requestResponse` carries
         // publish request errors, so it belongs here even though it isn't data-track-specific.
         switch response.message {
-        case .requestResponse, .publishDataTrackResponse, .unpublishDataTrackResponse, .dataTrackSubscriberHandles:
+        case .requestResponse, .publishDataTrackResponse, .dataTrackSubscriberHandles:
             _dataTrackResponses?.yield(rawData)
         default: break
         }
@@ -449,8 +449,13 @@ private extension SignalClient {
         case let .mediaSectionsRequirement(requirement):
             _delegate.notifyDetached { await $0.signalClient(self, didReceiveMediaSectionsRequirement: requirement) }
 
-        case .publishDataTrackResponse, .unpublishDataTrackResponse, .dataTrackSubscriberHandles:
+        case .publishDataTrackResponse, .dataTrackSubscriberHandles:
             // Handled by the data-track subsystem via didReceiveDataTrackResponse.
+            break
+
+        case .unpublishDataTrackResponse:
+            // No data-track manager consumes this yet; unpublishes are tracked locally and, for
+            // remote tracks, through participant updates.
             break
 
         default:

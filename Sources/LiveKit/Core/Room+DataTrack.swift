@@ -27,12 +27,18 @@ internal import LiveKitWebRTC
 /// reconnects (its channels are swapped, but the managers persist so publications can be
 /// republished), released only on a real disconnect.
 ///
-/// `@unchecked Sendable`: the only mutable state is `_publisherChannel` (StateSync-guarded); the
-/// managers and delegate are immutable after init. Not an actor — the UniFFI delegate callbacks
-/// are synchronous and can't `await`.
+/// `@unchecked Sendable`: every mutable field is StateSync-guarded; the delegate, cryptor and
+/// remote manager are immutable after init. Not an actor — the UniFFI delegate callbacks are
+/// synchronous and can't `await`.
 final class DataTracks: NSObject, @unchecked Sendable {
-    private let local: LocalDataTrackManager
+    // Built on the first publish, not at connect: the manager captures whether outbound frames
+    // are encrypted (see `encryptionProvider`), and deferring it lets a `setE2EEEnabled(true)`
+    // issued after connecting still apply. Until then there is nothing for it to do — every call
+    // it serves concerns tracks this participant has published.
+    private let _local = StateSync<LocalDataTrackManager?>(nil)
     private let remote: RemoteDataTrackManager
+    private let managerDelegate: ManagerDelegate
+    private let cryptor: DataTrackCryptor?
     private weak var room: Room?
     // Wired in after creation (Engine/TransportDelegate) and read from the Rust callback thread,
     // so they need their own synchronization. The subscriber channel is retained (not just
@@ -61,19 +67,29 @@ final class DataTracks: NSObject, @unchecked Sendable {
     init(room: Room) {
         self.room = room
         let managerDelegate = ManagerDelegate(room: room)
-        // Provide the cryptor only when E2EE is configured — its presence is what marks tracks as
-        // encrypted (usesE2ee), so it must be nil otherwise. Unlike data channel payloads (a
-        // per-message property), data track encryption is a track-level protocol property that
-        // subscribers key their decryption on, so publishing captures the runtime E2EE toggle as
-        // of connect rather than consulting it per frame; reception can always decrypt.
-        let cryptor: DataTrackCryptor? = room.e2eeManager.map(DataTrackCryptor.init)
-        let encryptionProvider = room.e2eeManager?.isDataTrackEncryptionEnabled == true ? cryptor : nil
-        local = LocalDataTrackManager(delegate: managerDelegate, encryptionProvider: encryptionProvider)
+        self.managerDelegate = managerDelegate
+        // Reception can always decrypt; only publishing consults the toggle.
+        cryptor = room.e2eeManager.map(DataTrackCryptor.init)
         remote = RemoteDataTrackManager(delegate: managerDelegate, decryptionProvider: cryptor)
         super.init()
         // The UniFFI managers retain their delegate strongly, so it points back here weakly to
         // avoid a cycle. (The RTC channel holds its delegate — us — weakly, so no shim needed.)
         managerDelegate.coordinator = self
+    }
+
+    /// The publishing manager, created on first use. Whether frames are encrypted is fixed when
+    /// it is built: unlike data channel payloads (a per-message property), data track encryption
+    /// is a track-level protocol property that subscribers key their decryption on, so it can't
+    /// be consulted per frame. The cryptor is passed only when E2EE is on — its presence is what
+    /// marks published tracks as encrypted (``DataTrackInfo/usesE2ee``).
+    private var local: LocalDataTrackManager {
+        _local.mutate { manager in
+            if let manager { return manager }
+            let encryptionProvider = room?.e2eeManager?.isDataTrackEncryptionEnabled == true ? cryptor : nil
+            let created = LocalDataTrackManager(delegate: managerDelegate, encryptionProvider: encryptionProvider)
+            manager = created
+            return created
+        }
     }
 
     // MARK: - Publishing
@@ -118,8 +134,12 @@ final class DataTracks: NSObject, @unchecked Sendable {
         // Each manager handles specific message types and returns UnsupportedType otherwise, so
         // try them all. Participant updates are routed via handleParticipantUpdate instead, after
         // the remote participant is added — so onTrackPublished can resolve the publisher.
-        try? local.handleSfuRequestResponse(res: data)
-        try? local.handleSfuPublishResponse(res: data)
+        // `_local` rather than `local`: these only matter once something has been published, and
+        // building the manager here would fix the encryption mode before the first publish.
+        if let local = _local.copy() {
+            try? local.handleSfuRequestResponse(res: data)
+            try? local.handleSfuPublishResponse(res: data)
+        }
         try? remote.handleSubscriberHandles(res: data)
     }
 
@@ -140,7 +160,7 @@ final class DataTracks: NSObject, @unchecked Sendable {
         // participant disconnects — so drop them instead of keeping them for re-attach. Then
         // republish local tracks into the new room and surface its existing publications.
         _remoteTracks.mutate { $0 = [] }
-        local.republishTracks()
+        _local.copy()?.republishTracks()
         handleParticipantUpdate(participants, localIdentity: localIdentity)
     }
 
@@ -156,7 +176,7 @@ final class DataTracks: NSObject, @unchecked Sendable {
         // Quick reconnect preserves local publications via sync state, so only a full reconnect
         // republishes. Either way, re-assert subscriptions so the SFU re-issues subscriber handles.
         if fullReconnect {
-            local.republishTracks()
+            _local.copy()?.republishTracks()
             // A data-track-only publisher needs the publisher transport re-established too; the
             // media republish path only does this when media tracks exist. Gate waiters are
             // publishes that arrived during the reconnect window — their own
@@ -171,7 +191,8 @@ final class DataTracks: NSObject, @unchecked Sendable {
     /// Publish responses for the local data tracks, for `SyncState.publishDataTracks` on quick
     /// reconnect (so the SFU keeps the publications without a full republish).
     func syncStatePublishResponses() async -> [Livekit_PublishDataTrackResponse] {
-        await local.publishResponsesForSyncState().compactMap { try? Livekit_PublishDataTrackResponse(serializedBytes: $0) }
+        guard let local = _local.copy() else { return [] }
+        return await local.publishResponsesForSyncState().compactMap { try? Livekit_PublishDataTrackResponse(serializedBytes: $0) }
     }
 
     func handlePacket(_ data: Data) {
