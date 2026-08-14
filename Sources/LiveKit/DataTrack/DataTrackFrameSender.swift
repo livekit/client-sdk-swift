@@ -55,7 +55,7 @@ final class DataTrackFrameSender: Loggable {
     /// Freshest queued frame (capacity one — a newer frame evicts it).
     private var pendingFrame: [Data]?
     /// Packets of the frame currently draining, in FIFO order.
-    private var inFlight: [Data] = []
+    private var inFlight: Deque<Data> = []
 
     /// Attaches the channel this sender drains into, dropping frames queued for the previous one
     /// (they belong to a torn-down transport).
@@ -83,11 +83,13 @@ final class DataTrackFrameSender: Loggable {
             if inFlight.isEmpty {
                 guard let next = pendingFrame else { return }
                 pendingFrame = nil
-                inFlight = next
+                for packet in next {
+                    inFlight.append(packet)
+                }
             }
             guard let packet = inFlight.first else { return }
             guard channel.send(packet: packet) else {
-                log("Data track channel rejected packet; dropping frame (\(inFlight.count) packets)", .debug)
+                log("Data track channel rejected packet; dropping the rest of the frame", .debug)
                 inFlight = []
                 return
             }
