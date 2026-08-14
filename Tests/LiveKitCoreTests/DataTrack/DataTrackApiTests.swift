@@ -133,7 +133,7 @@ struct DataTrackApiTests {
 
             let payload = Data([0x2A])
             try track.tryPush(frame: DataTrackFrame(payload: payload))
-            #expect(await stream.next()?.payload == payload)
+            #expect(await stream.next(within: 15)?.payload == payload)
         }
     }
 
@@ -160,7 +160,7 @@ struct DataTrackApiTests {
             // Let the last frames arrive before reading, so the buffer has to evict.
             try await Task.sleep(nanoseconds: 1_000_000_000)
 
-            let first = try #require(await stream.next()?.payload.first)
+            let first = try #require(await stream.next(within: 15)?.payload.first)
             #expect(first > 0, "A capacity-one buffer should have dropped the earliest frames")
         }
     }

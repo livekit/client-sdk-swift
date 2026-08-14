@@ -52,7 +52,7 @@ struct DataTrackPublishTests {
             let stream = try await remoteTrack.subscribe()
             let payload = Data("{}".utf8)
             try track.tryPush(frame: DataTrackFrame(payload: payload))
-            let frame = try #require(await stream.next())
+            let frame = try #require(await stream.next(within: 15))
             #expect(frame.payload == payload)
         }
     }
@@ -78,7 +78,7 @@ struct DataTrackPublishTests {
             let stream = try await remoteTrack.subscribe()
             let payload = Data([0x0B, 0x0E])
             try track.tryPush(frame: DataTrackFrame(payload: payload))
-            let frame = try #require(await stream.next())
+            let frame = try #require(await stream.next(within: 15))
             #expect(frame.payload == payload)
         }
     }

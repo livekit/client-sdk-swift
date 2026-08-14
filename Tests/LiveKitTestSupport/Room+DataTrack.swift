@@ -129,6 +129,39 @@ public final class DataTrackDelegateRecorder: NSObject, RoomDelegate, Participan
     public func participant(_: RemoteParticipant, didUnpublishDataTrack sid: DataTrack.Sid) { record(.participantRemoteUnpublish, sid) }
 }
 
+/// Bounded reads. `DataTrackStream` only ends when the track is unpublished, so a bare `next()`
+/// waits forever if a frame is lost — on an unreliable channel that turns a failed assertion into
+/// a hung job.
+public extension DataTrackStream {
+    /// The next frame, or `nil` if none arrives in time.
+    func next(within timeout: TimeInterval = 15) async -> DataTrackFrame? {
+        await withTaskGroup(of: DataTrackFrame?.self) { group in
+            group.addTask { await self.next() }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                return nil
+            }
+            defer { group.cancelAll() }
+            return await group.next() ?? nil
+        }
+    }
+
+    /// Up to `count` frames matching `predicate`, or fewer if the deadline passes first.
+    func collect(_ count: Int,
+                 within timeout: TimeInterval = 15,
+                 where predicate: @escaping @Sendable (DataTrackFrame) -> Bool = { _ in true }) async -> [DataTrackFrame]
+    {
+        var frames: [DataTrackFrame] = []
+        let deadline = Date().addingTimeInterval(timeout)
+        while frames.count < count {
+            let remaining = deadline.timeIntervalSinceNow
+            guard remaining > 0, let frame = await next(within: remaining) else { break }
+            if predicate(frame) { frames.append(frame) }
+        }
+        return frames
+    }
+}
+
 /// Convenience for simple cases — registers watcher, returns track.
 public extension Room {
     func waitForDataTrack(name: String, timeout: TimeInterval = 15) async throws -> RemoteDataTrack {

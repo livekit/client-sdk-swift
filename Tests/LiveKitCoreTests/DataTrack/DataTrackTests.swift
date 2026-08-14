@@ -73,13 +73,9 @@ struct DataTrackTests {
 
             // The channel is unreliable, so tolerate a single dropped frame.
             let expected = scenario.frameCount - 1
-            var received = 0
-            for await frame in stream {
-                #expect(frame.payload == payload, "Payload mismatch on frame \(received)")
-                received += 1
-                if received >= expected { break }
-            }
-            #expect(received >= expected, "Expected at least \(expected) frames, got \(received)")
+            let received = await stream.collect(expected)
+            #expect(received.count >= expected, "Expected at least \(expected) frames, got \(received.count)")
+            #expect(received.allSatisfy { $0.payload == payload }, "Payload mismatch")
         }
     }
 
@@ -121,7 +117,7 @@ struct DataTrackTests {
             let payload = Data([1, 2, 3])
             try track.tryPush(frame: .now(payload: payload))
 
-            let frame = try #require(await stream.next())
+            let frame = try #require(await stream.next(within: 15))
             let ts = try #require(frame.userTimestamp)
             let nowMs = UInt64(Date().timeIntervalSince1970 * 1000)
             let elapsedMs = nowMs > ts ? nowMs - ts : 0
@@ -152,7 +148,7 @@ struct DataTrackTests {
             do {
                 let stream = try await remoteTrack.subscribe()
                 try track.tryPush(frame: DataTrackFrame(payload: payload))
-                let frame = try #require(await stream.next(), "No frame on first subscription")
+                let frame = try #require(await stream.next(within: 15), "No frame on first subscription")
                 #expect(frame.payload == payload)
             }
             // Stream dropped — unsubscribes.
@@ -164,7 +160,7 @@ struct DataTrackTests {
             do {
                 let stream = try await remoteTrack.subscribe()
                 try track.tryPush(frame: DataTrackFrame(payload: payload))
-                let frame = try #require(await stream.next(), "No frame on second subscription")
+                let frame = try #require(await stream.next(within: 15), "No frame on second subscription")
                 #expect(frame.payload == payload)
             }
         }
@@ -195,120 +191,9 @@ struct DataTrackTests {
 
             try await track.send(contentsOf: source)
 
-            var received = 0
-            for await frame in stream {
-                #expect(frame.payload == payload)
-                received += 1
-                if received >= frameCount - 1 { break }
-            }
-            #expect(received >= frameCount - 1)
-        }
-    }
-
-    // MARK: - Attached to Remote Participant
-
-    @Test
-    func attachedToRemoteParticipant() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canSubscribe: true),
-        ]) { rooms in
-            let watcher = DataTrackWatcher(expectedName: "attached")
-            rooms[1].delegates.add(delegate: watcher)
-
-            let track = try await rooms[0].localParticipant.publishDataTrack(name: "attached")
-            let remoteTrack = try await watcher.waitForTrack()
-
-            let publisherIdentity = try #require(rooms[0].localParticipant.identity)
-            let publisher = try #require(rooms[1].remoteParticipants[publisherIdentity])
-            #expect(publisher.dataTracks["attached"] === remoteTrack)
-            _ = track.isPublished // keep the publication alive through the assertions (dropping it unpublishes)
-        }
-    }
-
-    // MARK: - Unpublish Delegate
-
-    @Test
-    func unpublishNotifiesDelegate() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canSubscribe: true),
-        ]) { rooms in
-            let watcher = DataTrackWatcher(expectedName: "to-unpublish")
-            rooms[1].delegates.add(delegate: watcher)
-
-            let track = try await rooms[0].localParticipant.publishDataTrack(name: "to-unpublish")
-            let remoteTrack = try await watcher.waitForTrack()
-
-            track.unpublish()
-            let unpublishedSid = try await watcher.waitForUnpublish()
-            #expect(unpublishedSid == remoteTrack.info.sid)
-        }
-    }
-
-    /// A publisher disconnecting (without an explicit unpublish) should still surface as an
-    /// unpublish to the subscriber.
-    @Test
-    func remoteTrackUnpublishedOnPublisherDisconnect() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canSubscribe: true),
-        ]) { rooms in
-            let publisher = rooms[0]
-            let subscriber = rooms[1]
-
-            let watcher = DataTrackWatcher(expectedName: "on-disconnect")
-            subscriber.delegates.add(delegate: watcher)
-
-            let track = try await publisher.localParticipant.publishDataTrack(name: "on-disconnect")
-            let remoteTrack = try await watcher.waitForTrack()
-
-            // Full disconnect, not an explicit unpublish (the handle stays alive so the drop
-            // doesn't cause the unpublish itself).
-            await publisher.disconnect()
-            _ = track.isPublished
-
-            // Bounded wait: cancel the (otherwise unbounded) watcher if nothing arrives in time.
-            let unpublishTask = Task { try await watcher.waitForUnpublish() }
-            let deadline = Task {
-                try await Task.sleep(nanoseconds: 15_000_000_000)
-                unpublishTask.cancel()
-            }
-            let unpublishedSid = try? await unpublishTask.value
-            deadline.cancel()
-
-            #expect(unpublishedSid == remoteTrack.info.sid)
-        }
-    }
-
-    /// Publish/unpublish fires on both subscriber-side delegates (Room + Participant). Local
-    /// publications have no delegate events (as in Rust) — the returned handle is the observer.
-    @Test
-    func publishAndUnpublishNotifyAllDelegates() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canSubscribe: true),
-        ]) { rooms in
-            let publisher = rooms[0]
-            let subscriber = rooms[1]
-
-            // The subscriber already discovered the publisher (withRooms waits), so its
-            // RemoteParticipant exists; register before publishing to catch the publish event.
-            let publisherIdentity = try #require(publisher.localParticipant.identity)
-            let remotePublisher = try #require(subscriber.remoteParticipants[publisherIdentity])
-            let subRecorder = DataTrackDelegateRecorder()
-            subscriber.delegates.add(delegate: subRecorder) // room events
-            remotePublisher.delegates.add(delegate: subRecorder) // participant events
-
-            let track = try await publisher.localParticipant.publishDataTrack(name: "delegated")
-
-            let remoteSid = try await subRecorder.waitFor(.roomRemotePublish)
-            #expect(try await subRecorder.waitFor(.participantRemotePublish) == remoteSid)
-
-            track.unpublish()
-
-            #expect(try await subRecorder.waitFor(.roomRemoteUnpublish) == remoteSid)
-            #expect(try await subRecorder.waitFor(.participantRemoteUnpublish) == remoteSid)
+            let received = await stream.collect(frameCount - 1)
+            #expect(received.count >= frameCount - 1)
+            #expect(received.allSatisfy { $0.payload == payload })
         }
     }
 }

@@ -156,22 +156,8 @@ struct DataTrackLifecycleTests {
             }
             defer { pusher.cancel() }
 
-            let received = await withTaskGroup(of: Bool.self) { group in
-                group.addTask {
-                    for await frame in stream where frame.payload == payload {
-                        return true
-                    }
-                    return false
-                }
-                group.addTask {
-                    try? await Task.sleep(nanoseconds: 15_000_000_000)
-                    return false
-                }
-                let first = await group.next() ?? false
-                group.cancelAll()
-                return first
-            }
-            #expect(received, "Frames should keep flowing after a quick reconnect")
+            let received = await stream.collect(1) { $0.payload == payload }
+            #expect(!received.isEmpty, "Frames should keep flowing after a quick reconnect")
         }
     }
 
@@ -220,22 +206,8 @@ struct DataTrackLifecycleTests {
             }
             defer { pusher.cancel() }
 
-            let received = await withTaskGroup(of: Bool.self) { group in
-                group.addTask {
-                    for await frame in stream where frame.payload == payload {
-                        return true
-                    }
-                    return false
-                }
-                group.addTask {
-                    try? await Task.sleep(nanoseconds: 15_000_000_000)
-                    return false
-                }
-                let first = await group.next() ?? false
-                group.cancelAll()
-                return first
-            }
-            #expect(received, "Frames should keep flowing after the local client's full reconnect")
+            let received = await stream.collect(1) { $0.payload == payload }
+            #expect(!received.isEmpty, "Frames should keep flowing after the local client's full reconnect")
         }
     }
 
