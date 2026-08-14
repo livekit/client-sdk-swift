@@ -122,6 +122,27 @@
     }
     [self waitForExpectations:@[receivedFrameExp] timeout:30];
 
+    // Value semantics: separate `info` reads describe the same track, so they compare equal and
+    // hash alike rather than by object identity.
+    DataTrackInfo *infoA = self.receivedTrack.info;
+    DataTrackInfo *infoB = self.receivedTrack.info;
+    XCTAssertNotIdentical(infoA, infoB);
+    XCTAssertEqualObjects(infoA, infoB);
+    XCTAssertEqual(infoA.hash, infoB.hash);
+    XCTAssertEqualObjects(infoA.sid, infoB.sid);
+    XCTAssertEqual([(NSObject *)infoA.sid hash], [(NSObject *)infoB.sid hash]);
+
+    // Errors bridge to NSError with the message intact (the enums cannot be @objc, so
+    // `localizedDescription` is all Objective-C callers get).
+    XCTestExpectation *duplicateExp = [self expectationWithDescription:@"duplicate"];
+    [pubRoom.localParticipant publishDataTrackWithName:@"objc-dt" completionHandler:^(LocalDataTrack *dupe, NSError *dupeErr) {
+        XCTAssertNil(dupe);
+        XCTAssertNotNil(dupeErr);
+        XCTAssertGreaterThan(dupeErr.localizedDescription.length, 0);
+        [duplicateExp fulfill];
+    }];
+    [self waitForExpectations:@[duplicateExp] timeout:30];
+
     // Unpublish.
     [localTrack unpublish];
     XCTestExpectation *unpublishExp = [self expectationWithDescription:@"unpublish"];
@@ -137,6 +158,19 @@
     [subRoom disconnectWithCompletionHandler:^{ [disconnectSub fulfill]; }];
     [pubRoom disconnectWithCompletionHandler:^{ [disconnectPub fulfill]; }];
     [self waitForExpectations:@[disconnectSub, disconnectPub] timeout:10];
+}
+
+// Frames are values, not identities, and carry their timestamp both ways. No room needed.
+- (void)testFrameValueSemantics {
+    NSData *payload = [@"frame" dataUsingEncoding:NSUTF8StringEncoding];
+    DataTrackFrame *plain = [[DataTrackFrame alloc] initWithPayload:payload];
+    XCTAssertEqualObjects(plain, [[DataTrackFrame alloc] initWithPayload:payload]);
+    XCTAssertEqual(plain.hash, [[DataTrackFrame alloc] initWithPayload:payload].hash);
+    XCTAssertNil(plain.userTimestampMs);
+
+    DataTrackFrame *stamped = [[DataTrackFrame alloc] initWithPayload:payload userTimestampMs:1000];
+    XCTAssertNotEqualObjects(plain, stamped);
+    XCTAssertEqualObjects(stamped.userTimestampMs, @1000);
 }
 
 @end

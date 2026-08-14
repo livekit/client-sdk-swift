@@ -42,4 +42,20 @@ public final class DataTrackInfo: NSObject, Sendable {
         frameEncoding = info.frameEncoding.map(DataTrackFrameEncoding.init)
         super.init()
     }
+
+    override public func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return sid == other.sid && name == other.name && usesE2ee == other.usesE2ee
+            && schema == other.schema && frameEncoding == other.frameEncoding
+    }
+
+    override public var hash: Int {
+        var hasher = Hasher()
+        sid.hash(into: &hasher)
+        name.hash(into: &hasher)
+        usesE2ee.hash(into: &hasher)
+        schema.hash(into: &hasher)
+        frameEncoding.hash(into: &hasher)
+        return hasher.finalize()
+    }
 }

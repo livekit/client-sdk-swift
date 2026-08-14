@@ -65,4 +65,16 @@ public final class DataTrackFrame: NSObject, Sendable {
     var ffi: LiveKitUniFFI.DataTrackFrame {
         LiveKitUniFFI.DataTrackFrame(payload: payload, userTimestamp: userTimestamp)
     }
+
+    override public func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return payload == other.payload && userTimestamp == other.userTimestamp
+    }
+
+    override public var hash: Int {
+        var hasher = Hasher()
+        payload.hash(into: &hasher)
+        userTimestamp.hash(into: &hasher)
+        return hasher.finalize()
+    }
 }
