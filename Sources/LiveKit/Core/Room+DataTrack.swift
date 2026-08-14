@@ -81,9 +81,16 @@ final class DataTracks: NSObject, @unchecked Sendable {
     func publish(name: String, options: DataTrackPublishOptions? = nil) async throws -> LocalDataTrack {
         // A data-track-only publisher in subscriber-primary mode has no negotiated publisher
         // transport yet — establish it and wait for the channel to open, or frames would be
-        // silently dropped (`sendData` on a non-open channel fails).
-        try await room?.ensurePublisherConnected()
-        try await _publisherChannelOpen.wait()
+        // silently dropped (`sendData` on a non-open channel fails). Gate failures are reported
+        // as publish errors, since that's what the caller asked for.
+        do {
+            try await room?.ensurePublisherConnected()
+            try await _publisherChannelOpen.wait()
+        } catch let error as LiveKitError where error.type == .timedOut {
+            throw DataTrackPublishError.timeout("Timed out establishing the publisher data track channel")
+        } catch {
+            throw DataTrackPublishError.disconnected("Lost the connection while establishing the publisher data track channel")
+        }
         do {
             let ffiOptions = DataTrackOptions(name: name,
                                               schema: options?.schema?.ffi,

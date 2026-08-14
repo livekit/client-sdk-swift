@@ -112,12 +112,18 @@ struct DataTrackPublishTests {
 
     // MARK: - Publish While Disconnected
 
-    /// Publishing on a room that was never connected fails with the data-track error type
-    /// (`.disconnected`), matching Rust — not a generic `LiveKitError`.
+    /// Publishing on a disconnected room fails with the data-track error type (`.disconnected`),
+    /// matching Rust — not a generic `LiveKitError`.
     @Test
     func publishWhileDisconnectedThrows() async throws {
-        await #expect(throws: DataTrackPublishError.self) {
-            _ = try await Room().localParticipant.publishDataTrack(name: "nope")
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+        ]) { rooms in
+            let room = rooms[0]
+            await room.disconnect()
+            await #expect(throws: DataTrackPublishError.self) {
+                _ = try await room.localParticipant.publishDataTrack(name: "nope")
+            }
         }
     }
 }

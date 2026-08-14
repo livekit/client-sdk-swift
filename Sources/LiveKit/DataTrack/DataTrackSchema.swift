@@ -28,6 +28,7 @@ public final class DataTrackSchemaId: NSObject, Sendable {
     /// The encoding as its identifier string; Objective-C sees this as `encoding`.
     @objc(encoding) public var encodingIdentifier: String { encoding.identifier }
 
+    /// Creates a schema identifier from its name and the encoding of the schema definition.
     public init(name: String, encoding: DataTrackSchemaEncoding) {
         self.name = name
         self.encoding = encoding
@@ -70,12 +71,19 @@ public final class DataTrackSchemaId: NSObject, Sendable {
 
 /// Encoding of a data track schema definition.
 public enum DataTrackSchemaEncoding: Sendable, Equatable, Hashable {
+    /// Protocol Buffers schema (`.proto`), describing `protobuf`-encoded frames.
     case protobuf
+    /// FlatBuffers schema (`.fbs`), describing `flatbuffer`-encoded frames.
     case flatbuffer
+    /// ROS 1 message definition, describing `ros1`-encoded frames.
     case ros1Msg
+    /// ROS 2 message definition, describing `cdr`-encoded frames.
     case ros2Msg
+    /// ROS 2 IDL definition, describing `cdr`-encoded frames.
     case ros2Idl
+    /// OMG IDL definition, describing `cdr`-encoded frames.
     case omgIdl
+    /// JSON Schema, describing `json`-encoded frames.
     case jsonSchema
     /// Another well-known encoding not known to this client version.
     case other
@@ -98,6 +106,7 @@ public enum DataTrackSchemaEncoding: Sendable, Equatable, Hashable {
         }
     }
 
+    /// Creates an encoding from its ``identifier``; unrecognized identifiers become ``custom(_:)``.
     public init(identifier: String) {
         switch identifier {
         case "protobuf": self = .protobuf
@@ -179,6 +188,7 @@ public enum DataTrackFrameEncoding: Sendable, Equatable, Hashable {
         }
     }
 
+    /// Creates an encoding from its ``identifier``; unrecognized identifiers become ``custom(_:)``.
     public init(identifier: String) {
         switch identifier {
         case "ros1": self = .ros1

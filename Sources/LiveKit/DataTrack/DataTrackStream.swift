@@ -53,14 +53,17 @@ public final class DataTrackStream: NSObject, Sendable {
 extension DataTrackStream: AsyncSequence {
     public typealias Element = DataTrackFrame
 
+    /// Iterates the frames received on a ``DataTrackStream``.
     public struct Iterator: AsyncIteratorProtocol {
         let stream: DataTrackStream
 
+        /// Returns the next frame, or `nil` once the stream ends.
         public mutating func next() async -> DataTrackFrame? {
             await stream.next()
         }
     }
 
+    /// Creates an iterator over the frames received on this stream.
     public func makeAsyncIterator() -> Iterator {
         Iterator(stream: self)
     }
