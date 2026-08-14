@@ -24,8 +24,19 @@ internal import LiveKitUniFFI
 public final class RemoteDataTrack: NSObject, Sendable {
     private let track: LiveKitUniFFI.RemoteDataTrack
 
+    /// Identity of the participant publishing this track.
+    @objc public let publisherIdentity: Participant.Identity
+
+    // Both are fixed for the track's lifetime, unlike its SID, which is reassigned when the
+    // publisher republishes after a full reconnect. Cached so the hot paths that key on them
+    // (the participant's `dataTracks` map, re-attaching parked tracks) don't cross the FFI
+    // boundary — some of them under a state lock.
+    let name: String
+
     init(_ track: LiveKitUniFFI.RemoteDataTrack) {
         self.track = track
+        publisherIdentity = Participant.Identity(from: track.publisherIdentity())
+        name = track.info().name
         super.init()
     }
 
@@ -34,9 +45,6 @@ public final class RemoteDataTrack: NSObject, Sendable {
 
     /// Metadata for this track.
     @objc public var info: DataTrackInfo { DataTrackInfo(track.info()) }
-
-    /// Identity of the participant publishing this track.
-    @objc public var publisherIdentity: Participant.Identity { Participant.Identity(from: track.publisherIdentity()) }
 
     /// Waits until the track is unpublished, by either the publisher or the SFU.
     @objc public func waitForUnpublish() async {

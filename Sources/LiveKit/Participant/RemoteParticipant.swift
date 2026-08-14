@@ -25,7 +25,7 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
     /// Names are the stable identifier: a track's SID rotates when the publisher republishes
     /// after a full reconnect (the track object itself survives).
     public var dataTracks: [String: RemoteDataTrack] {
-        _state.dataTracks.reduce(into: [:]) { $0[$1.info.name] = $1 }
+        _state.dataTracks.reduce(into: [:]) { $0[$1.name] = $1 }
     }
 
     init(info: Livekit_ParticipantInfo, room: Room, connectionState: ConnectionState) {
@@ -46,8 +46,10 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
 
     @discardableResult
     func removeDataTrack(sid: DataTrack.Sid) -> RemoteDataTrack? {
-        _state.mutate {
-            guard let index = $0.dataTracks.firstIndex(where: { $0.info.sid == sid }) else { return nil }
+        // `info` crosses the FFI boundary, so resolve the track before taking the state lock.
+        guard let track = _state.dataTracks.first(where: { $0.info.sid == sid }) else { return nil }
+        return _state.mutate {
+            guard let index = $0.dataTracks.firstIndex(where: { $0 === track }) else { return nil }
             return $0.dataTracks.remove(at: index)
         }
     }
@@ -174,13 +176,14 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
 
         // Data tracks: on disconnect the participant is removed before the async manager callback
         // arrives, so it can't route the unpublish — clear them here, mirroring the media path.
-        let dataTrackSids = _state.mutate { state in
-            let sids = state.dataTracks.map(\.info.sid)
+        let dataTracks = _state.mutate { state in
+            let tracks = state.dataTracks
             state.dataTracks = []
-            return sids
+            return tracks
         }
         guard _notify, let room = _room else { return }
-        for sid in dataTrackSids {
+        // `info` crosses the FFI boundary; read it outside the state lock above.
+        for sid in dataTracks.map(\.info.sid) {
             delegates.notify(label: { "participant.didUnpublishDataTrack \(sid)" }) {
                 $0.participant?(self, didUnpublishDataTrack: sid)
             }

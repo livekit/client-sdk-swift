@@ -195,7 +195,9 @@ final class DataTracks: NSObject, @unchecked Sendable {
 
     fileprivate func remoteTrackUnpublished(sid: DataTrack.Sid) {
         guard let room else { return }
-        _remoteTracks.mutate { $0.removeAll { $0.info.sid == sid } }
+        // `info` crosses the FFI boundary, so match before taking the lock and remove by identity.
+        let unpublished = _remoteTracks.copy().filter { $0.info.sid == sid }
+        _remoteTracks.mutate { $0.removeAll { track in unpublished.contains { $0 === track } } }
         for participant in room.remoteParticipants.values where participant.removeDataTrack(sid: sid) != nil {
             participant.delegates.notify(label: { "participant.didUnpublishDataTrack" }) {
                 $0.participant?(participant, didUnpublishDataTrack: sid)
