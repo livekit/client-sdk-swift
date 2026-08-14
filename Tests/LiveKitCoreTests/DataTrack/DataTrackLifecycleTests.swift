@@ -238,4 +238,38 @@ struct DataTrackLifecycleTests {
             #expect(received, "Frames should keep flowing after the local client's full reconnect")
         }
     }
+
+    // MARK: - Room Move
+
+    /// A cloud migration lands the client in a new room: publications from the old one are gone,
+    /// so they must not linger. Driven through the coordinator — a real move needs a cloud SFU —
+    /// with the payload of a move to a room where the publisher has no data tracks.
+    @Test
+    func roomMovedDropsPreviousRoomTracks() async throws {
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(canPublishData: true),
+            RoomTestingOptions(canSubscribe: true),
+        ]) { rooms in
+            let publisher = rooms[0]
+            let subscriber = rooms[1]
+
+            let watcher = DataTrackWatcher(expectedName: "moved")
+            subscriber.delegates.add(delegate: watcher)
+
+            let track = try await publisher.localParticipant.publishDataTrack(name: "moved")
+            let remoteTrack = try await watcher.waitForTrack()
+
+            let publisherIdentity = try #require(publisher.localParticipant.identity)
+            let subscriberIdentity = try #require(subscriber.localParticipant.identity)
+            let movedParticipants = [Livekit_ParticipantInfo.with {
+                $0.identity = publisherIdentity.stringValue
+            }]
+            subscriber.dataTracks?.handleRoomMoved(movedParticipants, localIdentity: subscriberIdentity.stringValue)
+
+            #expect(try await watcher.waitForUnpublish() == remoteTrack.info.sid)
+            let participant = try #require(subscriber.remoteParticipants[publisherIdentity])
+            #expect(participant.dataTracks.isEmpty)
+            _ = track.isPublished // keep the publication alive through the assertions
+        }
+    }
 }
