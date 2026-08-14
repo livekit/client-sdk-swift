@@ -206,6 +206,10 @@ struct DataTrackLifecycleTests {
             let participant = try #require(subscriber.remoteParticipants.values.first)
             #expect(participant.dataTracks[remoteTrack.info.name] === remoteTrack)
 
+            // The track was never unpublished — the reconnect recreates participants, but the
+            // subsystem carries its tracks over, so no unpublish should be reported.
+            #expect(!recorder.received(.roomRemoteUnpublish))
+
             // Frames keep flowing on the existing stream once the subscription is re-established.
             let payload = Data("after-full-reconnect".utf8)
             let pusher = Task {

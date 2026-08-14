@@ -54,6 +54,13 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
         }
     }
 
+    /// Drops the data tracks without notifying, for when they outlive this participant object: a
+    /// full reconnect recreates participants, but the data track subsystem keeps its tracks and
+    /// re-attaches them, so they were never really unpublished.
+    func detachDataTracks() {
+        _state.mutate { $0.dataTracks = [] }
+    }
+
     override func set(info: Livekit_ParticipantInfo, connectionState: ConnectionState) {
         super.set(info: info, connectionState: connectionState)
 

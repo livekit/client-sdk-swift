@@ -103,6 +103,11 @@ public final class DataTrackDelegateRecorder: NSObject, RoomDelegate, Participan
         _events.read { $0.first { $0.0 == kind }?.1 }
     }
 
+    /// Whether the given event has been recorded so far.
+    public func received(_ kind: DataTrackDelegateEvent) -> Bool {
+        firstSid(kind) != nil
+    }
+
     /// Waits for the given event, returning the SID it carried.
     public func waitFor(_ kind: DataTrackDelegateEvent, timeout: TimeInterval = 15) async throws -> DataTrack.Sid {
         let deadline = Date().addingTimeInterval(timeout)
