@@ -38,5 +38,5 @@ protocol SignalClientDelegate: AnyObject, Sendable {
     func signalClient(_ signalClient: SignalClient, didReceiveLeave action: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?) async
     func signalClient(_ signalClient: SignalClient, didSubscribeTrack trackSid: Track.Sid) async
     func signalClient(_ signalClient: SignalClient, didReceiveMediaSectionsRequirement requirement: Livekit_MediaSectionsRequirement) async
-    func signalClient(_ signalClient: SignalClient, didReceiveRawResponse data: Data) async
+    func signalClient(_ signalClient: SignalClient, didReceiveDataTrackResponse data: Data) async
 }

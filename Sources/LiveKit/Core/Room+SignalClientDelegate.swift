@@ -416,7 +416,7 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveRawResponse data: Data) async {
+    func signalClient(_: SignalClient, didReceiveDataTrackResponse data: Data) async {
         dataTracks?.handleSignalResponse(data)
     }
 

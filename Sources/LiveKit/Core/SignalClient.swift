@@ -101,15 +101,16 @@ actor SignalClient: Loggable {
 
     let _state = StateSync(State())
 
-    // Raw data-track responses drain through a single consumer task per connection, so the
-    // managers see them in wire order — a detached task per message could reorder e.g. a
+    // The data-track managers parse signal responses themselves, so the ones they consume are
+    // forwarded as raw protobuf bytes. They drain through a single consumer task per connection,
+    // so the managers see them in wire order — a detached task per message could reorder e.g. a
     // publish/unpublish response pair. The path deliberately bypasses `_responseQueue`: the
-    // data-track managers own their reconnect semantics (republish, subscription re-requests,
-    // sync state) and consume wire order directly. Connection-scoped — armed in `connect`, torn
-    // down in `cleanUp` — so messages still buffered from a dead connection are dropped, not
-    // applied to the next.
-    private var _rawResponses: AsyncStream<Data>.Continuation?
-    private var _rawResponsesConsumer: AnyTaskCancellable?
+    // managers own their reconnect semantics (republish, subscription re-requests, sync state)
+    // and consume wire order directly. Connection-scoped — started in `connect`, stopped in
+    // `cleanUp` — so messages still buffered from a dead connection are dropped, not applied to
+    // the next.
+    private var _dataTrackResponses: AsyncStream<Data>.Continuation?
+    private var _dataTrackResponsesConsumer: AnyTaskCancellable?
 
     init() {
         log()
@@ -172,7 +173,7 @@ actor SignalClient: Loggable {
                                              connectOptions: connectOptions)
             connectSpan?.record("ws_open")
 
-            armRawResponses()
+            startDataTrackResponses()
 
             let messageLoopTask = socket.subscribe(self) { observer, message in
                 await observer.onWebSocketMessage(message)
@@ -270,11 +271,7 @@ actor SignalClient: Loggable {
         await _addTrackCompleters.reset(throwing: disconnectError)
         await _requestQueue.clear()
         await _responseQueue.clear()
-        // Drop raw data-track responses still buffered from this connection (releasing the
-        // consumer cancels it; finishing alone would let it drain the backlog).
-        _rawResponses?.finish()
-        _rawResponses = nil
-        _rawResponsesConsumer = nil
+        stopDataTrackResponses()
 
         _state.mutate {
             $0.disconnectError = LiveKitError.from(error: disconnectError)
@@ -296,16 +293,24 @@ private extension SignalClient {
         await _requestQueue.processIfResumed(request, elseEnqueue: request.canBeQueued())
     }
 
-    /// Arms the raw data-track response pipeline for a new connection; see the property note.
-    func armRawResponses() {
-        let (rawResponses, continuation) = AsyncStream.makeStream(of: Data.self)
-        _rawResponses = continuation
-        _rawResponsesConsumer = Task { [weak self] in
-            for await data in rawResponses {
+    /// Starts delivering data-track responses for a new connection; see the property note.
+    func startDataTrackResponses() {
+        let (responses, continuation) = AsyncStream.makeStream(of: Data.self)
+        _dataTrackResponses = continuation
+        _dataTrackResponsesConsumer = Task { [weak self] in
+            for await data in responses {
                 guard let self else { break }
-                try? await _delegate.notifyAsync { await $0.signalClient(self, didReceiveRawResponse: data) }
+                try? await _delegate.notifyAsync { await $0.signalClient(self, didReceiveDataTrackResponse: data) }
             }
         }.cancellable()
+    }
+
+    /// Stops delivery and drops anything still buffered from the connection being torn down
+    /// (releasing the consumer cancels it; finishing alone would let it drain the backlog).
+    func stopDataTrackResponses() {
+        _dataTrackResponses?.finish()
+        _dataTrackResponses = nil
+        _dataTrackResponsesConsumer = nil
     }
 
     func onWebSocketMessage(_ message: URLSessionWebSocketTask.Message) async {
@@ -324,8 +329,14 @@ private extension SignalClient {
             return
         }
 
-        // Serialized protobuf bytes for the data track managers.
-        _rawResponses?.yield(rawData)
+        // Forward only what the data-track managers consume; every other message would cross the
+        // FFI boundary just to be rejected as an unsupported type. `requestResponse` carries
+        // publish request errors, so it belongs here even though it isn't data-track-specific.
+        switch response.message {
+        case .requestResponse, .publishDataTrackResponse, .unpublishDataTrackResponse, .dataTrackSubscriberHandles:
+            _dataTrackResponses?.yield(rawData)
+        default: break
+        }
 
         Task.detached {
             let alwaysProcess = switch response.message {
@@ -439,7 +450,7 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didReceiveMediaSectionsRequirement: requirement) }
 
         case .publishDataTrackResponse, .unpublishDataTrackResponse, .dataTrackSubscriberHandles:
-            // Handled by the data-track subsystem via didReceiveRawResponse.
+            // Handled by the data-track subsystem via didReceiveDataTrackResponse.
             break
 
         default:
