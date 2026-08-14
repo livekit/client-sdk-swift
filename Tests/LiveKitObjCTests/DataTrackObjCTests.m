@@ -167,10 +167,16 @@
     XCTAssertEqualObjects(plain, [[DataTrackFrame alloc] initWithPayload:payload]);
     XCTAssertEqual(plain.hash, [[DataTrackFrame alloc] initWithPayload:payload].hash);
     XCTAssertNil(plain.userTimestampMs);
+    XCTAssertNil(plain.durationSinceTimestamp);
 
     DataTrackFrame *stamped = [[DataTrackFrame alloc] initWithPayload:payload userTimestampMs:1000];
     XCTAssertNotEqualObjects(plain, stamped);
     XCTAssertEqualObjects(stamped.userTimestampMs, @1000);
+
+    DataTrackFrame *now = [DataTrackFrame nowWithPayload:payload];
+    XCTAssertNotNil(now.userTimestampMs);
+    XCTAssertGreaterThanOrEqual(now.durationSinceTimestamp.doubleValue, 0);
+    XCTAssertLessThan(now.durationSinceTimestamp.doubleValue, 60);
 }
 
 @end

@@ -34,6 +34,22 @@ public final class DataTrackFrame: NSObject, Sendable {
         userTimestamp.map { NSNumber(value: $0) }
     }
 
+    /// How long ago the frame was stamped, or `nil` if it carries no timestamp or the timestamp
+    /// lies in the future.
+    ///
+    /// Assumes ``userTimestamp`` is a Unix timestamp in milliseconds, as set by ``now(payload:)``.
+    /// Objective-C callers can use ``secondsSinceTimestamp``.
+    public var durationSinceTimestamp: TimeInterval? {
+        guard let userTimestamp else { return nil }
+        let elapsed = Date().timeIntervalSince1970 - TimeInterval(userTimestamp) / 1000
+        return elapsed >= 0 ? elapsed : nil
+    }
+
+    /// Objective-C accessor for ``durationSinceTimestamp``.
+    @objc(durationSinceTimestamp) public var secondsSinceTimestamp: NSNumber? {
+        durationSinceTimestamp.map { NSNumber(value: $0) }
+    }
+
     /// Creates a frame with an optional sender timestamp.
     public init(payload: Data, userTimestamp: UInt64? = nil) {
         self.payload = payload
