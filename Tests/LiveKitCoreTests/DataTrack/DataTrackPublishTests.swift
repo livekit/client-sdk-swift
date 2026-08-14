@@ -43,8 +43,14 @@ struct DataTrackPublishTests {
             let options = DataTrackPublishOptions(schema: schema, frameEncoding: .json)
             let track = try await rooms[0].localParticipant.publishDataTrack(name: "typed", options: options)
             #expect(track.isPublished)
+            #expect(track.info.schema == schema)
+            #expect(track.info.frameEncoding == .json)
 
             let remoteTrack = try await watcher.waitForTrack()
+            // The declared metadata reaches the subscriber through the SFU's track info.
+            #expect(remoteTrack.info.schema == schema)
+            #expect(remoteTrack.info.frameEncoding == .json)
+
             let stream = try await remoteTrack.subscribe()
             let payload = Data("{}".utf8)
             try track.tryPush(frame: DataTrackFrame(payload: payload))

@@ -46,7 +46,8 @@ typedef enum _livekit_RequestResponse_Reason {
     livekit_RequestResponse_Reason_INVALID_HANDLE = 7,
     livekit_RequestResponse_Reason_INVALID_NAME = 8,
     livekit_RequestResponse_Reason_DUPLICATE_HANDLE = 9,
-    livekit_RequestResponse_Reason_DUPLICATE_NAME = 10
+    livekit_RequestResponse_Reason_DUPLICATE_NAME = 10,
+    livekit_RequestResponse_Reason_INVALID_REQUEST = 11
 } livekit_RequestResponse_Reason;
 
 typedef enum _livekit_WrappedJoinRequest_Compression {
@@ -96,6 +97,10 @@ typedef struct _livekit_SignalRequest {
         struct _livekit_UnpublishDataTrackRequest *unpublish_data_track_request;
         /* Update subscription state for one or more data tracks */
         struct _livekit_UpdateDataSubscription *update_data_subscription;
+        /* Store a data blob. */
+        struct _livekit_StoreDataBlobRequest *store_data_blob_request;
+        /* Retrieve a stored data blob. */
+        struct _livekit_GetDataBlobRequest *get_data_blob_request;
     } message;
 } livekit_SignalRequest;
 
@@ -159,6 +164,10 @@ typedef struct _livekit_SignalResponse {
         struct _livekit_UnpublishDataTrackResponse *unpublish_data_track_response;
         /* Sent to data track subscribers to provide mapping from track SIDs to handles. */
         struct _livekit_DataTrackSubscriberHandles *data_track_subscriber_handles;
+        /* Sent in response to `StoreDataBlobRequest`. */
+        struct _livekit_StoreDataBlobResponse *store_data_blob_response;
+        /* Sent in response to `GetDataBlobRequest`. */
+        struct _livekit_GetDataBlobResponse *get_data_blob_response;
     } message;
 } livekit_SignalResponse;
 
@@ -211,6 +220,11 @@ typedef struct _livekit_PublishDataTrackRequest {
     char *name;
     /* Method used for end-to-end encryption (E2EE) on frame payloads. */
     livekit_Encryption_Type *encryption;
+    /* Encoding for frame payloads on this track. If unspecified, the track is untyped. */
+    struct _livekit_DataTrackFrameEncoding *frame_encoding;
+    /* ID of the schema used by frames on this track if the track is typed.
+ If set, the associated schema must be stored with `StoreDataBlobRequest`. */
+    struct _livekit_DataTrackSchemaId *schema;
 } livekit_PublishDataTrackRequest;
 
 typedef struct _livekit_PublishDataTrackResponse {
@@ -340,6 +354,30 @@ typedef struct _livekit_UpdateDataSubscription_Update {
  When unsubscribing, this field is ignored. */
     struct _livekit_DataTrackSubscriptionOptions *options;
 } livekit_UpdateDataSubscription_Update;
+
+typedef struct _livekit_StoreDataBlobRequest {
+    uint32_t *request_id;
+    struct _livekit_DataBlob *blob;
+} livekit_StoreDataBlobRequest;
+
+typedef struct _livekit_StoreDataBlobResponse {
+    uint32_t *request_id;
+    /* Unique key the data blob was stored under. */
+    struct _livekit_DataBlobKey *key;
+} livekit_StoreDataBlobResponse;
+
+typedef struct _livekit_GetDataBlobRequest {
+    uint32_t *request_id;
+    /* Identity of the participant who owns the blob. */
+    char *participant_identity;
+    /* Unique key of the data blob to retrieve. */
+    struct _livekit_DataBlobKey *key;
+} livekit_GetDataBlobRequest;
+
+typedef struct _livekit_GetDataBlobResponse {
+    uint32_t *request_id;
+    struct _livekit_DataBlob *blob;
+} livekit_GetDataBlobResponse;
 
 typedef struct _livekit_UpdateTrackSettings {
     pb_size_t track_sids_count;
@@ -672,8 +710,8 @@ extern "C" {
 #define _livekit_LeaveRequest_Action_ARRAYSIZE ((livekit_LeaveRequest_Action)(livekit_LeaveRequest_Action_RECONNECT+1))
 
 #define _livekit_RequestResponse_Reason_MIN livekit_RequestResponse_Reason_OK
-#define _livekit_RequestResponse_Reason_MAX livekit_RequestResponse_Reason_DUPLICATE_NAME
-#define _livekit_RequestResponse_Reason_ARRAYSIZE ((livekit_RequestResponse_Reason)(livekit_RequestResponse_Reason_DUPLICATE_NAME+1))
+#define _livekit_RequestResponse_Reason_MAX livekit_RequestResponse_Reason_INVALID_REQUEST
+#define _livekit_RequestResponse_Reason_ARRAYSIZE ((livekit_RequestResponse_Reason)(livekit_RequestResponse_Reason_INVALID_REQUEST+1))
 
 #define _livekit_WrappedJoinRequest_Compression_MIN livekit_WrappedJoinRequest_Compression_NONE
 #define _livekit_WrappedJoinRequest_Compression_MAX livekit_WrappedJoinRequest_Compression_GZIP
@@ -699,6 +737,10 @@ extern "C" {
 
 
 #define livekit_TrickleRequest_target_ENUMTYPE livekit_SignalTarget
+
+
+
+
 
 
 
@@ -768,7 +810,7 @@ extern "C" {
 #define livekit_SignalResponse_init_default      {0, {NULL}}
 #define livekit_SimulcastCodec_init_default      {NULL, NULL, 0, NULL, NULL}
 #define livekit_AddTrackRequest_init_default     {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL}
-#define livekit_PublishDataTrackRequest_init_default {NULL, NULL, NULL}
+#define livekit_PublishDataTrackRequest_init_default {NULL, NULL, NULL, NULL, NULL}
 #define livekit_PublishDataTrackResponse_init_default {NULL}
 #define livekit_UnpublishDataTrackRequest_init_default {NULL}
 #define livekit_UnpublishDataTrackResponse_init_default {NULL}
@@ -787,6 +829,10 @@ extern "C" {
 #define livekit_UpdateSubscription_init_default  {0, NULL, NULL, 0, NULL}
 #define livekit_UpdateDataSubscription_init_default {0, NULL}
 #define livekit_UpdateDataSubscription_Update_init_default {NULL, NULL, NULL}
+#define livekit_StoreDataBlobRequest_init_default {NULL, NULL}
+#define livekit_StoreDataBlobResponse_init_default {NULL, NULL}
+#define livekit_GetDataBlobRequest_init_default  {NULL, NULL, NULL}
+#define livekit_GetDataBlobResponse_init_default {NULL, NULL}
 #define livekit_UpdateTrackSettings_init_default {0, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_UpdateLocalAudioTrack_init_default {NULL, 0, NULL}
 #define livekit_UpdateLocalVideoTrack_init_default {NULL, NULL, NULL}
@@ -829,7 +875,7 @@ extern "C" {
 #define livekit_SignalResponse_init_zero         {0, {NULL}}
 #define livekit_SimulcastCodec_init_zero         {NULL, NULL, 0, NULL, NULL}
 #define livekit_AddTrackRequest_init_zero        {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL}
-#define livekit_PublishDataTrackRequest_init_zero {NULL, NULL, NULL}
+#define livekit_PublishDataTrackRequest_init_zero {NULL, NULL, NULL, NULL, NULL}
 #define livekit_PublishDataTrackResponse_init_zero {NULL}
 #define livekit_UnpublishDataTrackRequest_init_zero {NULL}
 #define livekit_UnpublishDataTrackResponse_init_zero {NULL}
@@ -848,6 +894,10 @@ extern "C" {
 #define livekit_UpdateSubscription_init_zero     {0, NULL, NULL, 0, NULL}
 #define livekit_UpdateDataSubscription_init_zero {0, NULL}
 #define livekit_UpdateDataSubscription_Update_init_zero {NULL, NULL, NULL}
+#define livekit_StoreDataBlobRequest_init_zero   {NULL, NULL}
+#define livekit_StoreDataBlobResponse_init_zero  {NULL, NULL}
+#define livekit_GetDataBlobRequest_init_zero     {NULL, NULL, NULL}
+#define livekit_GetDataBlobResponse_init_zero    {NULL, NULL}
 #define livekit_UpdateTrackSettings_init_zero    {0, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_UpdateLocalAudioTrack_init_zero  {NULL, 0, NULL}
 #define livekit_UpdateLocalVideoTrack_init_zero  {NULL, NULL, NULL}
@@ -908,6 +958,8 @@ extern "C" {
 #define livekit_SignalRequest_publish_data_track_request_tag 19
 #define livekit_SignalRequest_unpublish_data_track_request_tag 20
 #define livekit_SignalRequest_update_data_subscription_tag 21
+#define livekit_SignalRequest_store_data_blob_request_tag 22
+#define livekit_SignalRequest_get_data_blob_request_tag 23
 #define livekit_SignalResponse_join_tag          1
 #define livekit_SignalResponse_answer_tag        2
 #define livekit_SignalResponse_offer_tag         3
@@ -936,6 +988,8 @@ extern "C" {
 #define livekit_SignalResponse_publish_data_track_response_tag 27
 #define livekit_SignalResponse_unpublish_data_track_response_tag 28
 #define livekit_SignalResponse_data_track_subscriber_handles_tag 29
+#define livekit_SignalResponse_store_data_blob_response_tag 30
+#define livekit_SignalResponse_get_data_blob_response_tag 31
 #define livekit_SimulcastCodec_codec_tag         1
 #define livekit_SimulcastCodec_cid_tag           2
 #define livekit_SimulcastCodec_layers_tag        4
@@ -961,6 +1015,8 @@ extern "C" {
 #define livekit_PublishDataTrackRequest_pub_handle_tag 1
 #define livekit_PublishDataTrackRequest_name_tag 2
 #define livekit_PublishDataTrackRequest_encryption_tag 3
+#define livekit_PublishDataTrackRequest_frame_encoding_tag 4
+#define livekit_PublishDataTrackRequest_schema_tag 5
 #define livekit_PublishDataTrackResponse_info_tag 1
 #define livekit_UnpublishDataTrackRequest_pub_handle_tag 1
 #define livekit_UnpublishDataTrackResponse_info_tag 1
@@ -1011,6 +1067,15 @@ extern "C" {
 #define livekit_UpdateDataSubscription_Update_track_sid_tag 1
 #define livekit_UpdateDataSubscription_Update_subscribe_tag 2
 #define livekit_UpdateDataSubscription_Update_options_tag 3
+#define livekit_StoreDataBlobRequest_request_id_tag 1
+#define livekit_StoreDataBlobRequest_blob_tag    2
+#define livekit_StoreDataBlobResponse_request_id_tag 1
+#define livekit_StoreDataBlobResponse_key_tag    2
+#define livekit_GetDataBlobRequest_request_id_tag 1
+#define livekit_GetDataBlobRequest_participant_identity_tag 2
+#define livekit_GetDataBlobRequest_key_tag       3
+#define livekit_GetDataBlobResponse_request_id_tag 1
+#define livekit_GetDataBlobResponse_blob_tag     2
 #define livekit_UpdateTrackSettings_track_sids_tag 1
 #define livekit_UpdateTrackSettings_disabled_tag 3
 #define livekit_UpdateTrackSettings_quality_tag  4
@@ -1157,7 +1222,9 @@ X(a, POINTER,  ONEOF,    MESSAGE,  (message,update_audio_track,message.update_au
 X(a, POINTER,  ONEOF,    MESSAGE,  (message,update_video_track,message.update_video_track),  18) \
 X(a, POINTER,  ONEOF,    MESSAGE,  (message,publish_data_track_request,message.publish_data_track_request),  19) \
 X(a, POINTER,  ONEOF,    MESSAGE,  (message,unpublish_data_track_request,message.unpublish_data_track_request),  20) \
-X(a, POINTER,  ONEOF,    MESSAGE,  (message,update_data_subscription,message.update_data_subscription),  21)
+X(a, POINTER,  ONEOF,    MESSAGE,  (message,update_data_subscription,message.update_data_subscription),  21) \
+X(a, POINTER,  ONEOF,    MESSAGE,  (message,store_data_blob_request,message.store_data_blob_request),  22) \
+X(a, POINTER,  ONEOF,    MESSAGE,  (message,get_data_blob_request,message.get_data_blob_request),  23)
 #define livekit_SignalRequest_CALLBACK NULL
 #define livekit_SignalRequest_DEFAULT NULL
 #define livekit_SignalRequest_message_offer_MSGTYPE livekit_SessionDescription
@@ -1179,6 +1246,8 @@ X(a, POINTER,  ONEOF,    MESSAGE,  (message,update_data_subscription,message.upd
 #define livekit_SignalRequest_message_publish_data_track_request_MSGTYPE livekit_PublishDataTrackRequest
 #define livekit_SignalRequest_message_unpublish_data_track_request_MSGTYPE livekit_UnpublishDataTrackRequest
 #define livekit_SignalRequest_message_update_data_subscription_MSGTYPE livekit_UpdateDataSubscription
+#define livekit_SignalRequest_message_store_data_blob_request_MSGTYPE livekit_StoreDataBlobRequest
+#define livekit_SignalRequest_message_get_data_blob_request_MSGTYPE livekit_GetDataBlobRequest
 
 #define livekit_SignalResponse_FIELDLIST(X, a) \
 X(a, POINTER,  ONEOF,    MESSAGE,  (message,join,message.join),   1) \
@@ -1208,7 +1277,9 @@ X(a, POINTER,  ONEOF,    MESSAGE,  (message,media_sections_requirement,message.m
 X(a, POINTER,  ONEOF,    MESSAGE,  (message,subscribed_audio_codec_update,message.subscribed_audio_codec_update),  26) \
 X(a, POINTER,  ONEOF,    MESSAGE,  (message,publish_data_track_response,message.publish_data_track_response),  27) \
 X(a, POINTER,  ONEOF,    MESSAGE,  (message,unpublish_data_track_response,message.unpublish_data_track_response),  28) \
-X(a, POINTER,  ONEOF,    MESSAGE,  (message,data_track_subscriber_handles,message.data_track_subscriber_handles),  29)
+X(a, POINTER,  ONEOF,    MESSAGE,  (message,data_track_subscriber_handles,message.data_track_subscriber_handles),  29) \
+X(a, POINTER,  ONEOF,    MESSAGE,  (message,store_data_blob_response,message.store_data_blob_response),  30) \
+X(a, POINTER,  ONEOF,    MESSAGE,  (message,get_data_blob_response,message.get_data_blob_response),  31)
 #define livekit_SignalResponse_CALLBACK NULL
 #define livekit_SignalResponse_DEFAULT NULL
 #define livekit_SignalResponse_message_join_MSGTYPE livekit_JoinResponse
@@ -1237,6 +1308,8 @@ X(a, POINTER,  ONEOF,    MESSAGE,  (message,data_track_subscriber_handles,messag
 #define livekit_SignalResponse_message_publish_data_track_response_MSGTYPE livekit_PublishDataTrackResponse
 #define livekit_SignalResponse_message_unpublish_data_track_response_MSGTYPE livekit_UnpublishDataTrackResponse
 #define livekit_SignalResponse_message_data_track_subscriber_handles_MSGTYPE livekit_DataTrackSubscriberHandles
+#define livekit_SignalResponse_message_store_data_blob_response_MSGTYPE livekit_StoreDataBlobResponse
+#define livekit_SignalResponse_message_get_data_blob_response_MSGTYPE livekit_GetDataBlobResponse
 
 #define livekit_SimulcastCodec_FIELDLIST(X, a) \
 X(a, POINTER,  SINGULAR, STRING,   codec,             1) \
@@ -1274,9 +1347,13 @@ X(a, POINTER,  REPEATED, UENUM,    packet_trailer_features,  18)
 #define livekit_PublishDataTrackRequest_FIELDLIST(X, a) \
 X(a, POINTER,  SINGULAR, UINT32,   pub_handle,        1) \
 X(a, POINTER,  SINGULAR, STRING,   name,              2) \
-X(a, POINTER,  SINGULAR, UENUM,    encryption,        3)
+X(a, POINTER,  SINGULAR, UENUM,    encryption,        3) \
+X(a, POINTER,  OPTIONAL, MESSAGE,  frame_encoding,    4) \
+X(a, POINTER,  OPTIONAL, MESSAGE,  schema,            5)
 #define livekit_PublishDataTrackRequest_CALLBACK NULL
 #define livekit_PublishDataTrackRequest_DEFAULT NULL
+#define livekit_PublishDataTrackRequest_frame_encoding_MSGTYPE livekit_DataTrackFrameEncoding
+#define livekit_PublishDataTrackRequest_schema_MSGTYPE livekit_DataTrackSchemaId
 
 #define livekit_PublishDataTrackResponse_FIELDLIST(X, a) \
 X(a, POINTER,  OPTIONAL, MESSAGE,  info,              1)
@@ -1419,6 +1496,35 @@ X(a, POINTER,  OPTIONAL, MESSAGE,  options,           3)
 #define livekit_UpdateDataSubscription_Update_CALLBACK NULL
 #define livekit_UpdateDataSubscription_Update_DEFAULT NULL
 #define livekit_UpdateDataSubscription_Update_options_MSGTYPE livekit_DataTrackSubscriptionOptions
+
+#define livekit_StoreDataBlobRequest_FIELDLIST(X, a) \
+X(a, POINTER,  SINGULAR, UINT32,   request_id,        1) \
+X(a, POINTER,  OPTIONAL, MESSAGE,  blob,              2)
+#define livekit_StoreDataBlobRequest_CALLBACK NULL
+#define livekit_StoreDataBlobRequest_DEFAULT NULL
+#define livekit_StoreDataBlobRequest_blob_MSGTYPE livekit_DataBlob
+
+#define livekit_StoreDataBlobResponse_FIELDLIST(X, a) \
+X(a, POINTER,  SINGULAR, UINT32,   request_id,        1) \
+X(a, POINTER,  OPTIONAL, MESSAGE,  key,               2)
+#define livekit_StoreDataBlobResponse_CALLBACK NULL
+#define livekit_StoreDataBlobResponse_DEFAULT NULL
+#define livekit_StoreDataBlobResponse_key_MSGTYPE livekit_DataBlobKey
+
+#define livekit_GetDataBlobRequest_FIELDLIST(X, a) \
+X(a, POINTER,  SINGULAR, UINT32,   request_id,        1) \
+X(a, POINTER,  SINGULAR, STRING,   participant_identity,   2) \
+X(a, POINTER,  OPTIONAL, MESSAGE,  key,               3)
+#define livekit_GetDataBlobRequest_CALLBACK NULL
+#define livekit_GetDataBlobRequest_DEFAULT NULL
+#define livekit_GetDataBlobRequest_key_MSGTYPE livekit_DataBlobKey
+
+#define livekit_GetDataBlobResponse_FIELDLIST(X, a) \
+X(a, POINTER,  SINGULAR, UINT32,   request_id,        1) \
+X(a, POINTER,  OPTIONAL, MESSAGE,  blob,              2)
+#define livekit_GetDataBlobResponse_CALLBACK NULL
+#define livekit_GetDataBlobResponse_DEFAULT NULL
+#define livekit_GetDataBlobResponse_blob_MSGTYPE livekit_DataBlob
 
 #define livekit_UpdateTrackSettings_FIELDLIST(X, a) \
 X(a, POINTER,  REPEATED, STRING,   track_sids,        1) \
@@ -1756,6 +1862,10 @@ extern const pb_msgdesc_t livekit_ParticipantUpdate_msg;
 extern const pb_msgdesc_t livekit_UpdateSubscription_msg;
 extern const pb_msgdesc_t livekit_UpdateDataSubscription_msg;
 extern const pb_msgdesc_t livekit_UpdateDataSubscription_Update_msg;
+extern const pb_msgdesc_t livekit_StoreDataBlobRequest_msg;
+extern const pb_msgdesc_t livekit_StoreDataBlobResponse_msg;
+extern const pb_msgdesc_t livekit_GetDataBlobRequest_msg;
+extern const pb_msgdesc_t livekit_GetDataBlobResponse_msg;
 extern const pb_msgdesc_t livekit_UpdateTrackSettings_msg;
 extern const pb_msgdesc_t livekit_UpdateLocalAudioTrack_msg;
 extern const pb_msgdesc_t livekit_UpdateLocalVideoTrack_msg;
@@ -1819,6 +1929,10 @@ extern const pb_msgdesc_t livekit_MediaSectionsRequirement_msg;
 #define livekit_UpdateSubscription_fields &livekit_UpdateSubscription_msg
 #define livekit_UpdateDataSubscription_fields &livekit_UpdateDataSubscription_msg
 #define livekit_UpdateDataSubscription_Update_fields &livekit_UpdateDataSubscription_Update_msg
+#define livekit_StoreDataBlobRequest_fields &livekit_StoreDataBlobRequest_msg
+#define livekit_StoreDataBlobResponse_fields &livekit_StoreDataBlobResponse_msg
+#define livekit_GetDataBlobRequest_fields &livekit_GetDataBlobRequest_msg
+#define livekit_GetDataBlobResponse_fields &livekit_GetDataBlobResponse_msg
 #define livekit_UpdateTrackSettings_fields &livekit_UpdateTrackSettings_msg
 #define livekit_UpdateLocalAudioTrack_fields &livekit_UpdateLocalAudioTrack_msg
 #define livekit_UpdateLocalVideoTrack_fields &livekit_UpdateLocalVideoTrack_msg
@@ -1882,6 +1996,10 @@ extern const pb_msgdesc_t livekit_MediaSectionsRequirement_msg;
 /* livekit_UpdateSubscription_size depends on runtime parameters */
 /* livekit_UpdateDataSubscription_size depends on runtime parameters */
 /* livekit_UpdateDataSubscription_Update_size depends on runtime parameters */
+/* livekit_StoreDataBlobRequest_size depends on runtime parameters */
+/* livekit_StoreDataBlobResponse_size depends on runtime parameters */
+/* livekit_GetDataBlobRequest_size depends on runtime parameters */
+/* livekit_GetDataBlobResponse_size depends on runtime parameters */
 /* livekit_UpdateTrackSettings_size depends on runtime parameters */
 /* livekit_UpdateLocalAudioTrack_size depends on runtime parameters */
 /* livekit_UpdateLocalVideoTrack_size depends on runtime parameters */

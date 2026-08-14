@@ -145,7 +145,8 @@ typedef enum _livekit_AudioTrackFeature {
 
 typedef enum _livekit_PacketTrailerFeature {
     livekit_PacketTrailerFeature_PTF_USER_TIMESTAMP = 0,
-    livekit_PacketTrailerFeature_PTF_FRAME_ID = 1
+    livekit_PacketTrailerFeature_PTF_FRAME_ID = 1,
+    livekit_PacketTrailerFeature_PTF_USER_DATA = 2
 } livekit_PacketTrailerFeature;
 
 typedef enum _livekit_ParticipantInfo_State {
@@ -181,7 +182,8 @@ typedef enum _livekit_ParticipantInfo_KindDetail {
     livekit_ParticipantInfo_KindDetail_FORWARDED = 1,
     livekit_ParticipantInfo_KindDetail_CONNECTOR_WHATSAPP = 2,
     livekit_ParticipantInfo_KindDetail_CONNECTOR_TWILIO = 3,
-    livekit_ParticipantInfo_KindDetail_BRIDGE_RTSP = 4 /* NEXT_ID: 5 */
+    livekit_ParticipantInfo_KindDetail_BRIDGE_RTSP = 4,
+    livekit_ParticipantInfo_KindDetail_SIMULATION = 5 /* NEXT_ID: 6 */
 } livekit_ParticipantInfo_KindDetail;
 
 typedef enum _livekit_Encryption_Type {
@@ -189,6 +191,50 @@ typedef enum _livekit_Encryption_Type {
     livekit_Encryption_Type_GCM = 1,
     livekit_Encryption_Type_CUSTOM = 2
 } livekit_Encryption_Type;
+
+/* Well-known encoding for frame payloads.
+
+ Mirrors the well-known message encodings from the MCAP spec:
+ https://mcap.dev/spec/registry#message-encodings */
+typedef enum _livekit_DataTrackFrameEncoding_WellKnownFrameEncoding {
+    livekit_DataTrackFrameEncoding_WellKnownFrameEncoding_WELL_KNOWN_FRAME_ENCODING_UNSPECIFIED = 0,
+    /* ROS 1: must be described by `ROS1_MSG` schema encoding. */
+    livekit_DataTrackFrameEncoding_WellKnownFrameEncoding_WELL_KNOWN_FRAME_ENCODING_ROS1 = 1,
+    /* CDR: must be described by `ROS2_MSG`, `ROS2_IDL`, or `OMG_IDL` schema encoding. */
+    livekit_DataTrackFrameEncoding_WellKnownFrameEncoding_WELL_KNOWN_FRAME_ENCODING_CDR = 2,
+    /* Protocol Buffer: must be described by `PROTOBUF` schema encoding. */
+    livekit_DataTrackFrameEncoding_WellKnownFrameEncoding_WELL_KNOWN_FRAME_ENCODING_PROTOBUF = 3,
+    /* FlatBuffer: must be described by `FLATBUFFER` schema encoding. */
+    livekit_DataTrackFrameEncoding_WellKnownFrameEncoding_WELL_KNOWN_FRAME_ENCODING_FLATBUFFER = 4,
+    /* CBOR: self-describing. */
+    livekit_DataTrackFrameEncoding_WellKnownFrameEncoding_WELL_KNOWN_FRAME_ENCODING_CBOR = 5,
+    /* MessagePack: self-describing. */
+    livekit_DataTrackFrameEncoding_WellKnownFrameEncoding_WELL_KNOWN_FRAME_ENCODING_MSGPACK = 6,
+    /* JSON: self-describing or described by `JSON_SCHEMA` schema encoding. */
+    livekit_DataTrackFrameEncoding_WellKnownFrameEncoding_WELL_KNOWN_FRAME_ENCODING_JSON = 7
+} livekit_DataTrackFrameEncoding_WellKnownFrameEncoding;
+
+/* Well-known encoding for schema definition.
+
+ Mirrors the well-known schema encodings from the MCAP spec:
+ https://mcap.dev/spec/registry#schema-encodings */
+typedef enum _livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding {
+    livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding_WELL_KNOWN_SCHEMA_ENCODING_UNSPECIFIED = 0,
+    /* Protocol Buffer IDL: describes `PROTOBUF` frame encoding. */
+    livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding_WELL_KNOWN_SCHEMA_ENCODING_PROTOBUF = 1,
+    /* FlatBuffer IDL: describes `FLATBUFFER` frame encoding. */
+    livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding_WELL_KNOWN_SCHEMA_ENCODING_FLATBUFFER = 2,
+    /* ROS 1 Message: describes `ROS1` frame encoding. */
+    livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding_WELL_KNOWN_SCHEMA_ENCODING_ROS1_MSG = 3,
+    /* ROS 2 Message: describes `CDR` frame encoding. */
+    livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding_WELL_KNOWN_SCHEMA_ENCODING_ROS2_MSG = 4,
+    /* ROS 2 IDL: describes `CDR` frame encoding. */
+    livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding_WELL_KNOWN_SCHEMA_ENCODING_ROS2_IDL = 5,
+    /* OMG IDL: describes `CDR` frame encoding. */
+    livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding_WELL_KNOWN_SCHEMA_ENCODING_OMG_IDL = 6,
+    /* JSON Schema: describes `JSON` frame encoding. */
+    livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding_WELL_KNOWN_SCHEMA_ENCODING_JSON_SCHEMA = 7
+} livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding;
 
 typedef enum _livekit_VideoLayer_Mode {
     livekit_VideoLayer_Mode_MODE_UNUSED = 0,
@@ -231,7 +277,8 @@ typedef enum _livekit_ClientInfo_SDK {
  subscriber instead of stripping them). */
 typedef enum _livekit_ClientInfo_Capability {
     livekit_ClientInfo_Capability_CAP_UNUSED = 0,
-    livekit_ClientInfo_Capability_CAP_PACKET_TRAILER = 1
+    livekit_ClientInfo_Capability_CAP_PACKET_TRAILER = 1,
+    livekit_ClientInfo_Capability_CAP_COMPRESSION_DEFLATE_RAW = 2
 } livekit_ClientInfo_Capability;
 
 /* enum for operation types (specific to TextHeader) */
@@ -241,6 +288,15 @@ typedef enum _livekit_DataStream_OperationType {
     livekit_DataStream_OperationType_DELETE = 2,
     livekit_DataStream_OperationType_REACTION = 3
 } livekit_DataStream_OperationType;
+
+/* The compression type of the whole data stream
+
+ This will only get populated when send to participants with a
+ client protocol >= 2 which advertise a client capability of CAP_COMPRESSION_DEFLATE_RAW */
+typedef enum _livekit_DataStream_CompressionType {
+    livekit_DataStream_CompressionType_NONE = 0,
+    livekit_DataStream_CompressionType_DEFLATE_RAW = 1 /* DEFLATE_RAW = DEFLATE without header+checksum/trailer */
+} livekit_DataStream_CompressionType;
 
 /* Struct definitions */
 typedef struct _livekit_Pagination {
@@ -346,6 +402,10 @@ typedef struct _livekit_ParticipantInfo {
     struct _livekit_DataTrackInfo *data_tracks;
     /* protocol version used for client feature compatibility */
     int32_t *client_protocol;
+    /* capabilities the participant's client advertises, mirrored from ClientInfo.
+ Lets other participants perform client-side feature detection. */
+    pb_size_t capabilities_count;
+    livekit_ClientInfo_Capability *capabilities;
 } livekit_ParticipantInfo;
 
 typedef struct _livekit_ParticipantInfo_AttributesEntry {
@@ -416,7 +476,42 @@ typedef struct _livekit_DataTrackInfo {
     char *name;
     /* Method used for end-to-end encryption (E2EE) on packet payloads. */
     livekit_Encryption_Type *encryption;
+    /* Encoding for frame payloads on this track. If unspecified, the track is untyped. */
+    struct _livekit_DataTrackFrameEncoding *frame_encoding;
+    /* ID of the schema used by frames on this track if the track is typed. */
+    struct _livekit_DataTrackSchemaId *schema;
 } livekit_DataTrackInfo;
+
+/* Encoding for frame payloads. */
+typedef struct _livekit_DataTrackFrameEncoding {
+    pb_size_t which_value;
+    union {
+        livekit_DataTrackFrameEncoding_WellKnownFrameEncoding *well_known;
+        /* Identifier of a custom encoding not covered by the well-known cases.
+     This must be non-empty and no longer than 32 characters. */
+        char *custom;
+    } value;
+} livekit_DataTrackFrameEncoding;
+
+/* Encoding for schema definition. */
+typedef struct _livekit_DataTrackSchemaEncoding {
+    pb_size_t which_value;
+    union {
+        livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding *well_known;
+        /* Identifier of a custom encoding not covered by the well-known cases.
+     This must be non-empty and no longer than 32 characters. */
+        char *custom;
+    } value;
+} livekit_DataTrackSchemaEncoding;
+
+/* Identifier for a data track schema.
+
+ Schemas with the same name but different encodings are distinct. */
+typedef struct _livekit_DataTrackSchemaId {
+    /* This must be non-empty and no longer than 256 characters. */
+    char *name;
+    struct _livekit_DataTrackSchemaEncoding *encoding;
+} livekit_DataTrackSchemaId;
 
 typedef struct _livekit_DataTrackExtensionParticipantSid {
     livekit_DataTrackExtensionID *id;
@@ -428,6 +523,25 @@ typedef struct _livekit_DataTrackSubscriptionOptions {
  If omitted, the subscriber defaults to the publisher's fps */
     uint32_t *target_fps;
 } livekit_DataTrackSubscriptionOptions;
+
+/* Key used to uniquely identify a data blob for storage and retrieval. */
+typedef struct _livekit_DataBlobKey {
+    pb_size_t which_key;
+    union {
+        /* Generic string key, blob contains arbitrary data. */
+        char *generic;
+        /* Data track schema identifier, blob contains schema definition. */
+        struct _livekit_DataTrackSchemaId *schema_id;
+    } key;
+} livekit_DataBlobKey;
+
+/* A blob of data stored in a room identified by a unique key. */
+typedef struct _livekit_DataBlob {
+    /* Unique key the data blob is identified by. */
+    struct _livekit_DataBlobKey *key;
+    /* Contents of the data blob. This must not exceed 50 KB. */
+    pb_bytes_array_t *contents;
+} livekit_DataBlob;
 
 /* provide information about available spatial layers */
 typedef struct _livekit_VideoLayer {
@@ -806,6 +920,9 @@ typedef struct _livekit_DataStream_Header {
         struct _livekit_DataStream_TextHeader *text_header;
         struct _livekit_DataStream_ByteHeader *byte_header;
     } content_header;
+    /* Optional inline content so that a data stream can be sent as a single packet for short payloads. */
+    pb_bytes_array_t *inline_content; /* content as binary (bytes) */
+    livekit_DataStream_CompressionType *compression;
 } livekit_DataStream_Header;
 
 typedef struct _livekit_DataStream_Header_AttributesEntry {
@@ -914,8 +1031,8 @@ extern "C" {
 #define _livekit_AudioTrackFeature_ARRAYSIZE ((livekit_AudioTrackFeature)(livekit_AudioTrackFeature_TF_PRECONNECT_BUFFER+1))
 
 #define _livekit_PacketTrailerFeature_MIN livekit_PacketTrailerFeature_PTF_USER_TIMESTAMP
-#define _livekit_PacketTrailerFeature_MAX livekit_PacketTrailerFeature_PTF_FRAME_ID
-#define _livekit_PacketTrailerFeature_ARRAYSIZE ((livekit_PacketTrailerFeature)(livekit_PacketTrailerFeature_PTF_FRAME_ID+1))
+#define _livekit_PacketTrailerFeature_MAX livekit_PacketTrailerFeature_PTF_USER_DATA
+#define _livekit_PacketTrailerFeature_ARRAYSIZE ((livekit_PacketTrailerFeature)(livekit_PacketTrailerFeature_PTF_USER_DATA+1))
 
 #define _livekit_ParticipantInfo_State_MIN livekit_ParticipantInfo_State_JOINING
 #define _livekit_ParticipantInfo_State_MAX livekit_ParticipantInfo_State_DISCONNECTED
@@ -926,12 +1043,20 @@ extern "C" {
 #define _livekit_ParticipantInfo_Kind_ARRAYSIZE ((livekit_ParticipantInfo_Kind)(livekit_ParticipantInfo_Kind_BRIDGE+1))
 
 #define _livekit_ParticipantInfo_KindDetail_MIN livekit_ParticipantInfo_KindDetail_CLOUD_AGENT
-#define _livekit_ParticipantInfo_KindDetail_MAX livekit_ParticipantInfo_KindDetail_BRIDGE_RTSP
-#define _livekit_ParticipantInfo_KindDetail_ARRAYSIZE ((livekit_ParticipantInfo_KindDetail)(livekit_ParticipantInfo_KindDetail_BRIDGE_RTSP+1))
+#define _livekit_ParticipantInfo_KindDetail_MAX livekit_ParticipantInfo_KindDetail_SIMULATION
+#define _livekit_ParticipantInfo_KindDetail_ARRAYSIZE ((livekit_ParticipantInfo_KindDetail)(livekit_ParticipantInfo_KindDetail_SIMULATION+1))
 
 #define _livekit_Encryption_Type_MIN livekit_Encryption_Type_NONE
 #define _livekit_Encryption_Type_MAX livekit_Encryption_Type_CUSTOM
 #define _livekit_Encryption_Type_ARRAYSIZE ((livekit_Encryption_Type)(livekit_Encryption_Type_CUSTOM+1))
+
+#define _livekit_DataTrackFrameEncoding_WellKnownFrameEncoding_MIN livekit_DataTrackFrameEncoding_WellKnownFrameEncoding_WELL_KNOWN_FRAME_ENCODING_UNSPECIFIED
+#define _livekit_DataTrackFrameEncoding_WellKnownFrameEncoding_MAX livekit_DataTrackFrameEncoding_WellKnownFrameEncoding_WELL_KNOWN_FRAME_ENCODING_JSON
+#define _livekit_DataTrackFrameEncoding_WellKnownFrameEncoding_ARRAYSIZE ((livekit_DataTrackFrameEncoding_WellKnownFrameEncoding)(livekit_DataTrackFrameEncoding_WellKnownFrameEncoding_WELL_KNOWN_FRAME_ENCODING_JSON+1))
+
+#define _livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding_MIN livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding_WELL_KNOWN_SCHEMA_ENCODING_UNSPECIFIED
+#define _livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding_MAX livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding_WELL_KNOWN_SCHEMA_ENCODING_JSON_SCHEMA
+#define _livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding_ARRAYSIZE ((livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding)(livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding_WELL_KNOWN_SCHEMA_ENCODING_JSON_SCHEMA+1))
 
 #define _livekit_VideoLayer_Mode_MIN livekit_VideoLayer_Mode_MODE_UNUSED
 #define _livekit_VideoLayer_Mode_MAX livekit_VideoLayer_Mode_ONE_SPATIAL_LAYER_PER_STREAM_INCOMPLETE_RTCP_SR
@@ -950,12 +1075,16 @@ extern "C" {
 #define _livekit_ClientInfo_SDK_ARRAYSIZE ((livekit_ClientInfo_SDK)(livekit_ClientInfo_SDK_ESP32+1))
 
 #define _livekit_ClientInfo_Capability_MIN livekit_ClientInfo_Capability_CAP_UNUSED
-#define _livekit_ClientInfo_Capability_MAX livekit_ClientInfo_Capability_CAP_PACKET_TRAILER
-#define _livekit_ClientInfo_Capability_ARRAYSIZE ((livekit_ClientInfo_Capability)(livekit_ClientInfo_Capability_CAP_PACKET_TRAILER+1))
+#define _livekit_ClientInfo_Capability_MAX livekit_ClientInfo_Capability_CAP_COMPRESSION_DEFLATE_RAW
+#define _livekit_ClientInfo_Capability_ARRAYSIZE ((livekit_ClientInfo_Capability)(livekit_ClientInfo_Capability_CAP_COMPRESSION_DEFLATE_RAW+1))
 
 #define _livekit_DataStream_OperationType_MIN livekit_DataStream_OperationType_CREATE
 #define _livekit_DataStream_OperationType_MAX livekit_DataStream_OperationType_REACTION
 #define _livekit_DataStream_OperationType_ARRAYSIZE ((livekit_DataStream_OperationType)(livekit_DataStream_OperationType_REACTION+1))
+
+#define _livekit_DataStream_CompressionType_MIN livekit_DataStream_CompressionType_NONE
+#define _livekit_DataStream_CompressionType_MAX livekit_DataStream_CompressionType_DEFLATE_RAW
+#define _livekit_DataStream_CompressionType_ARRAYSIZE ((livekit_DataStream_CompressionType)(livekit_DataStream_CompressionType_DEFLATE_RAW+1))
 
 
 
@@ -969,6 +1098,7 @@ extern "C" {
 #define livekit_ParticipantInfo_kind_ENUMTYPE livekit_ParticipantInfo_Kind
 #define livekit_ParticipantInfo_disconnect_reason_ENUMTYPE livekit_DisconnectReason
 #define livekit_ParticipantInfo_kind_details_ENUMTYPE livekit_ParticipantInfo_KindDetail
+#define livekit_ParticipantInfo_capabilities_ENUMTYPE livekit_ClientInfo_Capability
 
 
 
@@ -983,7 +1113,14 @@ extern "C" {
 
 #define livekit_DataTrackInfo_encryption_ENUMTYPE livekit_Encryption_Type
 
+#define livekit_DataTrackFrameEncoding_value_well_known_ENUMTYPE livekit_DataTrackFrameEncoding_WellKnownFrameEncoding
+
+#define livekit_DataTrackSchemaEncoding_value_well_known_ENUMTYPE livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding
+
+
 #define livekit_DataTrackExtensionParticipantSid_id_ENUMTYPE livekit_DataTrackExtensionID
+
+
 
 
 #define livekit_VideoLayer_quality_ENUMTYPE livekit_VideoQuality
@@ -1029,6 +1166,7 @@ extern "C" {
 
 
 #define livekit_DataStream_Header_encryption_type_ENUMTYPE livekit_Encryption_Type
+#define livekit_DataStream_Header_compression_ENUMTYPE livekit_DataStream_CompressionType
 
 
 
@@ -1046,14 +1184,19 @@ extern "C" {
 #define livekit_Codec_init_default               {NULL, NULL}
 #define livekit_PlayoutDelay_init_default        {NULL, NULL, NULL}
 #define livekit_ParticipantPermission_init_default {NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL}
-#define livekit_ParticipantInfo_init_default     {NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL, 0, NULL, NULL}
+#define livekit_ParticipantInfo_init_default     {NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL, 0, NULL, NULL, 0, NULL}
 #define livekit_ParticipantInfo_AttributesEntry_init_default {NULL, NULL}
 #define livekit_Encryption_init_default          {0}
 #define livekit_SimulcastCodecInfo_init_default  {NULL, NULL, NULL, 0, NULL, NULL, NULL}
 #define livekit_TrackInfo_init_default           {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, 0, NULL}
-#define livekit_DataTrackInfo_init_default       {NULL, NULL, NULL, NULL}
+#define livekit_DataTrackInfo_init_default       {NULL, NULL, NULL, NULL, NULL, NULL}
+#define livekit_DataTrackFrameEncoding_init_default {0, {NULL}}
+#define livekit_DataTrackSchemaEncoding_init_default {0, {NULL}}
+#define livekit_DataTrackSchemaId_init_default   {NULL, NULL}
 #define livekit_DataTrackExtensionParticipantSid_init_default {NULL, NULL}
 #define livekit_DataTrackSubscriptionOptions_init_default {NULL}
+#define livekit_DataBlobKey_init_default         {0, {NULL}}
+#define livekit_DataBlob_init_default            {NULL, NULL}
 #define livekit_VideoLayer_init_default          {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_DataPacket_init_default          {NULL, 0, {NULL}, NULL, 0, NULL, NULL, NULL}
 #define livekit_EncryptedPacket_init_default     {NULL, NULL, NULL, NULL}
@@ -1086,7 +1229,7 @@ extern "C" {
 #define livekit_DataStream_init_default          {0}
 #define livekit_DataStream_TextHeader_init_default {NULL, NULL, NULL, 0, NULL, NULL}
 #define livekit_DataStream_ByteHeader_init_default {NULL}
-#define livekit_DataStream_Header_init_default   {NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, {NULL}}
+#define livekit_DataStream_Header_init_default   {NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, {NULL}, NULL, NULL}
 #define livekit_DataStream_Header_AttributesEntry_init_default {NULL, NULL}
 #define livekit_DataStream_Chunk_init_default    {NULL, NULL, NULL, NULL, NULL}
 #define livekit_DataStream_Trailer_init_default  {NULL, NULL, 0, NULL}
@@ -1101,14 +1244,19 @@ extern "C" {
 #define livekit_Codec_init_zero                  {NULL, NULL}
 #define livekit_PlayoutDelay_init_zero           {NULL, NULL, NULL}
 #define livekit_ParticipantPermission_init_zero  {NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL}
-#define livekit_ParticipantInfo_init_zero        {NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL, 0, NULL, NULL}
+#define livekit_ParticipantInfo_init_zero        {NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL, 0, NULL, NULL, 0, NULL}
 #define livekit_ParticipantInfo_AttributesEntry_init_zero {NULL, NULL}
 #define livekit_Encryption_init_zero             {0}
 #define livekit_SimulcastCodecInfo_init_zero     {NULL, NULL, NULL, 0, NULL, NULL, NULL}
 #define livekit_TrackInfo_init_zero              {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, 0, NULL}
-#define livekit_DataTrackInfo_init_zero          {NULL, NULL, NULL, NULL}
+#define livekit_DataTrackInfo_init_zero          {NULL, NULL, NULL, NULL, NULL, NULL}
+#define livekit_DataTrackFrameEncoding_init_zero {0, {NULL}}
+#define livekit_DataTrackSchemaEncoding_init_zero {0, {NULL}}
+#define livekit_DataTrackSchemaId_init_zero      {NULL, NULL}
 #define livekit_DataTrackExtensionParticipantSid_init_zero {NULL, NULL}
 #define livekit_DataTrackSubscriptionOptions_init_zero {NULL}
+#define livekit_DataBlobKey_init_zero            {0, {NULL}}
+#define livekit_DataBlob_init_zero               {NULL, NULL}
 #define livekit_VideoLayer_init_zero             {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_DataPacket_init_zero             {NULL, 0, {NULL}, NULL, 0, NULL, NULL, NULL}
 #define livekit_EncryptedPacket_init_zero        {NULL, NULL, NULL, NULL}
@@ -1141,7 +1289,7 @@ extern "C" {
 #define livekit_DataStream_init_zero             {0}
 #define livekit_DataStream_TextHeader_init_zero  {NULL, NULL, NULL, 0, NULL, NULL}
 #define livekit_DataStream_ByteHeader_init_zero  {NULL}
-#define livekit_DataStream_Header_init_zero      {NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, {NULL}}
+#define livekit_DataStream_Header_init_zero      {NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, {NULL}, NULL, NULL}
 #define livekit_DataStream_Header_AttributesEntry_init_zero {NULL, NULL}
 #define livekit_DataStream_Chunk_init_zero       {NULL, NULL, NULL, NULL, NULL}
 #define livekit_DataStream_Trailer_init_zero     {NULL, NULL, 0, NULL}
@@ -1205,6 +1353,7 @@ extern "C" {
 #define livekit_ParticipantInfo_kind_details_tag 18
 #define livekit_ParticipantInfo_data_tracks_tag  19
 #define livekit_ParticipantInfo_client_protocol_tag 20
+#define livekit_ParticipantInfo_capabilities_tag 21
 #define livekit_ParticipantInfo_AttributesEntry_key_tag 1
 #define livekit_ParticipantInfo_AttributesEntry_value_tag 2
 #define livekit_SimulcastCodecInfo_mime_type_tag 1
@@ -1238,9 +1387,21 @@ extern "C" {
 #define livekit_DataTrackInfo_sid_tag            2
 #define livekit_DataTrackInfo_name_tag           3
 #define livekit_DataTrackInfo_encryption_tag     4
+#define livekit_DataTrackInfo_frame_encoding_tag 5
+#define livekit_DataTrackInfo_schema_tag         6
+#define livekit_DataTrackFrameEncoding_well_known_tag 1
+#define livekit_DataTrackFrameEncoding_custom_tag 2
+#define livekit_DataTrackSchemaEncoding_well_known_tag 1
+#define livekit_DataTrackSchemaEncoding_custom_tag 2
+#define livekit_DataTrackSchemaId_name_tag       1
+#define livekit_DataTrackSchemaId_encoding_tag   2
 #define livekit_DataTrackExtensionParticipantSid_id_tag 1
 #define livekit_DataTrackExtensionParticipantSid_participant_sid_tag 2
 #define livekit_DataTrackSubscriptionOptions_target_fps_tag 1
+#define livekit_DataBlobKey_generic_tag          1
+#define livekit_DataBlobKey_schema_id_tag        2
+#define livekit_DataBlob_key_tag                 1
+#define livekit_DataBlob_contents_tag            2
 #define livekit_VideoLayer_quality_tag           1
 #define livekit_VideoLayer_width_tag             2
 #define livekit_VideoLayer_height_tag            3
@@ -1455,6 +1616,8 @@ extern "C" {
 #define livekit_DataStream_Header_attributes_tag 8
 #define livekit_DataStream_Header_text_header_tag 9
 #define livekit_DataStream_Header_byte_header_tag 10
+#define livekit_DataStream_Header_inline_content_tag 11
+#define livekit_DataStream_Header_compression_tag 12
 #define livekit_DataStream_Header_AttributesEntry_key_tag 1
 #define livekit_DataStream_Header_AttributesEntry_value_tag 2
 #define livekit_DataStream_Chunk_stream_id_tag   1
@@ -1560,7 +1723,8 @@ X(a, POINTER,  SINGULAR, UENUM,    disconnect_reason,  16) \
 X(a, POINTER,  SINGULAR, INT64,    joined_at_ms,     17) \
 X(a, POINTER,  REPEATED, UENUM,    kind_details,     18) \
 X(a, POINTER,  REPEATED, MESSAGE,  data_tracks,      19) \
-X(a, POINTER,  SINGULAR, INT32,    client_protocol,  20)
+X(a, POINTER,  SINGULAR, INT32,    client_protocol,  20) \
+X(a, POINTER,  REPEATED, UENUM,    capabilities,     21)
 #define livekit_ParticipantInfo_CALLBACK NULL
 #define livekit_ParticipantInfo_DEFAULT NULL
 #define livekit_ParticipantInfo_tracks_MSGTYPE livekit_TrackInfo
@@ -1622,9 +1786,32 @@ X(a, POINTER,  REPEATED, UENUM,    packet_trailer_features,  21)
 X(a, POINTER,  SINGULAR, UINT32,   pub_handle,        1) \
 X(a, POINTER,  SINGULAR, STRING,   sid,               2) \
 X(a, POINTER,  SINGULAR, STRING,   name,              3) \
-X(a, POINTER,  SINGULAR, UENUM,    encryption,        4)
+X(a, POINTER,  SINGULAR, UENUM,    encryption,        4) \
+X(a, POINTER,  OPTIONAL, MESSAGE,  frame_encoding,    5) \
+X(a, POINTER,  OPTIONAL, MESSAGE,  schema,            6)
 #define livekit_DataTrackInfo_CALLBACK NULL
 #define livekit_DataTrackInfo_DEFAULT NULL
+#define livekit_DataTrackInfo_frame_encoding_MSGTYPE livekit_DataTrackFrameEncoding
+#define livekit_DataTrackInfo_schema_MSGTYPE livekit_DataTrackSchemaId
+
+#define livekit_DataTrackFrameEncoding_FIELDLIST(X, a) \
+X(a, POINTER,  ONEOF,    UENUM,    (value,well_known,value.well_known),   1) \
+X(a, POINTER,  ONEOF,    STRING,   (value,custom,value.custom),   2)
+#define livekit_DataTrackFrameEncoding_CALLBACK NULL
+#define livekit_DataTrackFrameEncoding_DEFAULT NULL
+
+#define livekit_DataTrackSchemaEncoding_FIELDLIST(X, a) \
+X(a, POINTER,  ONEOF,    UENUM,    (value,well_known,value.well_known),   1) \
+X(a, POINTER,  ONEOF,    STRING,   (value,custom,value.custom),   2)
+#define livekit_DataTrackSchemaEncoding_CALLBACK NULL
+#define livekit_DataTrackSchemaEncoding_DEFAULT NULL
+
+#define livekit_DataTrackSchemaId_FIELDLIST(X, a) \
+X(a, POINTER,  SINGULAR, STRING,   name,              1) \
+X(a, POINTER,  OPTIONAL, MESSAGE,  encoding,          2)
+#define livekit_DataTrackSchemaId_CALLBACK NULL
+#define livekit_DataTrackSchemaId_DEFAULT NULL
+#define livekit_DataTrackSchemaId_encoding_MSGTYPE livekit_DataTrackSchemaEncoding
 
 #define livekit_DataTrackExtensionParticipantSid_FIELDLIST(X, a) \
 X(a, POINTER,  SINGULAR, UENUM,    id,                1) \
@@ -1636,6 +1823,20 @@ X(a, POINTER,  SINGULAR, STRING,   participant_sid,   2)
 X(a, POINTER,  OPTIONAL, UINT32,   target_fps,        1)
 #define livekit_DataTrackSubscriptionOptions_CALLBACK NULL
 #define livekit_DataTrackSubscriptionOptions_DEFAULT NULL
+
+#define livekit_DataBlobKey_FIELDLIST(X, a) \
+X(a, POINTER,  ONEOF,    STRING,   (key,generic,key.generic),   1) \
+X(a, POINTER,  ONEOF,    MESSAGE,  (key,schema_id,key.schema_id),   2)
+#define livekit_DataBlobKey_CALLBACK NULL
+#define livekit_DataBlobKey_DEFAULT NULL
+#define livekit_DataBlobKey_key_schema_id_MSGTYPE livekit_DataTrackSchemaId
+
+#define livekit_DataBlob_FIELDLIST(X, a) \
+X(a, POINTER,  OPTIONAL, MESSAGE,  key,               1) \
+X(a, POINTER,  SINGULAR, BYTES,    contents,          2)
+#define livekit_DataBlob_CALLBACK NULL
+#define livekit_DataBlob_DEFAULT NULL
+#define livekit_DataBlob_key_MSGTYPE livekit_DataBlobKey
 
 #define livekit_VideoLayer_FIELDLIST(X, a) \
 X(a, POINTER,  SINGULAR, UENUM,    quality,           1) \
@@ -2025,7 +2226,9 @@ X(a, POINTER,  OPTIONAL, UINT64,   total_length,      5) \
 X(a, POINTER,  SINGULAR, UENUM,    encryption_type,   7) \
 X(a, POINTER,  REPEATED, MESSAGE,  attributes,        8) \
 X(a, POINTER,  ONEOF,    MESSAGE,  (content_header,text_header,content_header.text_header),   9) \
-X(a, POINTER,  ONEOF,    MESSAGE,  (content_header,byte_header,content_header.byte_header),  10)
+X(a, POINTER,  ONEOF,    MESSAGE,  (content_header,byte_header,content_header.byte_header),  10) \
+X(a, POINTER,  OPTIONAL, BYTES,    inline_content,   11) \
+X(a, POINTER,  SINGULAR, UENUM,    compression,      12)
 #define livekit_DataStream_Header_CALLBACK NULL
 #define livekit_DataStream_Header_DEFAULT NULL
 #define livekit_DataStream_Header_attributes_MSGTYPE livekit_DataStream_Header_AttributesEntry
@@ -2094,8 +2297,13 @@ extern const pb_msgdesc_t livekit_Encryption_msg;
 extern const pb_msgdesc_t livekit_SimulcastCodecInfo_msg;
 extern const pb_msgdesc_t livekit_TrackInfo_msg;
 extern const pb_msgdesc_t livekit_DataTrackInfo_msg;
+extern const pb_msgdesc_t livekit_DataTrackFrameEncoding_msg;
+extern const pb_msgdesc_t livekit_DataTrackSchemaEncoding_msg;
+extern const pb_msgdesc_t livekit_DataTrackSchemaId_msg;
 extern const pb_msgdesc_t livekit_DataTrackExtensionParticipantSid_msg;
 extern const pb_msgdesc_t livekit_DataTrackSubscriptionOptions_msg;
+extern const pb_msgdesc_t livekit_DataBlobKey_msg;
+extern const pb_msgdesc_t livekit_DataBlob_msg;
 extern const pb_msgdesc_t livekit_VideoLayer_msg;
 extern const pb_msgdesc_t livekit_DataPacket_msg;
 extern const pb_msgdesc_t livekit_EncryptedPacket_msg;
@@ -2151,8 +2359,13 @@ extern const pb_msgdesc_t livekit_SubscribedAudioCodec_msg;
 #define livekit_SimulcastCodecInfo_fields &livekit_SimulcastCodecInfo_msg
 #define livekit_TrackInfo_fields &livekit_TrackInfo_msg
 #define livekit_DataTrackInfo_fields &livekit_DataTrackInfo_msg
+#define livekit_DataTrackFrameEncoding_fields &livekit_DataTrackFrameEncoding_msg
+#define livekit_DataTrackSchemaEncoding_fields &livekit_DataTrackSchemaEncoding_msg
+#define livekit_DataTrackSchemaId_fields &livekit_DataTrackSchemaId_msg
 #define livekit_DataTrackExtensionParticipantSid_fields &livekit_DataTrackExtensionParticipantSid_msg
 #define livekit_DataTrackSubscriptionOptions_fields &livekit_DataTrackSubscriptionOptions_msg
+#define livekit_DataBlobKey_fields &livekit_DataBlobKey_msg
+#define livekit_DataBlob_fields &livekit_DataBlob_msg
 #define livekit_VideoLayer_fields &livekit_VideoLayer_msg
 #define livekit_DataPacket_fields &livekit_DataPacket_msg
 #define livekit_EncryptedPacket_fields &livekit_EncryptedPacket_msg
@@ -2207,8 +2420,13 @@ extern const pb_msgdesc_t livekit_SubscribedAudioCodec_msg;
 /* livekit_SimulcastCodecInfo_size depends on runtime parameters */
 /* livekit_TrackInfo_size depends on runtime parameters */
 /* livekit_DataTrackInfo_size depends on runtime parameters */
+/* livekit_DataTrackFrameEncoding_size depends on runtime parameters */
+/* livekit_DataTrackSchemaEncoding_size depends on runtime parameters */
+/* livekit_DataTrackSchemaId_size depends on runtime parameters */
 /* livekit_DataTrackExtensionParticipantSid_size depends on runtime parameters */
 /* livekit_DataTrackSubscriptionOptions_size depends on runtime parameters */
+/* livekit_DataBlobKey_size depends on runtime parameters */
+/* livekit_DataBlob_size depends on runtime parameters */
 /* livekit_VideoLayer_size depends on runtime parameters */
 /* livekit_DataPacket_size depends on runtime parameters */
 /* livekit_EncryptedPacket_size depends on runtime parameters */

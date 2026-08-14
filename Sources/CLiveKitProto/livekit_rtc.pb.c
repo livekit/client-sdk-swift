@@ -75,6 +75,18 @@ PB_BIND(livekit_UpdateDataSubscription, livekit_UpdateDataSubscription, AUTO)
 PB_BIND(livekit_UpdateDataSubscription_Update, livekit_UpdateDataSubscription_Update, AUTO)
 
 
+PB_BIND(livekit_StoreDataBlobRequest, livekit_StoreDataBlobRequest, AUTO)
+
+
+PB_BIND(livekit_StoreDataBlobResponse, livekit_StoreDataBlobResponse, AUTO)
+
+
+PB_BIND(livekit_GetDataBlobRequest, livekit_GetDataBlobRequest, AUTO)
+
+
+PB_BIND(livekit_GetDataBlobResponse, livekit_GetDataBlobResponse, AUTO)
+
+
 PB_BIND(livekit_UpdateTrackSettings, livekit_UpdateTrackSettings, AUTO)
 
 

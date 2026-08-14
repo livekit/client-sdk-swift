@@ -717,6 +717,7 @@ nonisolated enum Livekit_PacketTrailerFeature: SwiftProtobuf.Enum, Swift.CaseIte
   typealias RawValue = Int
   case ptfUserTimestamp // = 0
   case ptfFrameID // = 1
+  case ptfUserData // = 2
   case UNRECOGNIZED(Int)
 
   init() {
@@ -727,6 +728,7 @@ nonisolated enum Livekit_PacketTrailerFeature: SwiftProtobuf.Enum, Swift.CaseIte
     switch rawValue {
     case 0: self = .ptfUserTimestamp
     case 1: self = .ptfFrameID
+    case 2: self = .ptfUserData
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -735,6 +737,7 @@ nonisolated enum Livekit_PacketTrailerFeature: SwiftProtobuf.Enum, Swift.CaseIte
     switch self {
     case .ptfUserTimestamp: return 0
     case .ptfFrameID: return 1
+    case .ptfUserData: return 2
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -743,6 +746,7 @@ nonisolated enum Livekit_PacketTrailerFeature: SwiftProtobuf.Enum, Swift.CaseIte
   static let allCases: [Livekit_PacketTrailerFeature] = [
     .ptfUserTimestamp,
     .ptfFrameID,
+    .ptfUserData,
   ]
 
 }
@@ -1024,6 +1028,13 @@ nonisolated struct Livekit_ParticipantInfo: @unchecked Sendable {
     set {_uniqueStorage()._clientProtocol = newValue}
   }
 
+  /// capabilities the participant's client advertises, mirrored from ClientInfo.
+  /// Lets other participants perform client-side feature detection.
+  var capabilities: [Livekit_ClientInfo.Capability] {
+    get {_storage._capabilities}
+    set {_uniqueStorage()._capabilities = newValue}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   nonisolated enum State: SwiftProtobuf.Enum, Swift.CaseIterable {
@@ -1150,9 +1161,10 @@ nonisolated struct Livekit_ParticipantInfo: @unchecked Sendable {
     case forwarded // = 1
     case connectorWhatsapp // = 2
     case connectorTwilio // = 3
-
-    /// NEXT_ID: 5
     case bridgeRtsp // = 4
+
+    /// NEXT_ID: 6
+    case simulation // = 5
     case UNRECOGNIZED(Int)
 
     init() {
@@ -1166,6 +1178,7 @@ nonisolated struct Livekit_ParticipantInfo: @unchecked Sendable {
       case 2: self = .connectorWhatsapp
       case 3: self = .connectorTwilio
       case 4: self = .bridgeRtsp
+      case 5: self = .simulation
       default: self = .UNRECOGNIZED(rawValue)
       }
     }
@@ -1177,6 +1190,7 @@ nonisolated struct Livekit_ParticipantInfo: @unchecked Sendable {
       case .connectorWhatsapp: return 2
       case .connectorTwilio: return 3
       case .bridgeRtsp: return 4
+      case .simulation: return 5
       case .UNRECOGNIZED(let i): return i
       }
     }
@@ -1188,6 +1202,7 @@ nonisolated struct Livekit_ParticipantInfo: @unchecked Sendable {
       .connectorWhatsapp,
       .connectorTwilio,
       .bridgeRtsp,
+      .simulation,
     ]
 
   }
@@ -1427,9 +1442,289 @@ nonisolated struct Livekit_DataTrackInfo: Sendable {
   /// Method used for end-to-end encryption (E2EE) on packet payloads.
   var encryption: Livekit_Encryption.TypeEnum = .none
 
+  /// Encoding for frame payloads on this track. If unspecified, the track is untyped.
+  var frameEncoding: Livekit_DataTrackFrameEncoding {
+    get {_frameEncoding ?? Livekit_DataTrackFrameEncoding()}
+    set {_frameEncoding = newValue}
+  }
+  /// Returns true if `frameEncoding` has been explicitly set.
+  var hasFrameEncoding: Bool {self._frameEncoding != nil}
+  /// Clears the value of `frameEncoding`. Subsequent reads from it will return its default value.
+  mutating func clearFrameEncoding() {self._frameEncoding = nil}
+
+  /// ID of the schema used by frames on this track if the track is typed.
+  var schema: Livekit_DataTrackSchemaId {
+    get {_schema ?? Livekit_DataTrackSchemaId()}
+    set {_schema = newValue}
+  }
+  /// Returns true if `schema` has been explicitly set.
+  var hasSchema: Bool {self._schema != nil}
+  /// Clears the value of `schema`. Subsequent reads from it will return its default value.
+  mutating func clearSchema() {self._schema = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
+
+  fileprivate var _frameEncoding: Livekit_DataTrackFrameEncoding? = nil
+  fileprivate var _schema: Livekit_DataTrackSchemaId? = nil
+}
+
+/// Encoding for frame payloads.
+nonisolated struct Livekit_DataTrackFrameEncoding: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var value: Livekit_DataTrackFrameEncoding.OneOf_Value? = nil
+
+  var wellKnown: Livekit_DataTrackFrameEncoding.WellKnownFrameEncoding {
+    get {
+      if case .wellKnown(let v)? = value {return v}
+      return .unspecified
+    }
+    set {value = .wellKnown(newValue)}
+  }
+
+  /// Identifier of a custom encoding not covered by the well-known cases.
+  /// This must be non-empty and no longer than 32 characters.
+  var custom: String {
+    get {
+      if case .custom(let v)? = value {return v}
+      return String()
+    }
+    set {value = .custom(newValue)}
+  }
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  nonisolated enum OneOf_Value: Equatable, Sendable {
+    case wellKnown(Livekit_DataTrackFrameEncoding.WellKnownFrameEncoding)
+    /// Identifier of a custom encoding not covered by the well-known cases.
+    /// This must be non-empty and no longer than 32 characters.
+    case custom(String)
+
+  }
+
+  /// Well-known encoding for frame payloads.
+  ///
+  /// Mirrors the well-known message encodings from the MCAP spec:
+  /// https://mcap.dev/spec/registry#message-encodings
+  nonisolated enum WellKnownFrameEncoding: SwiftProtobuf.Enum, Swift.CaseIterable {
+    typealias RawValue = Int
+    case unspecified // = 0
+
+    /// ROS 1: must be described by `ROS1_MSG` schema encoding.
+    case ros1 // = 1
+
+    /// CDR: must be described by `ROS2_MSG`, `ROS2_IDL`, or `OMG_IDL` schema encoding.
+    case cdr // = 2
+
+    /// Protocol Buffer: must be described by `PROTOBUF` schema encoding.
+    case protobuf // = 3
+
+    /// FlatBuffer: must be described by `FLATBUFFER` schema encoding.
+    case flatbuffer // = 4
+
+    /// CBOR: self-describing.
+    case cbor // = 5
+
+    /// MessagePack: self-describing.
+    case msgpack // = 6
+
+    /// JSON: self-describing or described by `JSON_SCHEMA` schema encoding.
+    case json // = 7
+    case UNRECOGNIZED(Int)
+
+    init() {
+      self = .unspecified
+    }
+
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 0: self = .unspecified
+      case 1: self = .ros1
+      case 2: self = .cdr
+      case 3: self = .protobuf
+      case 4: self = .flatbuffer
+      case 5: self = .cbor
+      case 6: self = .msgpack
+      case 7: self = .json
+      default: self = .UNRECOGNIZED(rawValue)
+      }
+    }
+
+    var rawValue: Int {
+      switch self {
+      case .unspecified: return 0
+      case .ros1: return 1
+      case .cdr: return 2
+      case .protobuf: return 3
+      case .flatbuffer: return 4
+      case .cbor: return 5
+      case .msgpack: return 6
+      case .json: return 7
+      case .UNRECOGNIZED(let i): return i
+      }
+    }
+
+    // The compiler won't synthesize support with the UNRECOGNIZED case.
+    static let allCases: [Livekit_DataTrackFrameEncoding.WellKnownFrameEncoding] = [
+      .unspecified,
+      .ros1,
+      .cdr,
+      .protobuf,
+      .flatbuffer,
+      .cbor,
+      .msgpack,
+      .json,
+    ]
+
+  }
+
+  init() {}
+}
+
+/// Encoding for schema definition.
+nonisolated struct Livekit_DataTrackSchemaEncoding: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var value: Livekit_DataTrackSchemaEncoding.OneOf_Value? = nil
+
+  var wellKnown: Livekit_DataTrackSchemaEncoding.WellKnownSchemaEncoding {
+    get {
+      if case .wellKnown(let v)? = value {return v}
+      return .unspecified
+    }
+    set {value = .wellKnown(newValue)}
+  }
+
+  /// Identifier of a custom encoding not covered by the well-known cases.
+  /// This must be non-empty and no longer than 32 characters.
+  var custom: String {
+    get {
+      if case .custom(let v)? = value {return v}
+      return String()
+    }
+    set {value = .custom(newValue)}
+  }
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  nonisolated enum OneOf_Value: Equatable, Sendable {
+    case wellKnown(Livekit_DataTrackSchemaEncoding.WellKnownSchemaEncoding)
+    /// Identifier of a custom encoding not covered by the well-known cases.
+    /// This must be non-empty and no longer than 32 characters.
+    case custom(String)
+
+  }
+
+  /// Well-known encoding for schema definition.
+  ///
+  /// Mirrors the well-known schema encodings from the MCAP spec:
+  /// https://mcap.dev/spec/registry#schema-encodings
+  nonisolated enum WellKnownSchemaEncoding: SwiftProtobuf.Enum, Swift.CaseIterable {
+    typealias RawValue = Int
+    case unspecified // = 0
+
+    /// Protocol Buffer IDL: describes `PROTOBUF` frame encoding.
+    case protobuf // = 1
+
+    /// FlatBuffer IDL: describes `FLATBUFFER` frame encoding.
+    case flatbuffer // = 2
+
+    /// ROS 1 Message: describes `ROS1` frame encoding.
+    case ros1Msg // = 3
+
+    /// ROS 2 Message: describes `CDR` frame encoding.
+    case ros2Msg // = 4
+
+    /// ROS 2 IDL: describes `CDR` frame encoding.
+    case ros2Idl // = 5
+
+    /// OMG IDL: describes `CDR` frame encoding.
+    case omgIdl // = 6
+
+    /// JSON Schema: describes `JSON` frame encoding.
+    case jsonSchema // = 7
+    case UNRECOGNIZED(Int)
+
+    init() {
+      self = .unspecified
+    }
+
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 0: self = .unspecified
+      case 1: self = .protobuf
+      case 2: self = .flatbuffer
+      case 3: self = .ros1Msg
+      case 4: self = .ros2Msg
+      case 5: self = .ros2Idl
+      case 6: self = .omgIdl
+      case 7: self = .jsonSchema
+      default: self = .UNRECOGNIZED(rawValue)
+      }
+    }
+
+    var rawValue: Int {
+      switch self {
+      case .unspecified: return 0
+      case .protobuf: return 1
+      case .flatbuffer: return 2
+      case .ros1Msg: return 3
+      case .ros2Msg: return 4
+      case .ros2Idl: return 5
+      case .omgIdl: return 6
+      case .jsonSchema: return 7
+      case .UNRECOGNIZED(let i): return i
+      }
+    }
+
+    // The compiler won't synthesize support with the UNRECOGNIZED case.
+    static let allCases: [Livekit_DataTrackSchemaEncoding.WellKnownSchemaEncoding] = [
+      .unspecified,
+      .protobuf,
+      .flatbuffer,
+      .ros1Msg,
+      .ros2Msg,
+      .ros2Idl,
+      .omgIdl,
+      .jsonSchema,
+    ]
+
+  }
+
+  init() {}
+}
+
+/// Identifier for a data track schema.
+///
+/// Schemas with the same name but different encodings are distinct.
+nonisolated struct Livekit_DataTrackSchemaId: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// This must be non-empty and no longer than 256 characters.
+  var name: String = String()
+
+  var encoding: Livekit_DataTrackSchemaEncoding {
+    get {_encoding ?? Livekit_DataTrackSchemaEncoding()}
+    set {_encoding = newValue}
+  }
+  /// Returns true if `encoding` has been explicitly set.
+  var hasEncoding: Bool {self._encoding != nil}
+  /// Clears the value of `encoding`. Subsequent reads from it will return its default value.
+  mutating func clearEncoding() {self._encoding = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _encoding: Livekit_DataTrackSchemaEncoding? = nil
 }
 
 nonisolated struct Livekit_DataTrackExtensionParticipantSid: Sendable {
@@ -1467,6 +1762,71 @@ nonisolated struct Livekit_DataTrackSubscriptionOptions: Sendable {
   init() {}
 
   fileprivate var _targetFps: UInt32? = nil
+}
+
+/// Key used to uniquely identify a data blob for storage and retrieval.
+nonisolated struct Livekit_DataBlobKey: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var key: Livekit_DataBlobKey.OneOf_Key? = nil
+
+  /// Generic string key, blob contains arbitrary data.
+  var generic: String {
+    get {
+      if case .generic(let v)? = key {return v}
+      return String()
+    }
+    set {key = .generic(newValue)}
+  }
+
+  /// Data track schema identifier, blob contains schema definition.
+  var schemaID: Livekit_DataTrackSchemaId {
+    get {
+      if case .schemaID(let v)? = key {return v}
+      return Livekit_DataTrackSchemaId()
+    }
+    set {key = .schemaID(newValue)}
+  }
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  nonisolated enum OneOf_Key: Equatable, Sendable {
+    /// Generic string key, blob contains arbitrary data.
+    case generic(String)
+    /// Data track schema identifier, blob contains schema definition.
+    case schemaID(Livekit_DataTrackSchemaId)
+
+  }
+
+  init() {}
+}
+
+/// A blob of data stored in a room identified by a unique key.
+nonisolated struct Livekit_DataBlob: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Unique key the data blob is identified by.
+  var key: Livekit_DataBlobKey {
+    get {_key ?? Livekit_DataBlobKey()}
+    set {_key = newValue}
+  }
+  /// Returns true if `key` has been explicitly set.
+  var hasKey: Bool {self._key != nil}
+  /// Clears the value of `key`. Subsequent reads from it will return its default value.
+  mutating func clearKey() {self._key = nil}
+
+  /// Contents of the data blob. This must not exceed 50 KB.
+  var contents: Data = Data()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _key: Livekit_DataBlobKey? = nil
 }
 
 /// provide information about available spatial layers
@@ -2356,6 +2716,7 @@ nonisolated struct Livekit_ClientInfo: Sendable {
     typealias RawValue = Int
     case capUnused // = 0
     case capPacketTrailer // = 1
+    case capCompressionDeflateRaw // = 2
     case UNRECOGNIZED(Int)
 
     init() {
@@ -2366,6 +2727,7 @@ nonisolated struct Livekit_ClientInfo: Sendable {
       switch rawValue {
       case 0: self = .capUnused
       case 1: self = .capPacketTrailer
+      case 2: self = .capCompressionDeflateRaw
       default: self = .UNRECOGNIZED(rawValue)
       }
     }
@@ -2374,6 +2736,7 @@ nonisolated struct Livekit_ClientInfo: Sendable {
       switch self {
       case .capUnused: return 0
       case .capPacketTrailer: return 1
+      case .capCompressionDeflateRaw: return 2
       case .UNRECOGNIZED(let i): return i
       }
     }
@@ -2382,6 +2745,7 @@ nonisolated struct Livekit_ClientInfo: Sendable {
     static let allCases: [Livekit_ClientInfo.Capability] = [
       .capUnused,
       .capPacketTrailer,
+      .capCompressionDeflateRaw,
     ]
 
   }
@@ -2990,6 +3354,46 @@ nonisolated struct Livekit_DataStream: Sendable {
 
   }
 
+  /// The compression type of the whole data stream
+  ///
+  /// This will only get populated when send to participants with a
+  /// client protocol >= 2 which advertise a client capability of CAP_COMPRESSION_DEFLATE_RAW
+  nonisolated enum CompressionType: SwiftProtobuf.Enum, Swift.CaseIterable {
+    typealias RawValue = Int
+    case none // = 0
+
+    /// DEFLATE_RAW = DEFLATE without header+checksum/trailer
+    case deflateRaw // = 1
+    case UNRECOGNIZED(Int)
+
+    init() {
+      self = .none
+    }
+
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 0: self = .none
+      case 1: self = .deflateRaw
+      default: self = .UNRECOGNIZED(rawValue)
+      }
+    }
+
+    var rawValue: Int {
+      switch self {
+      case .none: return 0
+      case .deflateRaw: return 1
+      case .UNRECOGNIZED(let i): return i
+      }
+    }
+
+    // The compiler won't synthesize support with the UNRECOGNIZED case.
+    static let allCases: [Livekit_DataStream.CompressionType] = [
+      .none,
+      .deflateRaw,
+    ]
+
+  }
+
   /// header properties specific to text streams
   nonisolated struct TextHeader: Sendable {
     // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -3081,6 +3485,18 @@ nonisolated struct Livekit_DataStream: Sendable {
       set {contentHeader = .byteHeader(newValue)}
     }
 
+    /// Optional inline content so that a data stream can be sent as a single packet for short payloads.
+    var inlineContent: Data {
+      get {_inlineContent ?? Data()}
+      set {_inlineContent = newValue}
+    }
+    /// Returns true if `inlineContent` has been explicitly set.
+    var hasInlineContent: Bool {self._inlineContent != nil}
+    /// Clears the value of `inlineContent`. Subsequent reads from it will return its default value.
+    mutating func clearInlineContent() {self._inlineContent = nil}
+
+    var compression: Livekit_DataStream.CompressionType = .none
+
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
     /// oneof to choose between specific header types
@@ -3093,6 +3509,7 @@ nonisolated struct Livekit_DataStream: Sendable {
     init() {}
 
     fileprivate var _totalLength: UInt64? = nil
+    fileprivate var _inlineContent: Data? = nil
   }
 
   nonisolated struct Chunk: Sendable {
@@ -3266,7 +3683,7 @@ nonisolated extension Livekit_AudioTrackFeature: SwiftProtobuf._ProtoNameProvidi
 }
 
 nonisolated extension Livekit_PacketTrailerFeature: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0PTF_USER_TIMESTAMP\0\u{1}PTF_FRAME_ID\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0PTF_USER_TIMESTAMP\0\u{1}PTF_FRAME_ID\0\u{1}PTF_USER_DATA\0")
 }
 
 nonisolated extension Livekit_Pagination: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
@@ -3630,7 +4047,7 @@ nonisolated extension Livekit_ParticipantPermission: SwiftProtobuf.Message, Swif
 
 nonisolated extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ParticipantInfo"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}sid\0\u{1}identity\0\u{1}state\0\u{1}tracks\0\u{1}metadata\0\u{3}joined_at\0\u{2}\u{3}name\0\u{1}version\0\u{1}permission\0\u{1}region\0\u{3}is_publisher\0\u{1}kind\0\u{1}attributes\0\u{3}disconnect_reason\0\u{3}joined_at_ms\0\u{3}kind_details\0\u{3}data_tracks\0\u{3}client_protocol\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}sid\0\u{1}identity\0\u{1}state\0\u{1}tracks\0\u{1}metadata\0\u{3}joined_at\0\u{2}\u{3}name\0\u{1}version\0\u{1}permission\0\u{1}region\0\u{3}is_publisher\0\u{1}kind\0\u{1}attributes\0\u{3}disconnect_reason\0\u{3}joined_at_ms\0\u{3}kind_details\0\u{3}data_tracks\0\u{3}client_protocol\0\u{1}capabilities\0")
 
   fileprivate class _StorageClass {
     var _sid: String = String()
@@ -3651,6 +4068,7 @@ nonisolated extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProto
     var _kindDetails: [Livekit_ParticipantInfo.KindDetail] = []
     var _dataTracks: [Livekit_DataTrackInfo] = []
     var _clientProtocol: Int32 = 0
+    var _capabilities: [Livekit_ClientInfo.Capability] = []
 
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
@@ -3679,6 +4097,7 @@ nonisolated extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProto
       _kindDetails = source._kindDetails
       _dataTracks = source._dataTracks
       _clientProtocol = source._clientProtocol
+      _capabilities = source._capabilities
     }
   }
 
@@ -3715,6 +4134,7 @@ nonisolated extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProto
         case 18: try { try decoder.decodeRepeatedEnumField(value: &_storage._kindDetails) }()
         case 19: try { try decoder.decodeRepeatedMessageField(value: &_storage._dataTracks) }()
         case 20: try { try decoder.decodeSingularInt32Field(value: &_storage._clientProtocol) }()
+        case 21: try { try decoder.decodeRepeatedEnumField(value: &_storage._capabilities) }()
         default: break
         }
       }
@@ -3781,6 +4201,9 @@ nonisolated extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProto
       if _storage._clientProtocol != 0 {
         try visitor.visitSingularInt32Field(value: _storage._clientProtocol, fieldNumber: 20)
       }
+      if !_storage._capabilities.isEmpty {
+        try visitor.visitPackedEnumField(value: _storage._capabilities, fieldNumber: 21)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -3808,6 +4231,7 @@ nonisolated extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProto
         if _storage._kindDetails != rhs_storage._kindDetails {return false}
         if _storage._dataTracks != rhs_storage._dataTracks {return false}
         if _storage._clientProtocol != rhs_storage._clientProtocol {return false}
+        if _storage._capabilities != rhs_storage._capabilities {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -3826,7 +4250,7 @@ nonisolated extension Livekit_ParticipantInfo.Kind: SwiftProtobuf._ProtoNameProv
 }
 
 nonisolated extension Livekit_ParticipantInfo.KindDetail: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0CLOUD_AGENT\0\u{1}FORWARDED\0\u{1}CONNECTOR_WHATSAPP\0\u{1}CONNECTOR_TWILIO\0\u{1}BRIDGE_RTSP\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0CLOUD_AGENT\0\u{1}FORWARDED\0\u{1}CONNECTOR_WHATSAPP\0\u{1}CONNECTOR_TWILIO\0\u{1}BRIDGE_RTSP\0\u{1}SIMULATION\0")
 }
 
 nonisolated extension Livekit_Encryption: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
@@ -4119,7 +4543,7 @@ nonisolated extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._M
 
 nonisolated extension Livekit_DataTrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".DataTrackInfo"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}pub_handle\0\u{1}sid\0\u{1}name\0\u{1}encryption\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}pub_handle\0\u{1}sid\0\u{1}name\0\u{1}encryption\0\u{3}frame_encoding\0\u{1}schema\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -4131,12 +4555,18 @@ nonisolated extension Livekit_DataTrackInfo: SwiftProtobuf.Message, SwiftProtobu
       case 2: try { try decoder.decodeSingularStringField(value: &self.sid) }()
       case 3: try { try decoder.decodeSingularStringField(value: &self.name) }()
       case 4: try { try decoder.decodeSingularEnumField(value: &self.encryption) }()
+      case 5: try { try decoder.decodeSingularMessageField(value: &self._frameEncoding) }()
+      case 6: try { try decoder.decodeSingularMessageField(value: &self._schema) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if self.pubHandle != 0 {
       try visitor.visitSingularUInt32Field(value: self.pubHandle, fieldNumber: 1)
     }
@@ -4149,6 +4579,12 @@ nonisolated extension Livekit_DataTrackInfo: SwiftProtobuf.Message, SwiftProtobu
     if self.encryption != .none {
       try visitor.visitSingularEnumField(value: self.encryption, fieldNumber: 4)
     }
+    try { if let v = self._frameEncoding {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
+    } }()
+    try { if let v = self._schema {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -4157,6 +4593,169 @@ nonisolated extension Livekit_DataTrackInfo: SwiftProtobuf.Message, SwiftProtobu
     if lhs.sid != rhs.sid {return false}
     if lhs.name != rhs.name {return false}
     if lhs.encryption != rhs.encryption {return false}
+    if lhs._frameEncoding != rhs._frameEncoding {return false}
+    if lhs._schema != rhs._schema {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Livekit_DataTrackFrameEncoding: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".DataTrackFrameEncoding"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}well_known\0\u{1}custom\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try {
+        var v: Livekit_DataTrackFrameEncoding.WellKnownFrameEncoding?
+        try decoder.decodeSingularEnumField(value: &v)
+        if let v = v {
+          if self.value != nil {try decoder.handleConflictingOneOf()}
+          self.value = .wellKnown(v)
+        }
+      }()
+      case 2: try {
+        var v: String?
+        try decoder.decodeSingularStringField(value: &v)
+        if let v = v {
+          if self.value != nil {try decoder.handleConflictingOneOf()}
+          self.value = .custom(v)
+        }
+      }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    switch self.value {
+    case .wellKnown?: try {
+      guard case .wellKnown(let v)? = self.value else { preconditionFailure() }
+      try visitor.visitSingularEnumField(value: v, fieldNumber: 1)
+    }()
+    case .custom?: try {
+      guard case .custom(let v)? = self.value else { preconditionFailure() }
+      try visitor.visitSingularStringField(value: v, fieldNumber: 2)
+    }()
+    case nil: break
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_DataTrackFrameEncoding, rhs: Livekit_DataTrackFrameEncoding) -> Bool {
+    if lhs.value != rhs.value {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Livekit_DataTrackFrameEncoding.WellKnownFrameEncoding: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0WELL_KNOWN_FRAME_ENCODING_UNSPECIFIED\0\u{1}WELL_KNOWN_FRAME_ENCODING_ROS1\0\u{1}WELL_KNOWN_FRAME_ENCODING_CDR\0\u{1}WELL_KNOWN_FRAME_ENCODING_PROTOBUF\0\u{1}WELL_KNOWN_FRAME_ENCODING_FLATBUFFER\0\u{1}WELL_KNOWN_FRAME_ENCODING_CBOR\0\u{1}WELL_KNOWN_FRAME_ENCODING_MSGPACK\0\u{1}WELL_KNOWN_FRAME_ENCODING_JSON\0")
+}
+
+nonisolated extension Livekit_DataTrackSchemaEncoding: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".DataTrackSchemaEncoding"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}well_known\0\u{1}custom\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try {
+        var v: Livekit_DataTrackSchemaEncoding.WellKnownSchemaEncoding?
+        try decoder.decodeSingularEnumField(value: &v)
+        if let v = v {
+          if self.value != nil {try decoder.handleConflictingOneOf()}
+          self.value = .wellKnown(v)
+        }
+      }()
+      case 2: try {
+        var v: String?
+        try decoder.decodeSingularStringField(value: &v)
+        if let v = v {
+          if self.value != nil {try decoder.handleConflictingOneOf()}
+          self.value = .custom(v)
+        }
+      }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    switch self.value {
+    case .wellKnown?: try {
+      guard case .wellKnown(let v)? = self.value else { preconditionFailure() }
+      try visitor.visitSingularEnumField(value: v, fieldNumber: 1)
+    }()
+    case .custom?: try {
+      guard case .custom(let v)? = self.value else { preconditionFailure() }
+      try visitor.visitSingularStringField(value: v, fieldNumber: 2)
+    }()
+    case nil: break
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_DataTrackSchemaEncoding, rhs: Livekit_DataTrackSchemaEncoding) -> Bool {
+    if lhs.value != rhs.value {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Livekit_DataTrackSchemaEncoding.WellKnownSchemaEncoding: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0WELL_KNOWN_SCHEMA_ENCODING_UNSPECIFIED\0\u{1}WELL_KNOWN_SCHEMA_ENCODING_PROTOBUF\0\u{1}WELL_KNOWN_SCHEMA_ENCODING_FLATBUFFER\0\u{1}WELL_KNOWN_SCHEMA_ENCODING_ROS1_MSG\0\u{1}WELL_KNOWN_SCHEMA_ENCODING_ROS2_MSG\0\u{1}WELL_KNOWN_SCHEMA_ENCODING_ROS2_IDL\0\u{1}WELL_KNOWN_SCHEMA_ENCODING_OMG_IDL\0\u{1}WELL_KNOWN_SCHEMA_ENCODING_JSON_SCHEMA\0")
+}
+
+nonisolated extension Livekit_DataTrackSchemaId: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".DataTrackSchemaId"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}name\0\u{1}encoding\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.name) }()
+      case 2: try { try decoder.decodeSingularMessageField(value: &self._encoding) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if !self.name.isEmpty {
+      try visitor.visitSingularStringField(value: self.name, fieldNumber: 1)
+    }
+    try { if let v = self._encoding {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_DataTrackSchemaId, rhs: Livekit_DataTrackSchemaId) -> Bool {
+    if lhs.name != rhs.name {return false}
+    if lhs._encoding != rhs._encoding {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -4226,6 +4825,107 @@ nonisolated extension Livekit_DataTrackSubscriptionOptions: SwiftProtobuf.Messag
 
   static func ==(lhs: Livekit_DataTrackSubscriptionOptions, rhs: Livekit_DataTrackSubscriptionOptions) -> Bool {
     if lhs._targetFps != rhs._targetFps {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Livekit_DataBlobKey: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".DataBlobKey"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}generic\0\u{3}schema_id\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try {
+        var v: String?
+        try decoder.decodeSingularStringField(value: &v)
+        if let v = v {
+          if self.key != nil {try decoder.handleConflictingOneOf()}
+          self.key = .generic(v)
+        }
+      }()
+      case 2: try {
+        var v: Livekit_DataTrackSchemaId?
+        var hadOneofValue = false
+        if let current = self.key {
+          hadOneofValue = true
+          if case .schemaID(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.key = .schemaID(v)
+        }
+      }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    switch self.key {
+    case .generic?: try {
+      guard case .generic(let v)? = self.key else { preconditionFailure() }
+      try visitor.visitSingularStringField(value: v, fieldNumber: 1)
+    }()
+    case .schemaID?: try {
+      guard case .schemaID(let v)? = self.key else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+    }()
+    case nil: break
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_DataBlobKey, rhs: Livekit_DataBlobKey) -> Bool {
+    if lhs.key != rhs.key {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Livekit_DataBlob: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".DataBlob"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}key\0\u{1}contents\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularMessageField(value: &self._key) }()
+      case 2: try { try decoder.decodeSingularBytesField(value: &self.contents) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._key {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+    } }()
+    if !self.contents.isEmpty {
+      try visitor.visitSingularBytesField(value: self.contents, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_DataBlob, rhs: Livekit_DataBlob) -> Bool {
+    if lhs._key != rhs._key {return false}
+    if lhs.contents != rhs.contents {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -5581,7 +6281,7 @@ nonisolated extension Livekit_ClientInfo.SDK: SwiftProtobuf._ProtoNameProviding 
 }
 
 nonisolated extension Livekit_ClientInfo.Capability: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0CAP_UNUSED\0\u{1}CAP_PACKET_TRAILER\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0CAP_UNUSED\0\u{1}CAP_PACKET_TRAILER\0\u{1}CAP_COMPRESSION_DEFLATE_RAW\0")
 }
 
 nonisolated extension Livekit_ClientConfiguration: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
@@ -6519,6 +7219,10 @@ nonisolated extension Livekit_DataStream.OperationType: SwiftProtobuf._ProtoName
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0CREATE\0\u{1}UPDATE\0\u{1}DELETE\0\u{1}REACTION\0")
 }
 
+nonisolated extension Livekit_DataStream.CompressionType: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0NONE\0\u{1}DEFLATE_RAW\0")
+}
+
 nonisolated extension Livekit_DataStream.TextHeader: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = Livekit_DataStream.protoMessageName + ".TextHeader"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}operation_type\0\u{1}version\0\u{3}reply_to_stream_id\0\u{3}attached_stream_ids\0\u{1}generated\0")
@@ -6601,7 +7305,7 @@ nonisolated extension Livekit_DataStream.ByteHeader: SwiftProtobuf.Message, Swif
 
 nonisolated extension Livekit_DataStream.Header: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = Livekit_DataStream.protoMessageName + ".Header"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}stream_id\0\u{1}timestamp\0\u{1}topic\0\u{3}mime_type\0\u{3}total_length\0\u{4}\u{2}encryption_type\0\u{1}attributes\0\u{3}text_header\0\u{3}byte_header\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}stream_id\0\u{1}timestamp\0\u{1}topic\0\u{3}mime_type\0\u{3}total_length\0\u{4}\u{2}encryption_type\0\u{1}attributes\0\u{3}text_header\0\u{3}byte_header\0\u{3}inline_content\0\u{1}compression\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -6642,6 +7346,8 @@ nonisolated extension Livekit_DataStream.Header: SwiftProtobuf.Message, SwiftPro
           self.contentHeader = .byteHeader(v)
         }
       }()
+      case 11: try { try decoder.decodeSingularBytesField(value: &self._inlineContent) }()
+      case 12: try { try decoder.decodeSingularEnumField(value: &self.compression) }()
       default: break
       }
     }
@@ -6684,6 +7390,12 @@ nonisolated extension Livekit_DataStream.Header: SwiftProtobuf.Message, SwiftPro
     }()
     case nil: break
     }
+    try { if let v = self._inlineContent {
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 11)
+    } }()
+    if self.compression != .none {
+      try visitor.visitSingularEnumField(value: self.compression, fieldNumber: 12)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -6696,6 +7408,8 @@ nonisolated extension Livekit_DataStream.Header: SwiftProtobuf.Message, SwiftPro
     if lhs.encryptionType != rhs.encryptionType {return false}
     if lhs.attributes != rhs.attributes {return false}
     if lhs.contentHeader != rhs.contentHeader {return false}
+    if lhs._inlineContent != rhs._inlineContent {return false}
+    if lhs.compression != rhs.compression {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
