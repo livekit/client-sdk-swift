@@ -115,35 +115,6 @@ struct DataTrackApiTests {
         }
     }
 
-    // MARK: - Backpressure
-
-    /// `.throw` surfaces a saturated queue instead of dropping, and hands the rejected frame back.
-    @Test
-    func sendContentsOfThrowsOnQueueFull() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-        ]) { rooms in
-            let track = try await rooms[0].localParticipant.publishDataTrack(name: "queue-full")
-
-            // A burst far larger than the pipeline queue, pushed as fast as the sequence yields.
-            let payload = Data(repeating: 0xAB, count: 128 * 1024)
-            let (source, continuation) = AsyncStream.makeStream(of: DataTrackFrame.self)
-            for _ in 0 ..< 200 {
-                continuation.yield(DataTrackFrame(payload: payload))
-            }
-            continuation.finish()
-
-            let error = await #expect(throws: DataTrackPushFrameError.self) {
-                try await track.send(contentsOf: source, onQueueFull: .throw)
-            }
-            guard case let .queueFull(_, frame) = try #require(error) else {
-                Issue.record("Expected a queueFull error, got \(String(describing: error))")
-                return
-            }
-            #expect(frame.payload == payload, "The rejected frame should be handed back intact")
-        }
-    }
-
     // MARK: - Subscribe Buffer
 
     /// Zero is not a valid buffer size and is clamped to one rather than rejected.

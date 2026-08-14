@@ -71,21 +71,19 @@ public final class LocalDataTrack: NSObject, Sendable {
 
 // MARK: - Sending an AsyncSequence
 
-public extension LocalDataTrack {
-    /// Policy for ``send(contentsOf:onQueueFull:)`` when the send queue is full.
-    enum FrameDropPolicy: Sendable {
-        /// Propagate the error to the caller.
-        case `throw`
-        /// Silently skip the frame.
-        case drop
-    }
+/// The slice of a publication the sequence send drives — a seam so the queue-full policy is
+/// unit-testable, since saturating a live pipeline to observe it is inherently timing-dependent.
+protocol DataTrackFrameSink: AnyObject, Sendable {
+    var isPublished: Bool { get }
+    func tryPush(frame: DataTrackFrame) throws
+}
 
-    /// Sends frames from `source` until it ends or the track is unpublished.
-    ///
-    /// - Parameter onQueueFull: How to handle a full send queue. Defaults to ``FrameDropPolicy/drop``.
-    func send<S: AsyncSequence>(
-        contentsOf source: S,
-        onQueueFull: FrameDropPolicy = .drop,
+extension LocalDataTrack: DataTrackFrameSink {}
+
+extension DataTrackFrameSink {
+    func sendFrames<S: AsyncSequence>(
+        from source: S,
+        onQueueFull: LocalDataTrack.FrameDropPolicy,
     ) async throws where S.Element == DataTrackFrame {
         for try await frame in source {
             guard isPublished else { break }
@@ -102,5 +100,25 @@ public extension LocalDataTrack {
                 }
             }
         }
+    }
+}
+
+public extension LocalDataTrack {
+    /// Policy for ``send(contentsOf:onQueueFull:)`` when the send queue is full.
+    enum FrameDropPolicy: Sendable {
+        /// Propagate the error to the caller.
+        case `throw`
+        /// Silently skip the frame.
+        case drop
+    }
+
+    /// Sends frames from `source` until it ends or the track is unpublished.
+    ///
+    /// - Parameter onQueueFull: How to handle a full send queue. Defaults to ``FrameDropPolicy/drop``.
+    func send<S: AsyncSequence>(
+        contentsOf source: S,
+        onQueueFull: FrameDropPolicy = .drop,
+    ) async throws where S.Element == DataTrackFrame {
+        try await sendFrames(from: source, onQueueFull: onQueueFull)
     }
 }
