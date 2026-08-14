@@ -466,9 +466,12 @@ private extension SignalClient {
             _dataBlobCompleters[response.requestID]?.resume(returning: response.blob.contents)
 
         case let .requestResponse(response):
-            // The failure half of the id-correlated requests above. Anything else arriving here
-            // is for a request that reports its own errors (data track publishes) or none.
-            if let completer = _dataBlobCompleters[response.requestID] {
+            // The failure half of the id-correlated requests above; success arrives as the typed
+            // response, so an acknowledgement (`ok`) or a progress report (`queued`) leaves the
+            // request waiting. Anything else arriving here is for a request that reports its own
+            // errors (data track publishes) or none.
+            let isFailure = response.reason != .ok && response.reason != .queued
+            if isFailure, let completer = _dataBlobCompleters[response.requestID] {
                 let message = response.message.isEmpty ? "Request rejected (reason \(response.reason.rawValue))" : response.message
                 completer.resume(throwing: LiveKitError(.invalidState, message: message))
             }
