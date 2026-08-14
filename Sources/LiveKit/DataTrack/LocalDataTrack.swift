@@ -41,19 +41,19 @@ public final class LocalDataTrack: NSObject, Sendable {
     /// Pushes a frame to subscribers.
     ///
     /// Non-blocking. Throws ``DataTrackPushFrameError/trackUnpublished(_:)`` if the track is no longer
-    /// published, or ``DataTrackPushFrameError/queueFull(_:)`` if the send queue is saturated.
+    /// published, or ``DataTrackPushFrameError/queueFull(_:frame:)`` if the send queue is saturated.
     @objc public func tryPush(frame: DataTrackFrame) throws {
         do {
             try track.tryPush(frame: frame.ffi)
         } catch let error as PushFrameErrorReason {
-            throw DataTrackPushFrameError(error)
+            throw DataTrackPushFrameError(error, frame: frame)
         } catch {
             // The bindings can't decode the reason a push was rejected — the error type is
             // defined in a different UniFFI component — and report an internal error instead.
             // The call did fail, and only two things cause that, so recover the one that
             // applies rather than leaking an FFI-internal error through the public API.
             throw isPublished
-                ? DataTrackPushFrameError.queueFull("The send queue is full")
+                ? DataTrackPushFrameError.queueFull("The send queue is full", frame: frame)
                 : DataTrackPushFrameError.trackUnpublished("The track is no longer published")
         }
     }

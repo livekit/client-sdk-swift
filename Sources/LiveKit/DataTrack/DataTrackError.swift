@@ -56,15 +56,16 @@ public enum DataTrackPublishError: Error, Sendable {
 public enum DataTrackPushFrameError: Error, Sendable {
     /// The track has been unpublished, by either the local participant or the SFU.
     case trackUnpublished(String)
-    /// The send queue is full; the frame was not enqueued.
-    case queueFull(String)
+    /// The send queue is full; the frame was not enqueued. It is handed back so the caller can
+    /// retry or re-queue it rather than losing it.
+    case queueFull(String, frame: DataTrackFrame)
     /// An unexpected internal error occurred.
     case internalError(String)
 
-    init(_ error: PushFrameErrorReason) {
+    init(_ error: PushFrameErrorReason, frame: DataTrackFrame) {
         switch error {
         case let .TrackUnpublished(message): self = .trackUnpublished(message)
-        case let .QueueFull(message): self = .queueFull(message)
+        case let .QueueFull(message): self = .queueFull(message, frame: frame)
         @unknown default: self = .internalError(String(describing: error))
         }
     }
@@ -117,7 +118,7 @@ extension DataTrackPushFrameError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case let .trackUnpublished(message),
-             let .queueFull(message),
+             let .queueFull(message, _),
              let .internalError(message):
             message
         }
