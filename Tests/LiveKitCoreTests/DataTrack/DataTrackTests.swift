@@ -42,26 +42,14 @@ struct DataTrackTests {
 
     @Test(arguments: [ReceiveScenario.smallFrames, .largeFrames])
     func publishAndReceive(_ scenario: ReceiveScenario) async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canSubscribe: true),
-        ]) { rooms in
-            let publisherRoom = rooms[0]
-            let subscriberRoom = rooms[1]
-
-            // Start watching before publishing to avoid a race.
-            let watcher = DataTrackWatcher(expectedName: "test")
-            subscriberRoom.delegates.add(delegate: watcher)
-
-            let track = try await publisherRoom.localParticipant.publishDataTrack(name: "test")
+        try await TestEnvironment.withPublishedDataTrack { fixture in
+            let track = fixture.track
             #expect(track.isPublished)
-
-            let remoteTrack = try await watcher.waitForTrack()
-            #expect(remoteTrack.info.name == "test")
+            #expect(fixture.remoteTrack.info.name == "test")
             // withRooms enables E2EE by default, so the track should be encrypted.
-            #expect(remoteTrack.info.usesE2ee)
+            #expect(fixture.remoteTrack.info.usesE2ee)
 
-            let stream = try await remoteTrack.subscribe()
+            let stream = try await fixture.remoteTrack.subscribe()
 
             let payload = Data(repeating: 0xAB, count: scenario.payloadSize)
             for _ in 0 ..< scenario.frameCount {
@@ -100,22 +88,11 @@ struct DataTrackTests {
 
     @Test
     func frameTimestamp() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canSubscribe: true),
-        ]) { rooms in
-            let publisherRoom = rooms[0]
-            let subscriberRoom = rooms[1]
-
-            let watcher = DataTrackWatcher(expectedName: "ts-test")
-            subscriberRoom.delegates.add(delegate: watcher)
-
-            let track = try await publisherRoom.localParticipant.publishDataTrack(name: "ts-test")
-            let remoteTrack = try await watcher.waitForTrack()
-            let stream = try await remoteTrack.subscribe()
+        try await TestEnvironment.withPublishedDataTrack(named: "ts-test") { fixture in
+            let stream = try await fixture.remoteTrack.subscribe()
 
             let payload = Data([1, 2, 3])
-            try track.tryPush(frame: .now(payload: payload))
+            try fixture.track.tryPush(frame: .now(payload: payload))
 
             let frame = try #require(await stream.next(within: 15))
             let ts = try #require(frame.userTimestamp)
@@ -129,18 +106,9 @@ struct DataTrackTests {
 
     @Test
     func resubscribe() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canSubscribe: true),
-        ]) { rooms in
-            let publisherRoom = rooms[0]
-            let subscriberRoom = rooms[1]
-
-            let watcher = DataTrackWatcher(expectedName: "resub")
-            subscriberRoom.delegates.add(delegate: watcher)
-
-            let track = try await publisherRoom.localParticipant.publishDataTrack(name: "resub")
-            let remoteTrack = try await watcher.waitForTrack()
+        try await TestEnvironment.withPublishedDataTrack(named: "resub") { fixture in
+            let track = fixture.track
+            let remoteTrack = fixture.remoteTrack
 
             let payload = Data([0xDE, 0xAD])
 
@@ -170,16 +138,9 @@ struct DataTrackTests {
 
     @Test
     func sendContentsOfSequence() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canSubscribe: true),
-        ]) { rooms in
-            let watcher = DataTrackWatcher(expectedName: "seq")
-            rooms[1].delegates.add(delegate: watcher)
-
-            let track = try await rooms[0].localParticipant.publishDataTrack(name: "seq")
-            let remoteTrack = try await watcher.waitForTrack()
-            let stream = try await remoteTrack.subscribe()
+        try await TestEnvironment.withPublishedDataTrack(named: "seq") { fixture in
+            let track = fixture.track
+            let stream = try await fixture.remoteTrack.subscribe()
 
             let frameCount = 5
             let payload = Data([0x01, 0x02])

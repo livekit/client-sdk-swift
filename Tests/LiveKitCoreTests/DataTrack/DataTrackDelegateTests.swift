@@ -28,20 +28,10 @@ struct DataTrackDelegateTests {
 
     @Test
     func attachedToRemoteParticipant() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canSubscribe: true),
-        ]) { rooms in
-            let watcher = DataTrackWatcher(expectedName: "attached")
-            rooms[1].delegates.add(delegate: watcher)
-
-            let track = try await rooms[0].localParticipant.publishDataTrack(name: "attached")
-            let remoteTrack = try await watcher.waitForTrack()
-
-            let publisherIdentity = try #require(rooms[0].localParticipant.identity)
-            let publisher = try #require(rooms[1].remoteParticipants[publisherIdentity])
-            #expect(publisher.dataTracks["attached"] === remoteTrack)
-            _ = track.isPublished // keep the publication alive through the assertions (dropping it unpublishes)
+        try await TestEnvironment.withPublishedDataTrack(named: "attached") { fixture in
+            let publisherIdentity = try #require(fixture.publisher.localParticipant.identity)
+            let publisher = try #require(fixture.subscriber.remoteParticipants[publisherIdentity])
+            #expect(publisher.dataTracks["attached"] === fixture.remoteTrack)
         }
     }
 
@@ -49,19 +39,14 @@ struct DataTrackDelegateTests {
 
     @Test
     func unpublishNotifiesDelegate() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canSubscribe: true),
-        ]) { rooms in
+        try await TestEnvironment.withPublishedDataTrack(named: "to-unpublish") { fixture in
             let watcher = DataTrackWatcher(expectedName: "to-unpublish")
-            rooms[1].delegates.add(delegate: watcher)
+            fixture.subscriber.delegates.add(delegate: watcher)
 
-            let track = try await rooms[0].localParticipant.publishDataTrack(name: "to-unpublish")
-            let remoteTrack = try await watcher.waitForTrack()
-
-            track.unpublish()
+            let expectedSid = fixture.remoteTrack.info.sid
+            fixture.track.unpublish()
             let unpublishedSid = try await watcher.waitForUnpublish()
-            #expect(unpublishedSid == remoteTrack.info.sid)
+            #expect(unpublishedSid == expectedSid)
         }
     }
 

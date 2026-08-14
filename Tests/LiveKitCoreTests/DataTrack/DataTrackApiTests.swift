@@ -120,19 +120,11 @@ struct DataTrackApiTests {
     /// Zero is not a valid buffer size and is clamped to one rather than rejected.
     @Test
     func subscribeClampsZeroBufferSize() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canSubscribe: true),
-        ]) { rooms in
-            let watcher = DataTrackWatcher(expectedName: "clamped")
-            rooms[1].delegates.add(delegate: watcher)
-
-            let track = try await rooms[0].localParticipant.publishDataTrack(name: "clamped")
-            let remoteTrack = try await watcher.waitForTrack()
-            let stream = try await remoteTrack.subscribe(bufferSize: 0)
+        try await TestEnvironment.withPublishedDataTrack(named: "clamped") { fixture in
+            let stream = try await fixture.remoteTrack.subscribe(bufferSize: 0)
 
             let payload = Data([0x2A])
-            try track.tryPush(frame: DataTrackFrame(payload: payload))
+            try fixture.track.tryPush(frame: DataTrackFrame(payload: payload))
             #expect(await stream.next(within: 15)?.payload == payload)
         }
     }
@@ -141,20 +133,12 @@ struct DataTrackApiTests {
     /// than a stale backlog.
     @Test
     func subscribeDropsOldestAtCapacity() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canSubscribe: true),
-        ]) { rooms in
-            let watcher = DataTrackWatcher(expectedName: "drop-oldest")
-            rooms[1].delegates.add(delegate: watcher)
-
-            let track = try await rooms[0].localParticipant.publishDataTrack(name: "drop-oldest")
-            let remoteTrack = try await watcher.waitForTrack()
-            let stream = try await remoteTrack.subscribe(bufferSize: 1)
+        try await TestEnvironment.withPublishedDataTrack(named: "drop-oldest") { fixture in
+            let stream = try await fixture.remoteTrack.subscribe(bufferSize: 1)
 
             // Paced so the frames reach the subscriber rather than saturating the send queue.
             for index in 0 ..< UInt8(32) {
-                try track.tryPush(frame: DataTrackFrame(payload: Data([index])))
+                try fixture.track.tryPush(frame: DataTrackFrame(payload: Data([index])))
                 try await Task.sleep(nanoseconds: 25_000_000)
             }
             // Let the last frames arrive before reading, so the buffer has to evict.

@@ -162,6 +162,44 @@ public extension DataTrackStream {
     }
 }
 
+/// A publisher and a subscriber with one data track published and already observed — the preamble
+/// of most data track tests. Holding `track` keeps the publication alive for the body's duration.
+public struct DataTrackFixture {
+    public let publisher: Room
+    public let subscriber: Room
+    public let track: LocalDataTrack
+    public let remoteTrack: RemoteDataTrack
+}
+
+public extension TestEnvironment {
+    /// Runs `body` against two rooms with `name` published and delivered.
+    ///
+    /// Use ``withRooms(_:_:)`` directly when the test needs to control *when* the publish happens
+    /// (reconnects, pre-join publications) or what the room looks like beforehand.
+    static func withPublishedDataTrack(
+        named name: String = "test",
+        isE2eeEnabled: Bool = true,
+        options: DataTrackPublishOptions? = nil,
+        _ body: @escaping (DataTrackFixture) async throws -> Void,
+    ) async throws {
+        try await withRooms([
+            RoomTestingOptions(isE2eeEnabled: isE2eeEnabled, canPublishData: true),
+            RoomTestingOptions(isE2eeEnabled: isE2eeEnabled, canSubscribe: true),
+        ]) { rooms in
+            let watcher = DataTrackWatcher(expectedName: name)
+            rooms[1].delegates.add(delegate: watcher)
+
+            let track = try await rooms[0].localParticipant.publishDataTrack(name: name, options: options)
+            let remoteTrack = try await watcher.waitForTrack()
+
+            try await body(DataTrackFixture(publisher: rooms[0],
+                                            subscriber: rooms[1],
+                                            track: track,
+                                            remoteTrack: remoteTrack))
+        }
+    }
+}
+
 /// Convenience for simple cases — registers watcher, returns track.
 public extension Room {
     func waitForDataTrack(name: String, timeout: TimeInterval = 15) async throws -> RemoteDataTrack {
