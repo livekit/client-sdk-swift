@@ -123,10 +123,24 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     lazy var publisherDataChannel = DataChannelPair(delegate: self)
 
     let incomingStreamManager = IncomingStreamManager()
-    lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
-        try await self?.send(dataPacket: packet)
-    } encryptionProvider: { [weak self] in
-        self?.e2eeManager?.dataChannelEncryptionType ?? .none
+    private let _outgoingStreamManager = StateSync<OutgoingStreamManager?>(nil)
+
+    // Lazy properties are not initialized atomically, and this manager is
+    // reachable from isolation domains that do not serialize with each
+    // other (RPC client/server managers and app calls into
+    // LocalParticipant data stream methods), so initialization is guarded
+    // by the same StateSync pattern used for _e2eeManager.
+    var outgoingStreamManager: OutgoingStreamManager {
+        _outgoingStreamManager.mutate { state in
+            if let existing = state { return existing }
+            let manager = OutgoingStreamManager { [weak self] packet in
+                try await self?.send(dataPacket: packet)
+            } encryptionProvider: { [weak self] in
+                self?.e2eeManager?.dataChannelEncryptionType ?? .none
+            }
+            state = manager
+            return manager
+        }
     }
 
     // MARK: - PreConnect
