@@ -47,6 +47,9 @@ public final class RemoteDataTrack: NSObject, Sendable {
     @objc public var info: DataTrackInfo { DataTrackInfo(track.info()) }
 
     /// Waits until the track is unpublished, by either the publisher or the SFU.
+    ///
+    /// Use this to trigger follow-up work once the track is no longer published. Returns
+    /// immediately if it is already unpublished.
     @objc public func waitForUnpublish() async {
         await track.waitForUnpublish()
     }

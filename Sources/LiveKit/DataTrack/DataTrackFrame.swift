@@ -23,14 +23,16 @@ public final class DataTrackFrame: NSObject, Sendable {
     /// The application payload carried by this frame.
     @objc public let payload: Data
 
-    /// Optional sender-provided timestamp, in milliseconds since the Unix epoch.
+    /// Optional sender-provided timestamp.
     ///
-    /// Carried end-to-end unmodified; useful for measuring latency. Objective-C callers can use
-    /// ``userTimestampMs``.
+    /// Opaque to the SDK and carried end-to-end unmodified: publisher and subscriber agree on what
+    /// it means, so a sensor's clock works as well as wall time. ``now(payload:)`` and
+    /// ``durationSinceTimestamp`` are the exception — they read it as milliseconds since the Unix
+    /// epoch. Objective-C callers can use ``userTimestampNumber``.
     public let userTimestamp: UInt64?
 
     /// Objective-C accessor for ``userTimestamp`` (`nil` when no timestamp is set).
-    @objc public var userTimestampMs: NSNumber? {
+    @objc(userTimestamp) public var userTimestampNumber: NSNumber? {
         userTimestamp.map { NSNumber(value: $0) }
     }
 
@@ -62,9 +64,10 @@ public final class DataTrackFrame: NSObject, Sendable {
         self.init(payload: payload, userTimestamp: nil)
     }
 
-    /// Creates a frame stamped with the given timestamp, in milliseconds since the Unix epoch.
-    @objc public convenience init(payload: Data, userTimestampMs: UInt64) {
-        self.init(payload: payload, userTimestamp: userTimestampMs)
+    /// Objective-C entry point; Swift callers use ``init(payload:userTimestamp:)``.
+    @objc(initWithPayload:userTimestamp:)
+    public convenience init(payload: Data, userTimestampValue: UInt64) {
+        self.init(payload: payload, userTimestamp: userTimestampValue)
     }
 
     /// Creates a frame stamped with the current time, in milliseconds since the Unix epoch.

@@ -40,8 +40,10 @@ public final class LocalDataTrack: NSObject, Sendable {
 
     /// Pushes a frame to subscribers.
     ///
-    /// Non-blocking. Throws ``DataTrackPushFrameError/trackUnpublished(_:)`` if the track is no longer
-    /// published, or ``DataTrackPushFrameError/queueFull(_:frame:)`` if the send queue is saturated.
+    /// Non-blocking. Throws ``DataTrackPushFrameError/trackUnpublished(_:)`` if the track was
+    /// unpublished by the local participant or the SFU, or if the room is no longer connected;
+    /// ``DataTrackPushFrameError/queueFull(_:frame:)`` if frames are being pushed faster than they
+    /// can be sent, which hands the rejected frame back.
     @objc public func tryPush(frame: DataTrackFrame) throws {
         do {
             try track.tryPush(frame: frame.ffi)
@@ -64,6 +66,9 @@ public final class LocalDataTrack: NSObject, Sendable {
     }
 
     /// Waits until the track is unpublished, by either the local participant or the SFU.
+    ///
+    /// Use this to trigger follow-up work once the track is no longer published. Returns
+    /// immediately if it is already unpublished.
     @objc public func waitForUnpublish() async {
         await track.waitForUnpublish()
     }

@@ -28,6 +28,9 @@ public extension LocalParticipant {
     /// - Parameter name: Track name visible to other participants. Must be unique per publisher.
     /// - Returns: A ``LocalDataTrack`` used to push frames via ``LocalDataTrack/tryPush(frame:)``.
     /// - Throws: ``DataTrackPublishError`` if the track cannot be published.
+    ///
+    /// - Note: When self-hosting the LiveKit SFU, a ``DataTrackPublishError/timeout(_:)`` may
+    ///   indicate a release that predates data track support.
     func publishDataTrack(name: String) async throws -> LocalDataTrack {
         try await publishDataTrack(name: name, options: nil)
     }
