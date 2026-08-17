@@ -374,27 +374,3 @@ extension DataTracks: LKRTCDataChannelDelegate {
         handlePacket(buffer.data)
     }
 }
-
-// MARK: - Lifecycle
-
-extension Room {
-    func setupDataTracks() {
-        _dataTracks.mutate { $0 = DataTracks(room: self) }
-    }
-
-    func cleanUpDataTracks(isFullReconnect: Bool = false) {
-        // Session-scoped: keep the subsystem across a full reconnect so its managers can republish;
-        // tear it down only on a real disconnect.
-        guard !isFullReconnect else {
-            dataTracks?.handleTransportsTeardown()
-            // Remote data tracks outlive the reconnect — the subsystem re-attaches them to the
-            // recreated participants. Detach them here, before `cleanUpParticipants` reports an
-            // unpublish for tracks that were never unpublished.
-            for participant in _state.remoteParticipants.values {
-                participant.detachDataTracks()
-            }
-            return
-        }
-        _dataTracks.mutate { $0 = nil }
-    }
-}
