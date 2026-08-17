@@ -122,12 +122,11 @@ final class DataTracks: NSObject, @unchecked Sendable {
 
     // MARK: - Signaling
 
-    func handleJoinResponse(_ joinResponse: Livekit_JoinResponse) {
-        // Surfaces data tracks published by participants already in the room when we joined. The
-        // FFI takes raw bytes, so wrap the join back into a SignalResponse.
-        let response = Livekit_SignalResponse.with { $0.join = joinResponse }
-        guard let data = try? response.serializedData() else { return }
-        try? remote.handleSfuJoinResponse(res: data)
+    /// Surfaces data tracks published by participants already in the room when we joined.
+    /// Takes the response as received: the manager decodes it itself, and re-encoding our decoded
+    /// copy would drop any field newer than the pinned protocol.
+    func handleJoinResponse(_ encoded: Data) {
+        try? remote.handleSfuJoinResponse(res: encoded)
         reattachRemoteTracks()
     }
 
@@ -144,13 +143,9 @@ final class DataTracks: NSObject, @unchecked Sendable {
         try? remote.handleSubscriberHandles(res: data)
     }
 
-    func handleParticipantUpdate(_ participants: [Livekit_ParticipantInfo], localIdentity: String) {
-        // The FFI takes raw bytes, so rebuild the response from the parsed participants.
-        let response = Livekit_SignalResponse.with {
-            $0.update = Livekit_ParticipantUpdate.with { $0.participants = participants }
-        }
-        guard let data = try? response.serializedData() else { return }
-        try? remote.handleSfuParticipantUpdate(res: data, localParticipantIdentity: localIdentity)
+    /// As received, for the same reason as ``handleJoinResponse(_:)``.
+    func handleParticipantUpdate(_ encoded: Data, localIdentity: String) {
+        try? remote.handleSfuParticipantUpdate(res: encoded, localParticipantIdentity: localIdentity)
         // A track announced before its publisher was registered is parked in `_remoteTracks`;
         // now that participants are current, attach any such stragglers.
         reattachRemoteTracks()
@@ -165,7 +160,13 @@ final class DataTracks: NSObject, @unchecked Sendable {
             remoteTrackUnpublished(sid: track.info.sid)
         }
         _local.copy()?.republishTracks()
-        handleParticipantUpdate(participants, localIdentity: localIdentity)
+        // The one place bytes can't be threaded: the SFU sends a `RoomMovedResponse` while the
+        // manager consumes a `ParticipantUpdate`, so this one is built — and stays lossy.
+        let response = Livekit_SignalResponse.with {
+            $0.update = Livekit_ParticipantUpdate.with { $0.participants = participants }
+        }
+        guard let encoded = try? response.serializedData() else { return }
+        handleParticipantUpdate(encoded, localIdentity: localIdentity)
     }
 
     /// Handles the room discarding its transports for a full reconnect: the publisher channel is

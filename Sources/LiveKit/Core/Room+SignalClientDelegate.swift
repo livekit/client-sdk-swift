@@ -127,9 +127,6 @@ extension Room: SignalClientDelegate {
                     }
                 }
             }
-
-            // Surface data tracks already published by the participants we just added.
-            dataTracks?.handleJoinResponse(joinResponse)
         }
     }
 
@@ -292,12 +289,6 @@ extension Room: SignalClientDelegate {
             }
         }
 
-        // Feed the data track subsystem now that the participants are in place, so onTrackPublished
-        // can resolve the publisher.
-        if let identity = localParticipant.identity?.stringValue {
-            dataTracks?.handleParticipantUpdate(participants, localIdentity: identity)
-        }
-
         await withTaskGroup { group in
             for identity in disconnectedParticipantIdentities {
                 group.addTask {
@@ -413,6 +404,19 @@ extension Room: SignalClientDelegate {
         // Notify LocalParticipant.
         localParticipant.delegates.notify {
             $0.participant?(self.localParticipant, remoteDidSubscribeTrack: track)
+        }
+    }
+
+    /// Feeds the data track managers, which parse these themselves. Ordered after the decoded
+    /// form, so the participants each message announces are already registered and
+    /// `onTrackPublished` can resolve its publisher.
+    func signalClient(_: SignalClient, didReceiveEncodedResponse response: SignalClient.EncodedResponse) async {
+        switch response {
+        case let .join(encoded):
+            dataTracks?.handleJoinResponse(encoded)
+        case let .participantUpdate(encoded):
+            guard let identity = localParticipant.identity?.stringValue else { return }
+            dataTracks?.handleParticipantUpdate(encoded, localIdentity: identity)
         }
     }
 

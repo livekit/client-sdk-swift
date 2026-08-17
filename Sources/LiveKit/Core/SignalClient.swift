@@ -44,6 +44,14 @@ actor SignalClient: Loggable {
         }
     }
 
+    /// A response handed over as received, for consumers that decode the wire format themselves.
+    ///
+    /// Delivered after the decoded form of the same message, so the room has already applied it.
+    enum EncodedResponse {
+        case join(Data)
+        case participantUpdate(Data)
+    }
+
     // MARK: - Public
 
     var connectionState: ConnectionState { _state.connectionState }
@@ -76,10 +84,14 @@ actor SignalClient: Loggable {
         }
     })
 
-    private lazy var _responseQueue = QueueActor<Livekit_SignalResponse>(onProcess: { [weak self] response in
+    // Queued with the bytes it arrived as, not just the decoded form: consumers that parse the
+    // wire format themselves (the data track managers) need the original encoding, and
+    // re-encoding our decoded copy would drop every field this client's protocol pin doesn't
+    // know — nanopb discards unknown fields on decode.
+    private lazy var _responseQueue = QueueActor<(response: Livekit_SignalResponse, encoded: Data)>(onProcess: { [weak self] element in
         guard let self else { return }
 
-        await _process(signalResponse: response)
+        await _process(element.response, encoded: element.encoded)
     })
 
     private let _connectResponseCompleter = AsyncCompleter<ConnectResponse>(label: "Join response", defaultTimeout: .defaultJoinResponse)
@@ -354,12 +366,12 @@ private extension SignalClient {
             default: false
             }
             // Always process join or reconnect messages even if suspended...
-            await self._responseQueue.processIfResumed(response, or: alwaysProcess)
+            await self._responseQueue.processIfResumed((response: response, encoded: rawData), or: alwaysProcess)
         }
     }
 
     // swiftlint:disable:next cyclomatic_complexity function_body_length
-    func _process(signalResponse: Livekit_SignalResponse) async {
+    func _process(_ signalResponse: Livekit_SignalResponse, encoded: Data) async {
         guard connectionState != .disconnected else {
             log("connectionState is .disconnected", .error)
             return
@@ -375,7 +387,12 @@ private extension SignalClient {
             // owned: the oneof getter hands out a view into the decoded
             // `SignalResponse`, and this is kept for the whole session
             _state.mutate { $0.lastJoinResponse = joinResponse.owned() }
-            _delegate.notifyDetached { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
+            // Awaited, and the encoded form second: consumers that parse the wire format
+            // themselves must see it only after the room has applied the decoded one, and
+            // `notifyDetached` gives no ordering between two calls — each races to the serial
+            // runner in its own detached task.
+            try? await _delegate.notifyAsync { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
+            try? await _delegate.notifyAsync { await $0.signalClient(self, didReceiveEncodedResponse: .join(encoded)) }
             _connectResponseCompleter.resume(returning: .join(joinResponse))
             await _restartPingTimer()
 
@@ -400,7 +417,8 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didReceiveIceCandidate: rtcCandidate.toLKType(), target: trickle.target) }
 
         case let .update(update):
-            _delegate.notifyDetached { await $0.signalClient(self, didUpdateParticipants: update.participants) }
+            try? await _delegate.notifyAsync { await $0.signalClient(self, didUpdateParticipants: update.participants) }
+            try? await _delegate.notifyAsync { await $0.signalClient(self, didReceiveEncodedResponse: .participantUpdate(encoded)) }
 
         case let .roomUpdate(update):
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRoom: update.room) }
