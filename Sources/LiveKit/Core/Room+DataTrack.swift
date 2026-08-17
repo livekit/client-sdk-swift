@@ -105,6 +105,12 @@ final class DataTracks: NSObject, @unchecked Sendable {
             try await _publisherChannelOpen.wait()
         } catch let error as LiveKitError where error.type == .timedOut {
             throw DataTrackPublishError.timeout("Timed out establishing the publisher data track channel")
+        } catch let error as LiveKitError where error.type == .cancelled {
+            // Cancellation is the caller's own doing; laundering it into a publish error would
+            // make a cancelled publish indistinguishable from a lost connection.
+            throw error
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             throw DataTrackPublishError.disconnected("Lost the connection while establishing the publisher data track channel")
         }

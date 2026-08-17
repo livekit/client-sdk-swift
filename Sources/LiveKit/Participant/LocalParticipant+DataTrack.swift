@@ -27,7 +27,8 @@ public extension LocalParticipant {
     ///
     /// - Parameter name: Track name visible to other participants. Must be unique per publisher.
     /// - Returns: A ``LocalDataTrack`` used to push frames via ``LocalDataTrack/tryPush(frame:)``.
-    /// - Throws: ``DataTrackPublishError`` if the track cannot be published.
+    /// - Throws: ``DataTrackPublishError`` if the track cannot be published, or a cancellation
+    ///   error if the calling task is cancelled while the publish is in flight.
     ///
     /// - Note: When self-hosting the LiveKit SFU, a ``DataTrackPublishError/timeout(_:)`` may
     ///   indicate a release that predates data track support.
