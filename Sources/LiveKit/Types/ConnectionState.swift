@@ -38,12 +38,6 @@ public enum ConnectionState: Int, Sendable {
     case disconnecting
 }
 
-extension ConnectionState: Identifiable {
-    public var id: Int {
-        rawValue
-    }
-}
-
 extension ConnectionState {
     var isTearingDown: Bool {
         self == .disconnecting || self == .disconnected
