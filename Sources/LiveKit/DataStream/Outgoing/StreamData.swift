@@ -38,21 +38,21 @@ extension String: StreamData {
     func chunks(of size: Int) -> [Data] {
         guard size > 0, !isEmpty else { return [] }
 
+        let encoded = Data(utf8)
         var chunks: [Data] = []
-        var encoded = Data(utf8)[...]
+        var start = encoded.startIndex
 
-        while encoded.count > size {
-            var k = size
-            while k > 0 {
-                guard encoded.indices.contains(k),
-                      encoded[k] & 0xC0 == 0x80 else { break }
-                k -= 1
+        while encoded.endIndex - start > size {
+            var end = start + size
+            // Back up to a scalar boundary: continuation bytes are 10xxxxxx.
+            while end > start, encoded[end] & 0xC0 == 0x80 {
+                end -= 1
             }
-            chunks.append(encoded.subdata(in: 0 ..< k))
-            encoded = encoded.subdata(in: k ..< encoded.count)
+            chunks.append(encoded[start ..< end])
+            start = end
         }
-        if !encoded.isEmpty {
-            chunks.append(encoded)
+        if start < encoded.endIndex {
+            chunks.append(encoded[start...])
         }
         return chunks
     }
