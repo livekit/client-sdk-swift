@@ -1,0 +1,1 @@
+patch type="fixed" "Fix data races on Room's lazily initialized members (localParticipant, data channels, outgoingStreamManager, preConnectBuffer, metricsManager): concurrent first access could run a lazy initializer twice; they are now initialized eagerly in Room's initializer"

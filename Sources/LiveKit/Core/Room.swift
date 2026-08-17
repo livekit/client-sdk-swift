@@ -32,7 +32,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     // MARK: - Metrics
 
-    lazy var metricsManager = MetricsManager()
+    let metricsManager = MetricsManager()
 
     // MARK: - Public
 
@@ -123,24 +123,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     lazy var publisherDataChannel = DataChannelPair(delegate: self)
 
     let incomingStreamManager = IncomingStreamManager()
-    private let _outgoingStreamManager = StateSync<OutgoingStreamManager?>(nil)
-
-    // Lazy properties are not initialized atomically, and this manager is
-    // reachable from isolation domains that do not serialize with each
-    // other (RPC client/server managers and app calls into
-    // LocalParticipant data stream methods), so initialization is guarded
-    // by the same StateSync pattern used for _e2eeManager.
-    var outgoingStreamManager: OutgoingStreamManager {
-        _outgoingStreamManager.mutate { state in
-            if let existing = state { return existing }
-            let manager = OutgoingStreamManager { [weak self] packet in
-                try await self?.send(dataPacket: packet)
-            } encryptionProvider: { [weak self] in
-                self?.e2eeManager?.dataChannelEncryptionType ?? .none
-            }
-            state = manager
-            return manager
-        }
+    lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
+        try await self?.send(dataPacket: packet)
+    } encryptionProvider: { [weak self] in
+        self?.e2eeManager?.dataChannelEncryptionType ?? .none
     }
 
     // MARK: - PreConnect
@@ -283,6 +269,19 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         super.init()
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), ffi: \(LiveKitSDK.ffiVersion), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
+
+        // Force initialization of lazy members while `self` is still exclusively
+        // owned by this initializer. Lazy initialization is not atomic, and these
+        // members are reachable from isolation domains that do not serialize with
+        // each other, so a first touch after init could otherwise run an
+        // initializer twice. After this block every access is a plain read of
+        // already-initialized storage. The members stay `lazy` only because their
+        // initializers capture `self`, which a stored property cannot do.
+        _ = localParticipant
+        _ = subscriberDataChannel
+        _ = publisherDataChannel
+        _ = outgoingStreamManager
+        _ = preConnectBuffer
 
         signalClient._delegate.set(delegate: self)
 

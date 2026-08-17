@@ -1,1 +1,0 @@
-patch type="fixed" "Fix a data race on Room.outgoingStreamManager: unsynchronized lazy initialization could run twice under concurrent first access, leaking or deallocating one instance mid-use"
