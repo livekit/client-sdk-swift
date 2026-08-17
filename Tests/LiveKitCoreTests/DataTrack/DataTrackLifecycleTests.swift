@@ -213,35 +213,35 @@ struct DataTrackLifecycleTests {
 
     // MARK: - Room Move
 
-    /// A cloud migration lands the client in a new room: publications from the old one are gone,
-    /// so they must not linger. Driven through the coordinator — a real move needs a cloud SFU —
-    /// with the payload of a move to a room where the publisher has no data tracks.
+    /// A cloud migration lands the client in a new room: the old room's publications are gone, and
+    /// the participant teardown that precedes the move has already reported them. The coordinator
+    /// must forget them without reporting a second time. Driven through the coordinator — a real
+    /// move needs a cloud SFU.
     @Test
-    func roomMovedDropsPreviousRoomTracks() async throws {
-        try await TestEnvironment.withRooms([
-            RoomTestingOptions(canPublishData: true),
-            RoomTestingOptions(canSubscribe: true),
-        ]) { rooms in
-            let publisher = rooms[0]
-            let subscriber = rooms[1]
+    func roomMovedDropsPreviousRoomTracksSilently() async throws {
+        try await TestEnvironment.withPublishedDataTrack(named: "moved") { fixture in
+            let publisherIdentity = try #require(fixture.publisher.localParticipant.identity)
+            let subscriberIdentity = try #require(fixture.subscriber.localParticipant.identity)
+            let participant = try #require(fixture.subscriber.remoteParticipants[publisherIdentity])
+            #expect(participant.dataTracks["moved"] != nil)
 
-            let watcher = DataTrackWatcher(expectedName: "moved")
-            subscriber.delegates.add(delegate: watcher)
+            let recorder = DataTrackDelegateRecorder()
+            fixture.subscriber.delegates.add(delegate: recorder)
 
-            let track = try await publisher.localParticipant.publishDataTrack(name: "moved")
-            let remoteTrack = try await watcher.waitForTrack()
+            // Stands in for the move's participant teardown, which reports the unpublish itself
+            // and is why the coordinator must not report it again. The publisher moves with us, so
+            // a participant with the same identity is back by the time the coordinator is told.
+            participant.detachDataTracks()
 
-            let publisherIdentity = try #require(publisher.localParticipant.identity)
-            let subscriberIdentity = try #require(subscriber.localParticipant.identity)
             let movedParticipants = [Livekit_ParticipantInfo.with {
                 $0.identity = publisherIdentity.stringValue
             }]
-            subscriber.dataTracks?.handleRoomMoved(movedParticipants, localIdentity: subscriberIdentity.stringValue)
+            fixture.subscriber.dataTracks?.handleRoomMoved(movedParticipants, localIdentity: subscriberIdentity.stringValue)
 
-            #expect(try await watcher.waitForUnpublish() == remoteTrack.info.sid)
-            let participant = try #require(subscriber.remoteParticipants[publisherIdentity])
+            try await Task.sleep(nanoseconds: 500_000_000)
+            #expect(!recorder.received(.roomRemoteUnpublish),
+                    "The move reported an unpublish the participant teardown had already reported")
             #expect(participant.dataTracks.isEmpty)
-            _ = track.isPublished // keep the publication alive through the assertions
         }
     }
 }

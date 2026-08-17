@@ -158,13 +158,12 @@ final class DataTracks: NSObject, @unchecked Sendable {
     }
 
     func handleRoomMoved(_ participants: [Livekit_ParticipantInfo], localIdentity: String) {
-        // The old room's tracks are gone for good. Dropped through the unpublish path rather than
-        // cleared outright, so anything the participant teardown didn't already report still
-        // reaches the delegates (and no-ops for participants it already removed). Then republish
-        // local tracks into the new room and surface its existing publications.
-        for track in _remoteTracks.copy() {
-            remoteTrackUnpublished(sid: track.info.sid)
-        }
+        // The old room's tracks are gone for good, so forget them instead of keeping them for
+        // re-attach. Dropped silently: the move tears every participant down first, and
+        // `unpublishAll` has already reported each attached track — reporting again here would
+        // double up for any publisher that moved with us and has since been recreated. A track
+        // still parked here was never attached, so no publish was reported for it either.
+        _remoteTracks.mutate { $0 = [] }
         _local.copy()?.republishTracks()
         // The one place bytes can't be threaded: the SFU sends a `RoomMovedResponse` while the
         // manager consumes a `ParticipantUpdate`, so this one is built — and stays lossy.
