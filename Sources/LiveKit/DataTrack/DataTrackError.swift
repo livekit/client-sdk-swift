@@ -56,8 +56,11 @@ public enum DataTrackPublishError: Error, Sendable {
 public enum DataTrackPushFrameError: Error, Sendable {
     /// The track has been unpublished, by either the local participant or the SFU.
     case trackUnpublished(String)
-    /// The send queue is full; the frame was not enqueued. It is handed back so the caller can
-    /// retry or re-queue it rather than losing it.
+    /// The send queue is full; the frame was not enqueued.
+    ///
+    /// The rejected frame — the same instance that was pushed, not a copy — comes back so it can
+    /// be retried or re-queued. Mainly for ``LocalDataTrack/send(contentsOf:onQueueFull:)``, where
+    /// frames come from a sequence and the caller holds no reference of its own.
     case queueFull(String, frame: DataTrackFrame)
     /// An unexpected internal error occurred.
     case internalError(String)
