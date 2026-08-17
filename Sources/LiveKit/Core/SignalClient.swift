@@ -387,12 +387,12 @@ private extension SignalClient {
             // owned: the oneof getter hands out a view into the decoded
             // `SignalResponse`, and this is kept for the whole session
             _state.mutate { $0.lastJoinResponse = joinResponse.owned() }
-            // Awaited, and the encoded form second: consumers that parse the wire format
-            // themselves must see it only after the room has applied the decoded one, and
-            // `notifyDetached` gives no ordering between two calls — each races to the serial
-            // runner in its own detached task.
-            try? await _delegate.notifyAsync { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
-            try? await _delegate.notifyAsync { await $0.signalClient(self, didReceiveEncodedResponse: .join(encoded)) }
+            // The encoded form second: consumers that parse the wire format themselves must see
+            // it only once the room has applied the decoded one. Ordered but not awaited — this
+            // runs on the response queue, so waiting here would put app delegate code in front
+            // of every later signal message.
+            _delegate.notifyDetached(inOrder: { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) },
+                                     { await $0.signalClient(self, didReceiveEncodedResponse: .join(encoded)) })
             _connectResponseCompleter.resume(returning: .join(joinResponse))
             await _restartPingTimer()
 
@@ -417,8 +417,8 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didReceiveIceCandidate: rtcCandidate.toLKType(), target: trickle.target) }
 
         case let .update(update):
-            try? await _delegate.notifyAsync { await $0.signalClient(self, didUpdateParticipants: update.participants) }
-            try? await _delegate.notifyAsync { await $0.signalClient(self, didReceiveEncodedResponse: .participantUpdate(encoded)) }
+            _delegate.notifyDetached(inOrder: { await $0.signalClient(self, didUpdateParticipants: update.participants) },
+                                     { await $0.signalClient(self, didReceiveEncodedResponse: .participantUpdate(encoded)) })
 
         case let .roomUpdate(update):
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRoom: update.room) }
