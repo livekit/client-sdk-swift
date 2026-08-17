@@ -9,17 +9,40 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
+/* Enum definitions */
+typedef enum _logger_Sensitivity {
+    /* Unannotated default — safe to log.
+ Identifiers, IDs, timestamps, enums, status fields. */
+    logger_Sensitivity_SENSITIVITY_UNSPECIFIED = 0,
+    /* User-identifying or user-controlled data: display names, phone numbers,
+ metadata, attributes, custom headers, auth usernames, semi-public account
+ identifiers (AWS role ARNs, Azure account names).
+ Redacted by logger.Proto(); exposed by logger.UnredactedProto() for
+ operator-facing observability events. */
+    logger_Sensitivity_SENSITIVITY_PII = 1,
+    /* Credentials and authentication material: passwords, access keys, session
+ tokens, signing keys, API keys, ICE credentials.
+ ALWAYS redacted, including by logger.UnredactedProto(). */
+    logger_Sensitivity_SENSITIVITY_SECRET = 2
+} logger_Sensitivity;
+
 /* Extensions */
-/* Extension field logger_redact was skipped because only "optional"
-   type of extension fields is currently supported. */
 /* Extension field logger_redact_format was skipped because only "optional"
    type of extension fields is currently supported. */
 /* Extension field logger_name was skipped because only "optional"
+   type of extension fields is currently supported. */
+/* Extension field logger_sensitivity was skipped because only "optional"
    type of extension fields is currently supported. */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* Helper constants for enums */
+#define _logger_Sensitivity_MIN logger_Sensitivity_SENSITIVITY_UNSPECIFIED
+#define _logger_Sensitivity_MAX logger_Sensitivity_SENSITIVITY_SECRET
+#define _logger_Sensitivity_ARRAYSIZE ((logger_Sensitivity)(logger_Sensitivity_SENSITIVITY_SECRET+1))
+
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -152,6 +152,11 @@ extension Room: SignalClientDelegate {
 
         let newParticipants = _addNewParticipants(from: response.otherParticipants)
         _notifyNewParticipants(newParticipants)
+
+        // Republish local data tracks into the new room and surface its existing publications.
+        if let identity = localParticipant.identity?.stringValue {
+            dataTracks?.handleRoomMoved(response.otherParticipants, localIdentity: identity)
+        }
     }
 
     func signalClient(_: SignalClient, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) async {
@@ -400,6 +405,23 @@ extension Room: SignalClientDelegate {
         localParticipant.delegates.notify {
             $0.participant?(self.localParticipant, remoteDidSubscribeTrack: track)
         }
+    }
+
+    /// Feeds the data track managers, which parse these themselves. Ordered after the decoded
+    /// form, so the participants each message announces are already registered and
+    /// `onTrackPublished` can resolve its publisher.
+    func signalClient(_: SignalClient, didReceiveEncodedResponse response: SignalClient.EncodedResponse) async {
+        switch response {
+        case let .join(encoded):
+            dataTracks?.handleJoinResponse(encoded)
+        case let .participantUpdate(encoded):
+            guard let identity = localParticipant.identity?.stringValue else { return }
+            dataTracks?.handleParticipantUpdate(encoded, localIdentity: identity)
+        }
+    }
+
+    func signalClient(_: SignalClient, didReceiveDataTrackResponse data: Data) async {
+        dataTracks?.handleSignalResponse(data)
     }
 
     func signalClient(_: SignalClient, didReceiveMediaSectionsRequirement requirement: Livekit_MediaSectionsRequirement) async {

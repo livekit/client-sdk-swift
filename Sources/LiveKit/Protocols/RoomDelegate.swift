@@ -319,4 +319,15 @@ public protocol RoomDelegate: AnyObject, Sendable {
     @available(*, unavailable, renamed: "room(_:trackPublication:didUpdateE2EEState:)")
     @objc(room:publication:didUpdateE2EEState:) optional
     func room(_ room: Room, publication: TrackPublication, didUpdateE2EEState: E2EEState)
+
+    // MARK: - Data Track Events
+
+    /// A remote participant published a data track. Subscribe to it via
+    /// ``RemoteDataTrack/subscribe()`` to start receiving frames.
+    @objc(room:remoteParticipant:didPublishDataTrack:) optional
+    func room(_ room: Room, participant: RemoteParticipant, didPublishDataTrack track: RemoteDataTrack)
+
+    /// A remote participant unpublished the data track with the given SID.
+    @objc(room:remoteParticipant:didUnpublishDataTrack:) optional
+    func room(_ room: Room, participant: RemoteParticipant, didUnpublishDataTrack sid: DataTrack.Sid)
 }

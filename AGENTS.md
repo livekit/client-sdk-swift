@@ -9,7 +9,9 @@ Platform destinations: `macOS`, `macOS,variant=Mac Catalyst`, `iOS Simulator`, `
 # Build
 xcodebuild build -scheme LiveKit -destination 'platform=macOS'
 
-# Run tests (requires local server: livekit-server --dev, install via brew install livekit)
+# Run tests (requires local server, install via brew install livekit). Data track schema tests
+# need participant data blobs, which --dev alone leaves off:
+#   printf 'enable_participant_data_blob: true\n' > lk.yaml && livekit-server --dev --config lk.yaml
 xcodebuild test -scheme LiveKit -only-testing LiveKitCoreTests -destination 'platform=macOS'
 
 # Build benchmarks

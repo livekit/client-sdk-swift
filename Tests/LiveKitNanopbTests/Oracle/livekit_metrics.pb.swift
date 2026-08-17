@@ -348,6 +348,14 @@ nonisolated struct Livekit_MetricsRecordingHeader: Sendable {
   /// Clears the value of `roomStartTime`. Subsequent reads from it will return its default value.
   mutating func clearRoomStartTime() {self._roomStartTime = nil}
 
+  var jobID: String = String()
+
+  /// session is a simulation; the collector skips PII redaction for it unless redaction_enabled is set
+  var simulated: Bool = false
+
+  /// force PII redaction on for this session (only ever enables, never disables)
+  var redactionEnabled: Bool = false
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -588,7 +596,7 @@ nonisolated extension Livekit_EventMetric: SwiftProtobuf.Message, SwiftProtobuf.
 
 nonisolated extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".MetricsRecordingHeader"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}room_id\0\u{2}\u{2}duration\0\u{3}start_time\0\u{3}room_tags\0\u{3}room_name\0\u{3}room_start_time\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}room_id\0\u{2}\u{2}duration\0\u{3}start_time\0\u{3}room_tags\0\u{3}room_name\0\u{3}room_start_time\0\u{3}job_id\0\u{1}simulated\0\u{3}redaction_enabled\0\u{c}\u{2}\u{1}")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -602,6 +610,9 @@ nonisolated extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, Swi
       case 5: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &self.roomTags) }()
       case 6: try { try decoder.decodeSingularStringField(value: &self.roomName) }()
       case 7: try { try decoder.decodeSingularMessageField(value: &self._roomStartTime) }()
+      case 8: try { try decoder.decodeSingularStringField(value: &self.jobID) }()
+      case 9: try { try decoder.decodeSingularBoolField(value: &self.simulated) }()
+      case 10: try { try decoder.decodeSingularBoolField(value: &self.redactionEnabled) }()
       default: break
       }
     }
@@ -630,6 +641,15 @@ nonisolated extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, Swi
     try { if let v = self._roomStartTime {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
     } }()
+    if !self.jobID.isEmpty {
+      try visitor.visitSingularStringField(value: self.jobID, fieldNumber: 8)
+    }
+    if self.simulated != false {
+      try visitor.visitSingularBoolField(value: self.simulated, fieldNumber: 9)
+    }
+    if self.redactionEnabled != false {
+      try visitor.visitSingularBoolField(value: self.redactionEnabled, fieldNumber: 10)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -640,6 +660,9 @@ nonisolated extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, Swi
     if lhs.roomTags != rhs.roomTags {return false}
     if lhs.roomName != rhs.roomName {return false}
     if lhs._roomStartTime != rhs._roomStartTime {return false}
+    if lhs.jobID != rhs.jobID {return false}
+    if lhs.simulated != rhs.simulated {return false}
+    if lhs.redactionEnabled != rhs.redactionEnabled {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

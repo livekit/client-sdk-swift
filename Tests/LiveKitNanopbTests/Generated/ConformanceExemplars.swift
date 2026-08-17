@@ -219,6 +219,7 @@ func exemplar_Livekit_ParticipantInfo() -> LiveKit.Livekit_ParticipantInfo {
         m.kindDetails = [.forwarded]
         m.dataTracks = [exemplar_Livekit_DataTrackInfo()]
         m.clientProtocol = 20
+        m.capabilities = [.capPacketTrailer]
     }
 }
 
@@ -242,6 +243,7 @@ func oracleExemplar_Livekit_ParticipantInfo() -> Livekit_ParticipantInfo {
         m.kindDetails = [.forwarded]
         m.dataTracks = [oracleExemplar_Livekit_DataTrackInfo()]
         m.clientProtocol = 20
+        m.capabilities = [.capPacketTrailer]
     }
 }
 
@@ -325,6 +327,8 @@ func exemplar_Livekit_DataTrackInfo() -> LiveKit.Livekit_DataTrackInfo {
         m.sid = "sid"
         m.name = "name"
         m.encryption = .gcm
+        m.frameEncoding = exemplar_Livekit_DataTrackFrameEncoding()
+        m.schema = exemplar_Livekit_DataTrackSchemaId()
     }
 }
 
@@ -334,6 +338,46 @@ func oracleExemplar_Livekit_DataTrackInfo() -> Livekit_DataTrackInfo {
         m.sid = "sid"
         m.name = "name"
         m.encryption = .gcm
+        m.frameEncoding = oracleExemplar_Livekit_DataTrackFrameEncoding()
+        m.schema = oracleExemplar_Livekit_DataTrackSchemaId()
+    }
+}
+
+func exemplar_Livekit_DataTrackFrameEncoding() -> LiveKit.Livekit_DataTrackFrameEncoding {
+    LiveKit.Livekit_DataTrackFrameEncoding.with { m in
+        m.wellKnown = .ros1
+    }
+}
+
+func oracleExemplar_Livekit_DataTrackFrameEncoding() -> Livekit_DataTrackFrameEncoding {
+    Livekit_DataTrackFrameEncoding.with { m in
+        m.wellKnown = .ros1
+    }
+}
+
+func exemplar_Livekit_DataTrackSchemaEncoding() -> LiveKit.Livekit_DataTrackSchemaEncoding {
+    LiveKit.Livekit_DataTrackSchemaEncoding.with { m in
+        m.wellKnown = .protobuf
+    }
+}
+
+func oracleExemplar_Livekit_DataTrackSchemaEncoding() -> Livekit_DataTrackSchemaEncoding {
+    Livekit_DataTrackSchemaEncoding.with { m in
+        m.wellKnown = .protobuf
+    }
+}
+
+func exemplar_Livekit_DataTrackSchemaId() -> LiveKit.Livekit_DataTrackSchemaId {
+    LiveKit.Livekit_DataTrackSchemaId.with { m in
+        m.name = "name"
+        m.encoding = exemplar_Livekit_DataTrackSchemaEncoding()
+    }
+}
+
+func oracleExemplar_Livekit_DataTrackSchemaId() -> Livekit_DataTrackSchemaId {
+    Livekit_DataTrackSchemaId.with { m in
+        m.name = "name"
+        m.encoding = oracleExemplar_Livekit_DataTrackSchemaEncoding()
     }
 }
 
@@ -346,6 +390,32 @@ func exemplar_Livekit_DataTrackSubscriptionOptions() -> LiveKit.Livekit_DataTrac
 func oracleExemplar_Livekit_DataTrackSubscriptionOptions() -> Livekit_DataTrackSubscriptionOptions {
     Livekit_DataTrackSubscriptionOptions.with { m in
         m.targetFps = 1
+    }
+}
+
+func exemplar_Livekit_DataBlobKey() -> LiveKit.Livekit_DataBlobKey {
+    LiveKit.Livekit_DataBlobKey.with { m in
+        m.generic = "generic"
+    }
+}
+
+func oracleExemplar_Livekit_DataBlobKey() -> Livekit_DataBlobKey {
+    Livekit_DataBlobKey.with { m in
+        m.generic = "generic"
+    }
+}
+
+func exemplar_Livekit_DataBlob() -> LiveKit.Livekit_DataBlob {
+    LiveKit.Livekit_DataBlob.with { m in
+        m.key = exemplar_Livekit_DataBlobKey()
+        m.contents = Data("contents".utf8)
+    }
+}
+
+func oracleExemplar_Livekit_DataBlob() -> Livekit_DataBlob {
+    Livekit_DataBlob.with { m in
+        m.key = oracleExemplar_Livekit_DataBlobKey()
+        m.contents = Data("contents".utf8)
     }
 }
 
@@ -798,6 +868,8 @@ func exemplar_Livekit_DataStream_Header() -> LiveKit.Livekit_DataStream_Header {
         m.totalLength = 5
         m.encryptionType = .gcm
         m.attributes = ["attributes_key": "value"]
+        m.inlineContent = Data("inline_content".utf8)
+        m.compression = .deflateRaw
         m.textHeader = exemplar_Livekit_DataStream_TextHeader()
     }
 }
@@ -811,6 +883,8 @@ func oracleExemplar_Livekit_DataStream_Header() -> Livekit_DataStream.Header {
         m.totalLength = 5
         m.encryptionType = .gcm
         m.attributes = ["attributes_key": "value"]
+        m.inlineContent = Data("inline_content".utf8)
+        m.compression = .deflateRaw
         m.textHeader = oracleExemplar_Livekit_DataStream_TextHeader()
     }
 }
@@ -958,6 +1032,8 @@ func exemplar_Livekit_PublishDataTrackRequest() -> LiveKit.Livekit_PublishDataTr
         m.pubHandle = 1
         m.name = "name"
         m.encryption = .gcm
+        m.frameEncoding = exemplar_Livekit_DataTrackFrameEncoding()
+        m.schema = exemplar_Livekit_DataTrackSchemaId()
     }
 }
 
@@ -966,6 +1042,8 @@ func oracleExemplar_Livekit_PublishDataTrackRequest() -> Livekit_PublishDataTrac
         m.pubHandle = 1
         m.name = "name"
         m.encryption = .gcm
+        m.frameEncoding = oracleExemplar_Livekit_DataTrackFrameEncoding()
+        m.schema = oracleExemplar_Livekit_DataTrackSchemaId()
     }
 }
 
@@ -1218,6 +1296,64 @@ func oracleExemplar_Livekit_UpdateDataSubscription_Update() -> Livekit_UpdateDat
         m.trackSid = "track_sid"
         m.subscribe = true
         m.options = oracleExemplar_Livekit_DataTrackSubscriptionOptions()
+    }
+}
+
+func exemplar_Livekit_StoreDataBlobRequest() -> LiveKit.Livekit_StoreDataBlobRequest {
+    LiveKit.Livekit_StoreDataBlobRequest.with { m in
+        m.requestID = 1
+        m.blob = exemplar_Livekit_DataBlob()
+    }
+}
+
+func oracleExemplar_Livekit_StoreDataBlobRequest() -> Livekit_StoreDataBlobRequest {
+    Livekit_StoreDataBlobRequest.with { m in
+        m.requestID = 1
+        m.blob = oracleExemplar_Livekit_DataBlob()
+    }
+}
+
+func exemplar_Livekit_StoreDataBlobResponse() -> LiveKit.Livekit_StoreDataBlobResponse {
+    LiveKit.Livekit_StoreDataBlobResponse.with { m in
+        m.requestID = 1
+        m.key = exemplar_Livekit_DataBlobKey()
+    }
+}
+
+func oracleExemplar_Livekit_StoreDataBlobResponse() -> Livekit_StoreDataBlobResponse {
+    Livekit_StoreDataBlobResponse.with { m in
+        m.requestID = 1
+        m.key = oracleExemplar_Livekit_DataBlobKey()
+    }
+}
+
+func exemplar_Livekit_GetDataBlobRequest() -> LiveKit.Livekit_GetDataBlobRequest {
+    LiveKit.Livekit_GetDataBlobRequest.with { m in
+        m.requestID = 1
+        m.participantIdentity = "participant_identity"
+        m.key = exemplar_Livekit_DataBlobKey()
+    }
+}
+
+func oracleExemplar_Livekit_GetDataBlobRequest() -> Livekit_GetDataBlobRequest {
+    Livekit_GetDataBlobRequest.with { m in
+        m.requestID = 1
+        m.participantIdentity = "participant_identity"
+        m.key = oracleExemplar_Livekit_DataBlobKey()
+    }
+}
+
+func exemplar_Livekit_GetDataBlobResponse() -> LiveKit.Livekit_GetDataBlobResponse {
+    LiveKit.Livekit_GetDataBlobResponse.with { m in
+        m.requestID = 1
+        m.blob = exemplar_Livekit_DataBlob()
+    }
+}
+
+func oracleExemplar_Livekit_GetDataBlobResponse() -> Livekit_GetDataBlobResponse {
+    Livekit_GetDataBlobResponse.with { m in
+        m.requestID = 1
+        m.blob = oracleExemplar_Livekit_DataBlob()
     }
 }
 
@@ -1865,10 +2001,40 @@ let conformanceExemplars: [ConformanceExemplar] = [
         reencode: { try LiveKit.Livekit_DataTrackInfo(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
+        name: "Livekit_DataTrackFrameEncoding",
+        facade: { try exemplar_Livekit_DataTrackFrameEncoding().serializedData() },
+        oracle: { try oracleExemplar_Livekit_DataTrackFrameEncoding().serializedData() },
+        reencode: { try LiveKit.Livekit_DataTrackFrameEncoding(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_DataTrackSchemaEncoding",
+        facade: { try exemplar_Livekit_DataTrackSchemaEncoding().serializedData() },
+        oracle: { try oracleExemplar_Livekit_DataTrackSchemaEncoding().serializedData() },
+        reencode: { try LiveKit.Livekit_DataTrackSchemaEncoding(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_DataTrackSchemaId",
+        facade: { try exemplar_Livekit_DataTrackSchemaId().serializedData() },
+        oracle: { try oracleExemplar_Livekit_DataTrackSchemaId().serializedData() },
+        reencode: { try LiveKit.Livekit_DataTrackSchemaId(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
         name: "Livekit_DataTrackSubscriptionOptions",
         facade: { try exemplar_Livekit_DataTrackSubscriptionOptions().serializedData() },
         oracle: { try oracleExemplar_Livekit_DataTrackSubscriptionOptions().serializedData() },
         reencode: { try LiveKit.Livekit_DataTrackSubscriptionOptions(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_DataBlobKey",
+        facade: { try exemplar_Livekit_DataBlobKey().serializedData() },
+        oracle: { try oracleExemplar_Livekit_DataBlobKey().serializedData() },
+        reencode: { try LiveKit.Livekit_DataBlobKey(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_DataBlob",
+        facade: { try exemplar_Livekit_DataBlob().serializedData() },
+        oracle: { try oracleExemplar_Livekit_DataBlob().serializedData() },
+        reencode: { try LiveKit.Livekit_DataBlob(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
         name: "Livekit_VideoLayer",
@@ -2165,6 +2331,30 @@ let conformanceExemplars: [ConformanceExemplar] = [
         reencode: { try LiveKit.Livekit_UpdateDataSubscription_Update(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
+        name: "Livekit_StoreDataBlobRequest",
+        facade: { try exemplar_Livekit_StoreDataBlobRequest().serializedData() },
+        oracle: { try oracleExemplar_Livekit_StoreDataBlobRequest().serializedData() },
+        reencode: { try LiveKit.Livekit_StoreDataBlobRequest(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_StoreDataBlobResponse",
+        facade: { try exemplar_Livekit_StoreDataBlobResponse().serializedData() },
+        oracle: { try oracleExemplar_Livekit_StoreDataBlobResponse().serializedData() },
+        reencode: { try LiveKit.Livekit_StoreDataBlobResponse(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_GetDataBlobRequest",
+        facade: { try exemplar_Livekit_GetDataBlobRequest().serializedData() },
+        oracle: { try oracleExemplar_Livekit_GetDataBlobRequest().serializedData() },
+        reencode: { try LiveKit.Livekit_GetDataBlobRequest(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_GetDataBlobResponse",
+        facade: { try exemplar_Livekit_GetDataBlobResponse().serializedData() },
+        oracle: { try oracleExemplar_Livekit_GetDataBlobResponse().serializedData() },
+        reencode: { try LiveKit.Livekit_GetDataBlobResponse(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
         name: "Livekit_UpdateTrackSettings",
         facade: { try exemplar_Livekit_UpdateTrackSettings().serializedData() },
         oracle: { try oracleExemplar_Livekit_UpdateTrackSettings().serializedData() },
@@ -2383,6 +2573,42 @@ let conformanceExemplars: [ConformanceExemplar] = [
 ]
 
 let oneofVariantExemplars: [ConformanceExemplar] = [
+    ConformanceExemplar(
+        name: "Livekit_DataTrackFrameEncoding.value.wellKnown",
+        facade: { try LiveKit.Livekit_DataTrackFrameEncoding.with { $0.wellKnown = .ros1 }.serializedData() },
+        oracle: { try Livekit_DataTrackFrameEncoding.with { $0.wellKnown = .ros1 }.serializedData() },
+        reencode: { try LiveKit.Livekit_DataTrackFrameEncoding(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_DataTrackFrameEncoding.value.custom",
+        facade: { try LiveKit.Livekit_DataTrackFrameEncoding.with { $0.custom = "custom" }.serializedData() },
+        oracle: { try Livekit_DataTrackFrameEncoding.with { $0.custom = "custom" }.serializedData() },
+        reencode: { try LiveKit.Livekit_DataTrackFrameEncoding(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_DataTrackSchemaEncoding.value.wellKnown",
+        facade: { try LiveKit.Livekit_DataTrackSchemaEncoding.with { $0.wellKnown = .protobuf }.serializedData() },
+        oracle: { try Livekit_DataTrackSchemaEncoding.with { $0.wellKnown = .protobuf }.serializedData() },
+        reencode: { try LiveKit.Livekit_DataTrackSchemaEncoding(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_DataTrackSchemaEncoding.value.custom",
+        facade: { try LiveKit.Livekit_DataTrackSchemaEncoding.with { $0.custom = "custom" }.serializedData() },
+        oracle: { try Livekit_DataTrackSchemaEncoding.with { $0.custom = "custom" }.serializedData() },
+        reencode: { try LiveKit.Livekit_DataTrackSchemaEncoding(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_DataBlobKey.key.generic",
+        facade: { try LiveKit.Livekit_DataBlobKey.with { $0.generic = "generic" }.serializedData() },
+        oracle: { try Livekit_DataBlobKey.with { $0.generic = "generic" }.serializedData() },
+        reencode: { try LiveKit.Livekit_DataBlobKey(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_DataBlobKey.key.schemaID",
+        facade: { try LiveKit.Livekit_DataBlobKey.with { $0.schemaID = exemplar_Livekit_DataTrackSchemaId() }.serializedData() },
+        oracle: { try Livekit_DataBlobKey.with { $0.schemaID = oracleExemplar_Livekit_DataTrackSchemaId() }.serializedData() },
+        reencode: { try LiveKit.Livekit_DataBlobKey(serializedData: $0).serializedData() },
+    ),
     ConformanceExemplar(
         name: "Livekit_DataPacket.value.user",
         facade: { try LiveKit.Livekit_DataPacket.with { $0.user = exemplar_Livekit_UserPacket() }.serializedData() },
@@ -2660,6 +2886,18 @@ let oneofVariantExemplars: [ConformanceExemplar] = [
         reencode: { try LiveKit.Livekit_SignalRequest(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
+        name: "Livekit_SignalRequest.message.storeDataBlobRequest",
+        facade: { try LiveKit.Livekit_SignalRequest.with { $0.storeDataBlobRequest = exemplar_Livekit_StoreDataBlobRequest() }.serializedData() },
+        oracle: { try Livekit_SignalRequest.with { $0.storeDataBlobRequest = oracleExemplar_Livekit_StoreDataBlobRequest() }.serializedData() },
+        reencode: { try LiveKit.Livekit_SignalRequest(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_SignalRequest.message.getDataBlobRequest",
+        facade: { try LiveKit.Livekit_SignalRequest.with { $0.getDataBlobRequest = exemplar_Livekit_GetDataBlobRequest() }.serializedData() },
+        oracle: { try Livekit_SignalRequest.with { $0.getDataBlobRequest = oracleExemplar_Livekit_GetDataBlobRequest() }.serializedData() },
+        reencode: { try LiveKit.Livekit_SignalRequest(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
         name: "Livekit_SignalResponse.message.join",
         facade: { try LiveKit.Livekit_SignalResponse.with { $0.join = exemplar_Livekit_JoinResponse() }.serializedData() },
         oracle: { try Livekit_SignalResponse.with { $0.join = oracleExemplar_Livekit_JoinResponse() }.serializedData() },
@@ -2825,6 +3063,18 @@ let oneofVariantExemplars: [ConformanceExemplar] = [
         name: "Livekit_SignalResponse.message.dataTrackSubscriberHandles",
         facade: { try LiveKit.Livekit_SignalResponse.with { $0.dataTrackSubscriberHandles = exemplar_Livekit_DataTrackSubscriberHandles() }.serializedData() },
         oracle: { try Livekit_SignalResponse.with { $0.dataTrackSubscriberHandles = oracleExemplar_Livekit_DataTrackSubscriberHandles() }.serializedData() },
+        reencode: { try LiveKit.Livekit_SignalResponse(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_SignalResponse.message.storeDataBlobResponse",
+        facade: { try LiveKit.Livekit_SignalResponse.with { $0.storeDataBlobResponse = exemplar_Livekit_StoreDataBlobResponse() }.serializedData() },
+        oracle: { try Livekit_SignalResponse.with { $0.storeDataBlobResponse = oracleExemplar_Livekit_StoreDataBlobResponse() }.serializedData() },
+        reencode: { try LiveKit.Livekit_SignalResponse(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_SignalResponse.message.getDataBlobResponse",
+        facade: { try LiveKit.Livekit_SignalResponse.with { $0.getDataBlobResponse = exemplar_Livekit_GetDataBlobResponse() }.serializedData() },
+        oracle: { try Livekit_SignalResponse.with { $0.getDataBlobResponse = oracleExemplar_Livekit_GetDataBlobResponse() }.serializedData() },
         reencode: { try LiveKit.Livekit_SignalResponse(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(

@@ -45,10 +45,25 @@ PB_BIND(livekit_TrackInfo, livekit_TrackInfo, AUTO)
 PB_BIND(livekit_DataTrackInfo, livekit_DataTrackInfo, AUTO)
 
 
+PB_BIND(livekit_DataTrackFrameEncoding, livekit_DataTrackFrameEncoding, AUTO)
+
+
+PB_BIND(livekit_DataTrackSchemaEncoding, livekit_DataTrackSchemaEncoding, AUTO)
+
+
+PB_BIND(livekit_DataTrackSchemaId, livekit_DataTrackSchemaId, AUTO)
+
+
 PB_BIND(livekit_DataTrackExtensionParticipantSid, livekit_DataTrackExtensionParticipantSid, AUTO)
 
 
 PB_BIND(livekit_DataTrackSubscriptionOptions, livekit_DataTrackSubscriptionOptions, AUTO)
+
+
+PB_BIND(livekit_DataBlobKey, livekit_DataBlobKey, AUTO)
+
+
+PB_BIND(livekit_DataBlob, livekit_DataBlob, AUTO)
 
 
 PB_BIND(livekit_VideoLayer, livekit_VideoLayer, AUTO)
@@ -169,6 +184,12 @@ PB_BIND(livekit_WebhookConfig, livekit_WebhookConfig, AUTO)
 
 
 PB_BIND(livekit_SubscribedAudioCodec, livekit_SubscribedAudioCodec, AUTO)
+
+
+
+
+
+
 
 
 

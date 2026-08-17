@@ -22,7 +22,15 @@ public struct RoomTestingOptions {
     public let delegate: RoomDelegate?
     public let url: String?
     public let token: String?
+    /// Room to join. When `nil`, all rooms in a `withRooms` call share one generated name (so they
+    /// meet); set it explicitly (same value across calls) to stage a late joiner into an existing
+    /// room.
+    public let roomName: String?
+    /// Participant identity. When `nil`, defaults to `identity-<index>` within the `withRooms` call.
+    public let identity: String?
     public let enableMicrophone: Bool
+    /// `withRooms` enables E2EE (with a shared key) by default; set `false` for a plaintext room.
+    public let isE2eeEnabled: Bool
     public let encryptionOptions: EncryptionOptions?
     public let singlePeerConnection: Bool
 
@@ -38,7 +46,10 @@ public struct RoomTestingOptions {
     public init(delegate: RoomDelegate? = nil,
                 url: String? = nil,
                 token: String? = nil,
+                roomName: String? = nil,
+                identity: String? = nil,
                 enableMicrophone: Bool = false,
+                isE2eeEnabled: Bool = true,
                 encryptionOptions: EncryptionOptions? = nil,
                 singlePeerConnection: Bool = false,
                 clientProtocol: ClientProtocol? = nil,
@@ -50,7 +61,10 @@ public struct RoomTestingOptions {
         self.delegate = delegate
         self.url = url
         self.token = token
+        self.roomName = roomName
+        self.identity = identity
         self.enableMicrophone = enableMicrophone
+        self.isE2eeEnabled = isE2eeEnabled
         self.encryptionOptions = encryptionOptions
         self.singlePeerConnection = singlePeerConnection
         self.clientProtocol = clientProtocol
