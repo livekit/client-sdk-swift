@@ -36,10 +36,12 @@ internal import LiveKitUniFFI
 final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     private let outgoing: LiveKitUniFFI.OutgoingDataStreamManager
 
-    // Created lazily on the first inbound packet, not at init: the incoming manager's payload cap
-    // comes from the room's options, which aren't finalized until `connect` — after this coordinator
-    // is built at `Room.init`. Deferring lets it pick up a `maxPayloadSize` passed at connect time.
-    // StateSync-guarded so it's constructed exactly once even if packets race in.
+    // Created lazily on the first inbound packet of a session, not at init: the incoming manager's
+    // payload cap is fixed at construction (the FFI exposes no setter) and comes from the room's
+    // options, which aren't finalized until `connect` — after this coordinator is built at
+    // `Room.init`. Deferring lets it pick up a `maxPayloadSize` passed at connect time, and `reset()`
+    // drops it at teardown so the *next* connect re-reads the cap rather than inheriting the first
+    // session's. StateSync-guarded so it's constructed exactly once even if packets race in.
     private let _incoming = StateSync<LiveKitUniFFI.IncomingDataStreamManager?>(nil)
 
     // Held weakly: the Room owns this coordinator, so the back-reference must not retain it. Used
@@ -74,7 +76,10 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     /// The incoming manager, created on first use with the room's current payload cap. Topic routing
     /// (incl. the `lk.rpc` guard) is handled Swift-side in `Room+DataStream`.
     private func incomingManager() -> LiveKitUniFFI.IncomingDataStreamManager {
-        _incoming.mutate { existing in
+        // Fast path: after the first packet of a session this is a plain read, keeping the exclusive
+        // lock off the per-packet inbound path. `mutate` re-checks, so the race is still safe.
+        if let existing = _incoming.copy() { return existing }
+        return _incoming.mutate { existing in
             if let existing { return existing }
             let delegate = IncomingDelegate()
             delegate.coordinator = self
@@ -200,9 +205,17 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     /// Fails all open incoming streams so their handlers return (e.g. on cleanup). A handler blocked
     /// on a reader that will never finish would otherwise stall its topic's ordered queue. Handler
     /// registrations survive, so streams arriving after a reconnect are still handled.
+    ///
+    /// The incoming manager itself is discarded, not just drained: its payload cap is immutable after
+    /// construction, so a fresh one has to be built for the next session to honor that session's
+    /// `maxPayloadSize`. It holds no handler state — that lives here — so this loses nothing.
     func reset() {
         // No-op if the incoming manager was never created (no packets received): nothing is open.
-        _incoming.copy()?.abortAllStreams()
+        let existing = _incoming.mutate { manager in
+            defer { manager = nil }
+            return manager
+        }
+        existing?.abortAllStreams()
     }
 
     /// Fails open incoming streams sent by `identity` (they disconnected mid-send), so their readers
@@ -288,25 +301,40 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
 
     /// Receives the outgoing manager's encoded `DataPacket`s and sends them over the reliable data
     /// channel via `Room.send(dataPacket:)` — preserving E2EE, reliable sequencing, and identity
-    /// stamping. Serialized so packets reach the SFU in the order the manager emits them; the room
-    /// is held weakly to avoid retaining it through the FFI manager.
+    /// stamping. The room is held weakly to avoid retaining it through the FFI manager.
+    ///
+    /// Order is structural, not incidental. A stream's packets must reach the SFU in emission order:
+    /// the receiver drops a chunk that arrives before its header and fails the stream outright on a
+    /// non-consecutive chunk index. The FFI calls `onPacketsAvailable` synchronously and strictly
+    /// sequentially, so this delegate only has to *preserve* that order — hence a single drain task
+    /// over an `AsyncStream`, rather than a task per callback racing to a serial executor.
     private final class OutgoingDelegate: LiveKitUniFFI.OutgoingDataStreamManagerDelegate, @unchecked Sendable {
-        private let sender = AsyncSerialDelegate<Room>()
+        private let continuation: AsyncStream<[Data]>.Continuation
+        private let pump: AnyTaskCancellable
 
         init(room: Room) {
-            sender.set(delegate: room)
+            let (stream, continuation) = AsyncStream.makeStream(of: [Data].self)
+            self.continuation = continuation
+            pump = Task.detached { [weak room] in
+                for await packets in stream {
+                    guard let room else { return }
+                    for data in packets {
+                        guard let packet = try? Livekit_DataPacket(serializedBytes: data) else {
+                            room.log("Failed to decode outgoing data stream packet", .warning)
+                            continue
+                        }
+                        try? await room.send(dataPacket: packet)
+                    }
+                }
+            }.cancellable()
+        }
+
+        deinit {
+            continuation.finish()
         }
 
         func onPacketsAvailable(packets: [Data]) {
-            sender.notifyDetached { room in
-                for data in packets {
-                    guard let packet = try? Livekit_DataPacket(serializedBytes: data) else {
-                        room.log("Failed to decode outgoing data stream packet", .warning)
-                        continue
-                    }
-                    try? await room.send(dataPacket: packet)
-                }
-            }
+            continuation.yield(packets)
         }
     }
 
