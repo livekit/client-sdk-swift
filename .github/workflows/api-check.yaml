@@ -1,0 +1,56 @@
+name: API Check
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Git ref to compare against (branch, tag, or SHA)
+        default: main
+        type: string
+  # No push trigger: the check is a comparison, and only a pull request carries
+  # a base to compare against. Paths are limited to what can move the public
+  # API, since each run builds the SDK twice per platform.
+  pull_request:
+    branches: [main]
+    paths:
+      - "Sources/**"
+      - "Package*.swift"
+      - ".github/api-check/**"
+      - ".github/workflows/api-check.yaml"
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  api-check:
+    name: Check Public API
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macOS, iOS]
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      # The base commit has to be a local object for the worktree checkout.
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install tools
+        run: |
+          brew install swiftly swift-sh
+          swiftly init --quiet-shell-followup --skip-install -y
+
+      # Builds LiveKit at HEAD and at the base, then diffs the two module dumps
+      # with swift-api-digester. Fails on anything source- or ABI-breaking.
+      - name: Check Public API
+        run: |
+          swiftly run +xcode swift-sh .github/api-check/api-check.swift \
+            --platform '${{ matrix.platform }}' \
+            --base '${{ inputs.base || github.event.pull_request.base.sha }}'
