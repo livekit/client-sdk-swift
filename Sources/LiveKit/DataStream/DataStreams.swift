@@ -211,10 +211,13 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     /// `maxPayloadSize`. It holds no handler state — that lives here — so this loses nothing.
     func reset() {
         // No-op if the incoming manager was never created (no packets received): nothing is open.
-        let existing = _incoming.mutate { manager in
-            defer { manager = nil }
-            return manager
+        let existing = _incoming.mutate { manager -> LiveKitUniFFI.IncomingDataStreamManager? in
+            let current = manager
+            manager = nil
+            return current
         }
+        // Aborted through the reference taken above, so open readers still error out even though the
+        // manager is no longer reachable from `_incoming`.
         existing?.abortAllStreams()
     }
 
@@ -308,8 +311,12 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     /// non-consecutive chunk index. The FFI calls `onPacketsAvailable` synchronously and strictly
     /// sequentially, so this delegate only has to *preserve* that order — hence a single drain task
     /// over an `AsyncStream`, rather than a task per callback racing to a serial executor.
-    private final class OutgoingDelegate: LiveKitUniFFI.OutgoingDataStreamManagerDelegate, @unchecked Sendable {
+    /// Fully `Sendable`, not `@unchecked`: both stored properties are immutable and `Sendable`, so
+    /// there is no invariant here for a reviewer to have to take on trust.
+    private final class OutgoingDelegate: LiveKitUniFFI.OutgoingDataStreamManagerDelegate {
         private let continuation: AsyncStream<[Data]>.Continuation
+        // Unstructured on purpose: the pump's lifetime is the delegate's, not any caller's. Wrapped so
+        // it is cancelled on deinit rather than outliving the object (SwiftLint enforces this shape).
         private let pump: AnyTaskCancellable
 
         init(room: Room) {

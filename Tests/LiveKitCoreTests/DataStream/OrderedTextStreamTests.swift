@@ -47,6 +47,11 @@ private actor TestGate {
 /// tasks); only chunk assembly moved to the Rust core. These are the v1 behavioral specs, re-pointed
 /// at the coordinator, so the rewrite from per-topic to per-sender chaining stays honest.
 extension IncomingStreamManagerTests {
+    private func isAbnormalEnd(_ error: StreamError) -> Bool {
+        if case .abnormalEnd = error { return true }
+        return false
+    }
+
     private func waitUntil(_ condition: @Sendable () -> Bool, timeout: TimeInterval = 10) async {
         let deadline = Date().addingTimeInterval(timeout)
         while !condition(), Date() < deadline {
@@ -103,8 +108,11 @@ extension IncomingStreamManagerTests {
     /// happens-before relation — it applies between streams that don't overlap, so it must be keyed
     /// on streams that have *closed*, not merely on the order streams opened in.
     ///
-    /// Currently failing, and kept as the specification of the v1 behavior it documents. v1 chained a
-    /// newly opened stream behind the handlers of streams that had already *closed*
+    /// Kept running as a known issue rather than disabled, so it still compiles, still exercises the
+    /// path, and fails loudly if the behavior is ever fixed (at which point drop the
+    /// `withKnownIssue` wrappers).
+    ///
+    /// v1 chained a newly opened stream behind the handlers of streams that had already *closed*
     /// (`IncomingStreamManager.finishingHandlers`); ``DataStreams`` chains on the order streams
     /// *opened* in, per sender, so a stream that stays open head-of-line-blocks every later stream
     /// from that sender on the topic. Restoring the v1 semantics needs a stream-closed signal, which
@@ -112,8 +120,7 @@ extension IncomingStreamManagerTests {
     /// again, which this migration deliberately stopped doing. Practical exposure is small: only
     /// internal consumers set `ordered`, senders close one segment before opening the next, and the
     /// orphan case self-heals because `closeStreams(from:)` fires on the disconnect that caused it.
-    @Test(.disabled("Ordered topics now chain on open order, not on closed predecessors — see doc comment"))
-    func orderedTopicDoesNotDelayOverlappingStreams() async throws {
+    @Test func orderedTopicDoesNotDelayOverlappingStreams() async throws {
         let received = StateSync<[String]>([])
 
         try coordinator.registerTextStreamHandler(for: topicName, ordered: true) { reader, _ in
@@ -127,13 +134,18 @@ extension IncomingStreamManagerTests {
         feedTextChunk(streamID: "open-a", content: "a")
         await feedTextStream(chunks: ["b"], streamID: "b")
 
-        await waitUntil { !received.copy().isEmpty }
-        #expect(received.copy() == ["b"])
+        // Short timeout: this is expected to time out, so don't spend the default deadline on it.
+        await withKnownIssue("B's handler is queued behind still-open A") {
+            await waitUntil({ !received.copy().isEmpty }, timeout: 3)
+            #expect(received.copy() == ["b"])
+        }
 
-        // A still completes normally once its trailer arrives.
+        // A still completes normally once its trailer arrives — but B only lands after it.
         feedTextTrailer(streamID: "open-a")
         await waitUntil { received.copy().count >= 2 }
-        #expect(received.copy() == ["b", "a"])
+        await withKnownIssue("A drains before B instead of after it") {
+            #expect(received.copy() == ["b", "a"])
+        }
         coordinator.unregisterTextStreamHandler(for: topicName)
     }
 
@@ -165,11 +177,11 @@ extension IncomingStreamManagerTests {
 
         await waitUntil { !received.copy().isEmpty }
         #expect(received.copy() == ["after"])
-        // The FFI core terminates aborted streams with an abnormal-end reason naming the sender.
+        // The FFI core terminates aborted streams with an abnormal-end reason naming the sender, so
+        // match the case rather than the message.
+        let observed = try #require(errors.copy().first)
         #expect(errors.copy().count == 1)
-        if case .abnormalEnd = errors.copy().first {} else {
-            Issue.record("expected .abnormalEnd, got \(String(describing: errors.copy().first))")
-        }
+        #expect(isAbnormalEnd(observed), "expected .abnormalEnd, got \(observed)")
         coordinator.unregisterTextStreamHandler(for: topicName)
     }
 
