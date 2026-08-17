@@ -340,14 +340,14 @@ private extension SignalClient {
         default: break
         }
 
-        Task.detached {
-            let alwaysProcess = switch response.message {
-            case .join, .reconnect, .leave: true
-            default: false
-            }
-            // Always process join or reconnect messages even if suspended...
-            await self._responseQueue.processIfResumed((response: response, encoded: rawData), or: alwaysProcess)
+        let alwaysProcess = switch response.message {
+        case .join, .reconnect, .leave: true
+        default: false
         }
+        // Awaited in place so responses enter the queue in socket order; a task per message would
+        // race to the queue actor. Nothing in `_process` waits on the network or on a later
+        // message, so the loop is not held up. Join, reconnect and leave bypass a suspended queue.
+        await _responseQueue.processIfResumed((response: response, encoded: rawData), or: alwaysProcess)
     }
 
     // swiftlint:disable:next cyclomatic_complexity function_body_length
