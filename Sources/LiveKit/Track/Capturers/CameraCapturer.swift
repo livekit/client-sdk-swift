@@ -86,7 +86,7 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
     var _cameraCapturerState: StateSync<State>
 
     // Used to hide LKRTCVideoCapturerDelegate symbol
-    private lazy var adapter: VideoCapturerDelegateAdapter = .init(cameraCapturer: self)
+    private let adapter: VideoCapturerDelegateAdapter
 
     public var captureSession: AVCaptureSession {
         capturer.captureSession
@@ -101,14 +101,18 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
     }
 
     // RTCCameraVideoCapturer used internally for now
-    private lazy var capturer: LKRTCCameraVideoCapturer = .init(delegate: adapter)
+    private let capturer: LKRTCCameraVideoCapturer
 
     init(delegate: LKRTCVideoCapturerDelegate,
          options: CameraCaptureOptions,
          processor: VideoProcessor? = nil)
     {
         _cameraCapturerState = StateSync(State(options: options))
+        let adapter = VideoCapturerDelegateAdapter()
+        self.adapter = adapter
+        capturer = LKRTCCameraVideoCapturer(delegate: adapter)
         super.init(delegate: delegate, processor: processor)
+        adapter.cameraCapturer = self
 
         log("isMultitaskingAccessSupported: \(isMultitaskingAccessSupported)", .info)
     }
@@ -326,10 +330,6 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
 
 class VideoCapturerDelegateAdapter: NSObject, LKRTCVideoCapturerDelegate, Loggable {
     weak var cameraCapturer: CameraCapturer?
-
-    init(cameraCapturer: CameraCapturer? = nil) {
-        self.cameraCapturer = cameraCapturer
-    }
 
     func capturer(_ capturer: LKRTCVideoCapturer, didCapture frame: LKRTCVideoFrame) {
         guard let cameraCapturer else { return }
