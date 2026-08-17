@@ -91,3 +91,24 @@ package func nanopbEncodedBytes(
     if written != size { out.removeLast(size - written) }
     return out
 }
+
+/// Same as `nanopbEncodedBytes`, but encodes straight into a `Data` for
+/// callers that need one.
+package func nanopbEncodedData(
+    _ pointer: UnsafePointer<some Any>, _ descriptor: pb_msgdesc_t,
+) throws(NanopbError) -> Data {
+    let size = try nanopbEncodedSize(pointer, descriptor)
+    var out = Data(count: size)
+    var failure: NanopbError?
+    var written = 0
+    out.withUnsafeMutableBytes { buffer in
+        do throws(NanopbError) {
+            written = try nanopbEncode(pointer, descriptor, into: buffer)
+        } catch {
+            failure = error
+        }
+    }
+    if let failure { throw failure }
+    if written != size { out.removeLast(size - written) }
+    return out
+}
