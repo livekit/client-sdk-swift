@@ -18,6 +18,7 @@ import Foundation
 @testable import LiveKit
 import Testing
 
+@Suite(.tags(.concurrency))
 struct AsyncSerialDelegateTests {
     final class Recorder: Sendable {
         let calls = StateSync<[Int]>([])
@@ -31,59 +32,69 @@ struct AsyncSerialDelegateTests {
         }
     }
 
-    /// Each batch is delivered in the order given. Only the guarantee is asserted: batches race
-    /// each other, so the relative order *within* a batch is what callers can rely on.
+    /// Calls made in sequence are delivered in that sequence.
     @Test
-    func notifyDetachedInOrderDeliversInOrder() async throws {
+    func deliversInCallOrder() async throws {
         let delegate = AsyncSerialDelegate<Recorder>()
         let recorder = Recorder()
         delegate.set(delegate: recorder)
 
-        let batches = 50
-        for batch in 0 ..< batches {
-            delegate.notifyDetached(inOrder: { $0.record(batch * 2) },
-                                    { $0.record(batch * 2 + 1) })
+        let count = 2000
+        for value in 0 ..< count {
+            delegate.notifyDetached { $0.record(value) }
         }
 
-        try await waitForCalls(recorder, count: batches * 2)
-        let calls = recorder.calls.copy()
-        #expect(calls.count == batches * 2)
-
-        for batch in 0 ..< batches {
-            let first = try #require(calls.firstIndex(of: batch * 2), "Missing first call of batch \(batch)")
-            let second = try #require(calls.firstIndex(of: batch * 2 + 1), "Missing second call of batch \(batch)")
-            #expect(first < second, "Batch \(batch) was delivered out of order")
-        }
+        try await waitForCalls(recorder, count: count)
+        #expect(recorder.calls.copy() == Array(0 ..< count))
     }
 
-    /// A batch waits for the previous notification to finish, so a slow one can't be overtaken.
+    /// A slow notification holds the ones queued after it; nothing overtakes it.
     @Test
-    func notifyDetachedInOrderWaitsForSlowNotifications() async throws {
+    func waitsForSlowNotifications() async throws {
         let delegate = AsyncSerialDelegate<Recorder>()
         let recorder = Recorder()
         delegate.set(delegate: recorder)
 
-        delegate.notifyDetached(inOrder: { recorder in
+        delegate.notifyDetached { recorder in
             try? await Task.sleep(nanoseconds: 300_000_000)
             recorder.record(0)
-        }, { $0.record(1) })
+        }
+        delegate.notifyDetached { $0.record(1) }
+        delegate.notifyDetached { $0.record(2) }
 
-        try await waitForCalls(recorder, count: 2)
-        #expect(recorder.calls.copy() == [0, 1])
+        try await waitForCalls(recorder, count: 3)
+        #expect(recorder.calls.copy() == [0, 1, 2])
     }
 
-    /// Nothing is delivered once the delegate is gone — it is held weakly.
+    /// Nothing is delivered once the delegate is gone; it is held weakly.
     @Test
-    func notifyDetachedInOrderDropsReleasedDelegate() async throws {
+    func dropsReleasedDelegate() async throws {
         let delegate = AsyncSerialDelegate<Recorder>()
         let recorder = Recorder()
         do {
             let transient = Recorder()
             delegate.set(delegate: transient)
         }
-        delegate.notifyDetached(inOrder: { $0.record(0) }, { $0.record(1) })
+        delegate.notifyDetached { $0.record(0) }
+        delegate.notifyDetached { $0.record(1) }
 
         try await Task.sleep(nanoseconds: 200_000_000)
         #expect(recorder.calls.copy().isEmpty)
+    }
+
+    /// Notifications queued before the object is released are still delivered.
+    @Test
+    func deliversQueueDrainedAfterRelease() async throws {
+        let recorder = Recorder()
+        do {
+            let delegate = AsyncSerialDelegate<Recorder>()
+            delegate.set(delegate: recorder)
+            for value in 0 ..< 100 {
+                delegate.notifyDetached { $0.record(value) }
+            }
+        }
+
+        try await waitForCalls(recorder, count: 100)
+        #expect(recorder.calls.copy() == Array(0 ..< 100))
     }
 }
