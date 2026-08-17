@@ -143,33 +143,37 @@ struct ByteStreamReaderTests {
         let reader = await withCheckedContinuation { (continuation: CheckedContinuation<LiveKit.ByteStreamReader, Never>) in
             capture.pending.mutate { $0 = continuation }
 
-            var header = Livekit_DataStream.Header()
-            header.streamID = streamID
-            header.topic = topic
-            header.mimeType = mimeType
-            header.contentHeader = .byteHeader(.with { $0.name = name })
+            let header = Livekit_DataStream.Header.with {
+                $0.streamID = streamID
+                $0.topic = topic
+                $0.mimeType = mimeType
+                $0.contentHeader = .byteHeader(.with { $0.name = name })
+            }
             feed(manager) { $0.streamHeader = header }
 
             for (index, chunk) in testChunks.enumerated() {
-                var streamChunk = Livekit_DataStream.Chunk()
-                streamChunk.streamID = streamID
-                streamChunk.chunkIndex = UInt64(index)
-                streamChunk.content = chunk
+                let streamChunk = Livekit_DataStream.Chunk.with {
+                    $0.streamID = streamID
+                    $0.chunkIndex = UInt64(index)
+                    $0.content = chunk
+                }
                 feed(manager) { $0.streamChunk = streamChunk }
             }
 
-            var trailer = Livekit_DataStream.Trailer()
-            trailer.streamID = streamID
-            trailer.reason = trailerReason
+            let trailer = Livekit_DataStream.Trailer.with {
+                $0.streamID = streamID
+                $0.reason = trailerReason
+            }
             feed(manager) { $0.streamTrailer = trailer }
         }
         return (reader, manager)
     }
 
-    private func feed(_ manager: IncomingDataStreamManager, _ configure: (inout Livekit_DataPacket) -> Void) {
-        var packet = Livekit_DataPacket()
-        packet.participantIdentity = "someName"
-        configure(&packet)
+    private func feed(_ manager: IncomingDataStreamManager, _ configure: (inout Livekit_DataPacket.Builder) -> Void) {
+        let packet = Livekit_DataPacket.with {
+            $0.participantIdentity = "someName"
+            configure(&$0)
+        }
         guard let data = try? packet.serializedData() else { return }
         manager.handlePacketReceived(packet: data)
     }
