@@ -211,14 +211,18 @@ extension Room {
         let participant = _state.remoteParticipants[identity]
 
         if case .connected = engine._state.connectionState {
-            delegates.notify(label: { "room.didReceive data: \(packet.payload)" }) {
-                $0.room?(self, participant: participant, didReceiveData: packet.payload, forTopic: packet.topic, encryptionType: encryptionType)
+            // Proto getters copy out of nanopb storage on every read: read the
+            // payload once for all delegates.
+            let payload = packet.payload
+            let topic = packet.topic
+            delegates.notify(label: { "room.didReceive data: \(payload)" }) {
+                $0.room?(self, participant: participant, didReceiveData: payload, forTopic: topic, encryptionType: encryptionType)
             }
 
             if let participant {
-                participant.delegates.notify(label: { "participant.didReceive data: \(packet.payload)" }) { [weak participant] delegate in
+                participant.delegates.notify(label: { "participant.didReceive data: \(payload)" }) { [weak participant] delegate in
                     guard let participant else { return }
-                    delegate.participant?(participant, didReceiveData: packet.payload, forTopic: packet.topic, encryptionType: encryptionType)
+                    delegate.participant?(participant, didReceiveData: payload, forTopic: topic, encryptionType: encryptionType)
                 }
             }
         }
