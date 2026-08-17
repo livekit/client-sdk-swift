@@ -26,7 +26,7 @@ import LiveKitTestSupport
 /// registration, chunk assembly, and error surfacing — still hold. Packets are fed straight into the
 /// coordinator via ``DataStreams/handleIncoming(_:)``, so no network or connected room is needed.
 @Suite(.tags(.dataStream))
-struct IncomingStreamManagerTests: @unchecked Sendable {
+struct IncomingStreamManagerTests: Sendable {
     let room: Room
     let coordinator: DataStreams
 
