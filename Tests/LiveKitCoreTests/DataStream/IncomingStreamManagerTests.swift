@@ -27,11 +27,11 @@ import LiveKitTestSupport
 /// coordinator via ``DataStreams/handleIncoming(_:)``, so no network or connected room is needed.
 @Suite(.tags(.dataStream))
 struct IncomingStreamManagerTests: @unchecked Sendable {
-    private let room: Room
-    private let coordinator: DataStreams
+    let room: Room
+    let coordinator: DataStreams
 
-    private let topicName = "someTopic"
-    private let participant = Participant.Identity(from: "someName")
+    let topicName = "someTopic"
+    let participant = Participant.Identity(from: "someName")
 
     init() {
         room = Room()
@@ -74,14 +74,17 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
             do {
                 try coordinator.registerByteStreamHandler(for: topicName) { reader, participant in
                     #expect(participant == self.participant)
-                    do { continuation.resume(returning: try await reader.readAll()) }
-                    catch { continuation.resume(throwing: error) }
+                    do {
+                        try await continuation.resume(returning: reader.readAll())
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
                 }
             } catch {
                 continuation.resume(throwing: error)
                 return
             }
-            Task { await self.feedByteStream(chunks: testChunks) }
+            Task { await feedByteStream(chunks: testChunks) }
         }
 
         #expect(payload == testPayload)
@@ -100,14 +103,17 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
             do {
                 try coordinator.registerTextStreamHandler(for: topicName) { reader, participant in
                     #expect(participant == self.participant)
-                    do { continuation.resume(returning: try await reader.readAll()) }
-                    catch { continuation.resume(throwing: error) }
+                    do {
+                        try await continuation.resume(returning: reader.readAll())
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
                 }
             } catch {
                 continuation.resume(throwing: error)
                 return
             }
-            Task { await self.feedTextStream(chunks: testChunks) }
+            Task { await feedTextStream(chunks: testChunks) }
         }
 
         #expect(payload == testPayload)
@@ -121,8 +127,11 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
                 do {
                     try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in
-                        do { continuation.resume(returning: try await reader.readAll()) }
-                        catch { continuation.resume(throwing: error) }
+                        do {
+                            try await continuation.resume(returning: reader.readAll())
+                        } catch {
+                            continuation.resume(throwing: error)
+                        }
                     }
                 } catch {
                     continuation.resume(throwing: error)
@@ -137,8 +146,8 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
         let closureReason = "test"
 
         let error = await byteReaderError { streamID in
-            self.feedHeader(streamID: streamID, byte: true)
-            self.feedTrailer(streamID: streamID, reason: closureReason)
+            feedHeader(streamID: streamID, byte: true)
+            feedTrailer(streamID: streamID, reason: closureReason)
         }
 
         #expect(error as? StreamError == .abnormalEnd(reason: closureReason))
@@ -148,9 +157,9 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
         let testPayload = Data(repeating: 0xAB, count: 128)
 
         let error = await byteReaderError { streamID in
-            self.feedHeader(streamID: streamID, byte: true, totalLength: UInt64(testPayload.count + 10))
-            self.feedChunk(streamID: streamID, index: 0, content: testPayload)
-            self.feedTrailer(streamID: streamID, reason: "")
+            feedHeader(streamID: streamID, byte: true, totalLength: UInt64(testPayload.count + 10))
+            feedChunk(streamID: streamID, index: 0, content: testPayload)
+            feedTrailer(streamID: streamID, reason: "")
         }
 
         #expect(error as? StreamError == .incomplete)
@@ -193,9 +202,13 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
         feedTrailer(streamID: streamID, reason: "")
     }
 
-    private func feedTextStream(chunks: [String]? = nil, rawPayload: Data? = nil) async {
-        let streamID = UUID().uuidString
-        feedHeader(streamID: streamID, byte: false)
+    func feedTextStream(
+        chunks: [String]? = nil,
+        rawPayload: Data? = nil,
+        totalLength: UInt64? = nil,
+        streamID: String = UUID().uuidString,
+    ) async {
+        feedHeader(streamID: streamID, byte: false, totalLength: totalLength)
         if let chunks {
             for (index, chunk) in chunks.enumerated() {
                 feedChunk(streamID: streamID, index: UInt64(index), content: Data(chunk.utf8))
@@ -206,7 +219,19 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
         feedTrailer(streamID: streamID, reason: "")
     }
 
-    private func feedHeader(streamID: String, byte: Bool, totalLength: UInt64? = nil) {
+    func feedTextHeader(streamID: String) {
+        feedHeader(streamID: streamID, byte: false)
+    }
+
+    func feedTextChunk(streamID: String, content: String) {
+        feedChunk(streamID: streamID, index: 0, content: Data(content.utf8))
+    }
+
+    func feedTextTrailer(streamID: String) {
+        feedTrailer(streamID: streamID, reason: "")
+    }
+
+    func feedHeader(streamID: String, byte: Bool, totalLength: UInt64? = nil) {
         let header = Livekit_DataStream.Header.with {
             $0.streamID = streamID
             $0.topic = topicName
@@ -218,7 +243,7 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
         feed { $0.streamHeader = header }
     }
 
-    private func feedChunk(streamID: String, index: UInt64, content: Data) {
+    func feedChunk(streamID: String, index: UInt64, content: Data) {
         let chunk = Livekit_DataStream.Chunk.with {
             $0.streamID = streamID
             $0.chunkIndex = index
@@ -227,7 +252,7 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
         feed { $0.streamChunk = chunk }
     }
 
-    private func feedTrailer(streamID: String, reason: String) {
+    func feedTrailer(streamID: String, reason: String) {
         let trailer = Livekit_DataStream.Trailer.with {
             $0.streamID = streamID
             $0.reason = reason
