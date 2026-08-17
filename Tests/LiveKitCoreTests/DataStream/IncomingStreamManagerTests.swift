@@ -207,35 +207,39 @@ struct IncomingStreamManagerTests: @unchecked Sendable {
     }
 
     private func feedHeader(streamID: String, byte: Bool, totalLength: UInt64? = nil) {
-        var header = Livekit_DataStream.Header()
-        header.streamID = streamID
-        header.topic = topicName
-        header.contentHeader = byte
-            ? .byteHeader(Livekit_DataStream.ByteHeader())
-            : .textHeader(Livekit_DataStream.TextHeader())
-        if let totalLength { header.totalLength = totalLength }
+        let header = Livekit_DataStream.Header.with {
+            $0.streamID = streamID
+            $0.topic = topicName
+            $0.contentHeader = byte
+                ? .byteHeader(Livekit_DataStream.ByteHeader())
+                : .textHeader(Livekit_DataStream.TextHeader())
+            if let totalLength { $0.totalLength = totalLength }
+        }
         feed { $0.streamHeader = header }
     }
 
     private func feedChunk(streamID: String, index: UInt64, content: Data) {
-        var chunk = Livekit_DataStream.Chunk()
-        chunk.streamID = streamID
-        chunk.chunkIndex = index
-        chunk.content = content
+        let chunk = Livekit_DataStream.Chunk.with {
+            $0.streamID = streamID
+            $0.chunkIndex = index
+            $0.content = content
+        }
         feed { $0.streamChunk = chunk }
     }
 
     private func feedTrailer(streamID: String, reason: String) {
-        var trailer = Livekit_DataStream.Trailer()
-        trailer.streamID = streamID
-        trailer.reason = reason
+        let trailer = Livekit_DataStream.Trailer.with {
+            $0.streamID = streamID
+            $0.reason = reason
+        }
         feed { $0.streamTrailer = trailer }
     }
 
-    private func feed(_ configure: (inout Livekit_DataPacket) -> Void) {
-        var packet = Livekit_DataPacket()
-        packet.participantIdentity = participant.stringValue
-        configure(&packet)
+    private func feed(_ configure: (inout Livekit_DataPacket.Builder) -> Void) {
+        let packet = Livekit_DataPacket.with {
+            $0.participantIdentity = participant.stringValue
+            configure(&$0)
+        }
         coordinator.handleIncoming(packet)
     }
 }
