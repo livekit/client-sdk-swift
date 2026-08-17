@@ -115,11 +115,18 @@ extension IncomingStreamManagerTests {
     /// v1 chained a newly opened stream behind the handlers of streams that had already *closed*
     /// (`IncomingStreamManager.finishingHandlers`); ``DataStreams`` chains on the order streams
     /// *opened* in, per sender, so a stream that stays open head-of-line-blocks every later stream
-    /// from that sender on the topic. Restoring the v1 semantics needs a stream-closed signal, which
-    /// the FFI doesn't surface — Swift would have to inspect trailer packets in `handleIncoming`
-    /// again, which this migration deliberately stopped doing. Practical exposure is small: only
-    /// internal consumers set `ordered`, senders close one segment before opening the next, and the
-    /// orphan case self-heals because `closeStreams(from:)` fires on the disconnect that caused it.
+    /// from that sender on the topic.
+    ///
+    /// Restoring the v1 semantics needs a stream-closed signal. The Rust core already emits one —
+    /// `incoming::OutputEvent::TrailerReceived`, carrying the stream id, sender and topic — but the
+    /// UniFFI layer drops it, forwarding only `StreamOpened` to
+    /// `IncomingDataStreamManagerDelegate`. Surfacing it (or a purpose-built `onStreamClosed`) is
+    /// the fix; doing it Swift-side instead would mean parsing trailer packets in `handleIncoming`
+    /// again, which this migration deliberately stopped doing.
+    ///
+    /// Practical exposure is small: only internal consumers set `ordered`, senders close one segment
+    /// before opening the next, and the orphan case self-heals because `closeStreams(from:)` fires on
+    /// the disconnect that caused it.
     @Test func orderedTopicDoesNotDelayOverlappingStreams() async throws {
         let received = StateSync<[String]>([])
 
