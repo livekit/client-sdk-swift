@@ -35,7 +35,7 @@ struct APICheck: ParsableCommand {
     @Option(help: "Platform to build for, e.g. macOS or iOS. Must not contain spaces.")
     var platform = "macOS"
 
-    @Option(help: "Git ref to compare against, e.g. origin/main.")
+    @Option(help: "Git ref to compare against: a branch, tag, or SHA.")
     var base: String
 
     func run() throws {
@@ -47,8 +47,9 @@ struct APICheck: ParsableCommand {
             try? work.delete()
         }
 
-        try grouped("checkout \(base)") {
-            try shellOut(to: "git", arguments: ["worktree", "add", "--detach", baseTree, base], at: head.path)
+        let baseRef = try resolve(base, at: head.path)
+        try grouped("checkout \(baseRef)") {
+            try shellOut(to: "git", arguments: ["worktree", "add", "--detach", baseTree, baseRef], at: head.path)
         }
         let old = try dump(source: baseTree, into: work, named: "base")
         let new = try dump(source: head.path, into: work, named: "head")
@@ -64,6 +65,17 @@ struct APICheck: ParsableCommand {
             print("::error::Public API breakage on \(platform) — see the job summary.")
             throw ExitCode.failure
         }
+    }
+
+    /// A checkout leaves only the checked-out branch as a local ref; every other
+    /// branch arrives as `origin/<name>`, and `--detach` disables the DWIM that
+    /// would otherwise resolve the bare name. Tags and SHAs resolve as given.
+    private func resolve(_ ref: String, at repo: String) throws -> String {
+        for candidate in [ref, "origin/\(ref)"] {
+            let sha = try? shellOut(to: "git", arguments: ["rev-parse", "--verify", "--quiet", candidate], at: repo)
+            if sha != nil { return candidate }
+        }
+        throw ValidationError("cannot resolve base ref '\(ref)'")
     }
 
     // MARK: - Build & dump
