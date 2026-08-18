@@ -29,6 +29,12 @@ struct BufferedDataChannelTests {
         BufferedDataChannel(label: "test", lowWaterMark: Self.mark, waitTimeout: waitTimeout)
     }
 
+    /// Gives a waiter a chance to resume before asserting that it did not. Only ever used for
+    /// negative checks, where being too generous makes the test lenient rather than flaky.
+    private func settle() async throws {
+        try await Task.sleep(nanoseconds: 50_000_000)
+    }
+
     // MARK: - Mirror
 
     @Test func startsWithHeadroom() {
@@ -93,10 +99,11 @@ struct BufferedDataChannelTests {
         channel.setReady(true)
         channel.didSend(Int(Self.mark) + 1)
 
+        #expect(!channel.hasHeadroom)
         let waiter = Task { try await channel.waitForHeadroom() }
-        try await Task.sleep(nanoseconds: 50_000_000)
-        #expect(channel.hasHeadroom == false)
 
+        // No wait for the waiter to suspend first: the latch is sticky, so a drain that lands
+        // before it suspends resolves it just the same.
         channel.didDrain(UInt64(Self.mark) + 1)
         try await waiter.value
     }
@@ -106,27 +113,35 @@ struct BufferedDataChannelTests {
     @Test func waitSuspendsWhileNotReady() async throws {
         let channel = makeChannel()
 
-        let waiter = Task { try await channel.waitForHeadroom() }
-        try await Task.sleep(nanoseconds: 50_000_000)
-        #expect(!waiter.isCancelled)
+        let resumed = StateSync(false)
+        let waiter = Task {
+            try await channel.waitForHeadroom()
+            resumed.mutate { $0 = true }
+        }
+        try await settle()
+        #expect(resumed.copy() == false, "an empty buffer is not enough while the channel is closed")
 
         channel.setReady(true)
         try await waiter.value
+        #expect(resumed.copy())
     }
 
     @Test func drainWhileNotReadyDoesNotWakeWaiters() async throws {
         let channel = makeChannel()
         channel.didSend(Int(Self.mark) + 1)
 
-        let waiter = Task { try await channel.waitForHeadroom() }
-        try await Task.sleep(nanoseconds: 50_000_000)
-
+        let resumed = StateSync(false)
+        let waiter = Task {
+            try await channel.waitForHeadroom()
+            resumed.mutate { $0 = true }
+        }
         channel.didDrain(UInt64(Self.mark) + 1)
-        try await Task.sleep(nanoseconds: 50_000_000)
+        try await settle()
 
         // Draining alone is not enough — the channel was never reported ready.
+        #expect(resumed.copy() == false)
         waiter.cancel()
-        await #expect { try await waiter.value } throws: { _ in true }
+        _ = try? await waiter.value
     }
 
     @Test func becomingUnreadyClosesTheGateAgain() async throws {
@@ -135,12 +150,17 @@ struct BufferedDataChannelTests {
         try await channel.waitForHeadroom()
 
         channel.setReady(false)
-        let waiter = Task { try await channel.waitForHeadroom() }
-        try await Task.sleep(nanoseconds: 50_000_000)
-        #expect(!waiter.isCancelled)
+        let resumed = StateSync(false)
+        let waiter = Task {
+            try await channel.waitForHeadroom()
+            resumed.mutate { $0 = true }
+        }
+        try await settle()
+        #expect(resumed.copy() == false, "the gate closed again when the channel went away")
 
         channel.setReady(true)
         try await waiter.value
+        #expect(resumed.copy())
     }
 
     @Test func resetFailsWaitersWithTheProvidedError() async throws {
@@ -149,7 +169,7 @@ struct BufferedDataChannelTests {
         channel.didSend(Int(Self.mark) + 1)
 
         let waiter = Task { try await channel.waitForHeadroom() }
-        try await Task.sleep(nanoseconds: 50_000_000)
+        try await settle()
 
         channel.reset(throwing: LiveKitError(.invalidState, message: "torn down"))
         await #expect {
@@ -173,7 +193,7 @@ struct BufferedDataChannelTests {
         channel.didSend(Int(Self.mark) + 1)
 
         let waiter = Task { try await channel.waitForHeadroom() }
-        try await Task.sleep(nanoseconds: 50_000_000)
+        try await settle()
         waiter.cancel()
 
         await #expect {
@@ -187,7 +207,6 @@ struct BufferedDataChannelTests {
         channel.didSend(Int(Self.mark) + 1)
 
         let waiters = (0 ..< 4).map { _ in Task { try await channel.waitForHeadroom() } }
-        try await Task.sleep(nanoseconds: 50_000_000)
 
         channel.didDrain(UInt64(Self.mark) + 1)
         for waiter in waiters {

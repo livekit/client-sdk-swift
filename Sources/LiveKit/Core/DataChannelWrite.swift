@@ -160,6 +160,14 @@ struct WriteQueue {
         append(group)
     }
 
+    /// Replaces the waiting group, handing back the one it displaced so the caller can settle any
+    /// continuations rather than strand them.
+    mutating func evict(replacingWith group: [ReadyWrite]) -> [ReadyWrite] {
+        let displaced = pending ?? []
+        pending = group
+        return displaced
+    }
+
     mutating func advance() {
         if !inFlight.isEmpty { inFlight.removeFirst() }
     }

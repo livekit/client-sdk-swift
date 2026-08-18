@@ -44,6 +44,12 @@ struct RetryBuffer {
         return first
     }
 
+    mutating func removeAll() {
+        while !queue.isEmpty {
+            dequeue()
+        }
+    }
+
     mutating func trim(toAmount: UInt64) {
         while currentAmount > toAmount + minAmount {
             dequeue()
@@ -76,10 +82,8 @@ struct ReliableStage: SendStage, Loggable {
 
     private var nextSequence: UInt32 = 1
     private var retry: RetryBuffer
-    private let retryFloor: UInt64
 
     init(retryFloor: UInt64) {
-        self.retryFloor = retryFloor
         retry = RetryBuffer(minAmount: retryFloor)
     }
 
@@ -136,7 +140,7 @@ struct ReliableStage: SendStage, Loggable {
     /// sequence alone, which was neither.
     mutating func reset() {
         nextSequence = 1
-        retry = RetryBuffer(minAmount: retryFloor)
+        retry.removeAll()
     }
 }
 

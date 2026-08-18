@@ -41,8 +41,6 @@ internal import LiveKitWebRTC
 final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelegate, @unchecked Sendable, Loggable {
     // MARK: - Public
 
-    let label: String
-
     /// Outbound flow control: the buffered-amount mirror and the low-water gate.
     let flow: BufferedDataChannel
 
@@ -83,10 +81,11 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         case commanded(Stage.Command)
         case drained(UInt64)
         case wakeup
-        /// Discards queued work for a channel that is going away. `failing` is `false` when the
-        /// channel is merely being swapped under ``SendOverflow/dropOldest``, where the queue holds
-        /// stale groups and no continuations.
-        case discard(error: Error?, failing: Bool)
+        /// The channel is gone for good: fail everything queued for it and reset the stage.
+        case fail(Error?)
+        /// The channel is merely being swapped under ``SendOverflow/dropOldest``, where the queue
+        /// holds stale groups and no continuations to settle.
+        case discardStale
     }
 
     private let overflow: SendOverflow
@@ -95,6 +94,9 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
 
     private let _state = StateSync(State())
     private let eventContinuation: AsyncStream<Event>.Continuation
+    /// Assigned once in `init`, before the drain escapes — it cannot be a `let` because
+    /// `subscribe` needs a fully initialized `self`. Never read or reassigned afterwards; it is
+    /// held so that its `deinit` cancels the loop.
     private var eventLoopTask: AnyTaskCancellable?
 
     init(
@@ -106,7 +108,6 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         onMessage: @escaping @Sendable (Data) -> Void = { _ in },
         onStateChange: @escaping @Sendable (LKRTCDataChannel) -> Void = { _ in },
     ) {
-        self.label = label
         self.overflow = overflow
         self.onMessage = onMessage
         self.onStateChange = onStateChange
@@ -151,7 +152,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
 
         flow.reset()
         if case .dropOldest = overflow {
-            eventContinuation.yield(.discard(error: nil, failing: false))
+            eventContinuation.yield(.discardStale)
         }
 
         reportReadiness()
@@ -167,11 +168,6 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         // the loop; the stage's own accounting is ordered with the queue via the event.
         flow.didDrain(byteCount)
         eventContinuation.yield(.drained(byteCount))
-    }
-
-    /// Re-runs the queue, for tests driving it without channel callbacks.
-    func wake() {
-        eventContinuation.yield(.wakeup)
     }
 
     /// Submits work. Under ``SendOverflow/park`` the continuation resumes when the input's last write
@@ -201,7 +197,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         channel?.close()
 
         flow.reset(throwing: error)
-        eventContinuation.yield(.discard(error: error, failing: true))
+        eventContinuation.yield(.fail(error))
     }
 
     func info() -> Livekit_DataChannelInfo? {
@@ -226,14 +222,19 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             state.stage.didDrain(byteCount)
         case .wakeup:
             break
-        case let .discard(error, failing):
-            let discarded = state.queue.removeAll()
-            if failing {
-                let failure = error ?? LiveKitError(.cancelled, message: "Data channel reset")
-                for write in discarded {
-                    write.continuation?.resume(throwing: failure)
-                }
-                state.stage.reset()
+        case let .fail(error):
+            let failure = error ?? LiveKitError(.cancelled, message: "Data channel reset")
+            for write in state.queue.removeAll() {
+                write.continuation?.resume(throwing: failure)
+            }
+            state.stage.reset()
+            return
+        case .discardStale:
+            // `.dropOldest` submitters pass no continuation, so there is normally nothing to
+            // settle. Settling anything that does appear keeps a dropped write from stranding a
+            // caller, rather than relying on that convention holding.
+            for write in state.queue.removeAll() {
+                write.continuation?.resume(throwing: LiveKitError(.cancelled, message: "Data channel swapped"))
             }
             return
         }
@@ -292,10 +293,10 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
                 state.queue.inFlight.append(write)
             }
         case .dropOldest:
-            if let evicted = state.queue.pending {
-                log("Evicted queued group (\(evicted.count) writes) in favor of a newer one", .debug)
+            for evicted in state.queue.evict(replacingWith: group) {
+                log("Evicted a queued write in favor of a newer group", .debug)
+                evicted.continuation?.resume(throwing: LiveKitError(.cancelled, message: "Evicted by a newer group"))
             }
-            state.queue.pending = group
         }
     }
 

@@ -243,7 +243,8 @@ struct DataChannelDrainTests {
         #expect(channel.sent.isEmpty)
 
         channel.isOpen = true
-        drain.wake()
+        // A zero-byte drain report is the cheapest way to make the loop re-run its queue.
+        drain.reportDrained(0)
         try await until("the queued group to drain once open") { channel.tags == [1] }
     }
 }
