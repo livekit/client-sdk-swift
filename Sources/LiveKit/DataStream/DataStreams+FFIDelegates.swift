@@ -48,52 +48,43 @@ extension DataStreams {
     /// channel via `Room.send(dataPacket:)` — preserving E2EE, reliable sequencing, and identity
     /// stamping. The room is held weakly to avoid retaining it through the FFI manager.
     ///
-    /// Order is structural, not incidental. A stream's packets must reach the SFU in emission order:
-    /// the receiver drops a chunk that arrives before its header and fails the stream outright on a
-    /// non-consecutive chunk index. The FFI calls `onPacketsAvailable` synchronously and strictly
-    /// sequentially, so this delegate only has to *preserve* that order — hence a single drain task
-    /// over an `AsyncStream`, rather than a task per callback racing to a serial executor.
-    /// Fully `Sendable`, not `@unchecked`: both stored properties are immutable and `Sendable`, so
-    /// there is no invariant here for a reviewer to have to take on trust.
-    final class OutgoingDelegate: LiveKitUniFFI.OutgoingDataStreamManagerDelegate {
-        private let continuation: AsyncStream<[Data]>.Continuation
-        // Unstructured on purpose: the pump's lifetime is the delegate's, not any caller's. Wrapped so
-        // it is cancelled on deinit rather than outliving the object (SwiftLint enforces this shape).
-        private let pump: AnyTaskCancellable
+    /// The callback is `async`, which is what lets this honor the FFI's contract: it returns only
+    /// once the packets have actually reached the transport. Three properties follow, none of which
+    /// needs machinery on this side.
+    ///
+    /// - **Order.** The core awaits this call before pumping the next packet, so calls arrive — and
+    ///   complete — strictly in emission order. That matters: the receiver drops a chunk that
+    ///   arrives before its header and fails the stream on a non-consecutive chunk index.
+    /// - **Back-pressure.** The originating `write`/`send_*` stays pending until this returns, so a
+    ///   producer can't outrun the transport and queue unboundedly.
+    /// - **Failures.** Throwing `PacketDeliveryError` fails that originating call with
+    ///   `.sendFailed` and closes the stream, so `isOpen` reflects reality.
+    ///
+    /// `@unchecked Sendable` for the weak back-reference alone: it is assigned in `init` and never
+    /// mutated afterwards.
+    final class OutgoingDelegate: LiveKitUniFFI.OutgoingDataStreamManagerDelegate, @unchecked Sendable {
+        private weak var room: Room?
 
         init(room: Room) {
-            let (stream, continuation) = AsyncStream.makeStream(of: [Data].self)
-            self.continuation = continuation
-            pump = Task.detached { [weak room] in
-                for await packets in stream {
-                    guard let room else { return }
-                    for data in packets {
-                        guard let packet = try? Livekit_DataPacket(serializedBytes: data) else {
-                            room.log("Failed to decode outgoing data stream packet", .warning)
-                            continue
-                        }
-                        try? await room.send(dataPacket: packet)
-                    }
+            self.room = room
+        }
+
+        func onPacketsAvailable(packets: [Data]) async throws {
+            // The room is gone, so there is no transport left to fail against; the manager is being
+            // torn down with it.
+            guard let room else { return }
+
+            for data in packets {
+                guard let packet = try? Livekit_DataPacket(serializedBytes: data) else {
+                    room.log("Failed to decode outgoing data stream packet", .warning)
+                    continue
                 }
-            }.cancellable()
-        }
-
-        deinit {
-            continuation.finish()
-        }
-
-        func onPacketsAvailable(packets: [Data]) throws {
-            // The FFI asks us to return only once the packets reached the transport, so that the
-            // originating `write`/`send_*` bounds how fast a producer can enqueue. We can't honor
-            // that here: this callback is synchronous and every send path on `Room` is `async`, so
-            // waiting would mean blocking the calling thread on an async result — a synchronisation
-            // primitive this SDK doesn't allow, and one that would stall a Rust runtime thread.
-            //
-            // Handing off to the ordered pump keeps emission order and surfaces decode failures, but
-            // acknowledges before the wire write, so back-pressure and transport errors are still
-            // not propagated. Closing that gap needs `on_packets_available` to be an `async fn` on
-            // the Rust trait, which uniffi supports for foreign traits; raised upstream.
-            continuation.yield(packets)
+                do {
+                    try await room.send(dataPacket: packet)
+                } catch {
+                    throw LiveKitUniFFI.PacketDeliveryError.Failed(reason: String(describing: error))
+                }
+            }
         }
     }
 
