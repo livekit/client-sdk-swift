@@ -50,7 +50,11 @@ jobs:
       # Builds LiveKit at HEAD and at the base, then diffs the two module dumps
       # with swift-api-digester. Fails on anything source- or ABI-breaking.
       - name: Check Public API
+        # Via env, not interpolated into the script: a dispatched `base` is typed
+        # by hand, and inline it would be substituted as shell source text.
+        env:
+          BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
         run: |
           swiftly run +xcode swift-sh .github/api-check/api-check.swift \
             --platform '${{ matrix.platform }}' \
-            --base '${{ inputs.base || github.event.pull_request.base.sha }}'
+            --base "$BASE"

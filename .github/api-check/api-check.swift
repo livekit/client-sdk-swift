@@ -71,6 +71,15 @@ struct APICheck: ParsableCommand {
     /// branch arrives as `origin/<name>`, and `--detach` disables the DWIM that
     /// would otherwise resolve the bare name. Tags and SHAs resolve as given.
     private func resolve(_ ref: String, at repo: String) throws -> String {
+        // ShellOut joins arguments into one shell command without quoting them, so
+        // the ref has to be inert before it reaches git — otherwise a `;` both runs
+        // as a command and makes the check below succeed on a ref that not exist.
+        // Nothing valid is excluded: git rejects refs containing space, `~`, `^`,
+        // `:`, `?`, `*`, `[` or `\`.
+        let allowed = { (c: Character) in c.isLetter || c.isNumber || "._/@-".contains(c) }
+        guard !ref.isEmpty, ref.allSatisfy(allowed) else {
+            throw ValidationError("base ref '\(ref)' is not a valid git ref")
+        }
         for candidate in [ref, "origin/\(ref)"] {
             let sha = try? shellOut(to: "git", arguments: ["rev-parse", "--verify", "--quiet", candidate], at: repo)
             if sha != nil { return candidate }
