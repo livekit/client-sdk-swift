@@ -81,7 +81,7 @@ struct APICheck: ParsableCommand {
             throw ValidationError("base ref '\(ref)' is not a valid git ref")
         }
         for candidate in [ref, "origin/\(ref)"] {
-            let sha = try? shellOut(to: "git", arguments: ["rev-parse", "--verify", "--quiet", candidate], at: repo)
+            let sha = try? shellOut(to: "git", arguments: ["rev-parse", "--verify", "--quiet", "\(candidate)^{commit}"], at: repo)
             if sha != nil { return candidate }
         }
         throw ValidationError("cannot resolve base ref '\(ref)'")
