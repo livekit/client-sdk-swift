@@ -71,10 +71,11 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         var isAutomaticDeactivationEnabled: Bool = true
         var isSpeakerOutputPreferred: Bool = true
 
-        // Whether the next capture is expected to use Apple's voice processing
-        // path. Updated by AudioManager before recording starts, since the ADM
-        // state is not yet committed when engineWillEnable fires.
-        var isPlatformVoiceProcessingExpected: Bool = true
+        // Whether the current capture uses Apple's voice processing path, as
+        // resolved by the ADM and delivered through the willEnableEngine
+        // delegate callback before the session is configured. Defaults to true
+        // to keep the chat-mode presets until the first transition reports.
+        var isPlatformVoiceProcessingActive: Bool = true
 
         var sessionRequirements: [UUID: SessionRequirement] = [:]
     }
@@ -92,7 +93,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         _state.onDidMutate = { [weak self] new, old in
             guard let self,
                   new.isSpeakerOutputPreferred != old.isSpeakerOutputPreferred ||
-                  new.isPlatformVoiceProcessingExpected != old.isPlatformVoiceProcessingExpected else { return }
+                  new.isPlatformVoiceProcessingActive != old.isPlatformVoiceProcessingActive else { return }
             do {
                 try configureIfNeeded(oldState: old, newState: new)
             } catch {
@@ -101,10 +102,12 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         }
     }
 
-    /// Updates the expected voice processing implementation for the next capture.
-    /// Called by ``AudioManager`` before recording starts or is prepared.
-    func setPlatformVoiceProcessingExpected(_ expected: Bool) {
-        _state.mutate { $0.isPlatformVoiceProcessingExpected = expected }
+    /// Records the voice processing implementation the ADM resolved for the current capture.
+    /// Called from `AudioDeviceModuleDelegateAdapter` when the ADM reports it in `willEnableEngine`,
+    /// and from ``AudioManager/setPlatformVoiceProcessingAllowed(_:)`` when disallowing tears down
+    /// Apple Voice Processing I/O directly.
+    func setPlatformVoiceProcessingActive(_ active: Bool) {
+        _state.mutate { $0.isPlatformVoiceProcessingActive = active }
     }
 
     /// Acquires an audio session requirement handle for external ownership.
@@ -194,7 +197,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             // when Apple voice processing provides its compensating loudness
             // stage. With software processing, the media-tuned presets keep
             // remote audio at media playback loudness.
-            let playAndRecord: AudioSessionConfiguration = if newState.isPlatformVoiceProcessingExpected {
+            let playAndRecord: AudioSessionConfiguration = if newState.isPlatformVoiceProcessingActive {
                 newState.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver
             } else {
                 newState.isSpeakerOutputPreferred ? .playAndRecordSpeakerMedia : .playAndRecordReceiverMedia
