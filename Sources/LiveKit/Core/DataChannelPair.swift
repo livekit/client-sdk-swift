@@ -399,11 +399,24 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         )
     }
 
+    /// The channel to send `kind` on, or `nil` while it cannot accept bytes.
+    ///
+    /// Gated on this channel alone. The two channels are independent SCTP streams with no
+    /// cross-stream ordering to preserve — and the SFU's dedup gate is per-kind — so a lossy
+    /// channel that is briefly down has no business stalling reliable sends, or vice versa.
+    /// This matches `dataChannelForKind` in client-sdk-js and the per-kind channels in
+    /// client-sdk-rust. Requiring *both* channels to be open still applies before the first
+    /// send, via ``openCompleter``.
     private func channel(for kind: ChannelKind) -> LKRTCDataChannel? {
-        _state.read {
-            guard let lossy = $0.lossy, let reliable = $0.reliable, $0.isOpen else { return nil }
-            return kind == .reliable ? reliable : lossy
+        _state.read { state in
+            let channel = kind == .reliable ? state.reliable : state.lossy
+            guard let channel, channel.readyState == .open else { return nil }
+            return channel
         }
+    }
+
+    private func isOpen(_ kind: ChannelKind) -> Bool {
+        channel(for: kind) != nil
     }
 
     private func processSendQueue(
@@ -499,21 +512,23 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
         channel?.delegate = self
 
-        reportReadiness(isOpen)
+        reportReadiness()
 
         if isOpen {
-            // Wake parked sends — pairs with `dataChannelDidChangeState`.
+            // The pre-flight latch needs *both* channels; the drain does not.
             openCompleter.resume(returning: ())
+        }
+        if self.isOpen(kind) {
+            // Wake parked sends — pairs with `dataChannelDidChangeState`.
             eventContinuation.yield(ChannelEvent(channelKind: kind, detail: .wakeup))
         }
     }
 
-    /// Pair readiness, pushed into both flow controllers. Computed once by the caller from a
-    /// single `State` snapshot so the two never disagree, and applied to both because
-    /// `channel(for:)` already gates each channel on the *pair* being open.
-    private func reportReadiness(_ isOpen: Bool) {
-        lossyFlow.setReady(isOpen)
-        reliableFlow.setReady(isOpen)
+    /// Readiness for ``BufferedDataChannel/waitForHeadroom(timeout:)``, per channel, matching
+    /// the gate ``channel(for:)`` applies to the drain.
+    private func reportReadiness() {
+        lossyFlow.setReady(isOpen(.lossy))
+        reliableFlow.setReady(isOpen(.reliable))
     }
 
     /// Update the negotiated SCTP max-message-size cap. Called by the room
@@ -667,12 +682,15 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
             // remaining cases for diagnosis.
             log("data channel '\(dataChannel.label)' closed unexpectedly", .error)
         }
-        reportReadiness(isOpen)
+        reportReadiness()
 
         if isOpen {
-            // Wake parked sends after the channel transitioned to `.open`
-            // (e.g. on a fast-reconnect re-arming channels mid-flight).
             openCompleter.resume(returning: ())
+        }
+        if dataChannel.readyState == .open {
+            // Wake parked sends for this channel after it transitioned to `.open`
+            // (e.g. on a fast-reconnect re-arming channels mid-flight). Not gated on
+            // the other channel — see `channel(for:)`.
             eventContinuation.yield(ChannelEvent(channelKind: dataChannel.kind, detail: .wakeup))
         }
     }
