@@ -68,7 +68,7 @@ struct TextStreamReaderTests {
         _ = manager
     }
 
-    @Test func info() async throws {
+    @Test func info() async {
         let (reader, manager) = await openReader()
         #expect(reader.info.topic == topic)
         #expect(reader.info.operationType == .create)
@@ -83,6 +83,8 @@ struct TextStreamReaderTests {
         let pending = StateSync<CheckedContinuation<LiveKit.TextStreamReader, Never>?>(nil)
 
         func onByteStreamOpened(reader _: LiveKitUniFFI.ByteStreamReader, identity _: String) {}
+
+        func onStreamClosed(streamId _: String, identity _: String) {}
 
         func onTextStreamOpened(reader: LiveKitUniFFI.TextStreamReader, identity _: String) {
             let info = LiveKit.TextStreamInfo(reader.info(), encryptionType: .none)
@@ -136,6 +138,6 @@ struct TextStreamReaderTests {
             configure(&$0)
         }
         guard let data = try? packet.serializedData() else { return }
-        manager.handlePacketReceived(packet: data)
+        manager.handlePacketReceived(packet: data, encryptionType: .none)
     }
 }

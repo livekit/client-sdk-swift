@@ -265,6 +265,6 @@ struct IncomingStreamManagerTests: Sendable {
             $0.participantIdentity = participant.stringValue
             configure(&$0)
         }
-        coordinator.handleIncoming(packet)
+        coordinator.handleIncoming(packet, encryptionType: .none)
     }
 }

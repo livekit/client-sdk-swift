@@ -74,9 +74,9 @@ struct StreamInfoBridgeTests {
         #expect(LiveKit.TextStreamInfo(ffiTextInfo(replyToStreamId: nil), encryptionType: .none).replyToStreamID == nil)
     }
 
-    /// `StreamInfo.encryptionType` is stamped by the SDK from the room's data-channel encryption
-    /// setting, *not* taken from the FFI record — the per-packet type is unrecoverable after
-    /// decryption, since `encrypted_packet` shares a protobuf `oneof` with the stream payload.
+    /// The initializer takes the encryption type as a parameter rather than reading the FFI record,
+    /// so callers control it: inbound streams pass the wire value the core reports, outgoing ones the
+    /// room's data-channel setting (there is no per-packet value to read for a stream being sent).
     @Test func textInfoEncryptionTypeComesFromTheCallerNotTheFFI() {
         let ffi = ffiTextInfo(encryptionType: .gcm)
         #expect(LiveKit.TextStreamInfo(ffi, encryptionType: .none).encryptionType == .none)
@@ -159,10 +159,17 @@ struct StreamInfoBridgeTests {
         #expect(StreamError(ffi) == expected)
     }
 
-    /// `EncryptionTypeMismatch` is currently unreachable — the FFI normalizes every packet's
-    /// encryption type to `.none`, so header and chunk can never disagree — and the mapping has no
-    /// real values to carry, so it reports `.none`/`.none`.
-    @Test func streamErrorEncryptionTypeMismatchHasNoRealPayload() {
-        #expect(StreamError(.EncryptionTypeMismatch) == .encryptionTypeMismatch(expected: .none, received: .none))
+    /// `EncryptionTypeMismatch` now carries both types, so the bridge reports what actually
+    /// disagreed rather than a sentinel. Reachable again now that the wire encryption type is passed
+    /// to `handlePacketReceived`.
+    @Test func streamErrorEncryptionTypeMismatchCarriesBothTypes() {
+        #expect(
+            StreamError(.EncryptionTypeMismatch(expected: .gcm, received: .none))
+                == .encryptionTypeMismatch(expected: .gcm, received: .none),
+        )
+        #expect(
+            StreamError(.EncryptionTypeMismatch(expected: .none, received: .custom))
+                == .encryptionTypeMismatch(expected: .none, received: .custom),
+        )
     }
 }

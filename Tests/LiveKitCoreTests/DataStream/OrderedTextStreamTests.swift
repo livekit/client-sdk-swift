@@ -44,8 +44,8 @@ private actor TestGate {
 // MARK: - Ordered topics
 
 /// The `ordered` text-stream contract is still implemented in Swift (``DataStreams`` chains handler
-/// tasks); only chunk assembly moved to the Rust core. These are the v1 behavioral specs, re-pointed
-/// at the coordinator, so the rewrite from per-topic to per-sender chaining stays honest.
+/// tasks off the FFI's stream-open and stream-closed callbacks); only chunk assembly moved to the
+/// Rust core. These are the v1 behavioral specs, re-pointed at the coordinator.
 extension IncomingStreamManagerTests {
     private func isAbnormalEnd(_ error: StreamError) -> Bool {
         if case .abnormalEnd = error { return true }
@@ -108,25 +108,10 @@ extension IncomingStreamManagerTests {
     /// happens-before relation — it applies between streams that don't overlap, so it must be keyed
     /// on streams that have *closed*, not merely on the order streams opened in.
     ///
-    /// Kept running as a known issue rather than disabled, so it still compiles, still exercises the
-    /// path, and fails loudly if the behavior is ever fixed (at which point drop the
-    /// `withKnownIssue` wrappers).
-    ///
-    /// v1 chained a newly opened stream behind the handlers of streams that had already *closed*
-    /// (`IncomingStreamManager.finishingHandlers`); ``DataStreams`` chains on the order streams
-    /// *opened* in, per sender, so a stream that stays open head-of-line-blocks every later stream
-    /// from that sender on the topic.
-    ///
-    /// Restoring the v1 semantics needs a stream-closed signal. The Rust core already emits one —
-    /// `incoming::OutputEvent::TrailerReceived`, carrying the stream id, sender and topic — but the
-    /// UniFFI layer drops it, forwarding only `StreamOpened` to
-    /// `IncomingDataStreamManagerDelegate`. Surfacing it (or a purpose-built `onStreamClosed`) is
-    /// the fix; doing it Swift-side instead would mean parsing trailer packets in `handleIncoming`
-    /// again, which this migration deliberately stopped doing.
-    ///
-    /// Practical exposure is small: only internal consumers set `ordered`, senders close one segment
-    /// before opening the next, and the orphan case self-heals because `closeStreams(from:)` fires on
-    /// the disconnect that caused it.
+    /// Restored: the FFI now reports stream closes (`onStreamClosed`), so ``DataStreams`` chains a
+    /// newly opened stream behind handlers whose streams have already *closed* — matching v1 — rather
+    /// than behind whatever opened before it. Without that signal an open stream head-of-line-blocked
+    /// every later stream from the same sender on the topic.
     @Test func orderedTopicDoesNotDelayOverlappingStreams() async throws {
         let received = StateSync<[String]>([])
 
@@ -141,18 +126,13 @@ extension IncomingStreamManagerTests {
         feedTextChunk(streamID: "open-a", content: "a")
         await feedTextStream(chunks: ["b"], streamID: "b")
 
-        // Short timeout: this is expected to time out, so don't spend the default deadline on it.
-        await withKnownIssue("B's handler is queued behind still-open A") {
-            await waitUntil({ !received.copy().isEmpty }, timeout: 3)
-            #expect(received.copy() == ["b"])
-        }
+        await waitUntil { !received.copy().isEmpty }
+        #expect(received.copy() == ["b"])
 
-        // A still completes normally once its trailer arrives — but B only lands after it.
+        // A still completes normally once its trailer arrives.
         feedTextTrailer(streamID: "open-a")
         await waitUntil { received.copy().count >= 2 }
-        await withKnownIssue("A drains before B instead of after it") {
-            #expect(received.copy() == ["b", "a"])
-        }
+        #expect(received.copy() == ["b", "a"])
         coordinator.unregisterTextStreamHandler(for: topicName)
     }
 
