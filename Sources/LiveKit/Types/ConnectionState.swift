@@ -33,10 +33,15 @@ public enum ReconnectMode: Int, Sendable {
 public enum ConnectionState: Int, Sendable {
     case disconnected
     case connecting
-    case resuming
     case reconnecting
     case connected
     case disconnecting
+}
+
+extension ConnectionState: Identifiable {
+    public var id: Int {
+        rawValue
+    }
 }
 
 extension ConnectionState {
