@@ -82,6 +82,8 @@ protocol DataChannelDelegate: AnyObject, Sendable {
 ///     protected by a lock; all `set` / `reset` callers go through it.
 ///   - `Buffers` — captured as the AsyncStream subscription's state and
 ///     mutated only from the single observer closure. No external access.
+///   - `lossyFlow` / `reliableFlow` — each `BufferedDataChannel` holds its own
+///     buffered-amount mirror behind a lock.
 ///   - `openCompleter` — internally locked, idempotent resume / reset.
 ///
 /// Continuations in `PublishDataRequest` are `CheckedContinuation`, resumed
@@ -133,6 +135,12 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     private let _state: StateSync<State>
 
+    /// Outbound flow control, one per channel. Holds the buffered-amount mirror the drain
+    /// gates on; the channel references stay in `_state` so pair readiness remains a single
+    /// locked read.
+    private let lossyFlow = BufferedDataChannel(label: "lossy", lowWaterMark: DataChannelPair.lossyLowThreshold)
+    private let reliableFlow = BufferedDataChannel(label: "reliable", lowWaterMark: DataChannelPair.reliableLowThreshold)
+
     private let eventContinuation: AsyncStream<ChannelEvent>.Continuation
     private var eventLoopTask: AnyTaskCancellable?
 
@@ -142,7 +150,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     private struct SendBuffer {
         private var queue: Deque<PublishDataRequest> = []
-        var rtcAmount: UInt64 = 0
 
         mutating func enqueue(_ request: PublishDataRequest) {
             queue.append(request)
@@ -158,10 +165,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         mutating func dequeue() -> PublishDataRequest? {
             guard !queue.isEmpty else { return nil }
             return queue.removeFirst()
-        }
-
-        func canSend(threshold: UInt64) -> Bool {
-            rtcAmount <= threshold
         }
     }
 
@@ -244,8 +247,8 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
             /// Yielded by `LKRTCDataChannelDelegate.didChangeBufferedAmount`
             /// when WebRTC reports its outbound buffer has drained. Consumer
-            /// updates `SendBuffer.rtcAmount` (the backpressure target) and,
-            /// on the reliable channel, trims the retry buffer down to the
+            /// reports the drained bytes to the channel's `BufferedDataChannel`
+            /// and, on the reliable channel, trims the retry buffer down to the
             /// new bound so only un-acked bytes are retained.
             case bufferedAmountChanged(UInt64)
 
@@ -295,9 +298,9 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         case let .bufferedAmountChanged(amount):
             switch event.channelKind {
             case .lossy:
-                updateTarget(buffer: &buffers.lossyBuffer, newAmount: amount)
+                lossyFlow.didDrain(amount)
             case .reliable:
-                updateTarget(buffer: &buffers.reliableBuffer, newAmount: amount)
+                reliableFlow.didDrain(amount)
                 buffers.reliableRetryBuffer.trim(toAmount: amount)
             }
         case let .retryRequested(lastSeq):
@@ -321,10 +324,10 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
 
         // Both kinds flush on every event. `processSendQueue` no-ops on
-        // `canSend == false` or `channel(for:) == nil`, so a `.wakeup` carrying
+        // `hasHeadroom == false` or `channel(for:) == nil`, so a `.wakeup` carrying
         // one channel's kind drains both queues without extra plumbing.
-        processSendQueue(threshold: Self.lossyLowThreshold, buffer: &buffers.lossyBuffer, kind: .lossy)
-        processSendQueue(threshold: Self.reliableLowThreshold, buffer: &buffers.reliableBuffer, kind: .reliable)
+        processSendQueue(flow: lossyFlow, buffer: &buffers.lossyBuffer, kind: .lossy)
+        processSendQueue(flow: reliableFlow, buffer: &buffers.reliableBuffer, kind: .reliable)
     }
 
     /// Promote a `PendingSend` to a fully-prepared `PublishDataRequest`:
@@ -385,11 +388,11 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     private func processSendQueue(
-        threshold: UInt64,
+        flow: BufferedDataChannel,
         buffer: inout SendBuffer,
         kind: ChannelKind,
     ) {
-        while buffer.canSend(threshold: threshold), let request = buffer.dequeue() {
+        while flow.hasHeadroom, let request = buffer.dequeue() {
             guard let channel = channel(for: kind) else {
                 // `openCompleter` is a sticky latch (resolves on first open), so a
                 // caller can pass `openCompleter.wait()` while `_state.isOpen` is
@@ -407,7 +410,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             }
             // Bytes are now in WebRTC's SCTP queue; account for them so the
             // backpressure check below kicks in for subsequent iterations.
-            buffer.rtcAmount += UInt64(request.data.data.count)
+            flow.didSend(request.data.data.count)
             request.continuation?.resume()
 
             let event = ChannelEvent(channelKind: kind, detail: .sendDispatched(request))
@@ -416,18 +419,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     // MARK: - Buffer helpers
-
-    private func updateTarget(
-        buffer: inout SendBuffer,
-        newAmount: UInt64,
-    ) {
-        guard buffer.rtcAmount >= newAmount else {
-            log("Unexpected buffer size detected", .error)
-            buffer.rtcAmount = 0
-            return
-        }
-        buffer.rtcAmount -= newAmount
-    }
 
     private func retry(
         buffer: inout RetryBuffer,
@@ -490,11 +481,21 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
         channel?.delegate = self
 
+        reportReadiness(isOpen)
+
         if isOpen {
             // Wake parked sends — pairs with `dataChannelDidChangeState`.
             openCompleter.resume(returning: ())
             eventContinuation.yield(ChannelEvent(channelKind: kind, detail: .wakeup))
         }
+    }
+
+    /// Pair readiness, pushed into both flow controllers. Computed once by the caller from a
+    /// single `State` snapshot so the two never disagree, and applied to both because
+    /// `channel(for:)` already gates each channel on the *pair* being open.
+    private func reportReadiness(_ isOpen: Bool) {
+        lossyFlow.setReady(isOpen)
+        reliableFlow.setReady(isOpen)
     }
 
     /// Update the negotiated SCTP max-message-size cap. Called by the room
@@ -521,6 +522,10 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
         lossy?.close()
         reliable?.close()
+
+        // The channels are gone, so nothing can accept bytes. Only gates
+        // `waitForHeadroom`; the drain's own gate is `channel(for:)`.
+        reportReadiness(false)
 
         // Drain parked sends through the same event stream so they're ordered
         // after any in-flight `.sendRequested` enqueues from concurrent callers.
@@ -642,6 +647,8 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
             // remaining cases for diagnosis.
             log("data channel '\(dataChannel.label)' closed unexpectedly", .error)
         }
+        reportReadiness(isOpen)
+
         if isOpen {
             // Wake parked sends after the channel transitioned to `.open`
             // (e.g. on a fast-reconnect re-arming channels mid-flight).
