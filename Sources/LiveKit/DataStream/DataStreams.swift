@@ -212,6 +212,14 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         incomingManager().handlePacketReceived(packet: data, encryptionType: encryptionType.ffiValue)
     }
 
+    /// Number of incoming streams currently open. Restores the introspection v1 exposed on its
+    /// manager: it lets a caller wait for a stream's descriptor to actually register before driving
+    /// the abort paths, rather than inferring it from a handler having been dispatched.
+    func openStreamCount() async -> UInt64 {
+        guard let manager = _incoming.copy() else { return 0 }
+        return await manager.openStreamCount()
+    }
+
     // MARK: - Stream lifecycle
 
     /// Fails all open incoming streams so their handlers return (e.g. on cleanup). A handler blocked
