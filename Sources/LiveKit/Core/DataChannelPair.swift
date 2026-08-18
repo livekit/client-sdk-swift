@@ -84,7 +84,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         lossy = DataChannelDrain(
             label: LKRTCDataChannel.Labels.lossy,
             lowWaterMark: Self.lossyLowThreshold,
-            overflow: .park,
+            overflow: .dropOldest,
             stage: LossyStage(),
             maxMessageSize: Self.defaultMaxMessageSize,
             onMessage: { [weak self] data in self?.handle(received: data, isReliable: false) },
@@ -254,7 +254,12 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Constants
 
     private static let reliableLowThreshold: UInt64 = 2 * 1024 * 1024 // 2 MB
-    private static let lossyLowThreshold: UInt64 = reliableLowThreshold
+
+    /// The lossy channel drops rather than queues, so this bounds send latency rather than memory.
+    /// client-sdk-js keeps its lossy threshold between 8 KiB and 256 KiB, tuned to roughly 100 ms of
+    /// measured throughput; 256 KiB is that ceiling, where the 2 MB reliable figure would be eight
+    /// times it.
+    private static let lossyLowThreshold: UInt64 = 256 * 1024
 
     // If rtc drains its buffer to 0, keep at least this amount of data for retry.
     // Should be >= the full backpressure amount to avoid losing packets.
