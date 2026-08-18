@@ -68,29 +68,31 @@ extension Room {
         })
     }
 
-    func send(dataPacket packet: consuming Livekit_DataPacket) async throws {
-        func ensurePublisherConnected() async throws {
-            // Only needed when subscriber is primary in dual PC mode
-            guard case .subscriberPrimary = _state.transport else {
-                return
-            }
-
-            let publisher = try requirePublisher()
-
-            let connectionState = await publisher.connectionState
-            if connectionState != .connected, connectionState != .connecting {
-                try await publisherShouldNegotiate()
-            }
-
-            // Single combined gate: wait for both the publisher PC to be ICE-
-            // connected *and* the data channels to reach `.open` concurrently.
-            // Mirrors the prevailing pattern in client-sdk-js / -rust, where a
-            // single poll loop checks both conditions before any send proceeds.
-            async let transportReady: Void = publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
-            async let dataChannelReady: Void = publisherDataChannel.openCompleter.wait()
-            _ = try await (transportReady, dataChannelReady)
+    /// Negotiates the publisher peer connection on demand (subscriber-primary dual-PC mode defers
+    /// it until something is published) and waits until it and the data channels are open.
+    func ensurePublisherConnected() async throws {
+        // Only needed when subscriber is primary in dual PC mode
+        guard case .subscriberPrimary = _state.transport else {
+            return
         }
 
+        let publisher = try requirePublisher()
+
+        let connectionState = await publisher.connectionState
+        if connectionState != .connected, connectionState != .connecting {
+            try await publisherShouldNegotiate()
+        }
+
+        // Single combined gate: wait for both the publisher PC to be ICE-
+        // connected *and* the data channels to reach `.open` concurrently.
+        // Mirrors the prevailing pattern in client-sdk-js / -rust, where a
+        // single poll loop checks both conditions before any send proceeds.
+        async let transportReady: Void = publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
+        async let dataChannelReady: Void = publisherDataChannel.openCompleter.wait()
+        _ = try await (transportReady, dataChannelReady)
+    }
+
+    func send(dataPacket packet: consuming Livekit_DataPacket) async throws {
         try await ensurePublisherConnected()
 
         // At this point publisher should be .connected and dc should be .open
@@ -187,8 +189,15 @@ extension Room {
             publisherDataChannel.set(reliable: reliableDataChannel)
             publisherDataChannel.set(lossy: lossyDataChannel)
 
+            // Data track channel (unordered, unreliable — DTP handles its own sequencing). Hand it
+            // to the session-scoped data track subsystem (created at connect; persists reconnects).
+            let dataTrackChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.dataTrack,
+                                                               configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
+            if let dataTrackChannel { dataTracks?.setPublisherChannel(dataTrackChannel) }
+
             log("dataChannel.\(String(describing: reliableDataChannel?.label)) : \(String(describing: reliableDataChannel?.channelId))")
             log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
+            log("dataChannel.\(String(describing: dataTrackChannel?.label)) : \(String(describing: dataTrackChannel?.channelId))")
 
             let subscriber = isSinglePC ? nil : try Transport(config: rtcConfiguration,
                                                               target: .subscriber,
@@ -391,6 +400,8 @@ extension Room {
                     throw error
                 }
             }
+
+            dataTracks?.handleReconnect(fullReconnect: false)
         }
 
         // "full" re-connection sequence
@@ -427,6 +438,8 @@ extension Room {
             }
 
             _state.mutate { $0.connectedUrl = finalUrl }
+
+            dataTracks?.handleReconnect(fullReconnect: true)
         }
 
         do {
@@ -543,10 +556,13 @@ extension Room {
             $0.subscribe = !autoSubscribe
         }
 
+        let publishDataTracks = await dataTracks?.syncStatePublishResponses() ?? []
+
         try await signalClient.sendSyncState(answer: previousAnswer?.toPBType(offerId: 0),
                                              offer: previousOffer?.toPBType(offerId: 0),
                                              subscription: subscription,
                                              publishTracks: localParticipant.publishedTracksInfo(),
+                                             publishDataTracks: publishDataTracks,
                                              dataChannels: publisherDataChannel.infos(),
                                              dataChannelReceiveStates: subscriberDataChannel.receiveStates())
     }

@@ -95,6 +95,9 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
         var connectionQuality: ConnectionQuality = .unknown
         var permissions = ParticipantPermissions()
         var trackPublications = [Track.Sid: TrackPublication]()
+        // Remote only. An array — the public accessor keys by name, derived from live track info
+        // (SIDs rotate when the publisher republishes after a full reconnect).
+        var dataTracks: [RemoteDataTrack] = []
         var attributes = [String: String]()
         var agentAttributes: AgentAttributes?
     }

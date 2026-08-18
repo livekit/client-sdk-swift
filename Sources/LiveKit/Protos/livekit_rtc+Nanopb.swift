@@ -40,6 +40,8 @@ enum Livekit_SignalRequest_OneOf_Message: Equatable {
     case publishDataTrackRequest(Livekit_PublishDataTrackRequest)
     case unpublishDataTrackRequest(Livekit_UnpublishDataTrackRequest)
     case updateDataSubscription(Livekit_UpdateDataSubscription)
+    case storeDataBlobRequest(Livekit_StoreDataBlobRequest)
+    case getDataBlobRequest(Livekit_GetDataBlobRequest)
 }
 
 extension livekit_SignalRequest: NanopbStorage {
@@ -90,6 +92,10 @@ extension Livekit_SignalRequest {
             return .unpublishDataTrackRequest(_pointer.pointee.message.unpublish_data_track_request.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackRequest._empty)
         case pb_size_t(livekit_SignalRequest_update_data_subscription_tag):
             return .updateDataSubscription(_pointer.pointee.message.update_data_subscription.map { Livekit_UpdateDataSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateDataSubscription._empty)
+        case pb_size_t(livekit_SignalRequest_store_data_blob_request_tag):
+            return .storeDataBlobRequest(_pointer.pointee.message.store_data_blob_request.map { Livekit_StoreDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobRequest._empty)
+        case pb_size_t(livekit_SignalRequest_get_data_blob_request_tag):
+            return .getDataBlobRequest(_pointer.pointee.message.get_data_blob_request.map { Livekit_GetDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobRequest._empty)
         default: return nil
         }
     }
@@ -153,6 +159,12 @@ extension Livekit_SignalRequest {
     var updateDataSubscription: Livekit_UpdateDataSubscription {
         _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_update_data_subscription_tag) ? (_pointer.pointee.message.update_data_subscription.map { Livekit_UpdateDataSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateDataSubscription._empty) : Livekit_UpdateDataSubscription()
     }
+    var storeDataBlobRequest: Livekit_StoreDataBlobRequest {
+        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_store_data_blob_request_tag) ? (_pointer.pointee.message.store_data_blob_request.map { Livekit_StoreDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobRequest._empty) : Livekit_StoreDataBlobRequest()
+    }
+    var getDataBlobRequest: Livekit_GetDataBlobRequest {
+        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_get_data_blob_request_tag) ? (_pointer.pointee.message.get_data_blob_request.map { Livekit_GetDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobRequest._empty) : Livekit_GetDataBlobRequest()
+    }
 
 }
 
@@ -200,6 +212,10 @@ extension Livekit_SignalRequest.Builder {
                 return .unpublishDataTrackRequest(_pointer.pointee.message.unpublish_data_track_request.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_UnpublishDataTrackRequest._empty)
             case pb_size_t(livekit_SignalRequest_update_data_subscription_tag):
                 return .updateDataSubscription(_pointer.pointee.message.update_data_subscription.map { Livekit_UpdateDataSubscription(_sharing: $0, owner: _box) } ?? Livekit_UpdateDataSubscription._empty)
+            case pb_size_t(livekit_SignalRequest_store_data_blob_request_tag):
+                return .storeDataBlobRequest(_pointer.pointee.message.store_data_blob_request.map { Livekit_StoreDataBlobRequest(_sharing: $0, owner: _box) } ?? Livekit_StoreDataBlobRequest._empty)
+            case pb_size_t(livekit_SignalRequest_get_data_blob_request_tag):
+                return .getDataBlobRequest(_pointer.pointee.message.get_data_blob_request.map { Livekit_GetDataBlobRequest(_sharing: $0, owner: _box) } ?? Livekit_GetDataBlobRequest._empty)
             default: return nil
             }
         }
@@ -224,6 +240,8 @@ extension Livekit_SignalRequest.Builder {
             case let .publishDataTrackRequest(value): .publishDataTrackRequest(value.owned())
             case let .unpublishDataTrackRequest(value): .unpublishDataTrackRequest(value.owned())
             case let .updateDataSubscription(value): .updateDataSubscription(value.owned())
+            case let .storeDataBlobRequest(value): .storeDataBlobRequest(value.owned())
+            case let .getDataBlobRequest(value): .getDataBlobRequest(value.owned())
             default: newValue
             }
             _clearMessage()
@@ -288,6 +306,12 @@ extension Livekit_SignalRequest.Builder {
             case let .updateDataSubscription(value):
                 _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_update_data_subscription_tag)
                 lkSetMessage(&_pointer.pointee.message.update_data_subscription, value)
+            case let .storeDataBlobRequest(value):
+                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_store_data_blob_request_tag)
+                lkSetMessage(&_pointer.pointee.message.store_data_blob_request, value)
+            case let .getDataBlobRequest(value):
+                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_get_data_blob_request_tag)
+                lkSetMessage(&_pointer.pointee.message.get_data_blob_request, value)
             case nil: break
             }
         }
@@ -471,6 +495,24 @@ extension Livekit_SignalRequest.Builder {
             lkSetMessage(&_pointer.pointee.message.update_data_subscription, newValue)
         }
     }
+    var storeDataBlobRequest: Livekit_StoreDataBlobRequest {
+        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_store_data_blob_request_tag) ? (_pointer.pointee.message.store_data_blob_request.map { Livekit_StoreDataBlobRequest(_sharing: $0, owner: _box) } ?? Livekit_StoreDataBlobRequest._empty) : Livekit_StoreDataBlobRequest() }
+        nonmutating set {
+            let newValue = newValue.owned()
+            _clearMessage()
+            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_store_data_blob_request_tag)
+            lkSetMessage(&_pointer.pointee.message.store_data_blob_request, newValue)
+        }
+    }
+    var getDataBlobRequest: Livekit_GetDataBlobRequest {
+        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_get_data_blob_request_tag) ? (_pointer.pointee.message.get_data_blob_request.map { Livekit_GetDataBlobRequest(_sharing: $0, owner: _box) } ?? Livekit_GetDataBlobRequest._empty) : Livekit_GetDataBlobRequest() }
+        nonmutating set {
+            let newValue = newValue.owned()
+            _clearMessage()
+            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_get_data_blob_request_tag)
+            lkSetMessage(&_pointer.pointee.message.get_data_blob_request, newValue)
+        }
+    }
     private func _clearMessage() {
         switch _pointer.pointee.which_message {
         case pb_size_t(livekit_SignalRequest_offer_tag):
@@ -513,6 +555,10 @@ extension Livekit_SignalRequest.Builder {
             lkRelease(message: &_pointer.pointee.message.unpublish_data_track_request, Livekit_UnpublishDataTrackRequest.descriptor)
         case pb_size_t(livekit_SignalRequest_update_data_subscription_tag):
             lkRelease(message: &_pointer.pointee.message.update_data_subscription, Livekit_UpdateDataSubscription.descriptor)
+        case pb_size_t(livekit_SignalRequest_store_data_blob_request_tag):
+            lkRelease(message: &_pointer.pointee.message.store_data_blob_request, Livekit_StoreDataBlobRequest.descriptor)
+        case pb_size_t(livekit_SignalRequest_get_data_blob_request_tag):
+            lkRelease(message: &_pointer.pointee.message.get_data_blob_request, Livekit_GetDataBlobRequest.descriptor)
         default: break
         }
         _pointer.pointee.which_message = 0
@@ -552,6 +598,8 @@ enum Livekit_SignalResponse_OneOf_Message: Equatable {
     case publishDataTrackResponse(Livekit_PublishDataTrackResponse)
     case unpublishDataTrackResponse(Livekit_UnpublishDataTrackResponse)
     case dataTrackSubscriberHandles(Livekit_DataTrackSubscriberHandles)
+    case storeDataBlobResponse(Livekit_StoreDataBlobResponse)
+    case getDataBlobResponse(Livekit_GetDataBlobResponse)
 }
 
 extension livekit_SignalResponse: NanopbStorage {
@@ -618,6 +666,10 @@ extension Livekit_SignalResponse {
             return .unpublishDataTrackResponse(_pointer.pointee.message.unpublish_data_track_response.map { Livekit_UnpublishDataTrackResponse(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackResponse._empty)
         case pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag):
             return .dataTrackSubscriberHandles(_pointer.pointee.message.data_track_subscriber_handles.map { Livekit_DataTrackSubscriberHandles(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriberHandles._empty)
+        case pb_size_t(livekit_SignalResponse_store_data_blob_response_tag):
+            return .storeDataBlobResponse(_pointer.pointee.message.store_data_blob_response.map { Livekit_StoreDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobResponse._empty)
+        case pb_size_t(livekit_SignalResponse_get_data_blob_response_tag):
+            return .getDataBlobResponse(_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobResponse._empty)
         default: return nil
         }
     }
@@ -705,6 +757,12 @@ extension Livekit_SignalResponse {
     var dataTrackSubscriberHandles: Livekit_DataTrackSubscriberHandles {
         _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag) ? (_pointer.pointee.message.data_track_subscriber_handles.map { Livekit_DataTrackSubscriberHandles(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriberHandles._empty) : Livekit_DataTrackSubscriberHandles()
     }
+    var storeDataBlobResponse: Livekit_StoreDataBlobResponse {
+        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_store_data_blob_response_tag) ? (_pointer.pointee.message.store_data_blob_response.map { Livekit_StoreDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobResponse._empty) : Livekit_StoreDataBlobResponse()
+    }
+    var getDataBlobResponse: Livekit_GetDataBlobResponse {
+        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_get_data_blob_response_tag) ? (_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobResponse._empty) : Livekit_GetDataBlobResponse()
+    }
 
 }
 
@@ -768,6 +826,10 @@ extension Livekit_SignalResponse.Builder {
                 return .unpublishDataTrackResponse(_pointer.pointee.message.unpublish_data_track_response.map { Livekit_UnpublishDataTrackResponse(_sharing: $0, owner: _box) } ?? Livekit_UnpublishDataTrackResponse._empty)
             case pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag):
                 return .dataTrackSubscriberHandles(_pointer.pointee.message.data_track_subscriber_handles.map { Livekit_DataTrackSubscriberHandles(_sharing: $0, owner: _box) } ?? Livekit_DataTrackSubscriberHandles._empty)
+            case pb_size_t(livekit_SignalResponse_store_data_blob_response_tag):
+                return .storeDataBlobResponse(_pointer.pointee.message.store_data_blob_response.map { Livekit_StoreDataBlobResponse(_sharing: $0, owner: _box) } ?? Livekit_StoreDataBlobResponse._empty)
+            case pb_size_t(livekit_SignalResponse_get_data_blob_response_tag):
+                return .getDataBlobResponse(_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _box) } ?? Livekit_GetDataBlobResponse._empty)
             default: return nil
             }
         }
@@ -799,6 +861,8 @@ extension Livekit_SignalResponse.Builder {
             case let .publishDataTrackResponse(value): .publishDataTrackResponse(value.owned())
             case let .unpublishDataTrackResponse(value): .unpublishDataTrackResponse(value.owned())
             case let .dataTrackSubscriberHandles(value): .dataTrackSubscriberHandles(value.owned())
+            case let .storeDataBlobResponse(value): .storeDataBlobResponse(value.owned())
+            case let .getDataBlobResponse(value): .getDataBlobResponse(value.owned())
             default: newValue
             }
             _clearMessage()
@@ -887,6 +951,12 @@ extension Livekit_SignalResponse.Builder {
             case let .dataTrackSubscriberHandles(value):
                 _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag)
                 lkSetMessage(&_pointer.pointee.message.data_track_subscriber_handles, value)
+            case let .storeDataBlobResponse(value):
+                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_store_data_blob_response_tag)
+                lkSetMessage(&_pointer.pointee.message.store_data_blob_response, value)
+            case let .getDataBlobResponse(value):
+                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_get_data_blob_response_tag)
+                lkSetMessage(&_pointer.pointee.message.get_data_blob_response, value)
             case nil: break
             }
         }
@@ -1141,6 +1211,24 @@ extension Livekit_SignalResponse.Builder {
             lkSetMessage(&_pointer.pointee.message.data_track_subscriber_handles, newValue)
         }
     }
+    var storeDataBlobResponse: Livekit_StoreDataBlobResponse {
+        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_store_data_blob_response_tag) ? (_pointer.pointee.message.store_data_blob_response.map { Livekit_StoreDataBlobResponse(_sharing: $0, owner: _box) } ?? Livekit_StoreDataBlobResponse._empty) : Livekit_StoreDataBlobResponse() }
+        nonmutating set {
+            let newValue = newValue.owned()
+            _clearMessage()
+            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_store_data_blob_response_tag)
+            lkSetMessage(&_pointer.pointee.message.store_data_blob_response, newValue)
+        }
+    }
+    var getDataBlobResponse: Livekit_GetDataBlobResponse {
+        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_get_data_blob_response_tag) ? (_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _box) } ?? Livekit_GetDataBlobResponse._empty) : Livekit_GetDataBlobResponse() }
+        nonmutating set {
+            let newValue = newValue.owned()
+            _clearMessage()
+            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_get_data_blob_response_tag)
+            lkSetMessage(&_pointer.pointee.message.get_data_blob_response, newValue)
+        }
+    }
     private func _clearMessage() {
         switch _pointer.pointee.which_message {
         case pb_size_t(livekit_SignalResponse_join_tag):
@@ -1199,6 +1287,10 @@ extension Livekit_SignalResponse.Builder {
             lkRelease(message: &_pointer.pointee.message.unpublish_data_track_response, Livekit_UnpublishDataTrackResponse.descriptor)
         case pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag):
             lkRelease(message: &_pointer.pointee.message.data_track_subscriber_handles, Livekit_DataTrackSubscriberHandles.descriptor)
+        case pb_size_t(livekit_SignalResponse_store_data_blob_response_tag):
+            lkRelease(message: &_pointer.pointee.message.store_data_blob_response, Livekit_StoreDataBlobResponse.descriptor)
+        case pb_size_t(livekit_SignalResponse_get_data_blob_response_tag):
+            lkRelease(message: &_pointer.pointee.message.get_data_blob_response, Livekit_GetDataBlobResponse.descriptor)
         default: break
         }
         _pointer.pointee.which_message = 0
@@ -1487,6 +1579,16 @@ extension Livekit_PublishDataTrackRequest {
     }
     var hasEncryption: Bool { _pointer.pointee.encryption != nil }
 
+    var frameEncoding: Livekit_DataTrackFrameEncoding {
+        _pointer.pointee.frame_encoding.map { Livekit_DataTrackFrameEncoding(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackFrameEncoding._empty
+    }
+    var hasFrameEncoding: Bool { _pointer.pointee.frame_encoding != nil }
+
+    var schema: Livekit_DataTrackSchemaId {
+        _pointer.pointee.schema.map { Livekit_DataTrackSchemaId(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSchemaId._empty
+    }
+    var hasSchema: Bool { _pointer.pointee.schema != nil }
+
 }
 
 extension Livekit_PublishDataTrackRequest.Builder {
@@ -1503,6 +1605,16 @@ extension Livekit_PublishDataTrackRequest.Builder {
     var encryption: Livekit_Encryption_TypeEnum {
         get { _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum() }
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption, newValue) }
+    }
+
+    var frameEncoding: Livekit_DataTrackFrameEncoding {
+        get { _pointer.pointee.frame_encoding.map { Livekit_DataTrackFrameEncoding(_sharing: $0, owner: _box) } ?? Livekit_DataTrackFrameEncoding._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.frame_encoding, newValue) }
+    }
+
+    var schema: Livekit_DataTrackSchemaId {
+        get { _pointer.pointee.schema.map { Livekit_DataTrackSchemaId(_sharing: $0, owner: _box) } ?? Livekit_DataTrackSchemaId._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.schema, newValue) }
     }
 
 }
@@ -2259,6 +2371,140 @@ extension Livekit_UpdateDataSubscription.Builder {
             lkSetRepeatedMessages(&count, &base, newValue)
             _pointer.pointee.updates_count = count; _pointer.pointee.updates = base
         }
+    }
+
+}
+
+extension livekit_StoreDataBlobRequest: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_StoreDataBlobRequest_msg }
+    package static let _emptyBox = NanopbBox<livekit_StoreDataBlobRequest>(zero: livekit_StoreDataBlobRequest(), descriptor: livekit_StoreDataBlobRequest_msg)
+}
+typealias Livekit_StoreDataBlobRequest = NanopbMsg<livekit_StoreDataBlobRequest>
+extension Livekit_StoreDataBlobRequest {
+    var requestID: UInt32 {
+        _pointer.pointee.request_id?.pointee ?? 0
+    }
+    var hasRequestID: Bool { _pointer.pointee.request_id != nil }
+
+    var blob: Livekit_DataBlob {
+        _pointer.pointee.blob.map { Livekit_DataBlob(_sharing: $0, owner: _owner) } ?? Livekit_DataBlob._empty
+    }
+    var hasBlob: Bool { _pointer.pointee.blob != nil }
+
+}
+
+extension Livekit_StoreDataBlobRequest.Builder {
+    var requestID: UInt32 {
+        get { _pointer.pointee.request_id?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.request_id, newValue) }
+    }
+
+    var blob: Livekit_DataBlob {
+        get { _pointer.pointee.blob.map { Livekit_DataBlob(_sharing: $0, owner: _box) } ?? Livekit_DataBlob._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.blob, newValue) }
+    }
+
+}
+
+extension livekit_StoreDataBlobResponse: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_StoreDataBlobResponse_msg }
+    package static let _emptyBox = NanopbBox<livekit_StoreDataBlobResponse>(zero: livekit_StoreDataBlobResponse(), descriptor: livekit_StoreDataBlobResponse_msg)
+}
+typealias Livekit_StoreDataBlobResponse = NanopbMsg<livekit_StoreDataBlobResponse>
+extension Livekit_StoreDataBlobResponse {
+    var requestID: UInt32 {
+        _pointer.pointee.request_id?.pointee ?? 0
+    }
+    var hasRequestID: Bool { _pointer.pointee.request_id != nil }
+
+    var key: Livekit_DataBlobKey {
+        _pointer.pointee.key.map { Livekit_DataBlobKey(_sharing: $0, owner: _owner) } ?? Livekit_DataBlobKey._empty
+    }
+    var hasKey: Bool { _pointer.pointee.key != nil }
+
+}
+
+extension Livekit_StoreDataBlobResponse.Builder {
+    var requestID: UInt32 {
+        get { _pointer.pointee.request_id?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.request_id, newValue) }
+    }
+
+    var key: Livekit_DataBlobKey {
+        get { _pointer.pointee.key.map { Livekit_DataBlobKey(_sharing: $0, owner: _box) } ?? Livekit_DataBlobKey._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.key, newValue) }
+    }
+
+}
+
+extension livekit_GetDataBlobRequest: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_GetDataBlobRequest_msg }
+    package static let _emptyBox = NanopbBox<livekit_GetDataBlobRequest>(zero: livekit_GetDataBlobRequest(), descriptor: livekit_GetDataBlobRequest_msg)
+}
+typealias Livekit_GetDataBlobRequest = NanopbMsg<livekit_GetDataBlobRequest>
+extension Livekit_GetDataBlobRequest {
+    var requestID: UInt32 {
+        _pointer.pointee.request_id?.pointee ?? 0
+    }
+    var hasRequestID: Bool { _pointer.pointee.request_id != nil }
+
+    var participantIdentity: String {
+        lkString(_pointer.pointee.participant_identity) ?? ""
+    }
+    var hasParticipantIdentity: Bool { _pointer.pointee.participant_identity != nil }
+
+    var key: Livekit_DataBlobKey {
+        _pointer.pointee.key.map { Livekit_DataBlobKey(_sharing: $0, owner: _owner) } ?? Livekit_DataBlobKey._empty
+    }
+    var hasKey: Bool { _pointer.pointee.key != nil }
+
+}
+
+extension Livekit_GetDataBlobRequest.Builder {
+    var requestID: UInt32 {
+        get { _pointer.pointee.request_id?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.request_id, newValue) }
+    }
+
+    var participantIdentity: String {
+        get { lkString(_pointer.pointee.participant_identity) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.participant_identity, newValue) }
+    }
+
+    var key: Livekit_DataBlobKey {
+        get { _pointer.pointee.key.map { Livekit_DataBlobKey(_sharing: $0, owner: _box) } ?? Livekit_DataBlobKey._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.key, newValue) }
+    }
+
+}
+
+extension livekit_GetDataBlobResponse: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_GetDataBlobResponse_msg }
+    package static let _emptyBox = NanopbBox<livekit_GetDataBlobResponse>(zero: livekit_GetDataBlobResponse(), descriptor: livekit_GetDataBlobResponse_msg)
+}
+typealias Livekit_GetDataBlobResponse = NanopbMsg<livekit_GetDataBlobResponse>
+extension Livekit_GetDataBlobResponse {
+    var requestID: UInt32 {
+        _pointer.pointee.request_id?.pointee ?? 0
+    }
+    var hasRequestID: Bool { _pointer.pointee.request_id != nil }
+
+    var blob: Livekit_DataBlob {
+        _pointer.pointee.blob.map { Livekit_DataBlob(_sharing: $0, owner: _owner) } ?? Livekit_DataBlob._empty
+    }
+    var hasBlob: Bool { _pointer.pointee.blob != nil }
+
+}
+
+extension Livekit_GetDataBlobResponse.Builder {
+    var requestID: UInt32 {
+        get { _pointer.pointee.request_id?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.request_id, newValue) }
+    }
+
+    var blob: Livekit_DataBlob {
+        get { _pointer.pointee.blob.map { Livekit_DataBlob(_sharing: $0, owner: _box) } ?? Livekit_DataBlob._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.blob, newValue) }
     }
 
 }
@@ -3828,6 +4074,7 @@ struct Livekit_RequestResponse_Reason: NanopbEnum {
     static let invalidName = Self(rawValue: 8)
     static let duplicateHandle = Self(rawValue: 9)
     static let duplicateName = Self(rawValue: 10)
+    static let invalidRequest = Self(rawValue: 11)
 }
 
 extension Livekit_RequestResponse.Builder {

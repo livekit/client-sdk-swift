@@ -81,7 +81,8 @@ public enum TestEnvironment {
     public static func withRooms(_ options: [RoomTestingOptions] = [],
                                  _ block: @escaping ([Room]) async throws -> Void) async throws
     {
-        let roomName = UUID().uuidString
+        // Rooms without an explicit name share this one, so they meet in the same room.
+        let sharedRoomName = UUID().uuidString
         let sharedKey = UUID().uuidString
 
         let rooms = try options.enumerated().map {
@@ -90,11 +91,14 @@ public enum TestEnvironment {
                 clientProtocol: $0.element.clientProtocol ?? ConnectOptions().clientProtocol,
             )
 
-            let encryptionOptions = $0.element.encryptionOptions ?? EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
+            let encryptionOptions = $0.element.isE2eeEnabled
+                ? $0.element.encryptionOptions ?? EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
+                : nil
             let roomOptions = RoomOptions(encryptionOptions: encryptionOptions, reportRemoteTrackStatistics: true, singlePeerConnection: $0.element.singlePeerConnection)
 
             let room = Room(delegate: $0.element.delegate, connectOptions: connectOptions, roomOptions: roomOptions)
-            let identity = "identity-\($0.offset)"
+            let roomName = $0.element.roomName ?? sharedRoomName
+            let identity = $0.element.identity ?? "identity-\($0.offset)"
 
             let url = $0.element.url ?? liveKitServerUrl()
 
@@ -120,7 +124,7 @@ public enum TestEnvironment {
         // signaling and transport tasks, so an early exit without `disconnect()`
         // leaks a live Room into the rest of the test process.
         do {
-            try await connectAndDiscover(rooms, roomName: roomName)
+            try await connectAndDiscover(rooms, sharedRoomName: sharedRoomName)
             try await block(allRooms)
         } catch {
             await teardown(allRooms)
@@ -139,7 +143,7 @@ public enum TestEnvironment {
         let token: String
     }
 
-    private static func connectAndDiscover(_ rooms: [RoomFixture], roomName: String) async throws {
+    private static func connectAndDiscover(_ rooms: [RoomFixture], sharedRoomName: String) async throws {
         // Connect all Rooms concurrently (retry on transient failure)
         try await Task.retrying(totalAttempts: 3, retryDelay: 2) { _, _ in
             try await withThrowingTaskGroup { group in
@@ -156,14 +160,14 @@ public enum TestEnvironment {
             }
         }.value
 
-        let observerToken = try liveKitServerToken(for: roomName,
+        let observerToken = try liveKitServerToken(for: sharedRoomName,
                                                    identity: "observer",
                                                    canPublish: true,
                                                    canPublishData: true,
                                                    canPublishSources: [],
                                                    canSubscribe: true)
 
-        print("Observer token: \(observerToken) for room: \(roomName)")
+        print("Observer token: \(observerToken) for room: \(sharedRoomName)")
 
         // Wait for all participants to discover each other using async polling
         if rooms.count >= 2 {

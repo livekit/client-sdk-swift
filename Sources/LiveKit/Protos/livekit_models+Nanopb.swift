@@ -414,6 +414,10 @@ extension Livekit_ParticipantInfo {
     }
     var hasClientProtocol: Bool { _pointer.pointee.client_protocol != nil }
 
+    var capabilities: [Livekit_ClientInfo_Capability] {
+        lkRepeatedEnum(_pointer.pointee.capabilities_count, _pointer.pointee.capabilities)
+    }
+
 }
 
 extension livekit_ParticipantInfo_AttributesEntry: NanopbStorage {
@@ -482,6 +486,7 @@ struct Livekit_ParticipantInfo_KindDetail: NanopbEnum {
     static let connectorWhatsapp = Self(rawValue: 2)
     static let connectorTwilio = Self(rawValue: 3)
     static let bridgeRtsp = Self(rawValue: 4)
+    static let simulation = Self(rawValue: 5)
 }
 
 extension Livekit_ParticipantInfo.Builder {
@@ -599,6 +604,15 @@ extension Livekit_ParticipantInfo.Builder {
     var clientProtocol: Int32 {
         get { _pointer.pointee.client_protocol?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.client_protocol, newValue) }
+    }
+
+    var capabilities: [Livekit_ClientInfo_Capability] {
+        get { lkRepeatedEnum(_pointer.pointee.capabilities_count, _pointer.pointee.capabilities) }
+        nonmutating set {
+            var count = _pointer.pointee.capabilities_count, base = _pointer.pointee.capabilities
+            lkSetRepeatedEnum(&count, &base, newValue)
+            _pointer.pointee.capabilities_count = count; _pointer.pointee.capabilities = base
+        }
     }
 
 }
@@ -950,6 +964,16 @@ extension Livekit_DataTrackInfo {
     }
     var hasEncryption: Bool { _pointer.pointee.encryption != nil }
 
+    var frameEncoding: Livekit_DataTrackFrameEncoding {
+        _pointer.pointee.frame_encoding.map { Livekit_DataTrackFrameEncoding(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackFrameEncoding._empty
+    }
+    var hasFrameEncoding: Bool { _pointer.pointee.frame_encoding != nil }
+
+    var schema: Livekit_DataTrackSchemaId {
+        _pointer.pointee.schema.map { Livekit_DataTrackSchemaId(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSchemaId._empty
+    }
+    var hasSchema: Bool { _pointer.pointee.schema != nil }
+
 }
 
 extension Livekit_DataTrackInfo.Builder {
@@ -973,6 +997,247 @@ extension Livekit_DataTrackInfo.Builder {
         nonmutating set { lkSetEnumPointer(&_pointer.pointee.encryption, newValue) }
     }
 
+    var frameEncoding: Livekit_DataTrackFrameEncoding {
+        get { _pointer.pointee.frame_encoding.map { Livekit_DataTrackFrameEncoding(_sharing: $0, owner: _box) } ?? Livekit_DataTrackFrameEncoding._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.frame_encoding, newValue) }
+    }
+
+    var schema: Livekit_DataTrackSchemaId {
+        get { _pointer.pointee.schema.map { Livekit_DataTrackSchemaId(_sharing: $0, owner: _box) } ?? Livekit_DataTrackSchemaId._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.schema, newValue) }
+    }
+
+}
+
+enum Livekit_DataTrackFrameEncoding_OneOf_Value: Equatable {
+    case wellKnown(Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding)
+    case custom(String)
+}
+
+extension livekit_DataTrackFrameEncoding: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataTrackFrameEncoding_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataTrackFrameEncoding>(zero: livekit_DataTrackFrameEncoding(), descriptor: livekit_DataTrackFrameEncoding_msg)
+}
+typealias Livekit_DataTrackFrameEncoding = NanopbMsg<livekit_DataTrackFrameEncoding>
+extension Livekit_DataTrackFrameEncoding {
+    var value: Livekit_DataTrackFrameEncoding_OneOf_Value? {
+        switch _pointer.pointee.which_value {
+        case pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag):
+            return .wellKnown(_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding } ?? Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding())
+        case pb_size_t(livekit_DataTrackFrameEncoding_custom_tag):
+            return .custom(lkString(_pointer.pointee.value.custom) ?? "")
+        default: return nil
+        }
+    }
+    var wellKnown: Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding {
+        _pointer.pointee.which_value == pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag) ? (_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding } ?? Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding()) : Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding()
+    }
+    var custom: String {
+        _pointer.pointee.which_value == pb_size_t(livekit_DataTrackFrameEncoding_custom_tag) ? (lkString(_pointer.pointee.value.custom) ?? "") : ""
+    }
+
+}
+
+struct Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding: NanopbEnum {
+    let rawValue: Int
+    init(rawValue: Int) { self.rawValue = rawValue }
+    init() { self.init(rawValue: 0) }
+
+    static let unspecified = Self(rawValue: 0)
+    static let ros1 = Self(rawValue: 1)
+    static let cdr = Self(rawValue: 2)
+    static let protobuf = Self(rawValue: 3)
+    static let flatbuffer = Self(rawValue: 4)
+    static let cbor = Self(rawValue: 5)
+    static let msgpack = Self(rawValue: 6)
+    static let json = Self(rawValue: 7)
+}
+
+extension Livekit_DataTrackFrameEncoding.Builder {
+    var value: Livekit_DataTrackFrameEncoding_OneOf_Value? {
+        get {
+            switch _pointer.pointee.which_value {
+            case pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag):
+                return .wellKnown(_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding } ?? Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding())
+            case pb_size_t(livekit_DataTrackFrameEncoding_custom_tag):
+                return .custom(lkString(_pointer.pointee.value.custom) ?? "")
+            default: return nil
+            }
+        }
+        nonmutating set {
+            _clearValue()
+            switch newValue {
+            case let .wellKnown(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag)
+                lkSetEnumPointer(&_pointer.pointee.value.well_known, value)
+            case let .custom(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataTrackFrameEncoding_custom_tag)
+                lkSetString(&_pointer.pointee.value.custom, value)
+            case nil: break
+            }
+        }
+    }
+    var wellKnown: Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag) ? (_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding } ?? Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding()) : Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag)
+            lkSetEnumPointer(&_pointer.pointee.value.well_known, newValue)
+        }
+    }
+    var custom: String {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataTrackFrameEncoding_custom_tag) ? (lkString(_pointer.pointee.value.custom) ?? "") : "" }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataTrackFrameEncoding_custom_tag)
+            lkSetString(&_pointer.pointee.value.custom, newValue)
+        }
+    }
+    private func _clearValue() {
+        switch _pointer.pointee.which_value {
+        case pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag):
+            lkFree(&_pointer.pointee.value.well_known)
+        case pb_size_t(livekit_DataTrackFrameEncoding_custom_tag):
+            lkFree(&_pointer.pointee.value.custom)
+        default: break
+        }
+        _pointer.pointee.which_value = 0
+        // zero the union: stale bits from a previous variant would otherwise
+        // be misread as a pointer by the next variant's setter
+        _pointer.pointee.value = .init()
+    }
+
+}
+
+enum Livekit_DataTrackSchemaEncoding_OneOf_Value: Equatable {
+    case wellKnown(Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding)
+    case custom(String)
+}
+
+extension livekit_DataTrackSchemaEncoding: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataTrackSchemaEncoding_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataTrackSchemaEncoding>(zero: livekit_DataTrackSchemaEncoding(), descriptor: livekit_DataTrackSchemaEncoding_msg)
+}
+typealias Livekit_DataTrackSchemaEncoding = NanopbMsg<livekit_DataTrackSchemaEncoding>
+extension Livekit_DataTrackSchemaEncoding {
+    var value: Livekit_DataTrackSchemaEncoding_OneOf_Value? {
+        switch _pointer.pointee.which_value {
+        case pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag):
+            return .wellKnown(_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding } ?? Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding())
+        case pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag):
+            return .custom(lkString(_pointer.pointee.value.custom) ?? "")
+        default: return nil
+        }
+    }
+    var wellKnown: Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding {
+        _pointer.pointee.which_value == pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag) ? (_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding } ?? Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding()) : Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding()
+    }
+    var custom: String {
+        _pointer.pointee.which_value == pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag) ? (lkString(_pointer.pointee.value.custom) ?? "") : ""
+    }
+
+}
+
+struct Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding: NanopbEnum {
+    let rawValue: Int
+    init(rawValue: Int) { self.rawValue = rawValue }
+    init() { self.init(rawValue: 0) }
+
+    static let unspecified = Self(rawValue: 0)
+    static let protobuf = Self(rawValue: 1)
+    static let flatbuffer = Self(rawValue: 2)
+    static let ros1Msg = Self(rawValue: 3)
+    static let ros2Msg = Self(rawValue: 4)
+    static let ros2Idl = Self(rawValue: 5)
+    static let omgIdl = Self(rawValue: 6)
+    static let jsonSchema = Self(rawValue: 7)
+}
+
+extension Livekit_DataTrackSchemaEncoding.Builder {
+    var value: Livekit_DataTrackSchemaEncoding_OneOf_Value? {
+        get {
+            switch _pointer.pointee.which_value {
+            case pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag):
+                return .wellKnown(_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding } ?? Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding())
+            case pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag):
+                return .custom(lkString(_pointer.pointee.value.custom) ?? "")
+            default: return nil
+            }
+        }
+        nonmutating set {
+            _clearValue()
+            switch newValue {
+            case let .wellKnown(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag)
+                lkSetEnumPointer(&_pointer.pointee.value.well_known, value)
+            case let .custom(value):
+                _pointer.pointee.which_value = pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag)
+                lkSetString(&_pointer.pointee.value.custom, value)
+            case nil: break
+            }
+        }
+    }
+    var wellKnown: Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag) ? (_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding } ?? Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding()) : Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding() }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag)
+            lkSetEnumPointer(&_pointer.pointee.value.well_known, newValue)
+        }
+    }
+    var custom: String {
+        get { _pointer.pointee.which_value == pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag) ? (lkString(_pointer.pointee.value.custom) ?? "") : "" }
+        nonmutating set {
+            _clearValue()
+            _pointer.pointee.which_value = pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag)
+            lkSetString(&_pointer.pointee.value.custom, newValue)
+        }
+    }
+    private func _clearValue() {
+        switch _pointer.pointee.which_value {
+        case pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag):
+            lkFree(&_pointer.pointee.value.well_known)
+        case pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag):
+            lkFree(&_pointer.pointee.value.custom)
+        default: break
+        }
+        _pointer.pointee.which_value = 0
+        // zero the union: stale bits from a previous variant would otherwise
+        // be misread as a pointer by the next variant's setter
+        _pointer.pointee.value = .init()
+    }
+
+}
+
+extension livekit_DataTrackSchemaId: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataTrackSchemaId_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataTrackSchemaId>(zero: livekit_DataTrackSchemaId(), descriptor: livekit_DataTrackSchemaId_msg)
+}
+typealias Livekit_DataTrackSchemaId = NanopbMsg<livekit_DataTrackSchemaId>
+extension Livekit_DataTrackSchemaId {
+    var name: String {
+        lkString(_pointer.pointee.name) ?? ""
+    }
+    var hasName: Bool { _pointer.pointee.name != nil }
+
+    var encoding: Livekit_DataTrackSchemaEncoding {
+        _pointer.pointee.encoding.map { Livekit_DataTrackSchemaEncoding(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSchemaEncoding._empty
+    }
+    var hasEncoding: Bool { _pointer.pointee.encoding != nil }
+
+}
+
+extension Livekit_DataTrackSchemaId.Builder {
+    var name: String {
+        get { lkString(_pointer.pointee.name) ?? "" }
+        nonmutating set { lkSetString(&_pointer.pointee.name, newValue) }
+    }
+
+    var encoding: Livekit_DataTrackSchemaEncoding {
+        get { _pointer.pointee.encoding.map { Livekit_DataTrackSchemaEncoding(_sharing: $0, owner: _box) } ?? Livekit_DataTrackSchemaEncoding._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.encoding, newValue) }
+    }
+
 }
 
 extension livekit_DataTrackSubscriptionOptions: NanopbStorage {
@@ -992,6 +1257,127 @@ extension Livekit_DataTrackSubscriptionOptions.Builder {
     var targetFps: UInt32 {
         get { _pointer.pointee.target_fps?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.target_fps, newValue) }
+    }
+
+}
+
+enum Livekit_DataBlobKey_OneOf_Key: Equatable {
+    case generic(String)
+    case schemaID(Livekit_DataTrackSchemaId)
+}
+
+extension livekit_DataBlobKey: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataBlobKey_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataBlobKey>(zero: livekit_DataBlobKey(), descriptor: livekit_DataBlobKey_msg)
+}
+typealias Livekit_DataBlobKey = NanopbMsg<livekit_DataBlobKey>
+extension Livekit_DataBlobKey {
+    var key: Livekit_DataBlobKey_OneOf_Key? {
+        switch _pointer.pointee.which_key {
+        case pb_size_t(livekit_DataBlobKey_generic_tag):
+            return .generic(lkString(_pointer.pointee.key.generic) ?? "")
+        case pb_size_t(livekit_DataBlobKey_schema_id_tag):
+            return .schemaID(_pointer.pointee.key.schema_id.map { Livekit_DataTrackSchemaId(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSchemaId._empty)
+        default: return nil
+        }
+    }
+    var generic: String {
+        _pointer.pointee.which_key == pb_size_t(livekit_DataBlobKey_generic_tag) ? (lkString(_pointer.pointee.key.generic) ?? "") : ""
+    }
+    var schemaID: Livekit_DataTrackSchemaId {
+        _pointer.pointee.which_key == pb_size_t(livekit_DataBlobKey_schema_id_tag) ? (_pointer.pointee.key.schema_id.map { Livekit_DataTrackSchemaId(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSchemaId._empty) : Livekit_DataTrackSchemaId()
+    }
+
+}
+
+extension Livekit_DataBlobKey.Builder {
+    var key: Livekit_DataBlobKey_OneOf_Key? {
+        get {
+            switch _pointer.pointee.which_key {
+            case pb_size_t(livekit_DataBlobKey_generic_tag):
+                return .generic(lkString(_pointer.pointee.key.generic) ?? "")
+            case pb_size_t(livekit_DataBlobKey_schema_id_tag):
+                return .schemaID(_pointer.pointee.key.schema_id.map { Livekit_DataTrackSchemaId(_sharing: $0, owner: _box) } ?? Livekit_DataTrackSchemaId._empty)
+            default: return nil
+            }
+        }
+        nonmutating set {
+            let newValue: Livekit_DataBlobKey_OneOf_Key? = switch newValue {
+            case let .schemaID(value): .schemaID(value.owned())
+            default: newValue
+            }
+            _clearKey()
+            switch newValue {
+            case let .generic(value):
+                _pointer.pointee.which_key = pb_size_t(livekit_DataBlobKey_generic_tag)
+                lkSetString(&_pointer.pointee.key.generic, value)
+            case let .schemaID(value):
+                _pointer.pointee.which_key = pb_size_t(livekit_DataBlobKey_schema_id_tag)
+                lkSetMessage(&_pointer.pointee.key.schema_id, value)
+            case nil: break
+            }
+        }
+    }
+    var generic: String {
+        get { _pointer.pointee.which_key == pb_size_t(livekit_DataBlobKey_generic_tag) ? (lkString(_pointer.pointee.key.generic) ?? "") : "" }
+        nonmutating set {
+            _clearKey()
+            _pointer.pointee.which_key = pb_size_t(livekit_DataBlobKey_generic_tag)
+            lkSetString(&_pointer.pointee.key.generic, newValue)
+        }
+    }
+    var schemaID: Livekit_DataTrackSchemaId {
+        get { _pointer.pointee.which_key == pb_size_t(livekit_DataBlobKey_schema_id_tag) ? (_pointer.pointee.key.schema_id.map { Livekit_DataTrackSchemaId(_sharing: $0, owner: _box) } ?? Livekit_DataTrackSchemaId._empty) : Livekit_DataTrackSchemaId() }
+        nonmutating set {
+            let newValue = newValue.owned()
+            _clearKey()
+            _pointer.pointee.which_key = pb_size_t(livekit_DataBlobKey_schema_id_tag)
+            lkSetMessage(&_pointer.pointee.key.schema_id, newValue)
+        }
+    }
+    private func _clearKey() {
+        switch _pointer.pointee.which_key {
+        case pb_size_t(livekit_DataBlobKey_generic_tag):
+            lkFree(&_pointer.pointee.key.generic)
+        case pb_size_t(livekit_DataBlobKey_schema_id_tag):
+            lkRelease(message: &_pointer.pointee.key.schema_id, Livekit_DataTrackSchemaId.descriptor)
+        default: break
+        }
+        _pointer.pointee.which_key = 0
+        // zero the union: stale bits from a previous variant would otherwise
+        // be misread as a pointer by the next variant's setter
+        _pointer.pointee.key = .init()
+    }
+
+}
+
+extension livekit_DataBlob: NanopbStorage {
+    package static var descriptor: pb_msgdesc_t { livekit_DataBlob_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataBlob>(zero: livekit_DataBlob(), descriptor: livekit_DataBlob_msg)
+}
+typealias Livekit_DataBlob = NanopbMsg<livekit_DataBlob>
+extension Livekit_DataBlob {
+    var key: Livekit_DataBlobKey {
+        _pointer.pointee.key.map { Livekit_DataBlobKey(_sharing: $0, owner: _owner) } ?? Livekit_DataBlobKey._empty
+    }
+    var hasKey: Bool { _pointer.pointee.key != nil }
+
+    var contents: Data {
+        lkData(_pointer.pointee.contents)
+    }
+    var hasContents: Bool { _pointer.pointee.contents != nil }
+
+}
+
+extension Livekit_DataBlob.Builder {
+    var key: Livekit_DataBlobKey {
+        get { _pointer.pointee.key.map { Livekit_DataBlobKey(_sharing: $0, owner: _box) } ?? Livekit_DataBlobKey._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.key, newValue) }
+    }
+
+    var contents: Data {
+        get { lkData(_pointer.pointee.contents) }
+        nonmutating set { lkSetData(&_pointer.pointee.contents, newValue) }
     }
 
 }
@@ -2664,6 +3050,7 @@ struct Livekit_ClientInfo_Capability: NanopbEnum {
 
     static let capUnused = Self(rawValue: 0)
     static let capPacketTrailer = Self(rawValue: 1)
+    static let capCompressionDeflateRaw = Self(rawValue: 2)
 }
 
 extension Livekit_ClientInfo.Builder {
@@ -2895,6 +3282,7 @@ enum Livekit_DataStream {
     typealias Chunk = Livekit_DataStream_Chunk
     typealias Trailer = Livekit_DataStream_Trailer
     typealias OperationType = Livekit_DataStream_OperationType
+    typealias CompressionType = Livekit_DataStream_CompressionType
 }
 
 extension livekit_DataStream_TextHeader: NanopbStorage {
@@ -3031,6 +3419,16 @@ extension Livekit_DataStream_Header {
         return out
     }
 
+    var inlineContent: Data {
+        lkData(_pointer.pointee.inline_content)
+    }
+    var hasInlineContent: Bool { _pointer.pointee.inline_content != nil }
+
+    var compression: Livekit_DataStream_CompressionType {
+        _pointer.pointee.compression.map { lkEnum($0.pointee) } ?? Livekit_DataStream_CompressionType()
+    }
+    var hasCompression: Bool { _pointer.pointee.compression != nil }
+
     var contentHeader: Livekit_DataStream_Header_OneOf_ContentHeader? {
         switch _pointer.pointee.which_content_header {
         case pb_size_t(livekit_DataStream_Header_text_header_tag):
@@ -3128,6 +3526,16 @@ extension Livekit_DataStream_Header.Builder {
             lkSetRepeatedMessages(&count, &base, entries)
             _pointer.pointee.attributes_count = count; _pointer.pointee.attributes = base
         }
+    }
+
+    var inlineContent: Data {
+        get { lkData(_pointer.pointee.inline_content) }
+        nonmutating set { lkSetData(&_pointer.pointee.inline_content, newValue) }
+    }
+
+    var compression: Livekit_DataStream_CompressionType {
+        get { _pointer.pointee.compression.map { lkEnum($0.pointee) } ?? Livekit_DataStream_CompressionType() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.compression, newValue) }
     }
 
     var contentHeader: Livekit_DataStream_Header_OneOf_ContentHeader? {
@@ -3353,6 +3761,15 @@ struct Livekit_DataStream_OperationType: NanopbEnum {
     static let reaction = Self(rawValue: 3)
 }
 
+struct Livekit_DataStream_CompressionType: NanopbEnum {
+    let rawValue: Int
+    init(rawValue: Int) { self.rawValue = rawValue }
+    init() { self.init(rawValue: 0) }
+
+    static let none = Self(rawValue: 0)
+    static let deflateRaw = Self(rawValue: 1)
+}
+
 extension livekit_SubscribedAudioCodec: NanopbStorage {
     package static var descriptor: pb_msgdesc_t { livekit_SubscribedAudioCodec_msg }
     package static let _emptyBox = NanopbBox<livekit_SubscribedAudioCodec>(zero: livekit_SubscribedAudioCodec(), descriptor: livekit_SubscribedAudioCodec_msg)
@@ -3515,5 +3932,6 @@ struct Livekit_PacketTrailerFeature: NanopbEnum {
 
     static let ptfUserTimestamp = Self(rawValue: 0)
     static let ptfFrameID = Self(rawValue: 1)
+    static let ptfUserData = Self(rawValue: 2)
 }
 

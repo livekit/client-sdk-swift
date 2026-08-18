@@ -26,6 +26,8 @@ protocol SignalClientDelegate: AnyObject, Sendable {
     func signalClient(_ signalClient: SignalClient, didReceiveIceCandidate iceCandidate: IceCandidate, target: Livekit_SignalTarget) async
     func signalClient(_ signalClient: SignalClient, didUnpublishLocalTrack localTrack: Livekit_TrackUnpublishedResponse) async
     func signalClient(_ signalClient: SignalClient, didUpdateParticipants participants: [Livekit_ParticipantInfo]) async
+    /// A message handed over as received, after its decoded counterpart above has been applied.
+    func signalClient(_ signalClient: SignalClient, didReceiveEncodedResponse response: SignalClient.EncodedResponse) async
     func signalClient(_ signalClient: SignalClient, didUpdateRoom room: Livekit_Room) async
     func signalClient(_ signalClient: SignalClient, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) async
     func signalClient(_ signalClient: SignalClient, didUpdateConnectionQuality connectionQuality: [Livekit_ConnectionQualityInfo]) async
@@ -38,4 +40,5 @@ protocol SignalClientDelegate: AnyObject, Sendable {
     func signalClient(_ signalClient: SignalClient, didReceiveLeave action: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?) async
     func signalClient(_ signalClient: SignalClient, didSubscribeTrack trackSid: Track.Sid) async
     func signalClient(_ signalClient: SignalClient, didReceiveMediaSectionsRequirement requirement: Livekit_MediaSectionsRequirement) async
+    func signalClient(_ signalClient: SignalClient, didReceiveDataTrackResponse data: Data) async
 }

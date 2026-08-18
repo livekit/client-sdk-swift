@@ -105,7 +105,11 @@ jobs:
         uses: livekit/dev-server-action@61e2b4dcb170dd3591e0c9b0db3c3fe5db93b500
         with:
           github-token: ${{ github.token }}
-          config: 'room: { departure_timeout: 1 }'
+          config: |
+            room:
+              departure_timeout: 1
+            # Data track schema definitions are stored as participant data blobs.
+            enable_participant_data_blob: true
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -243,7 +247,7 @@ jobs:
       # Hard budget for the SDK's uncompressed .app delta, in MB — no tolerance
       # band. Move it deliberately, in the same commit as the change that needs
       # it (the job summary reports the measured value).
-      SIZE_BASELINE_MB: "16"
+      SIZE_BASELINE_MB: "16.5"
     steps:
       - uses: actions/checkout@v7
         with:
