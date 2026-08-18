@@ -40,7 +40,7 @@ protocol DataChannelDelegate: AnyObject, Sendable {
 /// sequence numbers — co-locating sequence assignment with the enqueue is what
 /// guarantees the sequence carried on the wire matches the FIFO order in which
 /// packets reach `channel.sendData(...)`. The retry-buffer replay path bypasses
-/// re-processing by yielding pre-serialized `PublishDataRequest`s as
+/// re-processing by yielding pre-serialized `RetainedWrite`s as
 /// `.sendRequested` events.
 ///
 /// ## Live readiness vs. the open-completer
@@ -86,7 +86,7 @@ protocol DataChannelDelegate: AnyObject, Sendable {
 ///     buffered-amount mirror behind a lock.
 ///   - `openCompleter` — internally locked, idempotent resume / reset.
 ///
-/// Continuations in `PublishDataRequest` are `CheckedContinuation`, resumed
+/// Continuations in `ReadyWrite` are `CheckedContinuation`, resumed
 /// exactly once via send-success, send-failure, or `.drain`. Caller-side
 /// `Task` cancellation is **not** propagated to a parked request (pre-existing
 /// limitation of `withCheckedThrowingContinuation` here); the request remains
@@ -149,27 +149,27 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     private struct SendBuffer {
-        private var queue: Deque<PublishDataRequest> = []
+        private var queue: Deque<ReadyWrite> = []
 
-        mutating func enqueue(_ request: PublishDataRequest) {
-            queue.append(request)
+        mutating func enqueue(_ write: ReadyWrite) {
+            queue.append(write)
         }
 
-        /// Inserts `request` at the head; used to re-park a dequeued request so it
+        /// Inserts `write` at the head; used to re-park a dequeued write so it
         /// keeps its FIFO position for the next `.wakeup` retry.
-        mutating func enqueueFront(_ request: PublishDataRequest) {
-            queue.prepend(request)
+        mutating func enqueueFront(_ write: ReadyWrite) {
+            queue.prepend(write)
         }
 
         @discardableResult
-        mutating func dequeue() -> PublishDataRequest? {
+        mutating func dequeue() -> ReadyWrite? {
             guard !queue.isEmpty else { return nil }
             return queue.removeFirst()
         }
     }
 
     private struct RetryBuffer {
-        private var queue: Deque<PublishDataRequest> = []
+        private var queue: Deque<RetainedWrite> = []
         private var currentAmount: UInt64 = 0
         private let minAmount: UInt64
 
@@ -177,15 +177,15 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             self.minAmount = minAmount
         }
 
-        func peek() -> PublishDataRequest? { queue.first }
+        func peek() -> RetainedWrite? { queue.first }
 
-        mutating func enqueue(_ request: PublishDataRequest) {
-            queue.append(request.withoutContinuation())
-            currentAmount += UInt64(request.data.data.count)
+        mutating func enqueue(_ write: ReadyWrite) {
+            queue.append(RetainedWrite(write))
+            currentAmount += UInt64(write.data.data.count)
         }
 
         @discardableResult
-        mutating func dequeue() -> PublishDataRequest? {
+        mutating func dequeue() -> RetainedWrite? {
             guard !queue.isEmpty else { return nil }
             let first = queue.removeFirst()
             currentAmount -= UInt64(first.data.data.count)
@@ -199,20 +199,39 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    private struct PublishDataRequest {
+    /// A write that has been serialized, stamped and size-checked, and so is the only thing
+    /// `channel.sendData(...)` accepts. Carries the caller's continuation, if it has one — a
+    /// replayed write does not.
+    private struct ReadyWrite {
         let data: LKRTCDataBuffer
         let sequence: UInt32
         let continuation: CheckedContinuation<Void, any Error>?
+    }
 
-        func withoutContinuation() -> Self {
-            .init(data: data, sequence: sequence, continuation: nil)
+    /// A dispatched reliable write, kept for SCTP-level replay on resume.
+    ///
+    /// Has no continuation *field*, which is the point: replay hands the same bytes over again,
+    /// so a retained write that could still resume a caller would resume it more than once.
+    /// Previously an `assert` in ``retry(buffer:from:)``; now unrepresentable.
+    private struct RetainedWrite {
+        let data: LKRTCDataBuffer
+        let sequence: UInt32
+
+        init(_ write: ReadyWrite) {
+            data = write.data
+            sequence = write.sequence
+        }
+
+        /// Re-enters the send buffer with no waiter to resume.
+        var replayed: ReadyWrite {
+            ReadyWrite(data: data, sequence: sequence, continuation: nil)
         }
     }
 
     /// Carries a not-yet-serialized data packet plus its waiting continuation from
     /// `send(dataPacket:)` into the event loop. The event loop assigns the reliable
     /// sequence number, encrypts (already done), serializes, and builds the
-    /// `PublishDataRequest` — so the on-the-wire sequence matches the FIFO order in
+    /// `ReadyWrite` — so the on-the-wire sequence matches the FIFO order in
     /// which packets reach `channel.sendData(...)`.
     private struct PendingSend {
         let packet: Livekit_DataPacket
@@ -226,7 +245,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         enum Detail {
             /// Yielded by `send(dataPacket:)`. The event loop assigns the reliable
             /// sequence number, serializes the packet, and enqueues the resulting
-            /// `PublishDataRequest` into the matching send buffer. Co-locating
+            /// `ReadyWrite` into the matching send buffer. Co-locating
             /// sequence assignment and enqueue inside the single consumer of the
             /// stream guarantees the sequence carried on the wire matches the
             /// FIFO order in which `channel.sendData(...)` is invoked, which the
@@ -234,16 +253,16 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             case sendPending(PendingSend)
 
             /// Yielded by the retry-buffer replay path in `retry(buffer:from:)`,
-            /// where the request is already encrypted, serialized, and stamped
+            /// where the write is already encrypted, serialized, and stamped
             /// with its (now-stale) sequence number. Consumer enqueues directly
             /// into the matching send buffer with no re-processing.
-            case sendRequested(PublishDataRequest)
+            case sendRequested(RetainedWrite)
 
             /// Yielded by `processSendQueue` after a successful
-            /// `channel.sendData`. Consumer copies reliable requests into the
-            /// retry buffer for potential SCTP-level replay on resume;
-            /// lossy requests are a no-op (they aren't replayed).
-            case sendDispatched(PublishDataRequest)
+            /// `channel.sendData`. Consumer retains reliable writes for
+            /// potential SCTP-level replay on resume; lossy writes are a
+            /// no-op (they aren't replayed).
+            case sendDispatched(ReadyWrite)
 
             /// Yielded by `LKRTCDataChannelDelegate.didChangeBufferedAmount`
             /// when WebRTC reports its outbound buffer has drained. Consumer
@@ -266,7 +285,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             case wakeup
 
             /// Yielded by `reset(throwing:)` to permanently fail every
-            /// parked send-buffer request with `error` (or
+            /// parked send-buffer write with `error` (or
             /// `LiveKitError(.cancelled)` when `nil`). Routed through the
             /// stream so it's ordered after any in-flight `.sendRequested`
             /// enqueues from concurrent callers.
@@ -280,20 +299,20 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     private func processEvent(_ event: ChannelEvent, buffers: inout Buffers) {
         switch event.detail {
         case let .sendPending(pending):
-            guard let request = makeRequest(from: pending) else { return }
+            guard let write = makeWrite(from: pending) else { return }
             switch event.channelKind {
-            case .lossy: buffers.lossyBuffer.enqueue(request)
-            case .reliable: buffers.reliableBuffer.enqueue(request)
+            case .lossy: buffers.lossyBuffer.enqueue(write)
+            case .reliable: buffers.reliableBuffer.enqueue(write)
             }
-        case let .sendRequested(request):
+        case let .sendRequested(retained):
             switch event.channelKind {
-            case .lossy: buffers.lossyBuffer.enqueue(request)
-            case .reliable: buffers.reliableBuffer.enqueue(request)
+            case .lossy: buffers.lossyBuffer.enqueue(retained.replayed)
+            case .reliable: buffers.reliableBuffer.enqueue(retained.replayed)
             }
-        case let .sendDispatched(request):
+        case let .sendDispatched(write):
             switch event.channelKind {
             case .lossy: ()
-            case .reliable: buffers.reliableRetryBuffer.enqueue(request)
+            case .reliable: buffers.reliableRetryBuffer.enqueue(write)
             }
         case let .bufferedAmountChanged(amount):
             switch event.channelKind {
@@ -311,14 +330,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         case .wakeup:
             break
         case let .drain(error):
-            // RetryBuffer entries hold nil continuations (asserted in `retry`),
-            // so only the send buffers need resumption here.
+            // `RetainedWrite` has no continuation to resume, so only the send
+            // buffers need draining here.
             let drainError = error ?? LiveKitError(.cancelled, message: "Data channel reset")
-            while let request = buffers.lossyBuffer.dequeue() {
-                request.continuation?.resume(throwing: drainError)
+            while let write = buffers.lossyBuffer.dequeue() {
+                write.continuation?.resume(throwing: drainError)
             }
-            while let request = buffers.reliableBuffer.dequeue() {
-                request.continuation?.resume(throwing: drainError)
+            while let write = buffers.reliableBuffer.dequeue() {
+                write.continuation?.resume(throwing: drainError)
             }
             return
         }
@@ -330,14 +349,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         processSendQueue(flow: reliableFlow, buffer: &buffers.reliableBuffer, kind: .reliable)
     }
 
-    /// Promote a `PendingSend` to a fully-prepared `PublishDataRequest`:
+    /// Promote a `PendingSend` to a fully-prepared `ReadyWrite`:
     /// serializes the packet, stamps the reliable sequence number (under the
     /// same lock that tracks the per-publisher counter), and wraps in a
     /// `LKRTCDataBuffer`. Returns `nil` (after failing the continuation) when
     /// serialization throws or the encoded packet exceeds the negotiated SCTP
     /// max-message-size — either way the loop invariant holds: every yielded
     /// `.sendPending` resolves its continuation exactly once.
-    private func makeRequest(from pending: PendingSend) -> PublishDataRequest? {
+    private func makeWrite(from pending: PendingSend) -> ReadyWrite? {
         var bytes: Data
         var sequence = pending.packet.sequence
         do {
@@ -373,7 +392,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             return nil
         }
 
-        return PublishDataRequest(
+        return ReadyWrite(
             data: RTC.createDataBuffer(data: bytes),
             sequence: sequence,
             continuation: pending.continuation,
@@ -392,28 +411,28 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         buffer: inout SendBuffer,
         kind: ChannelKind,
     ) {
-        while flow.hasHeadroom, let request = buffer.dequeue() {
+        while flow.hasHeadroom, let write = buffer.dequeue() {
             guard let channel = channel(for: kind) else {
                 // `openCompleter` is a sticky latch (resolves on first open), so a
                 // caller can pass `openCompleter.wait()` while `_state.isOpen` is
-                // momentarily false. Re-park the request and let the next
+                // momentarily false. Re-park the write and let the next
                 // `.wakeup` retry; permanent close is handled by `.drain`.
-                buffer.enqueueFront(request)
+                buffer.enqueueFront(write)
                 return
             }
 
-            guard channel.sendData(request.data) else {
-                request.continuation?.resume(
+            guard channel.sendData(write.data) else {
+                write.continuation?.resume(
                     throwing: LiveKitError(.invalidState, message: "sendData failed"),
                 )
                 return
             }
             // Bytes are now in WebRTC's SCTP queue; account for them so the
             // backpressure check below kicks in for subsequent iterations.
-            flow.didSend(request.data.data.count)
-            request.continuation?.resume()
+            flow.didSend(write.data.data.count)
+            write.continuation?.resume()
 
-            let event = ChannelEvent(channelKind: kind, detail: .sendDispatched(request))
+            let event = ChannelEvent(channelKind: kind, detail: .sendDispatched(write))
             eventContinuation.yield(event)
         }
     }
@@ -427,10 +446,9 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         if let first = buffer.peek(), first.sequence > lastSeq + 1 {
             log("Wrong packet sequence while retrying: \(first.sequence) > \(lastSeq + 1), \(first.sequence - lastSeq - 1) packets missing", .warning)
         }
-        while let request = buffer.dequeue() {
-            assert(request.continuation == nil, "Continuation may fire multiple times while retrying causing crash")
-            if request.sequence > lastSeq {
-                let event = ChannelEvent(channelKind: .reliable, detail: .sendRequested(request))
+        while let retained = buffer.dequeue() {
+            if retained.sequence > lastSeq {
+                let event = ChannelEvent(channelKind: .reliable, detail: .sendRequested(retained))
                 eventContinuation.yield(event)
             }
         }
@@ -645,7 +663,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
             // SCTP send violates the negotiated max-message-size (and a few
             // other conditions). `sendData` still returns true in that case,
             // so this is the only signal we get. The send guard in
-            // `makeRequest` is the primary defense; this log surfaces any
+            // `makeWrite` is the primary defense; this log surfaces any
             // remaining cases for diagnosis.
             log("data channel '\(dataChannel.label)' closed unexpectedly", .error)
         }
