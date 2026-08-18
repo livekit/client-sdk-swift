@@ -33,6 +33,7 @@ actor QueueActor<T: Sendable>: Loggable {
     // MARK: - Private
 
     private var queue = [T]()
+    private var isDraining = false
     private let onProcess: OnProcess
 
     init(onProcess: @escaping OnProcess) {
@@ -45,8 +46,14 @@ actor QueueActor<T: Sendable>: Loggable {
     }
 
     /// Only process if `.resumed` state, otherwise enqueue.
+    ///
+    /// While `resume()` is still draining, a value that may be enqueued joins the tail of the
+    /// queue instead of running ahead of the older ones; a value that may not (`elseEnqueue ==
+    /// false`) is processed at once, as it is whenever the state is `.resumed`. `condition`
+    /// bypasses the queue either way, for values that must never wait.
     func processIfResumed(_ value: T, or condition: Bool = false, elseEnqueue: Bool = true) async {
-        await process(value, if: state == .resumed || condition, elseEnqueue: elseEnqueue)
+        let isResumed = state == .resumed && !(isDraining && elseEnqueue)
+        await process(value, if: isResumed || condition, elseEnqueue: elseEnqueue)
     }
 
     /// Only process if `condition` is true, otherwise enqueue.
@@ -67,15 +74,20 @@ actor QueueActor<T: Sendable>: Loggable {
         state = .suspended
     }
 
-    /// Mark as `.resumed` and process each element with an async `block`.
+    /// Mark as `.resumed` and process the queued elements in arrival order, one at a time.
+    ///
+    /// The loop re-reads the live queue, so it also processes what arrives while it runs (see
+    /// `processIfResumed`), and it stops when `clear()` or `suspend()` changes the state. A
+    /// `resume()` that finds a drain already running returns after marking the state: that drain
+    /// will reach every queued element, and a second loop would put two elements in flight.
     func resume() async {
         state = .resumed
-        if queue.isEmpty { return }
-        for element in queue {
-            // Check cancellation before processing next block...
-            // try Task.checkCancellation()
+        guard !isDraining else { return }
+        isDraining = true
+        defer { isDraining = false }
+        while state == .resumed, !queue.isEmpty {
+            let element = queue.removeFirst()
             await onProcess(element)
         }
-        queue.removeAll()
     }
 }
