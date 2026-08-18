@@ -178,14 +178,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
         mutating func enqueue(_ request: PublishDataRequest) {
             queue.append(request.withoutContinuation())
-            currentAmount += UInt64(request.data.data.count)
+            currentAmount += request.byteCount
         }
 
         @discardableResult
         mutating func dequeue() -> PublishDataRequest? {
             guard !queue.isEmpty else { return nil }
             let first = queue.removeFirst()
-            currentAmount -= UInt64(first.data.data.count)
+            currentAmount -= first.byteCount
             return first
         }
 
@@ -198,11 +198,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     private struct PublishDataRequest {
         let data: LKRTCDataBuffer
+        /// Size of `data`, kept here because `LKRTCDataBuffer.data` copies the
+        /// payload on every read.
+        let byteCount: UInt64
         let sequence: UInt32
         let continuation: CheckedContinuation<Void, any Error>?
 
         func withoutContinuation() -> Self {
-            .init(data: data, sequence: sequence, continuation: nil)
+            .init(data: data, byteCount: byteCount, sequence: sequence, continuation: nil)
         }
     }
 
@@ -372,6 +375,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
         return PublishDataRequest(
             data: RTC.createDataBuffer(data: bytes),
+            byteCount: UInt64(bytes.count),
             sequence: sequence,
             continuation: pending.continuation,
         )
@@ -407,7 +411,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             }
             // Bytes are now in WebRTC's SCTP queue; account for them so the
             // backpressure check below kicks in for subsequent iterations.
-            buffer.rtcAmount += UInt64(request.data.data.count)
+            buffer.rtcAmount += request.byteCount
             request.continuation?.resume()
 
             let event = ChannelEvent(channelKind: kind, detail: .sendDispatched(request))

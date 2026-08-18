@@ -278,16 +278,23 @@ package struct NanopbMsg<S: NanopbStorage>: Equatable, Hashable, @unchecked Send
 
     package init(serializedBytes bytes: some Collection<UInt8>) throws(NanopbError) {
         self.init()
-        let array = Array(bytes)
         // see `nanopbEncodedBytes` on why the error is captured rather than
         // propagated straight through the stdlib's untyped `rethrows`
         var failure: NanopbError?
-        array.withUnsafeBytes { buffer in
+        let pointer = _pointer
+        func decode(_ buffer: UnsafeRawBufferPointer) {
             do throws(NanopbError) {
-                try nanopbDecode(into: _pointer, S.descriptor, buffer)
+                try nanopbDecode(into: pointer, S.descriptor, buffer)
             } catch {
                 failure = error
             }
+        }
+        // nanopb copies every string and bytes field out of the input, so the
+        // message never points into `bytes`: decode straight from the
+        // collection's own storage when it is contiguous, and copy only when
+        // it is not.
+        if bytes.withContiguousStorageIfAvailable({ decode(UnsafeRawBufferPointer($0)) }) == nil {
+            Array(bytes).withUnsafeBytes(decode)
         }
         if let failure { throw failure }
     }
@@ -301,7 +308,7 @@ package struct NanopbMsg<S: NanopbStorage>: Equatable, Hashable, @unchecked Send
     }
 
     package func serializedData() throws(NanopbError) -> Data {
-        try Data(serializedBytes())
+        try nanopbEncodedData(_pointer, S.descriptor)
     }
 
     // MARK: Equatable / Hashable

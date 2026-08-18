@@ -15,7 +15,9 @@
  */
 
 extension AsyncSequence where Element: RangeReplaceableCollection {
+    /// Concatenates every element into one collection, appending in place so
+    /// the total work is linear in the payload.
     func collect() async throws -> Element {
-        try await reduce(Element()) { $0 + $1 }
+        try await reduce(into: Element()) { $0.append(contentsOf: $1) }
     }
 }

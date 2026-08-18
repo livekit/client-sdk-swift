@@ -95,10 +95,15 @@ actor TranscriptionStreamReceiver: MessageReceiver, Loggable {
         // so the receiver works even if the `Room.reservedTopicPrefix` guard is
         // later widened to cover non-RPC `lk.*` topics like this one.
         try await room.incomingStreamManager.registerTextStreamHandler(for: topic, ordered: true) { [weak self] reader, participantIdentity in
+            // The attributes come from the stream header, so parse them once per stream.
+            let attributes = reader.info.attributes.mapped(to: TranscriptionAttributes.self)
+            if attributes == nil {
+                self?.log("Unable to read message attributes from \(reader.info.attributes)", .error)
+            }
             var lastMessage: ReceivedMessage?
             for try await message in reader where !message.isEmpty {
                 guard let self else { return }
-                let msg = await self.processIncoming(partialMessage: message, reader: reader, participantIdentity: participantIdentity)
+                let msg = await self.processIncoming(partialMessage: message, attributes: attributes, reader: reader, participantIdentity: participantIdentity)
                 lastMessage = msg
                 continuation.yield(msg)
             }
@@ -124,12 +129,7 @@ actor TranscriptionStreamReceiver: MessageReceiver, Loggable {
 
     /// Aggregates the incoming text into a message, storing the partial content in the `partialMessages` dictionary.
     /// - Note: When the message is finalized, or a new message is started, the dictionary is purged to limit memory usage.
-    private func processIncoming(partialMessage message: String, reader: TextStreamReader, participantIdentity: Participant.Identity) -> ReceivedMessage {
-        let attributes = reader.info.attributes.mapped(to: TranscriptionAttributes.self)
-        if attributes == nil {
-            log("Unable to read message attributes from \(reader.info.attributes)", .error)
-        }
-
+    private func processIncoming(partialMessage message: String, attributes: TranscriptionAttributes?, reader: TextStreamReader, participantIdentity: Participant.Identity) -> ReceivedMessage {
         let segmentID = attributes?.lkSegmentID ?? reader.info.id
         let participantID = participantIdentity
         let partialID = PartialMessageID(segmentID: segmentID, participantID: participantID)

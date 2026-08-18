@@ -1,0 +1,1 @@
+patch type="fixed" "Data packets and data streams no longer make avoidable copies of their payloads, and readAll() and text chunking are linear instead of quadratic in the payload"

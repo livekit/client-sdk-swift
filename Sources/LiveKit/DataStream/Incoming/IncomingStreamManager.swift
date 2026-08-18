@@ -255,7 +255,11 @@ actor IncomingStreamManager: Loggable {
 
     /// Handles a data stream chunk.
     private func handle(chunk: Livekit_DataStream.Chunk, encryptionType: EncryptionType) {
-        guard !chunk.content.isEmpty, let descriptor = openStreams[chunk.streamID] else { return }
+        // Proto getters copy out of nanopb storage on every read: read the
+        // payload and the ID once.
+        let content = chunk.content
+        let streamID = chunk.streamID
+        guard !content.isEmpty, let descriptor = openStreams[streamID] else { return }
 
         // Error paths remove the descriptor synchronously for the same reason as
         // the trailer path: a header reusing this stream ID may be the next event.
@@ -264,29 +268,30 @@ actor IncomingStreamManager: Loggable {
                 expected: descriptor.info.encryptionType,
                 received: encryptionType,
             )
-            openStreams[chunk.streamID] = nil
+            openStreams[streamID] = nil
             streamDidClose(descriptor)
             descriptor.continuation.finish(throwing: error)
             return
         }
 
-        let readLength = descriptor.readLength + chunk.content.count
+        let readLength = descriptor.readLength + content.count
 
         if let totalLength = descriptor.info.totalLength {
             guard readLength <= totalLength else {
-                openStreams[chunk.streamID] = nil
+                openStreams[streamID] = nil
                 streamDidClose(descriptor)
                 descriptor.continuation.finish(throwing: StreamError.lengthExceeded)
                 return
             }
         }
-        openStreams[chunk.streamID]!.readLength = readLength
-        descriptor.continuation.yield(chunk.content)
+        openStreams[streamID]!.readLength = readLength
+        descriptor.continuation.yield(content)
     }
 
     /// Handles a data stream trailer.
     private func handle(trailer: Livekit_DataStream.Trailer, encryptionType: EncryptionType) {
-        guard let descriptor = openStreams[trailer.streamID] else {
+        let streamID = trailer.streamID
+        guard let descriptor = openStreams[streamID] else {
             return
         }
 
@@ -294,7 +299,7 @@ actor IncomingStreamManager: Loggable {
         // header is processed by this same event loop right after the trailer.
         // The reader's `onTermination` cleanup runs in its own task and can lose
         // that race, making `openStream` silently drop the new stream.
-        openStreams[trailer.streamID] = nil
+        openStreams[streamID] = nil
         streamDidClose(descriptor)
 
         if descriptor.info.encryptionType != encryptionType {
@@ -312,9 +317,10 @@ actor IncomingStreamManager: Loggable {
                 return
             }
         }
-        guard trailer.reason.isEmpty else {
+        let reason = trailer.reason
+        guard reason.isEmpty else {
             // According to protocol documentation, a non-empty reason string indicates an error
-            let error = StreamError.abnormalEnd(reason: trailer.reason)
+            let error = StreamError.abnormalEnd(reason: reason)
             descriptor.continuation.finish(throwing: error)
             return
         }

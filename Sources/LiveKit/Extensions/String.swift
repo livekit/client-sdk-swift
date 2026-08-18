@@ -23,28 +23,25 @@ extension String {
     }
 
     var byteLength: Int {
-        data(using: .utf8)?.count ?? 0
+        utf8.count
     }
 
+    /// The longest prefix of characters whose UTF-8 encoding fits in `maxBytes`.
     func truncate(maxBytes: Int) -> String {
         if byteLength <= maxBytes {
             return self
         }
 
-        var low = 0
-        var high = count
-
-        while low < high {
-            let mid = (low + high + 1) / 2
-            let substring = String(prefix(mid))
-            if substring.byteLength <= maxBytes {
-                low = mid
-            } else {
-                high = mid - 1
-            }
+        var end = startIndex
+        var used = 0
+        while end < endIndex {
+            let next = index(after: end)
+            let width = utf8.distance(from: end, to: next)
+            if used + width > maxBytes { break }
+            used += width
+            end = next
         }
-
-        return String(prefix(low))
+        return String(self[..<end])
     }
 
     /// The path extension, if any, of the string as interpreted as a path.
