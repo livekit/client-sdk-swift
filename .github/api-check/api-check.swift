@@ -159,17 +159,28 @@ struct APICheck: ParsableCommand {
 
     /// The digester only reports what a consumer would trip over, never additions.
     /// Diffing the other way round surfaces them: whatever "disappears" going from
-    /// HEAD back to the base is new in HEAD. Only the two sections that mean
-    /// "present here, absent there" are additive — every other section of a
-    /// reversed report is a mirror of a breaking finding, not an addition.
+    /// HEAD back to the base is new in HEAD.
+    ///
+    /// A reversed report is not purely additive, though, so it is gated twice: to
+    /// the sections that can mean "present here, absent there", and then to the
+    /// lines actually phrased as a removal. The second gate matters because a
+    /// section like Protocol Conformance Change also files diagnostics that are
+    /// themselves worded as additions (`has added inherited protocol`, `has added
+    /// a conformance to an existing protocol`) yet are breaking — reversed, those
+    /// are mirrors of a forward finding, and relabelling them is impossible. What
+    /// cannot be inverted is dropped; the forward report already covers it.
     private func additions(old: String, new: String, into work: Folder) throws -> [String] {
         let additive = ["Removed Decls", "Protocol Conformance Change"]
+        let inversions = [
+            (" has been removed", " has been added"),
+            (" has removed conformance to ", " has added conformance to "),
+        ]
         return try diagnose(old: new, new: old, into: work, named: "additions")
             .filter { additive.contains($0.section) }
             .flatMap(\.lines)
-            .map {
-                $0.replacingOccurrences(of: " has removed conformance to ", with: " has added conformance to ")
-                    .replacingOccurrences(of: " has been removed", with: " has been added")
+            .compactMap { line in
+                let inverted = inversions.reduce(line) { $0.replacingOccurrences(of: $1.0, with: $1.1) }
+                return inverted == line ? nil : inverted
             }
     }
 
