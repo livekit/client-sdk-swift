@@ -100,25 +100,6 @@ struct DataChannelPairTests {
             try await sendTask.value
         } throws: { ($0 as? LiveKitError)?.type == .cancelled }
     }
-
-    /// A `DataChannelPair` outlives its channels — `Room` keeps one and swaps channels in on a
-    /// full reconnect — so a buffered-amount mirror left above the low-water mark would gate the
-    /// replacement channel's drain forever: nothing can be sent, so no drain is ever reported to
-    /// bring the mirror back down.
-    @Test func resetClearsTheBufferedAmountMirrors() {
-        let pair = DataChannelPair()
-
-        for flow in [pair.reliableFlow, pair.lossyFlow] {
-            flow.didSend(Int(flow.lowWaterMark) + 1)
-            #expect(!flow.hasHeadroom)
-        }
-
-        pair.reset()
-
-        for flow in [pair.reliableFlow, pair.lossyFlow] {
-            #expect(flow.hasHeadroom, "a replacement channel starts with an empty outbound buffer")
-        }
-    }
 }
 
 /// Pins the parser's behavior against each shape of `a=max-message-size`

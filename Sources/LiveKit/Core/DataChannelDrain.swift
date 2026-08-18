@@ -41,9 +41,6 @@ internal import LiveKitWebRTC
 final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelegate, @unchecked Sendable, Loggable {
     // MARK: - Public
 
-    /// Outbound flow control: the buffered-amount mirror and the low-water gate.
-    let flow: BufferedDataChannel
-
     /// `0` disables the size guard, which is what channels with no negotiated limit use.
     var maxMessageSize: UInt64 {
         get { _state.maxMessageSize }
@@ -66,7 +63,10 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
 
     private struct LoopState {
         var queue = WriteQueue()
+        var meter: BufferedAmountMeter
         var stage: Stage
+        /// Writes dropped under backpressure, logged periodically rather than per drop.
+        var dropped: Int = 0
         /// Reused across `prepare` calls. Lives here rather than on the drain so that only the
         /// loop's single observer can reach it.
         var scratch: [PreparedBytes] = []
@@ -80,13 +80,18 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         case replayed(ReadyWrite)
         case commanded(Stage.Command)
         case drained(UInt64)
+        case retune(UInt64)
+        /// A channel was attached or swapped: the mirror starts over, and under
+        /// ``SendOverflow/dropOldest`` anything queued for the previous channel is dropped.
+        case attached
         case wakeup
         /// The channel is gone for good: fail everything queued for it and reset the stage.
         case fail(Error?)
-        /// The channel is merely being swapped under ``SendOverflow/dropOldest``, where the queue
-        /// holds stale groups and no continuations to settle.
-        case discardStale
     }
+
+    /// Matches `lossyDataDropCount % 100` in client-sdk-js: enough to notice sustained loss without
+    /// a line per drop.
+    private static var dropLogInterval: Int { 100 }
 
     private let overflow: SendOverflow
     private let onMessage: @Sendable (Data) -> Void
@@ -100,7 +105,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     private var eventLoopTask: AnyTaskCancellable?
 
     init(
-        label: String,
+        label _: String,
         lowWaterMark: UInt64,
         overflow: SendOverflow,
         stage: Stage,
@@ -111,7 +116,6 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         self.overflow = overflow
         self.onMessage = onMessage
         self.onStateChange = onStateChange
-        flow = BufferedDataChannel(label: label, lowWaterMark: lowWaterMark)
 
         let (events, continuation) = AsyncStream.makeStream(of: Event.self)
         eventContinuation = continuation
@@ -120,7 +124,8 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
 
         _state.mutate { $0.maxMessageSize = maxMessageSize }
 
-        eventLoopTask = events.subscribe(self, state: LoopState(stage: stage)) { drain, event, state in
+        let initial = LoopState(meter: BufferedAmountMeter(lowWaterMark: lowWaterMark), stage: stage)
+        eventLoopTask = events.subscribe(self, state: initial) { drain, event, state in
             drain.process(event, state: &state)
         }
     }
@@ -149,25 +154,18 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     /// without a real channel; production always passes the channel itself.
     func attach(sendTarget: DrainSendChannel?) {
         _state.mutate { $0.sendTarget = sendTarget }
-
-        flow.reset()
-        if case .dropOldest = overflow {
-            eventContinuation.yield(.discardStale)
-        }
-
-        reportReadiness()
-        if sendTarget?.isOpen == true {
-            eventContinuation.yield(.wakeup)
-        }
+        eventContinuation.yield(.attached)
     }
 
     /// Bytes the channel has drained since its last report. Called by the delegate hook below, and
     /// directly by tests.
     func reportDrained(_ byteCount: UInt64) {
-        // The mirror is lock-guarded and only gates sending, so it is updated here rather than in
-        // the loop; the stage's own accounting is ordered with the queue via the event.
-        flow.didDrain(byteCount)
         eventContinuation.yield(.drained(byteCount))
+    }
+
+    /// Retunes the low-water gate, ordered with the writes it governs.
+    func setLowWaterMark(_ mark: UInt64) {
+        eventContinuation.yield(.retune(mark))
     }
 
     /// Submits work. Under ``SendOverflow/park`` the continuation resumes when the input's last write
@@ -201,7 +199,6 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         }
         channel?.close()
 
-        flow.reset(throwing: error)
         eventContinuation.yield(.fail(error))
     }
 
@@ -224,23 +221,23 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
                 self?.eventContinuation.yield(.replayed(write))
             }
         case let .drained(byteCount):
+            if !state.meter.didDrain(byteCount) {
+                log("Unexpected buffer size detected", .error)
+            }
             state.stage.didDrain(byteCount)
+        case let .retune(mark):
+            state.meter.setLowWaterMark(mark)
+        case .attached:
+            state.meter.reset()
+            // Anything queued belonged to the channel that just went away. A dropped write on a
+            // drop-oldest channel is the contract rather than a failure, so its waiter is resolved
+            // — the same outcome client-sdk-js gives a dropped lossy packet.
+            if case .dropOldest = overflow { state.queue.settleAll(.success(())) }
         case .wakeup:
             break
         case let .fail(error):
-            let failure = error ?? LiveKitError(.cancelled, message: "Data channel reset")
-            for write in state.queue.removeAll() {
-                write.continuation?.resume(throwing: failure)
-            }
+            state.queue.settleAll(.failure(error ?? LiveKitError(.cancelled, message: "Data channel reset")))
             state.stage.reset()
-            return
-        case .discardStale:
-            // `.dropOldest` submitters pass no continuation, so there is normally nothing to
-            // settle. Settling anything that does appear keeps a dropped write from stranding a
-            // caller, rather than relying on that convention holding.
-            for write in state.queue.removeAll() {
-                write.continuation?.resume(throwing: LiveKitError(.cancelled, message: "Data channel swapped"))
-            }
             return
         }
 
@@ -299,14 +296,20 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             }
         case .dropOldest:
             for evicted in state.queue.evict(replacingWith: group) {
-                log("Evicted a queued write in favor of a newer group", .debug)
-                evicted.continuation?.resume(throwing: LiveKitError(.cancelled, message: "Evicted by a newer group"))
+                // Dropping under backpressure is what this policy promises, so a waiting submitter
+                // is resolved, not failed — matching `sendLossyBytes`' 'drop' behaviour in
+                // client-sdk-js. Counted so sustained loss is visible.
+                state.dropped += 1
+                if state.dropped % Self.dropLogInterval == 0 {
+                    log("Dropped \(state.dropped) writes under backpressure", .warning)
+                }
+                evicted.continuation?.resume()
             }
         }
     }
 
     private func dispatch(state: inout LoopState) {
-        while flow.hasHeadroom {
+        while state.meter.hasHeadroom {
             state.queue.promoteIfIdle()
             guard let write = state.queue.next else { return }
 
@@ -316,15 +319,11 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
                 // permanent teardown fails it via `.teardown`.
                 return
             }
-            // Counted *before* the hand-off, so the mirror is never behind what the transport
-            // holds. Counting after would leave a window where a drain report for these bytes
-            // arrives first, subtracts them from a mirror that has not seen them, and then has them
-            // added back — leaving the gate closed with nothing left to drain, permanently.
-            flow.didSend(write.byteCount)
+            state.meter.willSend(write.byteCount)
 
             guard channel.send(write.data) else {
                 // Never reached the transport, so they are not outstanding after all.
-                flow.didDrain(UInt64(write.byteCount))
+                state.meter.didDrain(UInt64(write.byteCount))
                 write.continuation?.resume(
                     throwing: LiveKitError(.invalidState, message: "sendData failed"),
                 )
@@ -364,10 +363,6 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         }
     }
 
-    private func reportReadiness() {
-        flow.setReady(usableTarget != nil)
-    }
-
     // MARK: - RTCDataChannelDelegate
 
     //
@@ -387,7 +382,6 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             log("data channel '\(dataChannel.label)' closed unexpectedly", .error)
         }
 
-        reportReadiness()
         if dataChannel.readyState == .open {
             eventContinuation.yield(.wakeup)
         }

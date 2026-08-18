@@ -249,9 +249,9 @@ struct DataChannelDrainTests {
     }
 }
 
-/// Under ``SendOverflow/dropOldest`` no submitter passes a continuation today, so these pin the
-/// defensive path rather than an intended one: a write that gets dropped must still settle whatever
-/// was waiting on it, because a dropped continuation strands its caller forever.
+/// How a drop-oldest channel settles a waiting submitter. Dropping under backpressure is what the
+/// policy promises, so those waiters are *resolved*; only the session ending fails them. Matches
+/// `sendLossyBytes`' 'drop' behaviour in client-sdk-js, which resolves and counts the drop.
 @Suite(.tags(.dataChannel))
 struct DropOldestContinuationTests {
     private static let mark: UInt64 = 8 * 1024
@@ -283,7 +283,7 @@ struct DropOldestContinuationTests {
         }
     }
 
-    @Test func evictionSettlesTheDisplacedWaiter() async throws {
+    @Test func evictionResolvesTheDisplacedWaiter() async throws {
         try await fillBuffer()
 
         let displaced = submitWaiting(1)
@@ -292,12 +292,10 @@ struct DropOldestContinuationTests {
         // A newer group evicts the queued one; its waiter must not be left suspended.
         drain.submit([Data(repeating: 2, count: 100)])
 
-        await #expect {
-            try await displaced.value
-        } throws: { ($0 as? LiveKitError)?.type == .cancelled }
+        try await displaced.value
     }
 
-    @Test func channelSwapSettlesQueuedWaiters() async throws {
+    @Test func channelSwapResolvesQueuedWaiters() async throws {
         try await fillBuffer()
 
         let queued = submitWaiting(1)
@@ -305,9 +303,7 @@ struct DropOldestContinuationTests {
 
         drain.attach(sendTarget: FakeSendChannel())
 
-        await #expect {
-            try await queued.value
-        } throws: { ($0 as? LiveKitError)?.type == .cancelled }
+        try await queued.value
     }
 
     @Test func teardownSettlesQueuedWaiters() async throws {

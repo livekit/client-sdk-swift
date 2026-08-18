@@ -182,6 +182,13 @@ struct WriteQueue {
         return removed
     }
 
+    /// Empties the queue, settling every waiting submitter with `outcome`.
+    mutating func settleAll(_ outcome: Result<Void, any Error>) {
+        for write in removeAll() {
+            write.continuation?.resume(with: outcome)
+        }
+    }
+
     /// Drops the group being handed over, keeping whatever is waiting behind it.
     mutating func dropInFlight() {
         while !inFlight.isEmpty {

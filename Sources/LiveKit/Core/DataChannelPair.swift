@@ -69,10 +69,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     private var lossy: DataChannelDrain<LossyStage>!
     private var reliable: DataChannelDrain<ReliableStage>!
 
-    /// Exposed for tests: the buffered-amount mirrors the drains gate on.
-    var lossyFlow: BufferedDataChannel { lossy.flow }
-    var reliableFlow: BufferedDataChannel { reliable.flow }
-
     // MARK: - Init
 
     init(delegate: DataChannelDelegate? = nil,
