@@ -52,6 +52,15 @@ extension IncomingStreamManagerTests {
         return false
     }
 
+    /// `handleIncoming` only enqueues onto the core's run loop, so a test that drives the abort
+    /// paths directly must first wait for the stream's descriptor to register.
+    private func waitForOpenStreams(_ count: UInt64) async {
+        let deadline = Date().addingTimeInterval(10)
+        while await coordinator.openStreamCount() < count, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+    }
+
     private func waitUntil(_ condition: @Sendable () -> Bool, timeout: TimeInterval = 10) async {
         let deadline = Date().addingTimeInterval(timeout)
         while !condition(), Date() < deadline {
@@ -141,10 +150,8 @@ extension IncomingStreamManagerTests {
     @Test func closeStreamsUnblocksOrderedTopic() async throws {
         let received = StateSync<[String]>([])
         let errors = StateSync<[StreamError]>([])
-        let entered = TestGate()
 
         try coordinator.registerTextStreamHandler(for: topicName, ordered: true) { reader, _ in
-            await entered.open()
             do {
                 let payload = try await reader.readAll()
                 received.mutate { $0.append(payload) }
@@ -157,7 +164,7 @@ extension IncomingStreamManagerTests {
         // Header only — no trailer ever arrives, so the handler blocks in `readAll` and, at the head
         // of the ordered queue, would block every later stream.
         feedTextHeader(streamID: "orphan")
-        await entered.wait()
+        await waitForOpenStreams(1)
 
         coordinator.closeStreams(from: participant)
         await feedTextStream(chunks: ["after"])
@@ -176,16 +183,14 @@ extension IncomingStreamManagerTests {
     /// handlers registered for after a reconnect.
     @Test func resetUnblocksOrderedTopicAndKeepsHandler() async throws {
         let received = StateSync<[String]>([])
-        let entered = TestGate()
 
         try coordinator.registerTextStreamHandler(for: topicName, ordered: true) { reader, _ in
-            await entered.open()
             let payload = try await reader.readAll()
             received.mutate { $0.append(payload) }
         }
 
         feedTextHeader(streamID: "orphan")
-        await entered.wait()
+        await waitForOpenStreams(1)
 
         coordinator.reset()
         await feedTextStream(chunks: ["after-reset"])
