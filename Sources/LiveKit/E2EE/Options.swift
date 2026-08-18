@@ -16,6 +16,8 @@
 
 import Foundation
 
+internal import LiveKitUniFFI
+
 @objc
 public enum EncryptionType: Int, Sendable {
     case none
@@ -30,6 +32,26 @@ extension EncryptionType {
         case .gcm: .gcm
         case .custom: .custom
         default: .custom
+        }
+    }
+}
+
+extension EncryptionType {
+    /// Bridges to and from the FFI enum. Lives here beside the protobuf conversions so the data
+    /// stream types stay free of encryption-specific mapping code.
+    var ffiValue: LiveKitUniFFI.EncryptionType {
+        switch self {
+        case .none: .none
+        case .gcm: .gcm
+        case .custom: .custom
+        }
+    }
+
+    init(_ ffi: LiveKitUniFFI.EncryptionType) {
+        switch ffi {
+        case .none: self = .none
+        case .gcm: self = .gcm
+        case .custom: self = .custom
         }
     }
 }

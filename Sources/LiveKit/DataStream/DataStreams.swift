@@ -54,16 +54,24 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     private let textStreamHandlers = StateSync<[String: TextStreamHandler]>([:])
     // Topics we've already logged a missing-handler warning for, to avoid log spam.
     private let failedTopics = StateSync<Set<String>>([])
-    // Topics whose text handlers run in wire order. Successive streams from the *same sender* on
-    // such a topic have their handlers serialized so they process in arrival order. Used by internal
-    // consumers like transcription; off by default so concurrent consumers (e.g. RPC) aren't slowed.
-    //
-    // Keyed by sender identity within a topic — not by topic alone — so a still-open stream from one
-    // sender doesn't block a concurrent stream from another (e.g. an agent transcript arriving while
-    // a user transcript on the same topic is still streaming). A single sender's streams are
-    // sequential in practice, so per-sender serialization preserves ordering without stalling peers.
+    // Topics whose text handlers run in wire order. Used by internal consumers like transcription;
+    // off by default so concurrent consumers (e.g. RPC) aren't slowed.
     private let orderedTopics = StateSync<Set<String>>([])
-    private let orderedTails = StateSync<[String: [String: Task<Void, Never>]]>([:])
+
+    // Ordering is a wire *happens-before* relation: a stream that opened after another one closed
+    // must have its handler run after that one's. Streams that overlap on the wire are concurrent
+    // and must not delay each other — a live transcript arriving while an earlier message stream is
+    // still open has to be delivered immediately.
+    //
+    // So a newly opened stream waits on `finishingHandlers` — handlers whose stream has already
+    // closed but which haven't returned yet — and *not* on handlers of streams that are still open.
+    // `runningHandlers` holds the latter until the FFI reports the close, at which point the entry
+    // moves across. Both are keyed by stream id within a topic, and entries are removed when the
+    // handler returns, so neither grows without bound.
+    private let runningHandlers = StateSync<[String: [String: Task<Void, Never>]]>([:])
+    private let finishingHandlers = StateSync<[String: [String: Task<Void, Never>]]>([:])
+    // Stream id -> topic, so a close event (which carries no topic) can find its queue.
+    private let streamTopics = StateSync<[String: String]>([:])
 
     init(room: Room) {
         self.room = room
@@ -95,10 +103,9 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    // Room-level encryption type, stamped onto every stream info as it crosses the FFI boundary.
-    // The FFI hardcodes the info's encryption type to `.none` (E2EE-over-FFI is a follow-up); the
-    // actual payload crypto still happens transparently in `DataChannelPair`, so we surface the
-    // room's data-channel encryption type here to preserve the previous behavior.
+    // Encryption type for *outgoing* stream info. Inbound infos carry the real per-packet value
+    // reported by the FFI, which `handleIncoming` now supplies; there is no equivalent signal for a
+    // stream we're sending, so the room's data-channel setting is the accurate answer there.
     private var currentEncryptionType: EncryptionType {
         room?.e2eeManager?.dataChannelEncryptionType ?? .none
     }
@@ -142,7 +149,8 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     func unregisterTextStreamHandler(for topic: String) {
         textStreamHandlers.mutate { $0[topic] = nil }
         orderedTopics.mutate { $0.remove(topic) }
-        orderedTails.mutate { $0[topic] = nil }
+        runningHandlers.mutate { $0[topic] = nil }
+        finishingHandlers.mutate { $0[topic] = nil }
     }
 
     // MARK: - Sending
@@ -195,9 +203,13 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
 
     /// Feeds a received data-stream packet (already decrypted and deduped by `DataChannelPair`) to
     /// the incoming manager. The FFI re-decodes the serialized `DataPacket` itself.
-    func handleIncoming(_ dataPacket: Livekit_DataPacket) {
+    ///
+    /// `encryptionType` is passed separately because decryption consumes the packet field that
+    /// carried it; the core compares it against the stream's header to reject a sender that mixes
+    /// encrypted and plaintext frames within one stream.
+    func handleIncoming(_ dataPacket: Livekit_DataPacket, encryptionType: EncryptionType) {
         guard let data = try? dataPacket.serializedData() else { return }
-        incomingManager().handlePacketReceived(packet: data)
+        incomingManager().handlePacketReceived(packet: data, encryptionType: encryptionType.ffiValue)
     }
 
     // MARK: - Stream lifecycle
@@ -229,8 +241,9 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Stream open dispatch (called from the incoming delegate)
 
-    fileprivate func handleByteStreamOpened(_ ffiReader: LiveKitUniFFI.ByteStreamReader, identity: String) {
-        let info = ByteStreamInfo(ffiReader.info(), encryptionType: currentEncryptionType)
+    func handleByteStreamOpened(_ ffiReader: LiveKitUniFFI.ByteStreamReader, identity: String) {
+        let ffiInfo = ffiReader.info()
+        let info = ByteStreamInfo(ffiInfo, encryptionType: EncryptionType(ffiInfo.encryptionType))
         guard let handler = byteStreamHandlers.copy()[info.topic] else {
             logMissingHandler(topic: info.topic, id: info.id, identity: identity)
             return
@@ -240,33 +253,55 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         Task.detachedDiscarding { try await handler(reader, participantIdentity) }
     }
 
-    fileprivate func handleTextStreamOpened(_ ffiReader: LiveKitUniFFI.TextStreamReader, identity: String) {
-        let info = TextStreamInfo(ffiReader.info(), encryptionType: currentEncryptionType)
+    func handleTextStreamOpened(_ ffiReader: LiveKitUniFFI.TextStreamReader, identity: String) {
+        let ffiInfo = ffiReader.info()
+        let info = TextStreamInfo(ffiInfo, encryptionType: EncryptionType(ffiInfo.encryptionType))
         guard let handler = textStreamHandlers.copy()[info.topic] else {
             logMissingHandler(topic: info.topic, id: info.id, identity: identity)
             return
         }
         let reader = TextStreamReader(ffiReader, info: info)
         let participantIdentity = Participant.Identity(from: identity)
-        guard orderedTopics.copy().contains(info.topic) else {
+        let topic = info.topic
+        guard orderedTopics.copy().contains(topic) else {
             Task.detachedDiscarding { try await handler(reader, participantIdentity) }
             return
         }
-        // Ordered topic: chain this handler after the previous one from the *same sender* so that
-        // sender's successive streams process in arrival order — while streams from other senders on
-        // the topic run concurrently (a still-open stream from one sender never blocks another's).
-        let topic = info.topic
-        orderedTails.mutate { tails in
-            let predecessor = tails[topic]?[identity]
-            tails[topic, default: [:]][identity] = Task.detached { [weak self] in
-                await predecessor?.value
+        // Ordered topic. Wait only on handlers whose streams have already closed: this stream opened
+        // after they ended, so it comes after them on the wire. Streams still open right now overlap
+        // with this one and must not gate it.
+        let streamID = info.id
+        streamTopics.mutate { $0[streamID] = topic }
+        let predecessors = Array(finishingHandlers.copy()[topic]?.values ?? [:].values)
+        runningHandlers.mutate { running in
+            running[topic, default: [:]][streamID] = Task.detached { [weak self] in
+                for predecessor in predecessors {
+                    await predecessor.value
+                }
                 do {
                     try await handler(reader, participantIdentity)
                 } catch {
                     self?.log("Ordered text stream handler for topic '\(topic)' threw: \(error)", .warning)
                 }
+                self?.handlerCompleted(topic: topic, streamID: streamID)
             }
         }
+    }
+
+    /// The stream closed on the wire. Its handler may still be running, and until it returns it gates
+    /// streams that open from now on — so move it out of `runningHandlers` and into the set later
+    /// streams wait for.
+    func handleStreamClosed(streamID: String, identity _: String) {
+        guard let topic = streamTopics.copy()[streamID] else { return }
+        guard let task = runningHandlers.mutate({ $0[topic]?.removeValue(forKey: streamID) }) else { return }
+        finishingHandlers.mutate { $0[topic, default: [:]][streamID] = task }
+    }
+
+    /// Handler returned: it no longer gates anything, so drop it and stop tracking its stream.
+    private func handlerCompleted(topic: String, streamID: String) {
+        runningHandlers.mutate { $0[topic]?.removeValue(forKey: streamID) }
+        finishingHandlers.mutate { $0[topic]?.removeValue(forKey: streamID) }
+        streamTopics.mutate { $0[streamID] = nil }
     }
 
     private func logMissingHandler(topic: String, id: String, identity: String) {
@@ -280,110 +315,6 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
             return try await body()
         } catch let error as LiveKitUniFFI.DataStreamError {
             throw StreamError(error)
-        }
-    }
-
-    // MARK: - Incoming delegate
-
-    /// Receives the incoming manager's stream-open callbacks and forwards them to the coordinator.
-    /// A separate object because the FFI manager retains its delegate strongly; holding the
-    /// coordinator weakly keeps this the weak link so teardown doesn't leak.
-    private final class IncomingDelegate: LiveKitUniFFI.IncomingDataStreamManagerDelegate, @unchecked Sendable {
-        weak var coordinator: DataStreams?
-
-        func onByteStreamOpened(reader: LiveKitUniFFI.ByteStreamReader, identity: String) {
-            coordinator?.handleByteStreamOpened(reader, identity: identity)
-        }
-
-        func onTextStreamOpened(reader: LiveKitUniFFI.TextStreamReader, identity: String) {
-            coordinator?.handleTextStreamOpened(reader, identity: identity)
-        }
-    }
-
-    // MARK: - Outgoing delegate
-
-    /// Receives the outgoing manager's encoded `DataPacket`s and sends them over the reliable data
-    /// channel via `Room.send(dataPacket:)` — preserving E2EE, reliable sequencing, and identity
-    /// stamping. The room is held weakly to avoid retaining it through the FFI manager.
-    ///
-    /// Order is structural, not incidental. A stream's packets must reach the SFU in emission order:
-    /// the receiver drops a chunk that arrives before its header and fails the stream outright on a
-    /// non-consecutive chunk index. The FFI calls `onPacketsAvailable` synchronously and strictly
-    /// sequentially, so this delegate only has to *preserve* that order — hence a single drain task
-    /// over an `AsyncStream`, rather than a task per callback racing to a serial executor.
-    /// Fully `Sendable`, not `@unchecked`: both stored properties are immutable and `Sendable`, so
-    /// there is no invariant here for a reviewer to have to take on trust.
-    private final class OutgoingDelegate: LiveKitUniFFI.OutgoingDataStreamManagerDelegate {
-        private let continuation: AsyncStream<[Data]>.Continuation
-        // Unstructured on purpose: the pump's lifetime is the delegate's, not any caller's. Wrapped so
-        // it is cancelled on deinit rather than outliving the object (SwiftLint enforces this shape).
-        private let pump: AnyTaskCancellable
-
-        init(room: Room) {
-            let (stream, continuation) = AsyncStream.makeStream(of: [Data].self)
-            self.continuation = continuation
-            pump = Task.detached { [weak room] in
-                for await packets in stream {
-                    guard let room else { return }
-                    for data in packets {
-                        guard let packet = try? Livekit_DataPacket(serializedBytes: data) else {
-                            room.log("Failed to decode outgoing data stream packet", .warning)
-                            continue
-                        }
-                        try? await room.send(dataPacket: packet)
-                    }
-                }
-            }.cancellable()
-        }
-
-        deinit {
-            continuation.finish()
-        }
-
-        func onPacketsAvailable(packets: [Data]) {
-            continuation.yield(packets)
-        }
-    }
-
-    // MARK: - Remote participant registry
-
-    /// Read access to the room's remote participants, used by the outgoing manager to resolve
-    /// broadcast recipients and decide compression eligibility. Client protocol/capabilities aren't
-    /// currently exposed on `RemoteParticipant`, so they default to none — compression stays off
-    /// until they're wired, which is a safe default (a non-compressed send always works).
-    private final class Registry: LiveKitUniFFI.RemoteParticipantRegistryDelegate, @unchecked Sendable {
-        private weak var room: Room?
-
-        init(room: Room) {
-            self.room = room
-        }
-
-        private func participant(for identity: String) -> RemoteParticipant? {
-            room?.remoteParticipants.first { $0.key.stringValue == identity }?.value
-        }
-
-        func remoteClientProtocol(identity: String) -> Int32 {
-            Int32(participant(for: identity)?.clientProtocol.rawValue ?? 0)
-        }
-
-        func remoteCapabilities(identity: String) -> [LiveKitUniFFI.ClientCapability] {
-            participant(for: identity)?.capabilities.map(\.ffiValue) ?? []
-        }
-
-        func remoteIdentities() -> [String] {
-            guard let room else { return [] }
-            return room.remoteParticipants.keys.map(\.stringValue)
-        }
-    }
-}
-
-private extension ClientCapability {
-    /// Bridges to the FFI enum. Kept here so `ClientCapability` itself stays free of any
-    /// `LiveKitUniFFI` import, matching how the rest of the public API is layered.
-    var ffiValue: LiveKitUniFFI.ClientCapability {
-        switch self {
-        case .packetTrailer: .packetTrailer
-        case .compressionDeflateRaw: .compressionDeflateRaw
         }
     }
 }

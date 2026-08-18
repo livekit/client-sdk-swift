@@ -78,7 +78,7 @@ struct ByteStreamReaderTests {
         _ = manager
     }
 
-    @Test func info() async throws {
+    @Test func info() async {
         let (reader, manager) = await openReader()
         #expect(reader.info.topic == topic)
         #expect(reader.info.name == name)
@@ -131,6 +131,8 @@ struct ByteStreamReaderTests {
         }
 
         func onTextStreamOpened(reader _: LiveKitUniFFI.TextStreamReader, identity _: String) {}
+
+        func onStreamClosed(streamId _: String, identity _: String) {}
     }
 
     /// Opens a byte stream through the FFI incoming manager and returns the public reader plus the
@@ -175,6 +177,6 @@ struct ByteStreamReaderTests {
             configure(&$0)
         }
         guard let data = try? packet.serializedData() else { return }
-        manager.handlePacketReceived(packet: data)
+        manager.handlePacketReceived(packet: data, encryptionType: .none)
     }
 }

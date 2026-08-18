@@ -64,7 +64,8 @@ extension StreamError {
         case .Utf8, .Decompression: self = .decodeFailed
         case .LengthExceeded, .HeaderTooLarge, .PayloadTooLarge: self = .lengthExceeded
         case .Incomplete: self = .incomplete
-        case .EncryptionTypeMismatch: self = .encryptionTypeMismatch(expected: .none, received: .none)
+        case let .EncryptionTypeMismatch(expected, received):
+            self = .encryptionTypeMismatch(expected: EncryptionType(expected), received: EncryptionType(received))
         case .AlreadyClosed, .InvalidHeader, .MissedChunk, .SendFailed, .Internal, .InvalidFileName:
             self = .terminated
         }
