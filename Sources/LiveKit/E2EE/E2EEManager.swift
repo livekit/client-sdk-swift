@@ -25,10 +25,6 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
     private class DelegateAdapter: NSObject, LKRTCFrameCryptorDelegate {
         weak var target: E2EEManager?
 
-        init(target: E2EEManager? = nil) {
-            self.target = target
-        }
-
         func frameCryptor(_ frameCryptor: LKRTCFrameCryptor,
                           didStateChangeWithParticipantId participantId: String,
                           with stateChanged: LKRTCFrameCryptorState)
@@ -72,7 +68,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
     // Reference to Room
     private weak var _room: Room?
 
-    private lazy var delegateAdapter: DelegateAdapter = .init(target: self)
+    private let delegateAdapter = DelegateAdapter()
 
     private var _state = StateSync(State())
 
@@ -86,11 +82,15 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
     public init(e2eeOptions: E2EEOptions) {
         self.e2eeOptions = e2eeOptions
         options = nil
+        super.init()
+        delegateAdapter.target = self
     }
 
     public init(options: EncryptionOptions) {
         e2eeOptions = nil
         self.options = options
+        super.init()
+        delegateAdapter.target = self
     }
 
     public func setup(room: Room) {
