@@ -138,8 +138,8 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     /// Outbound flow control, one per channel. Holds the buffered-amount mirror the drain
     /// gates on; the channel references stay in `_state` so pair readiness remains a single
     /// locked read.
-    private let lossyFlow = BufferedDataChannel(label: "lossy", lowWaterMark: DataChannelPair.lossyLowThreshold)
-    private let reliableFlow = BufferedDataChannel(label: "reliable", lowWaterMark: DataChannelPair.reliableLowThreshold)
+    let lossyFlow = BufferedDataChannel(label: "lossy", lowWaterMark: DataChannelPair.lossyLowThreshold)
+    let reliableFlow = BufferedDataChannel(label: "reliable", lowWaterMark: DataChannelPair.reliableLowThreshold)
 
     private let eventContinuation: AsyncStream<ChannelEvent>.Continuation
     private var eventLoopTask: AnyTaskCancellable?
@@ -523,9 +523,11 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         lossy?.close()
         reliable?.close()
 
-        // The channels are gone, so nothing can accept bytes. Only gates
-        // `waitForHeadroom`; the drain's own gate is `channel(for:)`.
-        reportReadiness(false)
+        // Whatever these channels had queued dies with them, so the mirrors start over: a
+        // mirror left above the low-water mark would gate the replacement channel's drain
+        // with no drain report coming to clear it, stalling reliable sends for good.
+        lossyFlow.reset(throwing: error)
+        reliableFlow.reset(throwing: error)
 
         // Drain parked sends through the same event stream so they're ordered
         // after any in-flight `.sendRequested` enqueues from concurrent callers.

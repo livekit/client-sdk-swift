@@ -78,8 +78,11 @@ final class BufferedDataChannel: Sendable, Loggable {
     /// discarded. Self-heals to zero rather than trapping, since the mirror is only a gate.
     func didDrain(_ byteCount: UInt64) {
         let (drifted, canSend) = _state.mutate { state -> (Bool, Bool) in
-            let drifted = state.pending < byteCount
-            state.pending = drifted ? 0 : state.pending - byteCount
+            // A report against an empty mirror is expected right after ``reset(throwing:)``,
+            // when the closing channel flushes bytes this mirror has already forgotten, so
+            // that case stays quiet.
+            let drifted = state.pending > 0 && state.pending < byteCount
+            state.pending = state.pending < byteCount ? 0 : state.pending - byteCount
             return (drifted, state.isReady && state.pending <= lowWaterMark)
         }
         if drifted { log("Unexpected buffer size detected", .error) }
