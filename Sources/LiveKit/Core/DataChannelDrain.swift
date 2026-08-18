@@ -171,8 +171,13 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     }
 
     /// Submits work. Under ``SendOverflow/park`` the continuation resumes when the input's last write
-    /// reaches `sendData`; under ``SendOverflow/dropOldest`` there is none, and an evicted group is
-    /// dropped silently.
+    /// reaches `sendData`; under ``SendOverflow/dropOldest`` there is normally none, and an evicted
+    /// group's waiter is failed rather than stranded.
+    ///
+    /// - Warning: Cancelling the submitting task does **not** withdraw a write that is already
+    ///   queued. It stays queued until the channel takes it or ``reset(throwing:)`` fails it. This
+    ///   is a pre-existing limitation of the continuation-based entry point, carried over
+    ///   deliberately.
     func submit(_ input: Stage.Input, continuation: CheckedContinuation<Void, any Error>? = nil) {
         eventContinuation.yield(.submitted(input, continuation))
     }

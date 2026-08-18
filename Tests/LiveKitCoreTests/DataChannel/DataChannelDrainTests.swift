@@ -248,3 +248,78 @@ struct DataChannelDrainTests {
         try await until("the queued group to drain once open") { channel.tags == [1] }
     }
 }
+
+/// Under ``SendOverflow/dropOldest`` no submitter passes a continuation today, so these pin the
+/// defensive path rather than an intended one: a write that gets dropped must still settle whatever
+/// was waiting on it, because a dropped continuation strands its caller forever.
+@Suite(.tags(.dataChannel))
+struct DropOldestContinuationTests {
+    private static let mark: UInt64 = 8 * 1024
+
+    private let channel = FakeSendChannel()
+    private let drain: DataChannelDrain<DataTrackStage>
+
+    init() {
+        drain = DataChannelDrain(
+            label: "test",
+            lowWaterMark: Self.mark,
+            overflow: .dropOldest,
+            stage: DataTrackStage(),
+        )
+        drain.attach(sendTarget: channel)
+    }
+
+    /// Fills the buffer so submitted groups queue instead of going straight out.
+    private func fillBuffer() async throws {
+        drain.submit([Data(repeating: 0, count: Int(Self.mark) + 1)])
+        try await Task.sleep(nanoseconds: 50_000_000)
+    }
+
+    private func submitWaiting(_ tag: UInt8) -> Task<Void, any Error> {
+        Task {
+            try await withCheckedThrowingContinuation { continuation in
+                drain.submit([Data(repeating: tag, count: 100)], continuation: continuation)
+            }
+        }
+    }
+
+    @Test func evictionSettlesTheDisplacedWaiter() async throws {
+        try await fillBuffer()
+
+        let displaced = submitWaiting(1)
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        // A newer group evicts the queued one; its waiter must not be left suspended.
+        drain.submit([Data(repeating: 2, count: 100)])
+
+        await #expect {
+            try await displaced.value
+        } throws: { ($0 as? LiveKitError)?.type == .cancelled }
+    }
+
+    @Test func channelSwapSettlesQueuedWaiters() async throws {
+        try await fillBuffer()
+
+        let queued = submitWaiting(1)
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        drain.attach(sendTarget: FakeSendChannel())
+
+        await #expect {
+            try await queued.value
+        } throws: { ($0 as? LiveKitError)?.type == .cancelled }
+    }
+
+    @Test func teardownSettlesQueuedWaiters() async throws {
+        try await fillBuffer()
+
+        let queued = submitWaiting(1)
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        drain.reset(throwing: LiveKitError(.invalidState, message: "torn down"))
+
+        await #expect {
+            try await queued.value
+        } throws: { ($0 as? LiveKitError)?.type == .invalidState }
+    }
+}
