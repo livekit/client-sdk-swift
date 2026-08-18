@@ -32,27 +32,13 @@ internal import LiveKitWebRTC
 /// takes a listener to forward messages to.
 ///
 /// ## Queue
-/// `inFlight` holds writes the channel will take next. Under ``Overflow/park`` it is the whole
-/// queue and grows without bound — every submitter waits its turn. Under ``Overflow/dropOldest``
-/// only one group is held beyond the one being dispatched, and a newer group evicts it whole, so a
-/// partial group is never left on the wire.
+/// See ``WriteQueue`` and ``SendOverflow``. Either way a group is dispatched whole, so a partial
+/// group is never left on the wire.
 ///
 /// ## Concurrency
 /// `@unchecked Sendable`. `_state` and `flow` are lock-guarded; `Queue` and `Stage` live in the
 /// event loop's subscription state and are touched only by its single observer.
 final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelegate, @unchecked Sendable, Loggable {
-    /// What happens when writes arrive faster than the channel drains.
-    enum Overflow: Sendable {
-        /// Queue without bound; every submitter waits its turn, in order.
-        case park
-        /// Hold only the freshest group, evicting the one waiting before it. A channel swap
-        /// discards what was queued for the previous channel: it was already stale.
-        ///
-        /// - Note: Capacity is fixed at one group, as in rust-sdks' `DataChannelSender`. Add a
-        ///   depth when something wants more than "freshest wins".
-        case dropOldest
-    }
-
     // MARK: - Public
 
     let label: String
@@ -66,27 +52,22 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         set { _state.mutate { $0.maxMessageSize = newValue } }
     }
 
-    var isOpen: Bool { usableChannel != nil }
+    var isOpen: Bool { usableTarget != nil }
 
     // MARK: - Private
 
     private struct State {
         var channel: LKRTCDataChannel?
+        /// The same object as `channel` in production; a fake in tests.
+        var sendTarget: DrainSendChannel?
         var maxMessageSize: UInt64 = 0
         /// Set by ``reset(throwing:)`` and cleared when a channel is attached. Distinguishes
         /// SDK-initiated teardown from libwebrtc closing the channel on its own.
         var wasReset: Bool = false
     }
 
-    private struct Queue {
-        /// Writes the channel takes next, in order.
-        var inFlight: Deque<ReadyWrite> = []
-        /// ``Overflow/dropOldest`` only: the freshest group, waiting for `inFlight` to empty.
-        var pending: [ReadyWrite]?
-    }
-
     private struct LoopState {
-        var queue = Queue()
+        var queue = WriteQueue()
         var stage: Stage
         /// Reused across `prepare` calls. Lives here rather than on the drain so that only the
         /// loop's single observer can reach it.
@@ -103,12 +84,12 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         case drained(UInt64)
         case wakeup
         /// Discards queued work for a channel that is going away. `failing` is `false` when the
-        /// channel is merely being swapped under ``Overflow/dropOldest``, where the queue holds
+        /// channel is merely being swapped under ``SendOverflow/dropOldest``, where the queue holds
         /// stale groups and no continuations.
         case discard(error: Error?, failing: Bool)
     }
 
-    private let overflow: Overflow
+    private let overflow: SendOverflow
     private let onMessage: @Sendable (Data) -> Void
     private let onStateChange: @Sendable (LKRTCDataChannel) -> Void
 
@@ -119,7 +100,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     init(
         label: String,
         lowWaterMark: UInt64,
-        overflow: Overflow,
+        overflow: SendOverflow,
         stage: Stage,
         maxMessageSize: UInt64 = 0,
         onMessage: @escaping @Sendable (Data) -> Void = { _ in },
@@ -151,8 +132,8 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
 
     /// Attaches the channel this drain sends on and takes over its delegate slot.
     ///
-    /// Under ``Overflow/park`` anything already queued survives the swap and ships on the new
-    /// channel, which is what makes a fast reconnect lossless; under ``Overflow/dropOldest`` it is
+    /// Under ``SendOverflow/park`` anything already queued survives the swap and ships on the new
+    /// channel, which is what makes a fast reconnect lossless; under ``SendOverflow/dropOldest`` it is
     /// discarded as stale.
     func setChannel(_ channel: LKRTCDataChannel?) {
         _state.mutate {
@@ -160,6 +141,13 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             if channel != nil { $0.wasReset = false }
         }
         channel?.delegate = self
+        attach(sendTarget: channel)
+    }
+
+    /// Attaches what writes go to. Split from ``setChannel(_:)`` so tests can drive the queue
+    /// without a real channel; production always passes the channel itself.
+    func attach(sendTarget: DrainSendChannel?) {
+        _state.mutate { $0.sendTarget = sendTarget }
 
         flow.reset()
         if case .dropOldest = overflow {
@@ -167,13 +155,27 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         }
 
         reportReadiness()
-        if channel?.readyState == .open {
+        if sendTarget?.isOpen == true {
             eventContinuation.yield(.wakeup)
         }
     }
 
-    /// Submits work. Under ``Overflow/park`` the continuation resumes when the input's last write
-    /// reaches `sendData`; under ``Overflow/dropOldest`` there is none, and an evicted group is
+    /// Bytes the channel has drained since its last report. Called by the delegate hook below, and
+    /// directly by tests.
+    func reportDrained(_ byteCount: UInt64) {
+        // The mirror is lock-guarded and only gates sending, so it is updated here rather than in
+        // the loop; the stage's own accounting is ordered with the queue via the event.
+        flow.didDrain(byteCount)
+        eventContinuation.yield(.drained(byteCount))
+    }
+
+    /// Re-runs the queue, for tests driving it without channel callbacks.
+    func wake() {
+        eventContinuation.yield(.wakeup)
+    }
+
+    /// Submits work. Under ``SendOverflow/park`` the continuation resumes when the input's last write
+    /// reaches `sendData`; under ``SendOverflow/dropOldest`` there is none, and an evicted group is
     /// dropped silently.
     func submit(_ input: Stage.Input, continuation: CheckedContinuation<Void, any Error>? = nil) {
         eventContinuation.yield(.submitted(input, continuation))
@@ -192,6 +194,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         let channel = _state.mutate {
             let previous = $0.channel
             $0.channel = nil
+            $0.sendTarget = nil
             $0.wasReset = true
             return previous
         }
@@ -310,13 +313,13 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             }
             guard let write = state.queue.inFlight.first else { return }
 
-            guard let channel = usableChannel else {
+            guard let channel = usableTarget else {
                 // The channel can go away between the readiness report and here — e.g. mid
                 // fast-reconnect. Leave the write at the head; the next `.wakeup` ships it, and
                 // permanent teardown fails it via `.teardown`.
                 return
             }
-            guard channel.sendData(write.data) else {
+            guard channel.send(write.data) else {
                 write.continuation?.resume(
                     throwing: LiveKitError(.invalidState, message: "sendData failed"),
                 )
@@ -335,10 +338,10 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     /// Drops what a rejected `sendData` invalidated, resuming nothing — the write's continuation
     /// has already been failed.
     ///
-    /// Under ``Overflow/park`` only the rejected write goes; the rest of the queue belongs to other
+    /// Under ``SendOverflow/park`` only the rejected write goes; the rest of the queue belongs to other
     /// submitters and still has somewhere to go. (Park stages produce one write per input today, so
     /// there is no partial group to consider; a multi-write park stage would need to revisit this.)
-    /// Under ``Overflow/dropOldest`` the rest of the group goes with it, since half a frame on the
+    /// Under ``SendOverflow/dropOldest`` the rest of the group goes with it, since half a frame on the
     /// wire is worse than none.
     private func dropFailedWrite(state: inout LoopState) {
         switch overflow {
@@ -354,15 +357,15 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
 
     // MARK: - Channel
 
-    private var usableChannel: LKRTCDataChannel? {
+    private var usableTarget: DrainSendChannel? {
         _state.read { state in
-            guard let channel = state.channel, channel.readyState == .open else { return nil }
-            return channel
+            guard let target = state.sendTarget, target.isOpen else { return nil }
+            return target
         }
     }
 
     private func reportReadiness() {
-        flow.setReady(usableChannel != nil)
+        flow.setReady(usableTarget != nil)
     }
 
     // MARK: - RTCDataChannelDelegate
@@ -372,10 +375,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     // contain `@objc` members, and this is an `@objc` protocol.
 
     func dataChannel(_: LKRTCDataChannel, didChangeBufferedAmount amount: UInt64) {
-        // The mirror is lock-guarded and only gates sending, so it is updated here rather than in
-        // the loop; the stage's own accounting is ordered with the queue via the event.
-        flow.didDrain(amount)
-        eventContinuation.yield(.drained(amount))
+        reportDrained(amount)
     }
 
     func dataChannelDidChangeState(_ dataChannel: LKRTCDataChannel) {

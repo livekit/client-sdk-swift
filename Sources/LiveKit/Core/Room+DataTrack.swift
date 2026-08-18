@@ -40,10 +40,8 @@ final class DataTracks: NSObject, @unchecked Sendable {
     private let managerDelegate: ManagerDelegate
     private let cryptor: DataTrackCryptor
     private weak var room: Room?
-    // Wired in after creation (Engine/TransportDelegate) and read from the Rust callback thread,
-    // so they need their own synchronization. The subscriber channel is retained (not just
-    // delegated) because its Swift wrapper must stay alive for native callbacks to reach us.
-    private let _publisherChannel = StateSync<LKRTCDataChannel?>(nil)
+    // The subscriber channel is retained (not just delegated) because its Swift wrapper must stay
+    // alive for native callbacks to reach us. The publisher channel is owned by `publisher`.
     private let _subscriberChannel = StateSync<LKRTCDataChannel?>(nil)
     // Resolves when the publisher data-track channel reaches `.open`; reset when the channel is
     // swapped on a full reconnect. Gates publishing so frames aren't dropped into a closed channel.
@@ -57,12 +55,10 @@ final class DataTracks: NSObject, @unchecked Sendable {
     // `reattachRemoteTracks`.
     private let _remoteTracks = StateSync<[RemoteDataTrack]>([])
 
-    // Outbound frame drain. Confined to `DispatchQueue.liveKitWebRTC` (no locks: `sendData`
-    // proxies into WebRTC's threads, and the buffered-amount callbacks arrive from them — a lock
-    // held across either direction could deadlock).
-    fileprivate let frameSender = DataTrackFrameSender()
-
-    var publisherChannel: LKRTCDataChannel? { _publisherChannel.copy() }
+    // Outbound frame drain, and the owner of the publisher channel (including its delegate slot).
+    // Drop-oldest with a capacity of one frame: a newer frame evicts the one waiting, and frames
+    // are dispatched whole so a partial frame never reaches the wire.
+    private var publisher: DataChannelDrain<DataTrackStage>!
 
     init(room: Room) {
         self.room = room
@@ -73,6 +69,14 @@ final class DataTracks: NSObject, @unchecked Sendable {
         cryptor = DataTrackCryptor(room: room)
         remote = RemoteDataTrackManager(delegate: managerDelegate, decryptionProvider: cryptor)
         super.init()
+        publisher = DataChannelDrain(
+            label: LKRTCDataChannel.Labels.dataTrack,
+            lowWaterMark: Self.frameLowWaterMark,
+            overflow: .dropOldest,
+            stage: DataTrackStage(),
+            onMessage: { [weak self] data in self?.handlePacket(data) },
+            onStateChange: { [weak self] channel in self?.handlePublisherStateChange(channel) },
+        )
         // The UniFFI managers retain their delegate strongly, so it points back here weakly to
         // avoid a cycle. (The RTC channel holds its delegate — us — weakly, so no shim needed.)
         managerDelegate.coordinator = self
@@ -274,16 +278,12 @@ final class DataTracks: NSObject, @unchecked Sendable {
     func setPublisherChannel(_ channel: LKRTCDataChannel) {
         // A new channel arrives unopened (e.g. swapped in by a full reconnect); re-arm the gate
         // without cancelling waiters — a publish issued during the reconnect window keeps waiting
-        // for this channel to open.
+        // for this channel to open. Frames queued for the old channel belong to the torn-down
+        // transport, which `.dropOldest` discards on attach.
         _publisherChannelOpen.rearm()
-        _publisherChannel.mutate { $0 = channel }
-        channel.delegate = self
+        publisher.setChannel(channel)
         if channel.readyState == .open {
             _publisherChannelOpen.resume(returning: ())
-        }
-        // Frames queued for the old channel belong to the torn-down transport.
-        DispatchQueue.liveKitWebRTC.async { [weak self] in
-            self?.frameSender.attach(channel)
         }
     }
 
@@ -334,9 +334,7 @@ final class DataTracks: NSObject, @unchecked Sendable {
         }
 
         func onPacketsAvailable(packets: [Data]) {
-            DispatchQueue.liveKitWebRTC.async { [weak coordinator] in
-                coordinator?.frameSender.sendOrQueue(packets)
-            }
+            coordinator?.publisher.submit(packets)
         }
 
         func onTrackPublished(track: LiveKitUniFFI.RemoteDataTrack) {
@@ -349,17 +347,17 @@ final class DataTracks: NSObject, @unchecked Sendable {
     }
 }
 
-// MARK: - Subscriber Channel Delegate
+// MARK: - Publisher readiness
 
-extension DataTracks: LKRTCDataChannelDelegate {
-    func dataChannelDidChangeState(_ dataChannel: LKRTCDataChannel) {
-        guard dataChannel === publisherChannel else { return }
-        if dataChannel.readyState == .open {
+private extension DataTracks {
+    /// Resume sending when this many bytes or fewer are outstanding; parity with
+    /// `DATA_TRACK_BUFFERED_AMOUNT_LOW_THRESHOLD` in rust-sdks.
+    static var frameLowWaterMark: UInt64 { 8 * 1024 }
+
+    /// Reported by the publisher drain, which owns that channel's delegate slot.
+    func handlePublisherStateChange(_ channel: LKRTCDataChannel) {
+        if channel.readyState == .open {
             _publisherChannelOpen.resume(returning: ())
-            // Drain anything queued while the channel was still opening.
-            DispatchQueue.liveKitWebRTC.async { [weak self] in
-                self?.frameSender.pump()
-            }
         } else {
             // The channel left `.open` (transport teardown or failure): re-arm the gate so a
             // publish issued before the replacement channel arrives waits instead of proceeding
@@ -367,17 +365,18 @@ extension DataTracks: LKRTCDataChannelDelegate {
             _publisherChannelOpen.rearm()
         }
     }
+}
 
-    func dataChannel(_ dataChannel: LKRTCDataChannel, didChangeBufferedAmount amount: UInt64) {
-        guard dataChannel === publisherChannel else { return }
-        DispatchQueue.liveKitWebRTC.async { [weak self] in
-            // The amount is the bytes *drained* since the last report, not the current level.
-            self?.frameSender.didDrain(amount)
-            self?.frameSender.pump()
-        }
-    }
+// MARK: - Subscriber Channel Delegate
 
+// Only the subscriber channel routes here — the publisher channel's delegate is its drain — so
+// there is nothing to disambiguate.
+extension DataTracks: LKRTCDataChannelDelegate {
     func dataChannel(_: LKRTCDataChannel, didReceiveMessageWith buffer: LKRTCDataBuffer) {
         handlePacket(buffer.data)
     }
+
+    // Required by the protocol. The subscriber channel's readiness is not acted on: it carries no
+    // outbound work, and its packets arrive whenever the SFU sends them.
+    func dataChannelDidChangeState(_: LKRTCDataChannel) {}
 }

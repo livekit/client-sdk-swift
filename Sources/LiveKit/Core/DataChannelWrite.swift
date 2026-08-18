@@ -18,6 +18,24 @@ import Foundation
 
 internal import LiveKitWebRTC
 
+// MARK: - Channel seam
+
+/// The slice of a data channel that ``DataChannelDrain`` sends through — a seam so the queue and its
+/// overflow policy stay unit-testable (`LKRTCDataChannel` cannot be constructed without a live peer
+/// connection).
+protocol DrainSendChannel: AnyObject, Sendable {
+    var isOpen: Bool { get }
+    func send(_ buffer: LKRTCDataBuffer) -> Bool
+}
+
+extension LKRTCDataChannel: DrainSendChannel {
+    var isOpen: Bool { readyState == .open }
+
+    func send(_ buffer: LKRTCDataBuffer) -> Bool {
+        sendData(buffer)
+    }
+}
+
 // MARK: - Write phases
 
 /// Serialized bytes and the sequence stamped on them: what a ``SendStage`` produces, before the
@@ -102,4 +120,27 @@ extension SendStage {
     mutating func didDrain(_: UInt64) {}
     mutating func handle(_: Command, replay _: (ReadyWrite) -> Void) {}
     mutating func reset() {}
+}
+
+// MARK: - Queue
+
+/// What happens when writes arrive faster than the channel drains.
+enum SendOverflow: Sendable {
+    /// Queue without bound; every submitter waits its turn, in order.
+    case park
+    /// Hold only the freshest group, evicting the one waiting before it. A channel swap discards
+    /// what was queued for the previous channel: it was already stale.
+    ///
+    /// - Note: Capacity is fixed at one group, as in rust-sdks' `DataChannelSender`. Add a depth
+    ///   when something wants more than "freshest wins".
+    case dropOldest
+}
+
+/// A drain's outbound queue. Under ``SendOverflow/park`` `inFlight` is the whole queue; under
+/// ``SendOverflow/dropOldest`` it is the group being handed over, and `pending` is the one waiting.
+struct WriteQueue {
+    /// Writes the channel takes next, in order.
+    var inFlight: Deque<ReadyWrite> = []
+    /// ``SendOverflow/dropOldest`` only: the freshest group, waiting for `inFlight` to empty.
+    var pending: [ReadyWrite]?
 }
