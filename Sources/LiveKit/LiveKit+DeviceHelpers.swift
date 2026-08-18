@@ -16,6 +16,33 @@
 
 import AVFoundation
 
+#if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS))
+import UIKit
+#endif
+
+// Whether this process is an app extension, which cannot present a permission dialog. The broadcast
+// upload extension the SDK supports (see `LKSampleHandler`) is headless, so no prompt can appear.
+private let kIsAppExtension = Bundle.main.bundleURL.pathExtension == "appex"
+
+#if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS))
+// Resolves `UIApplication.shared` through the Objective-C runtime because referencing it directly
+// does not compile with APPLICATION_EXTENSION_API_ONLY=YES, and consumers build this module into
+// broadcast upload extensions. An extension process is prohibited from calling `sharedApplication`,
+// so callers must be guarded by `kIsAppExtension`; the selector itself would resolve there too.
+@MainActor
+private func isApplicationForegrounded() -> Bool {
+    let selector = NSSelectorFromString("sharedApplication")
+    guard UIApplication.responds(to: selector),
+          let shared = UIApplication.perform(selector),
+          let application = shared.takeUnretainedValue() as? UIApplication
+    else { return false }
+    // .inactive is still foreground per UIApplication.State, and the system permission dialog can
+    // be presented there (app launch, banners, multitasking transitions). Only .background cannot
+    // prompt, which matters because launch-time code paths commonly run before the scene activates.
+    return application.applicationState != .background
+}
+#endif
+
 public extension LiveKitSDK {
     /// Helper method to ensure authorization for video(camera) / audio(microphone) permissions in a single call.
     static func ensureDeviceAccess(for types: Set<AVMediaType>) async -> Bool {
@@ -80,5 +107,57 @@ public extension LiveKitSDK {
         group.wait()
 
         return granted
+    }
+}
+
+extension LiveKitSDK {
+    /// Requests authorization for the given media types, but only while the app can present the
+    /// system permission dialog.
+    ///
+    /// An app extension always returns `false` without prompting, since it cannot present the dialog.
+    ///
+    /// On iOS-family platforms this also returns `false` without prompting when the app is backgrounded,
+    /// so a caller woken in the background (for example by CallKit) does not wait on a dialog that
+    /// cannot appear. A foregrounded-but-inactive app (during launch, or while a system banner is
+    /// showing) can still prompt. On macOS the prompt can be presented regardless, so this otherwise
+    /// behaves like ``ensureDeviceAccess(for:)``.
+    static func ensureDeviceAccessIfForegrounded(for types: Set<AVMediaType>) async -> Bool {
+        if kIsAppExtension { return false }
+        #if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS))
+        guard await isApplicationForegrounded() else { return false }
+        #endif
+        return await ensureDeviceAccess(for: types)
+    }
+
+    /// Ensures microphone access is granted before enabling recording.
+    ///
+    /// The WebRTC audio device no longer requests microphone permission implicitly, so the SDK
+    /// requests it here while the app is foregrounded. When permission is undetermined and the app
+    /// cannot present the prompt (backgrounded or app extension), this fails fast instead of blocking.
+    ///
+    /// - Throws: ``LiveKitError`` of type ``LiveKitErrorType/deviceAccessDenied`` when microphone
+    ///   access is denied or restricted, or when permission is undetermined and cannot be requested.
+    static func ensureMicrophoneAccessForRecording() async throws {
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            return
+        case .notDetermined:
+            guard await ensureDeviceAccessIfForegrounded(for: [.audio]) else {
+                // Distinguish "could not present the prompt" from "the user denied it".
+                if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
+                    if kIsAppExtension {
+                        throw LiveKitError(.deviceAccessDenied,
+                                           message: "Microphone permission cannot be requested from an app extension. Request it in the host app before enabling recording.")
+                    }
+                    throw LiveKitError(.deviceAccessDenied,
+                                       message: "Microphone permission could not be requested. Request it while the app is in the foreground before enabling recording.")
+                }
+                throw LiveKitError(.deviceAccessDenied, message: "Microphone permission was denied.")
+            }
+        case .denied, .restricted:
+            throw LiveKitError(.deviceAccessDenied, message: "Microphone permission is not granted.")
+        @unknown default:
+            throw LiveKitError(.deviceAccessDenied, message: "Microphone permission is not granted.")
+        }
     }
 }
