@@ -215,7 +215,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         case let .submitted(input, continuation):
             enqueue(input, continuation: continuation, state: &state)
         case let .replayed(write):
-            state.queue.inFlight.append(write)
+            state.queue.append([write])
         case let .commanded(command):
             state.stage.handle(command) { [weak self] write in
                 // Through the stream, so replayed writes queue in the order the stage emits them
@@ -227,21 +227,14 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         case .wakeup:
             break
         case let .discard(error, failing):
+            let discarded = state.queue.removeAll()
             if failing {
                 let failure = error ?? LiveKitError(.cancelled, message: "Data channel reset")
-                while !state.queue.inFlight.isEmpty {
-                    state.queue.inFlight.removeFirst().continuation?.resume(throwing: failure)
-                }
-                for write in state.queue.pending ?? [] {
+                for write in discarded {
                     write.continuation?.resume(throwing: failure)
                 }
                 state.stage.reset()
-            } else {
-                while !state.queue.inFlight.isEmpty {
-                    state.queue.inFlight.removeFirst()
-                }
             }
-            state.queue.pending = nil
             return
         }
 
@@ -279,7 +272,11 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             // whole group has been handed over.
             let isLast = index == state.scratch.count - 1
             group.append(ReadyWrite(
-                data: RTC.createDataBuffer(data: prepared.bytes),
+                // Constructed directly rather than via `RTC.createDataBuffer`, whose
+                // `DispatchQueue.liveKitWebRTC.sync` hop would block a cooperative-pool thread once
+                // per write. The buffer is a plain container; that helper's queue exists to
+                // serialize factory access, which this does not need.
+                data: LKRTCDataBuffer(data: prepared.bytes, isBinary: true),
                 sequence: prepared.sequence,
                 continuation: isLast ? continuation : nil,
             ))
@@ -304,14 +301,8 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
 
     private func dispatch(state: inout LoopState) {
         while flow.hasHeadroom {
-            if state.queue.inFlight.isEmpty {
-                guard let next = state.queue.pending else { return }
-                state.queue.pending = nil
-                for write in next {
-                    state.queue.inFlight.append(write)
-                }
-            }
-            guard let write = state.queue.inFlight.first else { return }
+            state.queue.promoteIfIdle()
+            guard let write = state.queue.next else { return }
 
             guard let channel = usableTarget else {
                 // The channel can go away between the readiness report and here — e.g. mid
@@ -319,17 +310,22 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
                 // permanent teardown fails it via `.teardown`.
                 return
             }
+            // Counted *before* the hand-off, so the mirror is never behind what the transport
+            // holds. Counting after would leave a window where a drain report for these bytes
+            // arrives first, subtracts them from a mirror that has not seen them, and then has them
+            // added back — leaving the gate closed with nothing left to drain, permanently.
+            flow.didSend(write.byteCount)
+
             guard channel.send(write.data) else {
+                // Never reached the transport, so they are not outstanding after all.
+                flow.didDrain(UInt64(write.byteCount))
                 write.continuation?.resume(
                     throwing: LiveKitError(.invalidState, message: "sendData failed"),
                 )
                 dropFailedWrite(state: &state)
                 return
             }
-            state.queue.inFlight.removeFirst()
-            // Bytes are in WebRTC's SCTP queue now; account for them so the gate above closes for
-            // subsequent iterations.
-            flow.didSend(write.byteCount)
+            state.queue.advance()
             write.continuation?.resume()
             state.stage.didDispatch(write)
         }
@@ -346,12 +342,10 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     private func dropFailedWrite(state: inout LoopState) {
         switch overflow {
         case .park:
-            if !state.queue.inFlight.isEmpty { state.queue.inFlight.removeFirst() }
+            state.queue.advance()
         case .dropOldest:
             log("Channel rejected a write; dropping the rest of the group", .debug)
-            while !state.queue.inFlight.isEmpty {
-                state.queue.inFlight.removeFirst()
-            }
+            state.queue.dropInFlight()
         }
     }
 

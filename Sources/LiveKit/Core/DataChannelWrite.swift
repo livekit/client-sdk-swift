@@ -143,4 +143,41 @@ struct WriteQueue {
     var inFlight: Deque<ReadyWrite> = []
     /// ``SendOverflow/dropOldest`` only: the freshest group, waiting for `inFlight` to empty.
     var pending: [ReadyWrite]?
+
+    var next: ReadyWrite? { inFlight.first }
+
+    mutating func append(_ group: [ReadyWrite]) {
+        for write in group {
+            inFlight.append(write)
+        }
+    }
+
+    /// Promotes the waiting group once the group being handed over is done, so a group's writes are
+    /// never interleaved with another's.
+    mutating func promoteIfIdle() {
+        guard inFlight.isEmpty, let group = pending else { return }
+        pending = nil
+        append(group)
+    }
+
+    mutating func advance() {
+        if !inFlight.isEmpty { inFlight.removeFirst() }
+    }
+
+    /// Empties the queue, handing back every write so the caller can settle their continuations.
+    mutating func removeAll() -> [ReadyWrite] {
+        var removed = pending ?? []
+        pending = nil
+        while !inFlight.isEmpty {
+            removed.append(inFlight.removeFirst())
+        }
+        return removed
+    }
+
+    /// Drops the group being handed over, keeping whatever is waiting behind it.
+    mutating func dropInFlight() {
+        while !inFlight.isEmpty {
+            inFlight.removeFirst()
+        }
+    }
 }
