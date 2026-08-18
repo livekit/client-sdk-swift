@@ -21,7 +21,6 @@ internal import LiveKitWebRTC
 /// The slice of the RTC data channel the outbound drain drives — a seam so the drain logic is
 /// unit-testable (`LKRTCDataChannel` can't be constructed without a live peer connection).
 protocol DataTrackSendChannel: AnyObject {
-    var bufferedAmount: UInt64 { get }
     var isOpen: Bool { get }
     func send(packet: Data) -> Bool
 }
@@ -44,6 +43,9 @@ extension LKRTCDataChannel: DataTrackSendChannel {
 /// latency: at most one frame waits while another drains, and a newer frame evicts the waiting
 /// one. Frames are handled whole — a partial frame is never left on the wire.
 ///
+/// Owns the queue and the drop-oldest policy; the buffered-amount accounting and the low-water
+/// gate belong to ``BufferedDataChannel``, shared with ``DataChannelPair``.
+///
 /// Not thread-safe: the owner confines all calls to one queue (`DispatchQueue.liveKitWebRTC` in
 /// production; buffered-amount and state callbacks arrive from WebRTC's threads and hop over).
 final class DataTrackFrameSender: Loggable {
@@ -52,17 +54,25 @@ final class DataTrackFrameSender: Loggable {
     static let lowWaterMark: UInt64 = 8 * 1024
 
     private var channel: DataTrackSendChannel?
+    private let flow = BufferedDataChannel(label: "dataTrack", lowWaterMark: DataTrackFrameSender.lowWaterMark)
     /// Freshest queued frame (capacity one — a newer frame evicts it).
     private var pendingFrame: [Data]?
     /// Packets of the frame currently draining, in FIFO order.
     private var inFlight: Deque<Data> = []
 
     /// Attaches the channel this sender drains into, dropping frames queued for the previous one
-    /// (they belong to a torn-down transport).
+    /// (they belong to a torn-down transport) and starting the buffer mirror over.
     func attach(_ channel: DataTrackSendChannel) {
         self.channel = channel
+        flow.reset()
         pendingFrame = nil
         inFlight = []
+    }
+
+    /// Bytes the channel reports having drained since its last report. Never the current level:
+    /// see ``BufferedDataChannel``.
+    func didDrain(_ byteCount: UInt64) {
+        flow.didDrain(byteCount)
     }
 
     /// Queues a frame's packets for sending, evicting a previously queued frame (drop-oldest).
@@ -79,7 +89,7 @@ final class DataTrackFrameSender: Loggable {
     /// in-flight one is fully handed off.
     func pump() {
         guard let channel, channel.isOpen else { return }
-        while channel.bufferedAmount <= Self.lowWaterMark {
+        while flow.hasHeadroom {
             if inFlight.isEmpty {
                 guard let next = pendingFrame else { return }
                 pendingFrame = nil
@@ -93,6 +103,7 @@ final class DataTrackFrameSender: Loggable {
                 inFlight = []
                 return
             }
+            flow.didSend(packet.count)
             inFlight.removeFirst()
         }
     }

@@ -19,20 +19,26 @@ import Foundation
 import Testing
 
 private final class FakeSendChannel: DataTrackSendChannel {
-    var bufferedAmount: UInt64 = 0
     var isOpen = true
     var acceptsSends = true
     private(set) var sent: [Data] = []
+    /// What the transport still holds. The sender never reads this — it mirrors what it hands
+    /// over — so this exists to model the transport and to report drained byte counts.
+    private(set) var outstanding: UInt64 = 0
 
     func send(packet: Data) -> Bool {
         guard acceptsSends else { return false }
         sent.append(packet)
-        bufferedAmount += UInt64(packet.count)
+        outstanding += UInt64(packet.count)
         return true
     }
 
-    /// Simulates the transport flushing its buffer (the trigger for a buffered-amount callback).
-    func drain() { bufferedAmount = 0 }
+    /// Flushes the buffer and returns the drained byte count, as `didChangeBufferedAmount` does.
+    func flush() -> UInt64 {
+        let drained = outstanding
+        outstanding = 0
+        return drained
+    }
 }
 
 /// Pins the outbound drain's semantics, which are deliberately aligned (and deliberately not)
@@ -60,6 +66,19 @@ struct DataTrackFrameSenderTests {
         (0 ..< packets).map { _ in Data(repeating: tag, count: packetSize) }
     }
 
+    /// Reports the transport's drain to the sender, the way the buffered-amount callback does.
+    private func drain() {
+        sender.didDrain(channel.flush())
+        sender.pump()
+    }
+
+    /// Pushes the buffer past the low-water mark. Frame `0` goes out first and shows up in
+    /// `sent`; the sender's mirror only counts what it has handed over, so filling it means
+    /// actually sending.
+    private func fillBuffer() {
+        sender.sendOrQueue(frame(0, packetSize: Int(DataTrackFrameSender.lowWaterMark) + 1))
+    }
+
     @Test
     func sendsImmediatelyWithHeadroom() {
         sender.sendOrQueue(frame(1, packets: 3))
@@ -77,9 +96,8 @@ struct DataTrackFrameSenderTests {
         while channel.sent.count < 50, pumps < 100 {
             // Each drain admits exactly one over-watermark packet, so the buffer never holds more
             // than one packet beyond the low-water mark.
-            #expect(channel.bufferedAmount <= DataTrackFrameSender.lowWaterMark + UInt64(packetSize))
-            channel.drain()
-            sender.pump()
+            #expect(channel.outstanding <= DataTrackFrameSender.lowWaterMark + UInt64(packetSize))
+            drain()
             pumps += 1
         }
         #expect(channel.sent.count == 50)
@@ -90,14 +108,13 @@ struct DataTrackFrameSenderTests {
     /// matches rust-sdks.
     @Test
     func dropsOldestQueuedFrame() {
-        channel.bufferedAmount = DataTrackFrameSender.lowWaterMark + 1
+        fillBuffer()
         sender.sendOrQueue(frame(1))
         sender.sendOrQueue(frame(2))
-        #expect(channel.sent.isEmpty)
+        #expect(channel.sent.map(\.first) == [0], "both frames wait behind the full buffer")
 
-        channel.drain()
-        sender.pump()
-        #expect(channel.sent.map(\.first) == [2])
+        drain()
+        #expect(channel.sent.map(\.first) == [0, 2])
     }
 
     /// An in-flight frame is never abandoned mid-send: its remaining packets go out before a
@@ -111,8 +128,7 @@ struct DataTrackFrameSenderTests {
 
         sender.sendOrQueue(frame(2, packets: 2, packetSize: 64000))
         while channel.sent.count < 5 {
-            channel.drain()
-            sender.pump()
+            drain()
         }
         #expect(channel.sent.map(\.first) == [1, 1, 1, 2, 2])
     }
@@ -121,7 +137,7 @@ struct DataTrackFrameSenderTests {
     /// `invalidateWaiters` on handle replacement — stale frames belong to a dead transport).
     @Test
     func attachClearsQueuedFrames() {
-        channel.bufferedAmount = DataTrackFrameSender.lowWaterMark + 1
+        fillBuffer()
         sender.sendOrQueue(frame(1))
 
         let newChannel = FakeSendChannel()
@@ -129,6 +145,8 @@ struct DataTrackFrameSenderTests {
         sender.pump()
         #expect(newChannel.sent.isEmpty)
 
+        // The mirror starts over with the new channel, so a fresh frame goes straight out even
+        // though the previous channel was over its mark.
         sender.sendOrQueue(frame(2))
         #expect(newChannel.sent.map(\.first) == [2])
     }
@@ -148,13 +166,12 @@ struct DataTrackFrameSenderTests {
     /// An empty packet batch must not evict a queued frame.
     @Test
     func emptyBatchIsIgnored() {
-        channel.bufferedAmount = DataTrackFrameSender.lowWaterMark + 1
+        fillBuffer()
         sender.sendOrQueue(frame(1))
         sender.sendOrQueue([])
 
-        channel.drain()
-        sender.pump()
-        #expect(channel.sent.map(\.first) == [1])
+        drain()
+        #expect(channel.sent.map(\.first) == [0, 1])
     }
 
     /// Nothing is sent while the channel is closed; opening drains the queue.

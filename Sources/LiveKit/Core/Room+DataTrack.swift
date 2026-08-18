@@ -368,9 +368,11 @@ extension DataTracks: LKRTCDataChannelDelegate {
         }
     }
 
-    func dataChannel(_ dataChannel: LKRTCDataChannel, didChangeBufferedAmount _: UInt64) {
+    func dataChannel(_ dataChannel: LKRTCDataChannel, didChangeBufferedAmount amount: UInt64) {
         guard dataChannel === publisherChannel else { return }
         DispatchQueue.liveKitWebRTC.async { [weak self] in
+            // The amount is the bytes *drained* since the last report, not the current level.
+            self?.frameSender.didDrain(amount)
             self?.frameSender.pump()
         }
     }
