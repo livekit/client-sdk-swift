@@ -124,11 +124,19 @@ struct ReliableStage: SendStage, Loggable {
         }
     }
 
+    /// Reached on teardown and full reconnect, never on a resume — a resume is exactly when the
+    /// retained writes are needed.
+    ///
+    /// The buffer and the sequence share a lifetime: retaining writes stamped 1…N while the counter
+    /// restarts at 1 would replay stale sequences into a session that has never seen them, and only
+    /// a resume asks for a replay, so those entries can never be legitimately used again.
+    /// client-sdk-js ties the two together the same way, clearing the buffer, the sequence and the
+    /// receive state in one place (`cleanupPeerConnections`). client-sdk-android keeps all three
+    /// across a full reconnect instead, which is equally consistent; the Swift SDK reset the
+    /// sequence alone, which was neither.
     mutating func reset() {
         nextSequence = 1
-        // ponytail: the retry buffer deliberately survives, matching the behaviour this replaced.
-        // Combined with the sequence restarting at 1, a replay after a full reconnect can emit
-        // stale sequences — a pre-existing bug, fixed separately so this stays a refactor.
+        retry = RetryBuffer(minAmount: retryFloor)
     }
 }
 
