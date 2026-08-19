@@ -85,6 +85,7 @@ public class LiveKitSDK: NSObject, Loggable {
     public static func prepare() {
         // TODO: Add RTC related initializations
         DeviceManager.prepare()
+        _ = LKNet.bootstrap
     }
 }
 
