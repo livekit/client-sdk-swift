@@ -92,7 +92,8 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
             let delegate = IncomingDelegate()
             delegate.coordinator = self
             // `nil` → the core's default cap. Read now (first packet, i.e. post-connect) so a
-            // `maxPayloadSize` supplied via `connect(roomOptions:)` is honored.
+            // `maxPayloadSize` supplied via `connect(roomOptions:)` is honored. `DataStreamOptions`
+            // normalizes non-positive values to `nil`, so the conversion below can't trap.
             let maxPayloadSize = room?._state.roomOptions.dataStreamOptions.maxPayloadSize
             let manager = LiveKitUniFFI.IncomingDataStreamManager(
                 delegate: delegate,
