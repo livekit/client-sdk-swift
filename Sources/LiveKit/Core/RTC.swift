@@ -29,6 +29,7 @@ actor RTC {
         var isInitialized: Bool = false
         var admType: AudioDeviceModuleType = .audioEngine
         var bypassVoiceProcessing: Bool = false
+        var customVideoEncoderFactory: (LKRTCVideoEncoderFactory & Sendable)?
     }
 
     static let pcFactoryState = StateSync(PeerConnectionFactoryState())
@@ -36,7 +37,7 @@ actor RTC {
     // global properties are already lazy
 
     static let encoderFactory: LKRTCVideoEncoderFactory & Sendable = {
-        let encoderFactory = VideoEncoderFactory()
+        let encoderFactory: LKRTCVideoEncoderFactory & Sendable = pcFactoryState.read { $0.customVideoEncoderFactory } ?? VideoEncoderFactory()
         return VideoEncoderFactorySimulcast(primary: encoderFactory,
                                             fallback: encoderFactory)
 
