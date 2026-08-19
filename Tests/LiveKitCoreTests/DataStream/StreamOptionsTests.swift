@@ -64,4 +64,12 @@ struct StreamOptionsTests {
         #expect(DataStreamOptions(maxPayloadSize: 1000).maxPayloadSizeNumber == 1000)
         #expect(DataStreamOptions(maxPayloadSizeNumber: 1000).maxPayloadSize == 1000)
     }
+
+    /// A non-positive cap used to reach `UInt64(_:)` at the FFI boundary and trap the process on the
+    /// first inbound packet. Normalized to `nil` (the built-in cap) at construction instead.
+    @Test(arguments: [-1, 0, Int.min])
+    func dataStreamNonPositiveMaxPayloadSizeIsIgnored(_ value: Int) {
+        #expect(DataStreamOptions(maxPayloadSize: value).maxPayloadSize == nil)
+        #expect(DataStreamOptions(maxPayloadSizeNumber: NSNumber(value: value)).maxPayloadSize == nil)
+    }
 }
