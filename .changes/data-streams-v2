@@ -1,0 +1,1 @@
+minor type="changed" "Data streams: reimplemented on the Rust livekit-data-stream core over UniFFI, adding DEFLATE compression and single-packet inlining for one-shot sends when every recipient supports them, a configurable incoming payload cap via RoomOptions.dataStreamOptions, and Participant.capabilities"
