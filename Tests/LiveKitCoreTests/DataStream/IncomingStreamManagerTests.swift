@@ -165,9 +165,25 @@ struct IncomingStreamManagerTests: Sendable {
         #expect(error as? StreamError == .incomplete)
     }
 
-    // Note: the v1 `encryptionTypeMismatch` behavior is intentionally not ported. Data-stream
-    // encryption is now applied transparently at the `DataChannelPair` layer and the UniFFI boundary
-    // normalizes the per-packet encryption type, so a header/chunk mismatch can no longer occur here.
+    /// A stream is opened as encrypted; a peer then tries to continue it in the clear. Both the
+    /// chunk and the trailer paths must reject that — the trailer especially, since merging its
+    /// attributes is how an unencrypted peer could otherwise close someone else's encrypted stream
+    /// and inject attributes on the way out.
+    @Test(arguments: [false, true])
+    func encryptionTypeMismatch(onTrailer: Bool) async {
+        let error = await byteReaderError { streamID in
+            feedHeader(streamID: streamID, byte: true, encryptionType: .gcm)
+            feedChunk(
+                streamID: streamID,
+                index: 0,
+                content: Data(repeating: 0xAB, count: 16),
+                encryptionType: onTrailer ? .gcm : .none,
+            )
+            feedTrailer(streamID: streamID, reason: "", encryptionType: onTrailer ? .none : .gcm)
+        }
+
+        #expect(error as? StreamError == .encryptionTypeMismatch(expected: .gcm, received: .none))
+    }
 
     // MARK: - Helpers
 
@@ -231,7 +247,7 @@ struct IncomingStreamManagerTests: Sendable {
         feedTrailer(streamID: streamID, reason: "")
     }
 
-    func feedHeader(streamID: String, byte: Bool, totalLength: UInt64? = nil) {
+    func feedHeader(streamID: String, byte: Bool, totalLength: UInt64? = nil, encryptionType: EncryptionType = .none) {
         let header = Livekit_DataStream.Header.with {
             $0.streamID = streamID
             $0.topic = topicName
@@ -240,31 +256,31 @@ struct IncomingStreamManagerTests: Sendable {
                 : .textHeader(Livekit_DataStream.TextHeader())
             if let totalLength { $0.totalLength = totalLength }
         }
-        feed { $0.streamHeader = header }
+        feed(encryptionType: encryptionType) { $0.streamHeader = header }
     }
 
-    func feedChunk(streamID: String, index: UInt64, content: Data) {
+    func feedChunk(streamID: String, index: UInt64, content: Data, encryptionType: EncryptionType = .none) {
         let chunk = Livekit_DataStream.Chunk.with {
             $0.streamID = streamID
             $0.chunkIndex = index
             $0.content = content
         }
-        feed { $0.streamChunk = chunk }
+        feed(encryptionType: encryptionType) { $0.streamChunk = chunk }
     }
 
-    func feedTrailer(streamID: String, reason: String) {
+    func feedTrailer(streamID: String, reason: String, encryptionType: EncryptionType = .none) {
         let trailer = Livekit_DataStream.Trailer.with {
             $0.streamID = streamID
             $0.reason = reason
         }
-        feed { $0.streamTrailer = trailer }
+        feed(encryptionType: encryptionType) { $0.streamTrailer = trailer }
     }
 
-    private func feed(_ configure: (inout Livekit_DataPacket.Builder) -> Void) {
+    private func feed(encryptionType: EncryptionType = .none, _ configure: (inout Livekit_DataPacket.Builder) -> Void) {
         let packet = Livekit_DataPacket.with {
             $0.participantIdentity = participant.stringValue
             configure(&$0)
         }
-        coordinator.handleIncoming(packet, encryptionType: .none)
+        coordinator.handleIncoming(packet, encryptionType: encryptionType)
     }
 }
