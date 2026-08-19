@@ -1,0 +1,1 @@
+patch type="changed" "The lossy data channel now drops the oldest queued payload under backpressure instead of queueing without bound, and tracks its threshold to roughly 100ms of measured throughput (matching client-sdk-js) rather than a fixed 2MB"

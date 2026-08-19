@@ -821,4 +821,17 @@ extension Room: DataChannelDelegate {
             $0.room?(self, didFailToDecryptDataWithEror: error)
         }
     }
+
+    func dataChannel(_ dataChannelPair: DataChannelPair, didUpdateBufferStatus isLow: Bool, of kind: DataChannelKind) {
+        // Only the publisher's channels have a send buffer worth reporting; the subscriber's are
+        // receive-only, so theirs is always empty.
+        guard dataChannelPair === publisherDataChannel else { return }
+        notify(bufferStatus: isLow, of: kind)
+    }
+
+    func notify(bufferStatus isLow: Bool, of kind: DataChannelKind) {
+        delegates.notify {
+            $0.room?(self, didUpdateBufferStatus: isLow, of: kind)
+        }
+    }
 }

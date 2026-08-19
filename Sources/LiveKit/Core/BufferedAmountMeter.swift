@@ -31,7 +31,7 @@ import Foundation
 /// it needs no synchronization of its own.
 struct BufferedAmountMeter {
     /// Feed the channel only while the mirror sits at or below this many bytes.
-    private(set) var lowWaterMark: UInt64
+    let lowWaterMark: UInt64
 
     private(set) var pending: UInt64 = 0
 
@@ -67,10 +67,5 @@ struct BufferedAmountMeter {
     /// the replacement channel with no drain report coming to clear it.
     mutating func reset() {
         pending = 0
-    }
-
-    /// Retunes the gate. The mirror is unaffected — only how much of it counts as too much.
-    mutating func setLowWaterMark(_ mark: UInt64) {
-        lowWaterMark = mark
     }
 }

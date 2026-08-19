@@ -87,15 +87,4 @@ struct BufferedAmountMeterTests {
         meter.reset()
         #expect(meter.hasHeadroom)
     }
-
-    /// Retuning changes how much counts as too much, not what is outstanding.
-    @Test func retuningMovesTheGateWithoutTouchingTheMirror() {
-        var meter = makeMeter()
-        meter.willSend(Int(Self.mark) + 1)
-        #expect(!meter.hasHeadroom)
-
-        meter.setLowWaterMark(Self.mark * 4)
-        #expect(meter.hasHeadroom)
-        #expect(meter.pending == UInt64(Self.mark) + 1)
-    }
 }

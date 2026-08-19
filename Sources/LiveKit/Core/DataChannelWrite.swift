@@ -80,6 +80,43 @@ struct RetainedWrite {
     }
 }
 
+/// Wraps one group's prepared bytes for the channel, rejecting any write that exceeds the
+/// negotiated SCTP max-message-size (`0` disables the check).
+///
+/// Oversized writes are rejected here because sending more than the negotiated size makes libwebrtc
+/// tear the channel down — `sendData` reports success and the channel then closes, breaking every
+/// later send.
+///
+/// Only the last write carries `continuation`, so a submitter resumes once its whole group has been
+/// handed over.
+func makeWrites(
+    from prepared: [PreparedBytes],
+    continuation: CheckedContinuation<Void, any Error>?,
+    maxMessageSize: UInt64,
+) throws -> [ReadyWrite] {
+    var group: [ReadyWrite] = []
+    group.reserveCapacity(prepared.count)
+
+    for (index, bytes) in prepared.enumerated() {
+        if maxMessageSize != 0, UInt64(bytes.bytes.count) > maxMessageSize {
+            throw LiveKitError(
+                .invalidParameter,
+                message: "data packet size (\(bytes.bytes.count) bytes) exceeds the negotiated max-message-size (\(maxMessageSize) bytes)",
+            )
+        }
+        group.append(ReadyWrite(
+            // Constructed directly rather than via `RTC.createDataBuffer`, whose
+            // `DispatchQueue.liveKitWebRTC.sync` hop would block a cooperative-pool thread once per
+            // write. The buffer is a plain container; that helper's queue exists to serialize
+            // factory access, which this does not need.
+            data: LKRTCDataBuffer(data: bytes.bytes, isBinary: true),
+            sequence: bytes.sequence,
+            continuation: index == prepared.count - 1 ? continuation : nil,
+        ))
+    }
+    return group
+}
+
 // MARK: - Stage
 
 /// Per-channel send policy: what a submitted input turns into, what to remember about writes that

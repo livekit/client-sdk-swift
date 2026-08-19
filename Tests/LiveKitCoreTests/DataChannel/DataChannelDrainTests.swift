@@ -319,3 +319,63 @@ struct DropOldestContinuationTests {
         } throws: { ($0 as? LiveKitError)?.type == .invalidState }
     }
 }
+
+/// Buffer status is published on a transition only, never per change in the amount buffered — the
+/// same contract `updateAndEmitDCBufferStatus` gives `DCBufferStatusChanged` in client-sdk-js.
+@Suite(.tags(.dataChannel))
+struct BufferStatusReportingTests {
+    private static let mark: UInt64 = 8 * 1024
+
+    private let channel = FakeSendChannel()
+    private let reports = StateSync<[Bool]>([])
+    private let drain: DataChannelDrain<DataTrackStage>
+
+    init() {
+        let reports = reports
+        drain = DataChannelDrain(
+            label: "test",
+            lowWaterMark: Self.mark,
+            overflow: .dropOldest,
+            stage: DataTrackStage(),
+            onBufferStatusChange: { isLow in reports.mutate { $0.append(isLow) } },
+        )
+        drain.attach(sendTarget: channel)
+    }
+
+    private func settle() async throws {
+        try await Task.sleep(nanoseconds: 50_000_000)
+    }
+
+    @Test func reportsOnlyTransitions() async throws {
+        // Below the mark throughout: nothing to report.
+        drain.submit([Data(repeating: 1, count: 100)])
+        try await settle()
+        #expect(reports.copy().isEmpty)
+
+        // Over the mark — one report.
+        drain.submit([Data(repeating: 2, count: Int(Self.mark) + 1)])
+        try await settle()
+        #expect(reports.copy() == [false])
+
+        // Still over the mark after another partial drain — no second report.
+        drain.reportDrained(10)
+        try await settle()
+        #expect(reports.copy() == [false])
+
+        // Back under — one more.
+        drain.reportDrained(channel.flush())
+        try await settle()
+        #expect(reports.copy() == [false, true])
+    }
+
+    /// A channel swap clears the mirror, so the status returns to low if it was not already.
+    @Test func swapRestoresTheLowStatus() async throws {
+        drain.submit([Data(repeating: 1, count: Int(Self.mark) + 1)])
+        try await settle()
+        #expect(reports.copy() == [false])
+
+        drain.attach(sendTarget: FakeSendChannel())
+        try await settle()
+        #expect(reports.copy() == [false, true])
+    }
+}

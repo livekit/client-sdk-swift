@@ -23,6 +23,7 @@ internal import LiveKitWebRTC
 protocol DataChannelDelegate: AnyObject, Sendable {
     func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket)
     func dataChannel(_ dataChannelPair: DataChannelPair, didFailToDecryptDataPacket dataPacket: Livekit_DataPacket, error: LiveKitError)
+    func dataChannel(_ dataChannelPair: DataChannelPair, didUpdateBufferStatus isLow: Bool, of kind: DataChannelKind)
 }
 
 /// The lossy and reliable data channels for one peer connection, plus the packet semantics they
@@ -89,6 +90,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             maxMessageSize: Self.defaultMaxMessageSize,
             onMessage: { [weak self] data in self?.handle(received: data, isReliable: false) },
             onStateChange: { [weak self] _ in self?.handleStateChange() },
+            onBufferStatusChange: { [weak self] isLow in self?.report(isLow, of: .lossy) },
         )
         reliable = DataChannelDrain(
             label: LKRTCDataChannel.Labels.reliable,
@@ -98,6 +100,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             maxMessageSize: Self.defaultMaxMessageSize,
             onMessage: { [weak self] data in self?.handle(received: data, isReliable: true) },
             onStateChange: { [weak self] _ in self?.handleStateChange() },
+            onBufferStatusChange: { [weak self] isLow in self?.report(isLow, of: .reliable) },
         )
 
         if let lossyChannel { set(lossy: lossyChannel) }
@@ -114,6 +117,12 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     func set(lossy channel: LKRTCDataChannel?) {
         lossy.setChannel(channel)
         handleStateChange()
+    }
+
+    private func report(_ isLow: Bool, of kind: DataChannelKind) {
+        delegates.notify {
+            $0.dataChannel(self, didUpdateBufferStatus: isLow, of: kind)
+        }
     }
 
     /// Resolves the open latch once both channels are usable. Reached from either drain's state
@@ -255,11 +264,12 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     private static let reliableLowThreshold: UInt64 = 2 * 1024 * 1024 // 2 MB
 
-    /// The lossy channel drops rather than queues, so this bounds send latency rather than memory.
-    /// client-sdk-js keeps its lossy threshold between 8 KiB and 256 KiB, tuned to roughly 100 ms of
-    /// measured throughput; 256 KiB is that ceiling, where the 2 MB reliable figure would be eight
-    /// times it.
-    private static let lossyLowThreshold: UInt64 = 256 * 1024
+    /// Deliberately the same as the reliable threshold, even though this channel drops rather than
+    /// queues. A lower mark would make a burst of small publishes drop packets that the transport
+    /// would have flushed in microseconds — and since `DataPublishOptions.reliable` defaults to
+    /// `false`, that burst is the SDK's *default* publish path. Dropping stays reserved for genuine
+    /// sustained overload.
+    private static let lossyLowThreshold: UInt64 = reliableLowThreshold
 
     // If rtc drains its buffer to 0, keep at least this amount of data for retry.
     // Should be >= the full backpressure amount to avoid losing packets.

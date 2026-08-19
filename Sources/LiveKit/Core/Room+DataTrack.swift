@@ -76,6 +76,7 @@ final class DataTracks: NSObject, @unchecked Sendable {
             stage: DataTrackStage(),
             onMessage: { [weak self] data in self?.handlePacket(data) },
             onStateChange: { [weak self] channel in self?.handlePublisherStateChange(channel) },
+            onBufferStatusChange: { [weak room] isLow in room?.notify(bufferStatus: isLow, of: .dataTrack) },
         )
         // The UniFFI managers retain their delegate strongly, so it points back here weakly to
         // avoid a cycle. (The RTC channel holds its delegate — us — weakly, so no shim needed.)

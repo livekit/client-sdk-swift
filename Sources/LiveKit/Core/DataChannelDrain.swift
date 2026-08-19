@@ -31,10 +31,6 @@ internal import LiveKitWebRTC
 /// `DataChannelManager` in client-sdk-android, which is its channel's `DataChannel.Observer` and
 /// takes a listener to forward messages to.
 ///
-/// ## Queue
-/// See ``WriteQueue`` and ``SendOverflow``. Either way a group is dispatched whole, so a partial
-/// group is never left on the wire.
-///
 /// ## Concurrency
 /// `@unchecked Sendable`. `_state` and `flow` are lock-guarded; `Queue` and `Stage` live in the
 /// event loop's subscription state and are touched only by its single observer.
@@ -67,6 +63,8 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         var stage: Stage
         /// Writes dropped under backpressure, logged periodically rather than per drop.
         var dropped: Int = 0
+        /// Last reported buffer status, so only transitions are published.
+        var wasLow: Bool = true
         /// Reused across `prepare` calls. Lives here rather than on the drain so that only the
         /// loop's single observer can reach it.
         var scratch: [PreparedBytes] = []
@@ -80,7 +78,6 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         case replayed(ReadyWrite)
         case commanded(Stage.Command)
         case drained(UInt64)
-        case retune(UInt64)
         /// A channel was attached or swapped: the mirror starts over, and under
         /// ``SendOverflow/dropOldest`` anything queued for the previous channel is dropped.
         case attached
@@ -96,6 +93,8 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     private let overflow: SendOverflow
     private let onMessage: @Sendable (Data) -> Void
     private let onStateChange: @Sendable (LKRTCDataChannel) -> Void
+    /// Called on a transition only, never per change in the amount buffered.
+    private let onBufferStatusChange: @Sendable (Bool) -> Void
 
     private let _state = StateSync(State())
     private let eventContinuation: AsyncStream<Event>.Continuation
@@ -112,10 +111,12 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         maxMessageSize: UInt64 = 0,
         onMessage: @escaping @Sendable (Data) -> Void = { _ in },
         onStateChange: @escaping @Sendable (LKRTCDataChannel) -> Void = { _ in },
+        onBufferStatusChange: @escaping @Sendable (Bool) -> Void = { _ in },
     ) {
         self.overflow = overflow
         self.onMessage = onMessage
         self.onStateChange = onStateChange
+        self.onBufferStatusChange = onBufferStatusChange
 
         let (events, continuation) = AsyncStream.makeStream(of: Event.self)
         eventContinuation = continuation
@@ -161,11 +162,6 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     /// directly by tests.
     func reportDrained(_ byteCount: UInt64) {
         eventContinuation.yield(.drained(byteCount))
-    }
-
-    /// Retunes the low-water gate, ordered with the writes it governs.
-    func setLowWaterMark(_ mark: UInt64) {
-        eventContinuation.yield(.retune(mark))
     }
 
     /// Submits work. Under ``SendOverflow/park`` the continuation resumes when the input's last write
@@ -225,14 +221,8 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
                 log("Unexpected buffer size detected", .error)
             }
             state.stage.didDrain(byteCount)
-        case let .retune(mark):
-            state.meter.setLowWaterMark(mark)
         case .attached:
-            state.meter.reset()
-            // Anything queued belonged to the channel that just went away. A dropped write on a
-            // drop-oldest channel is the contract rather than a failure, so its waiter is resolved
-            // — the same outcome client-sdk-js gives a dropped lossy packet.
-            if case .dropOldest = overflow { state.queue.settleAll(.success(())) }
+            handleAttached(state: &state)
         case .wakeup:
             break
         case let .fail(error):
@@ -242,6 +232,22 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         }
 
         dispatch(state: &state)
+        publishStatusIfChanged(state: &state)
+    }
+
+    private func publishStatusIfChanged(state: inout LoopState) {
+        let isLow = state.meter.hasHeadroom
+        guard isLow != state.wasLow else { return }
+        state.wasLow = isLow
+        onBufferStatusChange(isLow)
+    }
+
+    private func handleAttached(state: inout LoopState) {
+        state.meter.reset()
+        // Anything queued belonged to the channel that just went away. A dropped write on a
+        // drop-oldest channel is the contract rather than a failure, so its waiter is resolved —
+        // the same outcome client-sdk-js gives a dropped lossy packet.
+        if case .dropOldest = overflow { state.queue.settleAll(.success(())) }
     }
 
     private func enqueue(
@@ -250,39 +256,17 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         state: inout LoopState,
     ) {
         state.scratch.removeAll(keepingCapacity: true)
+        let group: [ReadyWrite]
         do {
             try state.stage.prepare(input, into: &state.scratch)
+            group = try makeWrites(
+                from: state.scratch,
+                continuation: continuation,
+                maxMessageSize: _state.maxMessageSize,
+            )
         } catch {
             continuation?.resume(throwing: error)
             return
-        }
-
-        let limit = _state.maxMessageSize
-        var group: [ReadyWrite] = []
-        group.reserveCapacity(state.scratch.count)
-        for (index, prepared) in state.scratch.enumerated() {
-            // Encoded size is what goes on the wire; sending more than the negotiated
-            // max-message-size makes libwebrtc tear the channel down (`sendData` returns success,
-            // then it closes), breaking every later send. Reject here instead.
-            if limit != 0, UInt64(prepared.bytes.count) > limit {
-                continuation?.resume(throwing: LiveKitError(
-                    .invalidParameter,
-                    message: "data packet size (\(prepared.bytes.count) bytes) exceeds the negotiated max-message-size (\(limit) bytes)",
-                ))
-                return
-            }
-            // Only the last write of a group carries the continuation, so it resumes once the
-            // whole group has been handed over.
-            let isLast = index == state.scratch.count - 1
-            group.append(ReadyWrite(
-                // Constructed directly rather than via `RTC.createDataBuffer`, whose
-                // `DispatchQueue.liveKitWebRTC.sync` hop would block a cooperative-pool thread once
-                // per write. The buffer is a plain container; that helper's queue exists to
-                // serialize factory access, which this does not need.
-                data: LKRTCDataBuffer(data: prepared.bytes, isBinary: true),
-                sequence: prepared.sequence,
-                continuation: isLast ? continuation : nil,
-            ))
         }
         guard !group.isEmpty else {
             continuation?.resume()
@@ -291,9 +275,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
 
         switch overflow {
         case .park:
-            for write in group {
-                state.queue.inFlight.append(write)
-            }
+            state.queue.append(group)
         case .dropOldest:
             for evicted in state.queue.evict(replacingWith: group) {
                 // Dropping under backpressure is what this policy promises, so a waiting submitter
