@@ -18,10 +18,16 @@ import Foundation
 @testable import LiveKit
 import Testing
 
+#if canImport(LiveKitTestSupport)
+import LiveKitTestSupport
+#endif
+
+// MARK: - Shared fixture
+
 /// Stands in for the channel the drain sends through. Reads come from the test's task while writes
-/// come from the drain's loop, so the state lives in a `StateSync` — the SDK's own primitive, rather
-/// than a lock of the test's own.
-private final class FakeSendChannel: DrainSendChannel, Sendable {
+/// come from the drain's loop, so the state lives in a `StateSync` — the SDK's own primitive,
+/// rather than a lock of the test's own.
+final class FakeSendChannel: DrainSendChannel, Sendable {
     private struct State {
         var isOpen = true
         var acceptsSends = true
@@ -66,250 +72,222 @@ private final class FakeSendChannel: DrainSendChannel, Sendable {
     }
 }
 
-/// Pins ``DataChannelDrain``'s queue semantics under ``DataChannelDrain/Overflow/dropOldest``, which
-/// is what the data-track channel uses, and which is deliberately aligned (and deliberately not)
-/// with the other SDKs:
-///
-/// - **rust-sdks** (`DataChannelSender`): the same design — drop-oldest with a capacity-one group,
-///   whole-group atomicity, writes metered on buffered-amount events with an 8 KiB low-water mark.
-///   These tests mirror its invariants.
-/// - **client-sdk-js** (`LossyDataChannel` with `bufferFullBehavior: 'wait'`): shares the
-///   whole-group atomicity and watermark pacing, but blocks the producer under load instead of
-///   dropping — its engine awaits sends, so overload backpressures the producer. Swift's producer is
-///   a fire-and-forget FFI callback with no backpressure channel, so freshest-wins eviction is used
-///   instead (as in rust-sdks).
-@Suite(.tags(.dataChannel, .dataTrack))
-struct DataChannelDrainTests {
-    private static let mark: UInt64 = 8 * 1024
+/// The one place the drain-under-test is built, so a signature or watermark change lands once.
+enum DrainFixture {
+    static let mark: UInt64 = 8 * 1024
 
-    private let channel = FakeSendChannel()
-    private let drain: DataChannelDrain<DataTrackStage>
-
-    init() {
-        drain = DataChannelDrain(
+    static func makeDrain(
+        onBufferStatusChange: @escaping @Sendable (Bool) -> Void = { _ in },
+    ) -> DataChannelDrain<DataTrackStage> {
+        DataChannelDrain(
             label: "test",
-            lowWaterMark: Self.mark,
+            lowWaterMark: mark,
             overflow: .dropOldest,
             stage: DataTrackStage(),
+            onBufferStatusChange: onBufferStatusChange,
         )
-        drain.attach(sendTarget: channel)
     }
 
     /// One packet per write, tagged for identification.
-    private func frame(_ tag: UInt8, packets: Int = 1, packetSize: Int = 100) -> [Data] {
+    static func frame(_ tag: UInt8, packets: Int = 1, packetSize: Int = 100) -> [Data] {
         (0 ..< packets).map { _ in Data(repeating: tag, count: packetSize) }
     }
+}
 
-    /// Waits for the drain's loop, which runs as a Task: submissions land asynchronously, and a
-    /// fixed sleep flakes when other suites have the cooperative pool busy.
-    private func until(
-        _ description: Comment,
-        _ condition: @Sendable () -> Bool,
-        sourceLocation: SourceLocation = #_sourceLocation,
-    ) async throws {
-        for _ in 0 ..< 400 {
-            if condition() { return }
-            try await Task.sleep(nanoseconds: 5_000_000)
-        }
-        Issue.record("timed out waiting for: \(description)", sourceLocation: sourceLocation)
-    }
-
-    /// Gives the loop a chance to act before asserting that it did *not* — a lenient check by
-    /// nature, unlike ``until(_:_:sourceLocation:)``.
-    private func settle() async throws {
-        try await Task.sleep(nanoseconds: 50_000_000)
-    }
-
-    /// Reports the transport's drain, the way the buffered-amount callback does.
-    private func drainBuffer() {
-        drain.reportDrained(channel.flush())
+extension DataChannelDrain where Stage == DataTrackStage {
+    /// Awaited FIFO barrier: an empty input resolves inside the loop after every prior event has
+    /// been processed, so an assertion made after this is exact — positive or negative — where a
+    /// fixed sleep is a flake (loop starved) or a lie (loop never ran).
+    func flushEvents() async throws {
+        try await send([])
     }
 
     /// Pushes the buffer past the low-water mark. Frame `0` goes out first and shows up in `sent`;
     /// the mirror only counts what the drain has handed over, so filling it means actually sending.
-    private func fillBuffer() async throws {
-        drain.submit(frame(0, packetSize: Int(Self.mark) + 1))
-        try await until("the filling frame to be sent") { channel.tags == [0] }
+    func fillBuffer(of channel: FakeSendChannel) async throws {
+        submit(DrainFixture.frame(0, packetSize: Int(DrainFixture.mark) + 1))
+        try await poll(for: "the filling frame to be sent") { channel.tags == [0] }
+    }
+}
+
+// MARK: - Queue semantics
+
+/// Pins ``DataChannelDrain``'s queue semantics under ``SendOverflow/dropOldest`` (what the
+/// data-track and lossy channels use). Deliberately aligned with rust-sdks' `DataChannelSender` —
+/// drop-oldest with a capacity-one group, whole-group atomicity, writes metered on buffered-amount
+/// events — and deliberately *not* with client-sdk-js, which has no app-level queue and drops the
+/// incoming payload instead (its engine awaits sends, so overload backpressures the producer;
+/// Swift's data-track producer is a fire-and-forget FFI callback, so freshest-wins is used).
+@Suite(.tags(.dataChannel, .dataTrack))
+struct DataChannelDrainTests {
+    private let channel = FakeSendChannel()
+    private let drain = DrainFixture.makeDrain()
+
+    init() {
+        drain.attach(sendTarget: channel)
     }
 
     @Test func sendsImmediatelyWithHeadroom() async throws {
-        drain.submit(frame(1, packets: 3))
-        try await until("all three writes to be sent") { channel.sent.count == 3 }
+        drain.submit(DrainFixture.frame(1, packets: 3))
+        try await drain.flushEvents()
+        #expect(channel.sent.count == 3)
     }
 
     /// The whole group goes out even when it is far larger than the buffer headroom: writes are
-    /// metered per drain instead of dumped, so there is no sender-imposed max frame size (all three
-    /// SDKs share this property — JS by blocking the producer, Rust/Swift by metering).
-    @Test func largeGroupStreamsWithinHeadroom() async throws {
+    /// metered per drain instead of dumped, so there is no sender-imposed max frame size.
+    @Test(.spec("https://github.com/livekit/rust-sdks/blob/f9c47c5a/livekit/src/rtc_engine/dc_sender.rs#L204"))
+    func largeGroupStreamsWithinHeadroom() async throws {
         let packetSize = 64000
-        drain.submit(frame(1, packets: 50, packetSize: packetSize))
-        try await until("the first write to be sent") { !channel.sent.isEmpty }
+        drain.submit(DrainFixture.frame(1, packets: 50, packetSize: packetSize))
+        try await poll(for: "the first write to be sent") { channel.sent.count == 1 }
 
-        var rounds = 0
-        while channel.sent.count < 50, rounds < 100 {
+        while channel.sent.count < 50 {
             // Each drain admits exactly one over-watermark write, so the buffer never holds more
             // than one write beyond the low-water mark.
-            #expect(channel.outstanding <= Self.mark + UInt64(packetSize))
+            #expect(channel.outstanding <= DrainFixture.mark + UInt64(packetSize))
             let before = channel.sent.count
-            drainBuffer()
-            try await until("write \(before + 1) to be sent") { channel.sent.count > before }
-            rounds += 1
+            drain.reportDrained(channel.flush())
+            try await poll(for: "write \(before + 1) to be sent") { channel.sent.count > before }
         }
         #expect(channel.sent.count == 50)
     }
 
-    /// A newer group evicts the queued (not yet started) one — freshest wins. This is the point of
-    /// deliberate divergence from JS, which blocks the producer here instead of evicting; matches
-    /// rust-sdks.
-    @Test func dropsOldestQueuedGroup() async throws {
-        try await fillBuffer()
-        drain.submit(frame(1))
-        drain.submit(frame(2))
-        try await settle()
+    /// A newer group evicts the queued (not yet started) one — freshest wins, as in rust-sdks'
+    /// capacity-one `DataTrackSendQueue`.
+    @Test(.spec("https://github.com/livekit/rust-sdks/blob/f9c47c5a/livekit/src/rtc_engine/dc_sender.rs#L36"))
+    func dropsOldestQueuedGroup() async throws {
+        try await drain.fillBuffer(of: channel)
+        drain.submit(DrainFixture.frame(1))
+        drain.submit(DrainFixture.frame(2))
+        try await drain.flushEvents()
         #expect(channel.tags == [0], "both groups wait behind the full buffer")
 
-        drainBuffer()
-        try await until("the newer group to be sent") { channel.tags == [0, 2] }
+        drain.reportDrained(channel.flush())
+        try await poll(for: "the newer group to be sent") { channel.tags == [0, 2] }
     }
 
     /// A group being handed over is never abandoned midway: its remaining writes go out before a
-    /// newer group, and writes of two groups never interleave. (The invariant all three SDKs agree
-    /// on — "partial frames are never left on the wire".)
+    /// newer group, and writes of two groups never interleave. (The invariant every SDK's frame
+    /// sender agrees on — "partial frames are never left on the wire".)
     @Test func inFlightGroupCompletesBeforeNewerGroup() async throws {
         // Packet size above the watermark: each round admits one write.
-        drain.submit(frame(1, packets: 3, packetSize: 64000))
-        try await until("the first write to be sent") { channel.sent.count == 1 }
+        drain.submit(DrainFixture.frame(1, packets: 3, packetSize: 64000))
+        try await poll(for: "the first write to be sent") { channel.sent.count == 1 }
 
-        drain.submit(frame(2, packets: 2, packetSize: 64000))
+        drain.submit(DrainFixture.frame(2, packets: 2, packetSize: 64000))
 
-        var rounds = 0
-        while channel.sent.count < 5, rounds < 100 {
+        while channel.sent.count < 5 {
             let before = channel.sent.count
-            drainBuffer()
-            try await until("write \(before + 1) to be sent") { channel.sent.count > before }
-            rounds += 1
+            drain.reportDrained(channel.flush())
+            try await poll(for: "write \(before + 1) to be sent") { channel.sent.count > before }
         }
         #expect(channel.tags == [1, 1, 1, 2, 2])
     }
 
-    /// Attaching a channel drops groups queued for the previous one (the analog of JS's
-    /// `invalidateWaiters` on handle replacement — stale frames belong to a dead transport).
+    /// Attaching a channel drops groups queued for the previous one — stale frames belong to a
+    /// dead transport.
     @Test func attachClearsQueuedGroups() async throws {
-        try await fillBuffer()
-        drain.submit(frame(1))
-        try await settle()
+        try await drain.fillBuffer(of: channel)
+        drain.submit(DrainFixture.frame(1))
 
         let replacement = FakeSendChannel()
         drain.attach(sendTarget: replacement)
-        try await settle()
+        try await drain.flushEvents()
         #expect(replacement.sent.isEmpty, "the queued group belonged to the previous channel")
 
         // The mirror starts over with the new channel, so a fresh group goes straight out even
         // though the previous channel was over its mark.
-        drain.submit(frame(2))
-        try await until("the fresh group to reach the new channel") { replacement.tags == [2] }
+        drain.submit(DrainFixture.frame(2))
+        try await poll(for: "the fresh group to reach the new channel") { replacement.tags == [2] }
     }
 
     /// A rejected send drops the rest of the group without wedging the drain.
     @Test func rejectedSendDropsGroupOnly() async throws {
         channel.acceptsSends = false
-        drain.submit(frame(1, packets: 3))
-        try await settle()
+        drain.submit(DrainFixture.frame(1, packets: 3))
+        try await drain.flushEvents()
         #expect(channel.sent.isEmpty)
 
         channel.acceptsSends = true
-        drain.submit(frame(2))
-        try await until("the next group to be sent") { channel.tags == [2] }
+        drain.submit(DrainFixture.frame(2))
+        try await poll(for: "the next group to be sent") { channel.tags == [2] }
     }
 
-    /// An empty batch must not evict a queued group.
+    /// An empty batch must not evict a queued group. (It is also the FIFO barrier the other tests
+    /// lean on, which this pins.)
     @Test func emptyBatchIsIgnored() async throws {
-        try await fillBuffer()
-        drain.submit(frame(1))
+        try await drain.fillBuffer(of: channel)
+        drain.submit(DrainFixture.frame(1))
         drain.submit([])
-        try await settle()
+        try await drain.flushEvents()
 
-        drainBuffer()
-        try await until("the queued group to survive the empty batch") { channel.tags == [0, 1] }
+        drain.reportDrained(channel.flush())
+        try await poll(for: "the queued group to survive the empty batch") { channel.tags == [0, 1] }
     }
 
     /// Nothing is sent while the channel is closed; opening drains the queue.
     @Test func queuedGroupDrainsOnceOpen() async throws {
         channel.isOpen = false
         drain.attach(sendTarget: channel)
-        drain.submit(frame(1))
-        try await settle()
+        drain.submit(DrainFixture.frame(1))
+        try await drain.flushEvents()
         #expect(channel.sent.isEmpty)
 
         channel.isOpen = true
         // A zero-byte drain report is the cheapest way to make the loop re-run its queue.
         drain.reportDrained(0)
-        try await until("the queued group to drain once open") { channel.tags == [1] }
+        try await poll(for: "the queued group to drain once open") { channel.tags == [1] }
     }
 }
 
+// MARK: - Continuation settlement
+
 /// How a drop-oldest channel settles a waiting submitter. Dropping under backpressure is what the
 /// policy promises, so those waiters are *resolved*; only the session ending fails them. Matches
-/// `sendLossyBytes`' 'drop' behaviour in client-sdk-js, which resolves and counts the drop.
+/// the outcome of `sendLossyBytes`' 'drop' behaviour in client-sdk-js, which returns normally and
+/// counts the drop (js drops the incoming payload where this drain keeps the freshest).
 @Suite(.tags(.dataChannel))
 struct DropOldestContinuationTests {
-    private static let mark: UInt64 = 8 * 1024
-
     private let channel = FakeSendChannel()
-    private let drain: DataChannelDrain<DataTrackStage>
+    private let drain = DrainFixture.makeDrain()
 
     init() {
-        drain = DataChannelDrain(
-            label: "test",
-            lowWaterMark: Self.mark,
-            overflow: .dropOldest,
-            stage: DataTrackStage(),
-        )
         drain.attach(sendTarget: channel)
     }
 
-    /// Fills the buffer so submitted groups queue instead of going straight out.
-    private func fillBuffer() async throws {
-        drain.submit([Data(repeating: 0, count: Int(Self.mark) + 1)])
-        try await Task.sleep(nanoseconds: 50_000_000)
+    private func sendAsync(_ tag: UInt8) -> Task<Void, any Error> {
+        Task { try await drain.send(DrainFixture.frame(tag)) }
     }
 
-    private func submitWaiting(_ tag: UInt8) -> Task<Void, any Error> {
-        Task {
-            try await withCheckedThrowingContinuation { continuation in
-                drain.submit([Data(repeating: tag, count: 100)], continuation: continuation)
-            }
-        }
-    }
+    @Test(.spec("https://github.com/livekit/client-sdk-js/blob/499c8420/src/room/RTCEngine.ts#L1458"))
+    func evictionResolvesTheDisplacedWaiter() async throws {
+        try await drain.fillBuffer(of: channel)
 
-    @Test func evictionResolvesTheDisplacedWaiter() async throws {
-        try await fillBuffer()
-
-        let displaced = submitWaiting(1)
-        try await Task.sleep(nanoseconds: 50_000_000)
+        let displaced = sendAsync(1)
+        try await drain.flushEvents()
 
         // A newer group evicts the queued one; its waiter must not be left suspended.
-        drain.submit([Data(repeating: 2, count: 100)])
+        drain.submit(DrainFixture.frame(2))
 
         try await displaced.value
     }
 
     @Test func channelSwapResolvesQueuedWaiters() async throws {
-        try await fillBuffer()
+        try await drain.fillBuffer(of: channel)
 
-        let queued = submitWaiting(1)
-        try await Task.sleep(nanoseconds: 50_000_000)
+        let queued = sendAsync(1)
+        try await drain.flushEvents()
 
         drain.attach(sendTarget: FakeSendChannel())
 
         try await queued.value
     }
 
-    @Test func teardownSettlesQueuedWaiters() async throws {
-        try await fillBuffer()
+    @Test func teardownFailsQueuedWaiters() async throws {
+        try await drain.fillBuffer(of: channel)
 
-        let queued = submitWaiting(1)
-        try await Task.sleep(nanoseconds: 50_000_000)
+        let queued = sendAsync(1)
+        try await drain.flushEvents()
 
         drain.reset(throwing: LiveKitError(.invalidState, message: "torn down"))
 
@@ -319,62 +297,66 @@ struct DropOldestContinuationTests {
     }
 }
 
+// MARK: - Buffer status
+
 /// Buffer status is published on a transition only, never per change in the amount buffered — the
 /// same contract `updateAndEmitDCBufferStatus` gives `DCBufferStatusChanged` in client-sdk-js.
 @Suite(.tags(.dataChannel))
 struct BufferStatusReportingTests {
-    private static let mark: UInt64 = 8 * 1024
-
     private let channel = FakeSendChannel()
     private let reports = StateSync<[Bool]>([])
     private let drain: DataChannelDrain<DataTrackStage>
 
     init() {
         let reports = reports
-        drain = DataChannelDrain(
-            label: "test",
-            lowWaterMark: Self.mark,
-            overflow: .dropOldest,
-            stage: DataTrackStage(),
-            onBufferStatusChange: { isLow in reports.mutate { $0.append(isLow) } },
-        )
+        drain = DrainFixture.makeDrain(onBufferStatusChange: { isLow in
+            reports.mutate { $0.append(isLow) }
+        })
         drain.attach(sendTarget: channel)
     }
 
-    private func settle() async throws {
-        try await Task.sleep(nanoseconds: 50_000_000)
-    }
-
-    @Test func reportsOnlyTransitions() async throws {
+    @Test(.spec("https://github.com/livekit/client-sdk-js/blob/499c8420/src/room/RTCEngine.ts#L1512"))
+    func reportsOnlyTransitions() async throws {
         // Below the mark throughout: nothing to report.
-        drain.submit([Data(repeating: 1, count: 100)])
-        try await settle()
+        drain.submit(DrainFixture.frame(1))
+        try await drain.flushEvents()
         #expect(reports.copy().isEmpty)
 
         // Over the mark — one report.
-        drain.submit([Data(repeating: 2, count: Int(Self.mark) + 1)])
-        try await settle()
+        drain.submit(DrainFixture.frame(2, packetSize: Int(DrainFixture.mark) + 1))
+        try await drain.flushEvents()
         #expect(reports.copy() == [false])
 
         // Still over the mark after another partial drain — no second report.
         drain.reportDrained(10)
-        try await settle()
+        try await drain.flushEvents()
         #expect(reports.copy() == [false])
 
         // Back under — one more.
         drain.reportDrained(channel.flush())
-        try await settle()
+        try await drain.flushEvents()
         #expect(reports.copy() == [false, true])
     }
 
     /// A channel swap clears the mirror, so the status returns to low if it was not already.
     @Test func swapRestoresTheLowStatus() async throws {
-        drain.submit([Data(repeating: 1, count: Int(Self.mark) + 1)])
-        try await settle()
+        drain.submit(DrainFixture.frame(1, packetSize: Int(DrainFixture.mark) + 1))
+        try await drain.flushEvents()
         #expect(reports.copy() == [false])
 
         drain.attach(sendTarget: FakeSendChannel())
-        try await settle()
+        try await drain.flushEvents()
         #expect(reports.copy() == [false, true])
+    }
+
+    /// Teardown restores the low status too: an app that backed off on `isLow == false` must not
+    /// wait forever for the recovering transition on a permanent disconnect.
+    @Test func teardownRestoresTheLowStatus() async throws {
+        drain.submit(DrainFixture.frame(1, packetSize: Int(DrainFixture.mark) + 1))
+        try await drain.flushEvents()
+        #expect(reports.copy() == [false])
+
+        drain.reset()
+        try await poll(for: "the recovering transition") { reports.copy() == [false, true] }
     }
 }
