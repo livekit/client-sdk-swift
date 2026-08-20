@@ -25,44 +25,44 @@ public final class DataStreamOptions: NSObject, Sendable {
     /// unbounded data. `nil` (the default) uses the SDK's built-in cap of 5gb.
     ///
     /// - Note: A value of zero or less is treated as `nil`, falling back to the built-in cap.
-    public let maxPayloadSize: Int?
+    public let maxPayloadByteLength: Int?
 
-    /// ``maxPayloadSize`` as an `NSNumber`, for Objective-C callers.
+    /// ``maxPayloadByteLength`` as an `NSNumber`, for Objective-C callers.
     ///
     /// `Int?` is not representable in Objective-C, so the optional is bridged rather than exposed
     /// directly; `nil` here means the same as `nil` there.
-    public var maxPayloadSizeNumber: NSNumber? {
-        maxPayloadSize.map { NSNumber(value: $0) }
+    public var maxPayloadByteLengthNumber: NSNumber? {
+        maxPayloadByteLength.map { NSNumber(value: $0) }
     }
 
     /// Creates options with the given incoming payload cap.
     ///
-    /// - Parameter maxPayloadSize: Cap in bytes, or `nil` for the SDK's built-in cap. Values of zero
-    ///   or less are treated as `nil`.
-    public init(maxPayloadSize: Int?) {
-        self.maxPayloadSize = maxPayloadSize.flatMap { $0 > 0 ? $0 : nil }
+    /// - Parameter maxPayloadByteLength: Cap in bytes, or `nil` for the SDK's built-in cap. Values of
+    ///   zero or less are treated as `nil`.
+    public init(maxPayloadByteLength: Int?) {
+        self.maxPayloadByteLength = maxPayloadByteLength.flatMap { $0 > 0 ? $0 : nil }
     }
 
     /// Creates options with the default incoming payload cap.
     override public init() {
-        maxPayloadSize = nil
+        maxPayloadByteLength = nil
     }
 
-    /// Objective-C-compatible initializer that accepts `NSNumber?` for ``maxPayloadSize``.
-    public convenience init(maxPayloadSizeNumber: NSNumber?) {
-        self.init(maxPayloadSize: maxPayloadSizeNumber?.intValue)
+    /// Objective-C-compatible initializer that accepts `NSNumber?` for ``maxPayloadByteLength``.
+    public convenience init(maxPayloadByteLengthNumber: NSNumber?) {
+        self.init(maxPayloadByteLength: maxPayloadByteLengthNumber?.intValue)
     }
 
     // MARK: - Equal
 
     override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return maxPayloadSize == other.maxPayloadSize
+        return maxPayloadByteLength == other.maxPayloadByteLength
     }
 
     override public var hash: Int {
         var hasher = Hasher()
-        hasher.combine(maxPayloadSize)
+        hasher.combine(maxPayloadByteLength)
         return hasher.finalize()
     }
 }

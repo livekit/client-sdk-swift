@@ -54,22 +54,22 @@ struct StreamOptionsTests {
         #expect(byte.totalSize == 42)
     }
 
-    @Test func dataStreamMaxPayloadSizeOption() {
-        #expect(DataStreamOptions().maxPayloadSize == nil)
-        #expect(DataStreamOptions(maxPayloadSize: 1000).maxPayloadSize == 1000)
-        #expect(RoomOptions().dataStreamOptions.maxPayloadSize == nil)
-        #expect(RoomOptions(dataStreamOptions: DataStreamOptions(maxPayloadSize: 42)).dataStreamOptions.maxPayloadSize == 42)
+    @Test func dataStreamMaxPayloadByteLengthOption() {
+        #expect(DataStreamOptions().maxPayloadByteLength == nil)
+        #expect(DataStreamOptions(maxPayloadByteLength: 1000).maxPayloadByteLength == 1000)
+        #expect(RoomOptions().dataStreamOptions.maxPayloadByteLength == nil)
+        #expect(RoomOptions(dataStreamOptions: DataStreamOptions(maxPayloadByteLength: 42)).dataStreamOptions.maxPayloadByteLength == 42)
         // Objective-C accessor mirrors the Swift `Int?`.
-        #expect(DataStreamOptions().maxPayloadSizeNumber == nil)
-        #expect(DataStreamOptions(maxPayloadSize: 1000).maxPayloadSizeNumber == 1000)
-        #expect(DataStreamOptions(maxPayloadSizeNumber: 1000).maxPayloadSize == 1000)
+        #expect(DataStreamOptions().maxPayloadByteLengthNumber == nil)
+        #expect(DataStreamOptions(maxPayloadByteLength: 1000).maxPayloadByteLengthNumber == 1000)
+        #expect(DataStreamOptions(maxPayloadByteLengthNumber: 1000).maxPayloadByteLength == 1000)
     }
 
     /// A non-positive cap used to reach `UInt64(_:)` at the FFI boundary and trap the process on the
     /// first inbound packet. Normalized to `nil` (the built-in cap) at construction instead.
     @Test(arguments: [-1, 0, Int.min])
-    func dataStreamNonPositiveMaxPayloadSizeIsIgnored(_ value: Int) {
-        #expect(DataStreamOptions(maxPayloadSize: value).maxPayloadSize == nil)
-        #expect(DataStreamOptions(maxPayloadSizeNumber: NSNumber(value: value)).maxPayloadSize == nil)
+    func dataStreamNonPositiveMaxPayloadByteLengthIsIgnored(_ value: Int) {
+        #expect(DataStreamOptions(maxPayloadByteLength: value).maxPayloadByteLength == nil)
+        #expect(DataStreamOptions(maxPayloadByteLengthNumber: NSNumber(value: value)).maxPayloadByteLength == nil)
     }
 }
