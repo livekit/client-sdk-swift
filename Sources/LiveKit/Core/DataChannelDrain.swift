@@ -199,6 +199,17 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         eventContinuation.yield(.submitted(input, continuation))
     }
 
+    /// Submits work and suspends until its last write reaches the channel (or it is dropped,
+    /// failed, or rejected). The one place the resume-exactly-once contract is wrapped: callers
+    /// that need an await use this rather than re-deriving the wrapping — and the awaited `self`
+    /// keeps the drain alive for the write's whole lifetime, which the raw entry point requires of
+    /// its callers.
+    func send(_ input: Stage.Input) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            submit(input, continuation: continuation)
+        }
+    }
+
     /// Submits an out-of-band request, ordered behind work already submitted.
     func submit(command: Stage.Command) {
         eventContinuation.yield(.commanded(command))
@@ -321,6 +332,12 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         }
     }
 
+    /// Feeds the channel while the meter has headroom. `send` blocks on WebRTC's network thread
+    /// (the ObjC `sendData` is a proxied `BlockingCall`), so a stalled network thread pins this
+    /// loop's cooperative-pool thread for the stall's duration — accepted because the same call was
+    /// already made off-queue by the predecessor loop, the stall is bounded by WebRTC's own
+    /// signaling timeouts, and a dedicated executor for the drains is the eventual fix if pool
+    /// starvation is ever observed.
     private func dispatch(state: inout LoopState) {
         while state.meter.hasHeadroom {
             state.queue.promoteIfIdle()

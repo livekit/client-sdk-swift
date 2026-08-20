@@ -58,6 +58,10 @@ final class DataTracks: NSObject, @unchecked Sendable {
     // Outbound frame drain, and the owner of the publisher channel (including its delegate slot).
     // Drop-oldest with a capacity of one frame: a newer frame evicts the one waiting, and frames
     // are dispatched whole so a partial frame never reaches the wire.
+    // Implicitly unwrapped because its callbacks capture `self`; assigned in `init` before `self`
+    // escapes (the FFI reaches it only after `managerDelegate.coordinator = self`, the last line),
+    // which is the ordering that makes the unsynchronized read from the Rust callback thread safe.
+    // Keep it that way.
     private var publisher: DataChannelDrain<DataTrackStage>!
 
     init(room: Room) {
