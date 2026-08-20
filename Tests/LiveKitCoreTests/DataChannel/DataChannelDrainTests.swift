@@ -213,8 +213,7 @@ struct DataChannelDrainTests {
         try await poll(for: "the next group to be sent") { channel.tags == [2] }
     }
 
-    /// An empty batch must not evict a queued group. (It is also the FIFO barrier the other tests
-    /// lean on, which this pins.)
+    /// An empty batch must not evict a queued group — it is also the FIFO barrier the tests lean on.
     @Test func emptyBatchIsIgnored() async throws {
         try await drain.fillBuffer(of: channel)
         drain.submit(DrainFixture.frame(1))
