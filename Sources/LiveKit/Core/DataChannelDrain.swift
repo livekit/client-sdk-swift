@@ -357,6 +357,9 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
                 // Never reached the transport, so they are not outstanding after all.
                 state.meter.didDrain(UInt64(write.byteCount))
                 let failure = LiveKitError(.invalidState, message: "sendData failed")
+                // Removed *before* it is settled, so no later cleanup can reach this write's
+                // continuation a second time — dropFailedWrite settles only what remains.
+                state.queue.advance()
                 write.continuation?.resume(throwing: failure)
                 dropFailedWrite(state: &state, throwing: failure)
                 return
@@ -377,7 +380,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     private func dropFailedWrite(state: inout LoopState, throwing failure: LiveKitError) {
         switch overflow {
         case .park:
-            state.queue.advance()
+            break // the failed write was already removed; the rest belongs to other submitters
         case .dropOldest:
             log("Channel '\(label)' rejected a write; dropping the rest of the group", .debug)
             for discarded in state.queue.dropInFlight() {

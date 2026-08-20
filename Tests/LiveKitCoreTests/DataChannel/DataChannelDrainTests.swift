@@ -283,6 +283,25 @@ struct DropOldestContinuationTests {
         try await queued.value
     }
 
+    /// A rejected send must settle its waiter exactly once: the failed write used to stay at the
+    /// queue's head after being failed, so the drop-the-rest-of-the-group cleanup settled the same
+    /// continuation a second time — a "SWIFT TASK CONTINUATION MISUSE" trap on the default (lossy)
+    /// publish path. Passing at all is the assertion; a double resume crashes the test process.
+    @Test func rejectedSendFailsItsWaiterExactlyOnce() async throws {
+        channel.acceptsSends = false
+
+        let waiter = sendAsync(1)
+
+        await #expect {
+            try await waiter.value
+        } throws: { ($0 as? LiveKitError)?.type == .invalidState }
+
+        // The drain is not wedged: a later group still ships.
+        channel.acceptsSends = true
+        drain.submit(DrainFixture.frame(2))
+        try await poll(for: "the next group to be sent") { channel.tags == [2] }
+    }
+
     @Test func teardownFailsQueuedWaiters() async throws {
         try await drain.fillBuffer(of: channel)
 
