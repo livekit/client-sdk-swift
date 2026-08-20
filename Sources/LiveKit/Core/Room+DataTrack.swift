@@ -297,7 +297,13 @@ final class DataTracks: NSObject, @unchecked Sendable {
     func setSubscriberChannel(_ channel: LKRTCDataChannel) {
         // Retain the channel — its wrapper must outlive this call for native callbacks to reach our
         // LKRTCDataChannelDelegate conformance below — and route its received packets to us.
-        _subscriberChannel.mutate { $0 = channel }
+        let previous = _subscriberChannel.mutate { state -> LKRTCDataChannel? in
+            let previous = state
+            state = channel
+            return previous
+        }
+        // The displaced channel's last release runs a blocking proxy destructor; never from here.
+        parkChannelRelease(previous)
         channel.delegate = self
     }
 

@@ -42,6 +42,20 @@ extension LKRTCDataChannel: DrainSendChannel {
     }
 }
 
+/// Parks a channel reference's final release (and optional close) on the `liveKitWebRTC`
+/// queue. Dropping the last `LKRTCDataChannel` reference runs its proxy destructor — a
+/// blocking call into WebRTC's signaling thread — and doing that from the event loop or any
+/// cooperative thread can exhaust the pool when signaling is busy: with an audio teardown
+/// wedging the worker thread on CI simulators, six loop threads blocked on channel destructors
+/// deadlocked the whole process. The dedicated queue may block; the pool must not.
+func parkChannelRelease(_ target: DrainSendChannel?, closing: Bool = false) {
+    guard let channel = target as? LKRTCDataChannel else { return }
+    DispatchQueue.liveKitWebRTC.async {
+        if closing { channel.close() }
+        _ = channel
+    }
+}
+
 // MARK: - Write phases
 
 /// Serialized bytes and the sequence stamped on them: what a ``SendStage`` produces, before the

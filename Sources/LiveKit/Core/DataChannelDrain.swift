@@ -162,6 +162,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         if let previous = previous as? LKRTCDataChannel, previous !== channel, previous.delegate === self {
             previous.delegate = nil
         }
+        if previous !== channel { parkChannelRelease(previous) }
         channel?.delegate = self
         eventContinuation.yield(.attached(channel))
         if let channel {
@@ -225,10 +226,10 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             state.wasReset = true
             return previous
         }
-        if let channel = previous as? LKRTCDataChannel {
-            if channel.delegate === self { channel.delegate = nil }
-            channel.close()
+        if let channel = previous as? LKRTCDataChannel, channel.delegate === self {
+            channel.delegate = nil
         }
+        parkChannelRelease(previous, closing: true)
 
         eventContinuation.yield(.fail(error))
     }
@@ -256,8 +257,13 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             }
             state.stage.didDrain(byteCount)
         case let .attached(target):
+            if state.sendTarget !== target { parkChannelRelease(state.sendTarget) }
             state.sendTarget = target
-            handleAttached(state: &state)
+            state.meter.reset()
+            // Anything queued belonged to the channel that just went away. A dropped write on a
+            // drop-oldest channel is the contract rather than a failure, so its waiter is resolved
+            // — the same outcome client-sdk-js gives a dropped lossy packet.
+            if case .dropOldest = overflow { state.queue.settleAll(.success(())) }
         case let .configured(maxMessageSize):
             state.maxMessageSize = maxMessageSize
         case .wakeup:
@@ -265,6 +271,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         case let .fail(error):
             state.queue.settleAll(.failure(error ?? LiveKitError(.cancelled, message: "Data channel reset")))
             state.stage.reset()
+            parkChannelRelease(state.sendTarget)
             state.sendTarget = nil
             // The buffer died with the channel: without this, an app that backed off on
             // `isLow == false` would wait forever for the recovering transition on a
@@ -281,14 +288,6 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         guard isLow != state.wasLow else { return }
         state.wasLow = isLow
         onBufferStatusChange(isLow)
-    }
-
-    private func handleAttached(state: inout LoopState) {
-        state.meter.reset()
-        // Anything queued belonged to the channel that just went away. A dropped write on a
-        // drop-oldest channel is the contract rather than a failure, so its waiter is resolved —
-        // the same outcome client-sdk-js gives a dropped lossy packet.
-        if case .dropOldest = overflow { state.queue.settleAll(.success(())) }
     }
 
     private func enqueue(
