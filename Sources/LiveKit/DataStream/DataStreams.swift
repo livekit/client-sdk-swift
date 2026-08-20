@@ -39,9 +39,9 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     // Created lazily on the first inbound packet of a session, not at init: the incoming manager's
     // payload cap is fixed at construction (the FFI exposes no setter) and comes from the room's
     // options, which aren't finalized until `connect` — after this coordinator is built at
-    // `Room.init`. Deferring lets it pick up a `maxPayloadSize` passed at connect time, and `reset()`
-    // drops it at teardown so the *next* connect re-reads the cap rather than inheriting the first
-    // session's. StateSync-guarded so it's constructed exactly once even if packets race in.
+    // `Room.init`. Deferring lets it pick up a `maxPayloadByteLength` passed at connect time, and
+    // `reset()` drops it at teardown so the *next* connect re-reads the cap rather than inheriting
+    // the first session's. StateSync-guarded so it's constructed exactly once even if packets race in.
     private let _incoming = StateSync<LiveKitUniFFI.IncomingDataStreamManager?>(nil)
 
     // Held weakly: the Room owns this coordinator, so the back-reference must not retain it. Used
@@ -92,12 +92,13 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
             let delegate = IncomingDelegate()
             delegate.coordinator = self
             // `nil` → the core's default cap. Read now (first packet, i.e. post-connect) so a
-            // `maxPayloadSize` supplied via `connect(roomOptions:)` is honored. `DataStreamOptions`
-            // normalizes non-positive values to `nil`, so the conversion below can't trap.
-            let maxPayloadSize = room?._state.roomOptions.dataStreamOptions.maxPayloadSize
+            // `maxPayloadByteLength` supplied via `connect(roomOptions:)` is honored.
+            // `DataStreamOptions` normalizes non-positive values to `nil`, so the conversion below
+            // can't trap.
+            let maxPayloadByteLength = room?._state.roomOptions.dataStreamOptions.maxPayloadByteLength
             let manager = LiveKitUniFFI.IncomingDataStreamManager(
                 delegate: delegate,
-                maxPayloadByteLength: maxPayloadSize.map { UInt64($0) },
+                maxPayloadByteLength: maxPayloadByteLength.map { UInt64($0) },
             )
             existing = manager
             return manager
@@ -229,7 +230,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     ///
     /// The incoming manager itself is discarded, not just drained: its payload cap is immutable after
     /// construction, so a fresh one has to be built for the next session to honor that session's
-    /// `maxPayloadSize`. It holds no handler state — that lives here — so this loses nothing.
+    /// `maxPayloadByteLength`. It holds no handler state — that lives here — so this loses nothing.
     func reset() {
         // No-op if the incoming manager was never created (no packets received): nothing is open.
         let existing = _incoming.mutate { manager -> LiveKitUniFFI.IncomingDataStreamManager? in
