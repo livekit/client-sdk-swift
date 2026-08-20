@@ -1,0 +1,1 @@
+patch type="fixed" "Received E2EE data messages reported their encryptionType as .none: decryption rewrites the packet's payload, which clears the field the type was read from"

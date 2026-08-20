@@ -21,7 +21,10 @@ internal import LiveKitWebRTC
 // MARK: - Internal delegate
 
 protocol DataChannelDelegate: AnyObject, Sendable {
-    func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket)
+    /// `encryptionType` is how the packet arrived on the wire. It rides alongside the packet
+    /// because decryption rewrites the payload oneof, which *clears* `encryptedPacket` — reading
+    /// the type off a decrypted packet reports every encrypted message as unencrypted.
+    func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket, encryptionType: EncryptionType)
     func dataChannel(_ dataChannelPair: DataChannelPair, didFailToDecryptDataPacket dataPacket: Livekit_DataPacket, error: LiveKitError)
 }
 
@@ -65,7 +68,10 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     private let _state = StateSync(State())
 
     // Implicitly unwrapped because their message and state callbacks capture `self`, which is not
-    // available until after `super.init()`. Assigned there, never reassigned.
+    // available until after `super.init()`. Assigned there, never reassigned — and both are set
+    // before `self` escapes to any other thread (the first escape is `set(lossy:)`/`set(reliable:)`
+    // wiring a channel), which is the ordering that makes the unsynchronized reads from WebRTC's
+    // callback threads safe. Keep it that way.
     private var lossy: DataChannelDrain<LossyStage>!
     private var reliable: DataChannelDrain<ReliableStage>!
 
@@ -162,14 +168,12 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         let encryptedPacket = try withEncryption(packet)
         let isLossy = encryptedPacket.kind == .lossy // TODO: field is deprecated
 
-        try await withCheckedThrowingContinuation { continuation in
-            // Serialization and sequence assignment happen inside the drain, so the sequence on the
-            // wire matches the FIFO order in which writes reach `sendData`.
-            if isLossy {
-                lossy.submit(encryptedPacket, continuation: continuation)
-            } else {
-                reliable.submit(encryptedPacket, continuation: continuation)
-            }
+        // Serialization and sequence assignment happen inside the drain, so the sequence on the
+        // wire matches the FIFO order in which writes reach `sendData`.
+        if isLossy {
+            try await lossy.send(encryptedPacket)
+        } else {
+            try await reliable.send(encryptedPacket)
         }
     }
 
@@ -218,10 +222,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
               let e2eeManager = _state.e2eeManager
         else {
             delegates.notify {
-                $0.dataChannel(self, didReceiveDataPacket: dataPacket)
+                $0.dataChannel(self, didReceiveDataPacket: dataPacket, encryptionType: .none)
             }
             return
         }
+
+        // Captured before decryption: applying the decrypted payload rewrites the oneof, which
+        // clears `encryptedPacket` and with it the type.
+        let encryptionType = encryptedPacket.encryptionType.toLKType()
 
         do {
             let decryptedData = try e2eeManager.handle(encryptedData: encryptedPacket.toRTCEncryptedPacket(), participantIdentity: dataPacket.participantIdentity)
@@ -230,7 +238,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             let decrypted = dataPacket.modifying { decryptedPayload.applyTo(&$0) }
 
             delegates.notify { [decrypted] in
-                $0.dataChannel(self, didReceiveDataPacket: decrypted)
+                $0.dataChannel(self, didReceiveDataPacket: decrypted, encryptionType: encryptionType)
             }
         } catch {
             log("Failed to decrypt data packet: \(error)", .error)

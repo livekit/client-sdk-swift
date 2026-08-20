@@ -800,20 +800,20 @@ public extension Room {
 // MARK: - DataChannelDelegate
 
 extension Room: DataChannelDelegate {
-    func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket) {
+    func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket, encryptionType: EncryptionType) {
         switch dataPacket.value {
         case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
-        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket, encryptionType: dataPacket.encryptedPacket.encryptionType.toLKType())
+        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket, encryptionType: encryptionType)
         case let .transcription(packet): room(didReceiveTranscriptionPacket: packet)
         case let .rpcResponse(response): room(didReceiveRpcResponse: response)
         case let .rpcAck(ack): room(didReceiveRpcAck: ack)
         case let .rpcRequest(request): room(didReceiveRpcRequest: request, from: dataPacket.participantIdentity)
         case let .streamHeader(header):
-            incomingStreamManager.handle(.header(header, dataPacket.participantIdentity, dataPacket.encryptedPacket.encryptionType.toLKType()))
+            incomingStreamManager.handle(.header(header, dataPacket.participantIdentity, encryptionType))
         case let .streamChunk(chunk):
-            incomingStreamManager.handle(.chunk(chunk, dataPacket.encryptedPacket.encryptionType.toLKType()))
+            incomingStreamManager.handle(.chunk(chunk, encryptionType))
         case let .streamTrailer(trailer):
-            incomingStreamManager.handle(.trailer(trailer, dataPacket.encryptedPacket.encryptionType.toLKType()))
+            incomingStreamManager.handle(.trailer(trailer, encryptionType))
         default: return
         }
     }
