@@ -183,6 +183,10 @@ struct WriteQueue {
 
     var next: ReadyWrite? { inFlight.first }
 
+    mutating func append(_ write: ReadyWrite) {
+        inFlight.append(write)
+    }
+
     mutating func append(_ group: [ReadyWrite]) {
         for write in group {
             inFlight.append(write)
@@ -226,10 +230,13 @@ struct WriteQueue {
         }
     }
 
-    /// Drops the group being handed over, keeping whatever is waiting behind it.
-    mutating func dropInFlight() {
+    /// Drops the group being handed over, keeping whatever is waiting behind it, and hands the
+    /// discarded writes back so the caller can settle their continuations.
+    mutating func dropInFlight() -> [ReadyWrite] {
+        var discarded: [ReadyWrite] = []
         while !inFlight.isEmpty {
-            inFlight.removeFirst()
+            discarded.append(inFlight.removeFirst())
         }
+        return discarded
     }
 }

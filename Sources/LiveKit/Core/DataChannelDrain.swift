@@ -71,9 +71,6 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     private enum Event {
         /// Work to prepare and queue.
         case submitted(Stage.Input, CheckedContinuation<Void, any Error>?)
-        /// An already-prepared write coming back from the stage's replay path, which must not be
-        /// re-prepared: its bytes are stamped with a now-stale sequence on purpose.
-        case replayed(ReadyWrite)
         case commanded(Stage.Command)
         case drained(UInt64)
         /// A channel was attached or swapped: the mirror starts over, and under
@@ -224,13 +221,12 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         switch event {
         case let .submitted(input, continuation):
             enqueue(input, continuation: continuation, state: &state)
-        case let .replayed(write):
-            state.queue.append([write])
         case let .commanded(command):
-            state.stage.handle(command) { [weak self] write in
-                // Through the stream, so replayed writes queue in the order the stage emits them
-                // and behind work already submitted.
-                self?.eventContinuation.yield(.replayed(write))
+            // Replays append synchronously, inside this event: routing them back through the
+            // stream would let a concurrent reset()'s .fail land between two replays, re-queueing
+            // writes stamped with pre-reset sequences into the next session.
+            state.stage.handle(command) { write in
+                state.queue.append(write)
             }
         case let .drained(byteCount):
             if !state.meter.didDrain(byteCount) {
@@ -244,7 +240,10 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         case let .fail(error):
             state.queue.settleAll(.failure(error ?? LiveKitError(.cancelled, message: "Data channel reset")))
             state.stage.reset()
-            return
+            // The buffer died with the channel: without this, an app that backed off on
+            // `isLow == false` would wait forever for the recovering transition on a
+            // permanent disconnect.
+            state.meter.reset()
         }
 
         dispatch(state: &state)
@@ -314,7 +313,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             guard let channel = usableTarget else {
                 // The channel can go away between the readiness report and here — e.g. mid
                 // fast-reconnect. Leave the write at the head; the next `.wakeup` ships it, and
-                // permanent teardown fails it via `.teardown`.
+                // permanent teardown fails it via `.fail`.
                 return
             }
             state.meter.willSend(write.byteCount)
@@ -322,10 +321,9 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             guard channel.send(write.data) else {
                 // Never reached the transport, so they are not outstanding after all.
                 state.meter.didDrain(UInt64(write.byteCount))
-                write.continuation?.resume(
-                    throwing: LiveKitError(.invalidState, message: "sendData failed"),
-                )
-                dropFailedWrite(state: &state)
+                let failure = LiveKitError(.invalidState, message: "sendData failed")
+                write.continuation?.resume(throwing: failure)
+                dropFailedWrite(state: &state, throwing: failure)
                 return
             }
             state.queue.advance()
@@ -334,21 +332,22 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         }
     }
 
-    /// Drops what a rejected `sendData` invalidated, resuming nothing — the write's continuation
-    /// has already been failed.
+    /// Drops what a rejected `sendData` invalidated, settling every discarded write.
     ///
-    /// Under ``SendOverflow/park`` only the rejected write goes; the rest of the queue belongs to other
-    /// submitters and still has somewhere to go. (Park stages produce one write per input today, so
-    /// there is no partial group to consider; a multi-write park stage would need to revisit this.)
-    /// Under ``SendOverflow/dropOldest`` the rest of the group goes with it, since half a frame on the
-    /// wire is worse than none.
-    private func dropFailedWrite(state: inout LoopState) {
+    /// Under ``SendOverflow/park`` only the rejected write goes; the rest of the queue belongs to
+    /// other submitters and still has somewhere to go. Under ``SendOverflow/dropOldest`` the rest
+    /// of the group goes with it, since half a frame on the wire is worse than none — and a group's
+    /// continuation rides its *last* write, so the discarded remainder is failed rather than
+    /// dropped, or a caller awaiting a multi-write group would hang forever.
+    private func dropFailedWrite(state: inout LoopState, throwing failure: LiveKitError) {
         switch overflow {
         case .park:
             state.queue.advance()
         case .dropOldest:
             log("Channel '\(label)' rejected a write; dropping the rest of the group", .debug)
-            state.queue.dropInFlight()
+            for discarded in state.queue.dropInFlight() {
+                discarded.continuation?.resume(throwing: failure)
+            }
         }
     }
 
