@@ -28,6 +28,8 @@ public final class DataPublishOptions: NSObject, PublishOptions, Sendable {
 
     /// Whether to send this as reliable or lossy.
     /// For data that you need delivery guarantee (such as chat messages) set to true (reliable).
+    /// Lossy sends may be dropped under sustained backpressure (the newest queued payload wins);
+    /// reliable sends queue until delivered.
     /// For data that should arrive as quickly as possible, but you are ok with dropped packets, set to false (lossy).
     public let reliable: Bool
 

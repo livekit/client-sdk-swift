@@ -1,0 +1,1 @@
+minor type="added" "RoomDelegate.room(_:didUpdateBufferStatus:of:) reports when a data channel's send buffer fills up or drains again, so publishers can back off"
