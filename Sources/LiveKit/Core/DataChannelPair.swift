@@ -23,7 +23,6 @@ internal import LiveKitWebRTC
 protocol DataChannelDelegate: AnyObject, Sendable {
     func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket)
     func dataChannel(_ dataChannelPair: DataChannelPair, didFailToDecryptDataPacket dataPacket: Livekit_DataPacket, error: LiveKitError)
-    func dataChannel(_ dataChannelPair: DataChannelPair, didUpdateBufferStatus isLow: Bool, of kind: DataChannelKind)
 }
 
 /// The lossy and reliable data channels for one peer connection, plus the packet semantics they
@@ -72,9 +71,13 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Init
 
+    /// `onBufferStatusChange` is wired only for a pair whose channels send — the publisher's. The
+    /// subscriber's channels are receive-only, so its pair is constructed without reporting rather
+    /// than filtered downstream.
     init(delegate: DataChannelDelegate? = nil,
          lossyChannel: LKRTCDataChannel? = nil,
-         reliableChannel: LKRTCDataChannel? = nil)
+         reliableChannel: LKRTCDataChannel? = nil,
+         onBufferStatusChange: (@Sendable (Bool, DataChannelKind) -> Void)? = nil)
     {
         super.init()
 
@@ -90,7 +93,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             maxMessageSize: Self.defaultMaxMessageSize,
             onMessage: { [weak self] data in self?.handle(received: data, isReliable: false) },
             onStateChange: { [weak self] _ in self?.handleStateChange() },
-            onBufferStatusChange: { [weak self] isLow in self?.report(isLow, of: .lossy) },
+            onBufferStatusChange: { isLow in onBufferStatusChange?(isLow, .lossy) },
         )
         reliable = DataChannelDrain(
             label: LKRTCDataChannel.Labels.reliable,
@@ -100,7 +103,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             maxMessageSize: Self.defaultMaxMessageSize,
             onMessage: { [weak self] data in self?.handle(received: data, isReliable: true) },
             onStateChange: { [weak self] _ in self?.handleStateChange() },
-            onBufferStatusChange: { [weak self] isLow in self?.report(isLow, of: .reliable) },
+            onBufferStatusChange: { isLow in onBufferStatusChange?(isLow, .reliable) },
         )
 
         if let lossyChannel { set(lossy: lossyChannel) }
@@ -117,12 +120,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     func set(lossy channel: LKRTCDataChannel?) {
         lossy.setChannel(channel)
         handleStateChange()
-    }
-
-    private func report(_ isLow: Bool, of kind: DataChannelKind) {
-        delegates.notify {
-            $0.dataChannel(self, didUpdateBufferStatus: isLow, of: kind)
-        }
     }
 
     /// Resolves the open latch once both channels are usable. Reached from either drain's state

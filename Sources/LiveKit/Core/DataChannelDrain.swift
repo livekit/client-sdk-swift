@@ -26,10 +26,9 @@ internal import LiveKitWebRTC
 /// ## Delegate
 /// The drain *is* the channel's `LKRTCDataChannelDelegate`, so buffered-amount and state callbacks
 /// land on the object that owns the affected state — no dispatching on channel labels. What it does
-/// not own it forwards to its creator: inbound messages via `onMessage`, and readiness via
-/// `onStateChange` (``DataChannelPair`` needs it for the pair-level open latch). This mirrors
-/// `DataChannelManager` in client-sdk-android, which is its channel's `DataChannel.Observer` and
-/// takes a listener to forward messages to.
+/// not own it forwards to its creator: inbound messages via `onMessage`, readiness via
+/// `onStateChange`. (The shape of `DataChannelManager` in client-sdk-android, its channel's
+/// `DataChannel.Observer` with a forwarding listener.)
 ///
 /// ## Concurrency
 /// `@unchecked Sendable`. `_state` and `flow` are lock-guarded; `Queue` and `Stage` live in the
@@ -48,8 +47,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     // MARK: - Private
 
     private struct State {
-        var channel: LKRTCDataChannel?
-        /// The same object as `channel` in production; a fake in tests.
+        /// The channel in production; a fake in tests (see ``attach(sendTarget:)``).
         var sendTarget: DrainSendChannel?
         var maxMessageSize: UInt64 = 0
         /// Set by ``reset(throwing:)`` and cleared when a channel is attached. Distinguishes
@@ -90,6 +88,8 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     /// a line per drop.
     private static var dropLogInterval: Int { 100 }
 
+    /// Names the channel in this drain's log lines, since one session runs three drains.
+    private let label: String
     private let overflow: SendOverflow
     private let onMessage: @Sendable (Data) -> Void
     private let onStateChange: @Sendable (LKRTCDataChannel) -> Void
@@ -104,7 +104,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     private var eventLoopTask: AnyTaskCancellable?
 
     init(
-        label _: String,
+        label: String,
         lowWaterMark: UInt64,
         overflow: SendOverflow,
         stage: Stage,
@@ -113,6 +113,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         onStateChange: @escaping @Sendable (LKRTCDataChannel) -> Void = { _ in },
         onBufferStatusChange: @escaping @Sendable (Bool) -> Void = { _ in },
     ) {
+        self.label = label
         self.overflow = overflow
         self.onMessage = onMessage
         self.onStateChange = onStateChange
@@ -137,24 +138,38 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
 
     // MARK: - Owner API
 
-    /// Attaches the channel this drain sends on and takes over its delegate slot.
+    /// Attaches the channel this drain sends on, takes over its delegate slot (detaching the
+    /// replaced channel; the identity guard on the hooks is the backstop for callbacks already in
+    /// flight), and reports the channel's current state through `onStateChange` — so an owner never
+    /// probes `readyState` itself to cover a channel that opened before its delegate landed.
     ///
     /// Under ``SendOverflow/park`` anything already queued survives the swap and ships on the new
     /// channel, which is what makes a fast reconnect lossless; under ``SendOverflow/dropOldest`` it is
     /// discarded as stale.
     func setChannel(_ channel: LKRTCDataChannel?) {
-        _state.mutate {
-            $0.channel = channel
-            if channel != nil { $0.wasReset = false }
+        let previous = _state.mutate { state -> DrainSendChannel? in
+            let previous = state.sendTarget
+            state.sendTarget = channel
+            if channel != nil { state.wasReset = false }
+            return previous
+        }
+        if let previous = previous as? LKRTCDataChannel, previous !== channel, previous.delegate === self {
+            previous.delegate = nil
         }
         channel?.delegate = self
-        attach(sendTarget: channel)
+        eventContinuation.yield(.attached)
+        if let channel {
+            onStateChange(channel)
+        }
     }
 
-    /// Attaches what writes go to. Split from ``setChannel(_:)`` so tests can drive the queue
-    /// without a real channel; production always passes the channel itself.
+    /// Attaches what writes go to. A test seam: production goes through ``setChannel(_:)``, which
+    /// also owns the delegate slot and the readiness report.
     func attach(sendTarget: DrainSendChannel?) {
-        _state.mutate { $0.sendTarget = sendTarget }
+        _state.mutate {
+            $0.sendTarget = sendTarget
+            if sendTarget != nil { $0.wasReset = false }
+        }
         eventContinuation.yield(.attached)
     }
 
@@ -168,10 +183,9 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     /// reaches `sendData`; under ``SendOverflow/dropOldest`` there is normally none, and an evicted
     /// group's waiter is failed rather than stranded.
     ///
-    /// - Warning: Cancelling the submitting task does **not** withdraw a write that is already
-    ///   queued. It stays queued until the channel takes it or ``reset(throwing:)`` fails it. This
-    ///   is a pre-existing limitation of the continuation-based entry point, carried over
-    ///   deliberately.
+    /// - Warning: Cancelling the submitting task does **not** withdraw a queued write; it stays
+    ///   queued until the channel takes it or ``reset(throwing:)`` fails it. Pre-existing
+    ///   limitation of the continuation entry point, carried over deliberately.
     func submit(_ input: Stage.Input, continuation: CheckedContinuation<Void, any Error>? = nil) {
         eventContinuation.yield(.submitted(input, continuation))
     }
@@ -186,20 +200,22 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     /// The failure is routed through the event stream so it is ordered after submissions already in
     /// flight from concurrent callers, and no continuation leaks across a disconnect.
     func reset(throwing error: Error? = nil) {
-        let channel = _state.mutate {
-            let previous = $0.channel
-            $0.channel = nil
-            $0.sendTarget = nil
-            $0.wasReset = true
+        let previous = _state.mutate { state -> DrainSendChannel? in
+            let previous = state.sendTarget
+            state.sendTarget = nil
+            state.wasReset = true
             return previous
         }
-        channel?.close()
+        if let channel = previous as? LKRTCDataChannel {
+            if channel.delegate === self { channel.delegate = nil }
+            channel.close()
+        }
 
         eventContinuation.yield(.fail(error))
     }
 
     func info() -> Livekit_DataChannelInfo? {
-        _state.channel?.toLKInfoType()
+        (_state.sendTarget as? LKRTCDataChannel)?.toLKInfoType()
     }
 
     // MARK: - Event loop
@@ -218,7 +234,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             }
         case let .drained(byteCount):
             if !state.meter.didDrain(byteCount) {
-                log("Unexpected buffer size detected", .error)
+                log("Unexpected buffer size detected on '\(label)'", .error)
             }
             state.stage.didDrain(byteCount)
         case .attached:
@@ -283,7 +299,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
                 // client-sdk-js. Counted so sustained loss is visible.
                 state.dropped += 1
                 if state.dropped % Self.dropLogInterval == 0 {
-                    log("Dropped \(state.dropped) writes under backpressure", .warning)
+                    log("Dropped \(state.dropped) writes on '\(label)' under backpressure", .warning)
                 }
                 evicted.continuation?.resume()
             }
@@ -331,7 +347,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         case .park:
             state.queue.advance()
         case .dropOldest:
-            log("Channel rejected a write; dropping the rest of the group", .debug)
+            log("Channel '\(label)' rejected a write; dropping the rest of the group", .debug)
             state.queue.dropInFlight()
         }
     }
@@ -351,11 +367,21 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     // Declared on the class rather than in an extension: extensions of generic classes cannot
     // contain `@objc` members, and this is an `@objc` protocol.
 
-    func dataChannel(_: LKRTCDataChannel, didChangeBufferedAmount amount: UInt64) {
+    /// Whether a delegate callback comes from the channel this drain currently owns. A replaced
+    /// channel keeps delivering callbacks from WebRTC's threads until its detach lands; acting on
+    /// those corrupts the successor's state (a stale drain report against a fresh meter, a stale
+    /// close re-arming an open gate).
+    private func isCurrent(_ dataChannel: LKRTCDataChannel) -> Bool {
+        _state.read { $0.sendTarget === dataChannel }
+    }
+
+    func dataChannel(_ dataChannel: LKRTCDataChannel, didChangeBufferedAmount amount: UInt64) {
+        guard isCurrent(dataChannel) else { return }
         reportDrained(amount)
     }
 
     func dataChannelDidChangeState(_ dataChannel: LKRTCDataChannel) {
+        guard isCurrent(dataChannel) else { return }
         if dataChannel.readyState == .closed, !_state.wasReset {
             // libwebrtc closes the channel on its own when an SCTP send violates the negotiated
             // max-message-size (among other conditions). `sendData` still returns true in that
@@ -370,7 +396,8 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         onStateChange(dataChannel)
     }
 
-    func dataChannel(_: LKRTCDataChannel, didReceiveMessageWith buffer: LKRTCDataBuffer) {
+    func dataChannel(_ dataChannel: LKRTCDataChannel, didReceiveMessageWith buffer: LKRTCDataBuffer) {
+        guard isCurrent(dataChannel) else { return }
         onMessage(buffer.data)
     }
 }

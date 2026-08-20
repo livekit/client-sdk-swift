@@ -185,6 +185,9 @@ final class DataTracks: NSObject, @unchecked Sendable {
     /// `.closed` delegate callback re-arms too, but arrives asynchronously from WebRTC's thread.)
     func handleTransportsTeardown() {
         _publisherChannelOpen.rearm()
+        // The channel dies with the transport: drop queued frames (stale by definition on this
+        // drop-oldest channel) and mark the close as expected so it isn't logged as an error.
+        publisher.reset()
     }
 
     func handleReconnect(fullReconnect: Bool) {
@@ -277,15 +280,14 @@ final class DataTracks: NSObject, @unchecked Sendable {
     // MARK: - Channels
 
     func setPublisherChannel(_ channel: LKRTCDataChannel) {
-        // A new channel arrives unopened (e.g. swapped in by a full reconnect); re-arm the gate
-        // without cancelling waiters — a publish issued during the reconnect window keeps waiting
-        // for this channel to open. Frames queued for the old channel belong to the torn-down
-        // transport, which `.dropOldest` discards on attach.
+        // A new channel usually arrives unopened (e.g. swapped in by a full reconnect); re-arm the
+        // gate without cancelling waiters — a publish issued during the reconnect window keeps
+        // waiting for this channel to open. `setChannel` reports the channel's current state, so
+        // `handlePublisherStateChange` resolves the gate if it is already open — no probe here.
+        // Frames queued for the old channel belong to the torn-down transport, which `.dropOldest`
+        // discards on attach.
         _publisherChannelOpen.rearm()
         publisher.setChannel(channel)
-        if channel.readyState == .open {
-            _publisherChannelOpen.resume(returning: ())
-        }
     }
 
     func setSubscriberChannel(_ channel: LKRTCDataChannel) {

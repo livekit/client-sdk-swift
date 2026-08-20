@@ -128,7 +128,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - DataChannels
 
     lazy var subscriberDataChannel = DataChannelPair(delegate: self)
-    lazy var publisherDataChannel = DataChannelPair(delegate: self)
+    lazy var publisherDataChannel = DataChannelPair(delegate: self, onBufferStatusChange: { [weak self] isLow, kind in
+        self?.notify(bufferStatus: isLow, of: kind)
+    })
 
     let incomingStreamManager = IncomingStreamManager()
     lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
@@ -822,13 +824,8 @@ extension Room: DataChannelDelegate {
         }
     }
 
-    func dataChannel(_ dataChannelPair: DataChannelPair, didUpdateBufferStatus isLow: Bool, of kind: DataChannelKind) {
-        // Only the publisher's channels have a send buffer worth reporting; the subscriber's are
-        // receive-only, so theirs is always empty.
-        guard dataChannelPair === publisherDataChannel else { return }
-        notify(bufferStatus: isLow, of: kind)
-    }
-
+    /// The single funnel for buffer-status reports: the publisher pair's drains and the data-track
+    /// drain all arrive here by closure, so there is exactly one route to the public delegate.
     func notify(bufferStatus isLow: Bool, of kind: DataChannelKind) {
         delegates.notify {
             $0.room?(self, didUpdateBufferStatus: isLow, of: kind)
