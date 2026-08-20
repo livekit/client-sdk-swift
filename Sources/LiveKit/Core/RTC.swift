@@ -62,6 +62,13 @@ actor RTC {
 
         Room.log("Initializing PeerConnectionFactory...")
 
+        // WARP SPED (DTLS-in-STUN). Advertised in the offer/answer and engages
+        // only when the server negotiates it, otherwise the connection falls
+        // back to a plain DTLS handshake. Must be set before the factory is
+        // created. SNAP, the other half of WARP, is enabled on
+        // LKRTCConfiguration.liveKitDefault().
+        LKRTCPeerConnectionFactory.configureFieldTrials("\(kLKRTCFieldTrialIceHandshakeDtlsKey)/\(kLKRTCFieldTrialEnabledValue)/")
+
         return LKRTCPeerConnectionFactory(audioDeviceModuleType: admType.toRTCType(),
                                           bypassVoiceProcessing: bypassVoiceProcessing,
                                           encoderFactory: encoderFactory,
