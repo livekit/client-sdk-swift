@@ -16,6 +16,8 @@
 
 import Foundation
 
+internal import LiveKitUniFFI
+
 /// Options used when opening an outgoing data stream.
 public protocol StreamOptions: Sendable {
     /// Topic name used to route the stream to the appropriate handler.
@@ -43,8 +45,14 @@ public final class StreamTextOptions: NSObject, StreamOptions {
     public let attachedStreamIDs: [String]
     public let replyToStreamID: String?
 
+    /// Whether to compress the payload when every recipient supports it. `nil` (the default) leaves
+    /// the decision to the SDK, which compresses when able; `false` disables compression.
+    public let compress: Bool?
+
     // TODO: Expose additional protocol level fields
 
+    /// - Note: `compress` is required here to disambiguate from the compatibility initializer below;
+    ///   omit it (use the other initializer) to accept the default behavior.
     public init(
         topic: String,
         attributes: [String: String] = [:],
@@ -53,6 +61,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         version: Int = 0,
         attachedStreamIDs: [String] = [],
         replyToStreamID: String? = nil,
+        compress: Bool?,
     ) {
         self.topic = topic
         self.attributes = attributes
@@ -61,6 +70,46 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         self.version = version
         self.attachedStreamIDs = attachedStreamIDs
         self.replyToStreamID = replyToStreamID
+        self.compress = compress
+    }
+
+    /// Creates options with the default compression behavior. Preserved as the Objective-C entry
+    /// point and for source compatibility with callers that predate `compress`.
+    public convenience init(
+        topic: String,
+        attributes: [String: String] = [:],
+        destinationIdentities: [Participant.Identity] = [],
+        id: String? = nil,
+        version: Int = 0,
+        attachedStreamIDs: [String] = [],
+        replyToStreamID: String? = nil,
+    ) {
+        self.init(
+            topic: topic,
+            attributes: attributes,
+            destinationIdentities: destinationIdentities,
+            id: id,
+            version: version,
+            attachedStreamIDs: attachedStreamIDs,
+            replyToStreamID: replyToStreamID,
+            compress: nil,
+        )
+    }
+
+    var ffi: LiveKitUniFFI.StreamTextOptions {
+        LiveKitUniFFI.StreamTextOptions(
+            topic: topic,
+            attributes: attributes,
+            destinationIdentities: destinationIdentities.map(\.stringValue),
+            id: id,
+            operationType: nil,
+            version: Int32(truncatingIfNeeded: version),
+            replyToStreamId: replyToStreamID,
+            attachedStreamIds: attachedStreamIDs,
+            generated: nil,
+            compress: compress,
+            senderIdentity: nil,
+        )
     }
 }
 
@@ -82,6 +131,10 @@ public final class StreamByteOptions: NSObject, StreamOptions {
     /// Total expected size in bytes, if known.
     public let totalSize: Int?
 
+    /// Whether to compress the payload when every recipient supports it. `nil` (the default) leaves
+    /// the decision to the SDK, which compresses when able; `false` disables compression.
+    public let compress: Bool?
+
     public init(
         topic: String,
         attributes: [String: String] = [:],
@@ -90,6 +143,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
         mimeType: String? = nil,
         name: String? = nil,
         totalSize: Int? = nil,
+        compress: Bool? = nil,
     ) {
         self.topic = topic
         self.attributes = attributes
@@ -98,6 +152,21 @@ public final class StreamByteOptions: NSObject, StreamOptions {
         self.mimeType = mimeType
         self.name = name
         self.totalSize = totalSize
+        self.compress = compress
+    }
+
+    var ffi: LiveKitUniFFI.StreamByteOptions {
+        LiveKitUniFFI.StreamByteOptions(
+            topic: topic,
+            attributes: attributes,
+            destinationIdentities: destinationIdentities.map(\.stringValue),
+            id: id,
+            mimeType: mimeType,
+            name: name,
+            totalLength: totalSize.map { UInt64($0) },
+            compress: compress,
+            senderIdentity: nil,
+        )
     }
 
     /// ObjC-compatible initializer that accepts `NSNumber?` for `totalSize`.

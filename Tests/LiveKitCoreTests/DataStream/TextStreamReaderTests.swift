@@ -16,31 +16,20 @@
 
 import Foundation
 @testable import LiveKit
+import LiveKitUniFFI
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
 
+/// Exercises every ``TextStreamReader`` interface (iterating, `readAll()`) against a reader minted by
+/// the UniFFI incoming manager: a real `IncomingDataStreamManager` is fed data stream packets, the
+/// opened reader is captured, and its contents are read back through each API.
 @Suite(.tags(.dataStream))
-final class TextStreamReaderTests: @unchecked Sendable {
-    private var continuation: StreamReaderSource.Continuation!
-    private var reader: TextStreamReader!
+struct TextStreamReaderTests {
+    private let topic = "someTopic"
 
-    private let testInfo = TextStreamInfo(
-        id: UUID().uuidString,
-        topic: "someTopic",
-        timestamp: Date(),
-        totalLength: nil,
-        attributes: [:],
-        encryptionType: .none,
-        operationType: .create,
-        version: 1,
-        replyToStreamID: nil,
-        attachedStreamIDs: [],
-        generated: false,
-    )
-
-    let testChunks = [
+    private let testChunks = [
         String(repeating: "A", count: 128),
         String(repeating: "B", count: 128),
         String(repeating: "C", count: 256),
@@ -52,70 +41,103 @@ final class TextStreamReaderTests: @unchecked Sendable {
         testChunks.reduce("") { $0 + $1 }
     }
 
-    private func sendPayload(closingError: Error? = nil) {
-        for chunk in testChunks {
-            continuation.yield(Data(chunk.utf8))
+    @Test func chunkRead() async throws {
+        let (reader, manager) = await openReader()
+        // The reader may deliver chunks with different boundaries than they were sent, so validate
+        // the reassembled payload rather than a one-to-one chunk correspondence.
+        var received = ""
+        for try await chunk in reader {
+            received += chunk
         }
-        continuation.finish(throwing: closingError)
+        #expect(received == testPayload)
+        _ = manager
     }
 
-    init() {
-        let source = StreamReaderSource {
-            self.continuation = $0
+    @Test func chunkReadError() async throws {
+        let (reader, manager) = await openReader(trailerReason: "test")
+        await #expect(throws: StreamError.abnormalEnd(reason: "test")) {
+            for try await _ in reader {}
         }
-        reader = TextStreamReader(info: testInfo, source: source)
+        _ = manager
     }
 
-    @Test func chunkRead() async {
-        await confirmation("Receive all chunks") { receiveConfirm in
-            await confirmation("Normal closure") { closureConfirm in
-                let processingTask = Task {
-                    var chunkIndex = 0
-                    for try await chunk in reader {
-                        #expect(chunk == testChunks[chunkIndex])
-                        if chunkIndex == testChunks.count - 1 {
-                            receiveConfirm()
-                        }
-                        chunkIndex += 1
-                    }
-                    closureConfirm()
+    @Test func readAll() async throws {
+        let (reader, manager) = await openReader()
+        let fullPayload = try await reader.readAll()
+        #expect(fullPayload == testPayload)
+        _ = manager
+    }
+
+    @Test func info() async {
+        let (reader, manager) = await openReader()
+        #expect(reader.info.topic == topic)
+        #expect(reader.info.operationType == .create)
+        _ = manager
+    }
+
+    // MARK: - Helpers
+
+    /// Delegate that wraps the FFI reader into the public ``TextStreamReader`` and hands it back
+    /// through a continuation.
+    private final class Capture: IncomingDataStreamManagerDelegate, @unchecked Sendable {
+        let pending = StateSync<CheckedContinuation<LiveKit.TextStreamReader, Never>?>(nil)
+
+        func onByteStreamOpened(reader _: LiveKitUniFFI.ByteStreamReader, identity _: String) {}
+
+        func onStreamClosed(streamId _: String, identity _: String) {}
+
+        func onTextStreamOpened(reader: LiveKitUniFFI.TextStreamReader, identity _: String) {
+            let info = LiveKit.TextStreamInfo(reader.info(), encryptionType: .none)
+            let publicReader = LiveKit.TextStreamReader(reader, info: info)
+            let continuation = pending.mutate { current -> CheckedContinuation<LiveKit.TextStreamReader, Never>? in
+                defer { current = nil }
+                return current
+            }
+            continuation?.resume(returning: publicReader)
+        }
+    }
+
+    /// Opens a text stream through the FFI incoming manager and returns the public reader plus the
+    /// manager, which the caller must keep alive while reading.
+    private func openReader(trailerReason: String = "") async -> (LiveKit.TextStreamReader, IncomingDataStreamManager) {
+        let capture = Capture()
+        let manager = IncomingDataStreamManager(delegate: capture, maxPayloadByteLength: nil)
+        let streamID = UUID().uuidString
+
+        let reader = await withCheckedContinuation { (continuation: CheckedContinuation<LiveKit.TextStreamReader, Never>) in
+            capture.pending.mutate { $0 = continuation }
+
+            let header = Livekit_DataStream.Header.with {
+                $0.streamID = streamID
+                $0.topic = topic
+                $0.contentHeader = .textHeader(Livekit_DataStream.TextHeader())
+            }
+            feed(manager) { $0.streamHeader = header }
+
+            for (index, chunk) in testChunks.enumerated() {
+                let streamChunk = Livekit_DataStream.Chunk.with {
+                    $0.streamID = streamID
+                    $0.chunkIndex = UInt64(index)
+                    $0.content = Data(chunk.utf8)
                 }
-
-                sendPayload()
-
-                _ = await processingTask.result
+                feed(manager) { $0.streamChunk = streamChunk }
             }
+
+            let trailer = Livekit_DataStream.Trailer.with {
+                $0.streamID = streamID
+                $0.reason = trailerReason
+            }
+            feed(manager) { $0.streamTrailer = trailer }
         }
+        return (reader, manager)
     }
 
-    @Test func chunkReadError() async {
-        await confirmation("Read throws error") { confirm in
-            let testError = StreamError.abnormalEnd(reason: "test")
-
-            let processingTask = Task {
-                do {
-                    for try await _ in reader {}
-                } catch {
-                    #expect(error as? StreamError == testError)
-                    confirm()
-                }
-            }
-            sendPayload(closingError: testError)
-
-            _ = await processingTask.result
+    private func feed(_ manager: IncomingDataStreamManager, _ configure: (inout Livekit_DataPacket.Builder) -> Void) {
+        let packet = Livekit_DataPacket.with {
+            $0.participantIdentity = "someName"
+            configure(&$0)
         }
-    }
-
-    @Test func readAll() async {
-        await confirmation("Read full payload") { confirm in
-            let processingTask = Task {
-                let fullPayload = try await reader.readAll()
-                #expect(fullPayload == testPayload)
-                confirm()
-            }
-            sendPayload()
-
-            _ = await processingTask.result
-        }
+        guard let data = try? packet.serializedData() else { return }
+        manager.handlePacketReceived(packet: data, encryptionType: .none)
     }
 }

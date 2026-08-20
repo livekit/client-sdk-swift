@@ -23,7 +23,10 @@ internal import LiveKitWebRTC
 // MARK: - Internal delegate
 
 protocol DataChannelDelegate: AnyObject, Sendable {
-    func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket)
+    /// - Parameter encryptionType: the type declared on the packet *as received*, captured before
+    ///   decryption. `EncryptedPacket` shares a protobuf `oneof` with the stream payload, so
+    ///   decrypting overwrites it — the value is unrecoverable from `dataPacket` afterwards.
+    func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket, encryptionType: EncryptionType)
     func dataChannel(_ dataChannelPair: DataChannelPair, didFailToDecryptDataPacket dataPacket: Livekit_DataPacket, error: LiveKitError)
 }
 
@@ -675,6 +678,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
         if let encryptedPacket = dataPacket.encryptedPacketOrNil,
            let e2eeManager = _state.e2eeManager
         {
+            let encryptionType = encryptedPacket.encryptionType.toLKType()
             do {
                 let decryptedData = try e2eeManager.handle(encryptedData: encryptedPacket.toRTCEncryptedPacket(), participantIdentity: dataPacket.participantIdentity)
                 let decryptedPayload = try Livekit_EncryptedPacketPayload(serializedBytes: decryptedData)
@@ -682,7 +686,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
                 let dataPacket = dataPacket.modifying { decryptedPayload.applyTo(&$0) }
 
                 delegates.notify { [dataPacket] in
-                    $0.dataChannel(self, didReceiveDataPacket: dataPacket)
+                    $0.dataChannel(self, didReceiveDataPacket: dataPacket, encryptionType: encryptionType)
                 }
             } catch {
                 log("Failed to decrypt data packet: \(error)", .error)
@@ -692,7 +696,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
             }
         } else {
             delegates.notify {
-                $0.dataChannel(self, didReceiveDataPacket: dataPacket)
+                $0.dataChannel(self, didReceiveDataPacket: dataPacket, encryptionType: .none)
             }
         }
     }

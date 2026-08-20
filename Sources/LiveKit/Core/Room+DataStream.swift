@@ -32,7 +32,7 @@ public extension Room {
             throw LiveKitError(.invalidParameter,
                                message: "Stream topic prefix '\(Room.reservedTopicPrefix)' is reserved for internal SDK use")
         }
-        try await incomingStreamManager.registerByteStreamHandler(for: topic, onNewStream)
+        try dataStreams.registerByteStreamHandler(for: topic, onNewStream)
     }
 
     /// Registers a handler for incoming text streams matching the given topic.
@@ -50,7 +50,7 @@ public extension Room {
             throw LiveKitError(.invalidParameter,
                                message: "Stream topic prefix '\(Room.reservedTopicPrefix)' is reserved for internal SDK use")
         }
-        try await incomingStreamManager.registerTextStreamHandler(for: topic, onNewStream)
+        try dataStreams.registerTextStreamHandler(for: topic, onNewStream)
     }
 
     /// Unregisters a byte stream handler that was previously registered for the given topic.
@@ -60,7 +60,7 @@ public extension Room {
     @objc
     func unregisterByteStreamHandler(for topic: String) async {
         guard !topic.hasPrefix(Room.reservedTopicPrefix) else { return }
-        await incomingStreamManager.unregisterByteStreamHandler(for: topic)
+        dataStreams.unregisterByteStreamHandler(for: topic)
     }
 
     /// Unregisters a text stream handler that was previously registered for the given topic.
@@ -70,9 +70,17 @@ public extension Room {
     @objc
     func unregisterTextStreamHandler(for topic: String) async {
         guard !topic.hasPrefix(Room.reservedTopicPrefix) else { return }
-        await incomingStreamManager.unregisterTextStreamHandler(for: topic)
+        dataStreams.unregisterTextStreamHandler(for: topic)
     }
 }
+
+// MARK: - Handler type aliases
+
+/// Handler for incoming byte data streams.
+public typealias ByteStreamHandler = @Sendable (ByteStreamReader, Participant.Identity) async throws -> Void
+
+/// Handler for incoming text data streams.
+public typealias TextStreamHandler = @Sendable (TextStreamReader, Participant.Identity) async throws -> Void
 
 extension Room {
     /// Reserved data-stream topic prefix for RPC v2 (`lk.rpc_request` / `lk.rpc_response`,

@@ -16,17 +16,20 @@
 
 import Foundation
 
+internal import LiveKitUniFFI
+
 /// Asynchronously write to an open text stream.
 @objcMembers
 public final class TextStreamWriter: NSObject, Sendable {
     /// Information about the outgoing text stream.
     public let info: TextStreamInfo
 
-    private let destination: StreamWriterDestination
+    private let writer: LiveKitUniFFI.TextStreamWriter
 
-    /// Whether or not the stream is still open.
+    /// Whether or not the stream is still open. Reflects the FFI writer's state, so it becomes
+    /// `false` once the stream is closed locally or a send fails (e.g. the room disconnected).
     public var isOpen: Bool {
-        get async { await destination.isOpen }
+        get async { await writer.isOpen() }
     }
 
     /// Write text to the stream.
@@ -36,7 +39,11 @@ public final class TextStreamWriter: NSObject, Sendable {
     ///   cannot be sent to remote participants.
     ///
     public func write(_ text: String) async throws {
-        try await destination.write(text)
+        do {
+            try await writer.write(text: text)
+        } catch let error as LiveKitUniFFI.DataStreamError {
+            throw StreamError(error)
+        }
     }
 
     /// Close the stream.
@@ -47,11 +54,19 @@ public final class TextStreamWriter: NSObject, Sendable {
     ///   cannot be communicated to remote participants.
     ///
     public func close(reason: String? = nil) async throws {
-        try await destination.close(reason: reason)
+        do {
+            if let reason {
+                try await writer.closeWithReason(reason: reason)
+            } else {
+                try await writer.close()
+            }
+        } catch let error as LiveKitUniFFI.DataStreamError {
+            throw StreamError(error)
+        }
     }
 
-    init(info: TextStreamInfo, destination: StreamWriterDestination) {
-        self.info = info
-        self.destination = destination
+    init(_ writer: LiveKitUniFFI.TextStreamWriter, encryptionType: EncryptionType) {
+        self.writer = writer
+        info = TextStreamInfo(writer.info(), encryptionType: encryptionType)
     }
 }
