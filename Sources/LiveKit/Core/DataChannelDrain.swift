@@ -341,15 +341,18 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     /// starvation is ever observed.
     private func dispatch(state: inout LoopState) {
         while state.meter.hasHeadroom {
-            state.queue.promoteIfIdle()
-            guard let write = state.queue.next else { return }
-
+            // Readiness before promotion: while the channel is still opening, a queued group must
+            // stay in the evictable `pending` slot so a newer group can still replace it —
+            // promoted into `inFlight`, eviction can't reach it and it ships stale once the
+            // channel opens. (No-op for `.park`, which never uses `pending`.)
             guard let channel = state.sendTarget, channel.isOpen else {
                 // The channel can go away between the readiness report and here — e.g. mid
                 // fast-reconnect. Leave the write at the head; the next `.wakeup` ships it, and
                 // permanent teardown fails it via `.fail`.
                 return
             }
+            state.queue.promoteIfIdle()
+            guard let write = state.queue.next else { return }
             state.meter.willSend(write.byteCount)
 
             guard channel.send(write.payload) else {

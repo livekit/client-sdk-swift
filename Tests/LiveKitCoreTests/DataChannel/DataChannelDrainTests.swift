@@ -225,6 +225,26 @@ struct DataChannelDrainTests {
         try await poll(for: "the queued group to survive the empty batch") { channel.tags == [0, 1] }
     }
 
+    /// While the channel is still opening, a queued group stays in the evictable slot — promoted
+    /// too early, eviction can't reach it and the stale group ships ahead of its replacement once
+    /// the channel opens, violating freshest-wins exactly in the connect/reconnect window.
+    @Test func newerGroupEvictsWhileChannelIsStillOpening() async throws {
+        channel.isOpen = false
+        drain.attach(sendTarget: channel)
+
+        drain.submit(DrainFixture.frame(1))
+        try await drain.flushEvents()
+        drain.submit(DrainFixture.frame(2))
+        try await drain.flushEvents()
+        #expect(channel.sent.isEmpty)
+
+        channel.isOpen = true
+        drain.reportDrained(0)
+        try await poll(for: "only the newest group to ship") { channel.tags == [2] }
+        try await drain.flushEvents()
+        #expect(channel.tags == [2], "the evicted group must not trail in later")
+    }
+
     /// Nothing is sent while the channel is closed; opening drains the queue.
     @Test func queuedGroupDrainsOnceOpen() async throws {
         channel.isOpen = false
