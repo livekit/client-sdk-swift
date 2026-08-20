@@ -40,14 +40,13 @@ struct RetryBuffer {
     mutating func dequeue() -> RetainedWrite? {
         guard !queue.isEmpty else { return nil }
         let first = queue.removeFirst()
-        currentAmount -= UInt64(first.data.data.count)
+        currentAmount -= UInt64(first.payload.count)
         return first
     }
 
     mutating func removeAll() {
-        while !queue.isEmpty {
-            dequeue()
-        }
+        queue = []
+        currentAmount = 0
     }
 
     mutating func trim(toAmount: UInt64) {

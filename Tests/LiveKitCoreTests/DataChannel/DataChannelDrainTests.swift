@@ -16,7 +16,6 @@
 
 import Foundation
 @testable import LiveKit
-import LiveKitWebRTC
 import Testing
 
 /// Stands in for the channel the drain sends through. Reads come from the test's task while writes
@@ -48,11 +47,11 @@ private final class FakeSendChannel: DrainSendChannel, Sendable {
     var tags: [UInt8?] { _state.sent.map(\.first) }
     var outstanding: UInt64 { _state.outstanding }
 
-    func send(_ buffer: LKRTCDataBuffer) -> Bool {
+    func send(_ payload: Data) -> Bool {
         _state.mutate { state in
             guard state.acceptsSends else { return false }
-            state.sent.append(buffer.data)
-            state.outstanding += UInt64(buffer.data.count)
+            state.sent.append(payload)
+            state.outstanding += UInt64(payload.count)
             return true
         }
     }

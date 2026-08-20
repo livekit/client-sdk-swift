@@ -25,14 +25,20 @@ internal import LiveKitWebRTC
 /// connection).
 protocol DrainSendChannel: AnyObject, Sendable {
     var isOpen: Bool { get }
-    func send(_ buffer: LKRTCDataBuffer) -> Bool
+    func send(_ payload: Data) -> Bool
 }
 
 extension LKRTCDataChannel: DrainSendChannel {
     var isOpen: Bool { readyState == .open }
 
-    func send(_ buffer: LKRTCDataBuffer) -> Bool {
-        sendData(buffer)
+    func send(_ payload: Data) -> Bool {
+        // The buffer is built here, at send time, not when the write was queued: the init memcpys
+        // the payload into a CopyOnWriteBuffer, and on a drop-oldest channel a queued write is
+        // routinely evicted before it ever gets this far — evicted bytes should cost nothing.
+        // (Constructed directly rather than via `RTC.createDataBuffer`: that helper's
+        // `DispatchQueue.liveKitWebRTC.sync` hop serializes factory access, which a plain
+        // byte-container init does not need — see the data-channel exception in AGENTS.md.)
+        sendData(LKRTCDataBuffer(data: payload, isBinary: true))
     }
 }
 
@@ -50,15 +56,15 @@ struct PreparedBytes {
     }
 }
 
-/// A write that has been serialized, stamped and size-checked, and so is the only thing
-/// `channel.sendData(...)` accepts. Carries the submitter's continuation if it has one — only the
-/// last write of a group does, and a replayed write never does.
+/// A write that has been serialized, stamped and size-checked, and so is ready for the channel.
+/// Carries the submitter's continuation if it has one — only the last write of a group does, and a
+/// replayed write never does.
 struct ReadyWrite {
-    let data: LKRTCDataBuffer
+    let payload: Data
     let sequence: UInt32
     let continuation: CheckedContinuation<Void, any Error>?
 
-    var byteCount: Int { data.data.count }
+    var byteCount: Int { payload.count }
 }
 
 /// A dispatched write kept for SCTP-level replay on resume.
@@ -66,22 +72,23 @@ struct ReadyWrite {
 /// Has no continuation *field*, which is the point: replay hands the same bytes over again, so a
 /// retained write that could still resume a submitter would resume it more than once.
 struct RetainedWrite {
-    let data: LKRTCDataBuffer
+    let payload: Data
     let sequence: UInt32
 
     init(_ write: ReadyWrite) {
-        data = write.data
+        payload = write.payload
         sequence = write.sequence
     }
 
     /// Re-enters the queue with no waiter to resume.
     var replayed: ReadyWrite {
-        ReadyWrite(data: data, sequence: sequence, continuation: nil)
+        ReadyWrite(payload: payload, sequence: sequence, continuation: nil)
     }
 }
 
-/// Wraps one group's prepared bytes for the channel, rejecting any write that exceeds the
-/// negotiated SCTP max-message-size (`0` disables the check).
+/// Turns one group's prepared bytes into writes, rejecting any that exceeds the negotiated SCTP
+/// max-message-size (`0` disables the check). Appends into `group`, a caller-reused scratch, so the
+/// per-submit hot path allocates nothing.
 ///
 /// Oversized writes are rejected here because sending more than the negotiated size makes libwebrtc
 /// tear the channel down — `sendData` reports success and the channel then closes, breaking every
@@ -91,10 +98,11 @@ struct RetainedWrite {
 /// handed over.
 func makeWrites(
     from prepared: [PreparedBytes],
+    into group: inout [ReadyWrite],
     continuation: CheckedContinuation<Void, any Error>?,
     maxMessageSize: UInt64,
-) throws -> [ReadyWrite] {
-    var group: [ReadyWrite] = []
+) throws {
+    group.removeAll(keepingCapacity: true)
     group.reserveCapacity(prepared.count)
 
     for (index, bytes) in prepared.enumerated() {
@@ -105,16 +113,11 @@ func makeWrites(
             )
         }
         group.append(ReadyWrite(
-            // Constructed directly rather than via `RTC.createDataBuffer`, whose
-            // `DispatchQueue.liveKitWebRTC.sync` hop would block a cooperative-pool thread once per
-            // write. The buffer is a plain container; that helper's queue exists to serialize
-            // factory access, which this does not need.
-            data: LKRTCDataBuffer(data: bytes.bytes, isBinary: true),
+            payload: bytes.bytes,
             sequence: bytes.sequence,
             continuation: index == prepared.count - 1 ? continuation : nil,
         ))
     }
-    return group
 }
 
 // MARK: - Stage

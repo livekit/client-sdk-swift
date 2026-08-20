@@ -133,8 +133,8 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     /// Update the negotiated SCTP max-message-size cap on both channels. Called by the room after
     /// parsing `a=max-message-size` from the publisher answer SDP. `0` is honored as "no limit".
     func set(maxMessageSize: UInt64) {
-        lossy.maxMessageSize = maxMessageSize
-        reliable.maxMessageSize = maxMessageSize
+        lossy.set(maxMessageSize: maxMessageSize)
+        reliable.set(maxMessageSize: maxMessageSize)
     }
 
     func set(e2eeManager: E2EEManager?) {

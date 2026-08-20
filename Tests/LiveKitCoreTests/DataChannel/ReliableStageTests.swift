@@ -16,7 +16,6 @@
 
 import Foundation
 @testable import LiveKit
-import LiveKitWebRTC
 import Testing
 
 /// Pins ``ReliableStage``'s sequence stamping and replay set, which the drain drives but does not
@@ -27,7 +26,7 @@ struct ReliableStageTests {
 
     private func write(_ sequence: UInt32, byteCount: Int = 16) -> ReadyWrite {
         ReadyWrite(
-            data: LKRTCDataBuffer(data: Data(repeating: 0xAB, count: byteCount), isBinary: true),
+            payload: Data(repeating: 0xAB, count: byteCount),
             sequence: sequence,
             continuation: nil,
         )
