@@ -25,11 +25,7 @@ struct ReliableStageTests {
     private static let retryFloor: UInt64 = 1024
 
     private func write(_ sequence: UInt32, byteCount: Int = 16) -> ReadyWrite {
-        ReadyWrite(
-            payload: Data(repeating: 0xAB, count: byteCount),
-            sequence: sequence,
-            continuation: nil,
-        )
+        ReadyWrite(payload: Data(repeating: 0xAB, count: byteCount), sequence: sequence)
     }
 
     /// Dispatches `count` packets through the stage and returns the sequences it stamped.

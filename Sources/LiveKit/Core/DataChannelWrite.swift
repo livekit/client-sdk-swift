@@ -56,21 +56,59 @@ struct PreparedBytes {
     }
 }
 
+/// The one-shot handle on a submitter's continuation.
+///
+/// Settlement is idempotent — the first outcome wins and any later attempt is a no-op — so no code
+/// path can trap on a double resume, and a token released without ever being settled fails its
+/// submitter from `deinit` rather than stranding it forever. Copies of a write share the one token,
+/// which is what makes both properties hold across evict/drop/teardown paths.
+///
+/// `@unchecked Sendable`: created, settled and released only inside the drain's single-consumer
+/// event loop (it rides `ReadyWrite`, which never leaves the loop), so the mutable state needs no
+/// synchronization of its own.
+final class SendToken: @unchecked Sendable {
+    private var continuation: CheckedContinuation<Void, any Error>?
+
+    init(_ continuation: CheckedContinuation<Void, any Error>) {
+        self.continuation = continuation
+    }
+
+    func settle(with result: Result<Void, any Error>) {
+        continuation?.resume(with: result)
+        continuation = nil
+    }
+
+    deinit {
+        continuation?.resume(throwing: LiveKitError(.cancelled, message: "Write dropped without settlement"))
+    }
+}
+
 /// A write that has been serialized, stamped and size-checked, and so is ready for the channel.
-/// Carries the submitter's continuation if it has one — only the last write of a group does, and a
+/// Carries its submitter's token if it has one — only the last write of a group does, and a
 /// replayed write never does.
 struct ReadyWrite {
     let payload: Data
     let sequence: UInt32
-    let continuation: CheckedContinuation<Void, any Error>?
+    let token: SendToken?
+
+    init(payload: Data, sequence: UInt32, token: SendToken? = nil) {
+        self.payload = payload
+        self.sequence = sequence
+        self.token = token
+    }
 
     var byteCount: Int { payload.count }
+
+    /// Resolves or fails the submitter, if one is waiting. Safe on every path: see ``SendToken``.
+    func settle(with result: Result<Void, any Error>) {
+        token?.settle(with: result)
+    }
 }
 
 /// A dispatched write kept for SCTP-level replay on resume.
 ///
-/// Has no continuation *field*, which is the point: replay hands the same bytes over again, so a
-/// retained write that could still resume a submitter would resume it more than once.
+/// Has no token *field*, which is the point: replay hands the same bytes over again, so a retained
+/// write that could still resume a submitter would resume it more than once.
 struct RetainedWrite {
     let payload: Data
     let sequence: UInt32
@@ -82,7 +120,7 @@ struct RetainedWrite {
 
     /// Re-enters the queue with no waiter to resume.
     var replayed: ReadyWrite {
-        ReadyWrite(payload: payload, sequence: sequence, continuation: nil)
+        ReadyWrite(payload: payload, sequence: sequence)
     }
 }
 
@@ -115,7 +153,7 @@ func makeWrites(
         group.append(ReadyWrite(
             payload: bytes.bytes,
             sequence: bytes.sequence,
-            continuation: index == prepared.count - 1 ? continuation : nil,
+            token: index == prepared.count - 1 ? continuation.map(SendToken.init) : nil,
         ))
     }
 }
@@ -229,7 +267,7 @@ struct WriteQueue {
     /// Empties the queue, settling every waiting submitter with `outcome`.
     mutating func settleAll(_ outcome: Result<Void, any Error>) {
         for write in removeAll() {
-            write.continuation?.resume(with: outcome)
+            write.settle(with: outcome)
         }
     }
 

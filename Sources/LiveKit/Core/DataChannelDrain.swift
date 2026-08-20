@@ -329,7 +329,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
                 if state.dropped % Self.dropLogInterval == 0 {
                     log("Dropped \(state.dropped) writes on '\(label)' under backpressure", .warning)
                 }
-                evicted.continuation?.resume()
+                evicted.settle(with: .success(()))
             }
         }
     }
@@ -360,12 +360,12 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
                 // Removed *before* it is settled, so no later cleanup can reach this write's
                 // continuation a second time — dropFailedWrite settles only what remains.
                 state.queue.advance()
-                write.continuation?.resume(throwing: failure)
+                write.settle(with: .failure(failure))
                 dropFailedWrite(state: &state, throwing: failure)
                 return
             }
             state.queue.advance()
-            write.continuation?.resume()
+            write.settle(with: .success(()))
             state.stage.didDispatch(write)
         }
     }
@@ -384,7 +384,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         case .dropOldest:
             log("Channel '\(label)' rejected a write; dropping the rest of the group", .debug)
             for discarded in state.queue.dropInFlight() {
-                discarded.continuation?.resume(throwing: failure)
+                discarded.settle(with: .failure(failure))
             }
         }
     }
