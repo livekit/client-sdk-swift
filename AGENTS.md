@@ -94,6 +94,10 @@ Key files:
 Threading:
 
 - All WebRTC API calls must use `DispatchQueue.liveKitWebRTC.sync { ... }` for thread safety
+- Exception: the data-channel send path (`sendData`, `readyState`, `LKRTCDataBuffer` construction)
+  may be called off-queue — those calls are internally proxied by libwebrtc (`PROXY_SECONDARY_*`
+  does a `BlockingCall` onto the network thread; `state` is `BYPASS`; the buffer init is a plain
+  byte container), so the queue would only serialize what is already safe
 - WebRTC types are accessed via `internal import LiveKitWebRTC` to keep them private from public API
 
 ## Testing

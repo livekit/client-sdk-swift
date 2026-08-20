@@ -114,6 +114,10 @@ public class LocalParticipant: Participant, @unchecked Sendable {
     /// - Parameters:
     ///   - data: Data to send
     ///   - options: Provide options with a ``DataPublishOptions`` class.
+    /// - Note: The default (`reliable: false`) sends over the lossy channel, which under sustained
+    ///   backpressure drops the oldest queued payload in favour of newer ones — the call returns
+    ///   normally in that case. ``RoomDelegate/room(_:didUpdateBufferStatus:of:)`` reports when a
+    ///   channel's buffer fills and drains, for callers that want to back off.
     public func publish(data: Data, options: DataPublishOptions? = nil) async throws {
         let room = try requireRoom()
         let options = options ?? room._state.roomOptions.defaultDataPublishOptions

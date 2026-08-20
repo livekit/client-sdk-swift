@@ -321,8 +321,10 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         case .dropOldest:
             for evicted in state.queue.evict(replacingWith: state.writes) {
                 // Dropping under backpressure is what this policy promises, so a waiting submitter
-                // is resolved, not failed — matching `sendLossyBytes`' 'drop' behaviour in
-                // client-sdk-js. Counted so sustained loss is visible.
+                // is resolved, not failed — the same outcome client-sdk-js's 'drop' behaviour gives
+                // (returns normally, counts the drop). Which packet dies differs by design: js
+                // drops the incoming payload; this drain keeps the freshest, which suits the
+                // supersede-style data (cursor, presence, state) the lossy channel carries.
                 state.dropped += 1
                 if state.dropped % Self.dropLogInterval == 0 {
                     log("Dropped \(state.dropped) writes on '\(label)' under backpressure", .warning)
