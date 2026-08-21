@@ -1,0 +1,1 @@
+patch type="changed" "Re-publishing local tracks after a reconnect or room move no longer stops at the first failing track: every track is attempted, each failure is logged with its source, and the first error is reported to the caller"

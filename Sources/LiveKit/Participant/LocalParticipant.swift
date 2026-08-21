@@ -66,6 +66,10 @@ public class LocalParticipant: Participant, @unchecked Sendable {
     /// unpublish an existing published track
     /// this will also stop the track
     public func unpublish(publication: LocalTrackPublication, notify _notify: Bool = true) async throws {
+        try await _unpublish(publication: publication, notify: _notify, stopTrack: true)
+    }
+
+    func _unpublish(publication: LocalTrackPublication, notify _notify: Bool, stopTrack: Bool) async throws {
         let room = try requireRoom()
 
         func _notifyDidUnpublish() async {
@@ -99,7 +103,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         }
 
         // Wait for track to stop (if required)
-        if room._state.roomOptions.stopLocalTrackOnUnpublish {
+        if stopTrack, room._state.roomOptions.stopLocalTrackOnUnpublish {
             try await track.stop()
         }
 
@@ -330,24 +334,27 @@ extension LocalParticipant {
     }
 
     func republishAllTracks() async throws {
-        let mediaTracks = _state.trackPublications.values.map { $0.track as? LocalTrack }.compactMap(\.self)
+        let publications = _state.trackPublications.values.compactMap { $0 as? LocalTrackPublication }
+        let mediaTracks = publications.compactMap { $0.track as? LocalTrack }
 
-        // Detach screen share tracks without stopping their capturers — the
-        // underlying sources (iOS broadcast extension IPC, ReplayKit) cannot
-        // be restarted programmatically.
-        let screenShareTracks = mediaTracks.filter { $0.source == .screenShareVideo }
-        for track in screenShareTracks {
-            let sidsToRemove = _state.trackPublications.filter { $0.value.track === track }.map(\.key)
-            _state.mutate {
-                for sid in sidsToRemove {
-                    $0.trackPublications.removeValue(forKey: sid)
+        for publication in publications {
+            // Screen share capture sources (broadcast extension IPC, ReplayKit) cannot be
+            // restarted programmatically, so keep them capturing until re-published.
+            let isScreenShare = publication.source == .screenShareVideo
+                || (publication.kind == .video && publication.name == Track.screenShareVideoName)
+            let keepCapturing = isScreenShare && !(publication.track?.isMuted ?? true)
+            do {
+                try await _unpublish(publication: publication, notify: true, stopTrack: !keepCapturing)
+                if keepCapturing, let track = publication.track {
+                    await publication.set(track: nil)
+                    track._state.mutate { $0.rtpSenderForCodec.removeAll() }
                 }
+            } catch {
+                log("Failed to unpublish track \(publication.sid) with error \(error)", .error)
             }
-            await track.set(transport: nil, rtpSender: nil)
-            track._state.mutate { $0.rtpSenderForCodec.removeAll() }
         }
 
-        await unpublishAll()
+        var firstError: Error?
 
         for mediaTrack in mediaTracks {
             // Don't re-publish muted tracks
@@ -356,8 +363,11 @@ extension LocalParticipant {
                 try await _publish(track: mediaTrack, options: mediaTrack.publishOptions)
             } catch {
                 log("Failed to re-publish \(mediaTrack.source) track, error: \(error)", .error)
+                firstError = firstError ?? error
             }
         }
+
+        if let firstError { throw firstError }
     }
 }
 
