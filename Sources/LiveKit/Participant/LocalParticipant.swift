@@ -343,7 +343,7 @@ extension LocalParticipant {
             // Screen share capture sources (broadcast extension IPC, ReplayKit) cannot be
             // restarted programmatically, so keep them capturing until re-published.
             let isScreenShare = publication.source == .screenShareVideo
-                || (publication.kind == .video && publication.name == Track.screenShareVideoName)
+                || (publication.source == .unknown && publication.kind == .video && publication.name == Track.screenShareVideoName)
             let keepCapturing = isScreenShare && !(publication.track?.isMuted ?? true)
             do {
                 try await _unpublish(publication: publication, notify: true, stopTrack: !keepCapturing)
