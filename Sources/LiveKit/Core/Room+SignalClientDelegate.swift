@@ -16,6 +16,9 @@
 
 // swiftlint:disable file_length
 
+#if !COCOAPODS && !LK_XCFRAMEWORK
+import LiveKitNanopb
+#endif
 import Foundation
 
 internal import LiveKitWebRTC
@@ -44,7 +47,7 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest.Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?) async {
+    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?) async {
         log("action: \(action), reason: \(reason)")
 
         if let regions, let providedUrl = _state.providedUrl, let regionManager = await regionManager(for: providedUrl) {
@@ -113,7 +116,7 @@ extension Room: SignalClientDelegate {
 
             _state.mutate {
                 $0.apply(roomInfo: joinResponse.room)
-                $0.serverInfo = joinResponse.serverInfo
+                $0.serverInfo = joinResponse.serverInfo.owned()
 
                 localParticipant.set(info: joinResponse.participant, connectionState: $0.connectionState)
                 localParticipant.set(enabledPublishCodecs: joinResponse.enabledPublishCodecs)
@@ -149,6 +152,11 @@ extension Room: SignalClientDelegate {
 
         let newParticipants = _addNewParticipants(from: response.otherParticipants)
         _notifyNewParticipants(newParticipants)
+
+        // Republish local data tracks into the new room and surface its existing publications.
+        if let identity = localParticipant.identity?.stringValue {
+            dataTracks?.handleRoomMoved(response.otherParticipants, localIdentity: identity)
+        }
     }
 
     func signalClient(_: SignalClient, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) async {
@@ -364,8 +372,11 @@ extension Room: SignalClientDelegate {
 
         do {
             try await subscriber.set(remoteDescription: offer)
-            let answer = try await subscriber.createAnswer()
-            try await subscriber.set(localDescription: answer)
+            var answer = try await subscriber.createAnswer()
+            answer = try await subscriber.set(localDescription: answer, munging: [
+                { Transport.mungeOpusStereo($0, matchingOffer: offer.sdp) },
+                { Transport.mungeOpusNack($0, matchingOffer: offer.sdp) },
+            ])
             try await signalClient.send(answer: answer, offerId: offerId)
             connectSpan?.record("answer_sent")
         } catch {
@@ -394,6 +405,23 @@ extension Room: SignalClientDelegate {
         localParticipant.delegates.notify {
             $0.participant?(self.localParticipant, remoteDidSubscribeTrack: track)
         }
+    }
+
+    /// Feeds the data track managers, which parse these themselves. Ordered after the decoded
+    /// form, so the participants each message announces are already registered and
+    /// `onTrackPublished` can resolve its publisher.
+    func signalClient(_: SignalClient, didReceiveEncodedResponse response: SignalClient.EncodedResponse) async {
+        switch response {
+        case let .join(encoded):
+            dataTracks?.handleJoinResponse(encoded)
+        case let .participantUpdate(encoded):
+            guard let identity = localParticipant.identity?.stringValue else { return }
+            dataTracks?.handleParticipantUpdate(encoded, localIdentity: identity)
+        }
+    }
+
+    func signalClient(_: SignalClient, didReceiveDataTrackResponse data: Data) async {
+        dataTracks?.handleSignalResponse(data)
     }
 
     func signalClient(_: SignalClient, didReceiveMediaSectionsRequirement requirement: Livekit_MediaSectionsRequirement) async {

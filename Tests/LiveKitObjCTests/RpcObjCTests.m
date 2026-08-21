@@ -58,7 +58,7 @@
 
     // Connect room0
     XCTestExpectation *connect0 = [self expectationWithDescription:@"connect0"];
-    [room0 connectWithUrl:url token:token0 connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room0 url:url token:token0 completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connect0 fulfill];
     }];
@@ -68,7 +68,7 @@
 
     // Connect room1
     XCTestExpectation *connect1 = [self expectationWithDescription:@"connect1"];
-    [room1 connectWithUrl:url token:token1 connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room1 url:url token:token1 completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
@@ -129,7 +129,7 @@
     Room *room = [[Room alloc] initWithDelegate:nil connectOptions:nil roomOptions:nil];
 
     XCTestExpectation *connectExp = [self expectationWithDescription:@"connect"];
-    [room connectWithUrl:url token:token connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room url:url token:token completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connectExp fulfill];
     }];

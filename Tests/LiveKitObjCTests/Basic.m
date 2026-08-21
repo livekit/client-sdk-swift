@@ -27,4 +27,17 @@
     NSLog(@"%@", LiveKitSDK.sdkVersion);
 }
 
+- (void)testAudioCaptureOptionsInitializer {
+    AudioCaptureOptions *options = [[AudioCaptureOptions alloc] initWithEchoCancellation:NO
+                                                                         autoGainControl:YES
+                                                                        noiseSuppression:NO
+                                                                           highpassFilter:YES
+                                                                    typingNoiseDetection:NO];
+    XCTAssertFalse(options.echoCancellation);
+    XCTAssertTrue(options.autoGainControl);
+    XCTAssertFalse(options.noiseSuppression);
+    XCTAssertTrue(options.highpassFilter);
+    XCTAssertFalse(options.typingNoiseDetection);
+}
+
 @end

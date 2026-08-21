@@ -1,0 +1,1 @@
+patch type="fixed" "Negotiate Opus stereo in the subscriber answer so stereo publications are no longer downmixed to mono when using custom renderers"

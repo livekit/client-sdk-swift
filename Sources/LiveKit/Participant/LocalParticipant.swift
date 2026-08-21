@@ -132,6 +132,34 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         try await room.send(userPacket: userPacket, kind: options.reliable ? .reliable : .lossy)
     }
 
+    /// Publish a SIP DTMF message to the room.
+    ///
+    /// Use this when a connected LiveKit SIP call needs keypad input, such as
+    /// selecting an IVR menu option or dialing an extension.
+    ///
+    /// ```swift
+    /// try await room.localParticipant.publishDtmf(code: 1, digit: "1")
+    /// try await room.localParticipant.publishDtmf(code: 10, digit: "*")
+    /// try await room.localParticipant.publishDtmf(code: 11, digit: "#")
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - code: Numeric DTMF code. SIP calls commonly use `10` for `*` and `11` for `#`.
+    ///   - digit: Human-readable DTMF digit, such as `"1"`, `"*"`, or `"#"`.
+    public func publishDtmf(code: UInt32, digit: String) async throws {
+        let room = try requireRoom()
+
+        let packet = Livekit_DataPacket.with {
+            $0.kind = .reliable
+            $0.sipDtmf = Livekit_SipDTMF.with {
+                $0.code = code
+                $0.digit = digit
+            }
+        }
+
+        try await room.send(dataPacket: packet)
+    }
+
     /**
      * Control who can subscribe to LocalParticipant's published tracks.
      *
@@ -500,6 +528,12 @@ extension LocalParticipant {
 
         let sender = transceiver.sender
 
+        // The backup codec publishes over its own sender, so it needs the same degradation
+        // preference the primary sender resolved to.
+        let degradationPreference = publishOptions.degradationPreference.resolve(for: track.source)
+        log("[Publish/Backup] set degradationPreference to \(degradationPreference)")
+        sender.set(degradationPreference: degradationPreference)
+
         // Request a new track to the server
         let trackInfo = try await room.signalClient.sendAddTrack(cid: sender.senderId,
                                                                  name: track.name,
@@ -634,7 +668,7 @@ extension LocalParticipant {
                         populator.stream = streamName
                     }
 
-                    self.log("[publish] requesting add track to server with \(populator)...")
+                    self.log("[publish] requesting add track to server: \(populator.width)x\(populator.height), \(populator.layers.count) layer(s)...")
                 }
             } else if track is LocalAudioTrack {
                 // additional params for Audio
@@ -688,13 +722,10 @@ extension LocalParticipant {
                 if track is LocalVideoTrack {
                     let publishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
 
-                    let degradationPreference = publishOptions.degradationPreference.toRTCType() ?? .maintainResolution
+                    let degradationPreference = publishOptions.degradationPreference.resolve(for: track.source)
 
                     self.log("[publish] set degradationPreference to \(degradationPreference)")
-                    let params = transceiver.sender.parameters
-                    params.degradationPreference = NSNumber(value: degradationPreference.rawValue)
-                    // Changing params directly doesn't work so we need to update params and set it back to sender.parameters
-                    transceiver.sender.parameters = params
+                    transceiver.sender.set(degradationPreference: degradationPreference)
 
                     if let preferredCodec = publishOptions.preferredCodec {
                         try transceiver.set(preferredVideoCodec: preferredCodec)

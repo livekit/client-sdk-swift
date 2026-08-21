@@ -85,4 +85,22 @@ struct BaseKeyProviderTests {
         let exported = try #require(provider.exportKey(index: -1))
         #expect(exported == Data("k".utf8))
     }
+
+    static let nonUtf8Key = Data([0xFF, 0xFE, 0x80, 0x00, 0xDE, 0xAD])
+
+    @Test
+    func setKeyDataSharedKeyPreservesNonUtf8Bytes() throws {
+        let provider = BaseKeyProvider(options: KeyProviderOptions(sharedKey: true, keyRingSize: 16))
+        provider.setKey(keyData: Self.nonUtf8Key, index: 2)
+        let exported = try #require(provider.exportKey(index: 2))
+        #expect(exported == Self.nonUtf8Key)
+    }
+
+    @Test
+    func setKeyDataPerParticipantPreservesNonUtf8Bytes() throws {
+        let provider = BaseKeyProvider(options: KeyProviderOptions(sharedKey: false, keyRingSize: 16))
+        provider.setKey(keyData: Self.nonUtf8Key, participantId: "alice", index: 1)
+        let exported = try #require(provider.exportKey(participantId: "alice", index: 1))
+        #expect(exported == Self.nonUtf8Key)
+    }
 }

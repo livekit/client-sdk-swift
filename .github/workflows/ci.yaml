@@ -15,10 +15,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  TEST_TIMEOUT_MINUTES: 30
-  TEST_RETRY_ATTEMPTS: 3
-
 jobs:
   build-and-test:
     name: Build & Test
@@ -42,38 +38,56 @@ jobs:
 
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md
           - os: macos-26
-            xcode: 26.5
+            xcode: 26.6
             platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.5"
             symbol-graph: true
           - os: macos-26
-            xcode: 26.5
+            xcode: 26.6
             platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.5"
             extension-api-only: true
           - os: macos-26
-            xcode: 26.5
+            xcode: 26.6
             platform: "macOS"
             symbol-graph: true
           - os: macos-26
-            xcode: 26.5
+            xcode: 26.6
             platform: "macOS"
             asan: true
           - os: macos-26
-            xcode: 26.5
+            xcode: 26.6
             platform: "macOS"
             tsan: true
           - os: macos-26
-            xcode: 26.5
+            xcode: 26.6
             platform: "macOS"
             strict-concurrency-env: true
           - os: macos-26
-            xcode: 26.5
+            xcode: 26.6
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-26
-            xcode: 26.5
+            xcode: 26.6
             platform: "visionOS Simulator,name=Apple Vision Pro,OS=26.5"
           - os: macos-26
-            xcode: 26.5
+            xcode: 26.6
             platform: "tvOS Simulator,name=Apple TV,OS=26.5"
+
+          # https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-Readme.md
+          - os: xcode-27
+            xcode: latest
+            platform: "macOS"
+          - os: xcode-27
+            xcode: latest
+            platform: "macOS,variant=Mac Catalyst"
+          - os: xcode-27
+            xcode: latest
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=27.0"
+          - os: xcode-27
+            xcode: latest
+            platform: "visionOS Simulator,name=Apple Vision Pro,OS=27.0"
+          # This image has no plain "Apple TV" device, unlike macos-15/macos-26.
+          - os: xcode-27
+            xcode: latest
+            platform: "tvOS Simulator,name=Apple TV 4K (3rd generation),OS=27.0"
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -84,13 +98,18 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Run LiveKit Server
+        id: livekit-server
         uses: livekit/dev-server-action@61e2b4dcb170dd3591e0c9b0db3c3fe5db93b500
         with:
           github-token: ${{ github.token }}
-          config: 'room: { departure_timeout: 1 }'
+          config: |
+            room:
+              departure_timeout: 1
+            # Data track schema definitions are stored as participant data blobs.
+            enable_participant_data_blob: true
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -103,21 +122,43 @@ jobs:
         run: xcrun swift --version
 
       - name: Build & Test
-        uses: nick-fields/retry@v4
+        timeout-minutes: 30
+        run: |
+          set -o pipefail && xcodebuild test \
+            -scheme LiveKit \
+            -destination 'platform=${{ matrix.platform }}' \
+            -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
+            -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
+            APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
+            -only-testing:LiveKitCoreTests \
+            -only-testing:LiveKitNanopbTests \
+            -only-testing:LiveKitObjCTests \
+            -parallel-testing-enabled NO \
+            -retry-tests-on-failure -test-iterations 2 \
+            | tee "$RUNNER_TEMP/xcodebuild.log" \
+            | xcbeautify --renderer github-actions
+
+      # xcbeautify's github-actions renderer collapses a parameterized Swift Testing
+      # failure to "Recorded an issue (1) argument(s)" — no message, no failing
+      # argument. xcodebuild's own output has both, so keep it for post-mortems.
+      - name: Upload Test Log
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
         with:
-          timeout_minutes: ${{ env.TEST_TIMEOUT_MINUTES }}
-          max_attempts: ${{ env.TEST_RETRY_ATTEMPTS }}
-          command: |
-            set -o pipefail && xcodebuild test \
-              -scheme LiveKit \
-              -destination 'platform=${{ matrix.platform }}' \
-              -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
-              -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
-              APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
-              -only-testing:LiveKitCoreTests \
-              -only-testing:LiveKitObjCTests \
-              -parallel-testing-enabled NO \
-              | xcbeautify --renderer github-actions
+          name: test-log-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/xcodebuild.log
+          retention-days: 5
+
+      # Client-side logs can't distinguish "we gave up" from "the SFU hung up on
+      # us": a failed e2e test just shows `Connection reset by peer`. The server's
+      # JSONL log records the participant close reason, so capture both sides.
+      - name: Upload Server Log
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: server-log-${{ strategy.job-index }}
+          path: ${{ steps.livekit-server.outputs.log-path }}
+          retention-days: 5
 
       - name: Build for Release
         if: ${{ matrix.symbol-graph }}
@@ -144,7 +185,7 @@ jobs:
     name: Lint
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
@@ -163,7 +204,7 @@ jobs:
     runs-on: macos-26
     steps:
       - name: Checkout Documentation Catalog
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: Sources/LiveKit/LiveKit.docc
 
@@ -203,12 +244,12 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 30
     env:
-      # Budget for the SDK's uncompressed .app delta, in MB. Bump deliberately
-      # when a size increase is intended (see the job summary for the measured value).
-      SIZE_BASELINE_MB: "17.5"
-      SIZE_TOLERANCE_PCT: "5"
+      # Hard budget for the SDK's uncompressed .app delta, in MB — no tolerance
+      # band. Move it deliberately, in the same commit as the change that needs
+      # it (the job summary reports the measured value).
+      SIZE_BASELINE_MB: "16.5"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -226,14 +267,13 @@ jobs:
       - name: Measure app size
         run: |
           swiftly run +xcode swift-sh .github/size-check/size-check.swift \
-            --baseline "$SIZE_BASELINE_MB" \
-            --tolerance "$SIZE_TOLERANCE_PCT"
+            --baseline "$SIZE_BASELINE_MB"
 
   check-protocol:
     name: Check Protocol
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -268,7 +308,7 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 

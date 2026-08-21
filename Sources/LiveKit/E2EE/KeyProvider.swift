@@ -150,10 +150,19 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
     // MARK: - Key management
 
     public func setKey(key: String, participantId: String? = nil, index: Int32? = nil) {
+        setKey(keyData: Data(key.utf8), participantId: participantId, index: index)
+    }
+
+    /// Sets a raw binary key without any string conversion.
+    ///
+    /// - Parameters:
+    ///   - keyData: The key bytes, stored as provided.
+    ///   - participantId: Required in non-shared key mode; the call is a no-op when `nil`.
+    ///   - index: The key index to set. Defaults to the current key index.
+    public func setKey(keyData: Data, participantId: String? = nil, index: Int32? = nil) {
         let targetIndex = index ?? getCurrentKeyIndex()
 
         if options.sharedKey {
-            let keyData = key.data(using: .utf8)!
             rtcKeyProvider.setSharedKey(keyData, with: targetIndex)
         } else {
             if participantId == nil {
@@ -161,7 +170,6 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
                 return
             }
 
-            let keyData = key.data(using: .utf8)!
             rtcKeyProvider.setKey(keyData, with: targetIndex, forParticipant: participantId!)
         }
 

@@ -16,6 +16,9 @@
 
 import Foundation
 
+// Extending the generic builder needs the runtime module by name; the facades
+// themselves are re-exported through LiveKit.
+
 /// Manages state of outgoing data streams.
 actor OutgoingStreamManager: Loggable {
     typealias PacketHandler = @Sendable (Livekit_DataPacket) async throws -> Void
@@ -272,18 +275,25 @@ extension Livekit_DataStream.Header {
             }
             $0.attributes = streamInfo.attributes
             $0.encryptionType = streamInfo.encryptionType.toPBType()
-            $0.contentHeader = Livekit_DataStream.Header.OneOf_ContentHeader(streamInfo)
+            $0.contentHeader = Livekit_DataStream_Header_OneOf_ContentHeader(streamInfo)
         }
     }
 
     // Stream timestamps are in ms (13 digits)
     var timestampDate: Date {
-        get { Date(timeIntervalSince1970: TimeInterval(timestamp) / TimeInterval(1000)) }
-        set { timestamp = Int64(newValue.timeIntervalSince1970 * TimeInterval(1000)) }
+        Date(timeIntervalSince1970: TimeInterval(timestamp) / TimeInterval(1000))
     }
 }
 
-extension Livekit_DataStream.Header.OneOf_ContentHeader {
+extension Livekit_DataStream_Header.Builder {
+    // Mirrors `Livekit_DataStream.Header.timestampDate`; setters live on the builder.
+    var timestampDate: Date {
+        get { Date(timeIntervalSince1970: TimeInterval(timestamp) / TimeInterval(1000)) }
+        nonmutating set { timestamp = Int64(newValue.timeIntervalSince1970 * TimeInterval(1000)) }
+    }
+}
+
+extension Livekit_DataStream_Header_OneOf_ContentHeader {
     init?(_ streamInfo: StreamInfo) {
         if let textStreamInfo = streamInfo as? TextStreamInfo {
             self = .textHeader(Livekit_DataStream.TextHeader.with {

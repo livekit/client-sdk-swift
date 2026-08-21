@@ -38,13 +38,39 @@ public extension AudioSessionConfiguration {
     private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
     #endif
 
+    // Explicit speaker preference for the speaker presets. The chat modes
+    // imply a speaker route, but iOS may rewrite the mode when Voice
+    // Processing I/O is instantiated (observed switching to voiceChat, adding
+    // this option itself), and `.default` mode routes to the receiver without
+    // it. tvOS has neither a receiver nor a built-in speaker route to prefer.
+    #if os(tvOS)
+    private static let playAndRecordSpeakerOptions: AVAudioSession.CategoryOptions = playAndRecordOptions
+    #else
+    private static let playAndRecordSpeakerOptions: AVAudioSession.CategoryOptions = playAndRecordOptions.union(.defaultToSpeaker)
+    #endif
+
     static let playAndRecordSpeaker = AudioSessionConfiguration(category: .playAndRecord,
-                                                                categoryOptions: playAndRecordOptions,
+                                                                categoryOptions: playAndRecordSpeakerOptions,
                                                                 mode: .videoChat)
 
     static let playAndRecordReceiver = AudioSessionConfiguration(category: .playAndRecord,
                                                                  categoryOptions: playAndRecordOptions,
                                                                  mode: .voiceChat)
+
+    /// Media-tuned variants for recording without Apple voice processing.
+    ///
+    /// iOS applies a reduced, call-tuned speaker gain when the session mode is
+    /// `.videoChat` or `.voiceChat` while capture is active. Apple's Voice
+    /// Processing I/O adds its own loudness stage that compensates for this,
+    /// but with WebRTC software processing there is no VPIO and playback stays
+    /// noticeably quieter. Using `.default` mode keeps the media gain.
+    internal static let playAndRecordSpeakerMedia = AudioSessionConfiguration(category: .playAndRecord,
+                                                                              categoryOptions: playAndRecordSpeakerOptions,
+                                                                              mode: .default)
+
+    internal static let playAndRecordReceiverMedia = AudioSessionConfiguration(category: .playAndRecord,
+                                                                               categoryOptions: playAndRecordOptions,
+                                                                               mode: .default)
 }
 
 @objcMembers

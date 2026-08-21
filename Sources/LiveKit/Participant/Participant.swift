@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#if !COCOAPODS && !LK_XCFRAMEWORK
+import LiveKitNanopb
+#endif
 import Combine
 import Foundation
 
@@ -92,6 +95,9 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
         var connectionQuality: ConnectionQuality = .unknown
         var permissions = ParticipantPermissions()
         var trackPublications = [Track.Sid: TrackPublication]()
+        // Remote only. An array — the public accessor keys by name, derived from live track info
+        // (SIDs rotate when the publisher republishes after a full reconnect).
+        var dataTracks: [RemoteDataTrack] = []
         var attributes = [String: String]()
         var agentAttributes: AgentAttributes?
     }
@@ -252,7 +258,9 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
             }
         }
 
-        self.info = info
+        // Detach: a view from a decoded signal message would otherwise keep
+        // the entire response allocation alive for this participant's lifetime.
+        self.info = info.owned()
         set(permissions: info.permission.toLKType())
     }
 

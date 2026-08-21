@@ -1,6 +1,6 @@
 Pod::Spec.new do |spec|
   spec.name = "LiveKitClient"
-  spec.version = "2.15.1"
+  spec.version = "2.16.0"
   spec.summary = "LiveKit Swift Client SDK. Easily build live audio or video experiences into your mobile app, game or website."
   spec.homepage = "https://github.com/livekit/client-sdk-swift"
   spec.license = {:type => "Apache 2.0", :file => "LICENSE"}
@@ -14,9 +14,12 @@ Pod::Spec.new do |spec|
 
   spec.source_files = "Sources/**/*"
 
-  spec.dependency("LiveKitWebRTC", "= 144.7559.10")
-  spec.dependency("LiveKitUniFFI", "= 0.0.6")
-  spec.dependency("SwiftProtobuf")
+  # The LiveKitNanopb runtime uses `package` access; Swift requires a package
+  # identifier wherever those sources compile.
+  spec.pod_target_xcconfig = {"SWIFT_PACKAGE_NAME" => "livekit_client_sdk_swift"}
+
+  spec.dependency("LiveKitWebRTC", "= 144.7559.13")
+  spec.dependency("LiveKitUniFFI", "= 0.1.8")
 
   spec.resource_bundles = {"Privacy" => ["Sources/LiveKit/PrivacyInfo.xcprivacy"]}
 end

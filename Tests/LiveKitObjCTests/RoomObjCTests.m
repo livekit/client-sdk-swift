@@ -51,7 +51,7 @@
 
     // Connect
     XCTestExpectation *connectExp = [self expectationWithDescription:@"connect"];
-    [room connectWithUrl:url token:token connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room url:url token:token completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connectExp fulfill];
     }];
@@ -85,7 +85,7 @@
 
     // Connect
     XCTestExpectation *connectExp = [self expectationWithDescription:@"connect"];
-    [room connectWithUrl:url token:token connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room url:url token:token completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connectExp fulfill];
     }];
@@ -126,7 +126,7 @@
 
     // Connect
     XCTestExpectation *connectExp = [self expectationWithDescription:@"connect"];
-    [room connectWithUrl:url token:token connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room url:url token:token completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connectExp fulfill];
     }];

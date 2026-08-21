@@ -87,7 +87,7 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
 
     let label: String
 
-    private let _timerQueue = DispatchQueue(label: "LiveKitSDK.AsyncCompleter", qos: .background)
+    private let _timerQueue = DispatchQueue(label: "LiveKitSDK.AsyncCompleter", qos: .utility)
 
     // Internal states
     private var _defaultTimeout: DispatchTimeInterval
@@ -121,6 +121,14 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
                 entry.cancel(throwing: LiveKitError.from(error: error))
             }
             _entries.removeAll()
+            _result = nil
+        }
+    }
+
+    /// Clears a cached result so future `wait()` calls block again, without cancelling in-flight
+    /// waiters — they keep waiting for the next `resume`.
+    func rearm() {
+        _lock.sync {
             _result = nil
         }
     }

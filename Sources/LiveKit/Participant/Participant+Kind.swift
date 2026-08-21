@@ -48,7 +48,7 @@ extension Participant.Kind: CustomStringConvertible {
 
 // MARK: - Internal
 
-extension Livekit_ParticipantInfo.Kind {
+extension Livekit_ParticipantInfo_Kind {
     func toLKType() -> Participant.Kind {
         switch self {
         case .standard: .standard

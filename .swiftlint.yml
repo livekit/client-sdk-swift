@@ -5,6 +5,8 @@ excluded:
   - .swiftpm
   - build
   - Sources/LiveKit/Protos
+  - Tests/LiveKitNanopbTests/Oracle
+  - Tests/LiveKitNanopbTests/Generated
 
 disabled_rules:
   - todo
@@ -40,3 +42,8 @@ custom_rules:
     regex: "@objc(?![(\\[])\\s+(?:(?:public|open|final|internal|package)\\s+)*class\\b"
     message: "Use @objcMembers instead of @objc for classes to implicitly expose members to Objective-C."
     severity: warning
+  no_background_qos:
+    name: "No Background QoS"
+    regex: "(qos:\\s*\\.background\\b|priority:\\s*\\.background\\b|DispatchQoS\\.background\\b|TaskPriority\\.background\\b|qosClass:\\s*\\.background\\b|QOS_CLASS_BACKGROUND)"
+    message: "Background QoS may be deferred indefinitely under CPU pressure; anything awaiting work scheduled here can stall forever (QoS inversion). Use .utility or higher."
+    severity: error

@@ -346,15 +346,24 @@ struct PeerConnectionSignalingTests {
                 try await Task.sleep(nanoseconds: 500_000_000)
             }
 
+            let frame = try #require(TestFrame())
+
             for i in 0 ..< videoCount {
                 let track = LocalVideoTrack.createBufferTrack(name: "video-\(i)")
-                guard let capturer = track.capturer as? BufferCapturer else {
-                    Issue.record("Expected BufferCapturer")
-                    return
+                let capturer = try #require(track.capturer as? BufferCapturer)
+
+                // Resolve dimensions directly (captured frames resolve them on the
+                // capture queue, which can lag past the publish timeout); the feeding
+                // task supplies media so the subscriber sees the tracks.
+                capturer.set(dimensions: Dimensions(width: 320, height: 240))
+                let frames = Task.detached {
+                    while !Task.isCancelled {
+                        capturer.capture(frame.buffer)
+                        try? await Task.sleep(nanoseconds: 50_000_000)
+                    }
                 }
-                var pixelBuffer: CVPixelBuffer?
-                CVPixelBufferCreate(kCFAllocatorDefault, 320, 240, kCVPixelFormatType_32BGRA, nil, &pixelBuffer)
-                if let pixelBuffer { capturer.capture(pixelBuffer) }
+                defer { frames.cancel() }
+
                 try await room1.localParticipant.publish(videoTrack: track)
                 try await Task.sleep(nanoseconds: 500_000_000)
             }
@@ -389,6 +398,19 @@ struct PeerConnectionSignalingTests {
                 try await reconnectWatcher.waitForReconnect()
                 #expect(room.connectionState == .connected, "Room should be connected after reconnect #\(attempt)")
             }
+        }
+    }
+
+    /// A blank frame, boxed for feeding from a task. Only ever read.
+    private final class TestFrame: @unchecked Sendable {
+        let buffer: CVPixelBuffer
+
+        init?() {
+            var pixelBuffer: CVPixelBuffer?
+            guard CVPixelBufferCreate(kCFAllocatorDefault, 320, 240, kCVPixelFormatType_32BGRA, nil, &pixelBuffer) == kCVReturnSuccess,
+                  let pixelBuffer
+            else { return nil }
+            buffer = pixelBuffer
         }
     }
 

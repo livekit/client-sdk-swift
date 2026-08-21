@@ -46,25 +46,91 @@ AudioManager.shared.audioSession.isAutomaticDeactivationEnabled = false
 
 When set to `false`, the audio session remains active after the LiveKit call ends, preserving your app's audio state.
 
-## Disabling Voice Processing
+## Audio Processing Modes (software, platform, automatic)
 
-Apple's voice processing is enabled by default, such as echo cancellation and auto-gain control.
+Each audio processing effect has its own mode type: `EchoCancellationMode`, `NoiseSuppressionMode`, `AutoGainControlMode`, and `HighpassFilterMode`. Echo cancellation, noise suppression, and auto gain control can use Apple's platform Voice Processing I/O or WebRTC's software processing:
 
-If your app doesn't require voice processing at all, you can disable it entirely:
+- `.automatic` (default): prefer platform voice processing when available, and fall back to WebRTC software processing otherwise.
+- `.platform`: use platform voice processing only. If the platform implementation is unavailable, the request is rejected.
+- `.software`: force WebRTC software processing and disable the matching platform effect when possible.
+
+Configure the modes when you publish the microphone:
 
 ```swift
-try AudioManager.shared.setVoiceProcessingEnabled(false)
+let options = AudioCaptureOptions(
+    echoCancellation: true,
+    autoGainControl: true,
+    noiseSuppression: true,
+    highpassFilter: true,
+    echoCancellationMode: .software,
+    autoGainControlMode: .software,
+    noiseSuppressionMode: .software,
+    highpassFilterMode: .software
+)
+try await room.localParticipant.setMicrophone(enabled: true, captureOptions: options)
 ```
 
-This restarts the internal `AVAudioEngine` to apply the change. It can cause a short audio glitch, so it is recommended to set it once before connecting to a Room. Disabling voice processing also disables muted speaker detection.
+You can also set them as the room default, so they apply whenever the mic is published:
 
-If your app requires toggling voice processing at run-time, it is recommended to use:
+```swift
+let room = Room()
+try await room.connect(url: url, token: token,
+                       roomOptions: RoomOptions(defaultAudioCaptureOptions: options))
+```
+
+To change the modes at runtime on an already-published track, use `setAudioProcessingOptions`:
+
+```swift
+let result = try localAudioTrack.setAudioProcessingOptions(
+    AudioProcessingOptions(
+        echoCancellation: true,
+        autoGainControl: true,
+        noiseSuppression: true,
+        highpassFilter: true,
+        echoCancellationMode: .software,
+        autoGainControlMode: .software,
+        noiseSuppressionMode: .software,
+        highpassFilterMode: .software
+    )
+)
+print(result) // .applied, or .stored when no sender is active yet
+```
+
+On failure this throws `AudioProcessingOptionsError`, whose `code` describes the reason — for example `.platformUnavailable` when a `.platform` mode was requested but Apple Voice Processing I/O is unavailable.
+
+To confirm which implementation each effect resolved to, read the engine-wide state:
+
+```swift
+let state = AudioManager.shared.audioProcessingState
+print(state.echoCancellation.effective) // Software
+print(state.noiseSuppression.effective)  // Software
+```
+
+Each component also exposes the most recent `requested` options and per-path detail: `software` and `platform` carry resolved/active flags, with `platform` being `nil` on devices without a built-in implementation. Device-level Apple Voice Processing I/O state is available separately through `AudioManager.shared.platformVoiceProcessingState`.
+
+> **NOTE**: There is no platform high-pass filter, so `HighpassFilterMode` only provides `.automatic` and `.software`.
+
+To guarantee Apple Voice Processing I/O is never used at all, for example to keep hardware volume consistent or to allow screen recording with audio, also disallow platform voice processing as described below.
+
+## Disallowing Platform Voice Processing
+
+Apple's platform voice processing is allowed by default, such as echo cancellation and auto-gain control.
+
+If your app must not use Apple Voice Processing I/O, disallow platform voice processing:
+
+```swift
+try AudioManager.shared.setPlatformVoiceProcessingAllowed(false)
+```
+
+This restarts the internal `AVAudioEngine` when an Apple VPIO path is active. It is recommended to set it once before connecting to a Room. Runtime `AudioProcessingOptions` with `automatic` mode will fall back to WebRTC software processing while platform voice processing is disallowed.
+
+For per-track or per-capture software processing, use `AudioProcessingOptions` with `.software` modes. The lower-level bypass API remains available when you need to directly control Apple VPIO:
 
 ```swift
 AudioManager.shared.isVoiceProcessingBypassed = true
 ```
 
-Set it back to `false` to re-enable processing. This uses `AVAudioEngine`'s [isVoiceProcessingBypassed](https://developer.apple.com/documentation/avfaudio/avaudioinputnode/isvoiceprocessingbypassed) and works seamlessly at run-time.
+Set it back to `false` to re-enable the Apple path. This uses `AVAudioEngine`'s [isVoiceProcessingBypassed](https://developer.apple.com/documentation/avfaudio/avaudioinputnode/isvoiceprocessingbypassed). Runtime `AudioProcessingOptions` can overwrite this Apple-specific state when capture starts or options are reapplied.
 
 ## Other audio ducking
 

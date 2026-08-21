@@ -27,7 +27,7 @@ import LiveKitTestSupport
     // configured correctly. Only for non-macOS platforms.
     @Test func audioSessionPermission() throws {
         // Test without enabling VP
-        try AudioManager.shared.setVoiceProcessingEnabled(false)
+        try AudioManager.shared.setPlatformVoiceProcessingAllowed(false)
 
         // First check
         #expect(!AudioManager.shared.isEngineRunning)

@@ -19,6 +19,9 @@
 import Combine
 import Foundation
 
+internal import LiveKitUniFFI
+internal import LiveKitWebRTC
+
 #if canImport(Network)
 import Network
 #endif
@@ -103,6 +106,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     /// (via ``RoomOptions/encryptionOptions``) and to be connected.
     /// Otherwise this is a no-op.
     ///
+    /// - Note: Data tracks advertise whether they are encrypted as part of the publication, so
+    ///   the setting is captured when this participant publishes its first data track of the
+    ///   session and applies to all of them. Toggling after that point affects media and data
+    ///   channel payloads only.
+    ///
     /// - Parameter enabled: Whether to enable encryption.
     public func setE2EEEnabled(_ enabled: Bool) {
         e2eeManager?.enableE2EE(enabled: enabled)
@@ -128,6 +136,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     } encryptionProvider: { [weak self] in
         self?.e2eeManager?.dataChannelEncryptionType ?? .none
     }
+
+    // MARK: - Data Tracks
+
+    // The data track subsystem (managers, channels, signal/packet routing) behind one reference,
+    // created on connect and reset atomically on teardown — keeps it off the Room's surface.
+    let _dataTracks = StateSync<DataTracks?>(nil)
+    var dataTracks: DataTracks? { _dataTracks.copy() }
 
     // MARK: - PreConnect
 
@@ -408,6 +423,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             publisherDataChannel.set(e2eeManager: nil)
         }
 
+        // Create the data track subsystem once per session, before transports. It's session-scoped
+        // — kept across reconnects (only its channels are swapped) so published tracks can be
+        // republished — and torn down on real disconnect (see cleanUp).
+        setupDataTracks()
+
         _state.mutate {
             $0.connectSpan = sharedTracing.beginSpan("connect")
             $0.providedUrl = providedUrl
@@ -588,17 +608,21 @@ extension Room {
         primaryTransportConnectedCompleter.reset(throwing: disconnectError)
         publisherTransportConnectedCompleter.reset(throwing: disconnectError)
         await activeParticipantCompleters.reset(throwing: disconnectError)
+        // Fail open data streams so their handlers return; a handler blocked on a
+        // reader that will never finish would stall its topic's ordered queue.
+        await incomingStreamManager.reset()
 
         await signalClient.cleanUp(withError: disconnectError)
         // Cancel all track stats timers before closing transports to prevent
         // stats collection from accessing destroyed WebRTC channels.
         cancelTimers()
         await cleanUpRTC(withError: disconnectError)
+        cleanUpDataTracks(isFullReconnect: isFullReconnect)
         await cleanUpParticipants(isFullReconnect: isFullReconnect)
 
         // Cleanup for E2EE
         if let e2eeManager {
-            e2eeManager.cleanUp()
+            e2eeManager.cleanUp(isFullReconnect: isFullReconnect)
         }
 
         // Reset state
@@ -677,6 +701,7 @@ extension Room {
         // so the caller sees `recipientDisconnected` (1503) immediately instead of
         // hanging until the user-supplied `responseTimeout`.
         await rpcClient.handleParticipantDisconnected(identity)
+        await incomingStreamManager.closeStreams(from: identity)
 
         guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: identity) }) else {
             throw LiveKitError(.invalidState, message: "Participant not found for \(identity)")

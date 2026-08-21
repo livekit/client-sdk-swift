@@ -22,6 +22,7 @@ extension LKRTCDataChannel {
     enum Labels {
         static let reliable = "_reliable"
         static let lossy = "_lossy"
+        static let dataTrack = "_data_track"
     }
 
     func toLKInfoType() -> Livekit_DataChannelInfo {

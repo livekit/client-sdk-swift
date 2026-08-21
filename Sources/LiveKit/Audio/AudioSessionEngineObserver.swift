@@ -71,6 +71,11 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         var isAutomaticDeactivationEnabled: Bool = true
         var isSpeakerOutputPreferred: Bool = true
 
+        // Whether the next capture is expected to use Apple's voice processing
+        // path. Updated by AudioManager before recording starts, since the ADM
+        // state is not yet committed when engineWillEnable fires.
+        var isPlatformVoiceProcessingExpected: Bool = true
+
         var sessionRequirements: [UUID: SessionRequirement] = [:]
     }
 
@@ -86,13 +91,20 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     public init() {
         _state.onDidMutate = { [weak self] new, old in
             guard let self,
-                  new.isSpeakerOutputPreferred != old.isSpeakerOutputPreferred else { return }
+                  new.isSpeakerOutputPreferred != old.isSpeakerOutputPreferred ||
+                  new.isPlatformVoiceProcessingExpected != old.isPlatformVoiceProcessingExpected else { return }
             do {
                 try configureIfNeeded(oldState: old, newState: new)
             } catch {
-                log("Failed to configure audio session after speaker preference change: \(error)", .error)
+                log("Failed to configure audio session after configuration preference change: \(error)", .error)
             }
         }
+    }
+
+    /// Updates the expected voice processing implementation for the next capture.
+    /// Called by ``AudioManager`` before recording starts or is prepared.
+    func setPlatformVoiceProcessingExpected(_ expected: Bool) {
+        _state.mutate { $0.isPlatformVoiceProcessingExpected = expected }
     }
 
     /// Acquires an audio session requirement handle for external ownership.
@@ -177,8 +189,16 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 log("AudioSession deactivation skipped...")
             }
         } else if newState.isRecordingEnabled || newState.isPlayoutEnabled {
-            // Configure and activate the session with the appropriate category
-            let playAndRecord: AudioSessionConfiguration = newState.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver
+            // Configure and activate the session with the appropriate category.
+            // Chat modes engage iOS's call-tuned speaker gain and are only kept
+            // when Apple voice processing provides its compensating loudness
+            // stage. With software processing, the media-tuned presets keep
+            // remote audio at media playback loudness.
+            let playAndRecord: AudioSessionConfiguration = if newState.isPlatformVoiceProcessingExpected {
+                newState.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver
+            } else {
+                newState.isSpeakerOutputPreferred ? .playAndRecordSpeakerMedia : .playAndRecordReceiverMedia
+            }
             let config: AudioSessionConfiguration = newState.isRecordingEnabled ? playAndRecord : .playback
 
             do {

@@ -273,27 +273,28 @@ class Utils: Loggable {
         participantSid: Participant.Sid?,
         adaptiveStream: Bool,
     ) throws -> String {
-        var joinRequest = Livekit_JoinRequest()
-        joinRequest.clientInfo = Livekit_ClientInfo.with {
-            $0.sdk = .swift
-            $0.version = LiveKitSDK.version
-            $0.protocol = Int32(connectOptions.protocolVersion.rawValue)
-            $0.clientProtocol = Int32(connectOptions.clientProtocol.rawValue)
-            $0.os = String(describing: os())
-            $0.osVersion = osVersionString()
-            if let model = modelIdentifier() { $0.deviceModel = model }
-            if let network = networkTypeString() { $0.network = network }
-        }
-        joinRequest.connectionSettings = Livekit_ConnectionSettings.with {
-            $0.autoSubscribe = connectOptions.autoSubscribe
-            $0.adaptiveStream = adaptiveStream
-        }
+        let joinRequest = Livekit_JoinRequest.with { request in
+            request.clientInfo = Livekit_ClientInfo.with {
+                $0.sdk = .swift
+                $0.version = LiveKitSDK.version
+                $0.protocol = Int32(connectOptions.protocolVersion.rawValue)
+                $0.clientProtocol = Int32(connectOptions.clientProtocol.rawValue)
+                $0.os = String(describing: os())
+                $0.osVersion = osVersionString()
+                if let model = modelIdentifier() { $0.deviceModel = model }
+                if let network = networkTypeString() { $0.network = network }
+            }
+            request.connectionSettings = Livekit_ConnectionSettings.with {
+                $0.autoSubscribe = connectOptions.autoSubscribe
+                $0.adaptiveStream = adaptiveStream
+            }
 
-        if reconnectMode == .quick {
-            joinRequest.reconnect = true
-            joinRequest.reconnectReason = .rrSignalDisconnected
-            if let sid = participantSid {
-                joinRequest.participantSid = sid.stringValue
+            if reconnectMode == .quick {
+                request.reconnect = true
+                request.reconnectReason = .rrSignalDisconnected
+                if let sid = participantSid {
+                    request.participantSid = sid.stringValue
+                }
             }
         }
 

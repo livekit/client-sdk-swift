@@ -327,18 +327,31 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         processSendQueue(threshold: Self.reliableLowThreshold, buffer: &buffers.reliableBuffer, kind: .reliable)
     }
 
-    /// Promote a `PendingSend` to a fully-prepared `PublishDataRequest`: assigns
-    /// the reliable sequence number (under the same lock that tracks the
-    /// per-publisher counter), then serializes and wraps in a `LKRTCDataBuffer`.
-    /// Returns `nil` (after failing the continuation) when serialization throws
-    /// or the encoded packet exceeds the negotiated SCTP max-message-size —
-    /// either way the loop invariant holds: every yielded `.sendPending`
-    /// resolves its continuation exactly once.
+    /// Promote a `PendingSend` to a fully-prepared `PublishDataRequest`:
+    /// serializes the packet, stamps the reliable sequence number (under the
+    /// same lock that tracks the per-publisher counter), and wraps in a
+    /// `LKRTCDataBuffer`. Returns `nil` (after failing the continuation) when
+    /// serialization throws or the encoded packet exceeds the negotiated SCTP
+    /// max-message-size — either way the loop invariant holds: every yielded
+    /// `.sendPending` resolves its continuation exactly once.
     private func makeRequest(from pending: PendingSend) -> PublishDataRequest? {
-        let sequencedPacket = withSequence(pending.packet)
-        let bytes: Data
+        var bytes: Data
+        var sequence = pending.packet.sequence
         do {
-            bytes = try sequencedPacket.serializedData()
+            bytes = try pending.packet.serializedData()
+            // Stamp the sequence by appending an encoded packet holding only
+            // that field: concatenation is protobuf merge, and scalar fields
+            // take the last occurrence. Deriving a new packet with `modifying`
+            // instead would re-encode the whole payload to write 4 bytes, since
+            // the queued event still holds the original.
+            if pending.packet.kind == .reliable, sequence == 0 {
+                _state.mutate {
+                    sequence = $0.reliableDataSequence
+                    $0.reliableDataSequence += 1
+                }
+                let stamp = Livekit_DataPacket.with { $0.sequence = sequence }
+                try bytes.append(stamp.serializedData())
+            }
         } catch {
             pending.continuation.resume(throwing: error)
             return nil
@@ -359,7 +372,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
         return PublishDataRequest(
             data: RTC.createDataBuffer(data: bytes),
-            sequence: sequencedPacket.sequence,
+            sequence: sequence,
             continuation: pending.continuation,
         )
     }
@@ -518,14 +531,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Send
 
-    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws {
+    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket_Kind) async throws {
         try await send(dataPacket: .with {
             $0.kind = kind // TODO: field is deprecated
             $0.user = userPacket
         })
     }
 
-    func send(dataPacket packet: Livekit_DataPacket) async throws {
+    func send(dataPacket packet: consuming Livekit_DataPacket) async throws {
         // Encrypt outside the event loop (CPU work that doesn't touch ordering).
         let encryptedPacket = try withEncryption(packet)
 
@@ -548,25 +561,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     private func withEncryption(_ packet: Livekit_DataPacket) throws -> Livekit_DataPacket {
         guard let e2eeManager = _state.e2eeManager, e2eeManager.isDataChannelEncryptionEnabled,
               let payload = Livekit_EncryptedPacketPayload(dataPacket: packet) else { return packet }
-        var packet = packet
+        let encrypted: Livekit_EncryptedPacket
         do {
             let payloadData = try payload.serializedData()
-            let rtcEncryptedPacket = try e2eeManager.encrypt(data: payloadData)
-            packet.encryptedPacket = Livekit_EncryptedPacket(rtcPacket: rtcEncryptedPacket)
+            encrypted = try Livekit_EncryptedPacket(rtcPacket: e2eeManager.encrypt(data: payloadData))
         } catch {
             throw LiveKitError(.encryptionFailed, internalError: error)
         }
-        return packet
-    }
-
-    private func withSequence(_ packet: Livekit_DataPacket) -> Livekit_DataPacket {
-        guard packet.kind == .reliable, packet.sequence == 0 else { return packet }
-        var packet = packet
-        _state.mutate {
-            packet.sequence = $0.reliableDataSequence
-            $0.reliableDataSequence += 1
-        }
-        return packet
+        return packet.modifying { $0.encryptedPacket = encrypted }
     }
 
     func retryReliable(lastSequence: UInt32) {
@@ -677,8 +679,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
                 let decryptedData = try e2eeManager.handle(encryptedData: encryptedPacket.toRTCEncryptedPacket(), participantIdentity: dataPacket.participantIdentity)
                 let decryptedPayload = try Livekit_EncryptedPacketPayload(serializedBytes: decryptedData)
 
-                var dataPacket = dataPacket
-                decryptedPayload.applyTo(&dataPacket)
+                let dataPacket = dataPacket.modifying { decryptedPayload.applyTo(&$0) }
 
                 delegates.notify { [dataPacket] in
                     $0.dataChannel(self, didReceiveDataPacket: dataPacket)
@@ -700,7 +701,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
 // MARK: - Extensions
 
 private extension DataChannelPair.ChannelKind {
-    init(_ packetKind: Livekit_DataPacket.Kind) {
+    init(_ packetKind: Livekit_DataPacket_Kind) {
         guard case .lossy = packetKind else {
             self = .reliable
             return

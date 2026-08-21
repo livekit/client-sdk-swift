@@ -60,7 +60,7 @@
 
     // Connect room0
     XCTestExpectation *connect0 = [self expectationWithDescription:@"connect0"];
-    [room0 connectWithUrl:url token:token0 connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room0 url:url token:token0 completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connect0 fulfill];
     }];
@@ -71,7 +71,7 @@
 
     // Connect room1
     XCTestExpectation *connect1 = [self expectationWithDescription:@"connect1"];
-    [room1 connectWithUrl:url token:token1 connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room1 url:url token:token1 completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
@@ -170,7 +170,7 @@
 
     // Connect both rooms
     XCTestExpectation *connect0 = [self expectationWithDescription:@"connect0"];
-    [room0 connectWithUrl:url token:token0 connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room0 url:url token:token0 completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connect0 fulfill];
     }];
@@ -179,7 +179,7 @@
     self.participantJoinedExp = [self expectationWithDescription:@"participantJoined"];
 
     XCTestExpectation *connect1 = [self expectationWithDescription:@"connect1"];
-    [room1 connectWithUrl:url token:token1 connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room1 url:url token:token1 completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
@@ -266,7 +266,7 @@
 
     // Connect both rooms
     XCTestExpectation *connect0 = [self expectationWithDescription:@"connect0"];
-    [room0 connectWithUrl:url token:token0 connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room0 url:url token:token0 completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connect0 fulfill];
     }];
@@ -275,7 +275,7 @@
     self.participantJoinedExp = [self expectationWithDescription:@"participantJoined"];
 
     XCTestExpectation *connect1 = [self expectationWithDescription:@"connect1"];
-    [room1 connectWithUrl:url token:token1 connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room1 url:url token:token1 completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
@@ -374,7 +374,7 @@
 
     // Connect both rooms
     XCTestExpectation *connect0 = [self expectationWithDescription:@"connect0"];
-    [room0 connectWithUrl:url token:token0 connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room0 url:url token:token0 completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connect0 fulfill];
     }];
@@ -383,7 +383,7 @@
     self.participantJoinedExp = [self expectationWithDescription:@"participantJoined"];
 
     XCTestExpectation *connect1 = [self expectationWithDescription:@"connect1"];
-    [room1 connectWithUrl:url token:token1 connectOptions:nil roomOptions:nil completionHandler:^(NSError *err) {
+    [LKObjCRoomHelper connectWithRoom:room1 url:url token:token1 completionHandler:^(NSError *err) {
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
