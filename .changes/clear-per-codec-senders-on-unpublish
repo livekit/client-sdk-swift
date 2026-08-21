@@ -1,0 +1,1 @@
+patch type="fixed" "A backup video codec is re-published after a full reconnect again: unpublishing a track now clears its per-codec senders, which previously kept pointing at the destroyed peer connection and made the SDK believe the codec was still being sent"

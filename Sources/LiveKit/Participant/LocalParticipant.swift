@@ -102,6 +102,8 @@ public class LocalParticipant: Participant, @unchecked Sendable {
             try await room.publisherShouldNegotiate()
         }
 
+        track._state.mutate { $0.rtpSenderForCodec.removeAll() }
+
         // Wait for track to stop (if required)
         if stopTrack, room._state.roomOptions.stopLocalTrackOnUnpublish {
             try await track.stop()
@@ -345,9 +347,8 @@ extension LocalParticipant {
             let keepCapturing = isScreenShare && !(publication.track?.isMuted ?? true)
             do {
                 try await _unpublish(publication: publication, notify: true, stopTrack: !keepCapturing)
-                if keepCapturing, let track = publication.track {
+                if keepCapturing {
                     await publication.set(track: nil)
-                    track._state.mutate { $0.rtpSenderForCodec.removeAll() }
                 }
             } catch {
                 log("Failed to unpublish track \(publication.sid) with error \(error)", .error)
