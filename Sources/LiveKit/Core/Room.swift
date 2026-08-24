@@ -410,19 +410,19 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         // enable E2EE
         if let e2eeOptions = state.roomOptions.e2eeOptions {
             e2eeManager = E2EEManager(e2eeOptions: e2eeOptions)
-            e2eeManager!.setup(room: self)
         } else if let encryptionOptions = state.roomOptions.encryptionOptions {
             e2eeManager = E2EEManager(options: encryptionOptions)
-            e2eeManager!.setup(room: self)
-
-            subscriberDataChannel.set(e2eeManager: e2eeManager)
-            publisherDataChannel.set(e2eeManager: e2eeManager)
         } else {
             e2eeManager = nil
-
-            subscriberDataChannel.set(e2eeManager: nil)
-            publisherDataChannel.set(e2eeManager: nil)
         }
+        e2eeManager?.setup(room: self)
+
+        // Install on the pairs for every branch: sending consults the manager's data-channel
+        // toggle, but receiving needs the manager regardless — a frame-only (legacy e2eeOptions)
+        // room must still decrypt packets from participants publishing with data-channel
+        // encryption enabled.
+        subscriberDataChannel.set(e2eeManager: e2eeManager)
+        publisherDataChannel.set(e2eeManager: e2eeManager)
 
         // Connection-scoped subsystems: carried across full reconnects, released on disconnect.
         let dependencies = ConnectionDependencies(room: self)
@@ -635,6 +635,12 @@ extension Room {
         // Cleanup for E2EE
         if let e2eeManager {
             e2eeManager.cleanUp(isFullReconnect: isFullReconnect)
+        }
+        if !isFullReconnect {
+            // The pairs' crypto reference is connection-scoped: a reused Room must not inherit
+            // a released manager from the previous connection.
+            subscriberDataChannel.set(e2eeManager: nil)
+            publisherDataChannel.set(e2eeManager: nil)
         }
 
         // Reset state
