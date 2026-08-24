@@ -18,7 +18,7 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-private final class VideoEncoderFactory: LKRTCDefaultVideoEncoderFactory, @unchecked Sendable {}
+private final class DefaultVideoEncoderFactory: LKRTCDefaultVideoEncoderFactory, @unchecked Sendable {}
 
 private final class VideoDecoderFactory: LKRTCDefaultVideoDecoderFactory, @unchecked Sendable {}
 
@@ -129,6 +129,7 @@ extension RTC {
         var isInitialized: Bool = false
         var admType: AudioDeviceModuleType = .audioEngine
         var bypassVoiceProcessing: Bool = false
+        var customVideoEncoderFactory: (any VideoEncoderFactory)?
     }
 
     static let pcFactoryState = StateSync(PeerConnectionFactoryState())
@@ -136,10 +137,13 @@ extension RTC {
     // global properties are already lazy
 
     static let encoderFactory: LKRTCVideoEncoderFactory & Sendable = {
-        let encoderFactory = VideoEncoderFactory()
+        let encoderFactory: LKRTCVideoEncoderFactory & Sendable = if let customFactory = pcFactoryState.read({ $0.customVideoEncoderFactory }) {
+            VideoEncoderFactoryAdapter(factory: customFactory)
+        } else {
+            DefaultVideoEncoderFactory()
+        }
         return VideoEncoderFactorySimulcast(primary: encoderFactory,
                                             fallback: encoderFactory)
-
     }()
 
     static let decoderFactory: LKRTCVideoDecoderFactory & Sendable = VideoDecoderFactory()
