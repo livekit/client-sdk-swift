@@ -24,7 +24,7 @@ import Testing
 struct DependencyStageTests {
     @Test func beginStagesConnection() throws {
         let room = Room()
-        let connection = ConnectionDependencies(room: room)
+        let connection = ConnectionDependencies(room: room, roomOptions: RoomOptions())
 
         var stage = DependencyStage.idle
         try stage.begin(connection)
@@ -37,16 +37,16 @@ struct DependencyStageTests {
         let room = Room()
 
         var stage = DependencyStage.idle
-        try stage.begin(ConnectionDependencies(room: room))
+        try stage.begin(ConnectionDependencies(room: room, roomOptions: RoomOptions()))
 
         #expect(throws: LiveKitError.self) {
-            try stage.begin(ConnectionDependencies(room: room))
+            try stage.begin(ConnectionDependencies(room: room, roomOptions: RoomOptions()))
         }
     }
 
     @Test func retireJoinWithoutJoinKeepsConnection() throws {
         let room = Room()
-        let connection = ConnectionDependencies(room: room)
+        let connection = ConnectionDependencies(room: room, roomOptions: RoomOptions())
 
         var stage = DependencyStage.idle
         try stage.begin(connection)
@@ -57,7 +57,7 @@ struct DependencyStageTests {
 
     @Test func endRetiresConnection() throws {
         let room = Room()
-        let connection = ConnectionDependencies(room: room)
+        let connection = ConnectionDependencies(room: room, roomOptions: RoomOptions())
 
         var stage = DependencyStage.idle
         try stage.begin(connection)
@@ -83,5 +83,27 @@ struct DependencyStageTests {
         #expect(room._state.stage == .idle)
         #expect(room.dataTracks == nil)
         #expect(room._state.transport == nil)
+        #expect(room.e2eeManager == nil)
+    }
+
+    @Test func e2eeManagerScopesToConnection() throws {
+        let encryptionOptions = EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: "stage-test"))
+        let room = Room()
+
+        // Idle: the facade has no connection to read or write through.
+        room.e2eeManager = E2EEManager(options: encryptionOptions)
+        #expect(room.e2eeManager == nil)
+
+        // Built outside the lock, like connect() — its construction touches Room state.
+        let dependencies = ConnectionDependencies(room: room, roomOptions: RoomOptions(encryptionOptions: encryptionOptions))
+        try room._state.mutate { try $0.stage.begin(dependencies) }
+        #expect(room.e2eeManager != nil, "Staging a connection derives the manager from the room options")
+
+        let replacement = E2EEManager(options: encryptionOptions)
+        room.e2eeManager = replacement
+        #expect(room.e2eeManager === replacement, "The setter writes through to the connection's cell")
+
+        _ = room._state.mutate { $0.stage.end() }
+        #expect(room.e2eeManager == nil, "The manager is released with its connection")
     }
 }

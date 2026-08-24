@@ -31,8 +31,26 @@ final class ConnectionDependencies: Sendable {
     /// republished.
     let dataTracks: DataTracks
 
-    init(room: Room) {
+    /// The E2EE manager, derived from the room options. A synchronized cell rather than a `let`:
+    /// the public ``Room/e2eeManager`` setter writes through it, so the value stays swappable
+    /// while its lifetime is the connection's.
+    let e2ee: StateSync<E2EEManager?>
+
+    init(room: Room, roomOptions: RoomOptions) {
         dataTracks = DataTracks(room: room)
+        let manager: E2EEManager? = if let e2eeOptions = roomOptions.e2eeOptions {
+            E2EEManager(e2eeOptions: e2eeOptions)
+        } else if let encryptionOptions = roomOptions.encryptionOptions {
+            E2EEManager(options: encryptionOptions)
+        } else {
+            nil
+        }
+        e2ee = StateSync(manager)
+    }
+
+    /// Ordered teardown, called with the retired value after ``DependencyStage/end()``.
+    func tearDown() {
+        e2ee.copy()?.cleanUp(isFullReconnect: false)
     }
 }
 
