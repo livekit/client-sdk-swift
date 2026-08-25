@@ -516,6 +516,8 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             $0.reliableReceivedState.removeAll()
             $0.lossy = nil
             $0.wasReset = true
+            // Negotiated per session (from the SDP answer); the next session must not inherit it.
+            $0.maxMessageSize = Self.defaultMaxMessageSize
             return result
         }
 

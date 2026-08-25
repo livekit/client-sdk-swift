@@ -47,6 +47,31 @@ struct DataChannelPairTests {
         } throws: { ($0 as? LiveKitError)?.type == .invalidState }
     }
 
+    @Test func resetRestoresDefaultMaxMessageSize() async throws {
+        let pair = DataChannelPair()
+        pair.set(maxMessageSize: 16)
+
+        // The size check runs against the serialized packet at send time, before any channel exists.
+        let oversized = Livekit_UserPacket.with { $0.payload = Data(repeating: 0, count: 64) }
+        await #expect {
+            try await pair.send(userPacket: oversized, kind: .reliable)
+        } throws: { ($0 as? LiveKitError)?.type == .invalidParameter }
+
+        pair.reset(throwing: nil)
+
+        // The negotiated ceiling is session-scoped: after reset the same packet clears the
+        // restored default and parks awaiting channels, instead of failing the stale size check.
+        let sendTask = Task {
+            try await pair.send(userPacket: oversized, kind: .reliable)
+        }
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        pair.reset(throwing: LiveKitError(.invalidState, message: "drain"))
+        await #expect {
+            try await sendTask.value
+        } throws: { ($0 as? LiveKitError)?.type == .invalidState }
+    }
+
     @Test func resetWithNilErrorFailsParkedSendsAsCancelled() async throws {
         let pair = DataChannelPair()
 

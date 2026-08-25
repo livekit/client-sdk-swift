@@ -93,11 +93,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     // MARK: - Internal
 
-    private let _e2eeManager = StateSync<E2EEManager?>(nil)
-
+    /// The E2EE manager for the current connection.
+    ///
+    /// Derived from ``RoomOptions/e2eeOptions`` or ``RoomOptions/encryptionOptions`` during
+    /// ``connect(url:token:connectOptions:roomOptions:)``, carried across reconnects, and
+    /// released when the connection ends. Setting it takes effect only while a connection
+    /// exists, and lasts until that connection ends.
     public var e2eeManager: E2EEManager? {
-        get { _e2eeManager.copy() }
-        set { _e2eeManager.mutate { $0 = newValue } }
+        get { _state.stage.connection?.e2ee.copy() }
+        set { _state.stage.connection?.e2ee.mutate { $0 = newValue } }
     }
 
     /// Enables or disables end-to-end encryption on this Room.
@@ -139,10 +143,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     // MARK: - Data Tracks
 
-    // The data track subsystem (managers, channels, signal/packet routing) behind one reference,
-    // created on connect and reset atomically on teardown — keeps it off the Room's surface.
-    let _dataTracks = StateSync<DataTracks?>(nil)
-    var dataTracks: DataTracks? { _dataTracks.copy() }
+    var dataTracks: DataTracks? { _state.stage.connection?.dataTracks }
 
     // MARK: - PreConnect
 
@@ -197,7 +198,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var disconnectError: LiveKitError?
         var hasPublished: Bool = false
 
-        var transport: TransportMode?
+        // Dependency plane: which per-connection / per-join subsystems exist. Payloads are staged
+        // and retired only through its transitions (connect / configureTransports / cleanUp).
+        var stage: DependencyStage = .idle
+
+        var transport: TransportMode? { stage.join?.transport }
 
         // Timing
         var connectSpan: Span?
@@ -406,34 +411,25 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         // dropped in the gap between init and connect. Idempotent across reconnects.
         await setupRpc()
 
-        // enable E2EE
-        if let e2eeOptions = state.roomOptions.e2eeOptions {
-            e2eeManager = E2EEManager(e2eeOptions: e2eeOptions)
-            e2eeManager!.setup(room: self)
-        } else if let encryptionOptions = state.roomOptions.encryptionOptions {
-            e2eeManager = E2EEManager(options: encryptionOptions)
-            e2eeManager!.setup(room: self)
+        // Connection-scoped subsystems (data tracks, the E2EE manager derived from the room
+        // options): carried across full reconnects, released on disconnect.
+        let dependencies = ConnectionDependencies(room: self, roomOptions: state.roomOptions)
 
-            subscriberDataChannel.set(e2eeManager: e2eeManager)
-            publisherDataChannel.set(e2eeManager: e2eeManager)
-        } else {
-            e2eeManager = nil
-
-            subscriberDataChannel.set(e2eeManager: nil)
-            publisherDataChannel.set(e2eeManager: nil)
-        }
-
-        // Create the data track subsystem once per session, before transports. It's session-scoped
-        // — kept across reconnects (only its channels are swapped) so published tracks can be
-        // republished — and torn down on real disconnect (see cleanUp).
-        setupDataTracks()
-
-        _state.mutate {
+        try _state.mutate {
+            try $0.stage.begin(dependencies)
             $0.connectSpan = sharedTracing.beginSpan("connect")
             $0.providedUrl = providedUrl
             $0.token = token
             $0.connectionState = .connecting
         }
+
+        // E2EE wiring: delegate registration and cryptors, then the pairs' manager — installed
+        // for every options branch: sending consults the manager's data-channel toggle, but
+        // receiving needs the manager regardless — a frame-only (legacy e2eeOptions) room must
+        // still decrypt packets from participants publishing with data-channel encryption enabled.
+        e2eeManager?.setup(room: self)
+        subscriberDataChannel.set(e2eeManager: e2eeManager)
+        publisherDataChannel.set(e2eeManager: e2eeManager)
 
         var nextUrl = providedUrl
         var nextRegion: RegionInfo?
@@ -617,12 +613,31 @@ extension Room {
         // stats collection from accessing destroyed WebRTC channels.
         cancelTimers()
         await cleanUpRTC(withError: disconnectError)
-        cleanUpDataTracks(isFullReconnect: isFullReconnect)
+        var retiredConnection: ConnectionDependencies?
+        if isFullReconnect {
+            // Data tracks are connection-scoped: across a full reconnect only their transport
+            // channels are swapped so published tracks can be republished.
+            dataTracks?.handleTransportsTeardown()
+            // Remote data tracks outlive the reconnect — the subsystem re-attaches them to the
+            // recreated participants. Detach them here, before `cleanUpParticipants` reports an
+            // unpublish for tracks that were never unpublished.
+            for participant in _state.remoteParticipants.values {
+                participant.detachDataTracks()
+            }
+        } else {
+            retiredConnection = _state.mutate { $0.stage.end() }.connection
+        }
         await cleanUpParticipants(isFullReconnect: isFullReconnect)
 
-        // Cleanup for E2EE
-        if let e2eeManager {
-            e2eeManager.cleanUp(isFullReconnect: isFullReconnect)
+        // E2EE: a full reconnect keeps the manager and releases only the frame cryptors (they
+        // rebuild through the publish/subscribe delegate hooks as tracks return); connection
+        // teardown releases the retired manager and detaches the pairs' reference.
+        if isFullReconnect {
+            e2eeManager?.cleanUp(isFullReconnect: true)
+        } else {
+            retiredConnection?.tearDown()
+            subscriberDataChannel.set(e2eeManager: nil)
+            publisherDataChannel.set(e2eeManager: nil)
         }
 
         // Reset state
@@ -638,6 +653,7 @@ extension Room {
                 isReconnectingWithMode: $0.isReconnectingWithMode,
                 connectionState: $0.connectionState,
                 reconnectTask: $0.reconnectTask,
+                stage: $0.stage,
             ) : State(
                 connectOptions: $0.connectOptions,
                 roomOptions: $0.roomOptions,
