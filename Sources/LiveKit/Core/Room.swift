@@ -134,12 +134,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     lazy var subscriberDataChannel = DataChannelPair(delegate: self)
     lazy var publisherDataChannel = DataChannelPair(delegate: self)
 
-    let incomingStreamManager = IncomingStreamManager()
-    lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
-        try await self?.send(dataPacket: packet)
-    } encryptionProvider: { [weak self] in
-        self?.e2eeManager?.dataChannelEncryptionType ?? .none
-    }
+    // The data stream subsystem (incoming/outgoing UniFFI managers, the topic→handler registry, and
+    // packet routing) behind one reference. Kept for the Room's lifetime — not session-scoped like
+    // ``DataTracks`` — so stream handlers survive reconnects and can be registered before connect.
+    private(set) var dataStreams: DataStreams!
 
     // MARK: - Data Tracks
 
@@ -287,6 +285,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                                  roomOptions: roomOptions ?? RoomOptions()))
 
         super.init()
+
+        dataStreams = DataStreams(room: self)
+
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), ffi: \(LiveKitSDK.ffiVersion), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
 
@@ -606,7 +607,7 @@ extension Room {
         await activeParticipantCompleters.reset(throwing: disconnectError)
         // Fail open data streams so their handlers return; a handler blocked on a
         // reader that will never finish would stall its topic's ordered queue.
-        await incomingStreamManager.reset()
+        dataStreams.reset()
 
         await signalClient.cleanUp(withError: disconnectError)
         // Cancel all track stats timers before closing transports to prevent
@@ -675,10 +676,10 @@ extension Room {
     private func setupRpc() async {
         await rpcClient.attach(to: self)
         await rpcServer.attach(to: self)
-        await incomingStreamManager.registerTextStreamHandlerIfNeeded(for: RpcStreamTopic.request) { [weak rpcServer] reader, identity in
+        dataStreams.registerTextStreamHandlerIfNeeded(for: RpcStreamTopic.request) { [weak rpcServer] reader, identity in
             await rpcServer?.handleIncomingRequestStream(reader: reader, callerIdentity: identity)
         }
-        await incomingStreamManager.registerTextStreamHandlerIfNeeded(for: RpcStreamTopic.response) { [weak rpcClient] reader, identity in
+        dataStreams.registerTextStreamHandlerIfNeeded(for: RpcStreamTopic.response) { [weak rpcClient] reader, identity in
             await rpcClient?.handleIncomingResponseStream(reader: reader, senderIdentity: identity)
         }
     }
@@ -717,7 +718,7 @@ extension Room {
         // so the caller sees `recipientDisconnected` (1503) immediately instead of
         // hanging until the user-supplied `responseTimeout`.
         await rpcClient.handleParticipantDisconnected(identity)
-        await incomingStreamManager.closeStreams(from: identity)
+        dataStreams.closeStreams(from: identity)
 
         guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: identity) }) else {
             throw LiveKitError(.invalidState, message: "Participant not found for \(identity)")
@@ -814,7 +815,7 @@ public extension Room {
 // MARK: - DataChannelDelegate
 
 extension Room: DataChannelDelegate {
-    func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket) {
+    func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket, encryptionType: EncryptionType) {
         switch dataPacket.value {
         case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
         case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket, encryptionType: dataPacket.encryptedPacket.encryptionType.toLKType())
@@ -822,12 +823,11 @@ extension Room: DataChannelDelegate {
         case let .rpcResponse(response): room(didReceiveRpcResponse: response)
         case let .rpcAck(ack): room(didReceiveRpcAck: ack)
         case let .rpcRequest(request): room(didReceiveRpcRequest: request, from: dataPacket.participantIdentity)
-        case let .streamHeader(header):
-            incomingStreamManager.handle(.header(header, dataPacket.participantIdentity, dataPacket.encryptedPacket.encryptionType.toLKType()))
-        case let .streamChunk(chunk):
-            incomingStreamManager.handle(.chunk(chunk, dataPacket.encryptedPacket.encryptionType.toLKType()))
-        case let .streamTrailer(trailer):
-            incomingStreamManager.handle(.trailer(trailer, dataPacket.encryptedPacket.encryptionType.toLKType()))
+        case .streamHeader, .streamChunk, .streamTrailer:
+            // Forward the whole (already-decrypted, deduped) packet; the UniFFI incoming manager
+            // decodes the stream header/chunk/trailer itself. The encryption type travels beside it
+            // because decryption consumed the packet field that carried it.
+            dataStreams.handleIncoming(dataPacket, encryptionType: encryptionType)
         default: return
         }
     }

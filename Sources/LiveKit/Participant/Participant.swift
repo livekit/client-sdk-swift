@@ -64,6 +64,15 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
         ClientProtocol(rawValue: Int(info?.clientProtocol ?? 0)) ?? .v0
     }
 
+    /// The optional feature capabilities advertised by this participant.
+    ///
+    /// Mirrored by the server from the participant's `ClientInfo`. The protocol's
+    /// `CAP_UNUSED` placeholder and any value this SDK does not recognize are omitted,
+    /// so an empty array means the participant advertised no usable capabilities.
+    public var capabilities: [ClientCapability] {
+        (info?.capabilities ?? []).compactMap { ClientCapability(rawValue: $0.rawValue) }
+    }
+
     public var trackPublications: [Track.Sid: TrackPublication] { _state.trackPublications }
 
     public var audioTracks: [TrackPublication] {
