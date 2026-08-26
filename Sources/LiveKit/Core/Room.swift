@@ -146,6 +146,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - Data Tracks
 
     var dataTracks: DataTracks? { _state.stage.connection?.dataTracks }
+    var telemetry: RoomTelemetry? { _state.stage.connection?.telemetry }
 
     // MARK: - PreConnect
 
@@ -497,6 +498,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 $0.connectedUrl = finalUrl
                 $0.connectionState = .connected
             }
+
+            telemetry?.roomDidConnect(self)
 
             connectSpan?.end()
 

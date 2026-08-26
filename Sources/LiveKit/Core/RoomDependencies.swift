@@ -36,8 +36,13 @@ final class ConnectionDependencies: Sendable {
     /// while its lifetime is the connection's.
     let e2ee: StateSync<E2EEManager?>
 
+    /// Client telemetry, when the room options ask for it. Created before the connection is
+    /// attempted so connect failures are captured; shut down with the connection.
+    let telemetry: RoomTelemetry?
+
     init(room: Room, roomOptions: RoomOptions) {
         dataTracks = DataTracks(room: room)
+        telemetry = roomOptions.telemetry.map { RoomTelemetry(room: room, options: $0) }
         let manager: E2EEManager? = if let e2eeOptions = roomOptions.e2eeOptions {
             E2EEManager(e2eeOptions: e2eeOptions)
         } else if let encryptionOptions = roomOptions.encryptionOptions {
@@ -51,6 +56,7 @@ final class ConnectionDependencies: Sendable {
     /// Ordered teardown, called with the retired value after ``DependencyStage/end()``.
     func tearDown() {
         e2ee.copy()?.cleanUp(isFullReconnect: false)
+        telemetry?.shutdown()
     }
 }
 

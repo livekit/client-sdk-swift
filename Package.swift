@@ -20,7 +20,8 @@ let package = Package(
     dependencies: [
         // LK-Prefixed Dynamic WebRTC XCFramework
         .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "144.7559.13"),
-        .package(url: "https://github.com/livekit/livekit-uniffi-xcframework.git", exact: "0.1.8"),
+        // Prototype: locally built debug xcframework from rust-sdks (cargo make swift-package-debug).
+        .package(name: "livekit-uniffi-xcframework", path: "/Users/blaze/.supacode/repos/rust-sdks/blaze/telemetry/livekit-uniffi/packages/swift/LiveKitUniFFI"),
         // Test-only: conformance oracle for the nanopb facades.
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.31.0"),
         // Only used for DocC generation

@@ -233,6 +233,42 @@ extension Loggable {
                          type: Self.self,
                          function: function,
                          line: line)
+        if level >= .warning {
+            LogRelay.shared.relay(LogRecord(message: message?.description ?? "",
+                                            level: level,
+                                            type: String(describing: Self.self),
+                                            function: "\(function)",
+                                            file: "\(file)",
+                                            line: line))
+        }
+    }
+}
+
+// MARK: - Structured records
+
+/// One SDK log call as data, for in-process sinks that need more than a formatted line.
+struct LogRecord: Sendable {
+    let message: String
+    let level: LogLevel
+    let type: String
+    let function: String
+    let file: String
+    let line: UInt
+}
+
+protocol LogRecordSink: AnyObject, Sendable {
+    func receive(_ record: LogRecord)
+}
+
+/// Fan-out of `.warning`/`.error` records to whoever is listening in-process (telemetry, one per
+/// connected Room). Independent of `sharedLogger`, which stays app-owned and latched once, so the
+/// app-facing `Logger` protocol is untouched and debug/info never leave the process this way.
+final class LogRelay: @unchecked Sendable {
+    static let shared = LogRelay()
+    let sinks = MulticastDelegate<LogRecordSink>(label: "LogRecordSink")
+
+    func relay(_ record: LogRecord) {
+        sinks.notify { $0.receive(record) }
     }
 }
 
