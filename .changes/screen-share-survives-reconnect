@@ -1,0 +1,1 @@
+patch type="fixed" "Screen sharing no longer fails to resume after a full reconnect: the capture source (iOS broadcast extension IPC, ReplayKit) is kept alive while the track is reattached to the new publisher"

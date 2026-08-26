@@ -46,10 +46,12 @@ extension Room {
 
         await _state.transport?.close()
 
-        // Reset publish state
-        _state.mutate {
-            $0.transport = nil
+        // Retire the join only after the transports are down: teardown gates (e.g. the data-track
+        // publish gate) re-arm off the closing channels, so the "no transport" window that
+        // in-flight callers observe must not open before they do.
+        _ = _state.mutate {
             $0.hasPublished = false
+            return $0.stage.retireJoin()
         }
     }
 
@@ -123,7 +125,6 @@ extension Room {
 // MARK: - Internal
 
 extension Room {
-    // swiftlint:disable:next function_body_length
     func configureTransports(connectResponse: SignalClient.ConnectResponse, singlePeerConnection: Bool) async throws {
         func makeConfiguration() -> LKRTCConfiguration {
             let connectOptions = _state.connectOptions
@@ -155,66 +156,22 @@ extension Room {
         if case let .join(joinResponse) = connectResponse {
             log("Configuring transports with JOIN response...")
 
-            guard _state.transport == nil else {
-                log("Transports are already configured")
-                return
+            guard case let .connecting(connection) = _state.stage else {
+                log("Received JOIN without a connecting stage", .error)
+                throw LiveKitError(.invalidState, message: "Received JOIN without a connecting stage")
             }
 
-            let isSinglePC = singlePeerConnection
-            let isSubscriberPrimary = isSinglePC ? false : joinResponse.subscriberPrimary
-            log("subscriberPrimary: \(isSubscriberPrimary), singlePeerConnection: \(isSinglePC)")
-
-            // Publisher always created; is primary in single PC mode
-            let publisher = try Transport(config: rtcConfiguration,
-                                          target: .publisher,
-                                          primary: isSinglePC || !isSubscriberPrimary,
-                                          singlePCMode: isSinglePC,
-                                          delegate: self)
-
-            await publisher.set { [weak self] offer, offerId in
-                guard let self else { return }
-                log("Publisher onOffer with offerId: \(offerId), sdp: \(offer.sdp)")
-                try await signalClient.send(offer: offer, offerId: offerId)
-                connectSpan?.record("offer_sent")
+            let join = try await JoinDependencies.make(room: self,
+                                                       connection: connection,
+                                                       joinResponse: joinResponse,
+                                                       rtcConfiguration: rtcConfiguration,
+                                                       singlePeerConnection: singlePeerConnection)
+            do {
+                try _state.mutate { try $0.stage.join(join) }
+            } catch {
+                await join.transport.close()
+                throw error
             }
-
-            // data over pub channel for backwards compatibility
-
-            let reliableDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.reliable,
-                                                                  configuration: RTC.createDataChannelConfiguration())
-
-            let lossyDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.lossy,
-                                                               configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
-
-            publisherDataChannel.set(reliable: reliableDataChannel)
-            publisherDataChannel.set(lossy: lossyDataChannel)
-
-            // Data track channel (unordered, unreliable — DTP handles its own sequencing). Hand it
-            // to the session-scoped data track subsystem (created at connect; persists reconnects).
-            let dataTrackChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.dataTrack,
-                                                               configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
-            if let dataTrackChannel { dataTracks?.setPublisherChannel(dataTrackChannel) }
-
-            log("dataChannel.\(String(describing: reliableDataChannel?.label)) : \(String(describing: reliableDataChannel?.channelId))")
-            log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
-            log("dataChannel.\(String(describing: dataTrackChannel?.label)) : \(String(describing: dataTrackChannel?.channelId))")
-
-            let subscriber = isSinglePC ? nil : try Transport(config: rtcConfiguration,
-                                                              target: .subscriber,
-                                                              primary: isSubscriberPrimary,
-                                                              delegate: self)
-
-            let transport: TransportMode = if let subscriber, isSubscriberPrimary {
-                .subscriberPrimary(publisher: publisher, subscriber: subscriber)
-            } else if let subscriber {
-                .publisherPrimary(publisher: publisher, subscriber: subscriber)
-            } else {
-                .publisherOnly(publisher: publisher)
-            }
-            _state.mutate { $0.transport = transport }
-
-            log("[Connect] Fast publish enabled: \(joinResponse.fastPublish ? "true" : "false")")
-
         } else if case let .reconnect(reconnectResponse) = connectResponse {
             log("[Connect] Configuring transports with RECONNECT response...")
             try await _state.transport?.set(configuration: rtcConfiguration)

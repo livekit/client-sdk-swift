@@ -66,6 +66,10 @@ public class LocalParticipant: Participant, @unchecked Sendable {
     /// unpublish an existing published track
     /// this will also stop the track
     public func unpublish(publication: LocalTrackPublication, notify _notify: Bool = true) async throws {
+        try await _unpublish(publication: publication, notify: _notify, stopTrack: true)
+    }
+
+    func _unpublish(publication: LocalTrackPublication, notify _notify: Bool, stopTrack: Bool) async throws {
         let room = try requireRoom()
 
         func _notifyDidUnpublish() async {
@@ -98,8 +102,10 @@ public class LocalParticipant: Participant, @unchecked Sendable {
             try await room.publisherShouldNegotiate()
         }
 
+        track._state.mutate { $0.rtpSenderForCodec.removeAll() }
+
         // Wait for track to stop (if required)
-        if room._state.roomOptions.stopLocalTrackOnUnpublish {
+        if stopTrack, room._state.roomOptions.stopLocalTrackOnUnpublish {
             try await track.stop()
         }
 
@@ -334,15 +340,39 @@ extension LocalParticipant {
     }
 
     func republishAllTracks() async throws {
-        let mediaTracks = _state.trackPublications.values.map { $0.track as? LocalTrack }.compactMap(\.self)
+        let publications = _state.trackPublications.values.compactMap { $0 as? LocalTrackPublication }
+        let mediaTracks = publications.compactMap { $0.track as? LocalTrack }
 
-        await unpublishAll()
+        for publication in publications {
+            // Screen share capture sources (broadcast extension IPC, ReplayKit) cannot be
+            // restarted programmatically, so keep them capturing until re-published.
+            let isScreenShare = publication.source == .screenShareVideo
+                || (publication.source == .unknown && publication.kind == .video && publication.name == Track.screenShareVideoName)
+            let keepCapturing = isScreenShare && !(publication.track?.isMuted ?? true)
+            do {
+                try await _unpublish(publication: publication, notify: true, stopTrack: !keepCapturing)
+                if keepCapturing {
+                    await publication.set(track: nil)
+                }
+            } catch {
+                log("Failed to unpublish track \(publication.sid) with error \(error)", .error)
+            }
+        }
+
+        var firstError: Error?
 
         for mediaTrack in mediaTracks {
             // Don't re-publish muted tracks
             if mediaTrack.isMuted { continue }
-            try await _publish(track: mediaTrack, options: mediaTrack.publishOptions)
+            do {
+                try await _publish(track: mediaTrack, options: mediaTrack.publishOptions)
+            } catch {
+                log("Failed to re-publish \(mediaTrack.source) track, error: \(error)", .error)
+                firstError = firstError ?? error
+            }
         }
+
+        if let firstError { throw firstError }
     }
 }
 

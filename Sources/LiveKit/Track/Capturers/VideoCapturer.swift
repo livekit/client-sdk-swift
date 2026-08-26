@@ -183,7 +183,7 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
             $0.capturer?(self, didUpdate: .stopped)
         }
 
-        dimensionsCompleter.reset()
+        set(dimensions: nil)
 
         return true
     }

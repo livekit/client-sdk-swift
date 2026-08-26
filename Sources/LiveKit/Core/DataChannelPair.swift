@@ -151,6 +151,8 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         _state.mutate { $0.reliableReceivedState.removeAll() }
         lossy.reset(throwing: error)
         reliable.reset(throwing: error)
+        // Negotiated per session (from the SDP answer); the next session must not inherit it.
+        set(maxMessageSize: Self.defaultMaxMessageSize)
         openCompleter.reset(throwing: error)
     }
 

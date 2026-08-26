@@ -1,0 +1,1 @@
+patch type="fixed" "Data channel crypto is now installed uniformly and scoped to the connection: rooms using legacy E2EEOptions can decrypt incoming encrypted packets, a reused Room no longer inherits the previous connection's released crypto manager, and the negotiated data channel max-message-size resets between sessions"
