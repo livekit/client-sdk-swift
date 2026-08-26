@@ -366,7 +366,11 @@ extension EncryptedDataChannelTests {
 // MARK: - RoomDelegate
 
 extension EncryptedDataChannelTests: RoomDelegate {
-    func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic _: String, encryptionType _: EncryptionType) {
+    func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic _: String, encryptionType: EncryptionType) {
+        // Every message in this suite arrives E2EE-encrypted, and the reported type must say so:
+        // decryption rewrites the packet's payload oneof, and reading the type off the decrypted
+        // packet (which clears it) once reported every encrypted message as `.none`.
+        #expect(encryptionType != .none, "an E2EE message must not be reported as unencrypted")
         _receivedData.mutate { $0 = data }
         _onDataReceived.copy()?()
     }

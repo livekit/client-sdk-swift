@@ -132,7 +132,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - DataChannels
 
     lazy var subscriberDataChannel = DataChannelPair(delegate: self)
-    lazy var publisherDataChannel = DataChannelPair(delegate: self)
+    lazy var publisherDataChannel = DataChannelPair(delegate: self, onBufferStatusChange: { [weak self] isLow, kind in
+        self?.notify(bufferStatus: isLow, of: kind)
+    })
 
     let incomingStreamManager = IncomingStreamManager()
     lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
@@ -814,20 +816,20 @@ public extension Room {
 // MARK: - DataChannelDelegate
 
 extension Room: DataChannelDelegate {
-    func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket) {
+    func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket, encryptionType: EncryptionType) {
         switch dataPacket.value {
         case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
-        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket, encryptionType: dataPacket.encryptedPacket.encryptionType.toLKType())
+        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket, encryptionType: encryptionType)
         case let .transcription(packet): room(didReceiveTranscriptionPacket: packet)
         case let .rpcResponse(response): room(didReceiveRpcResponse: response)
         case let .rpcAck(ack): room(didReceiveRpcAck: ack)
         case let .rpcRequest(request): room(didReceiveRpcRequest: request, from: dataPacket.participantIdentity)
         case let .streamHeader(header):
-            incomingStreamManager.handle(.header(header, dataPacket.participantIdentity, dataPacket.encryptedPacket.encryptionType.toLKType()))
+            incomingStreamManager.handle(.header(header, dataPacket.participantIdentity, encryptionType))
         case let .streamChunk(chunk):
-            incomingStreamManager.handle(.chunk(chunk, dataPacket.encryptedPacket.encryptionType.toLKType()))
+            incomingStreamManager.handle(.chunk(chunk, encryptionType))
         case let .streamTrailer(trailer):
-            incomingStreamManager.handle(.trailer(trailer, dataPacket.encryptedPacket.encryptionType.toLKType()))
+            incomingStreamManager.handle(.trailer(trailer, encryptionType))
         default: return
         }
     }
@@ -835,6 +837,14 @@ extension Room: DataChannelDelegate {
     func dataChannel(_: DataChannelPair, didFailToDecryptDataPacket _: Livekit_DataPacket, error: LiveKitError) {
         delegates.notify {
             $0.room?(self, didFailToDecryptDataWithEror: error)
+        }
+    }
+
+    /// The single funnel for buffer-status reports: the publisher pair's drains and the data-track
+    /// drain all arrive here by closure, so there is exactly one route to the public delegate.
+    func notify(bufferStatus isLow: Bool, of kind: DataChannelKind) {
+        delegates.notify {
+            $0.room?(self, didUpdateBufferStatus: isLow, of: kind)
         }
     }
 }

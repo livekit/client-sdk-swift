@@ -1,0 +1,1 @@
+patch type="fixed" "Reliable data sends could stall permanently after a full reconnect that happened while more than 2MB was buffered, and a reliable replay after a full reconnect could emit stale sequence numbers"

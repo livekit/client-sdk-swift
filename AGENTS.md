@@ -94,6 +94,15 @@ Key files:
 Threading:
 
 - All WebRTC API calls must use `DispatchQueue.liveKitWebRTC.sync { ... }` for thread safety
+- Exception: the data-channel send path (`sendData`, `readyState`, `LKRTCDataBuffer` construction)
+  may be called off-queue — those calls are internally proxied by libwebrtc (`PROXY_SECONDARY_*`
+  does a `BlockingCall` onto the network thread; `state` is `BYPASS`; the buffer init is a plain
+  byte container), so the queue would only serialize what is already safe
+- Thread-safety is not liveness: proxied calls that can *block* on WebRTC's internal threads
+  (`close`, and the `LKRTCDataChannel` **deinit**, which blocks on the signaling thread) must not
+  run on Swift Concurrency's width-limited cooperative pool — park them on the queue
+  (`parkChannelRelease`); a stalled signaling thread once wedged six loop threads and deadlocked
+  the process on CI simulators
 - WebRTC types are accessed via `internal import LiveKitWebRTC` to keep them private from public API
 
 ## Testing
