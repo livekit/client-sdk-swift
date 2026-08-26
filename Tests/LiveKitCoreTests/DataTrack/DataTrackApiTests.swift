@@ -148,4 +148,27 @@ struct DataTrackApiTests {
             #expect(first > 0, "A capacity-one buffer should have dropped the earliest frames")
         }
     }
+
+    // MARK: - Pipeline Options
+
+    /// `maxPartialFrames` can be set before and after subscribing, and a multi-packet frame
+    /// still reassembles. Zero is clamped to one rather than rejected.
+    @Test
+    func setPipelineOptionsReassemblesMultiPacketFrames() async throws {
+        try await TestEnvironment.withPublishedDataTrack(named: "partials") { fixture in
+            fixture.remoteTrack.setPipelineOptions(maxPartialFrames: 4)
+            let stream = try await fixture.remoteTrack.subscribe()
+            fixture.remoteTrack.setPipelineOptions(maxPartialFrames: 0)
+
+            // Spans several packets, so the depacketizer has to reassemble it. Delivery is lossy
+            // and losing one packet loses the whole frame, so retry rather than assert on one push.
+            let payload = Data(repeating: 0xFA, count: 32000)
+            var received: Data?
+            for _ in 0 ..< 3 where received == nil {
+                try fixture.track.tryPush(frame: DataTrackFrame(payload: payload))
+                received = await stream.next(within: 15)?.payload
+            }
+            #expect(received == payload)
+        }
+    }
 }

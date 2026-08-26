@@ -72,4 +72,19 @@ public final class RemoteDataTrack: NSObject, Sendable {
             throw DataTrackSubscribeError(error)
         }
     }
+
+    /// Configures how the incoming-frame pipeline reassembles packets for this track.
+    ///
+    /// The setting is track-level: it applies to every current and future subscription, can be
+    /// set at any time, and takes effect with the next received packet.
+    ///
+    /// - Parameter maxPartialFrames: Maximum number of partial frames the depacketizer tracks
+    ///   concurrently. Large frames are split across packets and reassembled by the receiver; the
+    ///   default of 1 drops an in-progress frame as soon as packets for the next one arrive. Raise
+    ///   it when payloads are large or high-frequency, at the cost of memory growing roughly with
+    ///   `maxPartialFrames` × average frame size. A value of 0 is clamped to 1.
+    @objc public func setPipelineOptions(maxPartialFrames: UInt32) {
+        let options = LiveKitUniFFI.RemoteDataTrackPipelineOptions(maxPartialFrames: maxPartialFrames)
+        track.setPipelineOptions(options: options)
+    }
 }
