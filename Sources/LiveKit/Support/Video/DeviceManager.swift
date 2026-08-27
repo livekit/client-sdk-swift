@@ -38,7 +38,11 @@ class DeviceManager: @unchecked Sendable, Loggable {
     }
 
     #if os(iOS) || os(macOS) || os(tvOS)
-    private lazy var discoverySession: AVCaptureDevice.DiscoverySession = {
+    // Created once on the utility queue in `init` and retained here so the KVO
+    // observations registered on it stay alive.
+    private var _discoverySession: AVCaptureDevice.DiscoverySession?
+
+    private static func makeDiscoverySession() -> AVCaptureDevice.DiscoverySession {
         var deviceTypes: [AVCaptureDevice.DeviceType]
         #if os(iOS) || os(tvOS)
         // In order of priority
@@ -66,7 +70,7 @@ class DeviceManager: @unchecked Sendable, Loggable {
         return AVCaptureDevice.DiscoverySession(deviceTypes: deviceTypes,
                                                 mediaType: .video,
                                                 position: .unspecified)
-    }()
+    }
     #endif
 
     private struct State {
@@ -102,6 +106,8 @@ class DeviceManager: @unchecked Sendable, Loggable {
         #if os(iOS) || os(macOS) || os(tvOS)
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self else { return }
+            let discoverySession = Self.makeDiscoverySession()
+            _discoverySession = discoverySession
             _devicesObservation = discoverySession.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
                 guard let self else { return }
                 let devices = (value.newValue ?? []).sortedByFacingPositionPriority()
@@ -112,18 +118,7 @@ class DeviceManager: @unchecked Sendable, Loggable {
                 _multiCamDeviceSetsCompleter.resume(returning: [])
                 #endif
             }
-        }
-        #elseif os(visionOS)
-        // For visionOS, there is no DiscoverySession so return the Persona camera if available.
-        let devices: [AVCaptureDevice] = [.systemPreferredCamera].compactMap(\.self)
-        _state.mutate { $0.devices = devices }
-        _devicesCompleter.resume(returning: devices)
-        _multiCamDeviceSetsCompleter.resume(returning: [])
-        #endif
-
-        #if os(iOS) || os(tvOS)
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            guard let self else { return }
+            #if os(iOS) || os(tvOS)
             _multiCamDeviceSetsObservation = discoverySession.observe(\.supportedMultiCamDeviceSets, options: [.initial, .new]) { [weak self] _, value in
                 guard let self else { return }
                 let deviceSets = (value.newValue ?? [])
@@ -131,7 +126,14 @@ class DeviceManager: @unchecked Sendable, Loggable {
                 _state.mutate { $0.multiCamDeviceSets = deviceSets }
                 _multiCamDeviceSetsCompleter.resume(returning: deviceSets)
             }
+            #endif
         }
+        #elseif os(visionOS)
+        // For visionOS, there is no DiscoverySession so return the Persona camera if available.
+        let devices: [AVCaptureDevice] = [.systemPreferredCamera].compactMap(\.self)
+        _state.mutate { $0.devices = devices }
+        _devicesCompleter.resume(returning: devices)
+        _multiCamDeviceSetsCompleter.resume(returning: [])
         #endif
     }
 }
