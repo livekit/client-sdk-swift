@@ -68,12 +68,20 @@ actor RTC {
         return try queue.sync(execute: body)
     }
 
-    /// Releases `objects` on the RTC executor. Dropping the last reference to a libwebrtc proxy
-    /// runs its destructor on the signaling thread — a blocking call like any other — so holders
-    /// hand their WebRTC objects here from `deinit` instead of releasing them in place.
+    /// A concurrent queue whose workers may block on WebRTC's teardown threads. Fire-and-forget
+    /// proxy releases run here — NOT on the serial ``RTC`` executor: dropping the last reference to
+    /// a proxy is a blocking destructor call, and routing the release flood (every track and data
+    /// channel deinit) through the single serial executor head-of-lines all other RTC work and can
+    /// wedge it. A concurrent queue drains them in parallel and lets libdispatch grow workers when
+    /// they block.
+    static let releaseQueue = DispatchQueue(label: "LiveKitSDK.webRTC.release", attributes: .concurrent)
+
+    /// Releases `objects` off the cooperative pool. Dropping the last reference to a libwebrtc proxy
+    /// runs its destructor on the signaling thread — a blocking call — so holders hand their WebRTC
+    /// objects here from `deinit` instead of releasing them in place.
     static func park(_ objects: [AnyObject]) {
         nonisolated(unsafe) let objects = objects
-        Task { @RTC in _ = objects }
+        releaseQueue.async { _ = objects }
     }
 
     static func park(_ object: AnyObject) {

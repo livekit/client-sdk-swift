@@ -65,9 +65,9 @@ public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @
 
     deinit {
         guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
-        // removeRenderer blocks on the worker thread; Track's deinit parks the track itself right after.
-        let adapter = _adapter
-        Task { @RTC in audioTrack.remove(adapter) }
+        // removeRenderer blocks on the worker thread; keep it off the serial RTC executor and the pool.
+        nonisolated(unsafe) let adapter = _adapter
+        RTC.releaseQueue.async { audioTrack.remove(adapter) }
     }
 
     public func add(audioRenderer: AudioRenderer) {

@@ -39,14 +39,15 @@ extension LKRTCDataChannel: DrainSendChannel {
     }
 }
 
-/// Parks a channel reference's final release (and optional close) on the RTC executor. Dropping
+/// Parks a channel reference's final release (and optional close) on ``RTC/releaseQueue``. Dropping
 /// the last `LKRTCDataChannel` reference runs its proxy destructor — a blocking call into WebRTC's
 /// signaling thread — and doing that from the event loop or any cooperative thread can exhaust
 /// the pool when signaling is busy: with an audio teardown wedging the worker thread on CI
-/// simulators, six loop threads blocked on channel destructors deadlocked the whole process.
+/// simulators, six loop threads blocked on channel destructors deadlocked the whole process. The
+/// concurrent release queue may block; the serial RTC executor and the pool must not.
 func parkChannelRelease(_ target: DrainSendChannel?, closing: Bool = false) {
     guard let channel = target as? LKRTCDataChannel else { return }
-    Task { @RTC in
+    RTC.releaseQueue.async {
         if closing { channel.close() }
         _ = channel
     }
