@@ -425,7 +425,10 @@ public class AudioManager: Loggable {
     /// - Parameter enabled: Pass `true` to enable always-prepared recording, or `false` to disable it.
     /// - Parameter audioProcessingOptions: Optional voice-processing options used when prewarming mic input.
     /// - Note: If `audioSession.isAutomaticConfigurationEnabled` is `true`, the session category is configured to `.playAndRecord`.
-    /// - Note: Microphone permission is required to enable. When permission is undetermined and the app is foregrounded the system prompt is requested, otherwise this throws ``LiveKitError`` of type ``LiveKitErrorType/deviceAccessDenied``.
+    /// - Note: Microphone permission is required to enable, but is not requested here: prewarming is not a
+    ///   user-initiated capture, so prompting from it would surprise the user. Request it up front with
+    ///   ``LiveKitSDK/ensureDeviceAccess(for:)``, otherwise this throws ``LiveKitError`` of type
+    ///   ``LiveKitErrorType/deviceAccessDenied``.
     /// - Note: This persists across ``Room`` lifecycles and connections until disabled.
     /// - Throws: An error if microphone permission is not granted, or if the underlying audio device module fails to apply the setting.
     public func setRecordingAlwaysPreparedMode(
@@ -433,7 +436,6 @@ public class AudioManager: Loggable {
         audioProcessingOptions: AudioProcessingOptions? = nil,
     ) async throws {
         if enabled {
-            try await LiveKitSDK.ensureMicrophoneAccessForRecording()
             updateExpectedPlatformVoiceProcessing(for: audioProcessingOptions)
         }
         let result = RTC.audioDeviceModule.setRecordingAlwaysPreparedMode(
