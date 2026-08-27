@@ -37,10 +37,11 @@ private func isApplicationForegrounded() -> Bool {
           let shared = UIApplication.perform(selector),
           let application = shared.takeUnretainedValue() as? UIApplication
     else { return false }
-    // .inactive is still foreground per UIApplication.State, and the system permission dialog can
-    // be presented there (app launch, banners, multitasking transitions). Only .background cannot
-    // prompt, which matters because launch-time code paths commonly run before the scene activates.
-    return application.applicationState != .background
+    // Only .active can actually present the alert. While .inactive (locked screen, call banner, app
+    // switcher, or launch before the scene activates) the system defers it, and requestAccess has no
+    // cancellation-aware continuation, so waiting there would suspend the caller for as long as the
+    // app stays inactive. Failing fast instead lets the next attempt prompt normally.
+    return application.applicationState == .active
 }
 #endif
 
@@ -117,11 +118,11 @@ extension LiveKitSDK {
     ///
     /// An app extension always returns `false` without prompting, since it cannot present the dialog.
     ///
-    /// On iOS-family platforms this also returns `false` without prompting when the app is backgrounded,
-    /// so a caller woken in the background (for example by CallKit) does not wait on a dialog that
-    /// cannot appear. A foregrounded-but-inactive app (during launch, or while a system banner is
-    /// showing) can still prompt. On macOS the prompt can be presented regardless, so this otherwise
-    /// behaves like ``ensureDeviceAccess(for:)``.
+    /// On iOS-family platforms this also returns `false` without prompting unless the app is active, so
+    /// a caller woken in the background (for example by CallKit) does not wait on an alert that cannot
+    /// appear. An inactive app is treated the same way, since the system defers the alert there and
+    /// waiting would suspend the caller. On macOS the prompt can be presented regardless, so this
+    /// otherwise behaves like ``ensureDeviceAccess(for:)``.
     static func ensureDeviceAccessIfForegrounded(for types: Set<AVMediaType>) async -> Bool {
         if kIsAppExtension { return false }
         #if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS))
