@@ -79,7 +79,7 @@ final class Transport: NSObject, Loggable {
 
     private func add(rtcCandidate: LKRTCIceCandidate) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            _pc.add(rtcCandidate) { error in
+            _pc.add(rtcCandidate) { @Sendable error in
                 if let error { continuation.resume(throwing: error) } else { continuation.resume() }
             }
         }
@@ -149,7 +149,7 @@ final class Transport: NSObject, Loggable {
 
     func set(remoteDescription sd: LKRTCSessionDescription) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            _pc.setRemoteDescription(sd) { error in
+            _pc.setRemoteDescription(sd) { @Sendable error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else {
@@ -363,7 +363,7 @@ extension Transport {
     func statistics(for sender: RTCSender) async -> LKRTCStatisticsReport {
         let raw = sender.raw
         return await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport, Never>) in
-            _pc.statistics(for: raw) { sd in
+            _pc.statistics(for: raw) { @Sendable sd in
                 continuation.resume(returning: sd)
             }
         }
@@ -372,7 +372,7 @@ extension Transport {
     func statistics(for receiver: RTCReceiver) async -> LKRTCStatisticsReport {
         let raw = receiver.raw
         return await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport, Never>) in
-            _pc.statistics(for: raw) { sd in
+            _pc.statistics(for: raw) { @Sendable sd in
                 continuation.resume(returning: sd)
             }
         }
@@ -445,7 +445,7 @@ extension Transport {
                                                      optionalConstraints: nil)
 
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<LKRTCSessionDescription, Error>) in
-            _pc.offer(for: mediaConstraints) { sd, error in
+            _pc.offer(for: mediaConstraints) { @Sendable sd, error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else if let sd {
@@ -462,7 +462,7 @@ extension Transport {
                                                      optionalConstraints: nil)
 
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<LKRTCSessionDescription, Error>) in
-            _pc.answer(for: mediaConstraints) { sd, error in
+            _pc.answer(for: mediaConstraints) { @Sendable sd, error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else if let sd {
@@ -476,7 +476,7 @@ extension Transport {
 
     func set(localDescription sd: LKRTCSessionDescription) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            _pc.setLocalDescription(sd) { error in
+            _pc.setLocalDescription(sd) { @Sendable error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else {
