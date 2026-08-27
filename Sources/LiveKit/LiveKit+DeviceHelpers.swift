@@ -22,13 +22,14 @@ import UIKit
 
 // Whether this process is an app extension, which cannot present a permission dialog. The broadcast
 // upload extension the SDK supports (see `LKSampleHandler`) is headless, so no prompt can appear.
+// The `.appex` bundle suffix is Apple's documented way to detect an extension process.
 private let kIsAppExtension = Bundle.main.bundleURL.pathExtension == "appex"
 
 #if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS))
 // Resolves `UIApplication.shared` through the Objective-C runtime because referencing it directly
 // does not compile with APPLICATION_EXTENSION_API_ONLY=YES, and consumers build this module into
 // broadcast upload extensions. An extension process is prohibited from calling `sharedApplication`,
-// so callers must be guarded by `kIsAppExtension`; the selector itself would resolve there too.
+// so callers must be guarded by `kIsAppExtension`. The selector itself would resolve there too.
 @MainActor
 private func isApplicationForegrounded() -> Bool {
     let selector = NSSelectorFromString("sharedApplication")
