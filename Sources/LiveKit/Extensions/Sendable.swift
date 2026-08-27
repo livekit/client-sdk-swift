@@ -20,31 +20,31 @@ internal import LiveKitWebRTC
 
 // MARK: Value objects
 
-extension LKRTCConfiguration: @unchecked Swift.Sendable {}
-extension LKRTCMediaConstraints: @unchecked Swift.Sendable {}
-extension LKRTCRtpCapabilities: @unchecked Swift.Sendable {}
-extension LKRTCRtpTransceiverInit: @unchecked Swift.Sendable {}
-extension LKRTCSessionDescription: @unchecked Swift.Sendable {}
-extension LKRTCStatisticsReport: @unchecked Swift.Sendable {}
+extension LKRTCConfiguration: @unchecked Swift.Sendable {} // one instance is shared across both transports and re-applied on reconnect
+extension LKRTCMediaConstraints: @unchecked Swift.Sendable {} // immutable after init; held as the static default constraints
+extension LKRTCRtpCapabilities: @unchecked Swift.Sendable {} // immutable capability snapshot, held in static lets
+extension LKRTCRtpTransceiverInit: @unchecked Swift.Sendable {} // built by callers, then carried into @RTC publish hops
+extension LKRTCSessionDescription: @unchecked Swift.Sendable {} // immutable; flows between the signal client and @RTC
+extension LKRTCStatisticsReport: @unchecked Swift.Sendable {} // immutable snapshot returned from @RTC stats calls
 
 // MARK: Data channel send path
 
-extension LKRTCDataChannel: @unchecked Swift.Sendable {}
+extension LKRTCDataChannel: @unchecked Swift.Sendable {} // the per-packet send path is nonisolated by design (see AGENTS.md)
 
 // MARK: Media tracks, capture, and rendering
 
-extension LKRTCMediaStreamTrack: @unchecked Swift.Sendable {}
-extension LKRTCVideoFrame: @unchecked Swift.Sendable {}
+extension LKRTCMediaStreamTrack: @unchecked Swift.Sendable {} // held by Track; synchronous public APIs (renderers, volume) use it
+extension LKRTCVideoFrame: @unchecked Swift.Sendable {} // per-frame delivery between capturers and renderers
 
 // MARK: E2EE
 
-extension LKRTCFrameCryptorKeyProvider: @unchecked Swift.Sendable {}
+extension LKRTCFrameCryptorKeyProvider: @unchecked Swift.Sendable {} // internally locked key store, shared with frame cryptors
 
 // MARK: Process-wide singletons
 
-extension LKRTCPeerConnectionFactory: @unchecked Swift.Sendable {}
-extension LKRTCDefaultAudioProcessingModule: @unchecked Swift.Sendable {}
-extension LKRTCCallbackLogger: @unchecked Swift.Sendable {}
+extension LKRTCPeerConnectionFactory: @unchecked Swift.Sendable {} // process-wide singleton; its methods are libwebrtc proxies
+extension LKRTCDefaultAudioProcessingModule: @unchecked Swift.Sendable {} // singleton; calls are marshalled to the worker thread in webrtc-sdk
+extension LKRTCCallbackLogger: @unchecked Swift.Sendable {} // logging singleton
 
 // MARK: Collections
 

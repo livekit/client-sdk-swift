@@ -38,7 +38,7 @@ private final class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulc
 actor RTC {
     static let shared = RTC()
 
-    static let queue: DispatchQueue = {
+    fileprivate static let queue: DispatchQueue = {
         let queue = DispatchQueue(label: "LiveKitSDK.webRTC", qos: .default)
         queue.setSpecific(key: queueKey, value: true)
         return queue
@@ -74,7 +74,7 @@ actor RTC {
     /// channel deinit) through the single serial executor head-of-lines all other RTC work and can
     /// wedge it. A concurrent queue drains them in parallel and lets libdispatch grow workers when
     /// they block.
-    static let releaseQueue = DispatchQueue(label: "LiveKitSDK.webRTC.release", attributes: .concurrent)
+    private static let releaseQueue = DispatchQueue(label: "LiveKitSDK.webRTC.release", attributes: .concurrent)
 
     /// Releases `objects` off the cooperative pool. Dropping the last reference to a libwebrtc proxy
     /// runs its destructor on the signaling thread — a blocking call — so holders hand their WebRTC
@@ -86,6 +86,12 @@ actor RTC {
 
     static func park(_ object: AnyObject) {
         park([object])
+    }
+
+    /// Runs teardown work that blocks on a WebRTC thread (a close, a renderer detach) off both the
+    /// cooperative pool and the serial executor.
+    static func park(_ teardown: @escaping @Sendable () -> Void) {
+        releaseQueue.async(execute: teardown)
     }
 
     /// Also closes a data channel before the release — `close()` blocks on the signaling thread
@@ -147,15 +153,23 @@ actor RTC {
         peerConnectionFactory.audioDeviceModule
     }
 
-    // MARK: - Factory (libwebrtc proxies: each call blocks on the signaling thread)
+    // MARK: - Factory (isolated)
 
+    @RTC
     static func createPeerConnection(_ configuration: LKRTCConfiguration,
                                      constraints: LKRTCMediaConstraints) -> LKRTCPeerConnection?
     {
-        blocking { peerConnectionFactory.peerConnection(with: configuration,
-                                                        constraints: constraints,
-                                                        delegate: nil) }
+        peerConnectionFactory.peerConnection(with: configuration,
+                                             constraints: constraints,
+                                             delegate: nil)
     }
+
+    // MARK: - Factory (blocking, public by design)
+
+    // Each helper is a signaling-thread BlockingCall reached only through public synchronous
+    // creators (`create*Track`, capturer inits), which block their caller by documented contract.
+    // Internal async paths wrap the whole creator in ``run(_:)``; removing the blocking here means
+    // adding async public creators first.
 
     static func createVideoSource(forScreenShare: Bool) -> LKRTCVideoSource {
         blocking { peerConnectionFactory.videoSource(forScreenCast: forScreenShare) }
@@ -246,4 +260,9 @@ actor RTC {
 
         return result
     }
+}
+
+public extension DispatchQueue {
+    @available(*, deprecated, message: "The SDK isolates its WebRTC calls to the RTC executor; this queue is no longer part of its public contract.")
+    static let liveKitWebRTC: DispatchQueue = RTC.queue
 }

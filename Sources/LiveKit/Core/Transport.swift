@@ -62,14 +62,10 @@ final class Transport: NSObject, Loggable {
     private var _isRestartingIce: Bool = false
     private var _latestOfferId: UInt32 = 0
 
-    // forbid direct access to PeerConnection
-    // nonisolated(unsafe): non-Sendable, so it cannot leave this class; every method that touches
-    // it is @RTC-isolated, and deinit only hands it to RTC.park.
-    private nonisolated(unsafe) let _pc: LKRTCPeerConnection
+    // forbid direct access to PeerConnection; the box parks its blocking release on deinit
+    private let _pcBox: RTCBox<LKRTCPeerConnection>
 
-    deinit {
-        RTC.park(_pc)
-    }
+    @RTC private var _pc: LKRTCPeerConnection { _pcBox.value }
 
     private lazy var _iceCandidatesQueue = QueueActor<IceCandidate>(onProcess: { [weak self] iceCandidate in
         guard let self else { return }
@@ -104,7 +100,7 @@ final class Transport: NSObject, Loggable {
         self.target = target
         isPrimary = primary
         self.singlePCMode = singlePCMode
-        _pc = pc
+        _pcBox = RTCBox(pc)
 
         super.init()
         log()

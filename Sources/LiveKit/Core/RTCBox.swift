@@ -35,7 +35,6 @@ final class RTCBox<Raw: AnyObject>: @unchecked Sendable {
     @RTC var value: Raw { raw }
 
     deinit {
-        nonisolated(unsafe) let raw = raw
-        RTC.releaseQueue.async { _ = raw }
+        RTC.park(raw)
     }
 }
