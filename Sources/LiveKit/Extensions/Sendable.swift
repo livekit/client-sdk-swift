@@ -21,23 +21,19 @@ internal import LiveKitWebRTC
 // MARK: Value objects
 
 extension LKRTCConfiguration: @unchecked Swift.Sendable {}
-extension LKRTCIceCandidate: @unchecked Swift.Sendable {}
 extension LKRTCMediaConstraints: @unchecked Swift.Sendable {}
 extension LKRTCRtpCapabilities: @unchecked Swift.Sendable {}
 extension LKRTCRtpTransceiverInit: @unchecked Swift.Sendable {}
 extension LKRTCSessionDescription: @unchecked Swift.Sendable {}
 extension LKRTCStatisticsReport: @unchecked Swift.Sendable {}
-extension LKRTCVideoCodecInfo: @unchecked Swift.Sendable {}
 
 // MARK: Data channel send path
 
-extension LKRTCDataBuffer: @unchecked Swift.Sendable {}
 extension LKRTCDataChannel: @unchecked Swift.Sendable {}
 
 // MARK: Media tracks, capture, and rendering
 
 extension LKRTCMediaStreamTrack: @unchecked Swift.Sendable {}
-extension LKRTCVideoCapturer: @unchecked Swift.Sendable {}
 extension LKRTCVideoFrame: @unchecked Swift.Sendable {}
 
 // MARK: E2EE

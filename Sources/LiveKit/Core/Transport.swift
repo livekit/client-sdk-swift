@@ -392,7 +392,9 @@ extension Transport: LKRTCPeerConnectionDelegate {
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didGenerate candidate: LKRTCIceCandidate) {
-        _delegate.notify { $0.transport(self, didGenerateIceCandidate: candidate.toLKType()) }
+        // Convert on the signaling thread so the raw candidate never crosses isolation.
+        let iceCandidate = candidate.toLKType()
+        _delegate.notify { $0.transport(self, didGenerateIceCandidate: iceCandidate) }
     }
 
     nonisolated func peerConnectionShouldNegotiate(_: LKRTCPeerConnection) {

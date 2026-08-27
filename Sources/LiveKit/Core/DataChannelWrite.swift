@@ -35,22 +35,14 @@ extension LKRTCDataChannel: DrainSendChannel {
         // The buffer is built here, at send time, not when the write was queued: the init memcpys
         // the payload into a CopyOnWriteBuffer, and on a drop-oldest channel a queued write is
         // routinely evicted before it ever gets this far — evicted bytes should cost nothing.
-        sendData(LKRTCDataBuffer(data: payload, isBinary: true))
+        sendData(RTC.createDataBuffer(data: payload))
     }
 }
 
-/// Parks a channel reference's final release (and optional close) on ``RTC/releaseQueue``. Dropping
-/// the last `LKRTCDataChannel` reference runs its proxy destructor — a blocking call into WebRTC's
-/// signaling thread — and doing that from the event loop or any cooperative thread can exhaust
-/// the pool when signaling is busy: with an audio teardown wedging the worker thread on CI
-/// simulators, six loop threads blocked on channel destructors deadlocked the whole process. The
-/// concurrent release queue may block; the serial RTC executor and the pool must not.
+/// Hands a drain channel's teardown to ``RTC/park(_:)``; no-op for test channels not backed by WebRTC.
 func parkChannelRelease(_ target: DrainSendChannel?, closing: Bool = false) {
     guard let channel = target as? LKRTCDataChannel else { return }
-    RTC.releaseQueue.async {
-        if closing { channel.close() }
-        _ = channel
-    }
+    if closing { RTC.park(closing: channel) } else { RTC.park(channel) }
 }
 
 // MARK: - Write phases

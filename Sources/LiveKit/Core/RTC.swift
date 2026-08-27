@@ -88,6 +88,15 @@ actor RTC {
         park([object])
     }
 
+    /// Also closes a data channel before the release — `close()` blocks on the signaling thread
+    /// just like the destructor.
+    static func park(closing channel: LKRTCDataChannel) {
+        releaseQueue.async {
+            channel.close()
+            _ = channel
+        }
+    }
+
     struct PeerConnectionFactoryState {
         var isInitialized: Bool = false
         var admType: AudioDeviceModuleType = .audioEngine
