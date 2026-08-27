@@ -97,7 +97,7 @@ extension LocalTrackPublication: VideoCapturerDelegate {
     public func capturer(_: VideoCapturer, didUpdate _: Dimensions?) {
         Task.detached {
             await self._debounce.schedule {
-                self.recomputeSenderParameters()
+                await self.recomputeSenderParameters()
             }
         }
     }
@@ -167,6 +167,7 @@ extension LocalTrackPublication {
         }
     }
 
+    @RTC
     func recomputeSenderParameters() {
         guard let track = track as? LocalVideoTrack,
               let sender = track._state.rtpSender else { return }

@@ -20,7 +20,8 @@ internal import LiveKitWebRTC
 
 extension LKRTCConfiguration {
     static func liveKitDefault() -> LKRTCConfiguration {
-        let result = DispatchQueue.liveKitWebRTC.sync { LKRTCConfiguration() }
+        // Plain value object, no libwebrtc proxy: nothing to wait on.
+        let result = LKRTCConfiguration()
         result.sdpSemantics = .unifiedPlan
         result.continualGatheringPolicy = .gatherContinually
         result.candidateNetworkPolicy = .all

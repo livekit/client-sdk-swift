@@ -376,7 +376,7 @@ extension RemoteTrackPublication {
 
         if let videoTrack = track?.mediaTrack as? LKRTCVideoTrack {
             log("VideoTrack.shouldReceive: \(isEnabled)")
-            DispatchQueue.liveKitWebRTC.sync { videoTrack.shouldReceive = isEnabled }
+            await RTC.run { videoTrack.shouldReceive = isEnabled }
         }
 
         do {

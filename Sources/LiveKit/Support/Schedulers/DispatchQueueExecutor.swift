@@ -16,7 +16,20 @@
 
 import Foundation
 
-public extension DispatchQueue {
-    @available(*, deprecated, message: "The SDK isolates its WebRTC calls to the RTC executor; this queue is no longer part of its public contract.")
-    static let liveKitWebRTC: DispatchQueue = RTC.queue
+/// Runs an actor's jobs on a dispatch queue instead of the cooperative pool, so code isolated to
+/// that actor may make calls that block on another thread.
+final class DispatchQueueExecutor: SerialExecutor {
+    let queue: DispatchQueue
+
+    init(queue: DispatchQueue) {
+        self.queue = queue
+    }
+
+    func enqueue(_ job: UnownedJob) {
+        queue.async { job.runSynchronously(on: self.asUnownedSerialExecutor()) }
+    }
+
+    func asUnownedSerialExecutor() -> UnownedSerialExecutor {
+        UnownedSerialExecutor(ordinary: self)
+    }
 }

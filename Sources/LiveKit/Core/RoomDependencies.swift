@@ -89,11 +89,11 @@ final class JoinDependencies: Sendable {
         room.log("subscriberPrimary: \(isSubscriberPrimary), singlePeerConnection: \(isSinglePC)")
 
         // Publisher always created; is primary in single PC mode
-        let publisher = try Transport(config: rtcConfiguration,
-                                      target: .publisher,
-                                      primary: isSinglePC || !isSubscriberPrimary,
-                                      singlePCMode: isSinglePC,
-                                      delegate: room)
+        let publisher = try await Transport(config: rtcConfiguration,
+                                            target: .publisher,
+                                            primary: isSinglePC || !isSubscriberPrimary,
+                                            singlePCMode: isSinglePC,
+                                            delegate: room)
 
         await publisher.set { [weak room] offer, offerId in
             guard let room else { return }
@@ -122,10 +122,14 @@ final class JoinDependencies: Sendable {
         room.log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
         room.log("dataChannel.\(String(describing: dataTrackChannel?.label)) : \(String(describing: dataTrackChannel?.channelId))")
 
-        let subscriber = isSinglePC ? nil : try Transport(config: rtcConfiguration,
-                                                          target: .subscriber,
-                                                          primary: isSubscriberPrimary,
-                                                          delegate: room)
+        let subscriber: Transport? = if isSinglePC {
+            nil
+        } else {
+            try await Transport(config: rtcConfiguration,
+                                target: .subscriber,
+                                primary: isSubscriberPrimary,
+                                delegate: room)
+        }
 
         let transport: TransportMode = if let subscriber, isSubscriberPrimary {
             .subscriberPrimary(publisher: publisher, subscriber: subscriber)

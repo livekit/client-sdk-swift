@@ -37,10 +37,10 @@ struct TransportMungeFallbackTests {
     /// when `body` throws so a failed test doesn't leak a peer connection into the
     /// rest of the parallel run.
     private func withTransport(_ body: (Transport) async throws -> Void) async throws {
-        let transport = try Transport(config: .liveKitDefault(),
-                                      target: .publisher,
-                                      primary: true,
-                                      delegate: StubTransportDelegate())
+        let transport = try await Transport(config: .liveKitDefault(),
+                                            target: .publisher,
+                                            primary: true,
+                                            delegate: StubTransportDelegate())
         do {
             let transceiverInit = LKRTCRtpTransceiverInit()
             transceiverInit.direction = .recvOnly

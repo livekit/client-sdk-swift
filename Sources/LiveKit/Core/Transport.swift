@@ -20,7 +20,8 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-actor Transport: NSObject, Loggable {
+@RTC
+final class Transport: NSObject, Loggable {
     // MARK: - Types
 
     typealias OnOfferBlock = @Sendable (LKRTCSessionDescription, UInt32) async throws -> Void
@@ -68,16 +69,19 @@ actor Transport: NSObject, Loggable {
         guard let self else { return }
 
         do {
-            let rtcCandidate = iceCandidate.toRTCType()
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                self._pc.add(rtcCandidate) { error in
-                    if let error { continuation.resume(throwing: error) } else { continuation.resume() }
-                }
-            }
+            try await add(rtcCandidate: iceCandidate.toRTCType())
         } catch {
             log("Failed to add(iceCandidate:) with error: \(error)", .error)
         }
     })
+
+    private func add(rtcCandidate: LKRTCIceCandidate) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            _pc.add(rtcCandidate) { error in
+                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+            }
+        }
+    }
 
     init(config: LKRTCConfiguration,
          target: Livekit_SignalTarget,
@@ -229,7 +233,7 @@ extension Transport {
     /// Munge SDP to change `a=inactive` to `a=recvonly` for RTP media m-lines in single PC mode.
     /// WebRTC can generate inactive direction even when transceivers were configured as recvonly.
     /// Only rewrites RTP m-sections — non-RTP sections (e.g. data channel `m=application`) are preserved.
-    static func mungeInactiveToRecvOnlyForMedia(_ sdp: String) -> String {
+    nonisolated static func mungeInactiveToRecvOnlyForMedia(_ sdp: String) -> String {
         var document = SDP(parsing: sdp)
         for index in document.mediaSections.indices {
             let section = document.mediaSections[index]
@@ -252,7 +256,7 @@ extension Transport {
     /// Sections are matched by mid rather than by position, and the Opus payload type is
     /// resolved independently in each document, so an answerer that reorders or renumbers
     /// still lands the parameter on the right section.
-    static func mungeOpusStereo(_ sdp: String, matchingOffer offer: String) -> String {
+    nonisolated static func mungeOpusStereo(_ sdp: String, matchingOffer offer: String) -> String {
         let stereoMids = Set(SDP(parsing: offer).mediaSections.compactMap { section -> String? in
             guard section.mediaType == "audio",
                   let mid = section.mid,
@@ -282,7 +286,7 @@ extension Transport {
     /// both sides agree ([RFC 4585 §4.2](https://datatracker.ietf.org/doc/html/rfc4585#section-4.2)).
     /// This mirrors `ensureAudioNackAndStereo()` in client-sdk-js, with the same
     /// mid-and-payload matching as ``mungeOpusStereo(_:matchingOffer:)``.
-    static func mungeOpusNack(_ sdp: String, matchingOffer offer: String) -> String {
+    nonisolated static func mungeOpusNack(_ sdp: String, matchingOffer offer: String) -> String {
         let nackMids = Set(SDP(parsing: offer).mediaSections.compactMap { section -> String? in
             guard section.mediaType == "audio",
                   let mid = section.mid,
@@ -311,7 +315,7 @@ extension Transport {
     /// local offer) and rust-sdks (`munge_stereo_for_audio`). Dual-PC offers don't take
     /// this path: receive negotiation happens in the subscriber answer munge above, and a
     /// publisher offer's send-only sections gain nothing from a receive preference.
-    static func mungeOpusStereoForAllAudio(_ sdp: String) -> String {
+    nonisolated static func mungeOpusStereoForAllAudio(_ sdp: String) -> String {
         var document = SDP(parsing: sdp)
         for index in document.mediaSections.indices {
             let section = document.mediaSections[index]

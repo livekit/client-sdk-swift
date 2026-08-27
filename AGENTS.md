@@ -93,16 +93,19 @@ Key files:
 
 Threading:
 
-- All WebRTC API calls must use `DispatchQueue.liveKitWebRTC.sync { ... }` for thread safety
-- Exception: the data-channel send path (`sendData`, `readyState`, `LKRTCDataBuffer` construction)
-  may be called off-queue — those calls are internally proxied by libwebrtc (`PROXY_SECONDARY_*`
-  does a `BlockingCall` onto the network thread; `state` is `BYPASS`; the buffer init is a plain
-  byte container), so the queue would only serialize what is already safe
-- Thread-safety is not liveness: proxied calls that can *block* on WebRTC's internal threads
-  (`close`, and the `LKRTCDataChannel` **deinit**, which blocks on the signaling thread) must not
-  run on Swift Concurrency's width-limited cooperative pool — park them on the queue
-  (`parkChannelRelease`); a stalled signaling thread once wedged six loop threads and deadlocked
-  the process on CI simulators
+- libwebrtc's API objects are proxies: every call — and the release of the last reference — is a
+  `BlockingCall` onto WebRTC's signaling/worker/network thread, which can stall. libwebrtc
+  serializes those calls itself; the SDK adds no caller-side serialization for thread safety
+- Thread-safety is not liveness: a blocking WebRTC call must never run on Swift Concurrency's
+  width-limited cooperative pool. It runs inside the `@RTC` global actor (`Core/RTC.swift`), whose
+  executor is a private dispatch queue that is allowed to block. `Transport` is `@RTC`-isolated;
+  other async code wraps such calls in `await RTC.run { }`; public synchronous APIs use
+  `RTC.blocking { }` and block their caller by contract; final releases are parked with
+  `Task { @RTC in }` (`parkChannelRelease`). `DispatchQueue.liveKitWebRTC` is deprecated public API
+- Exception, by design: the data-channel send path (`sendData`, `readyState`, `LKRTCDataBuffer`
+  construction) is `nonisolated` — it is per-packet and latency-sensitive; `sendData` blocks only on
+  the network thread (`PROXY_SECONDARY_*`), `readyState` is `BYPASS`, the buffer init is a plain
+  byte container
 - WebRTC types are accessed via `internal import LiveKitWebRTC` to keep them private from public API
 
 ## Testing

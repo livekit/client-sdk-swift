@@ -72,8 +72,8 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
             "highPassFilterMode": options.highpassFilterMode.toConstraintValue(),
         ]
 
-        let audioConstraints = DispatchQueue.liveKitWebRTC.sync { LKRTCMediaConstraints(mandatoryConstraints: nil,
-                                                                                        optionalConstraints: constraints) }
+        // Plain value object, no libwebrtc proxy: nothing to wait on.
+        let audioConstraints = LKRTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: constraints)
 
         let audioSource = RTC.createAudioSource(audioConstraints)
         let rtcTrack = RTC.createAudioTrack(source: audioSource)
@@ -123,9 +123,10 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     override func startCapture() async throws {
         // AudioDeviceModule's InitRecording() and StartRecording() automatically get called by WebRTC, but
         // explicitly init & start it early to detect audio engine failures (mic not accessible for some reason, etc.).
-        try AudioManager.shared.startLocalRecording(
-            audioProcessingOptions: captureOptions.audioProcessing,
-        )
+        let audioProcessingOptions = captureOptions.audioProcessing
+        try await RTC.run {
+            try AudioManager.shared.startLocalRecording(audioProcessingOptions: audioProcessingOptions)
+        }
     }
 
     override func stopCapture() async throws {

@@ -193,7 +193,8 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         }
 
         // list of all formats in order of dimensions size
-        let formats = DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer.supportedFormats(for: device) }
+        // AVFoundation query (`device.formats`), no libwebrtc proxy: nothing to wait on.
+        let formats = LKRTCCameraVideoCapturer.supportedFormats(for: device)
         // create an array of sorted touples by dimensions size
         let sortedFormats = formats.map { (format: $0, dimensions: Dimensions(from: CMVideoFormatDescriptionGetDimensions($0.formatDescription))) }
             .sorted { $0.dimensions.area < $1.dimensions.area }

@@ -445,12 +445,14 @@ public extension LocalParticipant {
             } else if enabled {
                 // Try to create a new track
                 if source == .camera {
-                    let localTrack = LocalVideoTrack.createCameraTrack(options: (captureOptions as? CameraCaptureOptions) ?? room._state.roomOptions.defaultCameraCaptureOptions,
-                                                                       reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+                    let options = (captureOptions as? CameraCaptureOptions) ?? room._state.roomOptions.defaultCameraCaptureOptions
+                    let reportStatistics = room._state.roomOptions.reportRemoteTrackStatistics
+                    let localTrack = await RTC.run { LocalVideoTrack.createCameraTrack(options: options, reportStatistics: reportStatistics) }
                     return try await self._publish(track: localTrack, options: publishOptions)
                 } else if source == .microphone {
-                    let localTrack = LocalAudioTrack.createTrack(options: (captureOptions as? AudioCaptureOptions) ?? room._state.roomOptions.defaultAudioCaptureOptions,
-                                                                 reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+                    let options = (captureOptions as? AudioCaptureOptions) ?? room._state.roomOptions.defaultAudioCaptureOptions
+                    let reportStatistics = room._state.roomOptions.reportRemoteTrackStatistics
+                    let localTrack = await RTC.run { LocalAudioTrack.createTrack(options: options, reportStatistics: reportStatistics) }
                     return try await self._publish(track: localTrack, options: publishOptions)
                 } else if source == .screenShareVideo {
                     #if os(iOS)
@@ -528,7 +530,8 @@ extension LocalParticipant {
 
         // Add transceiver first...
 
-        let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
+        // Plain value object, no libwebrtc proxy: nothing to wait on.
+        let transInit = LKRTCRtpTransceiverInit()
         transInit.direction = .sendOnly
         transInit.sendEncodings = encodings
 
@@ -712,7 +715,8 @@ extension LocalParticipant {
 
             guard let sendEncodings, let populatorFunc else { throw LiveKitError(.invalidState) }
 
-            let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
+            // Plain value object, no libwebrtc proxy: nothing to wait on.
+            let transInit = LKRTCRtpTransceiverInit()
             transInit.direction = .sendOnly
             transInit.sendEncodings = sendEncodings
 

@@ -35,22 +35,18 @@ extension LKRTCDataChannel: DrainSendChannel {
         // The buffer is built here, at send time, not when the write was queued: the init memcpys
         // the payload into a CopyOnWriteBuffer, and on a drop-oldest channel a queued write is
         // routinely evicted before it ever gets this far — evicted bytes should cost nothing.
-        // (Constructed directly rather than via `RTC.createDataBuffer`: that helper's
-        // `DispatchQueue.liveKitWebRTC.sync` hop serializes factory access, which a plain
-        // byte-container init does not need — see the data-channel exception in AGENTS.md.)
         sendData(LKRTCDataBuffer(data: payload, isBinary: true))
     }
 }
 
-/// Parks a channel reference's final release (and optional close) on the `liveKitWebRTC`
-/// queue. Dropping the last `LKRTCDataChannel` reference runs its proxy destructor — a
-/// blocking call into WebRTC's signaling thread — and doing that from the event loop or any
-/// cooperative thread can exhaust the pool when signaling is busy: with an audio teardown
-/// wedging the worker thread on CI simulators, six loop threads blocked on channel destructors
-/// deadlocked the whole process. The dedicated queue may block; the pool must not.
+/// Parks a channel reference's final release (and optional close) on the RTC executor. Dropping
+/// the last `LKRTCDataChannel` reference runs its proxy destructor — a blocking call into WebRTC's
+/// signaling thread — and doing that from the event loop or any cooperative thread can exhaust
+/// the pool when signaling is busy: with an audio teardown wedging the worker thread on CI
+/// simulators, six loop threads blocked on channel destructors deadlocked the whole process.
 func parkChannelRelease(_ target: DrainSendChannel?, closing: Bool = false) {
     guard let channel = target as? LKRTCDataChannel else { return }
-    DispatchQueue.liveKitWebRTC.async {
+    Task { @RTC in
         if closing { channel.close() }
         _ = channel
     }
