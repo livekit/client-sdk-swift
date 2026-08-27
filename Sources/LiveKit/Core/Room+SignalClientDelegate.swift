@@ -431,11 +431,13 @@ extension Room: SignalClientDelegate {
         transceiverInit.direction = .recvOnly
 
         do {
-            for _ in 0 ..< requirement.numAudios {
-                _ = try await publisher.addTransceiver(ofType: .audio, transceiverInit: transceiverInit)
-            }
-            for _ in 0 ..< requirement.numVideos {
-                _ = try await publisher.addTransceiver(ofType: .video, transceiverInit: transceiverInit)
+            try await RTC.run {
+                for _ in 0 ..< requirement.numAudios {
+                    _ = try publisher.addTransceiver(ofType: .audio, transceiverInit: transceiverInit)
+                }
+                for _ in 0 ..< requirement.numVideos {
+                    _ = try publisher.addTransceiver(ofType: .video, transceiverInit: transceiverInit)
+                }
             }
             try await publisherShouldNegotiate()
         } catch {

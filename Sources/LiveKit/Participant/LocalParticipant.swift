@@ -235,7 +235,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
               let sender = track._state.rtpSender
         else { return }
 
-        sender._set(subscribedQualities: qualities)
+        sender.raw._set(subscribedQualities: qualities)
     }
 
     override func set(info: Livekit_ParticipantInfo, connectionState: ConnectionState) {
@@ -548,7 +548,7 @@ extension LocalParticipant {
             try transceiver.set(preferredVideoCodec: videoCodec)
             let sender = transceiver.sender
             sender.set(degradationPreference: degradationPreference)
-            return sender
+            return RTCSender(sender)
         }
         log("[Publish] Added transceiver...")
 
@@ -571,7 +571,7 @@ extension LocalParticipant {
 
         log("[Publish] server responded trackInfo: \(trackInfo)")
 
-        await RTC.run { sender._set(subscribedQualities: subscribedCodec.qualities) }
+        await RTC.run { sender.raw._set(subscribedQualities: subscribedCodec.qualities) }
 
         // Attach multi-codec sender...
         track._state.mutate { $0.rtpSenderForCodec[videoCodec] = sender }
@@ -747,7 +747,7 @@ extension LocalParticipant {
                             try transceiver.set(preferredVideoCodec: preferredCodec)
                         }
                     }
-                    return transceiver.sender
+                    return RTCSender(transceiver.sender)
                 }
 
                 // Attach sender to track...

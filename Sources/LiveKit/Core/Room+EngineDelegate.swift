@@ -170,8 +170,8 @@ extension Room {
         }
     }
 
-    func engine(_: Room, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, stream: LKRTCMediaStream) async {
-        let parseResult = parse(streamId: stream.streamId)
+    func engine(_: Room, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: RTCReceiver, streamId: String) async {
+        let parseResult = parse(streamId: streamId)
         let trackId = parseResult.trackId ?? Track.Sid(from: track.trackId)
 
         let participant = _state.read {

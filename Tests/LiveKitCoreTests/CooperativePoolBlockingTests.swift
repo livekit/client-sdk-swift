@@ -32,7 +32,7 @@ struct CooperativePoolBlockingTests {
         func transport(_: Transport, didUpdateState _: LKRTCPeerConnectionState) {}
         func transport(_: Transport, didGenerateIceCandidate _: IceCandidate) {}
         func transport(_: Transport, didOpenDataChannel _: LKRTCDataChannel) {}
-        func transport(_: Transport, didAddTrack _: LKRTCMediaStreamTrack, rtpReceiver _: LKRTCRtpReceiver, streams _: [LKRTCMediaStream]) {}
+        func transport(_: Transport, didAddTrack _: LKRTCMediaStreamTrack, rtpReceiver _: RTCReceiver, streamIds _: [String]) {}
         func transport(_: Transport, didRemoveTrack _: LKRTCMediaStreamTrack) {}
         func transportShouldNegotiate(_: Transport) {}
     }
@@ -161,7 +161,8 @@ private final class SignalingThreadWedge: NSObject, LKRTCPeerConnectionDelegate,
             }
         }
         // setLocalDescription blocks on the signaling thread and fires the wedging callback inline.
-        DispatchQueue.global().async { peerConnection.setLocalDescription(offer) { _ in } }
+        nonisolated(unsafe) let pc = peerConnection
+        DispatchQueue.global().async { pc.setLocalDescription(offer) { _ in } }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             DispatchQueue.global().async {
                 if wedge.wedged.wait(timeout: .now() + .seconds(5)) == .success {
@@ -181,7 +182,7 @@ private final class SignalingThreadWedge: NSObject, LKRTCPeerConnectionDelegate,
 
     func release() {
         gate.signal()
-        let peerConnection = peerConnection
+        nonisolated(unsafe) let peerConnection = peerConnection
         self.peerConnection = nil
         DispatchQueue.global().async { peerConnection?.close() }
     }

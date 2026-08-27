@@ -180,7 +180,7 @@ extension LocalTrackPublication {
         log("Re-computing sender parameters, dimensions: \(String(describing: track.capturer.dimensions))")
 
         // get current parameters
-        let parameters = sender.parameters
+        let parameters = sender.raw.parameters
 
         guard let participant, let room = participant._room else { return }
         let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
@@ -209,9 +209,9 @@ extension LocalTrackPublication {
         }
 
         // set the updated parameters
-        sender.parameters = parameters
+        sender.raw.parameters = parameters
 
-        log("Using encodings: \(sender.parameters.encodings), degradationPreference: \(String(describing: sender.parameters.degradationPreference))")
+        log("Using encodings: \(sender.raw.parameters.encodings), degradationPreference: \(String(describing: sender.raw.parameters.degradationPreference))")
 
         // Report updated encodings to server
 

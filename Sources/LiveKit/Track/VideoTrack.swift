@@ -44,13 +44,13 @@ extension VideoTrackProtocol where Self: Track {
 
         // Check if main sender is sending the codec...
         if let rtpSender = _state.rtpSender, videoCodec == _state.videoCodec {
-            rtpSender._set(subscribedQualities: subscribedCodec.qualities)
+            rtpSender.raw._set(subscribedQualities: subscribedCodec.qualities)
             return true
         }
 
         // Find simulcast sender for codec...
         if let rtpSender = _state.rtpSenderForCodec[videoCodec] {
-            rtpSender._set(subscribedQualities: subscribedCodec.qualities)
+            rtpSender.raw._set(subscribedQualities: subscribedCodec.qualities)
             return true
         }
 

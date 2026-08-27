@@ -63,7 +63,9 @@ final class Transport: NSObject, Loggable {
     private var _latestOfferId: UInt32 = 0
 
     // forbid direct access to PeerConnection
-    private let _pc: LKRTCPeerConnection
+    // nonisolated(unsafe): non-Sendable, so it cannot leave this class; every method that touches
+    // it is @RTC-isolated, and deinit only hands it to RTC.park.
+    private nonisolated(unsafe) let _pc: LKRTCPeerConnection
 
     deinit {
         RTC.park(_pc)
@@ -362,17 +364,19 @@ extension Transport {
 // MARK: - Stats
 
 extension Transport {
-    func statistics(for sender: LKRTCRtpSender) async -> LKRTCStatisticsReport {
-        await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport, Never>) in
-            _pc.statistics(for: sender) { sd in
+    func statistics(for sender: RTCSender) async -> LKRTCStatisticsReport {
+        let raw = sender.raw
+        return await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport, Never>) in
+            _pc.statistics(for: raw) { sd in
                 continuation.resume(returning: sd)
             }
         }
     }
 
-    func statistics(for receiver: LKRTCRtpReceiver) async -> LKRTCStatisticsReport {
-        await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport, Never>) in
-            _pc.statistics(for: receiver) { sd in
+    func statistics(for receiver: RTCReceiver) async -> LKRTCStatisticsReport {
+        let raw = receiver.raw
+        return await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport, Never>) in
+            _pc.statistics(for: raw) { sd in
                 continuation.resume(returning: sd)
             }
         }
@@ -403,7 +407,11 @@ extension Transport: LKRTCPeerConnectionDelegate {
         }
 
         log("type: \(type(of: track)), track.id: \(track.trackId), streams: \(streams.map { "Stream(hash: \($0.hash), id: \($0.streamId), videoTracks: \($0.videoTracks.count), audioTracks: \($0.audioTracks.count))" })")
-        _delegate.notify { $0.transport(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: streams) }
+        let receiver = RTCReceiver(rtpReceiver)
+        // Only the ids travel on: the streams' blocking proxy destructors run here, on the
+        // signaling thread, instead of wherever the delegate pipeline drops them.
+        let streamIds = streams.map(\.streamId)
+        _delegate.notify { $0.transport(self, didAddTrack: track, rtpReceiver: receiver, streamIds: streamIds) }
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didRemove rtpReceiver: LKRTCRtpReceiver) {
@@ -500,12 +508,13 @@ extension Transport {
         return transceiver
     }
 
-    func remove(track sender: LKRTCRtpSender) throws {
-        guard _pc.removeTrack(sender) else {
+    func remove(track sender: RTCSender) throws {
+        let raw = sender.raw
+        guard _pc.removeTrack(raw) else {
             throw LiveKitError(.webRTC, message: "Failed to remove track")
         }
 
-        releaseTransceiver(sender: sender)
+        releaseTransceiver(sender: raw)
     }
 
     // Try to stop the transceiver and free the resources

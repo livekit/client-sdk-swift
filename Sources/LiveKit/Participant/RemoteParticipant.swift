@@ -111,7 +111,7 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
         }
     }
 
-    func addSubscribedMediaTrack(rtcTrack: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, trackSid: Track.Sid) async throws {
+    func addSubscribedMediaTrack(rtcTrack: LKRTCMediaStreamTrack, rtpReceiver: RTCReceiver, trackSid: Track.Sid) async throws {
         let room = try requireRoom()
         let track: Track
 

@@ -27,9 +27,9 @@ struct E2EEThreadTests {
     // Attempt to crash LKRTCFrameCryptor initialization
     @Test func createFrameCryptor() async throws {
         // Create peerConnection
-        let peerConnection = RTC.peerConnectionFactory.peerConnection(with: .liveKitDefault(),
-                                                                      constraints: .defaultPCConstraints,
-                                                                      delegate: nil)
+        nonisolated(unsafe) let peerConnection = RTC.peerConnectionFactory.peerConnection(with: .liveKitDefault(),
+                                                                                          constraints: .defaultPCConstraints,
+                                                                                          delegate: nil)
 
         let keyprovider = LKRTCFrameCryptorKeyProvider()
 

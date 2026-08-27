@@ -27,7 +27,7 @@ struct TransportMungeFallbackTests {
         func transport(_: Transport, didUpdateState _: LKRTCPeerConnectionState) {}
         func transport(_: Transport, didGenerateIceCandidate _: IceCandidate) {}
         func transport(_: Transport, didOpenDataChannel _: LKRTCDataChannel) {}
-        func transport(_: Transport, didAddTrack _: LKRTCMediaStreamTrack, rtpReceiver _: LKRTCRtpReceiver, streams _: [LKRTCMediaStream]) {}
+        func transport(_: Transport, didAddTrack _: LKRTCMediaStreamTrack, rtpReceiver _: RTCReceiver, streamIds _: [String]) {}
         func transport(_: Transport, didRemoveTrack _: LKRTCMediaStreamTrack) {}
         func transportShouldNegotiate(_: Transport) {}
     }
@@ -44,7 +44,7 @@ struct TransportMungeFallbackTests {
         do {
             let transceiverInit = LKRTCRtpTransceiverInit()
             transceiverInit.direction = .recvOnly
-            _ = try await transport.addTransceiver(ofType: .audio, transceiverInit: transceiverInit)
+            try await RTC.run { _ = try transport.addTransceiver(ofType: .audio, transceiverInit: transceiverInit) }
             try await body(transport)
         } catch {
             await transport.close()

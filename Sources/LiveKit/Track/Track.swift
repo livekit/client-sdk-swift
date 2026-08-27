@@ -112,9 +112,9 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
 
         weak var transport: Transport?
         var videoCodec: VideoCodec?
-        var rtpSender: LKRTCRtpSender?
-        var rtpSenderForCodec: [VideoCodec: LKRTCRtpSender] = [:] // simulcastSender
-        var rtpReceiver: LKRTCRtpReceiver?
+        var rtpSender: RTCSender?
+        var rtpSenderForCodec: [VideoCodec: RTCSender] = [:] // simulcastSender
+        var rtpReceiver: RTCReceiver?
 
         // All VideoRendererAdapters attached to this track, key/value for direct removal.
         var videoRendererAdapters = MapTable<VideoRenderer, VideoRendererAdapter>.weakToStrongObjects()
@@ -129,15 +129,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
     private let _startStopSerialRunner = SerialRunnerActor<Void>()
 
     deinit {
-        var held: [AnyObject] = [mediaTrack]
-        _state.read {
-            if let sender = $0.rtpSender { held.append(sender) }
-            if let receiver = $0.rtpReceiver { held.append(receiver) }
-            for sender in $0.rtpSenderForCodec.values {
-                held.append(sender)
-            }
-        }
-        RTC.park(held)
+        RTC.park(mediaTrack)
     }
 
     init(name: String,
@@ -179,7 +171,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    func set(transport: Transport?, rtpSender: LKRTCRtpSender?) async {
+    func set(transport: Transport?, rtpSender: RTCSender?) async {
         _state.mutate {
             $0.transport = transport
             $0.rtpSender = rtpSender
@@ -187,7 +179,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         await _resumeOrSuspendStatisticsTimer()
     }
 
-    func set(transport: Transport?, rtpReceiver: LKRTCRtpReceiver?) async {
+    func set(transport: Transport?, rtpReceiver: RTCReceiver?) async {
         _state.mutate {
             $0.transport = transport
             $0.rtpReceiver = rtpReceiver

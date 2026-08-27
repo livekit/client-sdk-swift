@@ -103,7 +103,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
 
         for publication in localPublications {
             if let participantIdentity = room.localParticipant.identity {
-                addRtpSender(publication: publication, participantIdentity: participantIdentity)
+                Task { await addRtpSender(publication: publication, participantIdentity: participantIdentity) }
             }
         }
 
@@ -112,7 +112,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
 
             for publication in remotePublications {
                 if let participantIdentity = remoteParticipant.identity {
-                    addRtpReceiver(publication: publication, participantIdentity: participantIdentity)
+                    Task { await addRtpReceiver(publication: publication, participantIdentity: participantIdentity) }
                 }
             }
         }
@@ -129,7 +129,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         }
     }
 
-    func addRtpSender(publication: LocalTrackPublication, participantIdentity: Participant.Identity) {
+    func addRtpSender(publication: LocalTrackPublication, participantIdentity: Participant.Identity) async {
         guard publication.encryptionType != .none else {
             log("encryptionType is .none, skipping creating frame cryptor...", .warning)
             return
@@ -140,26 +140,28 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
             return
         }
 
-        guard let frameCryptor = LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
-                                                   rtpSender: sender,
-                                                   participantId: participantIdentity.stringValue,
-                                                   algorithm: .aesGcm,
-                                                   keyProvider: keyProvider.rtcKeyProvider)
-        else {
-            log("frameCryptor is nil, skipping creating frame cryptor...", .warning)
-            return
-        }
+        // The raw sender is `@RTC`-confined and `LKRTCFrameCryptor` is not `Sendable`, so build
+        // and install it entirely on the RTC executor.
+        let installed: Bool = await RTC.run {
+            guard let frameCryptor = LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
+                                                       rtpSender: sender.raw,
+                                                       participantId: participantIdentity.stringValue,
+                                                       algorithm: .aesGcm,
+                                                       keyProvider: keyProvider.rtcKeyProvider)
+            else { return false }
 
-        frameCryptor.delegate = delegateAdapter
-
-        return _state.mutate {
-            $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
-            $0.trackPublications[frameCryptor] = publication
-            frameCryptor.enabled = $0.enabled
+            frameCryptor.delegate = delegateAdapter
+            _state.mutate {
+                $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
+                $0.trackPublications[frameCryptor] = publication
+                frameCryptor.enabled = $0.enabled
+            }
+            return true
         }
+        if !installed { log("frameCryptor is nil, skipping creating frame cryptor...", .warning) }
     }
 
-    func addRtpReceiver(publication: RemoteTrackPublication, participantIdentity: Participant.Identity) {
+    func addRtpReceiver(publication: RemoteTrackPublication, participantIdentity: Participant.Identity) async {
         guard publication.encryptionType != .none else {
             log("encryptionType is .none, skipping creating frame cryptor...", .warning)
             return
@@ -170,23 +172,25 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
             return
         }
 
-        guard let frameCryptor = LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
-                                                   rtpReceiver: receiver,
-                                                   participantId: participantIdentity.stringValue,
-                                                   algorithm: .aesGcm,
-                                                   keyProvider: keyProvider.rtcKeyProvider)
-        else {
-            log("frameCryptor is nil, skipping creating frame cryptor...", .warning)
-            return
-        }
+        // The raw receiver is `@RTC`-confined and `LKRTCFrameCryptor` is not `Sendable`, so build
+        // and install it entirely on the RTC executor.
+        let installed: Bool = await RTC.run {
+            guard let frameCryptor = LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
+                                                       rtpReceiver: receiver.raw,
+                                                       participantId: participantIdentity.stringValue,
+                                                       algorithm: .aesGcm,
+                                                       keyProvider: keyProvider.rtcKeyProvider)
+            else { return false }
 
-        frameCryptor.delegate = delegateAdapter
-
-        return _state.mutate {
-            $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
-            $0.trackPublications[frameCryptor] = publication
-            frameCryptor.enabled = $0.enabled
+            frameCryptor.delegate = delegateAdapter
+            _state.mutate {
+                $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
+                $0.trackPublications[frameCryptor] = publication
+                frameCryptor.enabled = $0.enabled
+            }
+            return true
         }
+        if !installed { log("frameCryptor is nil, skipping creating frame cryptor...", .warning) }
     }
 
     func addDataChannelCryptor() {
@@ -241,7 +245,7 @@ extension E2EEManager {
 extension E2EEManager: RoomDelegate {
     public func room(_: Room, participant: LocalParticipant, didPublishTrack publication: LocalTrackPublication) {
         if let participantIdentity = participant.identity {
-            addRtpSender(publication: publication, participantIdentity: participantIdentity)
+            Task { await addRtpSender(publication: publication, participantIdentity: participantIdentity) }
         }
     }
 
@@ -263,7 +267,7 @@ extension E2EEManager: RoomDelegate {
 
     public func room(_: Room, participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
         if let participantIdentity = participant.identity {
-            addRtpReceiver(publication: publication, participantIdentity: participantIdentity)
+            Task { await addRtpReceiver(publication: publication, participantIdentity: participantIdentity) }
         }
     }
 
