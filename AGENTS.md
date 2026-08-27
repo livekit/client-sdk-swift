@@ -106,6 +106,9 @@ Threading:
   construction) is `nonisolated` — it is per-packet and latency-sensitive; `sendData` blocks only on
   the network thread (`PROXY_SECONDARY_*`), `readyState` is `BYPASS`, the buffer init is a plain
   byte container
+- Completion handlers written inside `@RTC` code must be `@Sendable`: a non-Sendable closure
+  inherits `@RTC` isolation, and WebRTC invokes it on its own threads — Swift 6.1-built binaries
+  enforce that in the closure prologue and trap (Xcode 16.4 CI caught exactly this)
 - WebRTC types are accessed via `internal import LiveKitWebRTC` to keep them private from public API
 
 ## Testing

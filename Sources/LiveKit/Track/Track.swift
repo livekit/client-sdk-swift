@@ -251,22 +251,20 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
 
     // Returns true if didEnable
     @discardableResult
+    @RTC
     func enable() async throws -> Bool {
-        await RTC.run {
-            guard !mediaTrack.isEnabled else { return false }
-            mediaTrack.isEnabled = true
-            return true
-        }
+        guard !mediaTrack.isEnabled else { return false }
+        mediaTrack.isEnabled = true
+        return true
     }
 
     // Returns true if didDisable
     @discardableResult
+    @RTC
     func disable() async throws -> Bool {
-        await RTC.run {
-            guard mediaTrack.isEnabled else { return false }
-            mediaTrack.isEnabled = false
-            return true
-        }
+        guard mediaTrack.isEnabled else { return false }
+        mediaTrack.isEnabled = false
+        return true
     }
 
     func set(muted newValue: Bool,
