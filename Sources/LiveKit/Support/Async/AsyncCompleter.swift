@@ -125,6 +125,14 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
         }
     }
 
+    /// Clears a cached result so future `wait()` calls block again, without cancelling in-flight
+    /// waiters — they keep waiting for the next `resume`.
+    func rearm() {
+        _lock.sync {
+            _result = nil
+        }
+    }
+
     func resume(with result: Result<T, Error>) {
         _lock.sync {
             if let _result {

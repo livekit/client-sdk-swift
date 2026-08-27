@@ -27,6 +27,8 @@ extension Tag {
     @Tag static var dataChannel: Self
     /// Text and byte data stream tests.
     @Tag static var dataStream: Self
+    /// Data track publish/subscribe tests.
+    @Tag static var dataTrack: Self
     /// End-to-end tests requiring a running LiveKit server.
     @Tag static var e2e: Self
     /// End-to-end encryption tests.

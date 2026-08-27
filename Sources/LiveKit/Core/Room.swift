@@ -19,6 +19,9 @@
 import Combine
 import Foundation
 
+internal import LiveKitUniFFI
+internal import LiveKitWebRTC
+
 #if canImport(Network)
 import Network
 #endif
@@ -90,11 +93,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     // MARK: - Internal
 
-    private let _e2eeManager = StateSync<E2EEManager?>(nil)
-
+    /// The E2EE manager for the current connection.
+    ///
+    /// Derived from ``RoomOptions/e2eeOptions`` or ``RoomOptions/encryptionOptions`` during
+    /// ``connect(url:token:connectOptions:roomOptions:)``, carried across reconnects, and
+    /// released when the connection ends. Setting it takes effect only while a connection
+    /// exists, and lasts until that connection ends.
     public var e2eeManager: E2EEManager? {
-        get { _e2eeManager.copy() }
-        set { _e2eeManager.mutate { $0 = newValue } }
+        get { _state.stage.connection?.e2ee.copy() }
+        set { _state.stage.connection?.e2ee.mutate { $0 = newValue } }
     }
 
     /// Enables or disables end-to-end encryption on this Room.
@@ -102,6 +109,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     /// Requires the Room to have been constructed with ``EncryptionOptions``
     /// (via ``RoomOptions/encryptionOptions``) and to be connected.
     /// Otherwise this is a no-op.
+    ///
+    /// - Note: Data tracks advertise whether they are encrypted as part of the publication, so
+    ///   the setting is captured when this participant publishes its first data track of the
+    ///   session and applies to all of them. Toggling after that point affects media and data
+    ///   channel payloads only.
     ///
     /// - Parameter enabled: Whether to enable encryption.
     public func setE2EEEnabled(_ enabled: Bool) {
@@ -120,7 +132,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - DataChannels
 
     lazy var subscriberDataChannel = DataChannelPair(delegate: self)
-    lazy var publisherDataChannel = DataChannelPair(delegate: self)
+    lazy var publisherDataChannel = DataChannelPair(delegate: self, onBufferStatusChange: { [weak self] isLow, kind in
+        self?.notify(bufferStatus: isLow, of: kind)
+    })
 
     let incomingStreamManager = IncomingStreamManager()
     lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
@@ -128,6 +142,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     } encryptionProvider: { [weak self] in
         self?.e2eeManager?.dataChannelEncryptionType ?? .none
     }
+
+    // MARK: - Data Tracks
+
+    var dataTracks: DataTracks? { _state.stage.connection?.dataTracks }
 
     // MARK: - PreConnect
 
@@ -182,7 +200,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var disconnectError: LiveKitError?
         var hasPublished: Bool = false
 
-        var transport: TransportMode?
+        // Dependency plane: which per-connection / per-join subsystems exist. Payloads are staged
+        // and retired only through its transitions (connect / configureTransports / cleanUp).
+        var stage: DependencyStage = .idle
+
+        var transport: TransportMode? { stage.join?.transport }
 
         // Timing
         var connectSpan: Span?
@@ -391,29 +413,25 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         // dropped in the gap between init and connect. Idempotent across reconnects.
         await setupRpc()
 
-        // enable E2EE
-        if let e2eeOptions = state.roomOptions.e2eeOptions {
-            e2eeManager = E2EEManager(e2eeOptions: e2eeOptions)
-            e2eeManager!.setup(room: self)
-        } else if let encryptionOptions = state.roomOptions.encryptionOptions {
-            e2eeManager = E2EEManager(options: encryptionOptions)
-            e2eeManager!.setup(room: self)
+        // Connection-scoped subsystems (data tracks, the E2EE manager derived from the room
+        // options): carried across full reconnects, released on disconnect.
+        let dependencies = ConnectionDependencies(room: self, roomOptions: state.roomOptions)
 
-            subscriberDataChannel.set(e2eeManager: e2eeManager)
-            publisherDataChannel.set(e2eeManager: e2eeManager)
-        } else {
-            e2eeManager = nil
-
-            subscriberDataChannel.set(e2eeManager: nil)
-            publisherDataChannel.set(e2eeManager: nil)
-        }
-
-        _state.mutate {
+        try _state.mutate {
+            try $0.stage.begin(dependencies)
             $0.connectSpan = sharedTracing.beginSpan("connect")
             $0.providedUrl = providedUrl
             $0.token = token
             $0.connectionState = .connecting
         }
+
+        // E2EE wiring: delegate registration and cryptors, then the pairs' manager — installed
+        // for every options branch: sending consults the manager's data-channel toggle, but
+        // receiving needs the manager regardless — a frame-only (legacy e2eeOptions) room must
+        // still decrypt packets from participants publishing with data-channel encryption enabled.
+        e2eeManager?.setup(room: self)
+        subscriberDataChannel.set(e2eeManager: e2eeManager)
+        publisherDataChannel.set(e2eeManager: e2eeManager)
 
         var nextUrl = providedUrl
         var nextRegion: RegionInfo?
@@ -597,11 +615,31 @@ extension Room {
         // stats collection from accessing destroyed WebRTC channels.
         cancelTimers()
         await cleanUpRTC(withError: disconnectError)
+        var retiredConnection: ConnectionDependencies?
+        if isFullReconnect {
+            // Data tracks are connection-scoped: across a full reconnect only their transport
+            // channels are swapped so published tracks can be republished.
+            dataTracks?.handleTransportsTeardown()
+            // Remote data tracks outlive the reconnect — the subsystem re-attaches them to the
+            // recreated participants. Detach them here, before `cleanUpParticipants` reports an
+            // unpublish for tracks that were never unpublished.
+            for participant in _state.remoteParticipants.values {
+                participant.detachDataTracks()
+            }
+        } else {
+            retiredConnection = _state.mutate { $0.stage.end() }.connection
+        }
         await cleanUpParticipants(isFullReconnect: isFullReconnect)
 
-        // Cleanup for E2EE
-        if let e2eeManager {
-            e2eeManager.cleanUp()
+        // E2EE: a full reconnect keeps the manager and releases only the frame cryptors (they
+        // rebuild through the publish/subscribe delegate hooks as tracks return); connection
+        // teardown releases the retired manager and detaches the pairs' reference.
+        if isFullReconnect {
+            e2eeManager?.cleanUp(isFullReconnect: true)
+        } else {
+            retiredConnection?.tearDown()
+            subscriberDataChannel.set(e2eeManager: nil)
+            publisherDataChannel.set(e2eeManager: nil)
         }
 
         // Reset state
@@ -617,6 +655,7 @@ extension Room {
                 isReconnectingWithMode: $0.isReconnectingWithMode,
                 connectionState: $0.connectionState,
                 reconnectTask: $0.reconnectTask,
+                stage: $0.stage,
             ) : State(
                 connectOptions: $0.connectOptions,
                 roomOptions: $0.roomOptions,
@@ -777,20 +816,20 @@ public extension Room {
 // MARK: - DataChannelDelegate
 
 extension Room: DataChannelDelegate {
-    func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket) {
+    func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket, encryptionType: EncryptionType) {
         switch dataPacket.value {
         case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
-        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket, encryptionType: dataPacket.encryptedPacket.encryptionType.toLKType())
+        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket, encryptionType: encryptionType)
         case let .transcription(packet): room(didReceiveTranscriptionPacket: packet)
         case let .rpcResponse(response): room(didReceiveRpcResponse: response)
         case let .rpcAck(ack): room(didReceiveRpcAck: ack)
         case let .rpcRequest(request): room(didReceiveRpcRequest: request, from: dataPacket.participantIdentity)
         case let .streamHeader(header):
-            incomingStreamManager.handle(.header(header, dataPacket.participantIdentity, dataPacket.encryptedPacket.encryptionType.toLKType()))
+            incomingStreamManager.handle(.header(header, dataPacket.participantIdentity, encryptionType))
         case let .streamChunk(chunk):
-            incomingStreamManager.handle(.chunk(chunk, dataPacket.encryptedPacket.encryptionType.toLKType()))
+            incomingStreamManager.handle(.chunk(chunk, encryptionType))
         case let .streamTrailer(trailer):
-            incomingStreamManager.handle(.trailer(trailer, dataPacket.encryptedPacket.encryptionType.toLKType()))
+            incomingStreamManager.handle(.trailer(trailer, encryptionType))
         default: return
         }
     }
@@ -798,6 +837,14 @@ extension Room: DataChannelDelegate {
     func dataChannel(_: DataChannelPair, didFailToDecryptDataPacket _: Livekit_DataPacket, error: LiveKitError) {
         delegates.notify {
             $0.room?(self, didFailToDecryptDataWithEror: error)
+        }
+    }
+
+    /// The single funnel for buffer-status reports: the publisher pair's drains and the data-track
+    /// drain all arrive here by closure, so there is exactly one route to the public delegate.
+    func notify(bufferStatus isLow: Bool, of kind: DataChannelKind) {
+        delegates.notify {
+            $0.room?(self, didUpdateBufferStatus: isLow, of: kind)
         }
     }
 }

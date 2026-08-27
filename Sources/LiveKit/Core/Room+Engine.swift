@@ -46,10 +46,12 @@ extension Room {
 
         await _state.transport?.close()
 
-        // Reset publish state
-        _state.mutate {
-            $0.transport = nil
+        // Retire the join only after the transports are down: teardown gates (e.g. the data-track
+        // publish gate) re-arm off the closing channels, so the "no transport" window that
+        // in-flight callers observe must not open before they do.
+        _ = _state.mutate {
             $0.hasPublished = false
+            return $0.stage.retireJoin()
         }
     }
 
@@ -61,36 +63,38 @@ extension Room {
         _state.mutate { $0.hasPublished = true }
     }
 
-    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws {
+    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket_Kind) async throws {
         try await send(dataPacket: .with {
             $0.user = userPacket
             $0.kind = kind
         })
     }
 
-    func send(dataPacket packet: Livekit_DataPacket) async throws {
-        func ensurePublisherConnected() async throws {
-            // Only needed when subscriber is primary in dual PC mode
-            guard case .subscriberPrimary = _state.transport else {
-                return
-            }
-
-            let publisher = try requirePublisher()
-
-            let connectionState = await publisher.connectionState
-            if connectionState != .connected, connectionState != .connecting {
-                try await publisherShouldNegotiate()
-            }
-
-            // Single combined gate: wait for both the publisher PC to be ICE-
-            // connected *and* the data channels to reach `.open` concurrently.
-            // Mirrors the prevailing pattern in client-sdk-js / -rust, where a
-            // single poll loop checks both conditions before any send proceeds.
-            async let transportReady: Void = publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
-            async let dataChannelReady: Void = publisherDataChannel.openCompleter.wait()
-            _ = try await (transportReady, dataChannelReady)
+    /// Negotiates the publisher peer connection on demand (subscriber-primary dual-PC mode defers
+    /// it until something is published) and waits until it and the data channels are open.
+    func ensurePublisherConnected() async throws {
+        // Only needed when subscriber is primary in dual PC mode
+        guard case .subscriberPrimary = _state.transport else {
+            return
         }
 
+        let publisher = try requirePublisher()
+
+        let connectionState = await publisher.connectionState
+        if connectionState != .connected, connectionState != .connecting {
+            try await publisherShouldNegotiate()
+        }
+
+        // Single combined gate: wait for both the publisher PC to be ICE-
+        // connected *and* the data channels to reach `.open` concurrently.
+        // Mirrors the prevailing pattern in client-sdk-js / -rust, where a
+        // single poll loop checks both conditions before any send proceeds.
+        async let transportReady: Void = publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
+        async let dataChannelReady: Void = publisherDataChannel.openCompleter.wait()
+        _ = try await (transportReady, dataChannelReady)
+    }
+
+    func send(dataPacket packet: consuming Livekit_DataPacket) async throws {
         try await ensurePublisherConnected()
 
         // At this point publisher should be .connected and dc should be .open
@@ -103,22 +107,24 @@ extension Room {
             log("publisher data channel is not .open", .error)
         }
 
-        var packet = packet
-        if let identity = localParticipant.identity?.stringValue {
-            packet.participantIdentity = identity
-        }
-        if let sid = localParticipant.sid?.stringValue {
-            packet.participantSid = sid
+        // `modifying` is consuming: with no other owner this stamps in place,
+        // where the per-field setters used to deep-copy the whole payload.
+        let stamped = packet.modifying {
+            if let identity = localParticipant.identity?.stringValue {
+                $0.participantIdentity = identity
+            }
+            if let sid = localParticipant.sid?.stringValue {
+                $0.participantSid = sid
+            }
         }
 
-        try await publisherDataChannel.send(dataPacket: packet)
+        try await publisherDataChannel.send(dataPacket: stamped)
     }
 }
 
 // MARK: - Internal
 
 extension Room {
-    // swiftlint:disable:next function_body_length
     func configureTransports(connectResponse: SignalClient.ConnectResponse, singlePeerConnection: Bool) async throws {
         func makeConfiguration() -> LKRTCConfiguration {
             let connectOptions = _state.connectOptions
@@ -150,59 +156,22 @@ extension Room {
         if case let .join(joinResponse) = connectResponse {
             log("Configuring transports with JOIN response...")
 
-            guard _state.transport == nil else {
-                log("Transports are already configured")
-                return
+            guard case let .connecting(connection) = _state.stage else {
+                log("Received JOIN without a connecting stage", .error)
+                throw LiveKitError(.invalidState, message: "Received JOIN without a connecting stage")
             }
 
-            let isSinglePC = singlePeerConnection
-            let isSubscriberPrimary = isSinglePC ? false : joinResponse.subscriberPrimary
-            log("subscriberPrimary: \(isSubscriberPrimary), singlePeerConnection: \(isSinglePC)")
-
-            // Publisher always created; is primary in single PC mode
-            let publisher = try Transport(config: rtcConfiguration,
-                                          target: .publisher,
-                                          primary: isSinglePC || !isSubscriberPrimary,
-                                          singlePCMode: isSinglePC,
-                                          delegate: self)
-
-            await publisher.set { [weak self] offer, offerId in
-                guard let self else { return }
-                log("Publisher onOffer with offerId: \(offerId), sdp: \(offer.sdp)")
-                try await signalClient.send(offer: offer, offerId: offerId)
-                connectSpan?.record("offer_sent")
+            let join = try await JoinDependencies.make(room: self,
+                                                       connection: connection,
+                                                       joinResponse: joinResponse,
+                                                       rtcConfiguration: rtcConfiguration,
+                                                       singlePeerConnection: singlePeerConnection)
+            do {
+                try _state.mutate { try $0.stage.join(join) }
+            } catch {
+                await join.transport.close()
+                throw error
             }
-
-            // data over pub channel for backwards compatibility
-
-            let reliableDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.reliable,
-                                                                  configuration: RTC.createDataChannelConfiguration())
-
-            let lossyDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.lossy,
-                                                               configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
-
-            publisherDataChannel.set(reliable: reliableDataChannel)
-            publisherDataChannel.set(lossy: lossyDataChannel)
-
-            log("dataChannel.\(String(describing: reliableDataChannel?.label)) : \(String(describing: reliableDataChannel?.channelId))")
-            log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
-
-            let subscriber = isSinglePC ? nil : try Transport(config: rtcConfiguration,
-                                                              target: .subscriber,
-                                                              primary: isSubscriberPrimary,
-                                                              delegate: self)
-
-            let transport: TransportMode = if let subscriber, isSubscriberPrimary {
-                .subscriberPrimary(publisher: publisher, subscriber: subscriber)
-            } else if let subscriber {
-                .publisherPrimary(publisher: publisher, subscriber: subscriber)
-            } else {
-                .publisherOnly(publisher: publisher)
-            }
-            _state.mutate { $0.transport = transport }
-
-            log("[Connect] Fast publish enabled: \(joinResponse.fastPublish ? "true" : "false")")
-
         } else if case let .reconnect(reconnectResponse) = connectResponse {
             log("[Connect] Configuring transports with RECONNECT response...")
             try await _state.transport?.set(configuration: rtcConfiguration)
@@ -388,6 +357,8 @@ extension Room {
                     throw error
                 }
             }
+
+            dataTracks?.handleReconnect(fullReconnect: false)
         }
 
         // "full" re-connection sequence
@@ -424,6 +395,8 @@ extension Room {
             }
 
             _state.mutate { $0.connectedUrl = finalUrl }
+
+            dataTracks?.handleReconnect(fullReconnect: true)
         }
 
         do {
@@ -540,10 +513,13 @@ extension Room {
             $0.subscribe = !autoSubscribe
         }
 
+        let publishDataTracks = await dataTracks?.syncStatePublishResponses() ?? []
+
         try await signalClient.sendSyncState(answer: previousAnswer?.toPBType(offerId: 0),
                                              offer: previousOffer?.toPBType(offerId: 0),
                                              subscription: subscription,
                                              publishTracks: localParticipant.publishedTracksInfo(),
+                                             publishDataTracks: publishDataTracks,
                                              dataChannels: publisherDataChannel.infos(),
                                              dataChannelReceiveStates: subscriberDataChannel.receiveStates())
     }

@@ -310,10 +310,67 @@ import LiveKitWebRTC
     }
 }
 
+// MARK: - Reconnects
+
+extension EncryptedDataChannelTests {
+    /// Regression: the data-packet cryptor is connection-tier and must
+    /// survive a full reconnect. It used to be destroyed by full-reconnect
+    /// cleanup and re-created only inside connect() — which a full reconnect
+    /// never re-enters — leaving every subsequent encrypted send throwing
+    /// "Cryptor is nil".
+    @Test func encryptionSurvivesFullReconnect() async throws {
+        let testMessage = "Hello, encrypted world, after a full reconnect!"
+        let testData = try #require(testMessage.data(using: .utf8))
+
+        let sharedKey = "shared-key-\(UUID().uuidString)"
+        let options = KeyProviderOptions(sharedKey: true, keyDerivationAlgorithm: .hkdf)
+        let senderKeyProvider = BaseKeyProvider(options: options)
+        let receiverKeyProvider = BaseKeyProvider(options: options)
+        senderKeyProvider.setKey(key: sharedKey)
+        receiverKeyProvider.setKey(key: sharedKey)
+
+        try await confirmation("Encrypted data received after full reconnect") { confirm in
+            self._receivedData.mutate { $0 = Data() }
+            self._onDataReceived.mutate { $0 = { confirm() } }
+
+            try await TestEnvironment.withRooms(encryptedRooms(sender: senderKeyProvider, receiver: receiverKeyProvider)) { rooms in
+                let sender = rooms[0]
+
+                try await sender.debug_simulate(scenario: .fullReconnect)
+                #expect(sender.connectionState == .connected)
+
+                // The new session repopulates the roster from its own join response.
+                var attempts = 0
+                while sender.remoteParticipants.isEmpty, attempts < 100 {
+                    try await Task.sleep(nanoseconds: 100_000_000)
+                    attempts += 1
+                }
+                let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
+
+                let userPacket = Livekit_UserPacket.with {
+                    $0.payload = testData
+                    $0.destinationIdentities = [remoteIdentity.stringValue]
+                }
+
+                try await sender.send(userPacket: userPacket, kind: .reliable)
+
+                await self.awaitEvent()
+            }
+
+            let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
+            #expect(receivedMessage == testMessage, "Encrypted message should still decrypt after the sender's full reconnect")
+        }
+    }
+}
+
 // MARK: - RoomDelegate
 
 extension EncryptedDataChannelTests: RoomDelegate {
-    func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic _: String, encryptionType _: EncryptionType) {
+    func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic _: String, encryptionType: EncryptionType) {
+        // Every message in this suite arrives E2EE-encrypted, and the reported type must say so:
+        // decryption rewrites the packet's payload oneof, and reading the type off the decrypted
+        // packet (which clears it) once reported every encrypted message as `.none`.
+        #expect(encryptionType != .none, "an E2EE message must not be reported as unencrypted")
         _receivedData.mutate { $0 = data }
         _onDataReceived.copy()?()
     }

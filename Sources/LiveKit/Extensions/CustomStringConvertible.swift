@@ -14,10 +14,25 @@
  * limitations under the License.
  */
 
+#if LK_XCFRAMEWORK
+package import CLiveKitProto
+#elseif !COCOAPODS
+import CLiveKitProto
+import LiveKitNanopb
+#endif
 import AVFoundation
 import Foundation
 
 internal import LiveKitWebRTC
+
+// Messages are all one generic type, so there is a single conformance and a
+// single witness. Per-message detail is reached through `NanopbStorage`'s
+// `_describe` hook rather than a member on a constrained extension: the latter
+// would only bind where the concrete type is known statically, and logging
+// goes through dynamic dispatch.
+extension NanopbMsg: CustomStringConvertible {
+    package var description: String { S._describe(self) }
+}
 
 extension TrackSettings: CustomStringConvertible {
     public var description: String {
@@ -25,9 +40,9 @@ extension TrackSettings: CustomStringConvertible {
     }
 }
 
-extension Livekit_VideoLayer: CustomStringConvertible {
-    public var description: String {
-        "VideoLayer(quality: \(quality), dimensions: \(width)x\(height), bitrate: \(bitrate))"
+package extension livekit_VideoLayer {
+    static func _describe(_ message: NanopbMsg<livekit_VideoLayer>) -> String {
+        "VideoLayer(quality: \(message.quality), dimensions: \(message.width)x\(message.height), bitrate: \(message.bitrate))"
     }
 }
 
@@ -37,47 +52,47 @@ public extension TrackPublication {
     }
 }
 
-extension Livekit_AddTrackRequest: CustomStringConvertible {
-    public var description: String {
-        "AddTrackRequest(cid: \(cid), name: \(name), type: \(type), source: \(source), width: \(width), height: \(height), muted: \(muted))"
+package extension livekit_AddTrackRequest {
+    static func _describe(_ message: NanopbMsg<livekit_AddTrackRequest>) -> String {
+        "AddTrackRequest(cid: \(message.cid), name: \(message.name), type: \(message.type), source: \(message.source), width: \(message.width), height: \(message.height), muted: \(message.muted))"
     }
 }
 
-extension Livekit_TrackInfo: CustomStringConvertible {
-    public var description: String {
-        "TrackInfo(sid: \(sid), " +
-            "name: \(name), " +
-            "type: \(type), " +
-            "source: \(source), " +
-            "width: \(width), " +
-            "height: \(height), " +
-            "isMuted: \(muted), " +
-            "simulcast: \(simulcast), " +
-            "codecs: \(codecs.map { String(describing: $0) }), " +
-            "layers: \(layers.map { String(describing: $0) }))"
+package extension livekit_TrackInfo {
+    static func _describe(_ message: NanopbMsg<livekit_TrackInfo>) -> String {
+        "TrackInfo(sid: \(message.sid), " +
+            "name: \(message.name), " +
+            "type: \(message.type), " +
+            "source: \(message.source), " +
+            "width: \(message.width), " +
+            "height: \(message.height), " +
+            "isMuted: \(message.muted), " +
+            "simulcast: \(message.simulcast), " +
+            "codecs: \(message.codecs.map { String(describing: $0) }), " +
+            "layers: \(message.layers.map { String(describing: $0) }))"
     }
 }
 
-extension Livekit_SubscribedQuality: CustomStringConvertible {
-    public var description: String {
-        "SubscribedQuality(quality: \(quality), enabled: \(enabled))"
+package extension livekit_SubscribedQuality {
+    static func _describe(_ message: NanopbMsg<livekit_SubscribedQuality>) -> String {
+        "SubscribedQuality(quality: \(message.quality), enabled: \(message.enabled))"
     }
 }
 
-extension Livekit_SubscribedCodec: CustomStringConvertible {
-    public var description: String {
-        "SubscribedCodec(codec: \(codec), qualities: \(qualities.map { String(describing: $0) }.joined(separator: ", "))"
+package extension livekit_SubscribedCodec {
+    static func _describe(_ message: NanopbMsg<livekit_SubscribedCodec>) -> String {
+        "SubscribedCodec(codec: \(message.codec), qualities: \(message.qualities.map { String(describing: $0) }.joined(separator: ", "))"
     }
 }
 
-extension Livekit_ServerInfo: CustomStringConvertible {
-    public var description: String {
-        "ServerInfo(edition: \(edition), " +
-            "version: \(version), " +
-            "protocol: \(`protocol`), " +
-            "region: \(region), " +
-            "nodeID: \(nodeID), " +
-            "debugInfo: \(debugInfo))"
+package extension livekit_ServerInfo {
+    static func _describe(_ message: NanopbMsg<livekit_ServerInfo>) -> String {
+        "ServerInfo(edition: \(message.edition), " +
+            "version: \(message.version), " +
+            "protocol: \(message.protocol), " +
+            "region: \(message.region), " +
+            "nodeID: \(message.nodeID), " +
+            "debugInfo: \(message.debugInfo))"
     }
 }
 
@@ -148,7 +163,7 @@ extension ReconnectMode: CustomStringConvertible {
     }
 }
 
-extension Livekit_SignalResponse: CustomStringConvertible {
+extension Livekit_SignalResponse {
     var description: String {
         "Livekit_SignalResponse(\(String(describing: message)))"
     }

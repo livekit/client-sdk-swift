@@ -9,7 +9,9 @@ Platform destinations: `macOS`, `macOS,variant=Mac Catalyst`, `iOS Simulator`, `
 # Build
 xcodebuild build -scheme LiveKit -destination 'platform=macOS'
 
-# Run tests (requires local server: livekit-server --dev, install via brew install livekit)
+# Run tests (requires local server, install via brew install livekit). Data track schema tests
+# need participant data blobs, which --dev alone leaves off:
+#   printf 'enable_participant_data_blob: true\n' > lk.yaml && livekit-server --dev --config lk.yaml
 xcodebuild test -scheme LiveKit -only-testing LiveKitCoreTests -destination 'platform=macOS'
 
 # Build benchmarks
@@ -58,11 +60,23 @@ Key components:
 - `StateSync<T>` - thread-safe state container with `@dynamicMemberLookup`; triggers `onDidMutate` callbacks
 - `MulticastDelegate<T>` - weak-reference delegate collection for event broadcasting
 
-Dependencies: LiveKitWebRTC, LiveKitUniFFI, SwiftProtobuf.
+Dependencies: LiveKitWebRTC, LiveKitUniFFI. (SwiftProtobuf is test-only — see below.)
+
+## Protocol Layer (protobuf)
+
+The wire protocol is nanopb-based, not SwiftProtobuf: generated C in
+`Sources/CLiveKitProto`, a fixed-cost Swift runtime in `Sources/LiveKitNanopb`,
+and generated facades in `Sources/LiveKit/Protos`. Every message is the one
+generic `NanopbMsg<Storage>`, so the schema contributes no Swift types;
+`Livekit_Room` is a typealias. Messages are immutable — build with `.with { }`.
+
+**See [PROTOCOL.md](PROTOCOL.md)** for the update workflow, the design and its
+constraints, memory/concurrency semantics, and the invariants to preserve when
+editing. Regenerate with `make proto`; never edit generated files by hand.
 
 ## Compile-Time Flags
 
-- `LK_XCFRAMEWORK` — set in the generated xcodeproj by `scripts/xcframework.swift`; switches `import SwiftProtobuf` to `internal import` in proto files so it doesn't leak into `.swiftinterface`
+- `LK_XCFRAMEWORK` — set in the generated xcodeproj by `scripts/xcframework.swift`; that build compiles `CLiveKitProto`/`LiveKitNanopb` sources into the framework target directly, so the guards in those files switch to `internal`/`package import CLiveKitProto` (resolved via its modulemap) and drop `import LiveKitNanopb`, keeping both out of the emitted `.swiftinterface`
 - `LK_BENCHMARK` — set when building benchmarks (`Benchmarks/`); skips `DeviceManager`/`AudioManager` init in `Room.init` to allow headless benchmark runs
 - `LK_SIGNPOSTS` — enables `os.signpost` instrumentation in `StateSync` for profiling lock contention in Instruments
 
@@ -80,6 +94,15 @@ Key files:
 Threading:
 
 - All WebRTC API calls must use `DispatchQueue.liveKitWebRTC.sync { ... }` for thread safety
+- Exception: the data-channel send path (`sendData`, `readyState`, `LKRTCDataBuffer` construction)
+  may be called off-queue — those calls are internally proxied by libwebrtc (`PROXY_SECONDARY_*`
+  does a `BlockingCall` onto the network thread; `state` is `BYPASS`; the buffer init is a plain
+  byte container), so the queue would only serialize what is already safe
+- Thread-safety is not liveness: proxied calls that can *block* on WebRTC's internal threads
+  (`close`, and the `LKRTCDataChannel` **deinit**, which blocks on the signaling thread) must not
+  run on Swift Concurrency's width-limited cooperative pool — park them on the queue
+  (`parkChannelRelease`); a stalled signaling thread once wedged six loop threads and deadlocked
+  the process on CI simulators
 - WebRTC types are accessed via `internal import LiveKitWebRTC` to keep them private from public API
 
 ## Testing

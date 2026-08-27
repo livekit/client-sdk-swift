@@ -165,6 +165,21 @@ public protocol RoomDelegate: AnyObject, Sendable {
 
     // MARK: - Data and Encryption
 
+    /// The send buffer of one of the room's data channels filled up, or drained again.
+    ///
+    /// Publishing does not stop when `isLow` is `false`, but what happens next depends on the
+    /// channel: the reliable channel queues payloads and delays them, while the lossy and
+    /// data-track channels drop the oldest queued payload in favour of newer ones. Backing off
+    /// while a channel is not low keeps latency down on the first and avoids loss on the others.
+    ///
+    /// Only transitions are reported, not every change in the amount buffered.
+    ///
+    /// - Parameters:
+    ///   - isLow: `true` once the buffer has drained back to the channel's threshold.
+    ///   - kind: Which channel changed.
+    @objc optional
+    func room(_ room: Room, didUpdateBufferStatus isLow: Bool, of kind: DataChannelKind)
+
     /// Received data from from a user or server. `participant` will be nil if broadcasted from server.
     @objc optional
     func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType)
@@ -319,4 +334,15 @@ public protocol RoomDelegate: AnyObject, Sendable {
     @available(*, unavailable, renamed: "room(_:trackPublication:didUpdateE2EEState:)")
     @objc(room:publication:didUpdateE2EEState:) optional
     func room(_ room: Room, publication: TrackPublication, didUpdateE2EEState: E2EEState)
+
+    // MARK: - Data Track Events
+
+    /// A remote participant published a data track. Subscribe to it via
+    /// ``RemoteDataTrack/subscribe()`` to start receiving frames.
+    @objc(room:remoteParticipant:didPublishDataTrack:) optional
+    func room(_ room: Room, participant: RemoteParticipant, didPublishDataTrack track: RemoteDataTrack)
+
+    /// A remote participant unpublished the data track with the given SID.
+    @objc(room:remoteParticipant:didUnpublishDataTrack:) optional
+    func room(_ room: Room, participant: RemoteParticipant, didUnpublishDataTrack sid: DataTrack.Sid)
 }

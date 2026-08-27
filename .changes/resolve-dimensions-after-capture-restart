@@ -1,0 +1,1 @@
+patch type="fixed" "Re-publishing a video track after its capturer was stopped no longer times out waiting for dimensions: stopping a capturer now clears the cached dimensions, so a source that resumes at the same resolution resolves them again"

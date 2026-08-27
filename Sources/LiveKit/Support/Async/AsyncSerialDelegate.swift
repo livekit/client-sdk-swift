@@ -40,4 +40,18 @@ final class AsyncSerialDelegate<T: Sendable>: Sendable {
             try await self.notifyAsync(fnc)
         }
     }
+
+    /// Notifies in the given order, without waiting for any of it.
+    ///
+    /// One task awaiting each in turn, because a `notifyDetached` per closure would not order
+    /// them: each races to the serial runner in a task of its own. Use when a consumer must see
+    /// one notification only after another — and prefer it to awaiting `notifyAsync` from a
+    /// caller that shouldn't block, such as the signal response queue.
+    func notifyDetached(inOrder fncs: (@Sendable (T) async -> Void)...) {
+        Task.detachedDiscarding {
+            for fnc in fncs {
+                try await self.notifyAsync(fnc)
+            }
+        }
+    }
 }
