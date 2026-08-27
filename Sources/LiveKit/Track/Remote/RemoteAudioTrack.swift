@@ -31,6 +31,9 @@ public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @
     /// - Values greater than `1.0` boost the track, up to `10.0` (10× amplification).
     ///
     /// Values outside this range are clamped.
+    ///
+    /// - Note: Reading or writing this blocks the calling thread until WebRTC's signaling thread
+    ///   applies it; avoid calling it from a Swift Concurrency task on a latency-sensitive path.
     public var volume: Double {
         get {
             guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return 0 }
@@ -63,7 +66,7 @@ public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @
     deinit {
         guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
         // removeRenderer blocks on the worker thread; Track's deinit parks the track itself right after.
-        nonisolated(unsafe) let adapter = _adapter
+        let adapter = _adapter
         Task { @RTC in audioTrack.remove(adapter) }
     }
 
