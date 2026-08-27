@@ -228,6 +228,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
                                                                      trackPermissions: trackPermissions)
     }
 
+    @RTC
     func _set(subscribedQualities qualities: [Livekit_SubscribedQuality], forTrackSid trackSid: Track.Sid) {
         guard let publication = trackPublications[trackSid],
               let track = publication.track as? LocalVideoTrack,
@@ -570,7 +571,7 @@ extension LocalParticipant {
 
         log("[Publish] server responded trackInfo: \(trackInfo)")
 
-        sender._set(subscribedQualities: subscribedCodec.qualities)
+        await RTC.run { sender._set(subscribedQualities: subscribedCodec.qualities) }
 
         // Attach multi-codec sender...
         track._state.mutate { $0.rtpSenderForCodec[videoCodec] = sender }

@@ -38,6 +38,7 @@ protocol VideoTrackInternal where Self: Track {
 
 extension VideoTrackProtocol where Self: Track {
     // Update a single SubscribedCodec
+    @RTC
     func _set(subscribedCodec: Livekit_SubscribedCodec) throws -> Bool {
         guard let videoCodec = VideoCodec.from(name: subscribedCodec.codec) else { return false }
 
@@ -57,6 +58,7 @@ extension VideoTrackProtocol where Self: Track {
     }
 
     // Update an array of SubscribedCodecs
+    @RTC
     func _set(subscribedCodecs: [Livekit_SubscribedCodec]) throws -> [Livekit_SubscribedCodec] {
         var missingCodecs: [Livekit_SubscribedCodec] = []
 
