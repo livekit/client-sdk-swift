@@ -537,20 +537,19 @@ extension LocalParticipant {
 
         let layers = dimensions.videoLayers(for: encodings)
 
-        // Add transceiver to publisher pc...
-        let transceiver = try await publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
-        log("[Publish] Added transceiver...")
-
-        // Set codec...
-        try transceiver.set(preferredVideoCodec: videoCodec)
-
-        let sender = transceiver.sender
-
         // The backup codec publishes over its own sender, so it needs the same degradation
         // preference the primary sender resolved to.
         let degradationPreference = publishOptions.degradationPreference.resolve(for: track.source)
         log("[Publish/Backup] set degradationPreference to \(degradationPreference)")
-        sender.set(degradationPreference: degradationPreference)
+
+        let sender = try await RTC.run {
+            let transceiver = try publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
+            try transceiver.set(preferredVideoCodec: videoCodec)
+            let sender = transceiver.sender
+            sender.set(degradationPreference: degradationPreference)
+            return sender
+        }
+        log("[Publish] Added transceiver...")
 
         // Request a new track to the server
         let trackInfo = try await room.signalClient.sendAddTrack(cid: sender.senderId,
@@ -732,24 +731,26 @@ extension LocalParticipant {
             }
 
             let negotiateFunc: @Sendable () async throws -> Void = {
-                // Add transceiver to pc
-                let transceiver = try await publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
+                let sender = try await RTC.run {
+                    let transceiver = try publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
+
+                    if track is LocalVideoTrack {
+                        let publishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
+
+                        let degradationPreference = publishOptions.degradationPreference.resolve(for: track.source)
+
+                        self.log("[publish] set degradationPreference to \(degradationPreference)")
+                        transceiver.sender.set(degradationPreference: degradationPreference)
+
+                        if let preferredCodec = publishOptions.preferredCodec {
+                            try transceiver.set(preferredVideoCodec: preferredCodec)
+                        }
+                    }
+                    return transceiver.sender
+                }
 
                 // Attach sender to track...
-                await track.set(transport: publisher, rtpSender: transceiver.sender)
-
-                if track is LocalVideoTrack {
-                    let publishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
-
-                    let degradationPreference = publishOptions.degradationPreference.resolve(for: track.source)
-
-                    self.log("[publish] set degradationPreference to \(degradationPreference)")
-                    transceiver.sender.set(degradationPreference: degradationPreference)
-
-                    if let preferredCodec = publishOptions.preferredCodec {
-                        try transceiver.set(preferredVideoCodec: preferredCodec)
-                    }
-                }
+                await track.set(transport: publisher, rtpSender: sender)
 
                 try await room.publisherShouldNegotiate()
             }
