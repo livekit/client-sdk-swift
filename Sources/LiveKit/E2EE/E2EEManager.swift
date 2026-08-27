@@ -81,6 +81,9 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         var frameCryptors = [[Participant.Identity: Track.Sid]: LKRTCFrameCryptor]()
         var trackPublications = [LKRTCFrameCryptor: TrackPublication]()
         var dataCryptor: LKRTCDataPacketCryptor?
+        /// Publications whose detach ran before the deferred attach landed: the sid is tombstoned so
+        /// the late attach skips installing a cryptor for a track that no longer exists.
+        var staleSids: Set<Track.Sid> = []
     }
 
     public init(e2eeOptions: E2EEOptions) {
@@ -148,17 +151,21 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
                                                        participantId: participantIdentity.stringValue,
                                                        algorithm: .aesGcm,
                                                        keyProvider: keyProvider.rtcKeyProvider)
-            else { return false }
+            else {
+                log("frameCryptor is nil, skipping creating frame cryptor...", .warning)
+                return false
+            }
 
             frameCryptor.delegate = delegateAdapter
-            _state.mutate {
+            return _state.mutate {
+                guard $0.staleSids.remove(publication.sid) == nil else { return false }
                 $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
                 $0.trackPublications[frameCryptor] = publication
                 frameCryptor.enabled = $0.enabled
+                return true
             }
-            return true
         }
-        if !installed { log("frameCryptor is nil, skipping creating frame cryptor...", .warning) }
+        if !installed { log("Track was unpublished before its frame cryptor attached; skipping", .warning) }
     }
 
     func addRtpReceiver(publication: RemoteTrackPublication, participantIdentity: Participant.Identity) async {
@@ -180,17 +187,21 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
                                                        participantId: participantIdentity.stringValue,
                                                        algorithm: .aesGcm,
                                                        keyProvider: keyProvider.rtcKeyProvider)
-            else { return false }
+            else {
+                log("frameCryptor is nil, skipping creating frame cryptor...", .warning)
+                return false
+            }
 
             frameCryptor.delegate = delegateAdapter
-            _state.mutate {
+            return _state.mutate {
+                guard $0.staleSids.remove(publication.sid) == nil else { return false }
                 $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
                 $0.trackPublications[frameCryptor] = publication
                 frameCryptor.enabled = $0.enabled
+                return true
             }
-            return true
         }
-        if !installed { log("frameCryptor is nil, skipping creating frame cryptor...", .warning) }
+        if !installed { log("Track was unsubscribed before its frame cryptor attached; skipping", .warning) }
     }
 
     func addDataChannelCryptor() {
@@ -210,6 +221,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
             }
             $0.frameCryptors.removeAll()
             $0.trackPublications.removeAll()
+            $0.staleSids.removeAll()
             // The data cryptor is key-provider-scoped (not bound to a transport), and its users —
             // encrypted data payloads and the data-track subsystem — survive a full reconnect, so
             // keep it: nothing re-runs setup() until the next explicit connect.
@@ -260,6 +272,9 @@ extension E2EEManager: RoomDelegate {
 
                     $0.trackPublications.removeValue(forKey: frameCryptor)
                     $0.frameCryptors.removeValue(forKey: [participantIdentity: publication.sid])
+                } else {
+                    // The deferred attach has not landed yet; tombstone the sid so it skips.
+                    $0.staleSids.insert(publication.sid)
                 }
             }
         }
@@ -282,6 +297,9 @@ extension E2EEManager: RoomDelegate {
 
                     $0.trackPublications.removeValue(forKey: frameCryptor)
                     $0.frameCryptors.removeValue(forKey: [participantIdentity: publication.sid])
+                } else {
+                    // The deferred attach has not landed yet; tombstone the sid so it skips.
+                    $0.staleSids.insert(publication.sid)
                 }
             }
         }
