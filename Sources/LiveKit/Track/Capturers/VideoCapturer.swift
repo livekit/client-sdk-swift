@@ -49,6 +49,7 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
 
     private let processingQueue = DispatchQueue(label: "io.livekit.videocapturer.processing", autoreleaseFrequency: .workItem)
 
+    // Constant set, no libwebrtc proxy: nothing to wait on.
     /// Array of supported pixel formats that can be used to capture a frame.
     ///
     /// Usually the following formats are supported but it is recommended to confirm at run-time:
@@ -56,7 +57,6 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
     /// `kCVPixelFormatType_420YpCbCr8BiPlanarFullRange`,
     /// `kCVPixelFormatType_32BGRA`,
     /// `kCVPixelFormatType_32ARGB`.
-    // Constant set, no libwebrtc proxy: nothing to wait on.
     public static let supportedPixelFormats = LKRTCCVPixelBuffer.supportedPixelFormats()
 
     public static func createTimeStampNs() -> Int64 {

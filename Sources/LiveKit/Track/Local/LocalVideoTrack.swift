@@ -24,6 +24,10 @@ public class LocalVideoTrack: Track, LocalTrackProtocol, @unchecked Sendable {
 
     var videoSource: LKRTCVideoSource
 
+    deinit {
+        RTC.park(videoSource)
+    }
+
     init(name: String,
          source: Track.Source,
          capturer: VideoCapturer,

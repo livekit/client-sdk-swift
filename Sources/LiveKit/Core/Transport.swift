@@ -65,6 +65,10 @@ final class Transport: NSObject, Loggable {
     // forbid direct access to PeerConnection
     private let _pc: LKRTCPeerConnection
 
+    deinit {
+        RTC.park(_pc)
+    }
+
     private lazy var _iceCandidatesQueue = QueueActor<IceCandidate>(onProcess: { [weak self] iceCandidate in
         guard let self else { return }
 

@@ -69,6 +69,24 @@ struct CooperativePoolBlockingTests {
         #expect(responsive)
     }
 
+    /// Dropping the last reference to a factory-created track runs the proxy destructor on the
+    /// signaling thread; `Track.deinit` parks it on the RTC executor.
+    @Test func trackReleaseKeepsTheCooperativePoolResponsive() async throws {
+        final class Holder: @unchecked Sendable {
+            var track: Track?
+            init(_ track: Track) { self.track = track }
+        }
+        let width = ProcessInfo.processInfo.activeProcessorCount + 2
+        let holders = (0 ..< width).map { _ in Holder(TestAudioTrack()) }
+        let wedge = try await SignalingThreadWedge.engage()
+
+        let responsive = await poolStaysResponsive(width: width, release: wedge.release) { index in
+            holders[index].track = nil
+        }
+
+        #expect(responsive)
+    }
+
     /// A parked channel release blocks the RTC executor while the signaling thread is stalled.
     /// Building a configuration — the first thing `Room.connect()` does — must not wait on it.
     @Test func configurationBuildsWithoutTheRTCExecutor() async throws {

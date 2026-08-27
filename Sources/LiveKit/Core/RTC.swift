@@ -68,6 +68,18 @@ actor RTC {
         return try queue.sync(execute: body)
     }
 
+    /// Releases `objects` on the RTC executor. Dropping the last reference to a libwebrtc proxy
+    /// runs its destructor on the signaling thread — a blocking call like any other — so holders
+    /// hand their WebRTC objects here from `deinit` instead of releasing them in place.
+    static func park(_ objects: [AnyObject]) {
+        nonisolated(unsafe) let objects = objects
+        Task { @RTC in _ = objects }
+    }
+
+    static func park(_ object: AnyObject) {
+        park([object])
+    }
+
     struct PeerConnectionFactoryState {
         var isInitialized: Bool = false
         var admType: AudioDeviceModuleType = .audioEngine

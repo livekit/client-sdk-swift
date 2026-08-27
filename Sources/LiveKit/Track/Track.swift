@@ -128,6 +128,18 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
 
     private let _startStopSerialRunner = SerialRunnerActor<Void>()
 
+    deinit {
+        var held: [AnyObject] = [mediaTrack]
+        _state.read {
+            if let sender = $0.rtpSender { held.append(sender) }
+            if let receiver = $0.rtpReceiver { held.append(receiver) }
+            for sender in $0.rtpSenderForCodec.values {
+                held.append(sender)
+            }
+        }
+        RTC.park(held)
+    }
+
     init(name: String,
          kind: Kind,
          source: Source,

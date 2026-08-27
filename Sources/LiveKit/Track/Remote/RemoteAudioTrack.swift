@@ -61,9 +61,10 @@ public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @
     }
 
     deinit {
-        if let audioTrack = mediaTrack as? LKRTCAudioTrack {
-            audioTrack.remove(_adapter)
-        }
+        guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
+        // removeRenderer blocks on the worker thread; Track's deinit parks the track itself right after.
+        nonisolated(unsafe) let adapter = _adapter
+        Task { @RTC in audioTrack.remove(adapter) }
     }
 
     public func add(audioRenderer: AudioRenderer) {
