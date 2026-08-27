@@ -32,4 +32,16 @@ final class DispatchQueueExecutor: SerialExecutor {
     func asUnownedSerialExecutor() -> UnownedSerialExecutor {
         UnownedSerialExecutor(ordinary: self)
     }
+
+    // The runtime's isolation check on iOS 18 / macOS 15-era runtimes (e.g. Xcode 16.4) routes
+    // here; without an override the stdlib default traps unconditionally ("Unexpected isolation
+    // context, expected to be executing on DispatchQueueExecutor"). This passes when the caller is
+    // genuinely on the queue and traps only on a real violation. The `@available` matches the
+    // requirement — below these versions the hook does not exist and the runtime never calls it;
+    // newer runtimes (macOS 26+) query the non-trapping `isIsolatingCurrentContext()` default and
+    // never reach this at all.
+    @available(macOS 15.0, iOS 18.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *)
+    func checkIsolated() {
+        dispatchPrecondition(condition: .onQueue(queue))
+    }
 }
