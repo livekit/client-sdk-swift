@@ -27,9 +27,15 @@ struct E2EEThreadTests {
     // Attempt to crash LKRTCFrameCryptor initialization
     @Test func createFrameCryptor() async throws {
         // Create peerConnection
-        nonisolated(unsafe) let peerConnection = RTC.peerConnectionFactory.peerConnection(with: .liveKitDefault(),
-                                                                                          constraints: .defaultPCConstraints,
-                                                                                          delegate: nil)
+        // Boxed rather than captured directly: LKRTCPeerConnection is not Sendable, and Swift 6.1
+        // does not credit `nonisolated(unsafe)` locals when checking `sending` closures.
+        final class Box: @unchecked Sendable {
+            let pc: LKRTCPeerConnection?
+            init(_ pc: LKRTCPeerConnection?) { self.pc = pc }
+        }
+        let box = Box(RTC.peerConnectionFactory.peerConnection(with: .liveKitDefault(),
+                                                               constraints: .defaultPCConstraints,
+                                                               delegate: nil))
 
         let keyprovider = LKRTCFrameCryptorKeyProvider()
 
@@ -41,13 +47,13 @@ struct E2EEThreadTests {
                     try await Task.sleep(nanoseconds: ns)
 
                     // Create a sender
-                    guard let sender = peerConnection?.addTransceiver(of: .video)?.sender else {
+                    guard let sender = box.pc?.addTransceiver(of: .video)?.sender else {
                         Issue.record("Failed to create transceiver")
                         return nil
                     }
 
                     // Remove sender from pc
-                    peerConnection?.removeTrack(sender)
+                    box.pc?.removeTrack(sender)
 
                     // sender.track will be nil at this point.
                     // Causing crashes in previous WebRTC versions. (patched in 114.5735.19)
@@ -62,6 +68,6 @@ struct E2EEThreadTests {
             try await group.waitForAll()
         }
 
-        peerConnection?.close()
+        box.pc?.close()
     }
 }
