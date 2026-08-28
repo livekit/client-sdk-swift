@@ -573,7 +573,7 @@ extension LocalParticipant {
             try await room.publisherShouldNegotiate()
         } catch {
             track._state.mutate { $0.rtpSenderForCodec[videoCodec] = nil }
-            try? await publisher.remove(track: sender)
+            await rollback(sender: sender, publisher: publisher, room: room)
             throw error
         }
     }
@@ -812,7 +812,10 @@ extension LocalParticipant {
             return publication
         } catch {
             log("[publish] failed \(track), error: \(error)", .error)
-            await rollbackPublish(of: track, publisher: publisher, room: room)
+            if let sender = track._state.read({ $0.transport === publisher ? $0.rtpSender : nil }) {
+                await rollback(sender: sender, publisher: publisher, room: room)
+                await track.set(transport: nil, rtpSender: nil)
+            }
             // Stop track when publish fails
             try await track.stop()
             // Rethrow
@@ -823,15 +826,13 @@ extension LocalParticipant {
     // The server only learns about a track going away through renegotiation, so a publish that
     // fails after the sender was attached has to detach it or the SFU keeps the track alive
     // with no local publication to mute or unpublish it.
-    private func rollbackPublish(of track: LocalTrack, publisher: Transport, room: Room) async {
-        guard let sender = track._state.read({ $0.transport === publisher ? $0.rtpSender : nil }) else { return }
+    private func rollback(sender: RTCSender, publisher: Transport, room: Room) async {
         do {
             try await publisher.remove(track: sender)
             try await room.publisherShouldNegotiate()
         } catch {
             log("[publish] failed to roll back sender, error: \(error)", .warning)
         }
-        await track.set(transport: nil, rtpSender: nil)
     }
 
     private func checkPermissions(toPublish track: LocalTrack) throws {
