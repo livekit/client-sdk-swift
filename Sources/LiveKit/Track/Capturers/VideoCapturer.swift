@@ -298,6 +298,8 @@ extension VideoCapturer {
             return
         }
 
+        // LKRTCVideoCapturer is a non-Sendable token handed straight back to the delegate.
+        nonisolated(unsafe) let capturer = capturer
         processingQueue.async { [weak self] in
             guard let self else { return }
 

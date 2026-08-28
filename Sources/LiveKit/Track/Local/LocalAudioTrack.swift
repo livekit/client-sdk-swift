@@ -54,9 +54,26 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
         }
     }
 
+    @available(*, deprecated, message: "Blocks the calling thread until WebRTC's factory responds; use the async variant instead.")
     public static func createTrack(name: String = Track.microphoneName,
                                    options: AudioCaptureOptions? = nil,
                                    reportStatistics: Bool = false) -> LocalAudioTrack
+    {
+        _createTrack(name: name, options: options, reportStatistics: reportStatistics)
+    }
+
+    /// Creates a microphone track on the RTC executor: the calling task suspends instead of
+    /// blocking its thread on WebRTC's factory.
+    public static func createTrack(name: String = Track.microphoneName,
+                                   options: AudioCaptureOptions? = nil,
+                                   reportStatistics: Bool = false) async -> LocalAudioTrack
+    {
+        await RTC.run { _createTrack(name: name, options: options, reportStatistics: reportStatistics) }
+    }
+
+    static func _createTrack(name: String,
+                             options: AudioCaptureOptions?,
+                             reportStatistics: Bool) -> LocalAudioTrack
     {
         let options = options ?? AudioCaptureOptions()
 

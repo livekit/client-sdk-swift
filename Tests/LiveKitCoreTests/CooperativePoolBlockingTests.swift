@@ -151,7 +151,7 @@ private final class SignalingThreadWedge: NSObject, LKRTCPeerConnectionDelegate,
                                                                                    delegate: wedge))
         wedge.peerConnection = peerConnection
         if afterCreatingDataChannel {
-            wedge.dataChannel = try #require(peerConnection.dataChannel(forLabel: "wedge", configuration: .init()))
+            wedge.dataChannel = peerConnection.dataChannel(forLabel: "wedge", configuration: .init())
         }
         let offer = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<LKRTCSessionDescription, Error>) in
             peerConnection.offer(for: .defaultPCConstraints) { sd, error in

@@ -120,7 +120,7 @@ import LKObjCHelpers
                 audioFrameConfirm()
             }
 
-            let localMicTrack = LocalAudioTrack.createTrack()
+            let localMicTrack = await LocalAudioTrack.createTrack()
             localMicTrack.add(audioRenderer: audioFrameWatcher)
 
             let recordingTask = Task {
@@ -161,7 +161,7 @@ import LKObjCHelpers
         let recorder = try TestAudioRecorder()
 
         // Note: AudioCaptureOptions will not be applied since track is not published.
-        let track = LocalAudioTrack.createTrack(options: .noProcessing)
+        let track = await LocalAudioTrack.createTrack(options: .noProcessing)
         track.add(audioRenderer: recorder)
 
         // Start engine...
@@ -218,7 +218,7 @@ import LKObjCHelpers
         let recorder = try TestAudioRecorder()
 
         // Note: AudioCaptureOptions will not be applied since track is not published.
-        let track = LocalAudioTrack.createTrack(options: .noProcessing)
+        let track = await LocalAudioTrack.createTrack(options: .noProcessing)
         track.add(audioRenderer: recorder)
 
         // Start engine...

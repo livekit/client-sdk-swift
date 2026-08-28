@@ -35,7 +35,7 @@ import LiveKitWebRTC
 
         let recorder = try TestAudioRecorder()
 
-        let audioTrack = LocalAudioTrack.createTrack()
+        let audioTrack = await LocalAudioTrack.createTrack()
         audioTrack.add(audioRenderer: recorder)
 
         // Start recording

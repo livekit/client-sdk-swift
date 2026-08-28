@@ -164,12 +164,12 @@ actor RTC {
                                              delegate: nil)
     }
 
-    // MARK: - Factory (blocking, public by design)
+    // MARK: - Factory (blocking; serves the deprecated synchronous creators only)
 
-    // Each helper is a signaling-thread BlockingCall reached only through public synchronous
-    // creators (`create*Track`, capturer inits), which block their caller by documented contract.
-    // Internal async paths wrap the whole creator in ``run(_:)``; removing the blocking here means
-    // adding async public creators first.
+    // Each helper is a signaling-thread BlockingCall. Its only remaining callers are the
+    // deprecated synchronous `create*Track` creators, which block their caller by documented
+    // contract; the async creators run the same bodies via ``run(_:)``. Delete these together
+    // with the deprecated creators.
 
     static func createVideoSource(forScreenShare: Bool) -> LKRTCVideoSource {
         blocking { peerConnectionFactory.videoSource(forScreenCast: forScreenShare) }

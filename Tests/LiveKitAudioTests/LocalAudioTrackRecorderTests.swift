@@ -23,7 +23,7 @@ import LiveKitTestSupport
 
 @Suite(.serialized, .tags(.audio)) struct LocalAudioTrackRecorderTests {
     @Test func recording() async throws {
-        let localTrack = LocalAudioTrack.createTrack(options: .noProcessing)
+        let localTrack = await LocalAudioTrack.createTrack(options: .noProcessing)
 
         let recorder = LocalAudioTrackRecorder(
             track: localTrack,
@@ -53,7 +53,7 @@ import LiveKitTestSupport
     }
 
     @Test func recordingWithMaxBufferSize() async throws {
-        let localTrack = LocalAudioTrack.createTrack(options: .noProcessing)
+        let localTrack = await LocalAudioTrack.createTrack(options: .noProcessing)
 
         let maxBufferSize = 5
         let recorder = LocalAudioTrackRecorder(
@@ -84,7 +84,7 @@ import LiveKitTestSupport
     }
 
     @Test func multipleRecorders() async throws {
-        let localTrack = LocalAudioTrack.createTrack(options: .noProcessing)
+        let localTrack = await LocalAudioTrack.createTrack(options: .noProcessing)
 
         let recorder1 = LocalAudioTrackRecorder(
             track: localTrack,
@@ -134,7 +134,7 @@ import LiveKitTestSupport
     }
 
     @Test func objCCompatibility() async {
-        let localTrack = LocalAudioTrack.createTrack(options: .noProcessing)
+        let localTrack = await LocalAudioTrack.createTrack(options: .noProcessing)
 
         let recorder = LocalAudioTrackRecorder(
             track: localTrack,

@@ -460,8 +460,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             }
         } else if enableMicrophone {
             Task {
-                let localTrack = LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
-                                                             reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
+                let localTrack = await LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
+                                                                   reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
                 // Initializes AudioDeviceModule's recording
                 try await localTrack.start()
                 return localTrack

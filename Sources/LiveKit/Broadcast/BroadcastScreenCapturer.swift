@@ -96,10 +96,29 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
 
 public extension LocalVideoTrack {
     /// Creates a track that captures screen capture from a broadcast upload extension
+    @available(*, deprecated, message: "Blocks the calling thread until WebRTC's factory responds; use the async variant instead.")
     static func createBroadcastScreenCapturerTrack(name: String = Track.screenShareVideoName,
                                                    source: Track.Source = .screenShareVideo,
                                                    options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                                                    reportStatistics: Bool = false) -> LocalVideoTrack
+    {
+        _createBroadcastScreenCapturerTrack(name: name, source: source, options: options, reportStatistics: reportStatistics)
+    }
+
+    /// Creates a broadcast screen-share track on the RTC executor: the calling task suspends
+    /// instead of blocking its thread on WebRTC's factory.
+    static func createBroadcastScreenCapturerTrack(name: String = Track.screenShareVideoName,
+                                                   source: Track.Source = .screenShareVideo,
+                                                   options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
+                                                   reportStatistics: Bool = false) async -> LocalVideoTrack
+    {
+        await RTC.run { _createBroadcastScreenCapturerTrack(name: name, source: source, options: options, reportStatistics: reportStatistics) }
+    }
+
+    internal static func _createBroadcastScreenCapturerTrack(name: String,
+                                                             source: Track.Source,
+                                                             options: ScreenShareCaptureOptions,
+                                                             reportStatistics: Bool) -> LocalVideoTrack
     {
         let videoSource = RTC.createVideoSource(forScreenShare: true)
         let capturer = BroadcastScreenCapturer(delegate: videoSource, options: options)
