@@ -92,10 +92,29 @@ public class ARCameraCapturer: VideoCapturer, @unchecked Sendable {
 @available(visionOS 2.0, *)
 public extension LocalVideoTrack {
     /// Creates a track that can directly capture `CVPixelBuffer` or `CMSampleBuffer` for convenience
+    @available(*, deprecated, message: "Blocks the calling thread until WebRTC's factory responds; use the async variant instead.")
     static func createARCameraTrack(name: String = Track.cameraName,
                                     source: Track.Source = .camera,
                                     options: ARCameraCaptureOptions = ARCameraCaptureOptions(),
                                     reportStatistics: Bool = false) -> LocalVideoTrack
+    {
+        _createARCameraTrack(name: name, source: source, options: options, reportStatistics: reportStatistics)
+    }
+
+    /// Creates an AR camera track on the RTC executor: the calling task suspends instead of
+    /// blocking its thread on WebRTC's factory.
+    static func createARCameraTrack(name: String = Track.cameraName,
+                                    source: Track.Source = .camera,
+                                    options: ARCameraCaptureOptions = ARCameraCaptureOptions(),
+                                    reportStatistics: Bool = false) async -> LocalVideoTrack
+    {
+        await RTC.run { _createARCameraTrack(name: name, source: source, options: options, reportStatistics: reportStatistics) }
+    }
+
+    internal static func _createARCameraTrack(name: String,
+                                              source: Track.Source,
+                                              options: ARCameraCaptureOptions,
+                                              reportStatistics: Bool) -> LocalVideoTrack
     {
         let videoSource = RTC.createVideoSource(forScreenShare: false)
         let capturer = ARCameraCapturer(delegate: videoSource, options: options)

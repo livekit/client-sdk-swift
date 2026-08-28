@@ -281,10 +281,31 @@ extension MacOSScreenCapturer: SCStreamOutput {
 @available(macOS 12.3, *)
 public extension LocalVideoTrack {
     @objc
+    @available(*, deprecated, message: "Blocks the calling thread until WebRTC's factory responds; use the async variant instead.")
     static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
                                             source: MacOSScreenCaptureSource,
                                             options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                                             reportStatistics: Bool = false) -> LocalVideoTrack
+    {
+        _createMacOSScreenShareTrack(name: name, source: source, options: options, reportStatistics: reportStatistics)
+    }
+
+    /// Creates a macOS screen-share track on the RTC executor: the calling task suspends
+    /// instead of blocking its thread on WebRTC's factory.
+    static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
+                                            source: MacOSScreenCaptureSource,
+                                            options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
+                                            reportStatistics: Bool = false) async -> LocalVideoTrack
+    {
+        // MacOSScreenCaptureSource is not Sendable; the capturer takes sole ownership on the executor.
+        nonisolated(unsafe) let source = source
+        return await RTC.run { _createMacOSScreenShareTrack(name: name, source: source, options: options, reportStatistics: reportStatistics) }
+    }
+
+    internal static func _createMacOSScreenShareTrack(name: String,
+                                                      source: MacOSScreenCaptureSource,
+                                                      options: ScreenShareCaptureOptions,
+                                                      reportStatistics: Bool) -> LocalVideoTrack
     {
         let videoSource = RTC.createVideoSource(forScreenShare: true)
         let capturer = MacOSScreenCapturer(delegate: videoSource, captureSource: source, options: options)

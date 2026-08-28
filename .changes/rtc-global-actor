@@ -1,0 +1,1 @@
+patch type="fixed" "WebRTC calls that block on libwebrtc's threads now run on a dedicated RTC executor instead of Swift Concurrency's cooperative pool, so a stalled audio device or signaling thread no longer freezes the host app's tasks"

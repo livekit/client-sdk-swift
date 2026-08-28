@@ -101,6 +101,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
             // Mark re-negotiation required...
             try await room.publisherShouldNegotiate()
         }
+        await track.set(transport: nil, rtpSender: nil)
 
         track._state.mutate { $0.rtpSenderForCodec.removeAll() }
 
@@ -228,13 +229,14 @@ public class LocalParticipant: Participant, @unchecked Sendable {
                                                                      trackPermissions: trackPermissions)
     }
 
+    @RTC
     func _set(subscribedQualities qualities: [Livekit_SubscribedQuality], forTrackSid trackSid: Track.Sid) {
         guard let publication = trackPublications[trackSid],
               let track = publication.track as? LocalVideoTrack,
               let sender = track._state.rtpSender
         else { return }
 
-        sender._set(subscribedQualities: qualities)
+        sender.raw._set(subscribedQualities: qualities)
     }
 
     override func set(info: Livekit_ParticipantInfo, connectionState: ConnectionState) {
@@ -445,12 +447,12 @@ public extension LocalParticipant {
             } else if enabled {
                 // Try to create a new track
                 if source == .camera {
-                    let localTrack = LocalVideoTrack.createCameraTrack(options: (captureOptions as? CameraCaptureOptions) ?? room._state.roomOptions.defaultCameraCaptureOptions,
-                                                                       reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+                    let localTrack = await LocalVideoTrack.createCameraTrack(options: (captureOptions as? CameraCaptureOptions) ?? room._state.roomOptions.defaultCameraCaptureOptions,
+                                                                             reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
                     return try await self._publish(track: localTrack, options: publishOptions)
                 } else if source == .microphone {
-                    let localTrack = LocalAudioTrack.createTrack(options: (captureOptions as? AudioCaptureOptions) ?? room._state.roomOptions.defaultAudioCaptureOptions,
-                                                                 reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+                    let localTrack = await LocalAudioTrack.createTrack(options: (captureOptions as? AudioCaptureOptions) ?? room._state.roomOptions.defaultAudioCaptureOptions,
+                                                                       reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
                     return try await self._publish(track: localTrack, options: publishOptions)
                 } else if source == .screenShareVideo {
                     #if os(iOS)
@@ -468,19 +470,19 @@ public extension LocalParticipant {
                             return nil
                         }
                         // Wait until broadcasting to publish track
-                        localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: defaultOptions,
-                                                                                        reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+                        localTrack = await LocalVideoTrack.createBroadcastScreenCapturerTrack(options: defaultOptions,
+                                                                                              reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
                     } else {
                         let options = (captureOptions as? ScreenShareCaptureOptions) ?? defaultOptions
-                        localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
+                        localTrack = await LocalVideoTrack.createInAppScreenShareTrack(options: options)
                     }
                     return try await self._publish(track: localTrack, options: publishOptions)
                     #elseif os(macOS)
                     if #available(macOS 12.3, *) {
                         let mainDisplay = try await MacOSScreenCapturer.mainDisplaySource()
-                        let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
-                                                                                options: (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions,
-                                                                                reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+                        let track = await LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
+                                                                                      options: (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions,
+                                                                                      reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
                         return try await self._publish(track: track, options: publishOptions)
                     }
                     #endif
@@ -505,13 +507,8 @@ extension LocalParticipant {
 
         log("[Publish/Backup] Additional video codec: \(videoCodec)...")
 
-        guard let track = localTrackPublication.track as? LocalVideoTrack else {
-            throw LiveKitError(.invalidState, message: "Track is nil")
-        }
-
-        if !videoCodec.isBackup {
-            throw LiveKitError(.invalidState, message: "Attempted to publish a non-backup video codec as backup")
-        }
+        guard let track = localTrackPublication.track as? LocalVideoTrack else { throw LiveKitError(.invalidState, message: "Track is nil") }
+        guard videoCodec.isBackup else { throw LiveKitError(.invalidState, message: "Attempted to publish a non-backup video codec as backup") }
 
         let publisher = try room.requirePublisher()
 
@@ -528,52 +525,57 @@ extension LocalParticipant {
 
         // Add transceiver first...
 
-        let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
+        // Plain value object, no libwebrtc proxy: nothing to wait on.
+        let transInit = LKRTCRtpTransceiverInit()
         transInit.direction = .sendOnly
         transInit.sendEncodings = encodings
 
         let layers = dimensions.videoLayers(for: encodings)
 
-        // Add transceiver to publisher pc...
-        let transceiver = try await publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
-        log("[Publish] Added transceiver...")
-
-        // Set codec...
-        try transceiver.set(preferredVideoCodec: videoCodec)
-
-        let sender = transceiver.sender
-
         // The backup codec publishes over its own sender, so it needs the same degradation
         // preference the primary sender resolved to.
         let degradationPreference = publishOptions.degradationPreference.resolve(for: track.source)
         log("[Publish/Backup] set degradationPreference to \(degradationPreference)")
-        sender.set(degradationPreference: degradationPreference)
 
-        // Request a new track to the server
-        let trackInfo = try await room.signalClient.sendAddTrack(cid: sender.senderId,
-                                                                 name: track.name,
-                                                                 type: track.kind.toPBType(),
-                                                                 source: track.source.toPBType())
-        {
-            $0.sid = localTrackPublication.sid.stringValue
-            $0.simulcastCodecs = [
-                Livekit_SimulcastCodec.with { sc in
-                    sc.cid = sender.senderId
-                    sc.codec = videoCodec.name
-                },
-            ]
-
-            $0.layers = layers
+        let sender = try await RTC.run {
+            let transceiver = try publisher.addTransceiver(with: track.mediaTrack.raw, transceiverInit: transInit)
+            try transceiver.set(preferredVideoCodec: videoCodec)
+            transceiver.sender.set(degradationPreference: degradationPreference)
+            return RTCSender(transceiver.sender)
         }
+        log("[Publish] Added transceiver...")
 
-        log("[Publish] server responded trackInfo: \(trackInfo)")
+        do {
+            // Request a new track to the server
+            let trackInfo = try await room.signalClient.sendAddTrack(cid: sender.senderId,
+                                                                     name: track.name,
+                                                                     type: track.kind.toPBType(),
+                                                                     source: track.source.toPBType())
+            {
+                $0.sid = localTrackPublication.sid.stringValue
+                $0.simulcastCodecs = [
+                    Livekit_SimulcastCodec.with { sc in
+                        sc.cid = sender.senderId
+                        sc.codec = videoCodec.name
+                    },
+                ]
 
-        sender._set(subscribedQualities: subscribedCodec.qualities)
+                $0.layers = layers
+            }
 
-        // Attach multi-codec sender...
-        track._state.mutate { $0.rtpSenderForCodec[videoCodec] = sender }
+            log("[Publish] server responded trackInfo: \(trackInfo)")
 
-        try await room.publisherShouldNegotiate()
+            await RTC.run { sender.raw._set(subscribedQualities: subscribedCodec.qualities) }
+
+            // Attach multi-codec sender...
+            track._state.mutate { $0.rtpSenderForCodec[videoCodec] = sender }
+
+            try await room.publisherShouldNegotiate()
+        } catch {
+            track._state.mutate { $0.rtpSenderForCodec[videoCodec] = nil }
+            await rollback(sender: sender, publisher: publisher, room: room)
+            throw error
+        }
     }
 }
 
@@ -712,7 +714,8 @@ extension LocalParticipant {
 
             guard let sendEncodings, let populatorFunc else { throw LiveKitError(.invalidState) }
 
-            let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
+            // Plain value object, no libwebrtc proxy: nothing to wait on.
+            let transInit = LKRTCRtpTransceiverInit()
             transInit.direction = .sendOnly
             transInit.sendEncodings = sendEncodings
 
@@ -728,24 +731,26 @@ extension LocalParticipant {
             }
 
             let negotiateFunc: @Sendable () async throws -> Void = {
-                // Add transceiver to pc
-                let transceiver = try await publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
+                let sender = try await RTC.run {
+                    let transceiver = try publisher.addTransceiver(with: track.mediaTrack.raw, transceiverInit: transInit)
+
+                    if track is LocalVideoTrack {
+                        let publishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
+
+                        let degradationPreference = publishOptions.degradationPreference.resolve(for: track.source)
+
+                        self.log("[publish] set degradationPreference to \(degradationPreference)")
+                        transceiver.sender.set(degradationPreference: degradationPreference)
+
+                        if let preferredCodec = publishOptions.preferredCodec {
+                            try transceiver.set(preferredVideoCodec: preferredCodec)
+                        }
+                    }
+                    return RTCSender(transceiver.sender)
+                }
 
                 // Attach sender to track...
-                await track.set(transport: publisher, rtpSender: transceiver.sender)
-
-                if track is LocalVideoTrack {
-                    let publishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
-
-                    let degradationPreference = publishOptions.degradationPreference.resolve(for: track.source)
-
-                    self.log("[publish] set degradationPreference to \(degradationPreference)")
-                    transceiver.sender.set(degradationPreference: degradationPreference)
-
-                    if let preferredCodec = publishOptions.preferredCodec {
-                        try transceiver.set(preferredVideoCodec: preferredCodec)
-                    }
-                }
+                await track.set(transport: publisher, rtpSender: sender)
 
                 try await room.publisherShouldNegotiate()
             }
@@ -769,8 +774,9 @@ extension LocalParticipant {
 
             // At this point at least 1 audio frame should be generated to continue
             if let track = track as? LocalAudioTrack {
-                // Only wait for frames if audio engine is allowed to start
-                if AudioManager.shared.engineAvailability.isInputAvailable {
+                // Only wait for frames if audio engine is allowed to start; reading the device
+                // module's availability waits on WebRTC's worker thread.
+                if await RTC.run({ AudioManager.shared.engineAvailability.isInputAvailable }) {
                     log("[Publish] Waiting for audio frame...")
                     try await track.startWaitingForFrames()
                 }
@@ -806,10 +812,26 @@ extension LocalParticipant {
             return publication
         } catch {
             log("[publish] failed \(track), error: \(error)", .error)
+            if let sender = track._state.read({ $0.transport === publisher ? $0.rtpSender : nil }) {
+                await rollback(sender: sender, publisher: publisher, room: room)
+                await track.set(transport: nil, rtpSender: nil)
+            }
             // Stop track when publish fails
             try await track.stop()
             // Rethrow
             throw error
+        }
+    }
+
+    // The server only learns about a track going away through renegotiation, so a publish that
+    // fails after the sender was attached has to detach it or the SFU keeps the track alive
+    // with no local publication to mute or unpublish it.
+    private func rollback(sender: RTCSender, publisher: Transport, room: Room) async {
+        do {
+            try await publisher.remove(track: sender)
+            try await room.publisherShouldNegotiate()
+        } catch {
+            log("[publish] failed to roll back sender, error: \(error)", .warning)
         }
     }
 

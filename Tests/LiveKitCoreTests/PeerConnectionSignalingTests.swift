@@ -349,7 +349,7 @@ struct PeerConnectionSignalingTests {
             let frame = try #require(TestFrame())
 
             for i in 0 ..< videoCount {
-                let track = LocalVideoTrack.createBufferTrack(name: "video-\(i)")
+                let track = await LocalVideoTrack.createBufferTrack(name: "video-\(i)")
                 let capturer = try #require(track.capturer as? BufferCapturer)
 
                 // Resolve dimensions directly (captured frames resolve them on the

@@ -37,9 +37,8 @@ public final class IceServer: NSObject, Sendable {
 
 extension IceServer {
     func toRTCType() -> LKRTCIceServer {
-        DispatchQueue.liveKitWebRTC.sync { LKRTCIceServer(urlStrings: urls,
-                                                          username: username,
-                                                          credential: credential) }
+        // Plain value object, no libwebrtc proxy: nothing to wait on.
+        LKRTCIceServer(urlStrings: urls, username: username, credential: credential)
     }
 }
 
@@ -47,8 +46,7 @@ extension Livekit_ICEServer {
     func toRTCType() -> LKRTCIceServer {
         let rtcUsername = !username.isEmpty ? username : nil
         let rtcCredential = !credential.isEmpty ? credential : nil
-        return DispatchQueue.liveKitWebRTC.sync { LKRTCIceServer(urlStrings: urls,
-                                                                 username: rtcUsername,
-                                                                 credential: rtcCredential) }
+        // Plain value object, no libwebrtc proxy: nothing to wait on.
+        return LKRTCIceServer(urlStrings: urls, username: rtcUsername, credential: rtcCredential)
     }
 }

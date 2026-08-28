@@ -23,9 +23,32 @@ import LiveKitTestSupport
 
 @Suite(.serialized, .tags(.media, .e2e))
 struct PublishTrackTests {
+    @Test func publishFailureAfterAddTrackRollsBack() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
+            let publisher = rooms[0].localParticipant
+            let publisherIdentity = try #require(publisher.identity)
+            let remote = try #require(rooms[1].remoteParticipants[publisherIdentity])
+
+            let failedTrack = FrameStarvedAudioTrack()
+            await #expect(throws: LiveKitError.self) {
+                try await publisher.publish(audioTrack: failedTrack)
+            }
+            #expect(publisher.audioTracks.isEmpty)
+            #expect(failedTrack._state.rtpSender == nil)
+
+            // A retry must leave exactly one track on the server, not a second one next to an orphan.
+            let publication = try await publisher.publish(audioTrack: TestAudioTrack())
+            let deadline = Date().addingTimeInterval(15)
+            while Date() < deadline, Set(remote.audioTracks.map(\.sid)) != [publication.sid] {
+                try await Task.sleep(nanoseconds: 200_000_000)
+            }
+            #expect(Set(remote.audioTracks.map(\.sid)) == [publication.sid])
+        }
+    }
+
     @Test func publishWithoutPermissions() async throws {
         try await TestEnvironment.withRoom(RoomTestingOptions(canPublish: false)) { room in
-            let audioTrack = LocalAudioTrack.createTrack()
+            let audioTrack = await LocalAudioTrack.createTrack()
 
             await #expect(throws: LiveKitError.self) {
                 try await room.localParticipant.publish(audioTrack: audioTrack)
@@ -35,7 +58,7 @@ struct PublishTrackTests {
 
     @Test func publishWithDisallowedSource() async throws {
         try await TestEnvironment.withRoom(RoomTestingOptions(canPublish: true, canPublishSources: [.camera])) { room in
-            let audioTrack = LocalAudioTrack.createTrack()
+            let audioTrack = await LocalAudioTrack.createTrack()
 
             await #expect(throws: LiveKitError.self) {
                 try await room.localParticipant.publish(audioTrack: audioTrack)

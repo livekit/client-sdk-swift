@@ -77,7 +77,7 @@ struct RepublishTracksTests {
     struct Scenario: Sendable, CustomTestStringConvertible {
         let source: Track.Source
         let capture: CaptureOutcome
-        let makeTrack: @Sendable () -> LocalTrack
+        let makeTrack: @Sendable () async -> LocalTrack
 
         var testDescription: String { String(describing: source) }
     }
@@ -87,13 +87,13 @@ struct RepublishTracksTests {
     @Test(arguments: [
         Scenario(source: .microphone, capture: .noCapturer) { TestAudioTrack() },
         Scenario(source: .camera, capture: .restarted) {
-            LocalVideoTrack.createBufferTrack(name: "camera",
-                                              source: .camera,
-                                              options: BufferCaptureOptions(dimensions: dimensions))
+            await LocalVideoTrack.createBufferTrack(name: "camera",
+                                                    source: .camera,
+                                                    options: BufferCaptureOptions(dimensions: dimensions))
         },
         // createBufferTrack defaults to the screen share name and source
         Scenario(source: .screenShareVideo, capture: .uninterrupted) {
-            LocalVideoTrack.createBufferTrack(options: BufferCaptureOptions(dimensions: dimensions))
+            await LocalVideoTrack.createBufferTrack(options: BufferCaptureOptions(dimensions: dimensions))
         },
     ])
     func fullReconnectRepublishesTrack(scenario: Scenario) async throws {
@@ -102,7 +102,7 @@ struct RepublishTracksTests {
         try await TestEnvironment.withRooms([RoomTestingOptions(delegate: watcher, canPublish: true)]) { rooms in
             let room = rooms[0]
 
-            let track = scenario.makeTrack()
+            let track = await scenario.makeTrack()
             let capturer = (track as? LocalVideoTrack)?.capturer as? BufferCapturer
 
             let stopSpy = CapturerStopSpy()

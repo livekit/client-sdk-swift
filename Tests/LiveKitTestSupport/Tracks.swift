@@ -201,7 +201,18 @@ public class TestAudioTrack: LocalAudioTrack, @unchecked Sendable {
         let source = RTC.createAudioSource(nil)
         let rtcTrack = RTC.createAudioTrack(source: source)
         rtcTrack.isEnabled = true
-        self.init(name: name, source: .microphone, track: rtcTrack, reportStatistics: false, captureOptions: AudioCaptureOptions())
+        self.init(name: name, source: .microphone, track: RTCMediaTrack(rtcTrack), reportStatistics: false, captureOptions: AudioCaptureOptions())
+    }
+}
+
+/// Fails where a real audio track fails when its engine never delivers a frame:
+/// after `AddTrack` and negotiation, before the publication exists.
+public final class FrameStarvedAudioTrack: TestAudioTrack, @unchecked Sendable {
+    override public func startWaitingForFrames() async throws {
+        // Give negotiation time to reach the server so it holds a live publication when
+        // the failure hits, as it does with the real 5s frame-watcher timeout.
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        throw LiveKitError(.timedOut, message: "No audio frames")
     }
 }
 

@@ -25,6 +25,7 @@ extension LKRTCRtpSender: Loggable {
     /// publishing a track needs it applied separately. A backup codec publishes over its own
     /// sender, which would otherwise let WebRTC resolve a preference implicitly from the native
     /// source and diverge from the primary encoder.
+    @RTC
     func set(degradationPreference: LKRTCDegradationPreference) {
         // Changing params directly doesn't work so we need to update params and set it back to sender.parameters
         let _parameters = parameters
@@ -33,6 +34,7 @@ extension LKRTCRtpSender: Loggable {
     }
 
     // ...
+    @RTC
     func _set(subscribedQualities qualities: [Livekit_SubscribedQuality]) {
         let _parameters = parameters
         let encodings = _parameters.encodings

@@ -19,7 +19,7 @@ Pod::Spec.new do |spec|
   spec.pod_target_xcconfig = {"SWIFT_PACKAGE_NAME" => "livekit_client_sdk_swift"}
 
   spec.dependency("LiveKitWebRTC", "= 144.7559.13")
-  spec.dependency("LiveKitUniFFI", "= 0.1.8")
+  spec.dependency("LiveKitUniFFI", "= 0.1.9")
 
   spec.resource_bundles = {"Privacy" => ["Sources/LiveKit/PrivacyInfo.xcprivacy"]}
 end

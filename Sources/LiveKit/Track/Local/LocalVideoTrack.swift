@@ -22,7 +22,9 @@ internal import LiveKitWebRTC
 public class LocalVideoTrack: Track, LocalTrackProtocol, @unchecked Sendable {
     public internal(set) var capturer: VideoCapturer
 
-    var videoSource: LKRTCVideoSource
+    // The owning reference: the capturer holds its delegate weakly. Boxed so the source's blocking
+    // release is parked and its raw pointer cannot be used off the executor.
+    private let videoSourceBox: RTCBox<LKRTCVideoSource>
 
     init(name: String,
          source: Track.Source,
@@ -34,12 +36,12 @@ public class LocalVideoTrack: Track, LocalTrackProtocol, @unchecked Sendable {
         rtcTrack.isEnabled = true
 
         self.capturer = capturer
-        self.videoSource = videoSource
+        videoSourceBox = RTCBox(videoSource)
 
         super.init(name: name,
                    kind: .video,
                    source: source,
-                   track: rtcTrack,
+                   track: RTCMediaTrack(rtcTrack),
                    reportStatistics: reportStatistics)
     }
 
@@ -87,7 +89,18 @@ public extension LocalVideoTrack {
 
 public extension LocalVideoTrack {
     /// Clone with same ``VideoCapturer``.
+    @available(*, deprecated, message: "Blocks the calling thread until WebRTC's factory responds; use the async variant instead.")
     func clone() -> LocalVideoTrack {
+        videoSourceBox.blocking { _clone(videoSource: $0) }
+    }
+
+    /// Clones with the same ``VideoCapturer`` on the RTC executor: the calling task suspends
+    /// instead of blocking its thread on WebRTC's factory.
+    func clone() async -> LocalVideoTrack {
+        await RTC.run { _clone(videoSource: videoSourceBox.value) }
+    }
+
+    internal func _clone(videoSource: LKRTCVideoSource) -> LocalVideoTrack {
         LocalVideoTrack(name: name,
                         source: source,
                         capturer: capturer,

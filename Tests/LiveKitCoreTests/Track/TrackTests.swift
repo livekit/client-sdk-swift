@@ -26,7 +26,7 @@ class TestTrack: LocalAudioTrack, @unchecked Sendable {
     init() {
         let source = RTC.createAudioSource(nil)
         let _track = RTC.createAudioTrack(source: source)
-        super.init(name: "test_audio_track", source: .microphone, track: _track, reportStatistics: false, captureOptions: AudioCaptureOptions())
+        super.init(name: "test_audio_track", source: .microphone, track: RTCMediaTrack(_track), reportStatistics: false, captureOptions: AudioCaptureOptions())
     }
 
     override func startCapture() async throws {

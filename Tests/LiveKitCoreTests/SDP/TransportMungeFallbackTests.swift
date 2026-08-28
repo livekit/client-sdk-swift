@@ -27,8 +27,8 @@ struct TransportMungeFallbackTests {
         func transport(_: Transport, didUpdateState _: LKRTCPeerConnectionState) {}
         func transport(_: Transport, didGenerateIceCandidate _: IceCandidate) {}
         func transport(_: Transport, didOpenDataChannel _: LKRTCDataChannel) {}
-        func transport(_: Transport, didAddTrack _: LKRTCMediaStreamTrack, rtpReceiver _: LKRTCRtpReceiver, streams _: [LKRTCMediaStream]) {}
-        func transport(_: Transport, didRemoveTrack _: LKRTCMediaStreamTrack) {}
+        func transport(_: Transport, didAddTrack _: RTCMediaTrack, rtpReceiver _: RTCReceiver, streamIds _: [String]) {}
+        func transport(_: Transport, didRemoveTrackWithId _: String) {}
         func transportShouldNegotiate(_: Transport) {}
     }
 
@@ -37,14 +37,14 @@ struct TransportMungeFallbackTests {
     /// when `body` throws so a failed test doesn't leak a peer connection into the
     /// rest of the parallel run.
     private func withTransport(_ body: (Transport) async throws -> Void) async throws {
-        let transport = try Transport(config: .liveKitDefault(),
-                                      target: .publisher,
-                                      primary: true,
-                                      delegate: StubTransportDelegate())
+        let transport = try await Transport(config: .liveKitDefault(),
+                                            target: .publisher,
+                                            primary: true,
+                                            delegate: StubTransportDelegate())
         do {
             let transceiverInit = LKRTCRtpTransceiverInit()
             transceiverInit.direction = .recvOnly
-            _ = try await transport.addTransceiver(ofType: .audio, transceiverInit: transceiverInit)
+            try await RTC.run { _ = try transport.addTransceiver(ofType: .audio, transceiverInit: transceiverInit) }
             try await body(transport)
         } catch {
             await transport.close()

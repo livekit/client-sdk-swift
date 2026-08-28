@@ -20,7 +20,8 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-actor Transport: NSObject, Loggable {
+@RTC
+final class Transport: NSObject, Loggable {
     // MARK: - Types
 
     typealias OnOfferBlock = @Sendable (LKRTCSessionDescription, UInt32) async throws -> Void
@@ -61,23 +62,28 @@ actor Transport: NSObject, Loggable {
     private var _isRestartingIce: Bool = false
     private var _latestOfferId: UInt32 = 0
 
-    // forbid direct access to PeerConnection
-    private let _pc: LKRTCPeerConnection
+    // forbid direct access to PeerConnection; the box parks its blocking release on deinit
+    private let _pcBox: RTCBox<LKRTCPeerConnection>
+
+    @RTC private var _pc: LKRTCPeerConnection { _pcBox.value }
 
     private lazy var _iceCandidatesQueue = QueueActor<IceCandidate>(onProcess: { [weak self] iceCandidate in
         guard let self else { return }
 
         do {
-            let rtcCandidate = iceCandidate.toRTCType()
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                self._pc.add(rtcCandidate) { error in
-                    if let error { continuation.resume(throwing: error) } else { continuation.resume() }
-                }
-            }
+            try await add(rtcCandidate: iceCandidate.toRTCType())
         } catch {
             log("Failed to add(iceCandidate:) with error: \(error)", .error)
         }
     })
+
+    private func add(rtcCandidate: LKRTCIceCandidate) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            _pc.add(rtcCandidate) { @Sendable error in
+                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+            }
+        }
+    }
 
     init(config: LKRTCConfiguration,
          target: Livekit_SignalTarget,
@@ -94,7 +100,7 @@ actor Transport: NSObject, Loggable {
         self.target = target
         isPrimary = primary
         self.singlePCMode = singlePCMode
-        _pc = pc
+        _pcBox = RTCBox(pc)
 
         super.init()
         log()
@@ -143,7 +149,7 @@ actor Transport: NSObject, Loggable {
 
     func set(remoteDescription sd: LKRTCSessionDescription) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            _pc.setRemoteDescription(sd) { error in
+            _pc.setRemoteDescription(sd) { @Sendable error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else {
@@ -229,7 +235,7 @@ extension Transport {
     /// Munge SDP to change `a=inactive` to `a=recvonly` for RTP media m-lines in single PC mode.
     /// WebRTC can generate inactive direction even when transceivers were configured as recvonly.
     /// Only rewrites RTP m-sections — non-RTP sections (e.g. data channel `m=application`) are preserved.
-    static func mungeInactiveToRecvOnlyForMedia(_ sdp: String) -> String {
+    nonisolated static func mungeInactiveToRecvOnlyForMedia(_ sdp: String) -> String {
         var document = SDP(parsing: sdp)
         for index in document.mediaSections.indices {
             let section = document.mediaSections[index]
@@ -252,7 +258,7 @@ extension Transport {
     /// Sections are matched by mid rather than by position, and the Opus payload type is
     /// resolved independently in each document, so an answerer that reorders or renumbers
     /// still lands the parameter on the right section.
-    static func mungeOpusStereo(_ sdp: String, matchingOffer offer: String) -> String {
+    nonisolated static func mungeOpusStereo(_ sdp: String, matchingOffer offer: String) -> String {
         let stereoMids = Set(SDP(parsing: offer).mediaSections.compactMap { section -> String? in
             guard section.mediaType == "audio",
                   let mid = section.mid,
@@ -282,7 +288,7 @@ extension Transport {
     /// both sides agree ([RFC 4585 §4.2](https://datatracker.ietf.org/doc/html/rfc4585#section-4.2)).
     /// This mirrors `ensureAudioNackAndStereo()` in client-sdk-js, with the same
     /// mid-and-payload matching as ``mungeOpusStereo(_:matchingOffer:)``.
-    static func mungeOpusNack(_ sdp: String, matchingOffer offer: String) -> String {
+    nonisolated static func mungeOpusNack(_ sdp: String, matchingOffer offer: String) -> String {
         let nackMids = Set(SDP(parsing: offer).mediaSections.compactMap { section -> String? in
             guard section.mediaType == "audio",
                   let mid = section.mid,
@@ -311,7 +317,7 @@ extension Transport {
     /// local offer) and rust-sdks (`munge_stereo_for_audio`). Dual-PC offers don't take
     /// this path: receive negotiation happens in the subscriber answer munge above, and a
     /// publisher offer's send-only sections gain nothing from a receive preference.
-    static func mungeOpusStereoForAllAudio(_ sdp: String) -> String {
+    nonisolated static func mungeOpusStereoForAllAudio(_ sdp: String) -> String {
         var document = SDP(parsing: sdp)
         for index in document.mediaSections.indices {
             let section = document.mediaSections[index]
@@ -354,17 +360,19 @@ extension Transport {
 // MARK: - Stats
 
 extension Transport {
-    func statistics(for sender: LKRTCRtpSender) async -> LKRTCStatisticsReport {
-        await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport, Never>) in
-            _pc.statistics(for: sender) { sd in
+    func statistics(for sender: RTCSender) async -> LKRTCStatisticsReport {
+        let raw = sender.raw
+        return await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport, Never>) in
+            _pc.statistics(for: raw) { @Sendable sd in
                 continuation.resume(returning: sd)
             }
         }
     }
 
-    func statistics(for receiver: LKRTCRtpReceiver) async -> LKRTCStatisticsReport {
-        await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport, Never>) in
-            _pc.statistics(for: receiver) { sd in
+    func statistics(for receiver: RTCReceiver) async -> LKRTCStatisticsReport {
+        let raw = receiver.raw
+        return await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport, Never>) in
+            _pc.statistics(for: raw) { @Sendable sd in
                 continuation.resume(returning: sd)
             }
         }
@@ -380,7 +388,9 @@ extension Transport: LKRTCPeerConnectionDelegate {
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didGenerate candidate: LKRTCIceCandidate) {
-        _delegate.notify { $0.transport(self, didGenerateIceCandidate: candidate.toLKType()) }
+        // Convert on the signaling thread so the raw candidate never crosses isolation.
+        let iceCandidate = candidate.toLKType()
+        _delegate.notify { $0.transport(self, didGenerateIceCandidate: iceCandidate) }
     }
 
     nonisolated func peerConnectionShouldNegotiate(_: LKRTCPeerConnection) {
@@ -395,7 +405,12 @@ extension Transport: LKRTCPeerConnectionDelegate {
         }
 
         log("type: \(type(of: track)), track.id: \(track.trackId), streams: \(streams.map { "Stream(hash: \($0.hash), id: \($0.streamId), videoTracks: \($0.videoTracks.count), audioTracks: \($0.audioTracks.count))" })")
-        _delegate.notify { $0.transport(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: streams) }
+        let receiver = RTCReceiver(rtpReceiver)
+        let mediaTrack = RTCMediaTrack(track)
+        // Only the ids travel on: the streams' blocking proxy destructors run here, on the
+        // signaling thread, instead of wherever the delegate pipeline drops them.
+        let streamIds = streams.map(\.streamId)
+        _delegate.notify { $0.transport(self, didAddTrack: mediaTrack, rtpReceiver: receiver, streamIds: streamIds) }
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didRemove rtpReceiver: LKRTCRtpReceiver) {
@@ -404,8 +419,11 @@ extension Transport: LKRTCPeerConnectionDelegate {
             return
         }
 
-        log("didRemove track: \(track.trackId)")
-        _delegate.notify { $0.transport(self, didRemoveTrack: track) }
+        // Only the id travels on: nothing downstream needs the proxy, and boxing it here would
+        // add a release to park for a track that is already gone.
+        let trackId = track.trackId
+        log("didRemove track: \(trackId)")
+        _delegate.notify { $0.transport(self, didRemoveTrackWithId: trackId) }
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didOpen dataChannel: LKRTCDataChannel) {
@@ -431,7 +449,7 @@ extension Transport {
                                                      optionalConstraints: nil)
 
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<LKRTCSessionDescription, Error>) in
-            _pc.offer(for: mediaConstraints) { sd, error in
+            _pc.offer(for: mediaConstraints) { @Sendable sd, error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else if let sd {
@@ -448,7 +466,7 @@ extension Transport {
                                                      optionalConstraints: nil)
 
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<LKRTCSessionDescription, Error>) in
-            _pc.answer(for: mediaConstraints) { sd, error in
+            _pc.answer(for: mediaConstraints) { @Sendable sd, error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else if let sd {
@@ -462,7 +480,7 @@ extension Transport {
 
     func set(localDescription sd: LKRTCSessionDescription) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            _pc.setLocalDescription(sd) { error in
+            _pc.setLocalDescription(sd) { @Sendable error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else {
@@ -492,12 +510,13 @@ extension Transport {
         return transceiver
     }
 
-    func remove(track sender: LKRTCRtpSender) throws {
-        guard _pc.removeTrack(sender) else {
+    func remove(track sender: RTCSender) throws {
+        let raw = sender.raw
+        guard _pc.removeTrack(raw) else {
             throw LiveKitError(.webRTC, message: "Failed to remove track")
         }
 
-        releaseTransceiver(sender: sender)
+        releaseTransceiver(sender: raw)
     }
 
     // Try to stop the transceiver and free the resources
