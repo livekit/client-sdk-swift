@@ -38,7 +38,7 @@ struct PublishBufferCapturerTests {
 
             let targetDimensions: Dimensions = .h720_169
 
-            let bufferTrack = LocalVideoTrack.createBufferTrack(
+            let bufferTrack = await LocalVideoTrack.createBufferTrack(
                 options: BufferCaptureOptions(dimensions: targetDimensions),
             )
 

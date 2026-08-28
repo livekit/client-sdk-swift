@@ -1,0 +1,1 @@
+minor type="added" "Async variants of every local track creator (createTrack, createCameraTrack, createBufferTrack, createARCameraTrack, and the screen-share creators) that run WebRTC factory work on the RTC executor instead of blocking the calling thread; the synchronous variants are deprecated"

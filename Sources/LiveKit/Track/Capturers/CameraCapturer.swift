@@ -193,7 +193,8 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         }
 
         // list of all formats in order of dimensions size
-        let formats = DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer.supportedFormats(for: device) }
+        // AVFoundation query (`device.formats`), no libwebrtc proxy: nothing to wait on.
+        let formats = LKRTCCameraVideoCapturer.supportedFormats(for: device)
         // create an array of sorted touples by dimensions size
         let sortedFormats = formats.map { (format: $0, dimensions: Dimensions(from: CMVideoFormatDescriptionGetDimensions($0.formatDescription))) }
             .sorted { $0.dimensions.area < $1.dimensions.area }
@@ -348,16 +349,39 @@ class VideoCapturerDelegateAdapter: NSObject, LKRTCVideoCapturerDelegate, Loggab
 }
 
 public extension LocalVideoTrack {
+    @available(*, deprecated, message: "Blocks the calling thread until WebRTC's factory responds; use the async variant instead.")
     @objc
     static func createCameraTrack() -> LocalVideoTrack {
-        createCameraTrack(name: nil, options: nil)
+        _createCameraTrack(name: nil, options: nil, reportStatistics: false, processor: nil)
     }
 
+    @available(*, deprecated, message: "Blocks the calling thread until WebRTC's factory responds; use the async variant instead.")
     @objc
     static func createCameraTrack(name: String? = nil,
                                   options: CameraCaptureOptions? = nil,
                                   reportStatistics: Bool = false,
                                   processor: VideoProcessor? = nil) -> LocalVideoTrack
+    {
+        _createCameraTrack(name: name, options: options, reportStatistics: reportStatistics, processor: processor)
+    }
+
+    /// Creates a camera track on the RTC executor: the calling task suspends instead of
+    /// blocking its thread on WebRTC's factory.
+    @objc
+    static func createCameraTrack(name: String? = nil,
+                                  options: CameraCaptureOptions? = nil,
+                                  reportStatistics: Bool = false,
+                                  processor: VideoProcessor? = nil) async -> LocalVideoTrack
+    {
+        // VideoProcessor is not Sendable; the capturer takes sole ownership on the executor.
+        nonisolated(unsafe) let processor = processor
+        return await RTC.run { _createCameraTrack(name: name, options: options, reportStatistics: reportStatistics, processor: processor) }
+    }
+
+    internal static func _createCameraTrack(name: String?,
+                                            options: CameraCaptureOptions?,
+                                            reportStatistics: Bool,
+                                            processor: VideoProcessor?) -> LocalVideoTrack
     {
         let videoSource = RTC.createVideoSource(forScreenShare: false)
         let capturer = CameraCapturer(delegate: videoSource,

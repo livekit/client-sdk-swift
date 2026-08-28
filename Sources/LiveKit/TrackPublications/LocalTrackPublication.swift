@@ -97,7 +97,7 @@ extension LocalTrackPublication: VideoCapturerDelegate {
     public func capturer(_: VideoCapturer, didUpdate _: Dimensions?) {
         Task.detached {
             await self._debounce.schedule {
-                self.recomputeSenderParameters()
+                await self.recomputeSenderParameters()
             }
         }
     }
@@ -167,6 +167,7 @@ extension LocalTrackPublication {
         }
     }
 
+    @RTC
     func recomputeSenderParameters() {
         guard let track = track as? LocalVideoTrack,
               let sender = track._state.rtpSender else { return }
@@ -179,7 +180,7 @@ extension LocalTrackPublication {
         log("Re-computing sender parameters, dimensions: \(String(describing: track.capturer.dimensions))")
 
         // get current parameters
-        let parameters = sender.parameters
+        let parameters = sender.raw.parameters
 
         guard let participant, let room = participant._room else { return }
         let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
@@ -208,9 +209,10 @@ extension LocalTrackPublication {
         }
 
         // set the updated parameters
-        sender.parameters = parameters
+        sender.raw.parameters = parameters
 
-        log("Using encodings: \(sender.parameters.encodings), degradationPreference: \(String(describing: sender.parameters.degradationPreference))")
+        // Logged from the local copy: each `parameters` read is another signaling-thread round-trip.
+        log("Using encodings: \(parameters.encodings), degradationPreference: \(String(describing: parameters.degradationPreference))")
 
         // Report updated encodings to server
 

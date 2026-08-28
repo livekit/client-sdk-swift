@@ -81,13 +81,17 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     public func startRecording(timeout: TimeInterval = Constants.timeout, recorder: LocalAudioTrackRecorder? = nil) async throws {
         let timeout = timeout.isFinite ? min(max(timeout, 0), 86400) : Constants.timeout
         let roomOptions = room?._state.roomOptions
-        let newRecorder = recorder ?? LocalAudioTrackRecorder(
-            track: LocalAudioTrack.createTrack(options: roomOptions?.defaultAudioCaptureOptions,
-                                               reportStatistics: roomOptions?.reportRemoteTrackStatistics ?? false),
-            format: .pcmFormatInt16,
-            sampleRate: Constants.sampleRate,
-            maxSize: Constants.maxSize,
-        )
+        let newRecorder: LocalAudioTrackRecorder
+        if let recorder {
+            newRecorder = recorder
+        } else {
+            let track = await LocalAudioTrack.createTrack(options: roomOptions?.defaultAudioCaptureOptions,
+                                                          reportStatistics: roomOptions?.reportRemoteTrackStatistics ?? false)
+            newRecorder = LocalAudioTrackRecorder(track: track,
+                                                  format: .pcmFormatInt16,
+                                                  sampleRate: Constants.sampleRate,
+                                                  maxSize: Constants.maxSize)
+        }
 
         let stream = try await newRecorder.start()
         log("Started capturing audio", .info)

@@ -93,16 +93,34 @@ Key files:
 
 Threading:
 
-- All WebRTC API calls must use `DispatchQueue.liveKitWebRTC.sync { ... }` for thread safety
-- Exception: the data-channel send path (`sendData`, `readyState`, `LKRTCDataBuffer` construction)
-  may be called off-queue — those calls are internally proxied by libwebrtc (`PROXY_SECONDARY_*`
-  does a `BlockingCall` onto the network thread; `state` is `BYPASS`; the buffer init is a plain
-  byte container), so the queue would only serialize what is already safe
-- Thread-safety is not liveness: proxied calls that can *block* on WebRTC's internal threads
-  (`close`, and the `LKRTCDataChannel` **deinit**, which blocks on the signaling thread) must not
-  run on Swift Concurrency's width-limited cooperative pool — park them on the queue
-  (`parkChannelRelease`); a stalled signaling thread once wedged six loop threads and deadlocked
-  the process on CI simulators
+- libwebrtc's API objects are proxies: every call — and the release of the last reference — is a
+  `BlockingCall` onto WebRTC's signaling/worker/network thread, which can stall. libwebrtc
+  serializes those calls itself; the SDK adds no caller-side serialization for thread safety
+- Thread-safety is not liveness: a blocking WebRTC call must never run on Swift Concurrency's
+  width-limited cooperative pool. It runs inside the `@RTC` global actor (`Core/RTC.swift`), whose
+  executor is a private dispatch queue that is allowed to block. `Transport` is `@RTC`-isolated;
+  other async code wraps such calls in `await RTC.run { }`. `DispatchQueue.liveKitWebRTC` is
+  deprecated public API
+- Releases and teardown (`deinit`, `parkChannelRelease`) go to `RTC.park`, which runs them on a
+  *concurrent* queue — not the serial `@RTC` executor. A release flood is a flood of blocking
+  destructors; routing it through the one serial executor head-of-lines all other RTC work and
+  wedged CI under the sanitizers
+- Public synchronous APIs that reach WebRTC (the deprecated `create*Track` creators, `AudioManager`,
+  `volume`, renderer attach) block their caller by documented contract — say so in the docstring;
+  new API should be `async` and hop instead
+- The `@RTC` executor carries no priority: every hop runs at the queue's `.default` QoS
+- Exception, by design: the data-channel send path (`sendData`, `readyState`, `LKRTCDataBuffer`
+  construction) is `nonisolated` — it is per-packet and latency-sensitive; `sendData` blocks only on
+  the network thread (`PROXY_SECONDARY_*`), `readyState` is `BYPASS`, the buffer init is a plain
+  byte container
+- Do not enable the `NonisolatedNonsendingByDefault` upcoming feature (SE-0461) without auditing the
+  `@RTC` callers first: under it a `nonisolated async` function runs on its caller's executor, so
+  the `Room` methods `@RTC Transport` awaits — negotiation, signal sends — would start running on
+  the WebRTC queue. Those would each need `@concurrent`, which is Swift 6.2 and so needs a
+  `#if compiler(>=6.2)` guard at the current floor
+- Completion handlers written inside `@RTC` code must be `@Sendable`: a non-Sendable closure
+  inherits `@RTC` isolation, and WebRTC invokes it on its own threads — Swift 6.1-built binaries
+  enforce that in the closure prologue and trap (Xcode 16.4 CI caught exactly this)
 - WebRTC types are accessed via `internal import LiveKitWebRTC` to keep them private from public API
 
 ## Testing

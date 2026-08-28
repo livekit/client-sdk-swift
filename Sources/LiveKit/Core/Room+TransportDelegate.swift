@@ -79,8 +79,8 @@ extension Room: TransportDelegate {
         }
     }
 
-    func transport(_ transport: Transport, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream]) {
-        guard !streams.isEmpty else {
+    func transport(_ transport: Transport, didAddTrack track: RTCMediaTrack, rtpReceiver: RTCReceiver, streamIds: [String]) {
+        guard let streamId = streamIds.first else {
             log("Received onTrack with no streams!", .warning)
             return
         }
@@ -94,16 +94,16 @@ extension Room: TransportDelegate {
         { [weak self] in
             guard let self else { return }
             Task {
-                await self.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!)
+                await self.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, streamId: streamId)
             }
         }
     }
 
-    func transport(_ transport: Transport, didRemoveTrack track: LKRTCMediaStreamTrack) {
+    func transport(_ transport: Transport, didRemoveTrackWithId trackId: String) {
         guard transport.target == _state.transport?.subscriber.target else { return }
 
         Task {
-            await engine(self, didRemoveTrack: track)
+            await engine(self, didRemoveTrackWithId: trackId)
         }
     }
 

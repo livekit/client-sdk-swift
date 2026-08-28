@@ -201,7 +201,7 @@ public class TestAudioTrack: LocalAudioTrack, @unchecked Sendable {
         let source = RTC.createAudioSource(nil)
         let rtcTrack = RTC.createAudioTrack(source: source)
         rtcTrack.isEnabled = true
-        self.init(name: name, source: .microphone, track: rtcTrack, reportStatistics: false, captureOptions: AudioCaptureOptions())
+        self.init(name: name, source: .microphone, track: RTCMediaTrack(rtcTrack), reportStatistics: false, captureOptions: AudioCaptureOptions())
     }
 }
 

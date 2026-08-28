@@ -20,6 +20,7 @@ internal import LiveKitWebRTC
 
 extension LKRTCRtpTransceiver: Loggable {
     /// Attempts to set preferred video codec.
+    @RTC
     func set(preferredVideoCodec codec: VideoCodec, exceptCodec: VideoCodec? = nil) throws {
         // Get list of supported codecs...
         let allVideoCodecs = RTC.videoSenderCapabilities.codecs

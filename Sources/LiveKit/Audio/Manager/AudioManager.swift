@@ -97,7 +97,12 @@ public final class SessionRequirementHandle: @unchecked Sendable {
     }
 }
 
-// Audio Session Configuration related
+/// Configures the SDK's audio engine, devices, and audio session behavior.
+///
+/// - Note: The synchronous methods that reach the audio device module (``startLocalRecording(audioProcessingOptions:)``,
+///   ``stopLocalRecording()``, ``setEngineAvailability(_:)``, device selection, mute modes) wait for WebRTC's worker
+///   thread to apply the change and block the calling thread until it does. They are safe to call from any thread, but
+///   a Swift Concurrency task calling them holds its thread while the audio stack is busy or stalled.
 public class AudioManager: Loggable {
     // MARK: - Public
 

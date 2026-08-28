@@ -42,6 +42,20 @@ custom_rules:
     regex: "@objc(?![(\\[])\\s+(?:(?:public|open|final|internal|package)\\s+)*class\\b"
     message: "Use @objcMembers instead of @objc for classes to implicitly expose members to Objective-C."
     severity: warning
+  webrtc_sendable_in_one_file:
+    name: "WebRTC Sendable Conformance In One File"
+    regex: "extension +LKRTC\\w+ *: *@unchecked"
+    message: "Declare `@unchecked Sendable` on a WebRTC type only in Extensions/Sendable.swift, so every conformance is reviewed in one place. A proxy that has to cross an isolation boundary belongs behind an @RTC facade (RTCSender, RTCReceiver, RTCMediaTrack) instead — the conformance would let its blocking calls be written anywhere."
+    severity: error
+    excluded:
+      - "Sources/LiveKit/Extensions/Sendable\\.swift"
+  no_raw_webrtc_proxy_storage:
+    name: "No Raw WebRTC Proxy Storage"
+    regex: "(let|var) +_?\\w+ *: *LKRTC(PeerConnection|RtpSender|RtpReceiver|RtpTransceiver|MediaStreamTrack|AudioTrack|VideoTrack|VideoSource|DataChannel)\\b\\??(?! *\\{)"
+    message: "Store a libwebrtc proxy in an RTCBox behind an @RTC facade, not as a raw property: every call on it and its last release are BlockingCalls, and a raw property makes them writable from any isolation. See Core/RTCSender.swift."
+    severity: error
+    included:
+      - "Sources/LiveKit/.*\\.swift"
   no_background_qos:
     name: "No Background QoS"
     regex: "(qos:\\s*\\.background\\b|priority:\\s*\\.background\\b|DispatchQoS\\.background\\b|TaskPriority\\.background\\b|qosClass:\\s*\\.background\\b|QOS_CLASS_BACKGROUND)"

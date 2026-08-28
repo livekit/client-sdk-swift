@@ -38,18 +38,19 @@ protocol VideoTrackInternal where Self: Track {
 
 extension VideoTrackProtocol where Self: Track {
     // Update a single SubscribedCodec
+    @RTC
     func _set(subscribedCodec: Livekit_SubscribedCodec) throws -> Bool {
         guard let videoCodec = VideoCodec.from(name: subscribedCodec.codec) else { return false }
 
         // Check if main sender is sending the codec...
         if let rtpSender = _state.rtpSender, videoCodec == _state.videoCodec {
-            rtpSender._set(subscribedQualities: subscribedCodec.qualities)
+            rtpSender.raw._set(subscribedQualities: subscribedCodec.qualities)
             return true
         }
 
         // Find simulcast sender for codec...
         if let rtpSender = _state.rtpSenderForCodec[videoCodec] {
-            rtpSender._set(subscribedQualities: subscribedCodec.qualities)
+            rtpSender.raw._set(subscribedQualities: subscribedCodec.qualities)
             return true
         }
 
@@ -57,6 +58,7 @@ extension VideoTrackProtocol where Self: Track {
     }
 
     // Update an array of SubscribedCodecs
+    @RTC
     func _set(subscribedCodecs: [Livekit_SubscribedCodec]) throws -> [Livekit_SubscribedCodec] {
         var missingCodecs: [Livekit_SubscribedCodec] = []
 

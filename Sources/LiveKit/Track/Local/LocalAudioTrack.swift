@@ -35,7 +35,7 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
 
     init(name: String,
          source: Track.Source,
-         track: LKRTCMediaStreamTrack,
+         track: RTCMediaTrack,
          reportStatistics: Bool,
          captureOptions: AudioCaptureOptions)
     {
@@ -54,9 +54,26 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
         }
     }
 
+    @available(*, deprecated, message: "Blocks the calling thread until WebRTC's factory responds; use the async variant instead.")
     public static func createTrack(name: String = Track.microphoneName,
                                    options: AudioCaptureOptions? = nil,
                                    reportStatistics: Bool = false) -> LocalAudioTrack
+    {
+        _createTrack(name: name, options: options, reportStatistics: reportStatistics)
+    }
+
+    /// Creates a microphone track on the RTC executor: the calling task suspends instead of
+    /// blocking its thread on WebRTC's factory.
+    public static func createTrack(name: String = Track.microphoneName,
+                                   options: AudioCaptureOptions? = nil,
+                                   reportStatistics: Bool = false) async -> LocalAudioTrack
+    {
+        await RTC.run { _createTrack(name: name, options: options, reportStatistics: reportStatistics) }
+    }
+
+    static func _createTrack(name: String,
+                             options: AudioCaptureOptions?,
+                             reportStatistics: Bool) -> LocalAudioTrack
     {
         let options = options ?? AudioCaptureOptions()
 
@@ -72,16 +89,17 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
             "highPassFilterMode": options.highpassFilterMode.toConstraintValue(),
         ]
 
-        let audioConstraints = DispatchQueue.liveKitWebRTC.sync { LKRTCMediaConstraints(mandatoryConstraints: nil,
-                                                                                        optionalConstraints: constraints) }
+        // Plain value object, no libwebrtc proxy: nothing to wait on.
+        let audioConstraints = LKRTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: constraints)
 
         let audioSource = RTC.createAudioSource(audioConstraints)
         let rtcTrack = RTC.createAudioTrack(source: audioSource)
         rtcTrack.isEnabled = true
+        let mediaTrack = RTCMediaTrack(rtcTrack)
 
         return LocalAudioTrack(name: name,
                                source: .microphone,
-                               track: rtcTrack,
+                               track: mediaTrack,
                                reportStatistics: reportStatistics,
                                captureOptions: options)
     }
@@ -102,15 +120,18 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     ///
     /// - Returns: Whether the options were applied immediately or stored for reapplication.
     /// - Throws: ``AudioProcessingOptionsError`` when the options cannot be applied.
+    /// - Note: Blocks the calling thread until WebRTC's signaling thread applies the options.
     @discardableResult
     public func setAudioProcessingOptions(_ options: AudioProcessingOptions) throws -> AudioProcessingOptionsResult {
-        guard let audioTrack = mediaTrack as? LKRTCAudioTrack else {
-            throw AudioProcessingOptionsError(
-                code: .invalidState,
-                message: "Media track is not an audio track",
-            )
+        let result = try mediaTrack.blocking { rawTrack in
+            guard let audioTrack = rawTrack as? LKRTCAudioTrack else {
+                throw AudioProcessingOptionsError(
+                    code: .invalidState,
+                    message: "Media track is not an audio track",
+                )
+            }
+            return try audioTrack.setAudioProcessingOptions(options.toRTCType()).toLKType()
         }
-        let result = try audioTrack.setAudioProcessingOptions(options.toRTCType()).toLKType()
         // Track-level options reach the ADM through the sender, so inform the
         // session observer here to keep the session mode in sync with the
         // requested voice processing implementation.
@@ -123,9 +144,10 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     override func startCapture() async throws {
         // AudioDeviceModule's InitRecording() and StartRecording() automatically get called by WebRTC, but
         // explicitly init & start it early to detect audio engine failures (mic not accessible for some reason, etc.).
-        try AudioManager.shared.startLocalRecording(
-            audioProcessingOptions: captureOptions.audioProcessing,
-        )
+        let audioProcessingOptions = captureOptions.audioProcessing
+        try await RTC.run {
+            try AudioManager.shared.startLocalRecording(audioProcessingOptions: audioProcessingOptions)
+        }
     }
 
     override func stopCapture() async throws {

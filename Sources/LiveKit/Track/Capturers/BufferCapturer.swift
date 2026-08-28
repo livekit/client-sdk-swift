@@ -58,10 +58,29 @@ public class BufferCapturer: VideoCapturer, @unchecked Sendable {
 
 public extension LocalVideoTrack {
     /// Creates a track that can directly capture `CVPixelBuffer` or `CMSampleBuffer` for convienience
+    @available(*, deprecated, message: "Blocks the calling thread until WebRTC's factory responds; use the async variant instead.")
     static func createBufferTrack(name: String = Track.screenShareVideoName,
                                   source: Track.Source = .screenShareVideo,
                                   options: BufferCaptureOptions = BufferCaptureOptions(),
                                   reportStatistics: Bool = false) -> LocalVideoTrack
+    {
+        _createBufferTrack(name: name, source: source, options: options, reportStatistics: reportStatistics)
+    }
+
+    /// Creates a buffer track on the RTC executor: the calling task suspends instead of
+    /// blocking its thread on WebRTC's factory.
+    static func createBufferTrack(name: String = Track.screenShareVideoName,
+                                  source: Track.Source = .screenShareVideo,
+                                  options: BufferCaptureOptions = BufferCaptureOptions(),
+                                  reportStatistics: Bool = false) async -> LocalVideoTrack
+    {
+        await RTC.run { _createBufferTrack(name: name, source: source, options: options, reportStatistics: reportStatistics) }
+    }
+
+    internal static func _createBufferTrack(name: String,
+                                            source: Track.Source,
+                                            options: BufferCaptureOptions,
+                                            reportStatistics: Bool) -> LocalVideoTrack
     {
         let videoSource = RTC.createVideoSource(forScreenShare: source == .screenShareVideo)
         let capturer = BufferCapturer(delegate: videoSource, options: options)
