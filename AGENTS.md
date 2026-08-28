@@ -113,6 +113,11 @@ Threading:
   construction) is `nonisolated` — it is per-packet and latency-sensitive; `sendData` blocks only on
   the network thread (`PROXY_SECONDARY_*`), `readyState` is `BYPASS`, the buffer init is a plain
   byte container
+- Do not enable the `NonisolatedNonsendingByDefault` upcoming feature (SE-0461) without auditing the
+  `@RTC` callers first: under it a `nonisolated async` function runs on its caller's executor, so
+  the `Room` methods `@RTC Transport` awaits — negotiation, signal sends — would start running on
+  the WebRTC queue. Those would each need `@concurrent`, which is Swift 6.2 and so needs a
+  `#if compiler(>=6.2)` guard at the current floor
 - Completion handlers written inside `@RTC` code must be `@Sendable`: a non-Sendable closure
   inherits `@RTC` isolation, and WebRTC invokes it on its own threads — Swift 6.1-built binaries
   enforce that in the closure prologue and trap (Xcode 16.4 CI caught exactly this)
