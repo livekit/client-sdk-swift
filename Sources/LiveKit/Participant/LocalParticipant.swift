@@ -507,9 +507,7 @@ extension LocalParticipant {
 
         log("[Publish/Backup] Additional video codec: \(videoCodec)...")
 
-        guard let track = localTrackPublication.track as? LocalVideoTrack else {
-            throw LiveKitError(.invalidState, message: "Track is nil")
-        }
+        guard let track = localTrackPublication.track as? LocalVideoTrack else { throw LiveKitError(.invalidState, message: "Track is nil") }
         guard videoCodec.isBackup else { throw LiveKitError(.invalidState, message: "Attempted to publish a non-backup video codec as backup") }
 
         let publisher = try room.requirePublisher()
@@ -574,6 +572,7 @@ extension LocalParticipant {
 
             try await room.publisherShouldNegotiate()
         } catch {
+            track._state.mutate { $0.rtpSenderForCodec[videoCodec] = nil }
             try? await publisher.remove(track: sender)
             throw error
         }
