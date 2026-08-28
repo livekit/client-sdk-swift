@@ -243,9 +243,14 @@ private final class SignalingThreadWedge: NSObject, LKRTCPeerConnectionDelegate,
         DispatchQueue.global().async { pc.setLocalDescription(offer) { _ in } }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             DispatchQueue.global().async {
-                if wedge.wedged.wait(timeout: .now() + .seconds(5)) == .success {
+                if wedge.wedged.wait(timeout: .now() + .seconds(20)) == .success {
                     continuation.resume()
                 } else {
+                    // Disarm before giving up. The gate is process-wide state: libwebrtc has one
+                    // signaling thread per factory, so a callback arriving after this wedge was
+                    // abandoned would park that thread with nobody left to release it and hang
+                    // every later test that touches WebRTC.
+                    wedge.release()
                     continuation.resume(throwing: LiveKitError(.timedOut, message: "signaling thread never entered the wedge"))
                 }
             }
@@ -258,6 +263,8 @@ private final class SignalingThreadWedge: NSObject, LKRTCPeerConnectionDelegate,
         return dataChannel
     }
 
+    /// Safe to call before the wedge is entered, and safe to call twice: the semaphore keeps the
+    /// signal, so a callback that arrives later passes straight through.
     func release() {
         gate.signal()
         nonisolated(unsafe) let peerConnection = peerConnection
