@@ -30,13 +30,15 @@ private final class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulc
 /// `BlockingCall` that waits on WebRTC's signaling or worker thread. Those threads can stall, and
 /// Swift Concurrency's cooperative pool does not grow when a thread blocks, so such calls never run
 /// on it. Code isolated to `@RTC` runs on a dispatch thread that is allowed to block; async callers
-/// hop in with ``run(_:)``, public synchronous APIs with ``blocking(_:)``.
+/// hop in with ``run(_:)``.
 ///
 /// The data-channel send path (`sendData`, `readyState`, `LKRTCDataBuffer`) stays `nonisolated` on
 /// purpose: it is per-packet and latency-sensitive, and `sendData` blocks only on the network thread.
 @globalActor
 actor RTC {
     static let shared = RTC()
+
+    // MARK: - Executor plumbing
 
     fileprivate static let queue: DispatchQueue = {
         let queue = DispatchQueue(label: "LiveKitSDK.webRTC", qos: .default)
@@ -55,27 +57,48 @@ actor RTC {
         Self.executor.asUnownedSerialExecutor()
     }
 
-    /// Runs `body` on the RTC executor; the calling task suspends instead of blocking a
-    /// cooperative-pool thread while the WebRTC calls inside wait on libwebrtc.
-    static func run<T: Sendable>(_ body: @RTC @Sendable () throws -> T) async rethrows -> T {
-        try await body()
-    }
-
-    /// Runs `body` on the RTC executor from synchronous code, blocking the caller until it
-    /// completes. For public synchronous APIs only; async code uses ``run(_:)``.
-    static func blocking<T>(_ body: () throws -> T) rethrows -> T {
-        if isOnQueue { return try body() }
-        return try queue.sync(execute: body)
-    }
-
     /// A concurrent queue whose workers may block on WebRTC's teardown threads. Fire-and-forget
     /// proxy releases run here — NOT on the serial ``RTC`` executor: dropping the last reference to
     /// a proxy is a blocking destructor call, and routing the release flood (every track and data
     /// channel deinit) through the single serial executor head-of-lines all other RTC work and can
     /// wedge it. A concurrent queue drains them in parallel and lets libdispatch grow workers when
     /// they block.
-    private static let releaseQueue = DispatchQueue(label: "LiveKitSDK.webRTC.release", attributes: .concurrent)
+    fileprivate static let releaseQueue = DispatchQueue(label: "LiveKitSDK.webRTC.release", attributes: .concurrent)
+}
 
+// MARK: - Hop primitive
+
+extension RTC {
+    /// Runs `body` on the RTC executor; the calling task suspends instead of blocking a
+    /// cooperative-pool thread while the WebRTC calls inside wait on libwebrtc. Nonisolated on
+    /// purpose: the hop is the `await` on the `@RTC` closure itself.
+    static func run<T: Sendable>(_ body: @RTC @Sendable () throws -> T) async rethrows -> T {
+        try await body()
+    }
+}
+
+// MARK: - Isolated members
+
+// Isolated by default — new helpers that touch WebRTC belong here; a caller that forgets to hop
+// gets a compile error, not a blocked thread. Statics in a `@RTC`-annotated extension, not
+// instance members: the compiler treats instance isolation as a separate domain from `@RTC` in
+// both directions (synchronous `@RTC` code cannot call an instance member, and an instance member
+// cannot synchronously call an `@RTC` closure), so instance members do not compose.
+@RTC extension RTC {
+    static func createPeerConnection(_ configuration: LKRTCConfiguration,
+                                     constraints: LKRTCMediaConstraints) -> LKRTCPeerConnection?
+    {
+        peerConnectionFactory.peerConnection(with: configuration,
+                                             constraints: constraints,
+                                             delegate: nil)
+    }
+}
+
+// MARK: - Parking
+
+// Nonisolated by design: releases and teardown arrive from `deinit`s and synchronous code that
+// cannot hop, and they must not queue behind the serial executor.
+extension RTC {
     /// Releases `objects` off the cooperative pool. Dropping the last reference to a libwebrtc proxy
     /// runs its destructor on the signaling thread — a blocking call — so holders hand their WebRTC
     /// objects here from `deinit` instead of releasing them in place.
@@ -102,7 +125,13 @@ actor RTC {
             _ = channel
         }
     }
+}
 
+// MARK: - Shared factory state
+
+// Static and nonisolated by design: read by synchronous public APIs (`AudioManager`, the deprecated
+// creators), which block their caller by documented contract.
+extension RTC {
     struct PeerConnectionFactoryState {
         var isInitialized: Bool = false
         var admType: AudioDeviceModuleType = .audioEngine
@@ -153,15 +182,16 @@ actor RTC {
         peerConnectionFactory.audioDeviceModule
     }
 
-    // MARK: - Factory (isolated)
+    // Marshalled to the worker thread inside webrtc-sdk, safe to call directly.
+    static func audioProcessingState() -> LKRTCAudioProcessingState {
+        peerConnectionFactory.audioProcessingState
+    }
 
-    @RTC
-    static func createPeerConnection(_ configuration: LKRTCConfiguration,
-                                     constraints: LKRTCMediaConstraints) -> LKRTCPeerConnection?
-    {
-        peerConnectionFactory.peerConnection(with: configuration,
-                                             constraints: constraints,
-                                             delegate: nil)
+    /// Runs `body` on the RTC executor from synchronous code, blocking the caller until it
+    /// completes. Serves the deprecated synchronous creators below; async code uses ``run(_:)``.
+    private static func blocking<T>(_ body: () throws -> T) rethrows -> T {
+        if isOnQueue { return try body() }
+        return try queue.sync(execute: body)
     }
 
     // MARK: - Factory (blocking; serves the deprecated synchronous creators only)
@@ -185,11 +215,6 @@ actor RTC {
 
     static func createAudioTrack(source: LKRTCAudioSource) -> LKRTCAudioTrack {
         blocking { peerConnectionFactory.audioTrack(with: source, trackId: UUID().uuidString) }
-    }
-
-    // Marshalled to the worker thread inside webrtc-sdk, safe to call directly.
-    static func audioProcessingState() -> LKRTCAudioProcessingState {
-        peerConnectionFactory.audioProcessingState
     }
 
     // MARK: - Value objects
