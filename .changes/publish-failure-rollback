@@ -1,0 +1,1 @@
+patch type="fixed" "Roll back the sender when publishing fails after the track was added on the server (e.g. audio frame-watcher timeout), so the SFU no longer keeps an orphaned track that the client cannot mute or unpublish"

@@ -205,6 +205,17 @@ public class TestAudioTrack: LocalAudioTrack, @unchecked Sendable {
     }
 }
 
+/// Fails where a real audio track fails when its engine never delivers a frame:
+/// after `AddTrack` and negotiation, before the publication exists.
+public final class FrameStarvedAudioTrack: TestAudioTrack, @unchecked Sendable {
+    override public func startWaitingForFrames() async throws {
+        // Give negotiation time to reach the server so it holds a live publication when
+        // the failure hits, as it does with the real 5s frame-watcher timeout.
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        throw LiveKitError(.timedOut, message: "No audio frames")
+    }
+}
+
 public class AudioTrackWatcher: AudioRenderer, @unchecked Sendable {
     public let id: String
     public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
