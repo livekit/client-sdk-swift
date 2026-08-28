@@ -101,6 +101,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
             // Mark re-negotiation required...
             try await room.publisherShouldNegotiate()
         }
+        await track.set(transport: nil, rtpSender: nil)
 
         track._state.mutate { $0.rtpSenderForCodec.removeAll() }
 
@@ -509,10 +510,7 @@ extension LocalParticipant {
         guard let track = localTrackPublication.track as? LocalVideoTrack else {
             throw LiveKitError(.invalidState, message: "Track is nil")
         }
-
-        if !videoCodec.isBackup {
-            throw LiveKitError(.invalidState, message: "Attempted to publish a non-backup video codec as backup")
-        }
+        guard videoCodec.isBackup else { throw LiveKitError(.invalidState, message: "Attempted to publish a non-backup video codec as backup") }
 
         let publisher = try room.requirePublisher()
 
@@ -544,37 +542,41 @@ extension LocalParticipant {
         let sender = try await RTC.run {
             let transceiver = try publisher.addTransceiver(with: track.mediaTrack.raw, transceiverInit: transInit)
             try transceiver.set(preferredVideoCodec: videoCodec)
-            let sender = transceiver.sender
-            sender.set(degradationPreference: degradationPreference)
-            return RTCSender(sender)
+            transceiver.sender.set(degradationPreference: degradationPreference)
+            return RTCSender(transceiver.sender)
         }
         log("[Publish] Added transceiver...")
 
-        // Request a new track to the server
-        let trackInfo = try await room.signalClient.sendAddTrack(cid: sender.senderId,
-                                                                 name: track.name,
-                                                                 type: track.kind.toPBType(),
-                                                                 source: track.source.toPBType())
-        {
-            $0.sid = localTrackPublication.sid.stringValue
-            $0.simulcastCodecs = [
-                Livekit_SimulcastCodec.with { sc in
-                    sc.cid = sender.senderId
-                    sc.codec = videoCodec.name
-                },
-            ]
+        do {
+            // Request a new track to the server
+            let trackInfo = try await room.signalClient.sendAddTrack(cid: sender.senderId,
+                                                                     name: track.name,
+                                                                     type: track.kind.toPBType(),
+                                                                     source: track.source.toPBType())
+            {
+                $0.sid = localTrackPublication.sid.stringValue
+                $0.simulcastCodecs = [
+                    Livekit_SimulcastCodec.with { sc in
+                        sc.cid = sender.senderId
+                        sc.codec = videoCodec.name
+                    },
+                ]
 
-            $0.layers = layers
+                $0.layers = layers
+            }
+
+            log("[Publish] server responded trackInfo: \(trackInfo)")
+
+            await RTC.run { sender.raw._set(subscribedQualities: subscribedCodec.qualities) }
+
+            // Attach multi-codec sender...
+            track._state.mutate { $0.rtpSenderForCodec[videoCodec] = sender }
+
+            try await room.publisherShouldNegotiate()
+        } catch {
+            try? await publisher.remove(track: sender)
+            throw error
         }
-
-        log("[Publish] server responded trackInfo: \(trackInfo)")
-
-        await RTC.run { sender.raw._set(subscribedQualities: subscribedCodec.qualities) }
-
-        // Attach multi-codec sender...
-        track._state.mutate { $0.rtpSenderForCodec[videoCodec] = sender }
-
-        try await room.publisherShouldNegotiate()
     }
 }
 
@@ -811,11 +813,26 @@ extension LocalParticipant {
             return publication
         } catch {
             log("[publish] failed \(track), error: \(error)", .error)
+            await rollbackPublish(of: track, publisher: publisher, room: room)
             // Stop track when publish fails
             try await track.stop()
             // Rethrow
             throw error
         }
+    }
+
+    // The server only learns about a track going away through renegotiation, so a publish that
+    // fails after the sender was attached has to detach it or the SFU keeps the track alive
+    // with no local publication to mute or unpublish it.
+    private func rollbackPublish(of track: LocalTrack, publisher: Transport, room: Room) async {
+        guard let sender = track._state.read({ $0.transport === publisher ? $0.rtpSender : nil }) else { return }
+        do {
+            try await publisher.remove(track: sender)
+            try await room.publisherShouldNegotiate()
+        } catch {
+            log("[publish] failed to roll back sender, error: \(error)", .warning)
+        }
+        await track.set(transport: nil, rtpSender: nil)
     }
 
     private func checkPermissions(toPublish track: LocalTrack) throws {
