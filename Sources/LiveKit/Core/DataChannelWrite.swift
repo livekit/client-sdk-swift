@@ -40,9 +40,10 @@ extension LKRTCDataChannel: DrainSendChannel {
 }
 
 /// Hands a drain channel's teardown to ``RTC/park(_:)``; no-op for test channels not backed by WebRTC.
+/// `close()` blocks on the signaling thread just like the destructor, so both go to the same place.
 func parkChannelRelease(_ target: DrainSendChannel?, closing: Bool = false) {
     guard let channel = target as? LKRTCDataChannel else { return }
-    if closing { RTC.park(closing: channel) } else { RTC.park(channel) }
+    if closing { RTC.park { channel.close() } } else { RTC.park(channel) }
 }
 
 // MARK: - Write phases

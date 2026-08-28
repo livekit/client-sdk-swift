@@ -91,7 +91,18 @@ public extension LocalVideoTrack {
 
 public extension LocalVideoTrack {
     /// Clone with same ``VideoCapturer``.
+    @available(*, deprecated, message: "Blocks the calling thread until WebRTC's factory responds; use the async variant instead.")
     func clone() -> LocalVideoTrack {
+        _clone()
+    }
+
+    /// Clones with the same ``VideoCapturer`` on the RTC executor: the calling task suspends
+    /// instead of blocking its thread on WebRTC's factory.
+    func clone() async -> LocalVideoTrack {
+        await RTC.run { _clone() }
+    }
+
+    internal func _clone() -> LocalVideoTrack {
         LocalVideoTrack(name: name,
                         source: source,
                         capturer: capturer,

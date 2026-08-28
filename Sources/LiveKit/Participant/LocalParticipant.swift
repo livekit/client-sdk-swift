@@ -773,8 +773,9 @@ extension LocalParticipant {
 
             // At this point at least 1 audio frame should be generated to continue
             if let track = track as? LocalAudioTrack {
-                // Only wait for frames if audio engine is allowed to start
-                if AudioManager.shared.engineAvailability.isInputAvailable {
+                // Only wait for frames if audio engine is allowed to start; reading the device
+                // module's availability waits on WebRTC's worker thread.
+                if await RTC.run({ AudioManager.shared.engineAvailability.isInputAvailable }) {
                     log("[Publish] Waiting for audio frame...")
                     try await track.startWaitingForFrames()
                 }

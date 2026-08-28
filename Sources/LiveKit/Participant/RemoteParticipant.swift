@@ -111,42 +111,49 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
         }
     }
 
+    private func notifyDidFailToSubscribe(trackSid: Track.Sid, room: Room, message: String) -> LiveKitError {
+        let error = LiveKitError(.invalidState, message: message)
+        delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(trackSid)" }) {
+            $0.participant?(self, didFailToSubscribeTrackWithSid: trackSid, error: error)
+        }
+        room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(trackSid)" }) {
+            $0.room?(room, participant: self, didFailToSubscribeTrackWithSid: trackSid, error: error)
+        }
+        return error
+    }
+
     func addSubscribedMediaTrack(rtcTrack: LKRTCMediaStreamTrack, rtpReceiver: RTCReceiver, trackSid: Track.Sid) async throws {
         let room = try requireRoom()
         let track: Track
 
         guard let publication = trackPublications[trackSid] as? RemoteTrackPublication else {
             log("Could not subscribe to mediaTrack \(trackSid), unable to locate track publication. existing sids: (\(_state.trackPublications.keys.map { String(describing: $0) }.joined(separator: ", ")))", .error)
-            let error = LiveKitError(.invalidState, message: "Could not find published track with sid: \(trackSid)")
-            delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(trackSid)" }) {
-                $0.participant?(self, didFailToSubscribeTrackWithSid: trackSid, error: error)
-            }
-            room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(trackSid)" }) {
-                $0.room?(room, participant: self, didFailToSubscribeTrackWithSid: trackSid, error: error)
-            }
-            throw error
+            throw notifyDidFailToSubscribe(trackSid: trackSid, room: room,
+                                           message: "Could not find published track with sid: \(trackSid)")
         }
+
+        // Constructed on the RTC executor: attaching the audio sink an audio track needs is a
+        // signaling-thread BlockingCall, and this runs on a cooperative-pool task.
+        let reportStatistics = room._state.roomOptions.reportRemoteTrackStatistics
 
         switch rtcTrack.kind {
         case "audio":
-            track = RemoteAudioTrack(name: publication.name,
-                                     source: publication.source,
-                                     track: rtcTrack,
-                                     reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+            track = await RTC.run {
+                RemoteAudioTrack(name: publication.name,
+                                 source: publication.source,
+                                 track: rtcTrack,
+                                 reportStatistics: reportStatistics)
+            }
         case "video":
-            track = RemoteVideoTrack(name: publication.name,
-                                     source: publication.source,
-                                     track: rtcTrack,
-                                     reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+            track = await RTC.run {
+                RemoteVideoTrack(name: publication.name,
+                                 source: publication.source,
+                                 track: rtcTrack,
+                                 reportStatistics: reportStatistics)
+            }
         default:
-            let error = LiveKitError(.invalidState, message: "Unsupported type: \(rtcTrack.kind.description)")
-            delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(trackSid)" }) {
-                $0.participant?(self, didFailToSubscribeTrackWithSid: trackSid, error: error)
-            }
-            room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(trackSid)" }) {
-                $0.room?(room, participant: self, didFailToSubscribeTrackWithSid: trackSid, error: error)
-            }
-            throw error
+            throw notifyDidFailToSubscribe(trackSid: trackSid, room: room,
+                                           message: "Unsupported type: \(rtcTrack.kind.description)")
         }
 
         await publication.set(track: track)

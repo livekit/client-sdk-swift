@@ -72,7 +72,12 @@ extension RTC {
     /// Runs `body` on the RTC executor; the calling task suspends instead of blocking a
     /// cooperative-pool thread while the WebRTC calls inside wait on libwebrtc. Nonisolated on
     /// purpose: the hop is the `await` on the `@RTC` closure itself.
-    static func run<T: Sendable>(_ body: @RTC @Sendable () throws -> T) async rethrows -> T {
+    ///
+    /// `sending` rather than `@Sendable`: the closure's captures are transferred into the
+    /// executor's region, so a non-`Sendable` WebRTC object can be fed to a hop without anyone
+    /// having to declare it `Sendable`. The result stays `Sendable`, which is what keeps raw
+    /// proxies from being transferred back out.
+    static func run<T: Sendable>(_ body: sending @RTC () throws -> T) async rethrows -> T {
         try await body()
     }
 }
@@ -99,31 +104,19 @@ extension RTC {
 // Nonisolated by design: releases and teardown arrive from `deinit`s and synchronous code that
 // cannot hop, and they must not queue behind the serial executor.
 extension RTC {
-    /// Releases `objects` off the cooperative pool. Dropping the last reference to a libwebrtc proxy
+    /// Releases `object` off the cooperative pool. Dropping the last reference to a libwebrtc proxy
     /// runs its destructor on the signaling thread — a blocking call — so holders hand their WebRTC
     /// objects here from `deinit` instead of releasing them in place.
-    static func park(_ objects: [AnyObject]) {
-        nonisolated(unsafe) let objects = objects
-        releaseQueue.async { _ = objects }
-    }
-
     static func park(_ object: AnyObject) {
-        park([object])
+        nonisolated(unsafe) let object = object
+        releaseQueue.async { _ = object }
     }
 
     /// Runs teardown work that blocks on a WebRTC thread (a close, a renderer detach) off both the
-    /// cooperative pool and the serial executor.
+    /// cooperative pool and the serial executor. Whatever the closure captures is released here
+    /// too, when the closure itself is destroyed.
     static func park(_ teardown: @escaping @Sendable () -> Void) {
         releaseQueue.async(execute: teardown)
-    }
-
-    /// Also closes a data channel before the release — `close()` blocks on the signaling thread
-    /// just like the destructor.
-    static func park(closing channel: LKRTCDataChannel) {
-        releaseQueue.async {
-            channel.close()
-            _ = channel
-        }
     }
 }
 

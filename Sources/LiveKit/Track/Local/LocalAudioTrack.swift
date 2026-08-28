@@ -119,6 +119,7 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     ///
     /// - Returns: Whether the options were applied immediately or stored for reapplication.
     /// - Throws: ``AudioProcessingOptionsError`` when the options cannot be applied.
+    /// - Note: Blocks the calling thread until WebRTC's signaling thread applies the options.
     @discardableResult
     public func setAudioProcessingOptions(_ options: AudioProcessingOptions) throws -> AudioProcessingOptionsResult {
         guard let audioTrack = mediaTrack as? LKRTCAudioTrack else {

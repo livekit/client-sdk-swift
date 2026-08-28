@@ -99,9 +99,16 @@ Threading:
 - Thread-safety is not liveness: a blocking WebRTC call must never run on Swift Concurrency's
   width-limited cooperative pool. It runs inside the `@RTC` global actor (`Core/RTC.swift`), whose
   executor is a private dispatch queue that is allowed to block. `Transport` is `@RTC`-isolated;
-  other async code wraps such calls in `await RTC.run { }`; public synchronous APIs use
-  `RTC.blocking { }` and block their caller by contract; final releases are parked with
-  `Task { @RTC in }` (`parkChannelRelease`). `DispatchQueue.liveKitWebRTC` is deprecated public API
+  other async code wraps such calls in `await RTC.run { }`. `DispatchQueue.liveKitWebRTC` is
+  deprecated public API
+- Releases and teardown (`deinit`, `parkChannelRelease`) go to `RTC.park`, which runs them on a
+  *concurrent* queue — not the serial `@RTC` executor. A release flood is a flood of blocking
+  destructors; routing it through the one serial executor head-of-lines all other RTC work and
+  wedged CI under the sanitizers
+- Public synchronous APIs that reach WebRTC (the deprecated `create*Track` creators, `AudioManager`,
+  `volume`, renderer attach) block their caller by documented contract — say so in the docstring;
+  new API should be `async` and hop instead
+- The `@RTC` executor carries no priority: every hop runs at the queue's `.default` QoS
 - Exception, by design: the data-channel send path (`sendData`, `readyState`, `LKRTCDataBuffer`
   construction) is `nonisolated` — it is per-packet and latency-sensitive; `sendData` blocks only on
   the network thread (`PROXY_SECONDARY_*`), `readyState` is `BYPASS`, the buffer init is a plain

@@ -34,6 +34,8 @@ public class RemoteVideoTrack: Track, RemoteTrackProtocol, @unchecked Sendable {
 // MARK: - VideoTrack Protocol
 
 extension RemoteVideoTrack: VideoTrackProtocol {
+    /// - Note: Attaching a renderer blocks the calling thread until WebRTC's worker thread accepts
+    ///   the sink; prefer letting ``VideoView`` manage the attach, which hops off the caller.
     public func add(videoRenderer: VideoRenderer) {
         guard let rtcVideoTrack = mediaTrack as? LKRTCVideoTrack else {
             log("mediaTrack is not a RTCVideoTrack", .error)
@@ -49,6 +51,8 @@ extension RemoteVideoTrack: VideoTrackProtocol {
         rtcVideoTrack.add(adapter)
     }
 
+    /// - Note: Detaching a renderer blocks the calling thread until WebRTC's worker thread drops
+    ///   the sink.
     public func remove(videoRenderer: VideoRenderer) {
         guard let rtcVideoTrack = mediaTrack as? LKRTCVideoTrack else {
             log("mediaTrack is not a RTCVideoTrack", .error)

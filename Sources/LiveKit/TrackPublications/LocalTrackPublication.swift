@@ -211,7 +211,8 @@ extension LocalTrackPublication {
         // set the updated parameters
         sender.raw.parameters = parameters
 
-        log("Using encodings: \(sender.raw.parameters.encodings), degradationPreference: \(String(describing: sender.raw.parameters.degradationPreference))")
+        // Logged from the local copy: each `parameters` read is another signaling-thread round-trip.
+        log("Using encodings: \(parameters.encodings), degradationPreference: \(String(describing: parameters.degradationPreference))")
 
         // Report updated encodings to server
 
