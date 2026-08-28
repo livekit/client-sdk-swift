@@ -48,11 +48,12 @@ struct CooperativePoolBlockingTests {
         let transports = created
         let wedge = try await SignalingThreadWedge.engage()
 
-        let responsive = await poolStaysResponsive(width: width, release: wedge.release) { index in
+        let outcome = await poolStaysResponsive(width: width, release: wedge.release) { index in
             await transports[index].close()
         }
 
-        #expect(responsive)
+        #expect(outcome.responsive, "cooperative pool was starved while transports were closing")
+        #expect(outcome.finishedBeforeProbe == 0, "no close was still in flight; the probe proved nothing")
     }
 
     /// `Track.start()` → `enable()` → `set_enabled`, which blocks on the signaling thread; a
@@ -62,11 +63,12 @@ struct CooperativePoolBlockingTests {
         let tracks = (0 ..< width).map { _ in TestAudioTrack() }
         let wedge = try await SignalingThreadWedge.engage()
 
-        let responsive = await poolStaysResponsive(width: width, release: wedge.release) { index in
+        let outcome = await poolStaysResponsive(width: width, release: wedge.release) { index in
             _ = try? await tracks[index].disable()
         }
 
-        #expect(responsive)
+        #expect(outcome.responsive, "cooperative pool was starved while tracks were being disabled")
+        #expect(outcome.finishedBeforeProbe == 0, "no disable was still in flight; the probe proved nothing")
     }
 
     /// Dropping the last reference to a factory-created track runs the proxy destructor on the
@@ -80,26 +82,67 @@ struct CooperativePoolBlockingTests {
         let holders = (0 ..< width).map { _ in Holder(TestAudioTrack()) }
         let wedge = try await SignalingThreadWedge.engage()
 
-        let responsive = await poolStaysResponsive(width: width, release: wedge.release) { index in
+        let outcome = await poolStaysResponsive(width: width, release: wedge.release) { index in
             holders[index].track = nil
         }
 
-        #expect(responsive)
+        #expect(outcome.responsive, "cooperative pool was starved by proxy destructors")
+        // Unlike the tests above, the blocking part is parked: dropping the reference returns at once.
+        #expect(outcome.finishedBeforeProbe == width, "a release ran inline instead of being parked")
     }
 
-    /// A parked channel release blocks the RTC executor while the signaling thread is stalled.
-    /// Building a configuration — the first thing `Room.connect()` does — must not wait on it.
-    @Test func configurationBuildsWithoutTheRTCExecutor() async throws {
+    /// Building a configuration — the first thing `Room.connect()` does — is a plain value-object
+    /// init and must not serialize behind WebRTC teardown. Fails if a queue hop is reintroduced
+    /// for value objects: the channel release parked below holds the signaling thread.
+    @Test func configurationBuildsWithoutWaitingOnWebRTC() async throws {
         let wedge = try await SignalingThreadWedge.engage(afterCreatingDataChannel: true)
         // Dropping the last channel reference is the blocking part: the proxy destructor runs on
         // the signaling thread.
         parkChannelRelease(wedge.takeDataChannel(), closing: true)
 
-        let responsive = await poolStaysResponsive(release: wedge.release) { _ in
+        let outcome = await poolStaysResponsive(release: wedge.release) { _ in
             _ = LKRTCConfiguration.liveKitDefault()
         }
 
-        #expect(responsive)
+        #expect(outcome.responsive, "cooperative pool was starved while building configurations")
+        #expect(outcome.finishedBeforeProbe > 0, "building a configuration waited on a WebRTC thread")
+    }
+
+    /// A parked release runs on the concurrent release queue, never on the serial RTC executor:
+    /// a blocking destructor must not head-of-line every other hop. Routing releases through the
+    /// executor wedged the SDK under the sanitizers on CI.
+    @Test func parkedReleaseDoesNotBlockTheRTCExecutor() async throws {
+        let wedge = try await SignalingThreadWedge.engage(afterCreatingDataChannel: true)
+        parkChannelRelease(wedge.takeDataChannel(), closing: true)
+
+        let hopped = DispatchSemaphore(value: 0)
+        Task.detached {
+            await RTC.run {}
+            hopped.signal()
+        }
+
+        let reachedExecutor = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            DispatchQueue.global().async {
+                let reached = hopped.wait(timeout: .now() + .seconds(2)) == .success
+                wedge.release()
+                continuation.resume(returning: reached)
+            }
+        }
+
+        #expect(reachedExecutor, "a parked release head-of-lined the RTC executor")
+    }
+
+    /// The RTC executor has to answer the runtime's isolation check. Without the
+    /// `SerialExecutor.checkIsolated` override the stdlib default traps unconditionally on
+    /// iOS 18 / macOS 15-era runtimes, which crash-looped every test on Xcode 16.4 CI.
+    ///
+    /// - Note: A regression traps here rather than failing, but it names the culprit instead of
+    ///   taking the whole suite down anonymously.
+    @available(macOS 14.0, iOS 17.0, tvOS 17.0, visionOS 1.0, *)
+    @Test func executorAnswersIsolationChecks() async {
+        await RTC.run {
+            RTC.shared.assumeIsolated { _ in }
+        }
     }
 
     @Test func runExecutesOnTheRTCQueue() async {
@@ -109,8 +152,19 @@ struct CooperativePoolBlockingTests {
     }
 
     @Test func probeRunsWhenNothingBlocks() async {
-        let responsive = await poolStaysResponsive(release: {}) { _ in await Task.yield() }
-        #expect(responsive)
+        let width = ProcessInfo.processInfo.activeProcessorCount + 2
+        let outcome = await poolStaysResponsive(release: {}) { _ in await Task.yield() }
+        #expect(outcome.responsive)
+        #expect(outcome.finishedBeforeProbe == width, "the harness does not observe completions")
+    }
+
+    struct ProbeOutcome {
+        /// An unrelated task ran while the blockers were in flight.
+        let responsive: Bool
+        /// How many of the `width` blockers had returned by the time the probe ran. A test whose
+        /// `work` is supposed to be stuck expects `0` here: without that check a probe can pass
+        /// because nothing ever blocked, which proves nothing.
+        let finishedBeforeProbe: Int
     }
 
     /// Saturates the cooperative pool with `width` tasks running `work`, then checks whether an
@@ -119,21 +173,45 @@ struct CooperativePoolBlockingTests {
     /// hanging the process. The settle delay gives the blockers time to reach their blocking call.
     private func poolStaysResponsive(width: Int = ProcessInfo.processInfo.activeProcessorCount + 2,
                                      release: @escaping @Sendable () -> Void,
-                                     work: @escaping @Sendable (Int) async -> Void) async -> Bool
+                                     work: @escaping @Sendable (Int) async -> Void) async -> ProbeOutcome
     {
         let probe = DispatchSemaphore(value: 0)
+        let finished = Counter()
         for index in 0 ..< width {
-            Task.detached { await work(index) }
+            Task.detached {
+                await work(index)
+                finished.increment()
+            }
         }
         return await withCheckedContinuation { continuation in
             DispatchQueue.global().async {
                 Thread.sleep(forTimeInterval: 0.5)
+                let finishedBeforeProbe = finished.value
                 Task.detached { probe.signal() }
                 let responsive = probe.wait(timeout: .now() + .seconds(2)) == .success
                 release()
-                continuation.resume(returning: responsive)
+                continuation.resume(returning: ProbeOutcome(responsive: responsive,
+                                                            finishedBeforeProbe: finishedBeforeProbe))
             }
         }
+    }
+}
+
+/// Counts completions across the cooperative pool and a libdispatch thread.
+private final class Counter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    func increment() {
+        lock.lock()
+        defer { lock.unlock() }
+        count += 1
+    }
+
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
     }
 }
 
