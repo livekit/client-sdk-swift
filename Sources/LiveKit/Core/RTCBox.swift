@@ -34,6 +34,21 @@ final class RTCBox<Raw: AnyObject>: @unchecked Sendable {
 
     @RTC var value: Raw { raw }
 
+    /// Runs `body` with the raw object on the RTC executor, blocking the caller until it returns.
+    /// Not `@RTC`-isolated: a nonisolated synchronous function cannot call an isolated closure
+    /// below iOS 17's `assumeIsolated`, so here the isolation is the queue rather than the type
+    /// system. Facades forward to this only for public synchronous APIs that block by contract.
+    func blocking<T>(_ body: (Raw) throws -> T) rethrows -> T {
+        try RTC.blocking { try body(raw) }
+    }
+
+    /// Hands the raw object to `teardown` on the release queue, for `deinit` paths whose teardown
+    /// blocks on a WebRTC thread.
+    func park(_ teardown: @escaping @Sendable (Raw) -> Void) {
+        nonisolated(unsafe) let raw = raw
+        RTC.park { teardown(raw) }
+    }
+
     deinit {
         RTC.park(raw)
     }

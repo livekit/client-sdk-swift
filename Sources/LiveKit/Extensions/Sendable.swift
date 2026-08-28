@@ -31,9 +31,8 @@ extension LKRTCStatisticsReport: @unchecked Swift.Sendable {} // immutable snaps
 
 extension LKRTCDataChannel: @unchecked Swift.Sendable {} // the per-packet send path is nonisolated by design (see AGENTS.md)
 
-// MARK: Media tracks, capture, and rendering
+// MARK: Capture and rendering
 
-extension LKRTCMediaStreamTrack: @unchecked Swift.Sendable {} // held by Track; synchronous public APIs (renderers, volume) use it
 extension LKRTCVideoFrame: @unchecked Swift.Sendable {} // per-frame delivery between capturers and renderers
 
 // MARK: E2EE

@@ -36,12 +36,10 @@ public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @
     ///   applies it; avoid calling it from a Swift Concurrency task on a latency-sensitive path.
     public var volume: Double {
         get {
-            guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return 0 }
-            return audioTrack.source.volume.clamped(to: Self.volumeRange)
+            mediaTrack.blocking { ($0 as? LKRTCAudioTrack)?.source.volume.clamped(to: Self.volumeRange) ?? 0 }
         }
         set {
-            guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
-            audioTrack.source.volume = newValue.clamped(to: Self.volumeRange)
+            mediaTrack.blocking { ($0 as? LKRTCAudioTrack)?.source.volume = newValue.clamped(to: Self.volumeRange) }
         }
     }
 
@@ -49,7 +47,7 @@ public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @
 
     init(name: String,
          source: Track.Source,
-         track: LKRTCMediaStreamTrack,
+         track: RTCMediaTrack,
          reportStatistics: Bool)
     {
         super.init(name: name,
@@ -58,16 +56,17 @@ public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @
                    track: track,
                    reportStatistics: reportStatistics)
 
-        if let audioTrack = mediaTrack as? LKRTCAudioTrack {
-            audioTrack.add(_adapter)
-        }
+        // Attaching the sink blocks on the signaling thread; remote tracks are built on the RTC
+        // executor, so this runs inline there rather than hopping.
+        let adapter = _adapter
+        mediaTrack.blocking { ($0 as? LKRTCAudioTrack)?.add(adapter) }
     }
 
     deinit {
-        guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
-        // removeRenderer blocks on the worker thread; keep it off the serial RTC executor and the pool.
+        // The symmetric detach blocks on the signaling thread; keep it off the serial RTC executor
+        // and the cooperative pool.
         let adapter = _adapter
-        RTC.park { audioTrack.remove(adapter) }
+        mediaTrack.park { ($0 as? LKRTCAudioTrack)?.remove(adapter) }
     }
 
     public func add(audioRenderer: AudioRenderer) {

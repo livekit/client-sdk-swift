@@ -170,7 +170,7 @@ extension Room {
         }
     }
 
-    func engine(_: Room, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: RTCReceiver, streamId: String) async {
+    func engine(_: Room, didAddTrack track: RTCMediaTrack, rtpReceiver: RTCReceiver, streamId: String) async {
         let parseResult = parse(streamId: streamId)
         let trackId = parseResult.trackId ?? Track.Sid(from: track.trackId)
 
@@ -185,7 +185,7 @@ extension Room {
 
         let task = Task.retrying(retryDelay: 0.2) { _, _ in
             // TODO: Only retry for TrackError.state = error
-            try await participant.addSubscribedMediaTrack(rtcTrack: track, rtpReceiver: rtpReceiver, trackSid: trackId)
+            try await participant.addSubscribedMediaTrack(mediaTrack: track, rtpReceiver: rtpReceiver, trackSid: trackId)
         }
 
         do {
@@ -195,9 +195,9 @@ extension Room {
         }
     }
 
-    func engine(_: Room, didRemoveTrack track: LKRTCMediaStreamTrack) async {
+    func engine(_: Room, didRemoveTrackWithId trackId: String) async {
         // Find the publication
-        let trackSid = Track.Sid(from: track.trackId)
+        let trackSid = Track.Sid(from: trackId)
         guard let publication = _state.remoteParticipants.values.map(\._state.trackPublications.values).joined()
             .first(where: { $0.sid == trackSid }) else { return }
         await publication.set(track: nil)

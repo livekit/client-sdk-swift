@@ -542,7 +542,7 @@ extension LocalParticipant {
         log("[Publish/Backup] set degradationPreference to \(degradationPreference)")
 
         let sender = try await RTC.run {
-            let transceiver = try publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
+            let transceiver = try publisher.addTransceiver(with: track.mediaTrack.raw, transceiverInit: transInit)
             try transceiver.set(preferredVideoCodec: videoCodec)
             let sender = transceiver.sender
             sender.set(degradationPreference: degradationPreference)
@@ -731,7 +731,7 @@ extension LocalParticipant {
 
             let negotiateFunc: @Sendable () async throws -> Void = {
                 let sender = try await RTC.run {
-                    let transceiver = try publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
+                    let transceiver = try publisher.addTransceiver(with: track.mediaTrack.raw, transceiverInit: transInit)
 
                     if track is LocalVideoTrack {
                         let publishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions

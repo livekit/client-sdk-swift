@@ -20,7 +20,7 @@ protocol TransportDelegate: AnyObject, Sendable {
     func transport(_ transport: Transport, didUpdateState state: LKRTCPeerConnectionState)
     func transport(_ transport: Transport, didGenerateIceCandidate iceCandidate: IceCandidate)
     func transport(_ transport: Transport, didOpenDataChannel dataChannel: LKRTCDataChannel)
-    func transport(_ transport: Transport, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: RTCReceiver, streamIds: [String])
-    func transport(_ transport: Transport, didRemoveTrack track: LKRTCMediaStreamTrack)
+    func transport(_ transport: Transport, didAddTrack track: RTCMediaTrack, rtpReceiver: RTCReceiver, streamIds: [String])
+    func transport(_ transport: Transport, didRemoveTrackWithId trackId: String)
     func transportShouldNegotiate(_ transport: Transport)
 }

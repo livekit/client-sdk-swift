@@ -181,8 +181,10 @@ extension RTC {
     }
 
     /// Runs `body` on the RTC executor from synchronous code, blocking the caller until it
-    /// completes. Serves the deprecated synchronous creators below; async code uses ``run(_:)``.
-    private static func blocking<T>(_ body: () throws -> T) rethrows -> T {
+    /// completes. The opt-in hop for public synchronous APIs that block their caller by documented
+    /// contract — the deprecated creators below, and the facades' `blocking(_:)`. Async code uses
+    /// ``run(_:)``; every use of this is a blocking public API and should read like one.
+    static func blocking<T>(_ body: () throws -> T) rethrows -> T {
         if isOnQueue { return try body() }
         return try queue.sync(execute: body)
     }

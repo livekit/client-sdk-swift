@@ -406,10 +406,11 @@ extension Transport: LKRTCPeerConnectionDelegate {
 
         log("type: \(type(of: track)), track.id: \(track.trackId), streams: \(streams.map { "Stream(hash: \($0.hash), id: \($0.streamId), videoTracks: \($0.videoTracks.count), audioTracks: \($0.audioTracks.count))" })")
         let receiver = RTCReceiver(rtpReceiver)
+        let mediaTrack = RTCMediaTrack(track)
         // Only the ids travel on: the streams' blocking proxy destructors run here, on the
         // signaling thread, instead of wherever the delegate pipeline drops them.
         let streamIds = streams.map(\.streamId)
-        _delegate.notify { $0.transport(self, didAddTrack: track, rtpReceiver: receiver, streamIds: streamIds) }
+        _delegate.notify { $0.transport(self, didAddTrack: mediaTrack, rtpReceiver: receiver, streamIds: streamIds) }
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didRemove rtpReceiver: LKRTCRtpReceiver) {
@@ -418,8 +419,11 @@ extension Transport: LKRTCPeerConnectionDelegate {
             return
         }
 
-        log("didRemove track: \(track.trackId)")
-        _delegate.notify { $0.transport(self, didRemoveTrack: track) }
+        // Only the id travels on: nothing downstream needs the proxy, and boxing it here would
+        // add a release to park for a track that is already gone.
+        let trackId = track.trackId
+        log("didRemove track: \(trackId)")
+        _delegate.notify { $0.transport(self, didRemoveTrackWithId: trackId) }
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didOpen dataChannel: LKRTCDataChannel) {

@@ -90,7 +90,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
 
     let delegates = MulticastDelegate<TrackDelegate>(label: "TrackDelegate")
 
-    let mediaTrack: LKRTCMediaStreamTrack
+    let mediaTrack: RTCMediaTrack
 
     struct State {
         let name: String
@@ -128,14 +128,10 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
 
     private let _startStopSerialRunner = SerialRunnerActor<Void>()
 
-    deinit {
-        RTC.park(mediaTrack)
-    }
-
     init(name: String,
          kind: Kind,
          source: Source,
-         track: LKRTCMediaStreamTrack,
+         track: RTCMediaTrack,
          reportStatistics: Bool)
     {
         _state = StateSync(State(
@@ -253,8 +249,8 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
     @discardableResult
     @RTC
     func enable() async throws -> Bool {
-        guard !mediaTrack.isEnabled else { return false }
-        mediaTrack.isEnabled = true
+        guard !mediaTrack.raw.isEnabled else { return false }
+        mediaTrack.raw.isEnabled = true
         return true
     }
 
@@ -262,8 +258,8 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
     @discardableResult
     @RTC
     func disable() async throws -> Bool {
-        guard mediaTrack.isEnabled else { return false }
-        mediaTrack.isEnabled = false
+        guard mediaTrack.raw.isEnabled else { return false }
+        mediaTrack.raw.isEnabled = false
         return true
     }
 

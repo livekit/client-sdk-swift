@@ -122,7 +122,7 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
         return error
     }
 
-    func addSubscribedMediaTrack(rtcTrack: LKRTCMediaStreamTrack, rtpReceiver: RTCReceiver, trackSid: Track.Sid) async throws {
+    func addSubscribedMediaTrack(mediaTrack: RTCMediaTrack, rtpReceiver: RTCReceiver, trackSid: Track.Sid) async throws {
         let room = try requireRoom()
         let track: Track
 
@@ -136,24 +136,24 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
         // signaling-thread BlockingCall, and this runs on a cooperative-pool task.
         let reportStatistics = room._state.roomOptions.reportRemoteTrackStatistics
 
-        switch rtcTrack.kind {
+        switch mediaTrack.kind {
         case "audio":
-            track = await RTC.run {
+            track = await RTC.run { () -> Track in
                 RemoteAudioTrack(name: publication.name,
                                  source: publication.source,
-                                 track: rtcTrack,
+                                 track: mediaTrack,
                                  reportStatistics: reportStatistics)
             }
         case "video":
-            track = await RTC.run {
+            track = await RTC.run { () -> Track in
                 RemoteVideoTrack(name: publication.name,
                                  source: publication.source,
-                                 track: rtcTrack,
+                                 track: mediaTrack,
                                  reportStatistics: reportStatistics)
             }
         default:
             throw notifyDidFailToSubscribe(trackSid: trackSid, room: room,
-                                           message: "Unsupported type: \(rtcTrack.kind.description)")
+                                           message: "Unsupported type: \(mediaTrack.kind)")
         }
 
         await publication.set(track: track)

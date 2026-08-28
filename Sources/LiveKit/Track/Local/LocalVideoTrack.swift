@@ -43,7 +43,7 @@ public class LocalVideoTrack: Track, LocalTrackProtocol, @unchecked Sendable {
         super.init(name: name,
                    kind: .video,
                    source: source,
-                   track: rtcTrack,
+                   track: RTCMediaTrack(rtcTrack),
                    reportStatistics: reportStatistics)
     }
 

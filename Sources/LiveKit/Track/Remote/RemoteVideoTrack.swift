@@ -20,7 +20,7 @@ internal import LiveKitWebRTC
 public class RemoteVideoTrack: Track, RemoteTrackProtocol, @unchecked Sendable {
     init(name: String,
          source: Track.Source,
-         track: LKRTCMediaStreamTrack,
+         track: RTCMediaTrack,
          reportStatistics: Bool)
     {
         super.init(name: name,
@@ -37,28 +37,24 @@ extension RemoteVideoTrack: VideoTrackProtocol {
     /// - Note: Attaching a renderer blocks the calling thread until WebRTC's worker thread accepts
     ///   the sink; prefer letting ``VideoView`` manage the attach, which hops off the caller.
     public func add(videoRenderer: VideoRenderer) {
-        guard let rtcVideoTrack = mediaTrack as? LKRTCVideoTrack else {
-            log("mediaTrack is not a RTCVideoTrack", .error)
-            return
-        }
-
         let adapter = VideoRendererAdapter(renderer: videoRenderer)
 
         _state.mutate {
             $0.videoRendererAdapters.setObject(adapter, forKey: videoRenderer)
         }
 
-        rtcVideoTrack.add(adapter)
+        mediaTrack.blocking {
+            guard let rtcVideoTrack = $0 as? LKRTCVideoTrack else {
+                log("mediaTrack is not a RTCVideoTrack", .error)
+                return
+            }
+            rtcVideoTrack.add(adapter)
+        }
     }
 
     /// - Note: Detaching a renderer blocks the calling thread until WebRTC's worker thread drops
     ///   the sink.
     public func remove(videoRenderer: VideoRenderer) {
-        guard let rtcVideoTrack = mediaTrack as? LKRTCVideoTrack else {
-            log("mediaTrack is not a RTCVideoTrack", .error)
-            return
-        }
-
         let adapter = _state.mutate {
             let adapter = $0.videoRendererAdapters.object(forKey: videoRenderer)
             $0.videoRendererAdapters.removeObject(forKey: videoRenderer)
@@ -70,6 +66,12 @@ extension RemoteVideoTrack: VideoTrackProtocol {
             return
         }
 
-        rtcVideoTrack.remove(adapter)
+        mediaTrack.blocking {
+            guard let rtcVideoTrack = $0 as? LKRTCVideoTrack else {
+                log("mediaTrack is not a RTCVideoTrack", .error)
+                return
+            }
+            rtcVideoTrack.remove(adapter)
+        }
     }
 }

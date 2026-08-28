@@ -27,8 +27,8 @@ struct TransportMungeFallbackTests {
         func transport(_: Transport, didUpdateState _: LKRTCPeerConnectionState) {}
         func transport(_: Transport, didGenerateIceCandidate _: IceCandidate) {}
         func transport(_: Transport, didOpenDataChannel _: LKRTCDataChannel) {}
-        func transport(_: Transport, didAddTrack _: LKRTCMediaStreamTrack, rtpReceiver _: RTCReceiver, streamIds _: [String]) {}
-        func transport(_: Transport, didRemoveTrack _: LKRTCMediaStreamTrack) {}
+        func transport(_: Transport, didAddTrack _: RTCMediaTrack, rtpReceiver _: RTCReceiver, streamIds _: [String]) {}
+        func transport(_: Transport, didRemoveTrackWithId _: String) {}
         func transportShouldNegotiate(_: Transport) {}
     }
 

@@ -35,7 +35,7 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
 
     init(name: String,
          source: Track.Source,
-         track: LKRTCMediaStreamTrack,
+         track: RTCMediaTrack,
          reportStatistics: Bool,
          captureOptions: AudioCaptureOptions)
     {
@@ -95,10 +95,11 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
         let audioSource = RTC.createAudioSource(audioConstraints)
         let rtcTrack = RTC.createAudioTrack(source: audioSource)
         rtcTrack.isEnabled = true
+        let mediaTrack = RTCMediaTrack(rtcTrack)
 
         return LocalAudioTrack(name: name,
                                source: .microphone,
-                               track: rtcTrack,
+                               track: mediaTrack,
                                reportStatistics: reportStatistics,
                                captureOptions: options)
     }
@@ -122,13 +123,15 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     /// - Note: Blocks the calling thread until WebRTC's signaling thread applies the options.
     @discardableResult
     public func setAudioProcessingOptions(_ options: AudioProcessingOptions) throws -> AudioProcessingOptionsResult {
-        guard let audioTrack = mediaTrack as? LKRTCAudioTrack else {
-            throw AudioProcessingOptionsError(
-                code: .invalidState,
-                message: "Media track is not an audio track",
-            )
+        let result = try mediaTrack.blocking { rawTrack in
+            guard let audioTrack = rawTrack as? LKRTCAudioTrack else {
+                throw AudioProcessingOptionsError(
+                    code: .invalidState,
+                    message: "Media track is not an audio track",
+                )
+            }
+            return try audioTrack.setAudioProcessingOptions(options.toRTCType()).toLKType()
         }
-        let result = try audioTrack.setAudioProcessingOptions(options.toRTCType()).toLKType()
         // Track-level options reach the ADM through the sender, so inform the
         // session observer here to keep the session mode in sync with the
         // requested voice processing implementation.
