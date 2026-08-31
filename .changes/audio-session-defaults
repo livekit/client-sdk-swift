@@ -1,0 +1,1 @@
+minor type="changed" "iOS audio session: `.playAndRecord` is now kept until the audio engine stops, so muting the microphone no longer resets the category and disables Apple's echo cancellation mid-call; `.mixWithOthers` is no longer set on `.playAndRecord`, so publishing the microphone interrupts other apps' audio for the rest of the call (it remains set on `.playback`)"
