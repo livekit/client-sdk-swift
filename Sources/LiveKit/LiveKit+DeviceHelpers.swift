@@ -16,7 +16,7 @@
 
 import AVFoundation
 
-#if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS))
+#if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
 import UIKit
 #endif
 
@@ -25,7 +25,7 @@ import UIKit
 // The `.appex` bundle suffix is Apple's documented way to detect an extension process.
 private let kIsAppExtension = Bundle.main.bundleURL.pathExtension == "appex"
 
-#if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS))
+#if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
 // Resolves `UIApplication.shared` through the Objective-C runtime because referencing it directly
 // does not compile with APPLICATION_EXTENSION_API_ONLY=YES, and consumers build this module into
 // broadcast upload extensions. An extension process is prohibited from calling `sharedApplication`,
@@ -121,11 +121,11 @@ extension LiveKitSDK {
     /// On iOS-family platforms this also returns `false` without prompting unless the app is active, so
     /// a caller woken in the background (for example by CallKit) does not wait on an alert that cannot
     /// appear. An inactive app is treated the same way, since the system defers the alert there and
-    /// waiting would suspend the caller. On macOS the prompt can be presented regardless, so this
-    /// otherwise behaves like ``ensureDeviceAccess(for:)``.
+    /// waiting would suspend the caller. On macOS and Mac Catalyst the prompt can be presented
+    /// regardless, so this otherwise behaves like ``ensureDeviceAccess(for:)``.
     static func ensureDeviceAccessIfForegrounded(for types: Set<AVMediaType>) async -> Bool {
         if kIsAppExtension { return false }
-        #if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS))
+        #if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
         guard await isApplicationForegrounded() else { return false }
         #endif
         return await ensureDeviceAccess(for: types)
