@@ -433,7 +433,7 @@ public class AudioManager: Loggable {
     /// - Note: Microphone permission is required to enable, but is not requested here: prewarming is not a
     ///   user-initiated capture, so prompting from it would surprise the user. Request it up front with
     ///   ``LiveKitSDK/ensureDeviceAccess(for:)``, otherwise this throws ``LiveKitError`` of type
-    ///   ``LiveKitErrorType/deviceAccessDenied``.
+    ///   ``LiveKitErrorType/deviceAccessDenied`` when the audio device module reports the missing permission.
     /// - Note: This persists across ``Room`` lifecycles and connections until disabled.
     /// - Throws: An error if microphone permission is not granted, or if the underlying audio device module fails to apply the setting.
     public func setRecordingAlwaysPreparedMode(
