@@ -32,10 +32,16 @@ public extension AudioSessionConfiguration {
                                                     categoryOptions: [.mixWithOthers],
                                                     mode: .spokenAudio)
 
+    // `.mixWithOthers` is deliberately absent here. On the in-call path it lets
+    // another app hold the audio device alongside the call, which is a known
+    // source of echo, and the WebRTC ADM has to work around a -66637
+    // (kAudioUnitErr_Initialized) engine-init race with a retry loop when it is
+    // set (related symptom: #1011). It is kept on `.playback` above, where
+    // mixing with other apps is the correct behavior for a listener.
     #if swift(>=6.2)
-    private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetoothHFP, .allowBluetoothA2DP, .allowAirPlay]
+    private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.allowBluetoothHFP, .allowBluetoothA2DP, .allowAirPlay]
     #else
-    private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
+    private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
     #endif
 
     // Explicit speaker preference for the speaker presets. The chat modes
