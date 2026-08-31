@@ -43,7 +43,7 @@ public extension Room {
     /// ```
     ///
     /// - See: ``PreConnectAudioBuffer``
-    /// - Important: Requires microphone permission. It is requested automatically while the app is foregrounded, so call this from a foreground context (for example during app launch) where the system prompt can appear. Otherwise it throws ``LiveKitError`` of type ``LiveKitErrorType/deviceAccessDenied``.
+    /// - Important: Requires microphone permission. It is requested automatically while the app is active, so call this once the app has become active and the system prompt can appear. At app launch the scene may not be active yet, so when calling this early, request permission first with ``LiveKitSDK/ensureDeviceAccess(for:)``. Otherwise it throws ``LiveKitError`` of type ``LiveKitErrorType/deviceAccessDenied``.
     ///
     func withPreConnectAudio<T>(timeout: TimeInterval = PreConnectAudioBuffer.Constants.timeout,
                                 _ operation: @Sendable @escaping () async throws -> T,
