@@ -142,6 +142,17 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     // MARK: - Internal
 
     override func startCapture() async throws {
+        // The WebRTC audio device no longer prompts for mic permission (see webrtc-sdk#265),
+        // so request it here while foregrounded before starting recording. Manual rendering mode
+        // publishes app audio without ever opening the microphone, and disabled input availability
+        // (CallKit flows, see setEngineAvailability) defers opening it entirely, so neither needs
+        // permission. Reading these flags waits on WebRTC's worker thread, hence the RTC hop.
+        let needsMicrophonePermission = await RTC.run {
+            !AudioManager.shared.isManualRenderingMode && AudioManager.shared.engineAvailability.isInputAvailable
+        }
+        if needsMicrophonePermission {
+            try await LiveKitSDK.ensureMicrophoneAccessForRecording()
+        }
         // AudioDeviceModule's InitRecording() and StartRecording() automatically get called by WebRTC, but
         // explicitly init & start it early to detect audio engine failures (mic not accessible for some reason, etc.).
         let audioProcessingOptions = captureOptions.audioProcessing
