@@ -487,6 +487,11 @@ public class AudioManager: Loggable {
     /// This is useful when you need to set up connections without touching the audio
     /// device yet (e.g., CallKit flows), or to guarantee the engine remains off
     /// regardless of subscription/publication requests.
+    ///
+    /// - Note: Microphone permission is not requested here. If recording was requested while input
+    ///   was unavailable, ensure permission is granted (for example via
+    ///   ``LiveKitSDK/ensureDeviceAccess(for:)``) before restoring input availability, otherwise
+    ///   this throws ``LiveKitError`` of type ``LiveKitErrorType/deviceAccessDenied``.
     public func setEngineAvailability(_ availability: AudioEngineAvailability) throws {
         let result = RTC.audioDeviceModule.setEngineAvailability(availability.toRTCType())
         try checkAdmResult(code: result)
