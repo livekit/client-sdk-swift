@@ -77,6 +77,11 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         var isPlatformVoiceProcessingExpected: Bool = true
 
         var sessionRequirements: [UUID: SessionRequirement] = [:]
+
+        // Sticky: true once recording engaged, cleared when the WebRTC engine
+        // stops. Keeps `.playAndRecord` across mute toggles instead of churning
+        // the category on every requirement change.
+        var hasRecorded: Bool = false
     }
 
     let _state = StateSync(State())
@@ -144,6 +149,18 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             let oldState = $0
             block(&$0.sessionRequirements)
             guard $0.sessionRequirements != oldState.sessionRequirements else { return }
+
+            if $0.isRecordingEnabled {
+                $0.hasRecorded = true
+            } else if $0.sessionRequirements[sessionRequirementId] == nil {
+                // The WebRTC engine stopped, so the next one starts a fresh
+                // session. Keyed on the engine's own requirement rather than on
+                // all of them: an externally held playout requirement (a
+                // prepared `SoundPlayer` sound, say) outlives the call and
+                // must not pin the category to `.playAndRecord`.
+                $0.hasRecorded = false
+            }
+
             do {
                 try configureIfNeeded(oldState: oldState, newState: $0)
             } catch {
@@ -189,20 +206,10 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 log("AudioSession deactivation skipped...")
             }
         } else if newState.isRecordingEnabled || newState.isPlayoutEnabled {
-            // Configure and activate the session with the appropriate category.
-            // Chat modes engage iOS's call-tuned speaker gain and are only kept
-            // when Apple voice processing provides its compensating loudness
-            // stage. With software processing, the media-tuned presets keep
-            // remote audio at media playback loudness.
-            let playAndRecord: AudioSessionConfiguration = if newState.isPlatformVoiceProcessingExpected {
-                newState.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver
-            } else {
-                newState.isSpeakerOutputPreferred ? .playAndRecordSpeakerMedia : .playAndRecordReceiverMedia
-            }
-            let config: AudioSessionConfiguration = newState.isRecordingEnabled ? playAndRecord : .playback
+            let config = Self.selectConfiguration(state: newState)
 
             do {
-                log("AudioSession configuring category to: \(config.category)")
+                log("AudioSession configuring category to: \(config.category), mode: \(config.mode)")
                 try session.setCategory(config.category, mode: config.mode, options: config.categoryOptions)
                 // Request WebRTC's preferred IO buffer duration (0.02s / 20ms, defined as
                 // RTCAudioSessionHighPerformanceIOBufferDuration in RTCAudioSessionConfiguration.m).
@@ -229,6 +236,27 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                     throw error
                 }
             }
+        }
+    }
+
+    /// Picks the audio session configuration for the given state.
+    ///
+    /// `.playAndRecord` is selected while recording is active and stays selected
+    /// until the audio engine stops (`hasRecorded`), so muting the microphone no
+    /// longer flips the category back to `.playback` — a mid-session category
+    /// change tears down Apple's Voice Processing I/O and leaves echo
+    /// cancellation off until the session ends.
+    ///
+    /// The chat modes engage iOS's call-tuned speaker gain and are only kept when
+    /// Apple voice processing provides its compensating loudness stage. With
+    /// software processing the media-tuned presets keep remote audio at media
+    /// playback loudness.
+    static func selectConfiguration(state: State) -> AudioSessionConfiguration {
+        guard state.isRecordingEnabled || state.hasRecorded else { return .playback }
+        return if state.isPlatformVoiceProcessingExpected {
+            state.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver
+        } else {
+            state.isSpeakerOutputPreferred ? .playAndRecordSpeakerMedia : .playAndRecordReceiverMedia
         }
     }
 

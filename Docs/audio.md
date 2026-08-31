@@ -46,6 +46,21 @@ AudioManager.shared.audioSession.isAutomaticDeactivationEnabled = false
 
 When set to `false`, the audio session remains active after the LiveKit call ends, preserving your app's audio state.
 
+## Audio session category selection
+
+When `isAutomaticConfigurationEnabled` is `true`, the SDK derives the category from the audio engine:
+
+- **Playout only** (subscribing to remote audio, nothing recording): `.playback`. The volume buttons stay on the media register.
+- **Recording active**: `.playAndRecord`, and it stays there until the audio engine stops.
+
+`.playAndRecord` is sticky on purpose. Changing the category mid-session tears down Apple's Voice Processing I/O, which would leave echo cancellation off for the remainder of the call, so muting the microphone does not fall back to `.playback`. The category returns to `.playback` once the audio engine stops — typically at `Room.disconnect()` — and the next session starts fresh. Session requirements held outside the engine (a prepared `SoundPlayer` sound, for example) keep the session active but do not keep `.playAndRecord` selected.
+
+Recording is considered active whenever anything needs microphone input — a published microphone track, `AudioManager.setRecordingAlwaysPreparedMode(_:)`, `AudioManager.startLocalRecording(audioProcessingOptions:)`, or an externally acquired session requirement that includes `.recording`.
+
+> Note: iOS asks for microphone permission when a `.playAndRecord` session is activated. Apps that only ever subscribe should avoid the APIs above so the session stays on `.playback`.
+
+Because the categories differ in whether they mix with other apps, publishing the microphone interrupts audio from other apps (`.playAndRecord` does not set `.mixWithOthers`), and muting does not bring it back — the interruption lasts until the audio engine stops.
+
 ## Audio Processing Modes (software, platform, automatic)
 
 Each audio processing effect has its own mode type: `EchoCancellationMode`, `NoiseSuppressionMode`, `AutoGainControlMode`, and `HighpassFilterMode`. Echo cancellation, noise suppression, and auto gain control can use Apple's platform Voice Processing I/O or WebRTC's software processing:
