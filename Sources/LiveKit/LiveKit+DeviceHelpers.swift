@@ -56,7 +56,12 @@ public extension LiveKitSDK {
             let status = AVCaptureDevice.authorizationStatus(for: type)
             switch status {
             case .notDetermined:
-                if await !(AVCaptureDevice.requestAccess(for: type)) {
+                // Explicit continuation instead of the synthesized async overload, which hits a
+                // mixed Swift 5/6 thunk-coalescing crash before Swift 6.3 (swiftlang/swift#81846).
+                let granted = await withCheckedContinuation { continuation in
+                    AVCaptureDevice.requestAccess(for: type) { continuation.resume(returning: $0) }
+                }
+                if !granted {
                     return false
                 }
             case .restricted, .denied: return false
