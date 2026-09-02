@@ -523,11 +523,15 @@ extension Transport {
     // Workaround: https://groups.google.com/g/discuss-webrtc/c/WDsGuVucBjQ?pli=1
     private func releaseTransceiver(sender: LKRTCRtpSender) {
         if let transceiver = _pc.transceivers.first(where: { $0.sender == sender }),
-           transceiver.mediaType == .video, !transceiver.isStopped
+           !transceiver.isStopped
         {
-            log("Stopping video transceiver", .debug)
+            log("Stopping transceiver", .debug)
             transceiver.stopInternal()
         }
+    }
+
+    var unstoppedTransceiverCount: Int {
+        _pc.transceivers.filter { !$0.isStopped }.count
     }
 
     func dataChannel(for label: String,
