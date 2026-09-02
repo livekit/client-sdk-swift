@@ -189,8 +189,8 @@ actor SignalClient: Loggable {
 
         do {
             let socket = try await WebSocket(url: url,
-                                             token: token,
-                                             connectOptions: connectOptions)
+                                             headers: ["Authorization": "Bearer \(token)"],
+                                             timeoutInterval: connectOptions?.socketConnectTimeoutInterval ?? .defaultSocketConnect)
             connectSpan?.record("ws_open")
 
             startDataTrackResponses()
