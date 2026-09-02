@@ -591,9 +591,29 @@ extension [Livekit_SubscribedQuality] {
 // MARK: - Private
 
 extension LocalParticipant {
+    /// One publish attempt = one `lk.publish` span, nested under whatever span the caller runs in
+    /// (the connect span for the pre-connect microphone).
     @discardableResult
     // swiftlint:disable:next cyclomatic_complexity function_body_length
     func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
+        let room = try requireRoom()
+        let span = room.tracer.beginSpan("lk.publish")
+        span.setAttribute("lk.track.kind", .string(Span.kindName(track.kind)))
+        span.setAttribute("lk.track.source", .string(String(describing: track.source)))
+        do {
+            let publication = try await Span.$current.withValue(span) {
+                try await _publishTrack(track: track, options: options)
+            }
+            span.setAttribute("lk.track.sid", .string(publication.sid.stringValue))
+            span.end()
+            return publication
+        } catch {
+            span.end(outcome: error is CancellationError ? .cancelled : .error, error: error)
+            throw error
+        }
+    }
+
+    private func _publishTrack(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
         try checkPermissions(toPublish: track)

@@ -36,7 +36,7 @@ struct TelemetryTests {
 
         try await TestEnvironment.withRooms([
             RoomTestingOptions(canPublish: true, telemetry: options),
-            RoomTestingOptions(canSubscribe: true),
+            RoomTestingOptions(canSubscribe: true, telemetry: options),
         ]) { rooms in
             // Synthetic frames: no capture device or permission needed in a headless test run.
             let track = LocalVideoTrack.createBufferTrack(name: "telemetry")
@@ -66,9 +66,34 @@ struct TelemetryTests {
                 "session attributes attached")
         #expect(streams.contains { $0.lines.contains { $0.contains(marker) } }, "error record reached the collector")
 
-        // Spans: the connect attempt must show up as a trace rooted at lk.connect.
+        // Spans: connect (both rooms), the publisher's publish, the subscriber's subscribe
+        // (intent → first media) must all be traces in Tempo.
+        // One trace per session, so a trace holds several root spans; look at span names.
         let traces = try await tempo(service: "livekit-client-swift", since: start)
-        #expect(traces.contains { $0["rootTraceName"] as? String == "lk.connect" }, "connect span in Tempo, got \(traces)")
+        var spanNames = Set<String>()
+        for trace in traces {
+            guard let id = trace["traceID"] as? String else { continue }
+            try await spanNames.formUnion(tempoSpanNames(traceId: id))
+        }
+        #expect(spanNames.contains("lk.connect"), "connect span, got \(spanNames)")
+        #expect(spanNames.contains("lk.publish"), "publish span, got \(spanNames)")
+        #expect(spanNames.contains("lk.subscribe"), "subscribe span, got \(spanNames)")
+    }
+
+    func tempoSpanNames(traceId: String) async throws -> Set<String> {
+        let url = URL(string: "http://localhost:3000/api/datasources/proxy/uid/tempo/api/traces/\(traceId)")!
+        let (data, _) = try await URLSession.shared.data(from: url)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let batches = (json?["batches"] as? [[String: Any]]) ?? (json?["resourceSpans"] as? [[String: Any]]) ?? []
+        var names = Set<String>()
+        for batch in batches {
+            for scope in (batch["scopeSpans"] as? [[String: Any]]) ?? [] {
+                for span in (scope["spans"] as? [[String: Any]]) ?? [] {
+                    if let name = span["name"] as? String { names.insert(name) }
+                }
+            }
+        }
+        return names
     }
 
     /// Tempo search through Grafana's datasource proxy (grafana/otel-lgtm has anonymous admin).

@@ -36,7 +36,7 @@ final class RoomTracer: @unchecked Sendable {
     }
 
     @discardableResult
-    func beginSpan(_ name: String, kind: SpanKind = .internal, parent: Span? = nil) -> Span {
+    func beginSpan(_ name: String, kind: SpanKind = .internal, parent: Span? = Span.current) -> Span {
         let span = sharedTracing.beginSpan(name)
         span.kind = kind
         span.parent = parent

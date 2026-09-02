@@ -439,92 +439,96 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         subscriberDataChannel.set(e2eeManager: e2eeManager)
         publisherDataChannel.set(e2eeManager: e2eeManager)
 
-        var nextUrl = providedUrl
-        var nextRegion: RegionInfo?
-        let regionManager = await regionManager(for: providedUrl)
+        // Everything below runs inside the connect span: child spans nest under it and
+        // warn/error records emitted meanwhile point at it.
+        try await Span.$current.withValue(attempt) {
+            var nextUrl = providedUrl
+            var nextRegion: RegionInfo?
+            let regionManager = await regionManager(for: providedUrl)
 
-        if providedUrl.isCloud {
-            if let regionManager {
-                await regionManager.resetAttempts(onlyIfExhausted: true)
-
-                if let preparedRegion {
-                    nextUrl = preparedRegion.url
-                    nextRegion = preparedRegion
-                } else if await regionManager.shouldRequestSettings() {
-                    await regionManager.prepareSettingsFetch(token: token)
-                }
-            }
-        }
-
-        // Concurrent mic publish mode
-        let enableMicrophone = _state.connectOptions.enableMicrophone
-        log("Concurrent enable microphone mode: \(enableMicrophone)")
-
-        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = if let recorder = preConnectBuffer.recorder, recorder.isRecording {
-            Task {
-                recorder.track
-            }
-        } else if enableMicrophone {
-            Task {
-                let localTrack = LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
-                                                             reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
-                // Initializes AudioDeviceModule's recording
-                try await localTrack.start()
-                return localTrack
-            }
-        } else {
-            nil
-        }
-
-        do {
-            let finalUrl: URL
             if providedUrl.isCloud {
-                guard let regionManager else {
-                    throw LiveKitError(.onlyForCloud)
+                if let regionManager {
+                    await regionManager.resetAttempts(onlyIfExhausted: true)
+
+                    if let preparedRegion {
+                        nextUrl = preparedRegion.url
+                        nextRegion = preparedRegion
+                    } else if await regionManager.shouldRequestSettings() {
+                        await regionManager.prepareSettingsFetch(token: token)
+                    }
+                }
+            }
+
+            // Concurrent mic publish mode
+            let enableMicrophone = _state.connectOptions.enableMicrophone
+            log("Concurrent enable microphone mode: \(enableMicrophone)")
+
+            let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = if let recorder = preConnectBuffer.recorder, recorder.isRecording {
+                Task {
+                    recorder.track
+                }
+            } else if enableMicrophone {
+                Task {
+                    let localTrack = LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
+                                                                 reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
+                    // Initializes AudioDeviceModule's recording
+                    try await localTrack.start()
+                    return localTrack
+                }
+            } else {
+                nil
+            }
+
+            do {
+                let finalUrl: URL
+                if providedUrl.isCloud {
+                    guard let regionManager else {
+                        throw LiveKitError(.onlyForCloud)
+                    }
+
+                    finalUrl = try await connectWithCloudRegionFailover(regionManager: regionManager,
+                                                                        initialUrl: nextUrl,
+                                                                        initialRegion: nextRegion,
+                                                                        token: token)
+                } else {
+                    try await fullConnectSequence(nextUrl, token)
+                    finalUrl = nextUrl
                 }
 
-                finalUrl = try await connectWithCloudRegionFailover(regionManager: regionManager,
-                                                                    initialUrl: nextUrl,
-                                                                    initialRegion: nextRegion,
-                                                                    token: token)
-            } else {
-                try await fullConnectSequence(nextUrl, token)
-                finalUrl = nextUrl
+                // Connect sequence successful
+                log("Connect sequence completed")
+                // Final check if cancelled, don't fire connected events
+                try Task.checkCancellation()
+
+                connectSpan?.record("room_connected")
+
+                _state.mutate {
+                    $0.connectedUrl = finalUrl
+                    $0.connectionState = .connected
+                }
+
+                telemetry?.roomDidConnect(self)
+
+                connectSpan?.end()
+
+                // Publish mic if mic task was created
+                if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled {
+                    let track = try await createMicrophoneTrackTask.value
+                    try await localParticipant._publish(track: track, options: _state.roomOptions.defaultAudioPublishOptions.withPreconnect(preConnectBuffer.recorder?.isRecording ?? false))
+                }
+            } catch {
+                log("Failed to resolve a region or connect: \(error)")
+                connectSpan?.end(outcome: error is CancellationError ? .cancelled : .error, error: error)
+                // Stop the track if it was created but not published
+                if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled,
+                   case let .success(track) = await createMicrophoneTrackTask.result
+                {
+                    try? await track.stop()
+                }
+
+                await cleanUp(withError: error)
+                throw error // Re-throw the original error
             }
-
-            // Connect sequence successful
-            log("Connect sequence completed")
-            // Final check if cancelled, don't fire connected events
-            try Task.checkCancellation()
-
-            connectSpan?.record("room_connected")
-
-            _state.mutate {
-                $0.connectedUrl = finalUrl
-                $0.connectionState = .connected
-            }
-
-            telemetry?.roomDidConnect(self)
-
-            connectSpan?.end()
-
-            // Publish mic if mic task was created
-            if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled {
-                let track = try await createMicrophoneTrackTask.value
-                try await localParticipant._publish(track: track, options: _state.roomOptions.defaultAudioPublishOptions.withPreconnect(preConnectBuffer.recorder?.isRecording ?? false))
-            }
-        } catch {
-            log("Failed to resolve a region or connect: \(error)")
-            connectSpan?.end(outcome: error is CancellationError ? .cancelled : .error, error: error)
-            // Stop the track if it was created but not published
-            if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled,
-               case let .success(track) = await createMicrophoneTrackTask.result
-            {
-                try? await track.stop()
-            }
-
-            await cleanUp(withError: error)
-            throw error // Re-throw the original error
         }
 
         log("Connected to \(String(describing: self))", .info)

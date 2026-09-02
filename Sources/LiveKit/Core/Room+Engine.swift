@@ -403,87 +403,89 @@ extension Room {
             dataTracks?.handleReconnect(fullReconnect: true)
         }
 
-        do {
-            let reconnectTask = Task.retrying(totalAttempts: _state.connectOptions.reconnectAttempts,
-                                              retryDelay: { @Sendable attempt in
-                                                  let delay = TimeInterval.computeReconnectDelay(forAttempt: attempt,
-                                                                                                 baseDelay: self._state.connectOptions.reconnectAttemptDelay,
-                                                                                                 maxDelay: self._state.connectOptions.reconnectMaxDelay,
-                                                                                                 totalAttempts: self._state.connectOptions.reconnectAttempts,
-                                                                                                 addJitter: true)
-                                                  self.log("[Connect] Retry cycle waiting for \(String(format: "%.2f", delay)) seconds before attempt \(attempt + 1)")
-                                                  return delay
-                                              }) { currentAttempt, totalAttempts in
-                // Not reconnecting state anymore
-                guard let currentMode = self._state.isReconnectingWithMode else {
-                    self.log("[Connect] Not in reconnect state anymore, exiting retry cycle.")
-                    return
-                }
-
-                // Full reconnect failed, give up
-                guard currentMode != .full else { return }
-
-                self.log("[Connect] Starting retry attempt \(currentAttempt)/\(totalAttempts) with mode: \(currentMode)")
-
-                // Try full reconnect for the final attempt
-                if totalAttempts == currentAttempt, self._state.nextReconnectMode == nil {
-                    self._state.mutate { $0.nextReconnectMode = .full }
-                }
-
-                let mode: ReconnectMode = self._state.mutate {
-                    let mode: ReconnectMode = ($0.nextReconnectMode == .full || $0.isReconnectingWithMode == .full) ? .full : .quick
-                    $0.isReconnectingWithMode = mode
-                    $0.nextReconnectMode = nil
-                    return mode
-                }
-
-                reconnectSpan.record("attempt \(currentAttempt) \(mode)")
-                reconnectSpan.setAttribute("lk.reconnect.mode", .string(String(describing: mode)))
-                reconnectSpan.setAttribute("lk.reconnect.attempts", .int(Int64(currentAttempt)))
-
-                do {
-                    if case .quick = mode {
-                        try await quickReconnectSequence()
-                        self.log("[Connect] Quick reconnect succeeded for attempt \(currentAttempt)")
-                    } else if case .full = mode {
-                        try await fullReconnectSequence()
-                        self.log("[Connect] Full reconnect succeeded for attempt \(currentAttempt)")
+        await Span.$current.withValue(reconnectSpan) {
+            do {
+                let reconnectTask = Task.retrying(totalAttempts: _state.connectOptions.reconnectAttempts,
+                                                  retryDelay: { @Sendable attempt in
+                                                      let delay = TimeInterval.computeReconnectDelay(forAttempt: attempt,
+                                                                                                     baseDelay: self._state.connectOptions.reconnectAttemptDelay,
+                                                                                                     maxDelay: self._state.connectOptions.reconnectMaxDelay,
+                                                                                                     totalAttempts: self._state.connectOptions.reconnectAttempts,
+                                                                                                     addJitter: true)
+                                                      self.log("[Connect] Retry cycle waiting for \(String(format: "%.2f", delay)) seconds before attempt \(attempt + 1)")
+                                                      return delay
+                                                  }) { currentAttempt, totalAttempts in
+                    // Not reconnecting state anymore
+                    guard let currentMode = self._state.isReconnectingWithMode else {
+                        self.log("[Connect] Not in reconnect state anymore, exiting retry cycle.")
+                        return
                     }
-                } catch {
-                    self.log("[Connect] Reconnect mode: \(mode) failed with error: \(error)", .error)
-                    // Re-throw
-                    throw error
+
+                    // Full reconnect failed, give up
+                    guard currentMode != .full else { return }
+
+                    self.log("[Connect] Starting retry attempt \(currentAttempt)/\(totalAttempts) with mode: \(currentMode)")
+
+                    // Try full reconnect for the final attempt
+                    if totalAttempts == currentAttempt, self._state.nextReconnectMode == nil {
+                        self._state.mutate { $0.nextReconnectMode = .full }
+                    }
+
+                    let mode: ReconnectMode = self._state.mutate {
+                        let mode: ReconnectMode = ($0.nextReconnectMode == .full || $0.isReconnectingWithMode == .full) ? .full : .quick
+                        $0.isReconnectingWithMode = mode
+                        $0.nextReconnectMode = nil
+                        return mode
+                    }
+
+                    reconnectSpan.record("attempt \(currentAttempt) \(mode)")
+                    reconnectSpan.setAttribute("lk.reconnect.mode", .string(String(describing: mode)))
+                    reconnectSpan.setAttribute("lk.reconnect.attempts", .int(Int64(currentAttempt)))
+
+                    do {
+                        if case .quick = mode {
+                            try await quickReconnectSequence()
+                            self.log("[Connect] Quick reconnect succeeded for attempt \(currentAttempt)")
+                        } else if case .full = mode {
+                            try await fullReconnectSequence()
+                            self.log("[Connect] Full reconnect succeeded for attempt \(currentAttempt)")
+                        }
+                    } catch {
+                        self.log("[Connect] Reconnect mode: \(mode) failed with error: \(error)", .error)
+                        // Re-throw
+                        throw error
+                    }
                 }
-            }
 
-            _state.mutate {
-                $0.reconnectTask = reconnectTask.cancellable()
-            }
+                _state.mutate {
+                    $0.reconnectTask = reconnectTask.cancellable()
+                }
 
-            try await reconnectTask.value
+                try await reconnectTask.value
 
-            // Re-connect sequence successful
-            log("[Connect] Sequence completed")
-            reconnectSpan.end(outcome: .ok)
-            _state.mutate {
-                $0.connectionState = .connected
-                $0.reconnectTask = nil
-                $0.isReconnectingWithMode = nil
-                $0.nextReconnectMode = nil
-            }
+                // Re-connect sequence successful
+                log("[Connect] Sequence completed")
+                reconnectSpan.end(outcome: .ok)
+                _state.mutate {
+                    $0.connectionState = .connected
+                    $0.reconnectTask = nil
+                    $0.isReconnectingWithMode = nil
+                    $0.nextReconnectMode = nil
+                }
 
-            if let providedUrl = _state.providedUrl, providedUrl.isCloud, let regionManager = await regionManager(for: providedUrl) {
-                // Clear failed region attempts after a successful reconnect.
-                await regionManager.resetAttempts()
-            }
-        } catch {
-            log("[Connect] Sequence failed with error: \(error)")
-            reconnectSpan.end(outcome: (Task.isCancelled || error is CancellationError) ? .cancelled : .error, error: error)
+                if let providedUrl = _state.providedUrl, providedUrl.isCloud, let regionManager = await regionManager(for: providedUrl) {
+                    // Clear failed region attempts after a successful reconnect.
+                    await regionManager.resetAttempts()
+                }
+            } catch {
+                log("[Connect] Sequence failed with error: \(error)")
+                reconnectSpan.end(outcome: (Task.isCancelled || error is CancellationError) ? .cancelled : .error, error: error)
 
-            // Only clean up if the reconnect task wasn't cancelled — when cancelled,
-            // the caller (disconnect() or a new reconnect) handles cleanup separately.
-            if !Task.isCancelled {
-                await cleanUp(withError: error)
+                // Only clean up if the reconnect task wasn't cancelled — when cancelled,
+                // the caller (disconnect() or a new reconnect) handles cleanup separately.
+                if !Task.isCancelled {
+                    await cleanUp(withError: error)
+                }
             }
         }
     }

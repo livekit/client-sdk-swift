@@ -83,6 +83,11 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
     /// Observers attached by the Room's tracer before the span is announced.
     var sinks: [SpanSink] = []
 
+    /// The span the current task is working inside, if any. Bound by the SDK around operations
+    /// (`connect`, a reconnect cycle) so child spans nest and warn/error records point at it
+    /// without any handle being passed around; does not cross the WebRTC callback boundary.
+    @TaskLocal public static var current: Span?
+
     private let _state = StateSync(State())
 
     public init(label: String) {
@@ -148,6 +153,15 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
     public func total() -> TimeInterval {
         guard let last = entries.last else { return 0 }
         return last.time - start
+    }
+
+    /// Spec value for a track kind (`Track.Kind` is `@objc`, so `String(describing:)` is not usable).
+    static func kindName(_ kind: Track.Kind) -> String {
+        switch kind {
+        case .audio: "audio"
+        case .video: "video"
+        case .none: "none"
+        }
     }
 
     /// `error.type` for a span: the LiveKit error case when it is one, else the Swift type name.

@@ -31,7 +31,13 @@ final class RoomTelemetry: NSObject, @unchecked Sendable, Loggable {
 
     private struct State {
         var appState: LiveKitUniFFI.AppState = .foreground
+        /// Open `lk.subscribe` spans by track, from subscription intent to first media.
+        var subscribeSpans: [Track.Sid: Span] = [:]
+        var subscribeTimeouts: [Track.Sid: Task<Void, Never>] = [:]
     }
+
+    /// A subscription that shows no media within this window ends with `error.type = timedOut`.
+    static let subscribeTimeout: TimeInterval = 30
 
     private let _state = StateSync(State())
 
@@ -81,6 +87,9 @@ final class RoomTelemetry: NSObject, @unchecked Sendable, Loggable {
             NotificationCenter.default.removeObserver(token)
         }
         notificationTokens.removeAll()
+        for sid in _state.subscribeSpans.keys {
+            endSubscribe(sid, outcome: .cancelled)
+        }
         LogRelay.shared.sinks.remove(delegate: self)
         Task { @MainActor in AppStateListener.shared.delegates.remove(delegate: self) }
         let core = core
@@ -141,10 +150,10 @@ final class RoomTelemetry: NSObject, @unchecked Sendable, Loggable {
 
 extension RoomTelemetry: LogRecordSink {
     func receive(_ record: LogRecord) {
-        // Warn/error records emitted while a connect is in flight point at that span; no
-        // task-local plumbing yet, so the in-flight connect span is the ambient context.
-        let connect = room?.connectSpan
-        let spanId = (connect?.isEnded == false) ? connect?.context?.spanId : nil
+        // Warn/error records point at the span the emitting task runs in (connect, reconnect,
+        // publish). Logs from WebRTC threads have no ambient span and stay session-level.
+        let ambient = Span.current
+        let spanId = (ambient?.isEnded == false) ? ambient?.context?.spanId : nil
         core.emit(event: TelemetryEvent(
             name: "",
             severity: record.level == .error ? .error : .warn,
@@ -205,12 +214,63 @@ extension RoomTelemetry: RoomDelegate {
         publication.track?.remove(delegate: self)
     }
 
-    nonisolated func room(_: Room, participant _: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
+    // MARK: lk.subscribe — from the intent to subscribe to the first media that arrives
+
+    nonisolated func room(_ room: Room, participant: RemoteParticipant, didPublishTrack publication: RemoteTrackPublication) {
+        // With autoSubscribe the intent exists the moment the track is known.
+        guard room._state.connectOptions.autoSubscribe else { return }
+        beginSubscribe(publication, participant: participant)
+    }
+
+    nonisolated func room(_: Room, participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
+        if _state.subscribeSpans[publication.sid] == nil {
+            beginSubscribe(publication, participant: participant) // manual subscription
+        }
+        _state.subscribeSpans[publication.sid]?.record("subscribed")
         if let track = publication.track { observe(track) }
     }
 
     nonisolated func room(_: Room, participant _: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication) {
         publication.track?.remove(delegate: self)
+        endSubscribe(publication.sid, outcome: .cancelled)
+    }
+
+    nonisolated func room(_: Room, participant _: RemoteParticipant, didUnpublishTrack publication: RemoteTrackPublication) {
+        endSubscribe(publication.sid, outcome: .cancelled)
+    }
+
+    nonisolated func room(_: Room, participant _: RemoteParticipant, didFailToSubscribeTrackWithSid trackSid: Track.Sid, error: LiveKitError) {
+        endSubscribe(trackSid, outcome: .error, error: error)
+    }
+
+    private func beginSubscribe(_ publication: RemoteTrackPublication, participant: RemoteParticipant) {
+        guard let tracer = room?.tracer else { return }
+        let sid = publication.sid
+        let span = tracer.beginSpan("lk.subscribe", parent: nil)
+        span.setAttribute("lk.track.sid", .string(sid.stringValue))
+        span.setAttribute("lk.track.kind", .string(Span.kindName(publication.kind)))
+        span.setAttribute("lk.track.source", .string(String(describing: publication.source)))
+        if let identity = participant.identity?.stringValue {
+            span.setAttribute("lk.participant.remote_identity", .string(identity))
+        }
+        let timeout = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(Self.subscribeTimeout * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            self?.endSubscribe(sid, outcome: .error, error: LiveKitError(.timedOut, message: "No media within \(Self.subscribeTimeout)s"))
+        }
+        _state.mutate {
+            $0.subscribeSpans[sid] = span
+            $0.subscribeTimeouts[sid]?.cancel()
+            $0.subscribeTimeouts[sid] = timeout
+        }
+    }
+
+    private func endSubscribe(_ sid: Track.Sid, outcome: SpanOutcome, error: Error? = nil) {
+        let (span, timeout) = _state.mutate {
+            ($0.subscribeSpans.removeValue(forKey: sid), $0.subscribeTimeouts.removeValue(forKey: sid))
+        }
+        timeout?.cancel()
+        span?.end(outcome: outcome, error: error)
     }
 
     private func observe(_ track: Track) {
@@ -224,6 +284,13 @@ extension RoomTelemetry: TrackDelegate {
     nonisolated func track(_ track: Track, didUpdateStatistics statistics: TrackStatistics, simulcastStatistics _: [VideoCodec: TrackStatistics]) {
         for sample in Self.samples(for: track, statistics: statistics) {
             core.recordStats(sample: sample)
+        }
+        // First media: the subscribe span's natural end (1 s granularity, the stats timer's).
+        if let sid = track.sid, _state.subscribeSpans[sid] != nil,
+           statistics.inboundRtpStream.contains(where: { ($0.bytesReceived ?? 0) > 0 })
+        {
+            _state.subscribeSpans[sid]?.record("first_media")
+            endSubscribe(sid, outcome: .ok)
         }
     }
 
