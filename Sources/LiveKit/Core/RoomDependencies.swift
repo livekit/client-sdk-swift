@@ -42,7 +42,7 @@ final class ConnectionDependencies: Sendable {
 
     init(room: Room, roomOptions: RoomOptions) {
         dataTracks = DataTracks(room: room)
-        telemetry = roomOptions.telemetry.map { RoomTelemetry(room: room, options: $0) }
+        telemetry = roomOptions.telemetry.flatMap { RoomTelemetry(room: room, options: $0) }
         let manager: E2EEManager? = if let e2eeOptions = roomOptions.e2eeOptions {
             E2EEManager(e2eeOptions: e2eeOptions)
         } else if let encryptionOptions = roomOptions.encryptionOptions {

@@ -34,7 +34,9 @@ final class RoomTelemetry: NSObject, @unchecked Sendable, Loggable {
 
     private let _state = StateSync(State())
 
-    init(room: Room, options: TelemetryOptions) {
+    /// `nil` only if the core refuses to start (no transport) — never the case here, but telemetry is
+    /// fail-open: the room connects without it rather than not at all.
+    init?(room: Room, options: TelemetryOptions) {
         let config = TelemetryConfig(
             endpoint: options.endpoint.absoluteString,
             headers: options.headers,
@@ -43,7 +45,10 @@ final class RoomTelemetry: NSObject, @unchecked Sendable, Loggable {
             flushIntervalMs: UInt64(max(0, options.flushInterval) * 1000),
             statsWindowMs: UInt64(max(0, options.statsWindow) * 1000),
         )
-        core = LiveKitUniFFI.Telemetry(config: config, transport: URLSessionTelemetryTransport())
+        guard let core = try? LiveKitUniFFI.Telemetry(config: config, transport: URLSessionTelemetryTransport()) else {
+            return nil
+        }
+        self.core = core
         super.init()
 
         room.add(delegate: self)
