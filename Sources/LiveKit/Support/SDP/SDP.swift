@@ -71,6 +71,14 @@ struct SDPMediaSection {
         mLineParts.count > 2 && mLineParts[2].contains("RTP/")
     }
 
+    /// Whether the section is rejected, i.e. its `m=` line has port 0
+    /// ([RFC 3264 §8.2](https://datatracker.ietf.org/doc/html/rfc3264#section-8.2)). A stopped
+    /// transceiver serializes this way, and its direction must not be rewritten: the port, not
+    /// the direction attribute, is what marks the section dead.
+    var isRejected: Bool {
+        mLineParts.count > 1 && mLineParts[1] == "0"
+    }
+
     var mid: String? { attributeValue("mid") }
 
     /// The section's first direction attribute, if any.

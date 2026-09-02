@@ -198,9 +198,11 @@ final class Transport: NSObject, Loggable {
             var offer = try await createOffer(for: constraints)
             // The direction rewrite is required to receive media in single PC mode; the
             // stereo preference is optional and must be the one dropped on rejection.
-            offer = try await set(localDescription: offer, munging: singlePCMode
-                ? [Self.mungeInactiveToRecvOnlyForMedia, Self.mungeOpusStereoForAllAudio]
-                : [])
+            offer = try await singlePCMode
+                ? set(localDescription: offer,
+                      munging: [Self.mungeInactiveToRecvOnlyForMedia],
+                      droppable: [Self.mungeOpusStereoForAllAudio])
+                : set(localDescription: offer, munging: [])
             try await _onOffer(offer, _latestOfferId)
         }
 
@@ -239,7 +241,9 @@ extension Transport {
         var document = SDP(parsing: sdp)
         for index in document.mediaSections.indices {
             let section = document.mediaSections[index]
-            if section.isRTP, section.direction == .inactive {
+            // A rejected (port 0) section is dead: rewriting its direction resurrects an
+            // m-section the client just stopped, which desynchronizes m-line recycling.
+            if section.isRTP, !section.isRejected, section.direction == .inactive {
                 document.mediaSections[index].set(direction: .recvonly)
             }
         }
@@ -338,10 +342,19 @@ extension Transport {
     /// offered to libwebrtc. Returns the description that was applied — the one
     /// to signal, since signalling a rejected munge would advertise parameters
     /// the peer connection was never configured with.
+    /// Applies `munging` and `droppable` to `original` and sets the result as the local
+    /// description, retrying with one fewer `droppable` munge each time libwebrtc rejects it.
+    ///
+    /// A `munging` entry is never traded away: once every `droppable` one is gone the error
+    /// propagates instead of quietly applying SDP the caller declared it needs. Single PC
+    /// depends on the direction rewrite to receive media at all, and the rejection that drops
+    /// it is not necessarily caused by munging — any `setLocalDescription` failure lands here —
+    /// so falling all the way back to the original would leave the connection silently deaf.
     func set(localDescription original: LKRTCSessionDescription,
-             munging munges: [(String) -> String]) async throws -> LKRTCSessionDescription
+             munging required: [(String) -> String],
+             droppable: [(String) -> String] = []) async throws -> LKRTCSessionDescription
     {
-        let mungedSDP = munges.reduce(original.sdp) { $1($0) }
+        let mungedSDP = (required + droppable).reduce(original.sdp) { $1($0) }
         guard mungedSDP != original.sdp else {
             try await set(localDescription: original)
             return original
@@ -351,8 +364,9 @@ extension Transport {
             try await set(localDescription: munged)
             return munged
         } catch {
-            log("Munged local description was rejected, dropping the last munge and retrying: \(error)", .warning)
-            return try await set(localDescription: original, munging: Array(munges.dropLast()))
+            guard !droppable.isEmpty else { throw error }
+            log("Munged local description was rejected, dropping the last droppable munge and retrying: \(error)", .warning)
+            return try await set(localDescription: original, munging: required, droppable: droppable.dropLast())
         }
     }
 }
