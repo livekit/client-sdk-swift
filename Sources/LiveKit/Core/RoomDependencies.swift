@@ -40,9 +40,19 @@ final class ConnectionDependencies: Sendable {
     /// attempted so connect failures are captured; shut down with the connection.
     let telemetry: RoomTelemetry?
 
+    /// Span factory for this connection: the app's tracer creates spans, telemetry (and, in debug
+    /// builds, os_signpost) observe them.
+    let tracer: RoomTracer
+
     init(room: Room, roomOptions: RoomOptions) {
         dataTracks = DataTracks(room: room)
         telemetry = roomOptions.telemetry.flatMap { RoomTelemetry(room: room, options: $0) }
+        var sinks: [SpanSink] = []
+        if let telemetry { sinks.append(telemetry) }
+        #if DEBUG
+        sinks.append(SignpostSpanSink())
+        #endif
+        tracer = RoomTracer(sinks: sinks)
         let manager: E2EEManager? = if let e2eeOptions = roomOptions.e2eeOptions {
             E2EEManager(e2eeOptions: e2eeOptions)
         } else if let encryptionOptions = roomOptions.encryptionOptions {

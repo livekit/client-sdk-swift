@@ -147,6 +147,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     var dataTracks: DataTracks? { _state.stage.connection?.dataTracks }
     var telemetry: RoomTelemetry? { _state.stage.connection?.telemetry }
+    var tracer: RoomTracer { _state.stage.connection?.tracer ?? .detached }
 
     // MARK: - PreConnect
 
@@ -418,9 +419,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         // options): carried across full reconnects, released on disconnect.
         let dependencies = ConnectionDependencies(room: self, roomOptions: state.roomOptions)
 
+        // One connect() = one attempt; reconnect cycles get their own spans.
+        let attempt = dependencies.tracer.beginSpan("lk.connect", kind: .client)
+        attempt.setAttribute("lk.connect.attempt", .int(1))
+
         try _state.mutate {
             try $0.stage.begin(dependencies)
-            $0.connectSpan = sharedTracing.beginSpan("connect")
+            $0.connectSpan = attempt
             $0.providedUrl = providedUrl
             $0.token = token
             $0.connectionState = .connecting
@@ -510,6 +515,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             }
         } catch {
             log("Failed to resolve a region or connect: \(error)")
+            connectSpan?.end(outcome: error is CancellationError ? .cancelled : .error, error: error)
             // Stop the track if it was created but not published
             if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled,
                case let .success(track) = await createMicrophoneTrackTask.result

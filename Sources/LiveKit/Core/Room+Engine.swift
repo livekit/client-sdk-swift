@@ -307,6 +307,10 @@ extension Room {
             $0.nextReconnectMode = nextReconnectMode
         }
 
+        // One reconnect cycle = one span; attempts are its checkpoints.
+        let reconnectSpan = tracer.beginSpan("lk.reconnect", kind: .client)
+        reconnectSpan.setAttribute("lk.reconnect.reason", .string(String(describing: reason)))
+
         // quick connect sequence, does not update connection state
         @Sendable func quickReconnectSequence() async throws {
             log("[Connect] Starting .quick reconnect sequence...")
@@ -433,6 +437,10 @@ extension Room {
                     return mode
                 }
 
+                reconnectSpan.record("attempt \(currentAttempt) \(mode)")
+                reconnectSpan.setAttribute("lk.reconnect.mode", .string(String(describing: mode)))
+                reconnectSpan.setAttribute("lk.reconnect.attempts", .int(Int64(currentAttempt)))
+
                 do {
                     if case .quick = mode {
                         try await quickReconnectSequence()
@@ -456,6 +464,7 @@ extension Room {
 
             // Re-connect sequence successful
             log("[Connect] Sequence completed")
+            reconnectSpan.end(outcome: .ok)
             _state.mutate {
                 $0.connectionState = .connected
                 $0.reconnectTask = nil
@@ -469,6 +478,7 @@ extension Room {
             }
         } catch {
             log("[Connect] Sequence failed with error: \(error)")
+            reconnectSpan.end(outcome: (Task.isCancelled || error is CancellationError) ? .cancelled : .error, error: error)
 
             // Only clean up if the reconnect task wasn't cancelled — when cancelled,
             // the caller (disconnect() or a new reconnect) handles cleanup separately.

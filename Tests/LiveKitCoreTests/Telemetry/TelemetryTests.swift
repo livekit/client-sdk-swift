@@ -65,6 +65,24 @@ struct TelemetryTests {
         #expect(labels.contains { $0["lk_room_name"] != nil && $0["lk_participant_identity"] != nil },
                 "session attributes attached")
         #expect(streams.contains { $0.lines.contains { $0.contains(marker) } }, "error record reached the collector")
+
+        // Spans: the connect attempt must show up as a trace rooted at lk.connect.
+        let traces = try await tempo(service: "livekit-client-swift", since: start)
+        #expect(traces.contains { $0["rootTraceName"] as? String == "lk.connect" }, "connect span in Tempo, got \(traces)")
+    }
+
+    /// Tempo search through Grafana's datasource proxy (grafana/otel-lgtm has anonymous admin).
+    func tempo(service: String, since: UInt64) async throws -> [[String: Any]] {
+        var components = URLComponents(string: "http://localhost:3000/api/datasources/proxy/uid/tempo/api/search")!
+        components.queryItems = [
+            .init(name: "tags", value: "service.name=\(service)"),
+            .init(name: "start", value: String(since / 1_000_000_000)),
+            .init(name: "end", value: String(UInt64(Date().timeIntervalSince1970) + 60)),
+            .init(name: "limit", value: "50"),
+        ]
+        let (data, _) = try await URLSession.shared.data(from: components.url!)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        return (json?["traces"] as? [[String: Any]]) ?? []
     }
 
     struct Stream {

@@ -26,6 +26,7 @@ import Foundation
 /// are captured), carried across reconnects, shut down on disconnect.
 final class RoomTelemetry: NSObject, @unchecked Sendable, Loggable {
     private let core: LiveKitUniFFI.Telemetry
+    private weak var room: Room?
     private var notificationTokens: [NSObjectProtocol] = []
 
     private struct State {
@@ -49,6 +50,7 @@ final class RoomTelemetry: NSObject, @unchecked Sendable, Loggable {
             return nil
         }
         self.core = core
+        self.room = room
         super.init()
 
         room.add(delegate: self)
@@ -139,6 +141,10 @@ final class RoomTelemetry: NSObject, @unchecked Sendable, Loggable {
 
 extension RoomTelemetry: LogRecordSink {
     func receive(_ record: LogRecord) {
+        // Warn/error records emitted while a connect is in flight point at that span; no
+        // task-local plumbing yet, so the in-flight connect span is the ambient context.
+        let connect = room?.connectSpan
+        let spanId = (connect?.isEnded == false) ? connect?.context?.spanId : nil
         core.emit(event: TelemetryEvent(
             name: "",
             severity: record.level == .error ? .error : .warn,
@@ -149,7 +155,42 @@ extension RoomTelemetry: LogRecordSink {
                 .init(key: "code.line.number", value: .int(Int64(record.line))),
                 .init(key: "lk.log.type", value: .str(record.type)),
             ],
+            spanId: spanId,
         ))
+    }
+}
+
+// MARK: - Spans
+
+extension RoomTelemetry: SpanSink {
+    func spanDidBegin(_ span: Span) {
+        let kind: LiveKitUniFFI.SpanKind = span.kind == .client ? .client : .internal
+        let id = core.beginSpan(name: span.label, kind: kind, parent: span.parent?.context?.spanId)
+        span.context = SpanContext(traceId: core.traceId(), spanId: id)
+    }
+
+    func span(_ span: Span, didRecord entry: Span.Entry) {
+        guard let id = span.context?.spanId else { return }
+        core.addSpanEvent(span: id, name: entry.label, attributes: [])
+    }
+
+    func spanDidEnd(_ span: Span) {
+        guard let id = span.context?.spanId else { return }
+        let outcome: LiveKitUniFFI.SpanOutcome = switch span.outcome ?? .ok {
+        case .ok: .ok
+        case .error: .error
+        case .cancelled: .cancelled
+        }
+        let attributes = span.attributes.map { key, value -> LiveKitUniFFI.Attribute in
+            let lowered: LiveKitUniFFI.AttributeValue = switch value {
+            case let .string(s): .str(s)
+            case let .int(i): .int(i)
+            case let .double(d): .double(d)
+            case let .bool(b): .bool(b)
+            }
+            return .init(key: key, value: lowered)
+        }
+        core.endSpan(span: id, outcome: outcome, errorType: span.errorType, attributes: attributes)
     }
 }
 
