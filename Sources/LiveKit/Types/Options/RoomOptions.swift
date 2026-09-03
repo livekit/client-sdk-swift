@@ -60,10 +60,6 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
 
     public let reportRemoteTrackStatistics: Bool
 
-    /// Client telemetry (warn/error records, RTC statistics, device state) shipped to an OTLP
-    /// collector. `nil` disables it.
-    public let telemetry: TelemetryOptions?
-
     /// Use a single peer connection for both publishing and subscribing.
     ///
     /// - Note: Requires LiveKit Cloud or LiveKit OSS >= 1.9.2.
@@ -83,7 +79,6 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
         e2eeOptions = nil
         encryptionOptions = nil
         reportRemoteTrackStatistics = false
-        telemetry = nil
         singlePeerConnection = false
     }
 
@@ -100,8 +95,7 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
                 e2eeOptions: E2EEOptions? = nil,
                 encryptionOptions: EncryptionOptions? = nil,
                 reportRemoteTrackStatistics: Bool = false,
-                singlePeerConnection: Bool = false,
-                telemetry: TelemetryOptions? = nil)
+                singlePeerConnection: Bool = false)
     {
         self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
         self.defaultScreenShareCaptureOptions = defaultScreenShareCaptureOptions
@@ -117,7 +111,6 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
         self.encryptionOptions = encryptionOptions
         self.reportRemoteTrackStatistics = reportRemoteTrackStatistics
         self.singlePeerConnection = singlePeerConnection
-        self.telemetry = telemetry
 
         super.init()
 
@@ -143,7 +136,6 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
             e2eeOptions == other.e2eeOptions &&
             encryptionOptions == other.encryptionOptions &&
             reportRemoteTrackStatistics == other.reportRemoteTrackStatistics &&
-            telemetry == other.telemetry &&
             singlePeerConnection == other.singlePeerConnection
     }
 
@@ -162,7 +154,6 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
         hasher.combine(e2eeOptions)
         hasher.combine(encryptionOptions)
         hasher.combine(reportRemoteTrackStatistics)
-        hasher.combine(telemetry)
         hasher.combine(singlePeerConnection)
         return hasher.finalize()
     }

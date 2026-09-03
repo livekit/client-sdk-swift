@@ -43,6 +43,14 @@ public class LiveKitSDK: NSObject, Loggable {
 
     fileprivate static let state = StateSync(State())
 
+    /// Turn client telemetry on for the process: warn/error records, RTC statistics, spans and
+    /// device state, shipped out-of-band to an OTLP collector. Configure at launch, before creating
+    /// Rooms; each Room then gets its own session (see ``Room/telemetryTraceId``). `nil` turns it
+    /// off for Rooms created afterwards.
+    public static func setTelemetry(_ options: TelemetryOptions?) {
+        TelemetryHub.configure(options)
+    }
+
     /// Set a custom ``Tracing`` implementation to capture operation timing.
     ///
     /// The default ``LoggingTracer`` logs completed spans at debug level.

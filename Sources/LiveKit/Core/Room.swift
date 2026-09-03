@@ -146,12 +146,22 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - Data Tracks
 
     var dataTracks: DataTracks? { _state.stage.connection?.dataTracks }
-    var telemetry: RoomTelemetry? { _state.stage.connection?.telemetry }
+    /// This Room's telemetry session, when ``LiveKitSDK/setTelemetry(_:)`` configured telemetry
+    /// before the Room was created. Lives as long as the Room; connections come and go inside it.
+    private(set) var telemetry: RoomTelemetry?
+    /// RTC statistics for the same session — an independent instrument; the Room only wires its
+    /// first-media signal to the subscribe spans.
+    private(set) var rtcTelemetry: RTCTelemetry?
 
-    /// Record an app-defined telemetry event alongside the SDK's own, in the same session trace.
-    /// The name is namespaced under `custom.` (`"checkout.started"` ships as
-    /// `custom.checkout.started`); attributes keep their names. A no-op when telemetry is off or
-    /// the room is not connecting or connected. Subject to the same flood guard as SDK events.
+    /// The telemetry trace id of this Room's session (32 hex characters), or `nil` when telemetry
+    /// is off. Show it to users or attach it to support tickets: it opens the full client-side
+    /// timeline of the call, including connect attempts that never reached a server.
+    public var telemetryTraceId: String? { telemetry?.traceId }
+
+    /// Record an app-defined telemetry event alongside the SDK's own, in this Room's session
+    /// trace. The name is namespaced under `custom.` (`"checkout.started"` ships as
+    /// `custom.checkout.started`); attributes keep their names. A no-op when telemetry is off.
+    /// Subject to the same flood guard as SDK events.
     public func emitTelemetryEvent(_ name: String, attributes: [String: SpanAttribute] = [:]) {
         telemetry?.emitCustom(name, attributes: attributes)
     }
@@ -300,6 +310,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                                  roomOptions: roomOptions ?? RoomOptions()))
 
         super.init()
+        // Telemetry starts with the Room, not with connect(): pre-connect work is part of the call.
+        if let hub = TelemetryHub.shared {
+            let session = hub.beginSession()
+            let roomTelemetry = RoomTelemetry(room: self, hub: hub, session: session)
+            let rtc = RTCTelemetry(room: self, session: session)
+            rtc.onFirstMedia = { [weak roomTelemetry] sid in roomTelemetry?.trackDidReceiveFirstMedia(sid) }
+            telemetry = roomTelemetry
+            rtcTelemetry = rtc
+        }
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), ffi: \(LiveKitSDK.ffiVersion), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
 
@@ -398,6 +417,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
 
         log("Connecting to room...", .info)
+        telemetry?.willConnect(url: providedUrl, token: token)
 
         var state = _state.copy()
 

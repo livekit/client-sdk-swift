@@ -42,7 +42,6 @@ public struct RoomTestingOptions {
     public let canPublishData: Bool
     public let canPublishSources: Set<Track.Source>
     public let canSubscribe: Bool
-    public let telemetry: TelemetryOptions?
 
     public init(delegate: RoomDelegate? = nil,
                 url: String? = nil,
@@ -57,8 +56,7 @@ public struct RoomTestingOptions {
                 canPublish: Bool = false,
                 canPublishData: Bool = false,
                 canPublishSources: Set<Track.Source> = [],
-                canSubscribe: Bool = false,
-                telemetry: TelemetryOptions? = nil)
+                canSubscribe: Bool = false)
     {
         self.delegate = delegate
         self.url = url
@@ -74,7 +72,6 @@ public struct RoomTestingOptions {
         self.canPublishData = canPublishData
         self.canPublishSources = canPublishSources
         self.canSubscribe = canSubscribe
-        self.telemetry = telemetry
     }
 }
 

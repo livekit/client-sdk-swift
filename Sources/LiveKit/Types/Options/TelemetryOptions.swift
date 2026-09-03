@@ -17,12 +17,15 @@
 import Foundation
 
 /// Client telemetry: ships SDK diagnostics (warn/error records, per-track RTC statistics,
-/// device state) out-of-band to an OTLP/HTTP collector. Prototype surface — the endpoint is
-/// explicit here; the design routes enablement through the access token's observability grant.
+/// device state) out-of-band to an OTLP/HTTP collector. Process-wide: configure once with
+/// ``LiveKitSDK/setTelemetry(_:)`` before creating Rooms.
 @objcMembers
 public final class TelemetryOptions: NSObject, Sendable {
-    /// Full OTLP/HTTP logs URL, e.g. `http://localhost:4318/v1/logs`.
-    public let endpoint: URL
+    /// Full OTLP/HTTP logs URL, e.g. `http://localhost:4318/v1/logs` for a local collector.
+    /// `nil` (the default) derives it from the server the first Room connects to
+    /// (`https://<host>/observability/logs/otlp/v0`) and authenticates with the room token;
+    /// until then everything is buffered on device.
+    public let endpoint: URL?
     /// Extra request headers, e.g. `Authorization`.
     public let headers: [String: String]
     /// Directory for the on-disk batch cache; `nil` keeps batches in memory only.
@@ -38,7 +41,7 @@ public final class TelemetryOptions: NSObject, Sendable {
             .appendingPathComponent("livekit-telemetry", isDirectory: true)
     }
 
-    public init(endpoint: URL,
+    public init(endpoint: URL? = nil,
                 headers: [String: String] = [:],
                 storageDirectory: URL? = TelemetryOptions.defaultStorageDirectory,
                 flushInterval: TimeInterval = 15,
