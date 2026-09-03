@@ -36,17 +36,12 @@ final class ConnectionDependencies: Sendable {
     /// while its lifetime is the connection's.
     let e2ee: StateSync<E2EEManager?>
 
-    /// The Room's telemetry session (owned by the Room, it outlives connections); the connection
-    /// only settles its open spans and flushes when it ends.
-    let telemetry: RoomTelemetry?
-
     /// Span factory for this connection, bound to the Room's telemetry session when telemetry is on.
     let tracer: TelemetryTracer
 
     init(room: Room, roomOptions: RoomOptions) {
         dataTracks = DataTracks(room: room)
-        telemetry = room.telemetry
-        tracer = TelemetryTracer(session: telemetry?.session)
+        tracer = TelemetryTracer(session: room.telemetrySession)
         let manager: E2EEManager? = if let e2eeOptions = roomOptions.e2eeOptions {
             E2EEManager(e2eeOptions: e2eeOptions)
         } else if let encryptionOptions = roomOptions.encryptionOptions {
@@ -60,7 +55,8 @@ final class ConnectionDependencies: Sendable {
     /// Ordered teardown, called with the retired value after ``DependencyStage/end()``.
     func tearDown() {
         e2ee.copy()?.cleanUp(isFullReconnect: false)
-        telemetry?.connectionDidEnd()
+        // The connection ended: ship what is queued. The session stays with the Room.
+        Telemetry.flush()
     }
 }
 

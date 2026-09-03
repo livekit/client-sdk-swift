@@ -147,22 +147,36 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     var dataTracks: DataTracks? { _state.stage.connection?.dataTracks }
     /// This Room's telemetry session, when ``LiveKitSDK/setTelemetry(_:)`` configured telemetry
-    /// before the Room was created. Lives as long as the Room; connections come and go inside it.
-    private(set) var telemetry: RoomTelemetry?
-    /// RTC statistics (and the `lk.subscribe` span) for the same session — an independent instrument.
+    /// before the Room was created: its own trace id, the Room's identity as attributes, and the
+    /// home of its spans, statistics and events. Lives as long as the Room; connections come and
+    /// go inside it. Thread-safe, used directly from wherever the SDK runs.
+    private(set) var telemetrySession: TelemetrySession?
+    /// RTC statistics and the `lk.subscribe` span for that session.
     private(set) var rtcTelemetry: RTCTelemetry?
 
     /// The telemetry trace id of this Room's session (32 hex characters), or `nil` when telemetry
     /// is off. Show it to users or attach it to support tickets: it opens the full client-side
     /// timeline of the call, including connect attempts that never reached a server.
-    public var telemetryTraceId: String? { telemetry?.traceId }
+    public var telemetryTraceId: String? { telemetrySession?.traceId() }
 
     /// Record an app-defined telemetry event alongside the SDK's own, in this Room's session
     /// trace. The name is namespaced under `custom.` (`"checkout.started"` ships as
     /// `custom.checkout.started`); attributes keep their names. A no-op when telemetry is off.
     /// Subject to the same flood guard as SDK events.
     public func emitTelemetryEvent(_ name: String, attributes: [String: SpanAttribute] = [:]) {
-        telemetry?.emitCustom(name, attributes: attributes)
+        telemetrySession?.emitCustom(name: name, attributes: attributes.lowered)
+    }
+
+    /// Session identity, attached to every telemetry record from now on.
+    func telemetryDidConnect() {
+        guard let telemetrySession else { return }
+        for (key, value) in [("lk.room.sid", sid?.stringValue),
+                             ("lk.room.name", name),
+                             ("lk.participant.sid", localParticipant.sid?.stringValue),
+                             ("lk.participant.identity", localParticipant.identity?.stringValue)]
+        {
+            telemetrySession.setAttribute(key: key, value: value.map { .str($0) })
+        }
     }
 
     var tracer: TelemetryTracer { _state.stage.connection?.tracer ?? .detached }
@@ -312,13 +326,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         // Telemetry starts with the Room, not with connect(): pre-connect work is part of the call.
         if let core = Telemetry.core {
             let session = core.beginSession()
-            let roomTelemetry = RoomTelemetry(session: session)
             let rtc = RTCTelemetry(room: self, session: session)
-            telemetry = roomTelemetry
+            telemetrySession = session
             rtcTelemetry = rtc
             Task { @Telemetry in
                 Telemetry.start()
-                roomTelemetry.start()
                 rtc.start()
             }
         }
@@ -410,10 +422,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     deinit {
         // The session ends with the Room: settle its open spans, ship what is queued.
-        if let telemetry, let rtcTelemetry {
+        if let rtcTelemetry {
             Task { @Telemetry in
                 rtcTelemetry.stop()
-                telemetry.stop()
+                Telemetry.flush()
             }
         }
     }
@@ -549,7 +561,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                     $0.connectionState = .connected
                 }
 
-                telemetry?.roomDidConnect(self)
+                telemetryDidConnect()
 
                 connectSpan?.end()
 
