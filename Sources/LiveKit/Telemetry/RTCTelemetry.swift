@@ -18,27 +18,24 @@ internal import LiveKitUniFFI
 import Foundation
 
 /// The RTC-area instrument of one Room: turns on `reportStatistics` for every track the Room
-/// publishes or subscribes to, forwards each `getStats()` reading to the session (the core
-/// windows them into `lk.rtc.stats.sample`), and reports when a subscribed track first carries
-/// media. Independent of ``RoomTelemetry``; the Room wires ``onFirstMedia`` to it.
-final class RTCTelemetry: NSObject, TelemetryInstrument, @unchecked Sendable, Loggable {
-    private let session: TelemetrySession
+/// publishes or subscribes to and forwards each `getStats()` reading to the session (the core
+/// windows them into `lk.rtc.stats.sample`). It also owns the `lk.subscribe` span — subscription
+/// intent to first media, "time to media" — because its natural end is an RTC fact: the first
+/// reading with inbound bytes.
+@Telemetry
+final class RTCTelemetry: TelemetryInstrument, Loggable {
+    /// A subscription that shows no media within this window ends with `error.type = timedOut`.
+    nonisolated static let subscribeTimeout: TimeInterval = 30
+
+    private nonisolated let session: TelemetrySession
     private weak var room: Room?
+    /// Open `lk.subscribe` spans by track, from subscription intent to first media.
+    private var subscribeSpans: [Track.Sid: Span] = [:]
+    private var subscribeTimeouts: [Track.Sid: Task<Void, Never>] = [:]
 
-    /// Called once per subscribed track, on the first reading with inbound bytes.
-    var onFirstMedia: (@Sendable (Track.Sid) -> Void)?
-
-    private struct State {
-        /// Subscribed tracks that have not carried media yet.
-        var awaitingMedia: Set<Track.Sid> = []
-    }
-
-    private let _state = StateSync(State())
-
-    init(room: Room, session: TelemetrySession) {
+    nonisolated init(room: Room, session: TelemetrySession) {
         self.session = session
         self.room = room
-        super.init()
     }
 
     func start() {
@@ -47,6 +44,9 @@ final class RTCTelemetry: NSObject, TelemetryInstrument, @unchecked Sendable, Lo
 
     func stop() {
         room?.remove(delegate: self)
+        for sid in subscribeSpans.keys {
+            endSubscribe(sid, outcome: .cancelled)
+        }
     }
 
     private func observe(_ track: Track) {
@@ -54,25 +54,76 @@ final class RTCTelemetry: NSObject, TelemetryInstrument, @unchecked Sendable, Lo
         // The core windows 1 Hz readings into 15 s samples; the timer is the SDK's existing one.
         Task { await track.set(reportStatistics: true) }
     }
+
+    private func beginSubscribe(_ publication: RemoteTrackPublication, participant: RemoteParticipant, tracer: RoomTracer) {
+        let sid = publication.sid
+        guard subscribeSpans[sid] == nil else { return }
+        let span = tracer.beginSpan("lk.subscribe", parent: nil)
+        span.setAttribute("lk.track.sid", .string(sid.stringValue))
+        span.setAttribute("lk.track.kind", .string(Span.kindName(publication.kind)))
+        span.setAttribute("lk.track.source", .string(String(describing: publication.source)))
+        if let identity = participant.identity?.stringValue {
+            span.setAttribute("lk.participant.remote_identity", .string(identity))
+        }
+        subscribeSpans[sid] = span
+        subscribeTimeouts[sid]?.cancel()
+        subscribeTimeouts[sid] = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(Self.subscribeTimeout * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            self?.endSubscribe(sid, outcome: .error, error: LiveKitError(.timedOut, message: "No media within \(Self.subscribeTimeout)s"))
+        }
+    }
+
+    private func endSubscribe(_ sid: Track.Sid, outcome: SpanOutcome, error: Error? = nil) {
+        subscribeTimeouts.removeValue(forKey: sid)?.cancel()
+        subscribeSpans.removeValue(forKey: sid)?.end(outcome: outcome, error: error)
+    }
+
+    /// First media on a subscribed track: the subscribe span's natural end.
+    private func mediaArrived(_ sid: Track.Sid) {
+        guard let span = subscribeSpans[sid] else { return }
+        span.record("first_media")
+        endSubscribe(sid, outcome: .ok)
+    }
 }
 
 extension RTCTelemetry: RoomDelegate {
     nonisolated func room(_: Room, participant _: LocalParticipant, didPublishTrack publication: LocalTrackPublication) {
-        if let track = publication.track { observe(track) }
+        guard let track = publication.track else { return }
+        Task { @Telemetry in self.observe(track) }
     }
 
     nonisolated func room(_: Room, participant _: LocalParticipant, didUnpublishTrack publication: LocalTrackPublication) {
         publication.track?.remove(delegate: self)
     }
 
-    nonisolated func room(_: Room, participant _: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
-        _state.mutate { $0.awaitingMedia.insert(publication.sid) }
-        if let track = publication.track { observe(track) }
+    nonisolated func room(_ room: Room, participant: RemoteParticipant, didPublishTrack publication: RemoteTrackPublication) {
+        // With autoSubscribe the intent exists the moment the track is known.
+        guard room._state.connectOptions.autoSubscribe else { return }
+        let tracer = room.tracer
+        Task { @Telemetry in self.beginSubscribe(publication, participant: participant, tracer: tracer) }
+    }
+
+    nonisolated func room(_ room: Room, participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
+        let tracer = room.tracer
+        Task { @Telemetry in
+            self.beginSubscribe(publication, participant: participant, tracer: tracer) // manual subscription
+            self.subscribeSpans[publication.sid]?.record("subscribed")
+            if let track = publication.track { self.observe(track) }
+        }
     }
 
     nonisolated func room(_: Room, participant _: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication) {
         publication.track?.remove(delegate: self)
-        _state.mutate { $0.awaitingMedia.remove(publication.sid) }
+        Task { @Telemetry in self.endSubscribe(publication.sid, outcome: .cancelled) }
+    }
+
+    nonisolated func room(_: Room, participant _: RemoteParticipant, didUnpublishTrack publication: RemoteTrackPublication) {
+        Task { @Telemetry in self.endSubscribe(publication.sid, outcome: .cancelled) }
+    }
+
+    nonisolated func room(_: Room, participant _: RemoteParticipant, didFailToSubscribeTrackWithSid trackSid: Track.Sid, error: LiveKitError) {
+        Task { @Telemetry in self.endSubscribe(trackSid, outcome: .error, error: error) }
     }
 }
 
@@ -82,16 +133,13 @@ extension RTCTelemetry: TrackDelegate {
             session.recordStats(sample: sample)
         }
         // First media, at the stats timer's 1 s granularity.
-        if let sid = track.sid, _state.awaitingMedia.contains(sid),
-           statistics.inboundRtpStream.contains(where: { ($0.bytesReceived ?? 0) > 0 })
-        {
-            _state.mutate { $0.awaitingMedia.remove(sid) }
-            onFirstMedia?(sid)
+        if let sid = track.sid, statistics.inboundRtpStream.contains(where: { ($0.bytesReceived ?? 0) > 0 }) {
+            Task { @Telemetry in self.mediaArrived(sid) }
         }
     }
 
     /// One `RtcStatsSample` per RTP stream of the track; counters pass through as reported.
-    static func samples(for track: Track, statistics: TrackStatistics) -> [RtcStatsSample] {
+    nonisolated static func samples(for track: Track, statistics: TrackStatistics) -> [RtcStatsSample] {
         guard let sid = track.sid?.stringValue else { return [] }
         let kind: TrackKind
         switch track.kind {

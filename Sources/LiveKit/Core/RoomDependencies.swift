@@ -40,19 +40,14 @@ final class ConnectionDependencies: Sendable {
     /// only settles its open spans and flushes when it ends.
     let telemetry: RoomTelemetry?
 
-    /// Span factory for this connection: the app's tracer creates spans, telemetry (and, in debug
-    /// builds, os_signpost) observe them.
+    /// Span factory for this connection: the app's tracer creates spans, the Room's telemetry
+    /// gives them identity.
     let tracer: RoomTracer
 
     init(room: Room, roomOptions: RoomOptions) {
         dataTracks = DataTracks(room: room)
         telemetry = room.telemetry
-        var sinks: [SpanSink] = []
-        if let telemetry { sinks.append(telemetry) }
-        #if DEBUG
-        sinks.append(SignpostSpanSink())
-        #endif
-        tracer = RoomTracer(sinks: sinks)
+        tracer = RoomTracer(telemetry: telemetry)
         let manager: E2EEManager? = if let e2eeOptions = roomOptions.e2eeOptions {
             E2EEManager(e2eeOptions: e2eeOptions)
         } else if let encryptionOptions = roomOptions.encryptionOptions {

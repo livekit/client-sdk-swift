@@ -149,8 +149,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     /// This Room's telemetry session, when ``LiveKitSDK/setTelemetry(_:)`` configured telemetry
     /// before the Room was created. Lives as long as the Room; connections come and go inside it.
     private(set) var telemetry: RoomTelemetry?
-    /// RTC statistics for the same session — an independent instrument; the Room only wires its
-    /// first-media signal to the subscribe spans.
+    /// RTC statistics (and the `lk.subscribe` span) for the same session — an independent instrument.
     private(set) var rtcTelemetry: RTCTelemetry?
 
     /// The telemetry trace id of this Room's session (32 hex characters), or `nil` when telemetry
@@ -311,15 +310,17 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         super.init()
         // Telemetry starts with the Room, not with connect(): pre-connect work is part of the call.
-        if let hub = TelemetryHub.shared {
-            let session = hub.beginSession()
-            let roomTelemetry = RoomTelemetry(room: self, hub: hub, session: session)
+        if let core = Telemetry.core {
+            let session = core.beginSession()
+            let roomTelemetry = RoomTelemetry(session: session)
             let rtc = RTCTelemetry(room: self, session: session)
-            rtc.onFirstMedia = { [weak roomTelemetry] sid in roomTelemetry?.trackDidReceiveFirstMedia(sid) }
             telemetry = roomTelemetry
             rtcTelemetry = rtc
-            roomTelemetry.start()
-            rtc.start()
+            Task { @Telemetry in
+                Telemetry.start()
+                roomTelemetry.start()
+                rtc.start()
+            }
         }
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), ffi: \(LiveKitSDK.ffiVersion), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
@@ -409,8 +410,12 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     deinit {
         // The session ends with the Room: settle its open spans, ship what is queued.
-        telemetry?.stop()
-        rtcTelemetry?.stop()
+        if let telemetry, let rtcTelemetry {
+            Task { @Telemetry in
+                rtcTelemetry.stop()
+                telemetry.stop()
+            }
+        }
     }
 
     // swiftlint:disable:next cyclomatic_complexity function_body_length
@@ -425,7 +430,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
 
         log("Connecting to room...", .info)
-        telemetry?.willConnect(url: providedUrl, token: token)
+        Telemetry.connecting(to: providedUrl, token: token)
 
         var state = _state.copy()
 

@@ -74,14 +74,14 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
     public internal(set) var kind: SpanKind = .internal
     /// The open span this one nests under, if any.
     public internal(set) var parent: Span?
-    /// Identity assigned by a sink (the telemetry core); `nil` for local-only spans.
+    /// Identity assigned by the Room's telemetry; `nil` for local-only spans.
     public internal(set) var context: SpanContext?
 
     /// Handler called once when the span ends. Set by the tracer at creation time.
     public var onEnd: (@Sendable (Span) -> Void)?
 
-    /// Observers attached by the Room's tracer before the span is announced.
-    var sinks: [SpanSink] = []
+    /// Handler called for every ``record(_:at:)``. Set by the Room's telemetry, if on.
+    var onRecord: (@Sendable (Span, Entry) -> Void)?
 
     /// The span the current task is working inside, if any. Bound by the SDK around operations
     /// (`connect`, a reconnect cycle) so child spans nest and warn/error records point at it
@@ -110,7 +110,7 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
         end(outcome: .ok)
     }
 
-    /// End this span with an outcome, firing the sinks and ``onEnd`` exactly once.
+    /// End this span with an outcome, firing ``onEnd`` exactly once.
     public func end(outcome: SpanOutcome, error: Error? = nil) {
         let first = _state.mutate { state -> Bool in
             guard !state.ended else { return false }
@@ -120,9 +120,6 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
             return true
         }
         guard first else { return }
-        for sink in sinks {
-            sink.spanDidEnd(self)
-        }
         onEnd?(self)
         onEnd = nil
     }
@@ -131,9 +128,7 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
     public func record(_ event: String, at time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
         let entry = Entry(label: event, time: time)
         _state.mutate { $0.entries.append(entry) }
-        for sink in sinks {
-            sink.span(self, didRecord: entry)
-        }
+        onRecord?(self, entry)
     }
 
     @available(*, deprecated, renamed: "record(_:at:)")
@@ -192,14 +187,6 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
         if let outcome { parts.append(String(describing: outcome)) }
         return "Span(\(label), \(parts.joined(separator: ", ")))"
     }
-}
-
-/// Observes the spans a Room's tracer creates. Internal: the telemetry core and, in debug
-/// builds, os_signpost implement it; apps observe spans through ``Tracing`` instead.
-protocol SpanSink: AnyObject, Sendable {
-    func spanDidBegin(_ span: Span)
-    func span(_ span: Span, didRecord entry: Span.Entry)
-    func spanDidEnd(_ span: Span)
 }
 
 // MARK: - Stopwatch typealias

@@ -111,6 +111,16 @@ jobs:
             # Data track schema definitions are stored as participant data blobs.
             enable_participant_data_blob: true
 
+      # The telemetry end-to-end test posts OTLP to 127.0.0.1:4319 and reads back what the
+      # collector wrote (Tests/LiveKitCoreTests/Telemetry/otelcol.yaml). A plain binary, like the
+      # dev server above — macOS runners have no Docker, so no Grafana stack here.
+      - name: Run OpenTelemetry Collector
+        run: |
+          arch="$(uname -m | sed 's/x86_64/amd64/')"
+          curl -sSfL -o otelcol.tar.gz "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.160.0/otelcol-contrib_0.160.0_darwin_${arch}.tar.gz"
+          tar -xzf otelcol.tar.gz otelcol-contrib
+          nohup ./otelcol-contrib --config Tests/LiveKitCoreTests/Telemetry/otelcol.yaml > "$RUNNER_TEMP/otelcol.log" 2>&1 &
+
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: ${{ matrix.xcode }}

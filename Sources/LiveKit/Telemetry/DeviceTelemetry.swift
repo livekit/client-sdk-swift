@@ -26,42 +26,37 @@ import UIKit
 /// battery, app lifecycle and the audio session, observed process-wide (a device has no room) and
 /// pushed to the pipeline as `DeviceState` — which stretches the cadence and holds uploads — plus
 /// the `lk.device.*` events. Notification-driven throughout: nothing polls, nothing samples CPU.
-/// Independent of ``RoomTelemetry`` and ``RTCTelemetry``; started by the ``TelemetryHub``.
-final class DeviceTelemetry: NSObject, TelemetryInstrument, @unchecked Sendable, Loggable {
-    private let core: LiveKitUniFFI.Telemetry
-    private var notificationTokens: [NSObjectProtocol] = []
+@Telemetry
+final class DeviceTelemetry: TelemetryInstrument, Loggable {
+    private nonisolated let core: LiveKitUniFFI.Telemetry
     /// Instruments run here, never on a media or UI thread.
-    private let queue = DispatchQueue(label: "LiveKitSDK.telemetry.device", qos: .utility)
+    private nonisolated let queue = DispatchQueue(label: "LiveKitSDK.telemetry.device", qos: .utility)
+    private nonisolated let pathMonitor = NWPathMonitor()
+    private var notificationTokens: [NSObjectProtocol] = []
     private var memorySource: DispatchSourceMemoryPressure?
-    private let pathMonitor = NWPathMonitor()
-    /// The app is terminating: whoever owns the pipeline gets its last chance to ship.
-    var onTerminate: (@Sendable () -> Void)?
 
-    private struct State {
-        var appState: LiveKitUniFFI.AppState = .foreground
-        var memory: MemoryPressure = .normal
-        var network: NetworkType = .unknown
-        var networkExpensive = false
-        var networkConstrained = false
-        /// Percent; `nil` where unknown (macOS, tvOS).
-        var batteryLevel: UInt32?
-        var batteryCharging = false
-    }
+    private var appState: LiveKitUniFFI.AppState = .foreground
+    private var memory: MemoryPressure = .normal
+    private var network: NetworkType = .unknown
+    private var networkExpensive = false
+    private var networkConstrained = false
+    /// Percent; `nil` where unknown (macOS, tvOS).
+    private var batteryLevel: UInt32?
+    private var batteryCharging = false
 
-    private let _state = StateSync(State())
-
-    init(core: LiveKitUniFFI.Telemetry) {
+    nonisolated init(core: LiveKitUniFFI.Telemetry) {
         self.core = core
-        super.init()
     }
 
     func start() {
         let center = NotificationCenter.default
-        notificationTokens.append(center.addObserver(forName: ProcessInfo.thermalStateDidChangeNotification,
-                                                     object: nil, queue: nil) { [weak self] _ in self?.pushDeviceState() })
+        notificationTokens.append(center.addObserver(forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: nil) { [weak self] _ in
+            Task { @Telemetry in self?.pushDeviceState() }
+        })
         if #available(macOS 12.0, iOS 9.0, tvOS 9.0, *) {
-            notificationTokens.append(center.addObserver(forName: .NSProcessInfoPowerStateDidChange,
-                                                         object: nil, queue: nil) { [weak self] _ in self?.pushDeviceState() })
+            notificationTokens.append(center.addObserver(forName: .NSProcessInfoPowerStateDidChange, object: nil, queue: nil) { [weak self] _ in
+                Task { @Telemetry in self?.pushDeviceState() }
+            })
         }
         Task { @MainActor in AppStateListener.shared.delegates.add(delegate: self) }
         observeMemory()
@@ -92,16 +87,20 @@ final class DeviceTelemetry: NSObject, TelemetryInstrument, @unchecked Sendable,
         #else
         if #available(macOS 12.0, *) { lowPower = info.isLowPowerModeEnabled }
         #endif
-        let state = _state.copy()
         core.setDeviceState(state: DeviceState(thermal: Self.thermal(info.thermalState),
                                                lowPowerMode: lowPower,
-                                               appState: state.appState,
-                                               memory: state.memory,
-                                               network: state.network,
-                                               networkExpensive: state.networkExpensive,
-                                               networkConstrained: state.networkConstrained,
-                                               batteryLevel: state.batteryLevel,
-                                               batteryCharging: state.batteryCharging))
+                                               appState: appState,
+                                               memory: memory,
+                                               network: network,
+                                               networkExpensive: networkExpensive,
+                                               networkConstrained: networkConstrained,
+                                               batteryLevel: batteryLevel,
+                                               batteryCharging: batteryCharging))
+    }
+
+    private func setAppState(_ appState: LiveKitUniFFI.AppState) {
+        self.appState = appState
+        pushDeviceState()
     }
 
     /// `DISPATCH_MEMORYPRESSURE_*`: the same source jetsam uses, on every Apple platform, and it
@@ -109,10 +108,13 @@ final class DeviceTelemetry: NSObject, TelemetryInstrument, @unchecked Sendable,
     private func observeMemory() {
         let source = DispatchSource.makeMemoryPressureSource(eventMask: [.normal, .warning, .critical], queue: queue)
         source.setEventHandler { [weak self, weak source] in
-            guard let self, let event = source?.data else { return }
+            guard let event = source?.data else { return }
             let pressure: MemoryPressure = event.contains(.critical) ? .critical : event.contains(.warning) ? .warning : .normal
-            _state.mutate { $0.memory = pressure }
-            pushDeviceState()
+            Task { @Telemetry in
+                guard let self else { return }
+                self.memory = pressure
+                self.pushDeviceState()
+            }
         }
         source.resume()
         memorySource = source
@@ -124,26 +126,19 @@ final class DeviceTelemetry: NSObject, TelemetryInstrument, @unchecked Sendable,
         // Seed from the current path so the first state is not a spurious `unknown`.
         record(pathMonitor.currentPath)
         pathMonitor.pathUpdateHandler = { [weak self] path in
-            self?.record(path)
-            self?.pushDeviceState()
+            Task { @Telemetry in
+                guard let self else { return }
+                self.record(path)
+                self.pushDeviceState()
+            }
         }
         pathMonitor.start(queue: queue)
     }
 
     private func record(_ path: NWPath) {
-        _state.mutate {
-            $0.network = Self.networkType(path)
-            $0.networkExpensive = path.isExpensive
-            $0.networkConstrained = path.isConstrained
-        }
-    }
-
-    private static func networkType(_ path: NWPath) -> NetworkType {
-        guard path.status == .satisfied else { return .unavailable }
-        if path.usesInterfaceType(.wifi) { return .wifi }
-        if path.usesInterfaceType(.cellular) { return .cell }
-        if path.usesInterfaceType(.wiredEthernet) { return .wired }
-        return .unknown
+        network = Self.networkType(path)
+        networkExpensive = path.isExpensive
+        networkConstrained = path.isConstrained
     }
 
     private func observeBattery() {
@@ -162,14 +157,16 @@ final class DeviceTelemetry: NSObject, TelemetryInstrument, @unchecked Sendable,
     }
 
     #if os(iOS) || os(visionOS)
-    @MainActor private func readBattery() {
+    @MainActor private nonisolated func readBattery() {
         let device = UIDevice.current
         let level = device.batteryLevel // -1 while unknown
-        _state.mutate {
-            $0.batteryLevel = level < 0 ? nil : UInt32((level * 100).rounded())
-            $0.batteryCharging = device.batteryState == .charging || device.batteryState == .full
+        let percent: UInt32? = level < 0 ? nil : UInt32((level * 100).rounded())
+        let charging = device.batteryState == .charging || device.batteryState == .full
+        Task { @Telemetry in
+            self.batteryLevel = percent
+            self.batteryCharging = charging
+            self.pushDeviceState()
         }
-        pushDeviceState()
     }
     #endif
 
@@ -195,8 +192,12 @@ final class DeviceTelemetry: NSObject, TelemetryInstrument, @unchecked Sendable,
         #endif
     }
 
+    private nonisolated func emit(_ name: String, _ attributes: [LiveKitUniFFI.Attribute]) {
+        core.emit(event: TelemetryEvent(name: name, severity: .info, body: nil, attributes: attributes, spanId: nil))
+    }
+
     #if os(iOS) || os(tvOS) || os(visionOS)
-    private static func name(_ reason: AVAudioSession.RouteChangeReason) -> String {
+    private nonisolated static func name(_ reason: AVAudioSession.RouteChangeReason) -> String {
         switch reason {
         case .newDeviceAvailable: "new_device_available"
         case .oldDeviceUnavailable: "old_device_unavailable"
@@ -210,11 +211,7 @@ final class DeviceTelemetry: NSObject, TelemetryInstrument, @unchecked Sendable,
     }
     #endif
 
-    private func emit(_ name: String, _ attributes: [LiveKitUniFFI.Attribute]) {
-        core.emit(event: TelemetryEvent(name: name, severity: .info, body: nil, attributes: attributes, spanId: nil))
-    }
-
-    private static func thermal(_ state: ProcessInfo.ThermalState) -> ThermalState {
+    private nonisolated static func thermal(_ state: ProcessInfo.ThermalState) -> ThermalState {
         switch state {
         case .nominal: .nominal
         case .fair: .fair
@@ -224,23 +221,28 @@ final class DeviceTelemetry: NSObject, TelemetryInstrument, @unchecked Sendable,
         }
     }
 
-    private func setAppState(_ appState: LiveKitUniFFI.AppState) {
-        _state.mutate { $0.appState = appState }
-        pushDeviceState()
+    private nonisolated static func networkType(_ path: NWPath) -> NetworkType {
+        guard path.status == .satisfied else { return .unavailable }
+        if path.usesInterfaceType(.wifi) { return .wifi }
+        if path.usesInterfaceType(.cellular) { return .cell }
+        if path.usesInterfaceType(.wiredEthernet) { return .wired }
+        return .unknown
     }
 }
 
 // MARK: - App state
 
 extension DeviceTelemetry: AppStateDelegate {
-    func appDidEnterBackground() { setAppState(.background) }
-    func appWillEnterForeground() { setAppState(.foreground) }
-    /// The last chance to ship: the shutdown summary included.
-    func appWillTerminate() {
-        setAppState(.background)
-        onTerminate?()
-    }
+    nonisolated func appDidEnterBackground() { Task { @Telemetry in self.setAppState(.background) } }
+    nonisolated func appWillEnterForeground() { Task { @Telemetry in self.setAppState(.foreground) } }
+    nonisolated func appWillSleep() { Task { @Telemetry in self.setAppState(.background) } }
+    nonisolated func appDidWake() { Task { @Telemetry in self.setAppState(.foreground) } }
 
-    func appWillSleep() { setAppState(.background) }
-    func appDidWake() { setAppState(.foreground) }
+    /// The last chance to ship: the shutdown summary included.
+    nonisolated func appWillTerminate() {
+        Task { @Telemetry in
+            self.setAppState(.background)
+            await Telemetry.shutdown()
+        }
+    }
 }

@@ -227,26 +227,28 @@ extension Loggable {
                     function: StaticString = #function,
                     line: UInt = #line)
     {
+        // Telemetry first, so the app's logger cannot take its place; it sees every level and
+        // decides what leaves the device.
+        if let sink = LogRelay.sink {
+            sink.receive(LogRecord(message: message?.description ?? "",
+                                   level: level,
+                                   type: String(describing: Self.self),
+                                   function: "\(function)",
+                                   file: "\(file)",
+                                   line: line))
+        }
         sharedLogger.log(message ?? "",
                          level,
                          file: file,
                          type: Self.self,
                          function: function,
                          line: line)
-        if level >= .warning {
-            LogRelay.shared.relay(LogRecord(message: message?.description ?? "",
-                                            level: level,
-                                            type: String(describing: Self.self),
-                                            function: "\(function)",
-                                            file: "\(file)",
-                                            line: line))
-        }
     }
 }
 
 // MARK: - Structured records
 
-/// One SDK log call as data, for in-process sinks that need more than a formatted line.
+/// One SDK log call as data, for the in-process sink that needs more than a formatted line.
 struct LogRecord: Sendable {
     let message: String
     let level: LogLevel
@@ -256,19 +258,18 @@ struct LogRecord: Sendable {
     let line: UInt
 }
 
-protocol LogRecordSink: AnyObject, Sendable {
+protocol LogSink: AnyObject, Sendable {
     func receive(_ record: LogRecord)
 }
 
-/// Fan-out of `.warning`/`.error` records to whoever is listening in-process (telemetry, one per
-/// connected Room). Independent of `sharedLogger`, which stays app-owned and latched once, so the
-/// app-facing `Logger` protocol is untouched and debug/info never leave the process this way.
-final class LogRelay: @unchecked Sendable {
-    static let shared = LogRelay()
-    let sinks = MulticastDelegate<LogRecordSink>(label: "LogRecordSink")
-
-    func relay(_ record: LogRecord) {
-        sinks.notify { $0.receive(record) }
+/// The one in-process log observer besides the app's ``Logger``: LiveKit telemetry
+/// (``LoggingTelemetry``). Consulted before `sharedLogger`, independent of it, every level.
+// ponytail: a single slot — telemetry is the only consumer; a list if a second one appears.
+enum LogRelay {
+    private static let _sink = StateSync<LogSink?>(nil)
+    static var sink: LogSink? {
+        get { _sink.copy() }
+        set { _sink.mutate { $0 = newValue } }
     }
 }
 

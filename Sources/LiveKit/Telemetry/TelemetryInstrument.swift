@@ -19,16 +19,14 @@ import Foundation
 /// One source of telemetry: something that observes the platform and pushes into the pipeline.
 ///
 /// The shape every client SDK converges on — Sentry's `Integration.install/uninstall`, Embrace's
-/// `CaptureService.start/stop`, OpenTelemetry's `Instrumentation.enable/disable` (JS) and
-/// `AndroidInstrumentation.install` — and, per the design doc, a platform-side convention: an
-/// instrument is idiomatic Swift that calls into the core; nothing long-running crosses the FFI,
-/// so instruments never have to be reachable from Rust threads (the uniffi-dart callback
-/// constraint) and the core stays a pipeline, not a lifecycle manager.
-///
-/// Scope is the owner's: ``TelemetryHub`` starts and stops the process-level instruments,
-/// ``Room`` its own. Each instrument reads on its own — ``DeviceTelemetry`` (device state),
-/// ``RoomTelemetry`` (session identity, spans, events), ``RTCTelemetry`` (track statistics).
-protocol TelemetryInstrument: AnyObject, Sendable {
+/// `CaptureService.start/stop`, OpenTelemetry's `Instrumentation.enable/disable` — and, per the
+/// design doc, a platform-side convention: an instrument is Swift that calls into the core;
+/// nothing long-running crosses the FFI. Lifecycle runs on the ``Telemetry`` actor; the owner's
+/// scope decides when: ``Telemetry`` starts and stops the process-level instruments
+/// (``DeviceTelemetry``, ``LoggingTelemetry``), ``Room`` its own (``RoomTelemetry``,
+/// ``RTCTelemetry``).
+@Telemetry
+protocol TelemetryInstrument: AnyObject {
     /// Begin observing and pushing.
     func start()
     /// Stop observing. Called once, when the owner's scope ends; settles what is open.

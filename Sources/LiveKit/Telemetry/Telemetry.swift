@@ -17,73 +17,67 @@
 internal import LiveKitUniFFI
 import Foundation
 
-/// The process-wide telemetry pipeline (`livekit-telemetry`): one queue, cache and exporter for
-/// every Room, started when the app configures telemetry (``LiveKitSDK/setTelemetry(_:)``) so
-/// audio pre-initialization, permission failures and connect attempts that never reach a server
-/// are captured. Infrastructure only: the core, the transport, the destination and the log relay
-/// sink. The instruments are separate, independent components — ``DeviceTelemetry`` (started
-/// here, process-level), ``RoomTelemetry`` and ``RTCTelemetry`` (one each per Room, on a session
-/// from ``beginSession()``).
-final class TelemetryHub: NSObject, @unchecked Sendable, Loggable {
-    private static let _shared = StateSync<TelemetryHub?>(nil)
-    static var shared: TelemetryHub? { _shared.copy() }
+/// The telemetry subsystem — pipeline, configuration and instruments — as a global actor.
+///
+/// Configure once, before any Room exists, like the logger: ``LiveKitSDK/setTelemetry(_:)`` or
+/// ``LiveKitSDK/disableTelemetry()``. The pipeline (the Rust core, `livekit-telemetry`) is built
+/// from those options on first use and latched for the process; every Room then gets a session
+/// with its own trace id. Swift-side telemetry state — instrument state, lifecycle — is isolated to
+/// this actor; the core handles are thread-safe and used directly from wherever the SDK runs.
+@globalActor
+public actor Telemetry {
+    public static let shared = Telemetry()
 
-    /// Configure once, at launch; Rooms created afterwards get a session. `nil` turns telemetry
-    /// off for new Rooms and shuts the previous pipeline down (bounded flush).
-    static func configure(_ options: TelemetryOptions?) {
-        let next = options.flatMap { TelemetryHub(options: $0) }
-        let previous = _shared.mutate { current in
-            defer { current = next }
-            return current
-        }
-        previous?.shutdown()
+    // MARK: - Configuration (static, before use)
+
+    private struct Config {
+        var options: TelemetryOptions?
     }
 
-    let core: LiveKitUniFFI.Telemetry
-    private let options: TelemetryOptions
-    /// Process-level instruments (today: the device); Rooms own theirs.
-    private let instruments: [TelemetryInstrument]
+    private static let config = StateSync(Config())
 
-    /// `nil` only if the core refuses to start (no transport) — never the case here, but telemetry
-    /// is fail-open: the app runs without it rather than not at all.
-    private init?(options: TelemetryOptions) {
-        let config = TelemetryConfig(
+    /// Store the options; the pipeline starts on first use and is latched then, like `sharedLogger`.
+    nonisolated static func configure(_ options: TelemetryOptions?) {
+        config.mutate { $0.options = options }
+    }
+
+    /// The pipeline and the options it was built from; `nil` when telemetry is off. Built once.
+    private nonisolated static let latched: (options: TelemetryOptions, core: LiveKitUniFFI.Telemetry)? = {
+        guard let options = config.copy().options else { return nil }
+        let coreConfig = TelemetryConfig(
             endpoint: options.endpoint?.absoluteString,
             headers: options.headers,
-            resource: Self.resource(),
+            resource: resource(),
             storageDir: options.storageDirectory?.path,
             flushIntervalMs: UInt64(max(0, options.flushInterval) * 1000),
             statsWindowMs: UInt64(max(0, options.statsWindow) * 1000),
         )
-        guard let core = try? LiveKitUniFFI.Telemetry(config: config, transport: URLSessionTelemetryTransport()) else {
-            return nil
-        }
-        self.core = core
-        self.options = options
-        let device = DeviceTelemetry(core: core)
-        instruments = [device]
-        super.init()
+        // Fail-open: the app runs without telemetry rather than not at all.
+        guard let core = try? LiveKitUniFFI.Telemetry(config: coreConfig, transport: URLSessionTelemetryTransport()) else { return nil }
+        return (options, core)
+    }()
 
-        LogRelay.shared.sinks.add(delegate: self)
-        device.onTerminate = { [weak self] in self?.shutdown() }
-        instruments.forEach { $0.start() }
-    }
+    /// The core pipeline, or `nil` when telemetry is off.
+    nonisolated static var core: LiveKitUniFFI.Telemetry? { latched?.core }
 
-    /// A Room's session: its own trace id and attributes on this pipeline.
-    func beginSession() -> TelemetrySession {
-        core.beginSession()
+    // MARK: - Pipeline-wide
+
+    /// Attach an attribute to every record of every session — an `enduser.id`, a tenant, a build
+    /// flavor. `nil` removes it. Room identity is set per session by the SDK.
+    public nonisolated static func setAttribute(_ key: String, _ value: SpanAttribute?) {
+        core?.setAttribute(key: key, value: value?.lowered)
     }
 
     /// A connect attempt tells the pipeline where telemetry goes — the server's observability
-    /// endpoint and the room token — unless the options named an endpoint explicitly. Everything
-    /// cached until now starts uploading.
-    func connecting(to url: URL, token: String) {
-        guard options.endpoint == nil, let endpoint = Self.observabilityEndpoint(for: url) else { return }
-        core.setDestination(endpoint: endpoint, headers: ["Authorization": "Bearer \(token)"])
+    /// endpoint and the room token — unless the options named an endpoint. Everything cached until
+    /// now starts uploading.
+    nonisolated static func connecting(to url: URL, token: String) {
+        guard let latched, latched.options.endpoint == nil, let endpoint = observabilityEndpoint(for: url) else { return }
+        latched.core.setDestination(endpoint: endpoint, headers: ["Authorization": "Bearer \(token)"])
     }
 
     /// `wss://x.livekit.cloud/rtc` → `https://x.livekit.cloud/observability/logs/otlp/v0`.
-    static func observabilityEndpoint(for url: URL) -> String? {
+    nonisolated static func observabilityEndpoint(for url: URL) -> String? {
         guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false), components.host != nil else { return nil }
         components.scheme = (components.scheme == "ws" || components.scheme == "http") ? "http" : "https"
         components.path = "/observability/logs/otlp/v0"
@@ -92,22 +86,36 @@ final class TelemetryHub: NSObject, @unchecked Sendable, Loggable {
     }
 
     /// Cache everything queued and upload what the network allows.
-    func flush() {
+    nonisolated static func flush() {
         let core = core
-        Task { await core.flush() }
+        Task { await core?.flush() }
     }
 
-    /// Bounded final flush (with the session summary); the pipeline stops afterwards.
-    func shutdown() {
-        instruments.forEach { $0.stop() }
-        LogRelay.shared.sinks.remove(delegate: self)
-        let core = core
-        Task { await core.shutdown() }
+    // MARK: - Instruments (isolated to this actor)
+
+    @Telemetry private static var instruments: [TelemetryInstrument] = []
+
+    /// Start the process-level instruments (device, logs) once the pipeline exists. Idempotent.
+    @Telemetry static func start() {
+        guard instruments.isEmpty, let core else { return }
+        instruments = [DeviceTelemetry(core: core), LoggingTelemetry(core: core)]
+        for instrument in instruments {
+            instrument.start()
+        }
+    }
+
+    /// Stop the instruments and flush a last time, with the session summary; the pipeline stops.
+    @Telemetry static func shutdown() async {
+        for instrument in instruments {
+            instrument.stop()
+        }
+        instruments = []
+        await core?.shutdown()
     }
 
     // MARK: - Resource
 
-    private static func resource() -> [LiveKitUniFFI.Attribute] {
+    private nonisolated static func resource() -> [LiveKitUniFFI.Attribute] {
         var attributes: [LiveKitUniFFI.Attribute] = [
             .init(key: "service.name", value: .str("livekit-client-swift")),
             .init(key: "service.version", value: .str(LiveKitSDK.version)),
@@ -121,26 +129,22 @@ final class TelemetryHub: NSObject, @unchecked Sendable, Loggable {
     }
 }
 
-// MARK: - Log records
+// MARK: - Attribute lowering
 
-extension TelemetryHub: LogRecordSink {
-    func receive(_ record: LogRecord) {
-        // Warn/error records point at the span the emitting task runs in (connect, reconnect,
-        // publish). Logs from WebRTC threads have no ambient span and stay session-level.
-        let ambient = Span.current
-        let spanId = (ambient?.isEnded == false) ? ambient?.context?.spanId : nil
-        core.emit(event: TelemetryEvent(
-            name: "",
-            severity: record.level == .error ? .error : .warn,
-            body: record.message,
-            attributes: [
-                .init(key: "code.function", value: .str(record.function)),
-                .init(key: "code.file.path", value: .str(record.file)),
-                .init(key: "code.line.number", value: .int(Int64(record.line))),
-                .init(key: "lk.log.type", value: .str(record.type)),
-            ],
-            spanId: spanId,
-        ))
+extension SpanAttribute {
+    var lowered: LiveKitUniFFI.AttributeValue {
+        switch self {
+        case let .string(s): .str(s)
+        case let .int(i): .int(i)
+        case let .double(d): .double(d)
+        case let .bool(b): .bool(b)
+        }
+    }
+}
+
+extension [String: SpanAttribute] {
+    var lowered: [LiveKitUniFFI.Attribute] {
+        map { .init(key: $0.key, value: $0.value.lowered) }
     }
 }
 

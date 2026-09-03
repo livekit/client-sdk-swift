@@ -22,27 +22,33 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-/// End to end through the Rust core: needs `livekit-server --dev` and an OTLP collector with a
-/// Loki query API on localhost (`docker run -p 4318:4318 -p 3100:3100 grafana/otel-lgtm`).
+/// End to end through the Rust core: needs `livekit-server --dev` and an OTLP collector writing
+/// JSON lines to disk — `otelcol-contrib --config Tests/LiveKitCoreTests/Telemetry/otelcol.yaml`
+/// (CI starts one; see ci.yaml).
 @Suite(.serialized, .tags(.e2e))
 struct TelemetryTests {
-    @Test func statsAndErrorsReachTheCollector() async throws {
-        let start = UInt64(Date().timeIntervalSince1970 * 1e9) - 5_000_000_000
+    static let collectorOutput = URL(fileURLWithPath: "/tmp/livekit-telemetry-otlp.jsonl")
+
+    @Test func statsErrorsAndSpansReachTheCollector() async throws {
+        let start = UInt64(Date().timeIntervalSince1970 * 1e9)
         let marker = "telemetry e2e \(UUID().uuidString)"
-        let options = try TelemetryOptions(endpoint: #require(URL(string: "http://localhost:4318/v1/logs")),
+        let options = try TelemetryOptions(endpoint: #require(URL(string: "http://127.0.0.1:4319/v1/logs")),
                                            storageDirectory: nil,
                                            flushInterval: 1,
                                            statsWindow: 2)
         // Process-wide, configured before the Rooms exist — like an app would at launch.
         LiveKitSDK.setTelemetry(options)
-        defer { LiveKitSDK.setTelemetry(nil) }
+        Telemetry.setAttribute("acme.tenant", .string(marker))
 
+        var traceIds: Set<String> = []
         try await TestEnvironment.withRooms([
             RoomTestingOptions(canPublish: true),
             RoomTestingOptions(canSubscribe: true),
         ]) { rooms in
             #expect(rooms[0].telemetryTraceId?.count == 32, "each Room has a printable session trace id")
             #expect(rooms[0].telemetryTraceId != rooms[1].telemetryTraceId)
+            traceIds = Set(rooms.compactMap(\.telemetryTraceId))
+
             // Synthetic frames: no capture device or permission needed in a headless test run.
             let track = LocalVideoTrack.createBufferTrack(name: "telemetry")
             let capturer = try #require(track.capturer as? BufferCapturer)
@@ -62,83 +68,88 @@ struct TelemetryTests {
             try await Task.sleep(nanoseconds: 6_000_000_000)
             frames.cancel()
         }
-        try await Task.sleep(nanoseconds: 3_000_000_000) // collector ingestion
+        try await Task.sleep(nanoseconds: 3_000_000_000) // the disconnect flush, and the collector's write
 
-        let streams = try await loki(query: "{service_name=\"livekit-client-swift\"}", since: start)
-        let labels = streams.map(\.labels)
-        #expect(labels.contains { $0["lk_track_kind"] == "video" && $0["lk_track_direction"] == "outbound" },
-                "outbound video stats window, got \(labels)")
-        #expect(labels.contains { $0["lk_room_name"] != nil && $0["lk_participant_identity"] != nil },
+        let otlp = try OTLPFile(url: Self.collectorOutput, since: start)
+        let logs = otlp.logs
+        #expect(logs.contains { $0.attributes["lk.track.kind"] == "video" && $0.attributes["lk.track.direction"] == "outbound" },
+                "outbound video stats window")
+        #expect(logs.contains { $0.attributes["lk.room.name"] != nil && $0.attributes["lk.participant.identity"] != nil },
                 "session attributes attached")
-        #expect(streams.contains { $0.lines.contains { $0.contains(marker) } }, "error record reached the collector")
-        #expect(labels.contains { $0["e2e_marker"] == marker }, "custom event reached the collector")
-        // Device instruments: initial thermal, memory-pressure and network-path values.
-        for attribute in ["lk_device_thermal_state", "lk_device_memory_pressure", "network_connection_type"] {
-            #expect(labels.contains { $0[attribute] != nil }, "\(attribute) reached the collector, got \(labels)")
+        #expect(logs.contains { $0.body == marker }, "error record reached the collector")
+        #expect(logs.contains { $0.eventName == "custom.e2e.checkpoint" && $0.attributes["e2e.marker"] == marker },
+                "custom event reached the collector")
+        for event in ["lk.device.thermal.changed", "lk.device.memory.changed", "lk.device.network.changed"] {
+            #expect(logs.contains { $0.eventName == event }, "\(event) initial value reached the collector")
         }
+        let tenant = Set(logs.filter { $0.attributes["acme.tenant"] == marker }.map(\.traceId))
+        #expect(tenant.isSuperset(of: traceIds), "the pipeline-wide attribute reaches every session: \(tenant)")
 
         // Spans: connect (both rooms), the publisher's publish, the subscriber's subscribe
-        // (intent → first media) must all be traces in Tempo.
-        // One trace per session, so a trace holds several root spans; look at span names.
-        let traces = try await tempo(service: "livekit-client-swift", since: start)
-        var spanNames = Set<String>()
-        for trace in traces {
-            guard let id = trace["traceID"] as? String else { continue }
-            try await spanNames.formUnion(tempoSpanNames(traceId: id))
-        }
-        #expect(spanNames.contains("lk.connect"), "connect span, got \(spanNames)")
-        #expect(spanNames.contains("lk.publish"), "publish span, got \(spanNames)")
-        #expect(spanNames.contains("lk.subscribe"), "subscribe span, got \(spanNames)")
+        // (intent → first media) — under the Rooms' own trace ids.
+        let spanNames = Set(otlp.spans.filter { traceIds.contains($0.traceId) }.map(\.name))
+        #expect(spanNames.isSuperset(of: ["lk.connect", "lk.publish", "lk.subscribe"]), "spans: \(spanNames)")
+    }
+}
+
+/// What the collector wrote: OTLP/JSON, one export request per line.
+struct OTLPFile {
+    struct Log {
+        let eventName: String
+        let body: String?
+        let traceId: String
+        let attributes: [String: String]
     }
 
-    func tempoSpanNames(traceId: String) async throws -> Set<String> {
-        let url = URL(string: "http://localhost:3000/api/datasources/proxy/uid/tempo/api/traces/\(traceId)")!
-        let (data, _) = try await URLSession.shared.data(from: url)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        let batches = (json?["batches"] as? [[String: Any]]) ?? (json?["resourceSpans"] as? [[String: Any]]) ?? []
-        var names = Set<String>()
-        for batch in batches {
-            for scope in (batch["scopeSpans"] as? [[String: Any]]) ?? [] {
-                for span in (scope["spans"] as? [[String: Any]]) ?? [] {
-                    if let name = span["name"] as? String { names.insert(name) }
+    struct Span {
+        let name: String
+        let traceId: String
+    }
+
+    private(set) var logs: [Log] = []
+    private(set) var spans: [Span] = []
+
+    init(url: URL, since: UInt64) throws {
+        let text = try String(contentsOf: url, encoding: .utf8)
+        for line in text.split(separator: "\n") {
+            guard let data = line.data(using: .utf8),
+                  let request = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+            for resource in request["resourceLogs"] as? [[String: Any]] ?? [] {
+                for scope in resource["scopeLogs"] as? [[String: Any]] ?? [] {
+                    for record in scope["logRecords"] as? [[String: Any]] ?? [] {
+                        guard Self.nanos(record["timeUnixNano"]) >= since else { continue }
+                        logs.append(Log(eventName: record["eventName"] as? String ?? "",
+                                        body: (record["body"] as? [String: Any])?["stringValue"] as? String,
+                                        traceId: record["traceId"] as? String ?? "",
+                                        attributes: Self.attributes(record["attributes"])))
+                    }
+                }
+            }
+            for resource in request["resourceSpans"] as? [[String: Any]] ?? [] {
+                for scope in resource["scopeSpans"] as? [[String: Any]] ?? [] {
+                    for span in scope["spans"] as? [[String: Any]] ?? [] {
+                        guard Self.nanos(span["startTimeUnixNano"]) >= since else { continue }
+                        spans.append(Span(name: span["name"] as? String ?? "", traceId: span["traceId"] as? String ?? ""))
+                    }
                 }
             }
         }
-        return names
     }
 
-    /// Tempo search through Grafana's datasource proxy (grafana/otel-lgtm has anonymous admin).
-    func tempo(service: String, since: UInt64) async throws -> [[String: Any]] {
-        var components = URLComponents(string: "http://localhost:3000/api/datasources/proxy/uid/tempo/api/search")!
-        components.queryItems = [
-            .init(name: "tags", value: "service.name=\(service)"),
-            .init(name: "start", value: String(since / 1_000_000_000)),
-            .init(name: "end", value: String(UInt64(Date().timeIntervalSince1970) + 60)),
-            .init(name: "limit", value: "50"),
-        ]
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        return (json?["traces"] as? [[String: Any]]) ?? []
+    private static func nanos(_ value: Any?) -> UInt64 {
+        (value as? String).flatMap(UInt64.init) ?? (value as? UInt64) ?? 0
     }
 
-    struct Stream {
-        let labels: [String: String]
-        let lines: [String]
-    }
-
-    func loki(query: String, since: UInt64) async throws -> [Stream] {
-        var components = URLComponents(string: "http://localhost:3100/loki/api/v1/query_range")!
-        components.queryItems = [
-            .init(name: "query", value: query),
-            .init(name: "start", value: String(since)),
-            .init(name: "limit", value: "500"),
-        ]
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        let result = ((json?["data"] as? [String: Any])?["result"] as? [[String: Any]]) ?? []
-        return result.map { entry in
-            Stream(labels: (entry["stream"] as? [String: String]) ?? [:],
-                   lines: ((entry["values"] as? [[Any]]) ?? []).compactMap { $0.count > 1 ? $0[1] as? String : nil })
+    /// OTLP/JSON attributes (`[{key, value: {stringValue | intValue | boolValue | doubleValue}}]`) as strings.
+    private static func attributes(_ value: Any?) -> [String: String] {
+        var result: [String: String] = [:]
+        for pair in value as? [[String: Any]] ?? [] {
+            guard let key = pair["key"] as? String, let any = pair["value"] as? [String: Any] else { continue }
+            if let s = any["stringValue"] as? String { result[key] = s }
+            else if let i = any["intValue"] { result[key] = "\(i)" }
+            else if let b = any["boolValue"] as? Bool { result[key] = String(b) }
+            else if let d = any["doubleValue"] as? Double { result[key] = String(d) }
         }
+        return result
     }
 }
