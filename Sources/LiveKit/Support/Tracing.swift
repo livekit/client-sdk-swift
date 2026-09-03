@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitUniFFI
 import Foundation
 
 // MARK: - Span
@@ -74,14 +75,15 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
     public internal(set) var kind: SpanKind = .internal
     /// The open span this one nests under, if any.
     public internal(set) var parent: Span?
-    /// Identity assigned by the Room's telemetry; `nil` for local-only spans.
+    /// Identity in the telemetry session's trace; `nil` for local-only spans.
     public internal(set) var context: SpanContext?
 
     /// Handler called once when the span ends. Set by the tracer at creation time.
     public var onEnd: (@Sendable (Span) -> Void)?
 
-    /// Handler called for every ``record(_:at:)``. Set by the Room's telemetry, if on.
-    var onRecord: (@Sendable (Span, Entry) -> Void)?
+    /// The telemetry session this span is filed under and its handle there; set by
+    /// ``TelemetryTracer`` when telemetry is on. Checkpoints and the end go straight to it.
+    var telemetry: (session: TelemetrySession, id: UInt64)?
 
     /// The span the current task is working inside, if any. Bound by the SDK around operations
     /// (`connect`, a reconnect cycle) so child spans nest and warn/error records point at it
@@ -120,6 +122,14 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
             return true
         }
         guard first else { return }
+        if let telemetry {
+            let lowered: LiveKitUniFFI.SpanOutcome = switch outcome {
+            case .ok: .ok
+            case .error: .error
+            case .cancelled: .cancelled
+            }
+            telemetry.session.endSpan(span: telemetry.id, outcome: lowered, errorType: errorType, attributes: attributes.lowered)
+        }
         onEnd?(self)
         onEnd = nil
     }
@@ -128,7 +138,9 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
     public func record(_ event: String, at time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
         let entry = Entry(label: event, time: time)
         _state.mutate { $0.entries.append(entry) }
-        onRecord?(self, entry)
+        if let telemetry {
+            telemetry.session.addSpanEvent(span: telemetry.id, name: event, attributes: [])
+        }
     }
 
     @available(*, deprecated, renamed: "record(_:at:)")
@@ -198,7 +210,8 @@ public typealias Stopwatch = Span
 
 /// A factory that creates ``Span``s for SDK operations.
 ///
-/// The default ``LoggingTracer`` logs completed spans at debug level.
+/// The default ``TelemetryTracer`` logs completed spans at debug level and, when telemetry is
+/// on, ships them.
 /// Inject a custom implementation via ``LiveKitSDK/setTracing(_:)`` to
 /// capture timing data programmatically (e.g., for benchmarks).
 ///
@@ -212,16 +225,5 @@ public protocol Tracing: Sendable {
 
 // MARK: - LoggingTracer
 
-/// Default ``Tracing`` implementation that logs completed spans via the SDK's logger.
-public final class LoggingTracer: Tracing, Sendable {
-    public init() {}
-
-    @discardableResult
-    public func beginSpan(_ name: String) -> Span {
-        let span = Span(label: name)
-        span.onEnd = { span in
-            sharedLogger.log("\(span)", .debug, type: LoggingTracer.self)
-        }
-        return span
-    }
-}
+@available(*, deprecated, renamed: "TelemetryTracer")
+public typealias LoggingTracer = TelemetryTracer

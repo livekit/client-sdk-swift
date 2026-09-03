@@ -55,10 +55,10 @@ final class RTCTelemetry: TelemetryInstrument, Loggable {
         Task { await track.set(reportStatistics: true) }
     }
 
-    private func beginSubscribe(_ publication: RemoteTrackPublication, participant: RemoteParticipant, tracer: RoomTracer) {
+    private func beginSubscribe(_ publication: RemoteTrackPublication, participant: RemoteParticipant, tracer: TelemetryTracer) {
         let sid = publication.sid
         guard subscribeSpans[sid] == nil else { return }
-        let span = tracer.beginSpan("lk.subscribe", parent: nil)
+        let span = tracer.beginSpan("lk.subscribe", kind: .internal, parent: nil)
         span.setAttribute("lk.track.sid", .string(sid.stringValue))
         span.setAttribute("lk.track.kind", .string(Span.kindName(publication.kind)))
         span.setAttribute("lk.track.source", .string(String(describing: publication.source)))

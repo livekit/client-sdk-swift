@@ -18,8 +18,8 @@ internal import LiveKitUniFFI
 import Foundation
 
 /// The SDK-area instrument of one Room: its session identity (`lk.room.*`, `lk.participant.*`),
-/// its spans (connect, reconnect, publish — given identity and shipped as they end) and its
-/// app-defined events, filed under the session the Room got from the pipeline. Created with the
+/// and its app-defined events, filed under the session the Room got from the pipeline (its spans
+/// are created and filed by ``TelemetryTracer``). Created with the
 /// Room, so pre-connect work is captured; lives as long as the Room, connections come and go
 /// inside it. Stateless itself: the session handle is thread-safe, so everything here is
 /// callable from wherever the SDK runs.
@@ -58,28 +58,6 @@ final class RoomTelemetry: TelemetryInstrument {
     /// A consumer-defined event; the core namespaces it under `custom.`.
     nonisolated func emitCustom(_ name: String, attributes: [String: SpanAttribute]) {
         session.emitCustom(name: name, attributes: attributes.lowered)
-    }
-
-    /// Give a freshly created span its identity in this session and ship its checkpoints and end.
-    /// The app's ``Tracing`` created the span and may have set ``Span/onEnd``; that still fires.
-    nonisolated func attach(_ span: Span) {
-        let kind: LiveKitUniFFI.SpanKind = span.kind == .client ? .client : .internal
-        let id = session.beginSpan(name: span.label, kind: kind, parent: span.parent?.context?.spanId)
-        span.context = SpanContext(traceId: session.traceId(), spanId: id)
-        let session = session
-        span.onRecord = { _, entry in
-            session.addSpanEvent(span: id, name: entry.label, attributes: [])
-        }
-        let previousEnd = span.onEnd
-        span.onEnd = { span in
-            let outcome: LiveKitUniFFI.SpanOutcome = switch span.outcome ?? .ok {
-            case .ok: .ok
-            case .error: .error
-            case .cancelled: .cancelled
-            }
-            session.endSpan(span: id, outcome: outcome, errorType: span.errorType, attributes: span.attributes.lowered)
-            previousEnd?(span)
-        }
     }
 
     private nonisolated func set(_ key: String, _ value: String?) {

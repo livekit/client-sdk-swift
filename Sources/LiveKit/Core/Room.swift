@@ -165,7 +165,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         telemetry?.emitCustom(name, attributes: attributes)
     }
 
-    var tracer: RoomTracer { _state.stage.connection?.tracer ?? .detached }
+    var tracer: TelemetryTracer { _state.stage.connection?.tracer ?? .detached }
 
     // MARK: - PreConnect
 

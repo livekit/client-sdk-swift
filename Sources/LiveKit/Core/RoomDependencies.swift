@@ -40,14 +40,13 @@ final class ConnectionDependencies: Sendable {
     /// only settles its open spans and flushes when it ends.
     let telemetry: RoomTelemetry?
 
-    /// Span factory for this connection: the app's tracer creates spans, the Room's telemetry
-    /// gives them identity.
-    let tracer: RoomTracer
+    /// Span factory for this connection, bound to the Room's telemetry session when telemetry is on.
+    let tracer: TelemetryTracer
 
     init(room: Room, roomOptions: RoomOptions) {
         dataTracks = DataTracks(room: room)
         telemetry = room.telemetry
-        tracer = RoomTracer(telemetry: telemetry)
+        tracer = TelemetryTracer(session: telemetry?.session)
         let manager: E2EEManager? = if let e2eeOptions = roomOptions.e2eeOptions {
             E2EEManager(e2eeOptions: e2eeOptions)
         } else if let encryptionOptions = roomOptions.encryptionOptions {
