@@ -147,6 +147,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     var dataTracks: DataTracks? { _state.stage.connection?.dataTracks }
     var telemetry: RoomTelemetry? { _state.stage.connection?.telemetry }
+
+    /// Record an app-defined telemetry event alongside the SDK's own, in the same session trace.
+    /// The name is namespaced under `custom.` (`"checkout.started"` ships as
+    /// `custom.checkout.started`); attributes keep their names. A no-op when telemetry is off or
+    /// the room is not connecting or connected. Subject to the same flood guard as SDK events.
+    public func emitTelemetryEvent(_ name: String, attributes: [String: SpanAttribute] = [:]) {
+        telemetry?.emitCustom(name, attributes: attributes)
+    }
+
     var tracer: RoomTracer { _state.stage.connection?.tracer ?? .detached }
 
     // MARK: - PreConnect

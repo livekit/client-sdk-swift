@@ -270,6 +270,23 @@ final class RoomTelemetry: NSObject, @unchecked Sendable, Loggable {
         core.emit(event: TelemetryEvent(name: name, severity: .info, body: nil, attributes: attributes, spanId: nil))
     }
 
+    /// A consumer-defined event; the core namespaces it under `custom.`.
+    func emitCustom(_ name: String, attributes: [String: SpanAttribute]) {
+        core.emitCustom(name: name, attributes: Self.lower(attributes))
+    }
+
+    static func lower(_ attributes: [String: SpanAttribute]) -> [LiveKitUniFFI.Attribute] {
+        attributes.map { key, value -> LiveKitUniFFI.Attribute in
+            let lowered: LiveKitUniFFI.AttributeValue = switch value {
+            case let .string(s): .str(s)
+            case let .int(i): .int(i)
+            case let .double(d): .double(d)
+            case let .bool(b): .bool(b)
+            }
+            return .init(key: key, value: lowered)
+        }
+    }
+
     private static func thermal(_ state: ProcessInfo.ThermalState) -> ThermalState {
         switch state {
         case .nominal: .nominal
@@ -330,16 +347,7 @@ extension RoomTelemetry: SpanSink {
         case .error: .error
         case .cancelled: .cancelled
         }
-        let attributes = span.attributes.map { key, value -> LiveKitUniFFI.Attribute in
-            let lowered: LiveKitUniFFI.AttributeValue = switch value {
-            case let .string(s): .str(s)
-            case let .int(i): .int(i)
-            case let .double(d): .double(d)
-            case let .bool(b): .bool(b)
-            }
-            return .init(key: key, value: lowered)
-        }
-        core.endSpan(span: id, outcome: outcome, errorType: span.errorType, attributes: attributes)
+        core.endSpan(span: id, outcome: outcome, errorType: span.errorType, attributes: Self.lower(span.attributes))
     }
 }
 
