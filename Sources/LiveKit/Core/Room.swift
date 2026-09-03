@@ -318,6 +318,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             rtc.onFirstMedia = { [weak roomTelemetry] sid in roomTelemetry?.trackDidReceiveFirstMedia(sid) }
             telemetry = roomTelemetry
             rtcTelemetry = rtc
+            roomTelemetry.start()
+            rtc.start()
         }
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), ffi: \(LiveKitSDK.ffiVersion), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
@@ -403,6 +405,12 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 self.objectWillChange.send()
             }
         }
+    }
+
+    deinit {
+        // The session ends with the Room: settle its open spans, ship what is queued.
+        telemetry?.stop()
+        rtcTelemetry?.stop()
     }
 
     // swiftlint:disable:next cyclomatic_complexity function_body_length

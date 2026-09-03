@@ -21,8 +21,9 @@ import Foundation
 /// publishes or subscribes to, forwards each `getStats()` reading to the session (the core
 /// windows them into `lk.rtc.stats.sample`), and reports when a subscribed track first carries
 /// media. Independent of ``RoomTelemetry``; the Room wires ``onFirstMedia`` to it.
-final class RTCTelemetry: NSObject, @unchecked Sendable, Loggable {
+final class RTCTelemetry: NSObject, TelemetryInstrument, @unchecked Sendable, Loggable {
     private let session: TelemetrySession
+    private weak var room: Room?
 
     /// Called once per subscribed track, on the first reading with inbound bytes.
     var onFirstMedia: (@Sendable (Track.Sid) -> Void)?
@@ -36,8 +37,16 @@ final class RTCTelemetry: NSObject, @unchecked Sendable, Loggable {
 
     init(room: Room, session: TelemetrySession) {
         self.session = session
+        self.room = room
         super.init()
-        room.add(delegate: self)
+    }
+
+    func start() {
+        room?.add(delegate: self)
+    }
+
+    func stop() {
+        room?.remove(delegate: self)
     }
 
     private func observe(_ track: Track) {

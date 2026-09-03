@@ -27,7 +27,7 @@ import UIKit
 /// pushed to the pipeline as `DeviceState` — which stretches the cadence and holds uploads — plus
 /// the `lk.device.*` events. Notification-driven throughout: nothing polls, nothing samples CPU.
 /// Independent of ``RoomTelemetry`` and ``RTCTelemetry``; started by the ``TelemetryHub``.
-final class DeviceTelemetry: NSObject, @unchecked Sendable, Loggable {
+final class DeviceTelemetry: NSObject, TelemetryInstrument, @unchecked Sendable, Loggable {
     private let core: LiveKitUniFFI.Telemetry
     private var notificationTokens: [NSObjectProtocol] = []
     /// Instruments run here, never on a media or UI thread.

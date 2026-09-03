@@ -41,8 +41,8 @@ final class TelemetryHub: NSObject, @unchecked Sendable, Loggable {
 
     let core: LiveKitUniFFI.Telemetry
     private let options: TelemetryOptions
-    /// The Device-area instrument: process-level, independent of any Room.
-    private let device: DeviceTelemetry
+    /// Process-level instruments (today: the device); Rooms own theirs.
+    private let instruments: [TelemetryInstrument]
 
     /// `nil` only if the core refuses to start (no transport) — never the case here, but telemetry
     /// is fail-open: the app runs without it rather than not at all.
@@ -60,12 +60,13 @@ final class TelemetryHub: NSObject, @unchecked Sendable, Loggable {
         }
         self.core = core
         self.options = options
-        device = DeviceTelemetry(core: core)
+        let device = DeviceTelemetry(core: core)
+        instruments = [device]
         super.init()
 
         LogRelay.shared.sinks.add(delegate: self)
         device.onTerminate = { [weak self] in self?.shutdown() }
-        device.start()
+        instruments.forEach { $0.start() }
     }
 
     /// A Room's session: its own trace id and attributes on this pipeline.
@@ -98,7 +99,7 @@ final class TelemetryHub: NSObject, @unchecked Sendable, Loggable {
 
     /// Bounded final flush (with the session summary); the pipeline stops afterwards.
     func shutdown() {
-        device.stop()
+        instruments.forEach { $0.stop() }
         LogRelay.shared.sinks.remove(delegate: self)
         let core = core
         Task { await core.shutdown() }

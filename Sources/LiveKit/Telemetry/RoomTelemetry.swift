@@ -23,7 +23,7 @@ import Foundation
 /// work is captured — and living as long as the Room does; connections come and go inside it.
 /// Independent of ``RTCTelemetry`` (statistics) and ``DeviceTelemetry`` (the device), except for
 /// one signal: first media on a subscribed track ends the `lk.subscribe` span.
-final class RoomTelemetry: NSObject, @unchecked Sendable, Loggable {
+final class RoomTelemetry: NSObject, TelemetryInstrument, @unchecked Sendable, Loggable {
     private let hub: TelemetryHub
     private let session: TelemetrySession
     private weak var room: Room?
@@ -44,7 +44,16 @@ final class RoomTelemetry: NSObject, @unchecked Sendable, Loggable {
         self.session = session
         self.room = room
         super.init()
-        room.add(delegate: self)
+    }
+
+    func start() {
+        room?.add(delegate: self)
+    }
+
+    /// The Room is going away: settle open spans and ship what is queued.
+    func stop() {
+        room?.remove(delegate: self)
+        connectionDidEnd()
     }
 
     /// The session's trace id: 32 hex characters, the handle support asks for.
