@@ -65,6 +65,10 @@ struct TelemetryTests {
         #expect(labels.contains { $0["lk_room_name"] != nil && $0["lk_participant_identity"] != nil },
                 "session attributes attached")
         #expect(streams.contains { $0.lines.contains { $0.contains(marker) } }, "error record reached the collector")
+        // Device instruments: initial thermal, memory-pressure and network-path values.
+        for attribute in ["lk_device_thermal_state", "lk_device_memory_pressure", "network_connection_type"] {
+            #expect(labels.contains { $0[attribute] != nil }, "\(attribute) reached the collector, got \(labels)")
+        }
 
         // Spans: connect (both rooms), the publisher's publish, the subscriber's subscribe
         // (intent → first media) must all be traces in Tempo.

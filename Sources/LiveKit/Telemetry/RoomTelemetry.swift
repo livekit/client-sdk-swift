@@ -15,7 +15,12 @@
  */
 
 internal import LiveKitUniFFI
+import AVFoundation
 import Foundation
+import Network
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Room-scoped bridge to the Rust telemetry core (`livekit-telemetry`).
 ///
@@ -28,9 +33,20 @@ final class RoomTelemetry: NSObject, @unchecked Sendable, Loggable {
     private let core: LiveKitUniFFI.Telemetry
     private weak var room: Room?
     private var notificationTokens: [NSObjectProtocol] = []
+    /// Instruments run here, never on a media or UI thread.
+    private let queue = DispatchQueue(label: "LiveKitSDK.telemetry", qos: .utility)
+    private var memorySource: DispatchSourceMemoryPressure?
+    private let pathMonitor = NWPathMonitor()
 
     private struct State {
         var appState: LiveKitUniFFI.AppState = .foreground
+        var memory: MemoryPressure = .normal
+        var network: NetworkType = .unknown
+        var networkExpensive = false
+        var networkConstrained = false
+        /// Percent; `nil` where unknown (macOS, tvOS).
+        var batteryLevel: UInt32?
+        var batteryCharging = false
         /// Open `lk.subscribe` spans by track, from subscription intent to first media.
         var subscribeSpans: [Track.Sid: Span] = [:]
         var subscribeTimeouts: [Track.Sid: Task<Void, Never>] = [:]
@@ -70,6 +86,10 @@ final class RoomTelemetry: NSObject, @unchecked Sendable, Loggable {
                                                          object: nil, queue: nil) { [weak self] _ in self?.pushDeviceState() })
         }
         Task { @MainActor in AppStateListener.shared.delegates.add(delegate: self) }
+        observeMemory()
+        observeNetwork()
+        observeBattery()
+        observeAudioSession()
         pushDeviceState()
     }
 
@@ -87,6 +107,9 @@ final class RoomTelemetry: NSObject, @unchecked Sendable, Loggable {
             NotificationCenter.default.removeObserver(token)
         }
         notificationTokens.removeAll()
+        memorySource?.cancel()
+        memorySource = nil
+        pathMonitor.cancel()
         for sid in _state.subscribeSpans.keys {
             endSubscribe(sid, outcome: .cancelled)
         }
@@ -125,9 +148,126 @@ final class RoomTelemetry: NSObject, @unchecked Sendable, Loggable {
         #else
         if #available(macOS 12.0, *) { lowPower = info.isLowPowerModeEnabled }
         #endif
+        let state = _state.copy()
         core.setDeviceState(state: DeviceState(thermal: Self.thermal(info.thermalState),
                                                lowPowerMode: lowPower,
-                                               appState: _state.appState))
+                                               appState: state.appState,
+                                               memory: state.memory,
+                                               network: state.network,
+                                               networkExpensive: state.networkExpensive,
+                                               networkConstrained: state.networkConstrained,
+                                               batteryLevel: state.batteryLevel,
+                                               batteryCharging: state.batteryCharging))
+    }
+
+    /// `DISPATCH_MEMORYPRESSURE_*`: the same source jetsam uses, on every Apple platform, and it
+    /// also reports the return to normal (a memory *warning* notification does not).
+    private func observeMemory() {
+        let source = DispatchSource.makeMemoryPressureSource(eventMask: [.normal, .warning, .critical], queue: queue)
+        source.setEventHandler { [weak self, weak source] in
+            guard let self, let event = source?.data else { return }
+            let pressure: MemoryPressure = event.contains(.critical) ? .critical : event.contains(.warning) ? .warning : .normal
+            _state.mutate { $0.memory = pressure }
+            pushDeviceState()
+        }
+        source.resume()
+        memorySource = source
+    }
+
+    /// Path type plus the two flags that matter for traffic: expensive (cellular/hotspot) and
+    /// constrained (Low Data Mode — the user asked for less).
+    private func observeNetwork() {
+        // Seed from the current path so the first state is not a spurious `unknown`.
+        record(pathMonitor.currentPath)
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            self?.record(path)
+            self?.pushDeviceState()
+        }
+        pathMonitor.start(queue: queue)
+    }
+
+    private func record(_ path: NWPath) {
+        _state.mutate {
+            $0.network = Self.networkType(path)
+            $0.networkExpensive = path.isExpensive
+            $0.networkConstrained = path.isConstrained
+        }
+    }
+
+    private static func networkType(_ path: NWPath) -> NetworkType {
+        guard path.status == .satisfied else { return .unavailable }
+        if path.usesInterfaceType(.wifi) { return .wifi }
+        if path.usesInterfaceType(.cellular) { return .cell }
+        if path.usesInterfaceType(.wiredEthernet) { return .wired }
+        return .unknown
+    }
+
+    private func observeBattery() {
+        #if os(iOS) || os(visionOS)
+        // ponytail: monitoring stays enabled for the process; apps toggling it themselves are unaffected.
+        Task { @MainActor in
+            UIDevice.current.isBatteryMonitoringEnabled = true
+            self.readBattery()
+        }
+        for name in [UIDevice.batteryLevelDidChangeNotification, UIDevice.batteryStateDidChangeNotification] {
+            notificationTokens.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: nil) { [weak self] _ in
+                Task { @MainActor in self?.readBattery() }
+            })
+        }
+        #endif
+    }
+
+    #if os(iOS) || os(visionOS)
+    @MainActor private func readBattery() {
+        let device = UIDevice.current
+        let level = device.batteryLevel // -1 while unknown
+        _state.mutate {
+            $0.batteryLevel = level < 0 ? nil : UInt32((level * 100).rounded())
+            $0.batteryCharging = device.batteryState == .charging || device.batteryState == .full
+        }
+        pushDeviceState()
+    }
+    #endif
+
+    /// Route changes and interruptions are events, not state: they explain audio glitches.
+    private func observeAudioSession() {
+        #if os(iOS) || os(tvOS) || os(visionOS)
+        let center = NotificationCenter.default
+        notificationTokens.append(center.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: nil) { [weak self] note in
+            let reason = (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt)
+                .flatMap(AVAudioSession.RouteChangeReason.init(rawValue:)) ?? .unknown
+            let outputs = AVAudioSession.sharedInstance().currentRoute.outputs.map(\.portType.rawValue).joined(separator: ",")
+            self?.emit("lk.device.audio_route.changed", [
+                .init(key: "lk.device.audio_route.reason", value: .str(Self.name(reason))),
+                .init(key: "lk.device.audio_route.outputs", value: .str(outputs)),
+            ])
+        })
+        notificationTokens.append(center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: nil) { [weak self] note in
+            let began = (note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt) == AVAudioSession.InterruptionType.began.rawValue
+            self?.emit("lk.device.audio.interruption", [
+                .init(key: "lk.device.audio.interruption", value: .str(began ? "began" : "ended")),
+            ])
+        })
+        #endif
+    }
+
+    #if os(iOS) || os(tvOS) || os(visionOS)
+    private static func name(_ reason: AVAudioSession.RouteChangeReason) -> String {
+        switch reason {
+        case .newDeviceAvailable: "new_device_available"
+        case .oldDeviceUnavailable: "old_device_unavailable"
+        case .categoryChange: "category_change"
+        case .override: "override"
+        case .wakeFromSleep: "wake_from_sleep"
+        case .noSuitableRouteForCategory: "no_suitable_route"
+        case .routeConfigurationChange: "route_configuration_change"
+        default: "unknown"
+        }
+    }
+    #endif
+
+    private func emit(_ name: String, _ attributes: [LiveKitUniFFI.Attribute]) {
+        core.emit(event: TelemetryEvent(name: name, severity: .info, body: nil, attributes: attributes, spanId: nil))
     }
 
     private static func thermal(_ state: ProcessInfo.ThermalState) -> ThermalState {
@@ -356,6 +496,18 @@ extension RoomTelemetry: AppStateDelegate {
 /// this only performs the POST and maps the HTTP outcome onto `ExportError` so the core decides
 /// retry / drop / go-silent.
 final class URLSessionTelemetryTransport: TelemetryTransport, @unchecked Sendable {
+    /// Background traffic class (`NET_SERVICE_TYPE_BK`): the local stack queues it below best-effort
+    /// media and signaling (fq_codel BK class, Wi-Fi AC_BK) and switches its TCP flows to LEDBAT
+    /// whenever foreground traffic is active — the one knob that actually protects the uplink.
+    /// Ephemeral: no cookies, no cache; one connection.
+    private static let session: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.networkServiceType = .background
+        configuration.httpMaximumConnectionsPerHost = 1
+        configuration.timeoutIntervalForRequest = 10
+        return URLSession(configuration: configuration)
+    }()
+
     func send(request: ExportRequest) async throws {
         guard let url = URL(string: request.url) else {
             throw ExportError.Rejected(message: "invalid url \(request.url)")
@@ -368,7 +520,7 @@ final class URLSessionTelemetryTransport: TelemetryTransport, @unchecked Sendabl
         }
         let response: URLResponse
         do {
-            (_, response) = try await URLSession.shared.data(for: urlRequest)
+            (_, response) = try await Self.session.data(for: urlRequest)
         } catch {
             throw ExportError.Retryable(message: error.localizedDescription, retryAfterMs: nil)
         }
