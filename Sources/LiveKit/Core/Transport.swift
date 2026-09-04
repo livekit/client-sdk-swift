@@ -59,6 +59,14 @@ final class Transport: NSObject, Loggable {
 
     private var _reNegotiate: Bool = false
 
+    /// The server's `mid` → track SID mapping from the most recent session description.
+    ///
+    /// The authority for identifying received media in single PC mode. Lives here rather than on
+    /// `Room` because it is keyed by this peer connection's mids, so it is retired exactly when
+    /// the connection is — surviving a quick reconnect (same PC, same mids) and going away with a
+    /// full one.
+    private var _midToTrackSid: [String: Track.Sid] = [:]
+
     /// A local offer that has been signalled but not yet applied with
     /// `setLocalDescription`. See ``createInitialOffer()``.
     private var _pendingInitialOffer: LKRTCSessionDescription?
@@ -573,6 +581,79 @@ extension Transport {
         }
 
         return transceiver
+    }
+
+    /// Adds `recvonly` transceivers, the m-sections received media is assigned to in single PC mode.
+    ///
+    /// Shared by the two paths that need them: the initial offer preallocates a few so the first
+    /// subscriptions land without another negotiation, and `MediaSectionsRequirement` adds more
+    /// when the server needs sections beyond those. Unused sections stay idle, so over-allocating
+    /// costs SDP size rather than correctness.
+    func addRecvMediaSections(audio: Int, video: Int) throws {
+        let transceiverInit = LKRTCRtpTransceiverInit()
+        transceiverInit.direction = .recvOnly
+
+        for _ in 0 ..< audio {
+            _ = try addTransceiver(ofType: .audio, transceiverInit: transceiverInit)
+        }
+        for _ in 0 ..< video {
+            _ = try addTransceiver(ofType: .video, transceiverInit: transceiverInit)
+        }
+    }
+
+    /// Drops a mid from the applied mapping so the next description that still reports it is
+    /// treated as a fresh binding. Used when the binding arrived before its publication.
+    func forget(mid: String?) {
+        guard let mid else { return }
+        _midToTrackSid[mid] = nil
+    }
+
+    /// One receive m-section the server has bound to a published track.
+    struct ReceivedMedia {
+        let trackSid: Track.Sid
+        let track: RTCMediaTrack
+        let receiver: RTCReceiver
+    }
+
+    /// Applies the server's `mid` → track SID mapping and reports the sections that became bound
+    /// since the last call.
+    ///
+    /// Replaces rather than merges: each session description carries the complete mapping, so a
+    /// mid dropping out means the server unbound it.
+    ///
+    /// - Returns: The newly bound sections whose receiver already has a track, for the caller to
+    ///   attach. Empty when nothing changed.
+    func apply(midToTrackSid mapping: [String: Track.Sid]) -> [ReceivedMedia] {
+        let previous = _midToTrackSid
+        _midToTrackSid = mapping
+
+        let newlyBound = mapping.filter { previous[$0.key] != $0.value }
+        guard !newlyBound.isEmpty else { return [] }
+
+        // `mid` is documented as nil until negotiation completes, and again after a rollback,
+        // despite the ObjC declaration not being nullability-audited.
+        var transceiversByMid: [String: LKRTCRtpTransceiver] = [:]
+        for transceiver in _pc.transceivers {
+            guard let mid = transceiver.mid as String?, !mid.isEmpty else { continue }
+            if transceiversByMid[mid] == nil { transceiversByMid[mid] = transceiver }
+        }
+
+        return newlyBound.compactMap { mid, trackSid in
+            guard let transceiver = transceiversByMid[mid] else {
+                log("No transceiver for mid \(mid) bound to \(trackSid)", .warning)
+                return nil
+            }
+            guard let track = transceiver.receiver.track else {
+                // The section is negotiated but carries no track yet; a later description that
+                // still maps this mid re-reports it, since the mapping only advances on change.
+                log("Transceiver for mid \(mid) has no receiver track yet", .debug)
+                _midToTrackSid[mid] = nil
+                return nil
+            }
+            return ReceivedMedia(trackSid: trackSid,
+                                 track: RTCMediaTrack(track),
+                                 receiver: RTCReceiver(transceiver.receiver))
+        }
     }
 
     func remove(track sender: RTCSender) throws {
