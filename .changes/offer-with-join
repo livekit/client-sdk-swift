@@ -1,0 +1,1 @@
+minor type="changed" "In single peer connection mode the publisher offer is now created before the signal socket opens and bundled with the JOIN request, so the server answers it in the same exchange — removing a round trip from the connect path and moving the WebRTC cold start off it, which matters most on high-latency links"

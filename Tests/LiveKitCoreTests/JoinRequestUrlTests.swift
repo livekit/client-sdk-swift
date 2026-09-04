@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import Compression
 import Foundation
 @testable import LiveKit
 import Testing
@@ -57,7 +56,7 @@ import Testing
         let wrapped = try Livekit_WrappedJoinRequest(serializedBytes: wrappedData)
 
         let joinRequestData: Data = switch wrapped.compression {
-        case .gzip: try #require(Gunzip.decompress(wrapped.joinRequest))
+        case .gzip: try #require(TestGunzip.decompress(wrapped.joinRequest))
         default: wrapped.joinRequest
         }
 
@@ -104,7 +103,7 @@ struct GzipTests {
         #expect(trailer.prefix(4).littleEndianUInt32 == Gzip.crc32(original))
         #expect(trailer.suffix(4).littleEndianUInt32 == UInt32(original.count))
 
-        #expect(Gunzip.decompress(compressed) == original)
+        #expect(TestGunzip.decompress(compressed) == original)
     }
 
     @Test func compressReturnsNilForEmptyData() {
@@ -122,54 +121,8 @@ struct GzipTests {
         }
 
         let compressed = try #require(Gzip.compress(random))
-        #expect(Gunzip.decompress(compressed) == random)
+        #expect(TestGunzip.decompress(compressed) == random)
     }
 }
 
-// MARK: - Test helpers
-
-/// Test-only gzip reader, used to prove the container the SDK writes is well
-/// formed. The SDK itself only ever encodes.
-private enum Gunzip {
-    static func decompress(_ data: Data) -> Data? {
-        // Fixed 10-byte header, 8-byte trailer; the SDK never emits optional fields.
-        guard data.count > 18 else { return nil }
-        let deflated = data.dropFirst(10).dropLast(8)
-        guard let expectedSize = data.suffix(4).littleEndianUInt32 else { return nil }
-
-        var result = Data(count: Int(expectedSize))
-        let written = result.withUnsafeMutableBytes { destination -> Int in
-            guard let destinationStart = destination.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return 0 }
-
-            return Data(deflated).withUnsafeBytes { source -> Int in
-                guard let sourceStart = source.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return 0 }
-
-                return compression_decode_buffer(destinationStart, Int(expectedSize),
-                                                 sourceStart, deflated.count,
-                                                 nil, COMPRESSION_ZLIB)
-            }
-        }
-
-        guard written == Int(expectedSize) else { return nil }
-        return result
-    }
-}
-
-private extension Data {
-    init?(base64URLEncoded string: String) {
-        var base64 = string
-            .replacingOccurrences(of: "-", with: "+")
-            .replacingOccurrences(of: "_", with: "/")
-        // Restore any stripped padding so Foundation accepts the string.
-        if base64.count % 4 != 0 {
-            base64 += String(repeating: "=", count: 4 - base64.count % 4)
-        }
-        self.init(base64Encoded: base64)
-    }
-
-    var littleEndianUInt32: UInt32? {
-        guard count == 4 else { return nil }
-        // `enumerated()` offsets are slice-relative, unlike `indices`.
-        return enumerated().reduce(UInt32(0)) { $0 | UInt32($1.element) << (8 * $1.offset) }
-    }
-}
+// Shared `TestGunzip` / `Data` helpers live in GzipTestSupport.swift.

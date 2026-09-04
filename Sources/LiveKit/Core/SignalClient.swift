@@ -151,6 +151,7 @@ actor SignalClient: Loggable {
                  participantSid: Participant.Sid? = nil,
                  adaptiveStream: Bool,
                  singlePeerConnection: Bool,
+                 publisherOffer: Livekit_SessionDescription? = nil,
                  connectSpan: Span? = nil) async throws -> ConnectResponse
     {
         await cleanUp()
@@ -164,7 +165,8 @@ actor SignalClient: Loggable {
                                           connectOptions: connectOptions,
                                           reconnectMode: reconnectMode,
                                           participantSid: participantSid,
-                                          adaptiveStream: adaptiveStream)
+                                          adaptiveStream: adaptiveStream,
+                                          publisherOffer: publisherOffer)
         } else {
             try Utils.buildUrl(url,
                                connectOptions: connectOptions,
