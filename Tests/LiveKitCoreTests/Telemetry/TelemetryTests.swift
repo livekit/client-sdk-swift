@@ -67,7 +67,12 @@ struct TelemetryTests {
                 }
             }
             try await rooms[0].localParticipant.publish(videoTrack: track)
-            rooms[0].log(marker, .error)
+            // A warn/error record emitted inside an operation must end up on that operation's span,
+            // in that Room's trace — the whole path: Loggable → LogHub → Telemetry → core `session_of`.
+            let op = rooms[0].tracer.beginSpan("e2e.op", kind: .internal)
+            Span.$current.withValue(op) { rooms[0].log(marker, .error) }
+            op.end()
+            rooms[0].log("\(marker) outside", .error) // no ambient span: the process session
             rooms[0].emitTelemetryEvent("e2e.checkpoint", attributes: ["e2e.marker": .string(marker)])
             // Two stats windows plus a flush.
             try await Task.sleep(nanoseconds: 6_000_000_000)
@@ -81,7 +86,12 @@ struct TelemetryTests {
                 "outbound video stats window")
         #expect(logs.contains { $0.attributes["lk.room.name"] != nil && $0.attributes["lk.participant.identity"] != nil },
                 "session attributes attached")
-        #expect(logs.contains { $0.body == marker }, "error record reached the collector")
+        let inSpan = try #require(logs.first { $0.body == marker }, "error record reached the collector")
+        let opSpan = try #require(otlp.spans.first { $0.name == "e2e.op" })
+        #expect(inSpan.spanId == opSpan.spanId && inSpan.traceId == opSpan.traceId, "the record points at the span it was emitted in")
+        #expect(traceIds.contains(inSpan.traceId), "…and therefore lands in that Room's trace")
+        let outside = try #require(logs.first { $0.body == "\(marker) outside" })
+        #expect(outside.spanId.isEmpty && !traceIds.contains(outside.traceId), "no ambient span: the process session")
         #expect(logs.contains { $0.eventName == "custom.e2e.checkpoint" && $0.attributes["e2e.marker"] == marker },
                 "custom event reached the collector")
         for event in ["lk.device.thermal.changed", "lk.device.memory.changed", "lk.device.network.changed"] {
@@ -108,6 +118,7 @@ struct OTLPFile {
         let eventName: String
         let body: String?
         let traceId: String
+        let spanId: String
         let severity: Int
         let attributes: [String: String]
     }
@@ -115,6 +126,7 @@ struct OTLPFile {
     struct Span {
         let name: String
         let traceId: String
+        let spanId: String
     }
 
     private(set) var logs: [Log] = []
@@ -132,6 +144,7 @@ struct OTLPFile {
                         logs.append(Log(eventName: record["eventName"] as? String ?? "",
                                         body: (record["body"] as? [String: Any])?["stringValue"] as? String,
                                         traceId: record["traceId"] as? String ?? "",
+                                        spanId: record["spanId"] as? String ?? "",
                                         severity: record["severityNumber"] as? Int ?? 0,
                                         attributes: Self.attributes(record["attributes"])))
                     }
@@ -141,7 +154,8 @@ struct OTLPFile {
                 for scope in resource["scopeSpans"] as? [[String: Any]] ?? [] {
                     for span in scope["spans"] as? [[String: Any]] ?? [] {
                         guard Self.nanos(span["startTimeUnixNano"]) >= since else { continue }
-                        spans.append(Span(name: span["name"] as? String ?? "", traceId: span["traceId"] as? String ?? ""))
+                        spans.append(Span(name: span["name"] as? String ?? "", traceId: span["traceId"] as? String ?? "",
+                                          spanId: span["spanId"] as? String ?? ""))
                     }
                 }
             }
