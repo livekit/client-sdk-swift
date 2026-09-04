@@ -34,6 +34,8 @@ public final class TelemetryOptions: NSObject, Sendable {
     public let flushInterval: TimeInterval
     /// RTC statistics window in seconds: one `lk.rtc.stats.sample` per track per window.
     public let statsWindow: TimeInterval
+    /// Which instruments run; all by default. App-defined events and session identity are always on.
+    public let instruments: TelemetryInstruments
 
     /// `Caches/livekit-telemetry`: purgeable and excluded from backups — the right class for telemetry.
     public static var defaultStorageDirectory: URL? {
@@ -45,13 +47,15 @@ public final class TelemetryOptions: NSObject, Sendable {
                 headers: [String: String] = [:],
                 storageDirectory: URL? = TelemetryOptions.defaultStorageDirectory,
                 flushInterval: TimeInterval = 15,
-                statsWindow: TimeInterval = 15)
+                statsWindow: TimeInterval = 15,
+                instruments: TelemetryInstruments = .all)
     {
         self.endpoint = endpoint
         self.headers = headers
         self.storageDirectory = storageDirectory
         self.flushInterval = flushInterval
         self.statsWindow = statsWindow
+        self.instruments = instruments
     }
 
     // MARK: - Equal
@@ -62,7 +66,8 @@ public final class TelemetryOptions: NSObject, Sendable {
             headers == other.headers &&
             storageDirectory == other.storageDirectory &&
             flushInterval == other.flushInterval &&
-            statsWindow == other.statsWindow
+            statsWindow == other.statsWindow &&
+            instruments == other.instruments
     }
 
     override public var hash: Int {
@@ -72,6 +77,27 @@ public final class TelemetryOptions: NSObject, Sendable {
         hasher.combine(storageDirectory)
         hasher.combine(flushInterval)
         hasher.combine(statsWindow)
+        hasher.combine(instruments.rawValue)
         return hasher.finalize()
     }
+}
+
+/// The telemetry instruments, by the design doc's areas. Combine to choose what runs.
+public struct TelemetryInstruments: OptionSet, Sendable {
+    public let rawValue: UInt8
+
+    public init(rawValue: UInt8) {
+        self.rawValue = rawValue
+    }
+
+    /// Spans of the Room's operations: `lk.connect`, `lk.reconnect`, `lk.publish`.
+    public static let room = TelemetryInstruments(rawValue: 1 << 0)
+    /// Track statistics windows and the `lk.subscribe` span (time to media).
+    public static let rtc = TelemetryInstruments(rawValue: 1 << 1)
+    /// Warning and error log records from the SDK, the Rust core and WebRTC.
+    public static let logs = TelemetryInstruments(rawValue: 1 << 2)
+    /// Device state — thermal, power, memory, network, battery, lifecycle — and audio-session events.
+    public static let device = TelemetryInstruments(rawValue: 1 << 3)
+
+    public static let all: TelemetryInstruments = [.room, .rtc, .logs, .device]
 }

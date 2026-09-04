@@ -23,7 +23,7 @@ import Foundation
 /// design doc, a platform-side convention: an instrument is Swift that calls into the core;
 /// nothing long-running crosses the FFI. Lifecycle runs on the ``Telemetry`` actor; the owner's
 /// scope decides when: ``Telemetry`` starts and stops the process-level instruments
-/// (``DeviceTelemetry``, ``LoggingTelemetry``), ``Room`` its own (``RTCTelemetry``).
+/// (``DeviceTelemetry``), ``Room`` its own (``RTCTelemetry``).
 @Telemetry
 protocol TelemetryInstrument: AnyObject, Sendable {
     /// Begin observing and pushing.

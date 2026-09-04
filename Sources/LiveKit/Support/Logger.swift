@@ -120,7 +120,6 @@ open class OSLogger: Logger, @unchecked Sendable {
     private var logs: [String: OSLog] = [:]
 
     private lazy var rtcLogger = LKRTCCallbackLogger()
-    private var ffiTask: AnyTaskCancellable?
 
     private let minLevel: LogLevel
 
@@ -189,15 +188,9 @@ open class OSLogger: Logger, @unchecked Sendable {
     }
 
     private func startFFILogForwarding(minLevel: LogLevel) {
-        Task(priority: .utility) { [weak self] in
-            guard let self else { return } // don't initialize global level when releasing
-            logForwardBootstrap(level: minLevel.logForwardFilter)
-
-            let ffiLog = OSLog(subsystem: Self.subsystem, category: "FFI")
-
-            ffiTask = AsyncStream(unfolding: logForwardReceive).subscribe(self, priority: .utility) { _, entry in
-                os_log("%{public}@", log: ffiLog, type: entry.level.osLogType, "\(entry.target) \(entry.message)")
-            }
+        let ffiLog = OSLog(subsystem: Self.subsystem, category: "FFI")
+        FFILogForwarder.start(minLevel: minLevel) { entry in
+            os_log("%{public}@", log: ffiLog, type: entry.level.osLogType, "\(entry.target) \(entry.message)")
         }
     }
 }
@@ -227,15 +220,11 @@ extension Loggable {
                     function: StaticString = #function,
                     line: UInt = #line)
     {
-        // Telemetry first, so the app's logger cannot take its place; it sees every level and
-        // decides what leaves the device.
-        if let sink = LogRelay.sink {
-            sink.receive(LogRecord(message: message?.description ?? "",
-                                   level: level,
-                                   type: String(describing: Self.self),
-                                   function: "\(function)",
-                                   file: "\(file)",
-                                   line: line))
+        // Telemetry first, so the app's logger cannot take its place. Warn/error only leave the
+        // device (design doc); captured here synchronously — timestamp, ambient span — then handed over.
+        if level >= .warning {
+            Telemetry.log(message?.description ?? "", level: level, source: .sdk,
+                          type: String(describing: Self.self), function: "\(function)", file: "\(file)", line: line)
         }
         sharedLogger.log(message ?? "",
                          level,
@@ -246,30 +235,41 @@ extension Loggable {
     }
 }
 
-// MARK: - Structured records
+// MARK: - FFI log forwarding
 
-/// One SDK log call as data, for the in-process sink that needs more than a formatted line.
-struct LogRecord: Sendable {
-    let message: String
-    let level: LogLevel
-    let type: String
-    let function: String
-    let file: String
-    let line: UInt
-}
+/// The Rust core's log stream has one consumer. This drains it once and fans out: to the console
+/// handler the logger registered, and warn/error entries to telemetry. Started by whoever needs it
+/// first (`OSLogger`, or telemetry when the app uses its own logger), at the lowest level asked for.
+enum FFILogForwarder {
+    private struct State {
+        var level: LogLevel?
+        var handlers: [@Sendable (LogForwardEntry) -> Void] = []
+        var running = false
+    }
 
-protocol LogSink: AnyObject, Sendable {
-    func receive(_ record: LogRecord)
-}
+    private static let state = StateSync(State())
 
-/// The one in-process log observer besides the app's ``Logger``: LiveKit telemetry
-/// (``LoggingTelemetry``). Consulted before `sharedLogger`, independent of it, every level.
-// ponytail: a single slot — telemetry is the only consumer; a list if a second one appears.
-enum LogRelay {
-    private static let _sink = StateSync<LogSink?>(nil)
-    static var sink: LogSink? {
-        get { _sink.copy() }
-        set { _sink.mutate { $0 = newValue } }
+    static func start(minLevel: LogLevel, handler: (@Sendable (LogForwardEntry) -> Void)? = nil) {
+        let (bootstrap, run) = state.mutate { state -> (LogLevel?, Bool) in
+            if let handler { state.handlers.append(handler) }
+            let lower = state.level.map { minLevel < $0 } ?? true
+            if lower { state.level = minLevel }
+            defer { state.running = true }
+            return (lower ? minLevel : nil, !state.running)
+        }
+        if let bootstrap { logForwardBootstrap(level: bootstrap.logForwardFilter) }
+        guard run else { return }
+        Task(priority: .utility) {
+            while let entry = await logForwardReceive() {
+                for handler in state.copy().handlers {
+                    handler(entry)
+                }
+                if entry.level == .warn || entry.level == .error {
+                    Telemetry.log("\(entry.target) \(entry.message)", level: entry.level == .error ? .error : .warning, source: .ffi,
+                                  type: entry.target, function: "", file: entry.file ?? "", line: entry.line.map { UInt($0) } ?? 0)
+                }
+            }
+        }
     }
 }
 

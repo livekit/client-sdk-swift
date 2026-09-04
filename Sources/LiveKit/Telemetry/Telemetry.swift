@@ -15,12 +15,13 @@
  */
 
 internal import LiveKitUniFFI
+internal import LiveKitWebRTC
 import Foundation
 
 /// Client telemetry: the one entry point.
 ///
 /// `Telemetry.shared` owns the pipeline (the Rust core, `livekit-telemetry`), the process-level
-/// instruments (device state, SDK logs) and one session per live Room — all as actor state, so
+/// instruments (device state, log capture) and one session per live Room — all as actor state, so
 /// there is no lock and no latch. Configure it any time with ``LiveKitSDK/setTelemetry(_:)``; the
 /// pipeline bootstraps when the first Room asks for its session. Nothing but trace ids and events
 /// crosses the boundary: sessions, handles and instruments stay inside. As a global actor it is
@@ -31,7 +32,12 @@ public actor Telemetry {
 
     private struct Entry {
         let session: TelemetrySession
-        let rtc: RTCTelemetry
+        let rtc: RTCTelemetry?
+    }
+
+    /// Where a log record came from.
+    enum LogSource: String, Sendable {
+        case sdk, ffi, webrtc
     }
 
     private var options: TelemetryOptions?
@@ -40,6 +46,8 @@ public actor Telemetry {
     private var attributes: [String: SpanAttribute?] = [:]
     private var rooms: [ObjectIdentifier: Entry] = [:]
     private var instruments: [TelemetryInstrument] = []
+    /// WebRTC's own log sink at warning level, when the `logs` instrument is on.
+    private var rtcLogger: LKRTCCallbackLogger?
 
     // MARK: - Configuration
 
@@ -78,10 +86,12 @@ public actor Telemetry {
             await instrument.stop()
         }
         for entry in rooms.values {
-            await entry.rtc.stop()
+            await entry.rtc?.stop()
         }
         instruments = []
         rooms = [:]
+        rtcLogger?.stop()
+        rtcLogger = nil
         let core = core
         self.core = nil
         await core?.shutdown()
@@ -97,7 +107,7 @@ public actor Telemetry {
     /// The Room is going away: stop its instruments, ship what is queued. The session ends with it.
     func unregister(_ room: ObjectIdentifier) async {
         guard let entry = rooms.removeValue(forKey: room) else { return }
-        await entry.rtc.stop()
+        await entry.rtc?.stop()
         await core?.flush()
     }
 
@@ -131,9 +141,41 @@ public actor Telemetry {
         await entry(for: room)?.session.emitCustom(name: name, attributes: attributes.lowered)
     }
 
-    /// The span factory for a connection of this Room, bound to its session when telemetry is on.
+    /// The span factory for a connection of this Room, bound to its session when telemetry and the
+    /// `room` instrument are on.
     func tracer(for room: Room) async -> TelemetryTracer {
-        await entry(for: room).map { TelemetryTracer(session: $0.session) } ?? .detached
+        guard options?.instruments.contains(.room) == true, let entry = await entry(for: room) else { return .detached }
+        return TelemetryTracer(session: entry.session)
+    }
+
+    // MARK: - Logs
+
+    /// A warn/error record from the SDK, the Rust core or WebRTC. Captured synchronously where it
+    /// happened — timestamp, ambient span — then filed under that span's session, or the process
+    /// session. Called from `Loggable.log`, `FFILogForwarder` and the WebRTC log sink; never by apps.
+    nonisolated static func log(_ message: String, level: LogLevel, source: LogSource, type: String,
+                                function: String, file: String, line: UInt)
+    {
+        let ambient = Span.current
+        var attributes: [LiveKitUniFFI.Attribute] = [
+            .init(key: "lk.log.type", value: .str(type)),
+            .init(key: "lk.log.source", value: .str(source.rawValue)),
+        ]
+        if !function.isEmpty { attributes.append(.init(key: "code.function", value: .str(function))) }
+        if !file.isEmpty { attributes.append(.init(key: "code.file.path", value: .str(file))) }
+        if line > 0 { attributes.append(.init(key: "code.line.number", value: .int(Int64(line)))) }
+        let event = TelemetryEvent(name: "",
+                                   severity: level == .error ? .error : .warn,
+                                   body: message,
+                                   attributes: attributes,
+                                   timestampNs: UInt64(Date().timeIntervalSince1970 * 1e9),
+                                   spanId: (ambient?.isEnded == false) ? ambient?.context?.spanId : nil)
+        Task { await shared.receive(event) }
+    }
+
+    private func receive(_ event: TelemetryEvent) {
+        guard options?.instruments.contains(.logs) == true else { return }
+        core?.emit(event: event)
     }
 
     /// The Room's session, created on first use — together with the pipeline and its process-level
@@ -148,17 +190,37 @@ public actor Telemetry {
                 made.setAttribute(key: key, value: value?.lowered)
             }
             core = made
-            instruments = [DeviceTelemetry(core: made), LoggingTelemetry(core: made)]
+            if options.instruments.contains(.device) {
+                instruments = [DeviceTelemetry(core: made)]
+            }
             for instrument in instruments {
                 await instrument.start()
             }
+            if options.instruments.contains(.logs) {
+                startLogCapture()
+            }
         }
-        guard let core else { return nil }
+        guard let core, let options else { return nil }
         let session = core.beginSession()
-        let entry = Entry(session: session, rtc: RTCTelemetry(room: room, session: session))
+        let entry = Entry(session: session,
+                          rtc: options.instruments.contains(.rtc) ? RTCTelemetry(room: room, session: session) : nil)
         rooms[id] = entry
-        await entry.rtc.start()
+        await entry.rtc?.start()
         return entry
+    }
+
+    /// Warn/error logs from the Rust core (one shared drain, see `FFILogForwarder`) and from
+    /// WebRTC (our own sink next to whatever the console logger installed).
+    private func startLogCapture() {
+        FFILogForwarder.start(minLevel: .warning)
+        let logger = LKRTCCallbackLogger()
+        logger.severity = .warning
+        logger.start { message, severity in
+            Telemetry.log(message.trimmingCharacters(in: .whitespacesAndNewlines),
+                          level: severity == .error ? .error : .warning, source: .webrtc,
+                          type: "WebRTC", function: "", file: "", line: 0)
+        }
+        rtcLogger = logger
     }
 
     // MARK: - Pipeline
