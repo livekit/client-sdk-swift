@@ -72,7 +72,7 @@ struct TelemetryTests {
             let op = rooms[0].beginSpan("e2e.op")
             Span.$current.withValue(op) { rooms[0].log(marker, .error) }
             op.end()
-            rooms[0].log("\(marker) outside", .error) // no ambient span: the process session
+            rooms[0].log("\(marker) outside", .error) // no ambient span: the process scope
             rooms[0].emitTelemetryEvent("e2e.checkpoint", attributes: ["e2e.marker": .string(marker)])
             // Two stats windows plus a flush.
             try await Task.sleep(nanoseconds: 6_000_000_000)
@@ -85,13 +85,13 @@ struct TelemetryTests {
         #expect(logs.contains { $0.attributes["lk.track.kind"] == "video" && $0.attributes["lk.track.direction"] == "outbound" },
                 "outbound video stats window")
         #expect(logs.contains { $0.attributes["lk.room.name"] != nil && $0.attributes["lk.participant.identity"] != nil },
-                "session attributes attached")
+                "scope attributes attached")
         let inSpan = try #require(logs.first { $0.body == marker }, "error record reached the collector")
         let opSpan = try #require(otlp.spans.first { $0.name == "e2e.op" })
         #expect(inSpan.spanId == opSpan.spanId && inSpan.traceId == opSpan.traceId, "the record points at the span it was emitted in")
         #expect(traceIds.contains(inSpan.traceId), "…and therefore lands in that Room's trace")
         let outside = try #require(logs.first { $0.body == "\(marker) outside" })
-        #expect(outside.spanId.isEmpty && !traceIds.contains(outside.traceId), "no ambient span: the process session")
+        #expect(outside.spanId.isEmpty && !traceIds.contains(outside.traceId), "no ambient span: the process scope")
         #expect(logs.contains { $0.eventName == "custom.e2e.checkpoint" && $0.attributes["e2e.marker"] == marker },
                 "custom event reached the collector")
         for event in ["lk.device.thermal.changed", "lk.device.memory.changed", "lk.device.network.changed"] {
@@ -103,7 +103,7 @@ struct TelemetryTests {
         #expect(logs.filter { !$0.eventName.isEmpty }.allSatisfy { $0.attributes["otel.event.name"] == $0.eventName },
                 "events carry otel.event.name for backends without EventName")
         let tenant = Set(logs.filter { $0.attributes["acme.tenant"] == marker }.map(\.traceId))
-        #expect(tenant.isSuperset(of: traceIds), "the pipeline-wide attribute reaches every session: \(tenant)")
+        #expect(tenant.isSuperset(of: traceIds), "the pipeline-wide attribute reaches every scope: \(tenant)")
 
         // Spans: connect (both rooms), the publisher's publish, the subscriber's subscribe
         // (intent → first media) — under the Rooms' own trace ids.

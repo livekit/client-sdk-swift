@@ -597,7 +597,7 @@ extension LocalParticipant {
     // swiftlint:disable:next cyclomatic_complexity function_body_length
     func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         let room = try requireRoom()
-        let span = Span.begin(.publish, in: room.telemetrySession)
+        let span = Span.begin(.publish, in: room.telemetryScope)
         span.setTrack(track.kind, source: track.source)
         do {
             let publication = try await Span.$current.withValue(span) {

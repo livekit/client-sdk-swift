@@ -37,11 +37,11 @@ final class ConnectionDependencies: Sendable {
     /// while its lifetime is the connection's.
     let e2ee: StateSync<E2EEManager?>
 
-    /// The Room's telemetry session for this connection; `nil` when telemetry (or its `room`
+    /// The Room's telemetry scope for this connection; `nil` when telemetry (or its `room`
     /// instrument) is off, and every span is a no-op.
-    let telemetry: TelemetrySession?
+    let telemetry: TelemetryScope?
 
-    init(room: Room, roomOptions: RoomOptions, telemetry: TelemetrySession? = nil) {
+    init(room: Room, roomOptions: RoomOptions, telemetry: TelemetryScope? = nil) {
         dataTracks = DataTracks(room: room)
         self.telemetry = telemetry
         let manager: E2EEManager? = if let e2eeOptions = roomOptions.e2eeOptions {
@@ -57,7 +57,7 @@ final class ConnectionDependencies: Sendable {
     /// Ordered teardown, called with the retired value after ``DependencyStage/end()``.
     func tearDown() {
         e2ee.copy()?.cleanUp(isFullReconnect: false)
-        // The connection ended: ship what is queued. The session stays with the Room.
+        // The connection ended: ship what is queued. The scope stays with the Room.
         Task { await Telemetry.shared.flush() }
     }
 }

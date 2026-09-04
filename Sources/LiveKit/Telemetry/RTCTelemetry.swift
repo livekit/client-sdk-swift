@@ -18,7 +18,7 @@ internal import LiveKitUniFFI
 import Foundation
 
 /// The RTC-area instrument of one Room: turns on `reportStatistics` for every track the Room
-/// publishes or subscribes to and forwards each `getStats()` reading to the session (the core
+/// publishes or subscribes to and forwards each `getStats()` reading to the scope (the core
 /// windows them into `lk.rtc.stats.sample`). It also owns the `lk.subscribe` span — subscription
 /// intent to first media, "time to media" — because its natural end is an RTC fact: the first
 /// reading with inbound bytes.
@@ -27,14 +27,14 @@ final class RTCTelemetry: TelemetryInstrument, Loggable {
     /// A subscription that shows no media within this window ends with `error.type = timedOut`.
     nonisolated static let subscribeTimeout: TimeInterval = 30
 
-    private nonisolated let session: TelemetrySession
+    private nonisolated let scope: TelemetryScope
     private weak var room: Room?
     /// Open `lk.subscribe` spans by track, from subscription intent to first media.
     private var subscribeSpans: [Track.Sid: Span] = [:]
     private var subscribeTimeouts: [Track.Sid: Task<Void, Never>] = [:]
 
-    nonisolated init(room: Room, session: TelemetrySession) {
-        self.session = session
+    nonisolated init(room: Room, scope: TelemetryScope) {
+        self.scope = scope
         self.room = room
     }
 
@@ -55,10 +55,10 @@ final class RTCTelemetry: TelemetryInstrument, Loggable {
         Task { await track.set(reportStatistics: true) }
     }
 
-    private func beginSubscribe(_ publication: RemoteTrackPublication, participant: RemoteParticipant, session: TelemetrySession?) {
+    private func beginSubscribe(_ publication: RemoteTrackPublication, participant: RemoteParticipant, scope: TelemetryScope?) {
         let sid = publication.sid
         guard subscribeSpans[sid] == nil else { return }
-        let span = Span.begin(.subscribe, in: session, parent: nil)
+        let span = Span.begin(.subscribe, in: scope, parent: nil)
         span.setTrack(publication.kind, source: publication.source, sid: sid, remoteIdentity: participant.identity?.stringValue)
         subscribeSpans[sid] = span
         subscribeTimeouts[sid]?.cancel()
@@ -95,14 +95,14 @@ extension RTCTelemetry: RoomDelegate {
     nonisolated func room(_ room: Room, participant: RemoteParticipant, didPublishTrack publication: RemoteTrackPublication) {
         // With autoSubscribe the intent exists the moment the track is known.
         guard room._state.connectOptions.autoSubscribe else { return }
-        let session = room.telemetrySession
-        Task { @Telemetry in self.beginSubscribe(publication, participant: participant, session: session) }
+        let scope = room.telemetryScope
+        Task { @Telemetry in self.beginSubscribe(publication, participant: participant, scope: scope) }
     }
 
     nonisolated func room(_ room: Room, participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
-        let session = room.telemetrySession
+        let scope = room.telemetryScope
         Task { @Telemetry in
-            self.beginSubscribe(publication, participant: participant, session: session) // manual subscription
+            self.beginSubscribe(publication, participant: participant, scope: scope) // manual subscription
             self.subscribeSpans[publication.sid]?.step(.subscribed)
             if let track = publication.track { self.observe(track) }
         }
@@ -125,7 +125,7 @@ extension RTCTelemetry: RoomDelegate {
 extension RTCTelemetry: TrackDelegate {
     nonisolated func track(_ track: Track, didUpdateStatistics statistics: TrackStatistics, simulcastStatistics _: [VideoCodec: TrackStatistics]) {
         for sample in Self.samples(for: track, statistics: statistics) {
-            session.recordStats(sample: sample)
+            scope.recordStats(sample: sample)
         }
         // First media, at the stats timer's 1 s granularity.
         if let sid = track.sid, statistics.inboundRtpStream.contains(where: { ($0.bytesReceived ?? 0) > 0 }) {

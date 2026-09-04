@@ -20,9 +20,9 @@ import Foundation
 /// Client telemetry: the one entry point.
 ///
 /// `Telemetry.shared` owns the pipeline (the Rust core, `livekit-telemetry`), the process-level
-/// instruments (device state, log capture) and one session per live Room — all as actor state, so
+/// instruments (device state, log capture) and one scope per live Room — all as actor state, so
 /// there is no lock and no latch. Configure it any time with ``LiveKitSDK/setTelemetry(_:)``; the
-/// pipeline bootstraps when the first Room asks for its session. Nothing but trace ids and events
+/// pipeline bootstraps when the first Room asks for its scope. Nothing but trace ids and events
 /// crosses the boundary: sessions, handles and instruments stay inside. As a global actor it is
 /// also the isolation domain for the instruments' state.
 @globalActor
@@ -30,7 +30,7 @@ public actor Telemetry {
     public static let shared = Telemetry()
 
     private struct Entry {
-        let session: TelemetrySession
+        let scope: TelemetryScope
         let rtc: RTCTelemetry?
     }
 
@@ -69,7 +69,7 @@ public actor Telemetry {
         }
     }
 
-    /// Attach an attribute to every record of every session — an `enduser.id`, a tenant, a build
+    /// Attach an attribute to every record of every scope — an `enduser.id`, a tenant, a build
     /// flavor. `nil` removes it.
     public func setAttribute(_ key: String, _ value: SpanAttribute?) {
         attributes[key] = value
@@ -87,7 +87,7 @@ public actor Telemetry {
         await core?.flush()
     }
 
-    /// Bounded final flush with the session summary; the pipeline stops.
+    /// Bounded final flush with the scope summary; the pipeline stops.
     func shutdown() async {
         await stop()
     }
@@ -108,12 +108,12 @@ public actor Telemetry {
 
     // MARK: - Rooms
 
-    /// A Room exists: give it a session now (and the pipeline, if this is the first).
+    /// A Room exists: give it a scope now (and the pipeline, if this is the first).
     func register(_ room: Room) async {
         _ = await entry(for: room)
     }
 
-    /// The Room is going away: stop its instruments, ship what is queued. The session ends with it.
+    /// The Room is going away: stop its instruments, ship what is queued. The scope ends with it.
     func unregister(_ room: ObjectIdentifier) async {
         guard let entry = rooms.removeValue(forKey: room) else { return }
         await entry.rtc?.stop()
@@ -127,35 +127,35 @@ public actor Telemetry {
         core?.setServer(url: url.absoluteString, token: token)
     }
 
-    /// Session identity, attached to every record of the Room from now on.
+    /// Scope identity, attached to every record of the Room from now on.
     func roomDidConnect(_ room: Room) async {
-        guard let session = await entry(for: room)?.session else { return }
-        session.setRoom(room: RoomIdentity(sid: room.sid?.stringValue,
-                                           name: room.name,
-                                           participantSid: room.localParticipant.sid?.stringValue,
-                                           participantIdentity: room.localParticipant.identity?.stringValue))
+        guard let scope = await entry(for: room)?.scope else { return }
+        scope.setRoom(room: RoomIdentity(sid: room.sid?.stringValue,
+                                         name: room.name,
+                                         participantSid: room.localParticipant.sid?.stringValue,
+                                         participantIdentity: room.localParticipant.identity?.stringValue))
     }
 
-    /// The Room's session trace id (32 hex characters); `nil` when telemetry is off.
+    /// The Room's scope trace id (32 hex characters); `nil` when telemetry is off.
     func traceId(for room: Room) async -> String? {
-        await entry(for: room)?.session.traceId()
+        await entry(for: room)?.scope.traceId()
     }
 
-    /// An app-defined event in the Room's session; the core namespaces it under `custom.`.
+    /// An app-defined event in the Room's scope; the core namespaces it under `custom.`.
     func emit(_ name: String, attributes: [String: SpanAttribute], from room: Room) async {
-        await entry(for: room)?.session.emitCustom(name: name, attributes: attributes.lowered)
+        await entry(for: room)?.scope.emitCustom(name: name, attributes: attributes.lowered)
     }
 
-    /// The Room's session for a connection's spans, when telemetry and the `room` instrument are on.
-    func session(for room: Room) async -> TelemetrySession? {
+    /// The Room's scope for a connection's spans, when telemetry and the `room` instrument are on.
+    func scope(for room: Room) async -> TelemetryScope? {
         guard options?.instruments.contains(.room) == true else { return nil }
-        return await entry(for: room)?.session
+        return await entry(for: room)?.scope
     }
 
     // MARK: - Logs
 
     /// A warn/error record from the SDK, the Rust core or WebRTC, as `LogHub` captured it where it
-    /// happened; filed under the ambient span's session, or the process session.
+    /// happened; filed under the ambient span's scope, or the process scope.
     nonisolated static func log(_ record: LogRecord) {
         let function = "\(record.function)", file = record.path.isEmpty ? "\(record.file)" : record.path
         let typed = LiveKitUniFFI.LogRecord(severity: record.level.severity,
@@ -175,7 +175,7 @@ public actor Telemetry {
         core?.log(record: record)
     }
 
-    /// The Room's session, created on first use — together with the pipeline and its process-level
+    /// The Room's scope, created on first use — together with the pipeline and its process-level
     /// instruments when this is the first Room. `nil` while telemetry is off. State is updated
     /// before every `await`, so a concurrent call for the same Room finds the entry.
     private func entry(for room: Room) async -> Entry? {
@@ -198,9 +198,9 @@ public actor Telemetry {
             }
         }
         guard let core, let options else { return nil }
-        let session = core.beginSession()
-        let entry = Entry(session: session,
-                          rtc: options.instruments.contains(.rtc) ? RTCTelemetry(room: room, session: session) : nil)
+        let scope = core.beginScope()
+        let entry = Entry(scope: scope,
+                          rtc: options.instruments.contains(.rtc) ? RTCTelemetry(room: room, scope: scope) : nil)
         rooms[id] = entry
         await entry.rtc?.start()
         return entry

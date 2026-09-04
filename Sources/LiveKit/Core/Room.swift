@@ -146,14 +146,14 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - Data Tracks
 
     var dataTracks: DataTracks? { _state.stage.connection?.dataTracks }
-    /// The telemetry trace id of this Room's session (32 hex characters), or `nil` when telemetry
+    /// The telemetry trace id of this Room's scope (32 hex characters), or `nil` when telemetry
     /// is off. Show it to users or attach it to support tickets: it opens the full client-side
     /// timeline of the call, including connect attempts that never reached a server.
     public var telemetryTraceId: String? {
         get async { await Telemetry.shared.traceId(for: self) }
     }
 
-    /// Record an app-defined telemetry event alongside the SDK's own, in this Room's session
+    /// Record an app-defined telemetry event alongside the SDK's own, in this Room's scope
     /// trace. The name is namespaced under `custom.` (`"checkout.started"` ships as
     /// `custom.checkout.started`); attributes keep their names. A no-op when telemetry is off.
     /// Subject to the same flood guard as SDK events.
@@ -161,12 +161,12 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         Task { await Telemetry.shared.emit(name, attributes: attributes, from: self) }
     }
 
-    /// The telemetry session of the current connection; `nil` when telemetry is off.
-    var telemetrySession: TelemetrySession? { _state.stage.connection?.telemetry }
+    /// The telemetry scope of the current connection; `nil` when telemetry is off.
+    var telemetryScope: TelemetryScope? { _state.stage.connection?.telemetry }
 
     /// An app-defined span in this Room's trace; a no-op when telemetry is off.
     func beginSpan(_ label: String) -> Span {
-        Span.begin(.custom(name: label), in: telemetrySession)
+        Span.begin(.custom(name: label), in: telemetryScope)
     }
 
     // MARK: - PreConnect
@@ -446,7 +446,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         // Connection-scoped subsystems (data tracks, the E2EE manager derived from the room
         // options): carried across full reconnects, released on disconnect.
         let dependencies = await ConnectionDependencies(room: self, roomOptions: state.roomOptions,
-                                                        telemetry: Telemetry.shared.session(for: self))
+                                                        telemetry: Telemetry.shared.scope(for: self))
 
         // One connect() = one attempt; reconnect cycles get their own spans.
         let attempt = Span.begin(.connect, in: dependencies.telemetry)

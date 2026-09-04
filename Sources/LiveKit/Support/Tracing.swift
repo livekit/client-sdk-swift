@@ -35,7 +35,7 @@ public enum SpanAttribute: Sendable, Equatable {
     case bool(Bool)
 }
 
-/// The identity a sink gave the span: the session's trace and this attempt.
+/// The identity a sink gave the span: the scope's trace and this attempt.
 public struct SpanContext: Sendable, Equatable {
     public let traceId: String
     public let spanId: UInt64
@@ -45,11 +45,11 @@ public struct SpanContext: Sendable, Equatable {
 ///
 /// The span lives in the telemetry core (timing, checkpoints, attributes, outcome, export and the
 /// one-line description); this class is the Swift handle plus what only the runtime can do: the
-/// task-local ``current`` span and the ``onEnd`` hook. Without a telemetry session an SDK span is a
+/// task-local ``current`` span and the ``onEnd`` hook. Without a telemetry scope an SDK span is a
 /// no-op. Every call is synchronous, so a checkpoint is stamped where it happened.
 public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible {
     /// The core's span; `nil` is a no-op handle. Replaced once, at creation, when the SDK binds an
-    /// app tracer's span to a session.
+    /// app tracer's span to a scope.
     var core: TelemetrySpan?
 
     public let label: String
@@ -73,16 +73,16 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
     }
 
     /// A detached span for app code: timed and described by the core, exported only if the SDK
-    /// binds it to a session.
+    /// binds it to a scope.
     public convenience init(label: String) {
         self.init(core: TelemetrySpan.detached(name: .custom(name: label)), label: label)
     }
 
-    /// An SDK span in `session`'s trace, or a no-op when telemetry is off. An injected ``Tracing``
+    /// An SDK span in `scope`'s trace, or a no-op when telemetry is off. An injected ``Tracing``
     /// creates the handle it wants to observe; the core's span is handed to it before anything is
     /// recorded.
-    static func begin(_ name: SpanName, in session: TelemetrySession?, parent: Span? = Span.current) -> Span {
-        let core = session?.start(name: name, parent: parent?.core)
+    static func begin(_ name: SpanName, in scope: TelemetryScope?, parent: Span? = Span.current) -> Span {
+        let core = scope?.start(name: name, parent: parent?.core)
         let label = spanLabel(name: name)
         let span: Span
         if sharedTracing is Telemetry {
@@ -102,7 +102,7 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
 
     public var isEnded: Bool { core?.isEnded() ?? fired.copy() }
     public var outcome: SpanOutcome? { core?.outcome().map(SpanOutcome.init) }
-    /// Identity in the telemetry session's trace; `nil` for detached and no-op spans.
+    /// Identity in the telemetry scope's trace; `nil` for detached and no-op spans.
     public var context: SpanContext? {
         core?.context().map { SpanContext(traceId: $0.traceId, spanId: $0.spanId) }
     }
