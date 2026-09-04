@@ -72,12 +72,7 @@ public actor Telemetry {
     /// A one-line readout of the pipeline's health, for a debug console: batches sent and cached,
     /// upload failures and timeouts, holds that hit their cap, records dropped by reason.
     public func diagnostics() async -> String {
-        guard let core else { return "telemetry: off" }
-        let s = core.stats()
-        return "telemetry: sent \(s.uploadsSent) (\(s.uploadBytes) B), cached \(s.cachedBatches), failed \(s.uploadFailures), "
-            + "timeouts \(s.uploadTimeouts), holds capped \(s.holdsCapped), dropped \(s.dropped)"
-            + " (queue \(s.droppedQueueFull), cache \(s.droppedCacheFull)/\(s.droppedCacheError), rejected \(s.droppedRejected), "
-            + "throttled \(s.droppedThrottled), rate-limited \(s.droppedRateLimited))"
+        core?.diagnostics() ?? "telemetry: off"
     }
 
     /// Cache everything queued and upload what the network allows.
