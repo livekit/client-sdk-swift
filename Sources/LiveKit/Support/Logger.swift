@@ -164,7 +164,8 @@ open class OSLogger: Logger, @unchecked Sendable {
                 return newLog
             }
 
-            os_log("%{public}@", log: getOSLog(for: type), type: level.osLogType, "\(type).\(function) \(message)\(metadata)")
+            let scope = "\(function)".isEmpty ? "\(type)" : "\(type).\(function)"
+            os_log("%{public}@", log: getOSLog(for: type), type: level.osLogType, "\(scope) \(message)\(metadata)")
         }
     }
 }
