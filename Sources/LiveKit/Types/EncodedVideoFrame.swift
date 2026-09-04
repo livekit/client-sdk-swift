@@ -23,14 +23,19 @@ internal import LiveKitWebRTC
 public struct EncodedVideoFrame: Sendable {
     /// The role of a frame within the encoded stream.
     public enum FrameType: Sendable {
+        /// A frame carrying no payload, used to signal a dropped frame.
         case empty
+        /// A frame that can be decoded on its own.
         case key
+        /// A frame that depends on previously decoded frames.
         case delta
     }
 
     /// The kind of content carried by the frame.
     public enum ContentType: Sendable {
+        /// Camera or application video.
         case unspecified
+        /// Screen content, which the receiver may render and buffer differently.
         case screenshare
     }
 
@@ -44,8 +49,14 @@ public struct EncodedVideoFrame: Sendable {
 
     /// Codec specific packetization details attached to an encoded frame.
     /// Omit for codecs other than H264/H265.
+    ///
+    /// - Note: Codecs other than H264 and H265 currently receive generic codec
+    ///   info, so the layer indices VP8, VP9 and AV1 use for temporal and spatial
+    ///   scalability cannot be reported yet.
     public enum CodecSpecificInfo: Sendable {
+        /// H264 packetization details.
         case h264(packetizationMode: PacketizationMode)
+        /// H265 packetization details.
         case h265(packetizationMode: PacketizationMode)
     }
 
@@ -77,6 +88,18 @@ public struct EncodedVideoFrame: Sendable {
     /// Codec specific packetization details, required for correct H264/H265 packetization.
     public let codecSpecificInfo: CodecSpecificInfo?
 
+    /// Wall clock time in milliseconds at which encoding of this frame began,
+    /// reported in encode time stats.
+    public let encodeStartMs: Int64?
+
+    /// Wall clock time in milliseconds at which encoding of this frame finished,
+    /// reported in encode time stats.
+    public let encodeFinishMs: Int64?
+
+    /// NTP timestamp of the frame in milliseconds, if known.
+    public let ntpTimeMs: Int64?
+
+    /// Creates an encoded frame to deliver to the SDK.
     public init(data: Data,
                 dimensions: Dimensions,
                 rtpTimestamp: UInt32,
@@ -85,7 +108,10 @@ public struct EncodedVideoFrame: Sendable {
                 rotation: VideoRotation = ._0,
                 qp: Int? = nil,
                 contentType: ContentType = .unspecified,
-                codecSpecificInfo: CodecSpecificInfo? = nil)
+                codecSpecificInfo: CodecSpecificInfo? = nil,
+                encodeStartMs: Int64? = nil,
+                encodeFinishMs: Int64? = nil,
+                ntpTimeMs: Int64? = nil)
     {
         self.data = data
         self.dimensions = dimensions
@@ -96,6 +122,9 @@ public struct EncodedVideoFrame: Sendable {
         self.qp = qp
         self.contentType = contentType
         self.codecSpecificInfo = codecSpecificInfo
+        self.encodeStartMs = encodeStartMs
+        self.encodeFinishMs = encodeFinishMs
+        self.ntpTimeMs = ntpTimeMs
     }
 }
 
@@ -137,6 +166,15 @@ extension EncodedVideoFrame {
         image.frameType = frameType.toRTCType()
         image.rotation = rotation.toRTCType()
         image.contentType = contentType == .screenshare ? .screenshare : .unspecified
+        if let encodeStartMs {
+            image.encodeStartMs = encodeStartMs
+        }
+        if let encodeFinishMs {
+            image.encodeFinishMs = encodeFinishMs
+        }
+        if let ntpTimeMs {
+            image.ntpTimeMs = ntpTimeMs
+        }
         // Always set: the native side reads `intValue`, so a nil would land as 0,
         // while -1 is what the quality scaler treats as unknown.
         image.qp = NSNumber(value: qp ?? -1)

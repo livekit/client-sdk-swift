@@ -22,7 +22,9 @@ internal import LiveKitWebRTC
 public struct VideoEncoderSettings: Sendable {
     /// The kind of content being encoded, which encoders may use to tune rate control.
     public enum Mode: Sendable {
+        /// Live camera or application video, where latency matters most.
         case realtimeVideo
+        /// Screen content, which is often static and benefits from higher quality.
         case screensharing
     }
 
@@ -49,6 +51,27 @@ public struct VideoEncoderSettings: Sendable {
 
     /// The kind of content being encoded.
     public let mode: Mode
+
+    /// Creates encoder settings, which is useful for testing an encoder without
+    /// a live connection.
+    public init(name: String,
+                dimensions: Dimensions,
+                startBitrateKbps: UInt32,
+                maxBitrateKbps: UInt32,
+                minBitrateKbps: UInt32,
+                maxFramerate: UInt32,
+                qpMax: UInt32,
+                mode: Mode)
+    {
+        self.name = name
+        self.dimensions = dimensions
+        self.startBitrateKbps = startBitrateKbps
+        self.maxBitrateKbps = maxBitrateKbps
+        self.minBitrateKbps = minBitrateKbps
+        self.maxFramerate = maxFramerate
+        self.qpMax = qpMax
+        self.mode = mode
+    }
 }
 
 /// QP thresholds controlling WebRTC's quality scaler, see ``VideoEncoder/scalingSettings``.
@@ -59,6 +82,7 @@ public struct VideoEncoderQpThresholds: Sendable {
     /// Above this QP the resolution may be decreased.
     public let high: Int
 
+    /// Creates QP thresholds for the quality scaler.
     public init(low: Int, high: Int) {
         self.low = low
         self.high = high

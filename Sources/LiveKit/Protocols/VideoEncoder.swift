@@ -17,9 +17,11 @@
 import Foundation
 
 /// Result of a ``VideoEncoder`` operation, mirroring WebRTC's video codec error codes.
-public struct VideoEncoderStatus: RawRepresentable, Sendable, Equatable {
+public struct VideoEncoderStatus: RawRepresentable, Sendable, Equatable, Hashable {
+    /// The underlying WebRTC video codec error code.
     public let rawValue: Int
 
+    /// Creates a status from a WebRTC video codec error code.
     public init(rawValue: Int) {
         self.rawValue = rawValue
     }
@@ -38,8 +40,30 @@ public struct VideoEncoderStatus: RawRepresentable, Sendable, Equatable {
     public static let uninitialized = Self(rawValue: -7)
     /// Requests WebRTC to fall back to another encoder for this codec.
     public static let fallbackSoftware = Self(rawValue: -13)
+    /// The encoder produced significantly more bits than the target bitrate.
+    public static let targetBitrateOvershoot = Self(rawValue: -14)
+    /// The encoder cannot honor the requested simulcast configuration.
+    public static let simulcastParametersNotSupported = Self(rawValue: -15)
     /// The encoder failed and should be released.
     public static let encoderFailure = Self(rawValue: -16)
+}
+
+extension VideoEncoderStatus: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .ok: "ok"
+        case .error: "error"
+        case .memory: "memory"
+        case .invalidParameter: "invalidParameter"
+        case .timeout: "timeout"
+        case .uninitialized: "uninitialized"
+        case .fallbackSoftware: "fallbackSoftware"
+        case .targetBitrateOvershoot: "targetBitrateOvershoot"
+        case .simulcastParametersNotSupported: "simulcastParametersNotSupported"
+        case .encoderFailure: "encoderFailure"
+        default: "unknown(\(rawValue))"
+        }
+    }
 }
 
 /// Delivers an ``EncodedVideoFrame`` produced by a custom ``VideoEncoder`` to WebRTC.

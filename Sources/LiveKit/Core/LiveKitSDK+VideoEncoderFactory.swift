@@ -33,10 +33,16 @@ public extension LiveKitSDK {
     /// try await room.connect(url: url, token: token)
     /// ```
     ///
-    /// - Warning: Must be called before the first `Room` connection or track
-    ///   creation. Throws ``LiveKitError`` with type `.invalidState` afterwards,
-    ///   since the underlying peer connection factory is created once per process.
+    /// - Warning: This method must be called before any other SDK API is used,
+    ///   e.g. in the `App.init()` or `application(_:didFinishLaunchingWithOptions:)`.
+    ///   Any access to the peer connection factory, such as connecting, creating a
+    ///   track, querying capabilities or setting up E2EE, initializes it once per
+    ///   process, and this method throws ``LiveKitError`` with type `.invalidState`
+    ///   afterwards.
     static func set(videoEncoderFactory: (any VideoEncoderFactory)?) throws {
+        if let videoEncoderFactory, videoEncoderFactory.supportedCodecs.isEmpty {
+            throw LiveKitError(.invalidParameter, message: "videoEncoderFactory must advertise at least one supported codec")
+        }
         try RTC.pcFactoryState.mutate {
             guard !$0.isInitialized else {
                 throw LiveKitError(.invalidState, message: "Cannot set videoEncoderFactory after the peer connection factory has been initialized")
