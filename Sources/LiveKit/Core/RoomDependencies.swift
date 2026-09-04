@@ -69,6 +69,16 @@ extension ConnectionDependencies: Equatable {
 /// or closes it. So the stage invariant still holds — staged transports exist if and only if the
 /// stage is `.connected`. Mirrors the `early_publisher_pc` local in rust-sdks' `RtcSession::connect`.
 struct EarlyPublisher: Sendable {
+    /// Receive m-sections preallocated in the initial offer, per kind.
+    ///
+    /// In single PC mode received media is assigned to the publisher's `recvonly` sections, and
+    /// the server asks for any it still needs via `MediaSectionsRequirement` — which costs an
+    /// offer/answer cycle before the first remote track can decode. Carrying a few from the start
+    /// covers the common room size without one. Matches `initialMediaSectionsAudio`/`Video` in
+    /// client-sdk-js and `add_recv_media_sections(pc, 3, 3)` in rust-sdks.
+    static let initialAudioSections = 3
+    static let initialVideoSections = 3
+
     let transport: Transport
     let dataChannels: PublisherDataChannels
 
@@ -91,6 +101,16 @@ struct EarlyPublisher: Sendable {
         // Created before the offer so its `m=application` section is negotiated by the JOIN
         // exchange rather than costing a second one.
         let dataChannels = await PublisherDataChannels.make(on: transport)
+
+        do {
+            // Likewise before the offer, so these sections are negotiated by the JOIN exchange.
+            // A failure only costs the preallocation: the server still asks for what it needs
+            // through `MediaSectionsRequirement`.
+            try await transport.addRecvMediaSections(audio: Self.initialAudioSections,
+                                                     video: Self.initialVideoSections)
+        } catch {
+            room.log("Failed to preallocate receive media sections: \(error)", .warning)
+        }
 
         do {
             let initialOffer = try await transport.createInitialOffer()

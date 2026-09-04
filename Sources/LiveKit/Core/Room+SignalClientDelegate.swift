@@ -343,7 +343,7 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription, offerId: UInt32) async {
+    func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription, offerId: UInt32, midToTrackSid: [String: Track.Sid]) async {
         log("Received answer for offerId: \(offerId)")
 
         // Clamp to the SDK default — libwebrtc advertises larger (~256 KiB)
@@ -357,8 +357,47 @@ extension Room: SignalClientDelegate {
         do {
             let publisher = try requirePublisher()
             try await publisher.set(remoteDescription: answer, offerId: offerId)
+
+            // After the description, so the transceivers this maps over have their mids and
+            // receivers. Only single PC mode receives media on the publisher connection.
+            if publisher.singlePCMode {
+                await attachReceivedMedia(on: publisher, midToTrackSid: midToTrackSid)
+            }
         } catch {
             log("Failed to set remote description with offerId: \(offerId), error: \(error)", .error)
+        }
+    }
+
+    /// Attaches media the server has bound to the publisher's receive sections.
+    ///
+    /// In single PC mode this is the only path that identifies received media. The `didAddTrack`
+    /// callback cannot: a section the client preallocated is answered without an `a=msid`, so
+    /// libwebrtc reports a synthesized stream id carrying no participant or track, and it does
+    /// not fire again when the server later binds a track to that section. The `mid` → track SID
+    /// mapping on each session description is what carries the binding, so applying it is what
+    /// drives the attach. Mirrors `mid_to_track_id` handling in rust-sdks.
+    private func attachReceivedMedia(on publisher: Transport, midToTrackSid: [String: Track.Sid]) async {
+        let received = await publisher.apply(midToTrackSid: midToTrackSid)
+        guard !received.isEmpty else { return }
+
+        for media in received {
+            guard let participant = _state.read({ state in
+                state.remoteParticipants.values.first { $0._state.trackPublications[media.trackSid] != nil }
+            }) else {
+                // The publication announcement can trail the description that binds it; the next
+                // one still reporting this mid retries.
+                log("No publication yet for \(media.trackSid), deferring attach", .debug)
+                await publisher.forget(mid: midToTrackSid.first { $0.value == media.trackSid }?.key)
+                continue
+            }
+
+            do {
+                try await participant.addSubscribedMediaTrack(mediaTrack: media.track,
+                                                              rtpReceiver: media.receiver,
+                                                              trackSid: media.trackSid)
+            } catch {
+                log("Failed to attach \(media.trackSid) resolved by mid: \(error)", .error)
+            }
         }
     }
 
@@ -427,18 +466,20 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didReceiveMediaSectionsRequirement requirement: Livekit_MediaSectionsRequirement) async {
         guard case let .publisherOnly(publisher) = _state.transport else { return }
 
-        let transceiverInit = LKRTCRtpTransceiverInit()
-        transceiverInit.direction = .recvOnly
+        // The count is what the server still needs *on top of* the sections already offered, so
+        // once the initial offer preallocates enough it asks for none. Renegotiating for zero
+        // sections would offer a description identical to the current one, racing the offer a
+        // concurrent publish is making.
+        guard requirement.numAudios > 0 || requirement.numVideos > 0 else {
+            log("Media sections requirement already satisfied, skipping renegotiation", .debug)
+            return
+        }
 
         do {
-            try await RTC.run {
-                for _ in 0 ..< requirement.numAudios {
-                    _ = try publisher.addTransceiver(ofType: .audio, transceiverInit: transceiverInit)
-                }
-                for _ in 0 ..< requirement.numVideos {
-                    _ = try publisher.addTransceiver(ofType: .video, transceiverInit: transceiverInit)
-                }
-            }
+            // Additive, matching client-sdk-js and rust-sdks: these come on top of the sections
+            // the initial offer preallocated, not instead of them.
+            try await publisher.addRecvMediaSections(audio: Int(requirement.numAudios),
+                                                     video: Int(requirement.numVideos))
             try await publisherShouldNegotiate()
         } catch {
             log("Failed to add transceivers for media sections requirement: \(error)", .error)
