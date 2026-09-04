@@ -164,8 +164,9 @@ open class OSLogger: Logger, @unchecked Sendable {
                 return newLog
             }
 
-            let scope = "\(function)".isEmpty ? "\(type)" : "\(type).\(function)"
-            os_log("%{public}@", log: getOSLog(for: type), type: level.osLogType, "\(scope) \(message)\(metadata)")
+            // External sources (FFI, WebRTC) have no function; their OSLog category names them.
+            let scope = "\(function)".isEmpty ? "" : "\(type).\(function) "
+            os_log("%{public}@", log: getOSLog(for: type), type: level.osLogType, "\(scope)\(message)\(metadata)")
         }
     }
 }
