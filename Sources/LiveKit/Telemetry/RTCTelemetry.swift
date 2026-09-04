@@ -71,7 +71,7 @@ final class RTCTelemetry: TelemetryInstrument, Loggable {
 
     private func endSubscribe(_ sid: Track.Sid, outcome: SpanOutcome, error: Error? = nil) {
         subscribeTimeouts.removeValue(forKey: sid)?.cancel()
-        subscribeSpans.removeValue(forKey: sid)?.end(outcome: outcome, error: error)
+        subscribeSpans.removeValue(forKey: sid)?.end(outcome: outcome, error: error.map(Span.errorType))
     }
 
     /// First media on a subscribed track: the subscribe span's natural end.

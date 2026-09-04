@@ -88,8 +88,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     public var disconnectError: LiveKitError? { _state.disconnectError }
 
-    /// Timing data for the most recent connection attempt.
-    public var connectSpan: Span? { _state.connectSpan }
+    /// The core's span for the most recent connection attempt.
+    var connectSpan: Span? { _state.connectSpan }
 
     // MARK: - Internal
 
@@ -547,7 +547,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 }
             } catch {
                 log("Failed to resolve a region or connect: \(error)")
-                connectSpan?.end(outcome: error is CancellationError ? .cancelled : .error, error: error)
+                connectSpan?.end(with: error)
                 // Stop the track if it was created but not published
                 if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled,
                    case let .success(track) = await createMicrophoneTrackTask.result

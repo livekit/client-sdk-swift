@@ -462,7 +462,7 @@ extension Room {
 
                 // Re-connect sequence successful
                 log("[Connect] Sequence completed")
-                reconnectSpan.end(outcome: .ok)
+                reconnectSpan.end()
                 _state.mutate {
                     $0.connectionState = .connected
                     $0.reconnectTask = nil
@@ -476,7 +476,7 @@ extension Room {
                 }
             } catch {
                 log("[Connect] Sequence failed with error: \(error)")
-                reconnectSpan.end(outcome: (Task.isCancelled || error is CancellationError) ? .cancelled : .error, error: error)
+                if Task.isCancelled { reconnectSpan.cancel() } else { reconnectSpan.end(with: error) }
 
                 // Only clean up if the reconnect task wasn't cancelled — when cancelled,
                 // the caller (disconnect() or a new reconnect) handles cleanup separately.

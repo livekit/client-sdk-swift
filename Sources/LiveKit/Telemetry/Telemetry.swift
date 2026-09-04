@@ -40,13 +40,7 @@ public actor Telemetry {
     }
 
     private var options: TelemetryOptions?
-    /// The core handle, in a nonisolated box so ``Tracing`` can start a span synchronously (a span
-    /// is stamped where it starts); every other access stays actor-isolated.
-    private nonisolated let coreBox = StateSync<LiveKitUniFFI.Telemetry?>(nil)
-    private var core: LiveKitUniFFI.Telemetry? {
-        get { coreBox.copy() }
-        set { coreBox.mutate { $0 = newValue } }
-    }
+    private var core: LiveKitUniFFI.Telemetry?
 
     /// Pipeline-wide attributes; kept so those set before bootstrap apply to it.
     private var attributes: [String: SpanAttribute?] = [:]
@@ -331,19 +325,5 @@ extension Track.Kind {
         case .video: .video
         case .none: nil
         }
-    }
-}
-
-// MARK: - Tracing
-
-extension Telemetry: Tracing {
-    /// An app-defined span in the process trace (outside any Room), stamped now in the core; a
-    /// no-op handle while telemetry is off. Room-scoped spans come from ``Room/beginSpan(_:)``.
-    public nonisolated func beginSpan(_ name: String) -> Span {
-        let span = Span(core: coreBox.copy()?.start(name: .custom(name: name), parent: Span.current?.core), label: name)
-        if span.core != nil {
-            span.onEnd = { sharedLogger.log($0.description, .debug, type: Telemetry.self) }
-        }
-        return span
     }
 }

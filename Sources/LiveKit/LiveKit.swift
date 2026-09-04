@@ -38,7 +38,6 @@ public class LiveKitSDK: NSObject, Loggable {
 
     fileprivate struct State {
         var logger: any Logger = OSLogger()
-        var tracing: any Tracing = Telemetry.shared
     }
 
     fileprivate static let state = StateSync(State())
@@ -55,19 +54,10 @@ public class LiveKitSDK: NSObject, Loggable {
         Task { await Telemetry.shared.configure(nil) }
     }
 
-    /// Set a custom ``Tracing`` implementation to capture operation timing.
-    ///
-    /// The default is ``Telemetry/shared`` itself: spans are the core's, logged at debug level when
-    /// they end and shipped when telemetry is on; app spans made through it join the process trace.
-    /// A custom tracer creates the ``Span`` handles and the core still binds the SDK's own.
-    /// Provide a custom implementation to capture timing data
-    /// programmatically (e.g., for benchmarks).
-    ///
-    /// - Note: This method must be called before any Room operations
-    /// e.g. in the `App.init()` or `AppDelegate/SceneDelegate`
-    public static func setTracing(_ tracing: any Tracing) {
-        state.mutate { $0.tracing = tracing }
-    }
+    /// No-op, kept for source compatibility: operation spans live in the telemetry core and ship
+    /// with telemetry; see ``TelemetryOptions``.
+    @available(*, deprecated, message: "Spans live in the telemetry core; setTracing is a no-op.")
+    public static func setTracing(_: any Tracing) {}
 
     /// Set a custom logger for the SDK
     /// - Note: This method must be called before any other logging is done
@@ -104,6 +94,3 @@ public class LiveKitSDK: NSObject, Loggable {
 
 // Lazily initialized to the first logger
 let sharedLogger = LiveKitSDK.state.logger
-
-// Lazily initialized to the first tracing
-let sharedTracing: any Tracing = LiveKitSDK.state.tracing

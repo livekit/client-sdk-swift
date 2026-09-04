@@ -225,7 +225,7 @@ struct LogRecord: Sendable {
     let message: String
     let timestampNs: UInt64
     /// The span the emitting task runs in, if any and still open.
-    let span: SpanContext?
+    let span: TraceContext?
 
     init(level: LogLevel, source: Telemetry.LogSource, type: Any.Type, category: String? = nil,
          function: StaticString = "", file: StaticString = "", line: UInt = 0, path: String = "", message: String)
@@ -241,7 +241,7 @@ struct LogRecord: Sendable {
         self.message = message
         timestampNs = UInt64(Date().timeIntervalSince1970 * 1e9)
         let ambient = Span.current
-        span = (ambient?.isEnded == false) ? ambient?.context : nil
+        span = (ambient?.isEnded() == false) ? ambient?.context() : nil
     }
 }
 

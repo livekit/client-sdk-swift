@@ -607,7 +607,7 @@ extension LocalParticipant {
             span.end()
             return publication
         } catch {
-            span.end(outcome: error is CancellationError ? .cancelled : .error, error: error)
+            span.end(with: error)
             throw error
         }
     }
