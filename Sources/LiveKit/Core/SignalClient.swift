@@ -189,7 +189,7 @@ actor SignalClient: Loggable {
             let socket = try await WebSocket(url: url,
                                              token: token,
                                              connectOptions: connectOptions)
-            connectSpan?.record("ws_open")
+            connectSpan?.step(.wsOpen)
 
             startDataTrackResponses()
 

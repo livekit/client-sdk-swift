@@ -58,13 +58,8 @@ final class RTCTelemetry: TelemetryInstrument, Loggable {
     private func beginSubscribe(_ publication: RemoteTrackPublication, participant: RemoteParticipant, tracer: TelemetryTracer) {
         let sid = publication.sid
         guard subscribeSpans[sid] == nil else { return }
-        let span = tracer.beginSpan("lk.subscribe", kind: .internal, parent: nil)
-        span.setAttribute("lk.track.sid", .string(sid.stringValue))
-        span.setAttribute("lk.track.kind", .string(Span.kindName(publication.kind)))
-        span.setAttribute("lk.track.source", .string(String(describing: publication.source)))
-        if let identity = participant.identity?.stringValue {
-            span.setAttribute("lk.participant.remote_identity", .string(identity))
-        }
+        let span = tracer.beginSpan(.subscribe, parent: nil)
+        span.setTrack(publication.kind, source: publication.source, sid: sid, remoteIdentity: participant.identity?.stringValue)
         subscribeSpans[sid] = span
         subscribeTimeouts[sid]?.cancel()
         subscribeTimeouts[sid] = Task { [weak self] in
@@ -82,7 +77,7 @@ final class RTCTelemetry: TelemetryInstrument, Loggable {
     /// First media on a subscribed track: the subscribe span's natural end.
     private func mediaArrived(_ sid: Track.Sid) {
         guard let span = subscribeSpans[sid] else { return }
-        span.record("first_media")
+        span.step(.firstMedia)
         endSubscribe(sid, outcome: .ok)
     }
 }
@@ -108,7 +103,7 @@ extension RTCTelemetry: RoomDelegate {
         let tracer = room.tracer
         Task { @Telemetry in
             self.beginSubscribe(publication, participant: participant, tracer: tracer) // manual subscription
-            self.subscribeSpans[publication.sid]?.record("subscribed")
+            self.subscribeSpans[publication.sid]?.step(.subscribed)
             if let track = publication.track { self.observe(track) }
         }
     }
@@ -138,7 +133,7 @@ extension RTCTelemetry: TrackDelegate {
         }
     }
 
-    /// One `RtcStatsSample` per inbound RTP stream and one for all outbound layers of the track.
+    /// One `RtcStatsSample` per RTP stream of the track; counters pass through as reported.
     nonisolated static func samples(for track: Track, statistics: TrackStatistics) -> [RtcStatsSample] {
         guard let sid = track.sid?.stringValue else { return [] }
         let kind: TrackKind
@@ -168,20 +163,19 @@ extension RTCTelemetry: TrackDelegate {
             sample.audioLevel = stream.audioLevel
             samples.append(sample)
         }
-        // Simulcast publishes one outbound-rtp stream per layer under the same track sid; the
-        // window is per track, so layers are summed here (a suspended top layer would otherwise
-        // freeze the counters, and a first-layer-to-last-layer delta reads as garbage bitrate).
-        let layers = statistics.outboundRtpStream
-        if let top = layers.max(by: { ($0.bytesSent ?? 0) < ($1.bytesSent ?? 0) }) {
+        // One sample per RTP stream, tagged with its layer; the core folds simulcast layers into
+        // the track (a suspended top layer must not freeze the counters).
+        let rtt = statistics.remoteInboundRtpStream.first?.roundTripTime.map { $0 * 1000 }
+        for stream in statistics.outboundRtpStream {
             var sample = RtcStatsSample(trackSid: sid, kind: kind, direction: .outbound)
-            sample.codec = top.codecId.flatMap { codecs[$0] ?? nil }
-            sample.bytes = layers.compactMap(\.bytesSent).reduce(0, +)
-            sample.packets = layers.compactMap(\.packetsSent).reduce(0, +)
-            sample.framesPerSecond = layers.compactMap(\.framesPerSecond).max()
-            sample.rttMs = statistics.remoteInboundRtpStream.first?.roundTripTime.map { $0 * 1000 }
-            // Per encoder, not per layer: WebRTC reports the same durations on every layer.
-            sample.qualityLimitationBandwidthMs = ms(layers.compactMap { $0.qualityLimitationDurations?.bandwidth }.max())
-            sample.qualityLimitationCpuMs = ms(layers.compactMap { $0.qualityLimitationDurations?.cpu }.max())
+            sample.layer = stream.id
+            sample.codec = stream.codecId.flatMap { codecs[$0] ?? nil }
+            sample.bytes = stream.bytesSent
+            sample.packets = stream.packetsSent
+            sample.framesPerSecond = stream.framesPerSecond
+            sample.rttMs = rtt
+            sample.qualityLimitationBandwidthMs = ms(stream.qualityLimitationDurations?.bandwidth)
+            sample.qualityLimitationCpuMs = ms(stream.qualityLimitationDurations?.cpu)
             samples.append(sample)
         }
         return samples

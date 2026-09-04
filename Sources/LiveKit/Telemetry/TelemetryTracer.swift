@@ -19,11 +19,10 @@ import Foundation
 
 /// The SDK's tracer, and the default ``Tracing``.
 ///
-/// As the process default it creates spans and logs them at debug level when they end (what
-/// `LoggingTracer` did). Bound to a Room's telemetry session it also gives every span it creates
-/// an identity in that session's trace — the ``Span`` then reports its checkpoints and end to the
-/// session itself, so there is nothing to attach afterwards. An app-injected ``Tracing``
-/// (``LiveKitSDK/setTracing(_:)``) still creates the span objects; the binding is added on top.
+/// As the process default it creates spans and logs the core's one-line description at debug
+/// level when they end. Bound to a Room's telemetry session, every span it creates is the core's:
+/// named from the shared vocabulary, timed and exported there. An app-injected ``Tracing``
+/// (``LiveKitSDK/setTracing(_:)``) still creates the `Span` handles it wants to observe.
 public final class TelemetryTracer: Tracing, Sendable {
     /// No session: the app tracer alone (before a connection exists, or telemetry off).
     static let detached = TelemetryTracer(session: nil)
@@ -41,33 +40,29 @@ public final class TelemetryTracer: Tracing, Sendable {
 
     // MARK: Tracing
 
-    /// The protocol entry point; same path as ``beginSpan(_:kind:parent:)`` with `kind: .internal`.
+    /// The protocol entry point: an app-defined span.
     @discardableResult
     public func beginSpan(_ name: String) -> Span {
-        beginSpan(name, kind: .internal)
+        beginSpan(.custom(name: name))
     }
 
-    /// Create a span — through the app's tracer if one was injected, ours otherwise — and, when
-    /// telemetry is on, file it under the session: identity now, checkpoints and outcome from the
-    /// span itself. `kind` is required so a one-argument call cannot bypass this path.
+    /// An SDK span, stamped now in the core. Bound to the session when telemetry is on, detached
+    /// otherwise; an injected app tracer still creates and observes the `Span`, the core's span
+    /// is handed to it before anything is recorded.
     @discardableResult
-    func beginSpan(_ name: String, kind: SpanKind, parent: Span? = Span.current) -> Span {
+    func beginSpan(_ name: SpanName, parent: Span? = Span.current) -> Span {
+        let core = session?.start(name: name, parent: parent?.core) ?? TelemetrySpan.detached(name: name)
         let span: Span
         if sharedTracing is TelemetryTracer {
-            span = Span(label: name)
+            span = Span(core: core)
             span.onEnd = { span in
-                sharedLogger.log("\(span)", .debug, type: TelemetryTracer.self)
+                sharedLogger.log(span.description, .debug, type: TelemetryTracer.self)
             }
         } else {
-            span = sharedTracing.beginSpan(name)
+            span = sharedTracing.beginSpan(core.label())
+            span.core = core
         }
-        span.kind = kind
         span.parent = parent
-        if let session {
-            let id = session.beginSpan(name: name, kind: kind == .client ? .client : .internal, parent: parent?.context?.spanId)
-            span.context = SpanContext(traceId: session.traceId(), spanId: id)
-            span.telemetry = (session, id)
-        }
         return span
     }
 }

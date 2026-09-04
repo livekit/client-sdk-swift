@@ -597,14 +597,13 @@ extension LocalParticipant {
     // swiftlint:disable:next cyclomatic_complexity function_body_length
     func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         let room = try requireRoom()
-        let span = room.tracer.beginSpan("lk.publish", kind: .internal)
-        span.setAttribute("lk.track.kind", .string(Span.kindName(track.kind)))
-        span.setAttribute("lk.track.source", .string(String(describing: track.source)))
+        let span = room.tracer.beginSpan(.publish)
+        span.setTrack(track.kind, source: track.source)
         do {
             let publication = try await Span.$current.withValue(span) {
                 try await _publishTrack(track: track, options: options)
             }
-            span.setAttribute("lk.track.sid", .string(publication.sid.stringValue))
+            span.setTrack(track.kind, source: track.source, sid: publication.sid)
             span.end()
             return publication
         } catch {

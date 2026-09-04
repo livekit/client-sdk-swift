@@ -176,36 +176,27 @@ final class DeviceTelemetry: TelemetryInstrument, Loggable {
         notificationTokens.append(center.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: nil) { [weak self] note in
             let reason = (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt)
                 .flatMap(AVAudioSession.RouteChangeReason.init(rawValue:)) ?? .unknown
-            let outputs = AVAudioSession.sharedInstance().currentRoute.outputs.map(\.portType.rawValue).joined(separator: ",")
-            self?.emit("lk.device.audio_route.changed", body: "audio route: \(outputs) (\(Self.name(reason)))", [
-                .init(key: "lk.device.audio_route.reason", value: .str(Self.name(reason))),
-                .init(key: "lk.device.audio_route.outputs", value: .str(outputs)),
-            ])
+            let outputs = AVAudioSession.sharedInstance().currentRoute.outputs.map(\.portType.rawValue)
+            self?.core.deviceEvent(event: .audioRouteChanged(outputs: outputs, reason: Self.reason(reason)))
         })
         notificationTokens.append(center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: nil) { [weak self] note in
             let began = (note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt) == AVAudioSession.InterruptionType.began.rawValue
-            self?.emit("lk.device.audio.interruption", body: "audio interruption \(began ? "began" : "ended")", [
-                .init(key: "lk.device.audio.interruption", value: .str(began ? "began" : "ended")),
-            ])
+            self?.core.deviceEvent(event: .audioInterruption(began: began))
         })
         #endif
     }
 
-    private nonisolated func emit(_ name: String, body: String, _ attributes: [LiveKitUniFFI.Attribute]) {
-        core.emit(event: TelemetryEvent(name: name, severity: .info, body: body, attributes: attributes, spanId: nil))
-    }
-
     #if os(iOS) || os(tvOS) || os(visionOS)
-    private nonisolated static func name(_ reason: AVAudioSession.RouteChangeReason) -> String {
+    private nonisolated static func reason(_ reason: AVAudioSession.RouteChangeReason) -> AudioRouteReason {
         switch reason {
-        case .newDeviceAvailable: "new_device_available"
-        case .oldDeviceUnavailable: "old_device_unavailable"
-        case .categoryChange: "category_change"
-        case .override: "override"
-        case .wakeFromSleep: "wake_from_sleep"
-        case .noSuitableRouteForCategory: "no_suitable_route"
-        case .routeConfigurationChange: "route_configuration_change"
-        default: "unknown"
+        case .newDeviceAvailable: .newDevice
+        case .oldDeviceUnavailable: .oldDeviceUnavailable
+        case .categoryChange: .categoryChange
+        case .override: .override
+        case .wakeFromSleep: .wakeFromSleep
+        case .noSuitableRouteForCategory: .noSuitableRoute
+        case .routeConfigurationChange: .routeConfigurationChange
+        default: .unknown
         }
     }
     #endif

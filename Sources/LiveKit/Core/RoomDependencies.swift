@@ -105,7 +105,7 @@ final class JoinDependencies: Sendable {
             guard let room else { return }
             room.log("Publisher onOffer with offerId: \(offerId), sdp: \(offer.sdp)")
             try await room.signalClient.send(offer: offer, offerId: offerId)
-            room.connectSpan?.record("offer_sent")
+            room.connectSpan?.step(.offerSent)
         }
 
         // data over pub channel for backwards compatibility

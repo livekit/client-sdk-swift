@@ -27,13 +27,6 @@ public enum SpanOutcome: Sendable, Equatable {
     case cancelled
 }
 
-public enum SpanKind: Sendable, Equatable {
-    /// An operation inside the SDK (publish, subscribe).
-    case `internal`
-    /// A call to the SFU that waits for its answer (connect, reconnect).
-    case client
-}
-
 /// A typed span attribute; keys follow `SPEC.md` (`lk.connect.attempt`, `lk.reconnect.mode`, …).
 public enum SpanAttribute: Sendable, Equatable {
     case string(String)
@@ -48,63 +41,55 @@ public struct SpanContext: Sendable, Equatable {
     public let spanId: UInt64
 }
 
-/// One attempt at an SDK operation: a timed interval with checkpoints (``record(_:at:)``),
-/// attributes, and an ``outcome`` set when it ends.
+/// One attempt at an SDK operation: a timed interval with checkpoints, attributes and an outcome.
 ///
-/// Spans are created by the app-facing ``Tracing`` (``LiveKitSDK/setTracing(_:)``) and observed
-/// by the Room's sinks — the telemetry core, and os_signpost in debug builds — so one span
-/// reaches every consumer without any of them owning it.
+/// The span itself lives in the telemetry core (timing, checkpoints, attributes, outcome, export,
+/// and the one-line description); this class is the Swift handle plus what only the runtime can
+/// do: the task-local ``current`` span and the ``onEnd`` hook. Every call is synchronous, so a
+/// checkpoint is stamped where it happened.
 public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible {
-    public struct Entry: Equatable, Sendable {
-        public let label: String
-        public let time: TimeInterval
-    }
+    /// The core's span. Replaced once, at creation, when the SDK binds an app tracer's span.
+    var core: TelemetrySpan
 
-    private struct State {
-        var ended = false
-        var outcome: SpanOutcome?
-        var errorType: String?
-        var entries: [Entry] = []
-        var attributes: [String: SpanAttribute] = [:]
-    }
-
-    public let label: String
-    public let start: TimeInterval
-
-    /// Set by the tracer that created the span.
-    public internal(set) var kind: SpanKind = .internal
     /// The open span this one nests under, if any.
     public internal(set) var parent: Span?
-    /// Identity in the telemetry session's trace; `nil` for local-only spans.
-    public internal(set) var context: SpanContext?
 
     /// Handler called once when the span ends. Set by the tracer at creation time.
     public var onEnd: (@Sendable (Span) -> Void)?
-
-    /// The telemetry session this span is filed under and its handle there; set by
-    /// ``TelemetryTracer`` when telemetry is on. Checkpoints and the end go straight to it.
-    var telemetry: (session: TelemetrySession, id: UInt64)?
 
     /// The span the current task is working inside, if any. Bound by the SDK around operations
     /// (`connect`, a reconnect cycle) so child spans nest and warn/error records point at it
     /// without any handle being passed around; does not cross the WebRTC callback boundary.
     @TaskLocal public static var current: Span?
 
-    private let _state = StateSync(State())
+    private let fired = StateSync(false)
 
-    public init(label: String) {
-        self.label = label
-        start = ProcessInfo.processInfo.systemUptime
+    init(core: TelemetrySpan) {
+        self.core = core
     }
 
-    public var isEnded: Bool { _state.ended }
-    public var outcome: SpanOutcome? { _state.outcome }
-    /// `error.type` of the failure the span ended with, e.g. `LiveKitError.timedOut`.
-    public var errorType: String? { _state.errorType }
-    public var attributes: [String: SpanAttribute] { _state.attributes }
+    /// A detached span: timed and described, exported only if the SDK binds it to a session.
+    public convenience init(label: String) {
+        self.init(core: TelemetrySpan.detached(name: .custom(name: label)))
+    }
 
+    public var label: String { core.label() }
+    public var isEnded: Bool { core.isEnded() }
+    public var outcome: SpanOutcome? { core.outcome().map(SpanOutcome.init) }
+    /// Identity in the telemetry session's trace; `nil` for detached spans.
+    public var context: SpanContext? {
+        core.context().map { SpanContext(traceId: $0.traceId, spanId: $0.spanId) }
+    }
+
+    /// The open bag; keys follow `SPEC.md`. Replaces an existing key.
     public func setAttribute(_ key: String, _ value: SpanAttribute) {
-        _state.mutate { $0.attributes[key] = value }
+        core.setAttribute(key: key, value: value.lowered)
+    }
+
+    /// The track a publish or subscribe span is about; call again once the sid is known.
+    func setTrack(_ kind: Track.Kind, source: Track.Source, sid: Track.Sid? = nil, remoteIdentity: String? = nil) {
+        guard let kind = kind.telemetry else { return }
+        core.setTrack(track: SpanTrack(sid: sid?.stringValue, kind: kind, source: String(describing: source), remoteIdentity: remoteIdentity))
     }
 
     /// End this span successfully. Equivalent to ``end(outcome:error:)`` with `.ok`.
@@ -114,61 +99,29 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
 
     /// End this span with an outcome, firing ``onEnd`` exactly once.
     public func end(outcome: SpanOutcome, error: Error? = nil) {
-        let first = _state.mutate { state -> Bool in
-            guard !state.ended else { return false }
-            state.ended = true
-            state.outcome = outcome
-            state.errorType = error.map(Span.errorType)
-            return true
+        let alreadyFired = fired.mutate { was -> Bool in
+            defer { was = true }
+            return was
         }
-        guard first else { return }
-        if let telemetry {
-            let lowered: LiveKitUniFFI.SpanOutcome = switch outcome {
-            case .ok: .ok
-            case .error: .error
-            case .cancelled: .cancelled
-            }
-            telemetry.session.endSpan(span: telemetry.id, outcome: lowered, errorType: errorType, attributes: attributes.lowered)
-        }
+        guard !alreadyFired else { return }
+        core.end(outcome: outcome.lowered, error: error.map(Span.errorType))
         onEnd?(self)
         onEnd = nil
     }
 
-    /// Record a named checkpoint. Timestamp defaults to now if not provided.
-    public func record(_ event: String, at time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
-        let entry = Entry(label: event, time: time)
-        _state.mutate { $0.entries.append(entry) }
-        if let telemetry {
-            telemetry.session.addSpanEvent(span: telemetry.id, name: event, attributes: [])
-        }
+    /// An app-defined checkpoint, stamped now.
+    public func record(_ label: String) {
+        core.step(step: .custom(name: label))
     }
 
-    @available(*, deprecated, renamed: "record(_:at:)")
-    public func split(label: String = "") {
-        record(label)
+    /// An SDK checkpoint, stamped now.
+    func step(_ step: SpanStep) {
+        core.step(step: step)
     }
 
-    /// A snapshot of all recorded entries.
-    public var entries: [Entry] {
-        _state.entries
-    }
-
-    @available(*, deprecated, renamed: "entries")
-    public var splits: [Entry] { entries }
-
-    /// Total elapsed time from start to the last recorded entry.
+    /// Seconds from start to the end, or to the last checkpoint while running.
     public func total() -> TimeInterval {
-        guard let last = entries.last else { return 0 }
-        return last.time - start
-    }
-
-    /// Spec value for a track kind (`Track.Kind` is `@objc`, so `String(describing:)` is not usable).
-    static func kindName(_ kind: Track.Kind) -> String {
-        switch kind {
-        case .audio: "audio"
-        case .video: "video"
-        case .none: "none"
-        }
+        core.totalSecs()
     }
 
     /// `error.type` for a span: the LiveKit error case when it is one, else the Swift type name.
@@ -180,24 +133,32 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
 
     // MARK: - Equatable
 
+    /// One span is one attempt: identity, not content.
     public static func == (lhs: Span, rhs: Span) -> Bool {
-        lhs.start == rhs.start && lhs.entries == rhs.entries
+        lhs === rhs
     }
 
     // MARK: - CustomStringConvertible
 
-    public var description: String {
-        let snapshot = entries
-        var parts = [String]()
-        var prev = start
-        for entry in snapshot {
-            let diff = entry.time - prev
-            prev = entry.time
-            parts.append("\(entry.label) +\(diff.rounded(to: 2))s")
+    /// The core's line, identical on every platform: `lk.connect: ws_open +1.49s, …, total 1.83s, ok`.
+    public var description: String { core.describe() }
+}
+
+extension SpanOutcome {
+    var lowered: LiveKitUniFFI.SpanOutcome {
+        switch self {
+        case .ok: .ok
+        case .error: .error
+        case .cancelled: .cancelled
         }
-        parts.append("total \((prev - start).rounded(to: 2))s")
-        if let outcome { parts.append(String(describing: outcome)) }
-        return "Span(\(label), \(parts.joined(separator: ", ")))"
+    }
+
+    init(_ core: LiveKitUniFFI.SpanOutcome) {
+        switch core {
+        case .ok: self = .ok
+        case .error: self = .error
+        case .cancelled: self = .cancelled
+        }
     }
 }
 
@@ -211,7 +172,7 @@ public typealias Stopwatch = Span
 /// A factory that creates ``Span``s for SDK operations.
 ///
 /// The default ``TelemetryTracer`` logs completed spans at debug level and, when telemetry is
-/// on, ships them.
+/// on, ships them. App-defined spans are named freely; the SDK's own use the core's vocabulary.
 /// Inject a custom implementation via ``LiveKitSDK/setTracing(_:)`` to
 /// capture timing data programmatically (e.g., for benchmarks).
 ///

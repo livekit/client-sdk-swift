@@ -123,13 +123,10 @@ public actor Telemetry {
     /// Session identity, attached to every record of the Room from now on.
     func roomDidConnect(_ room: Room) async {
         guard let session = await entry(for: room)?.session else { return }
-        for (key, value) in [("lk.room.sid", room.sid?.stringValue),
-                             ("lk.room.name", room.name),
-                             ("lk.participant.sid", room.localParticipant.sid?.stringValue),
-                             ("lk.participant.identity", room.localParticipant.identity?.stringValue)]
-        {
-            session.setAttribute(key: key, value: value.map { .str($0) })
-        }
+        session.setRoom(room: RoomIdentity(sid: room.sid?.stringValue,
+                                           name: room.name,
+                                           participantSid: room.localParticipant.sid?.stringValue,
+                                           participantIdentity: room.localParticipant.identity?.stringValue))
     }
 
     /// The Room's session trace id (32 hex characters); `nil` when telemetry is off.
@@ -217,7 +214,12 @@ public actor Telemetry {
         let config = TelemetryConfig(
             endpoint: options.endpoint?.absoluteString,
             headers: options.headers,
-            resource: resource(),
+            resource: [],
+            sdk: TelemetryResource(sdk: .swift,
+                                   sdkVersion: LiveKitSDK.version,
+                                   osName: String(describing: Utils.os()),
+                                   osVersion: Utils.osVersionString(),
+                                   deviceModel: Utils.modelIdentifier()),
             storageDir: options.storageDirectory?.path,
             flushIntervalMs: UInt64(max(0, options.flushInterval) * 1000),
             statsWindowMs: UInt64(max(0, options.statsWindow) * 1000),
@@ -225,22 +227,6 @@ public actor Telemetry {
         )
         // Fail-open: the app runs without telemetry rather than not at all.
         return try? LiveKitUniFFI.Telemetry(config: config, transport: URLSessionTelemetryTransport())
-    }
-
-    /// `wss://x.livekit.cloud/rtc` → `https://x.livekit.cloud/observability/logs/otlp/v0`.
-    // MARK: - Resource
-
-    private static func resource() -> [LiveKitUniFFI.Attribute] {
-        var attributes: [LiveKitUniFFI.Attribute] = [
-            .init(key: "service.name", value: .str("livekit-client-swift")),
-            .init(key: "service.version", value: .str(LiveKitSDK.version)),
-            .init(key: "os.name", value: .str(String(describing: Utils.os()))),
-            .init(key: "os.version", value: .str(Utils.osVersionString())),
-        ]
-        if let model = Utils.modelIdentifier() {
-            attributes.append(.init(key: "device.model.identifier", value: .str(model)))
-        }
-        return attributes
     }
 }
 
@@ -328,6 +314,16 @@ extension LogLevel {
         case .info: .info
         case .warning: .warn
         case .error: .error
+        }
+    }
+}
+
+extension Track.Kind {
+    var telemetry: TrackKind? {
+        switch self {
+        case .audio: .audio
+        case .video: .video
+        case .none: nil
         }
     }
 }

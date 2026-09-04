@@ -247,11 +247,11 @@ extension Room {
         // Check cancellation after WebSocket connected
         try Task.checkCancellation()
 
-        connectSpan?.record("signal")
-        connectSpan?.record("join_recv")
+        connectSpan?.step(.signal)
+        connectSpan?.step(.joinRecv)
 
         try await configureTransports(connectResponse: connectResponse, singlePeerConnection: singlePC)
-        connectSpan?.record("pc_created")
+        connectSpan?.step(.pcCreated)
         // Check cancellation after configuring transports
         try Task.checkCancellation()
 
@@ -272,8 +272,8 @@ extension Room {
         try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
         try Task.checkCancellation()
 
-        connectSpan?.record("engine")
-        connectSpan?.record("pc_connected")
+        connectSpan?.step(.engine)
+        connectSpan?.step(.pcConnected)
     }
 
     // swiftlint:disable:next cyclomatic_complexity function_body_length
@@ -308,8 +308,7 @@ extension Room {
         }
 
         // One reconnect cycle = one span; attempts are its checkpoints.
-        let reconnectSpan = tracer.beginSpan("lk.reconnect", kind: .client)
-        reconnectSpan.setAttribute("lk.reconnect.reason", .string(String(describing: reason)))
+        let reconnectSpan = tracer.beginSpan(.reconnect(reason: String(describing: reason)))
 
         // quick connect sequence, does not update connection state
         @Sendable func quickReconnectSequence() async throws {
@@ -438,9 +437,7 @@ extension Room {
                         return mode
                     }
 
-                    reconnectSpan.record("attempt \(currentAttempt) \(mode)")
-                    reconnectSpan.setAttribute("lk.reconnect.mode", .string(String(describing: mode)))
-                    reconnectSpan.setAttribute("lk.reconnect.attempts", .int(Int64(currentAttempt)))
+                    reconnectSpan.step(.attempt(number: UInt32(currentAttempt), full: mode == .full))
 
                     do {
                         if case .quick = mode {

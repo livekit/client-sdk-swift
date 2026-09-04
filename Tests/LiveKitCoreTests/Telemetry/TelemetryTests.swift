@@ -69,7 +69,7 @@ struct TelemetryTests {
             try await rooms[0].localParticipant.publish(videoTrack: track)
             // A warn/error record emitted inside an operation must end up on that operation's span,
             // in that Room's trace — the whole path: Loggable → LogHub → Telemetry → core `session_of`.
-            let op = rooms[0].tracer.beginSpan("e2e.op", kind: .internal)
+            let op = rooms[0].tracer.beginSpan("e2e.op")
             Span.$current.withValue(op) { rooms[0].log(marker, .error) }
             op.end()
             rooms[0].log("\(marker) outside", .error) // no ambient span: the process session

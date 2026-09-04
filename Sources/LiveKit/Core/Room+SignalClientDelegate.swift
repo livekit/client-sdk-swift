@@ -378,7 +378,7 @@ extension Room: SignalClientDelegate {
                 { Transport.mungeOpusNack($0, matchingOffer: offer.sdp) },
             ])
             try await signalClient.send(answer: answer, offerId: offerId)
-            connectSpan?.record("answer_sent")
+            connectSpan?.step(.answerSent)
         } catch {
             log("Failed to send answer for offerId: \(offerId), error: \(error)", .error)
         }

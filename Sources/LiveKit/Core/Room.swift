@@ -443,7 +443,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                                                         tracer: Telemetry.shared.tracer(for: self))
 
         // One connect() = one attempt; reconnect cycles get their own spans.
-        let attempt = dependencies.tracer.beginSpan("lk.connect", kind: .client)
+        let attempt = dependencies.tracer.beginSpan(.connect)
         attempt.setAttribute("lk.connect.attempt", .int(1))
 
         try _state.mutate {
@@ -523,7 +523,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 // Final check if cancelled, don't fire connected events
                 try Task.checkCancellation()
 
-                connectSpan?.record("room_connected")
+                connectSpan?.step(.roomConnected)
 
                 _state.mutate {
                     $0.connectedUrl = finalUrl
