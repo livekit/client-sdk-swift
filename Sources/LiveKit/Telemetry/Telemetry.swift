@@ -15,7 +15,6 @@
  */
 
 internal import LiveKitUniFFI
-internal import LiveKitWebRTC
 import Foundation
 
 /// Client telemetry: the one entry point.
@@ -46,8 +45,6 @@ public actor Telemetry {
     private var attributes: [String: SpanAttribute?] = [:]
     private var rooms: [ObjectIdentifier: Entry] = [:]
     private var instruments: [TelemetryInstrument] = []
-    /// WebRTC's own log sink at warning level, when the `logs` instrument is on.
-    private var rtcLogger: LKRTCCallbackLogger?
 
     // MARK: - Configuration
 
@@ -90,8 +87,6 @@ public actor Telemetry {
         }
         instruments = []
         rooms = [:]
-        rtcLogger?.stop()
-        rtcLogger = nil
         let core = core
         self.core = nil
         await core?.shutdown()
@@ -209,18 +204,11 @@ public actor Telemetry {
         return entry
     }
 
-    /// Warn/error logs from the Rust core (one shared drain, see `FFILogForwarder`) and from
-    /// WebRTC (our own sink next to whatever the console logger installed).
+    /// Warn/error logs from the Rust core and from WebRTC: the same process-wide forwarders the
+    /// console logger uses (see `LogForwarders`), which deliver warn/error to `Telemetry.log`.
     private func startLogCapture() {
-        FFILogForwarder.start(minLevel: .warning)
-        let logger = LKRTCCallbackLogger()
-        logger.severity = .warning
-        logger.start { message, severity in
-            Telemetry.log(message.trimmingCharacters(in: .whitespacesAndNewlines),
-                          level: severity == .error ? .error : .warning, source: .webrtc,
-                          type: "WebRTC", function: "", file: "", line: 0)
-        }
-        rtcLogger = logger
+        LogForwarders.ffi.start(minLevel: .warning)
+        LogForwarders.rtc.start(minLevel: .warning)
     }
 
     // MARK: - Pipeline
