@@ -38,7 +38,7 @@ struct TelemetryTests {
                                            statsWindow: 2)
         // Process-wide, configured before the Rooms exist — like an app would at launch.
         LiveKitSDK.setTelemetry(options)
-        Telemetry.setAttribute("acme.tenant", .string(marker))
+        Telemetry.shared.setAttribute("acme.tenant", .string(marker))
 
         var traceIds: Set<String> = []
         try await TestEnvironment.withRooms([

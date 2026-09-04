@@ -41,7 +41,7 @@ final class ConnectionDependencies: Sendable {
 
     init(room: Room, roomOptions: RoomOptions) {
         dataTracks = DataTracks(room: room)
-        tracer = TelemetryTracer(session: room.telemetrySession)
+        tracer = Telemetry.shared.tracer(for: room)
         let manager: E2EEManager? = if let e2eeOptions = roomOptions.e2eeOptions {
             E2EEManager(e2eeOptions: e2eeOptions)
         } else if let encryptionOptions = roomOptions.encryptionOptions {
@@ -56,7 +56,7 @@ final class ConnectionDependencies: Sendable {
     func tearDown() {
         e2ee.copy()?.cleanUp(isFullReconnect: false)
         // The connection ended: ship what is queued. The session stays with the Room.
-        Telemetry.flush()
+        Telemetry.shared.flush()
     }
 }
 

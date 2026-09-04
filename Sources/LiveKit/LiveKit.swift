@@ -43,18 +43,16 @@ public class LiveKitSDK: NSObject, Loggable {
 
     fileprivate static let state = StateSync(State())
 
-    /// Turn client telemetry on for the process: warn/error records, RTC statistics, spans and
-    /// device state, shipped out-of-band to an OTLP collector. Like ``setLogger(_:)``, call it at
-    /// launch, before creating Rooms — the pipeline is built from these options on first use and
-    /// latched; each Room then gets its own session (see ``Room/telemetryTraceId``).
+    /// Turn client telemetry on: warn/error records, RTC statistics, spans and device state,
+    /// shipped out-of-band to an OTLP collector. The pipeline starts with the first Room; each Room
+    /// gets its own session (see ``Room/telemetryTraceId``). Same as `Telemetry.shared.configure`.
     public static func setTelemetry(_ options: TelemetryOptions) {
-        Telemetry.configure(options)
-        Task { @Telemetry in Telemetry.start() }
+        Telemetry.shared.configure(options)
     }
 
-    /// Keep telemetry off for this process. The default; call it to make the choice explicit.
+    /// Turn telemetry off (the default), stopping a running pipeline after a bounded final flush.
     public static func disableTelemetry() {
-        Telemetry.configure(nil)
+        Telemetry.shared.configure(nil)
     }
 
     /// Set a custom ``Tracing`` implementation to capture operation timing.

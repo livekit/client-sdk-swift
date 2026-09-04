@@ -146,37 +146,17 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - Data Tracks
 
     var dataTracks: DataTracks? { _state.stage.connection?.dataTracks }
-    /// This Room's telemetry session, when ``LiveKitSDK/setTelemetry(_:)`` configured telemetry
-    /// before the Room was created: its own trace id, the Room's identity as attributes, and the
-    /// home of its spans, statistics and events. Lives as long as the Room; connections come and
-    /// go inside it. Thread-safe, used directly from wherever the SDK runs.
-    private(set) var telemetrySession: TelemetrySession?
-    /// RTC statistics and the `lk.subscribe` span for that session.
-    private(set) var rtcTelemetry: RTCTelemetry?
-
     /// The telemetry trace id of this Room's session (32 hex characters), or `nil` when telemetry
     /// is off. Show it to users or attach it to support tickets: it opens the full client-side
     /// timeline of the call, including connect attempts that never reached a server.
-    public var telemetryTraceId: String? { telemetrySession?.traceId() }
+    public var telemetryTraceId: String? { Telemetry.shared.traceId(for: self) }
 
     /// Record an app-defined telemetry event alongside the SDK's own, in this Room's session
     /// trace. The name is namespaced under `custom.` (`"checkout.started"` ships as
     /// `custom.checkout.started`); attributes keep their names. A no-op when telemetry is off.
     /// Subject to the same flood guard as SDK events.
     public func emitTelemetryEvent(_ name: String, attributes: [String: SpanAttribute] = [:]) {
-        telemetrySession?.emitCustom(name: name, attributes: attributes.lowered)
-    }
-
-    /// Session identity, attached to every telemetry record from now on.
-    func telemetryDidConnect() {
-        guard let telemetrySession else { return }
-        for (key, value) in [("lk.room.sid", sid?.stringValue),
-                             ("lk.room.name", name),
-                             ("lk.participant.sid", localParticipant.sid?.stringValue),
-                             ("lk.participant.identity", localParticipant.identity?.stringValue)]
-        {
-            telemetrySession.setAttribute(key: key, value: value.map { .str($0) })
-        }
+        Telemetry.shared.emit(name, attributes: attributes, from: self)
     }
 
     var tracer: TelemetryTracer { _state.stage.connection?.tracer ?? .detached }
@@ -324,16 +304,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         super.init()
         // Telemetry starts with the Room, not with connect(): pre-connect work is part of the call.
-        if let core = Telemetry.core {
-            let session = core.beginSession()
-            let rtc = RTCTelemetry(room: self, session: session)
-            telemetrySession = session
-            rtcTelemetry = rtc
-            Task { @Telemetry in
-                Telemetry.start()
-                rtc.start()
-            }
-        }
+        Telemetry.shared.register(self)
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), ffi: \(LiveKitSDK.ffiVersion), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
 
@@ -421,13 +392,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     }
 
     deinit {
-        // The session ends with the Room: settle its open spans, ship what is queued.
-        if let rtcTelemetry {
-            Task { @Telemetry in
-                rtcTelemetry.stop()
-                Telemetry.flush()
-            }
-        }
+        Telemetry.shared.unregister(self)
     }
 
     // swiftlint:disable:next cyclomatic_complexity function_body_length
@@ -442,7 +407,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
 
         log("Connecting to room...", .info)
-        Telemetry.connecting(to: providedUrl, token: token)
+        Telemetry.shared.connecting(to: providedUrl, token: token)
 
         var state = _state.copy()
 
@@ -561,7 +526,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                     $0.connectionState = .connected
                 }
 
-                telemetryDidConnect()
+                Telemetry.shared.roomDidConnect(self)
 
                 connectSpan?.end()
 

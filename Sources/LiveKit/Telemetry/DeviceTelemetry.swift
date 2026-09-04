@@ -242,7 +242,7 @@ extension DeviceTelemetry: AppStateDelegate {
     nonisolated func appWillTerminate() {
         Task { @Telemetry in
             self.setAppState(.background)
-            await Telemetry.shutdown()
+            await Telemetry.shared.shutdown()
         }
     }
 }
