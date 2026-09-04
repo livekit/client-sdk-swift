@@ -90,8 +90,11 @@ public protocol VideoEncoder: Sendable {
     var applyAlignmentToAllSimulcastLayers: Bool { get }
 
     /// Whether the encoder accepts frames backed by `CVPixelBuffer` directly.
-    /// When `false`, frames are converted to I420 before ``encode(_:frameTypes:)``.
-    /// Defaults to `true`.
+    ///
+    /// Returning `false` only affects how WebRTC crops and scales frames for
+    /// simulcast layers. Frames are still delivered in their native format,
+    /// typically NV12, so an encoder needing planar data must call
+    /// ``VideoFrame/toI420()`` itself. Defaults to `true`.
     var supportsNativeHandle: Bool { get }
 
     /// QP thresholds for WebRTC's quality scaler, or `nil` to disable quality scaling.
