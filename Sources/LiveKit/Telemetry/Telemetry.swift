@@ -117,8 +117,7 @@ public actor Telemetry {
     /// endpoint and the room token — unless the options named an endpoint. Everything cached until
     /// now starts uploading.
     func connecting(to url: URL, token: String) {
-        guard let core, options?.endpoint == nil, let endpoint = Self.observabilityEndpoint(for: url) else { return }
-        core.setDestination(endpoint: endpoint, headers: ["Authorization": "Bearer \(token)"])
+        core?.setServer(url: url.absoluteString, token: token)
     }
 
     /// Session identity, attached to every record of the Room from now on.
@@ -155,26 +154,22 @@ public actor Telemetry {
     /// A warn/error record from the SDK, the Rust core or WebRTC, as `LogHub` captured it where it
     /// happened; filed under the ambient span's session, or the process session.
     nonisolated static func log(_ record: LogRecord) {
-        var attributes: [LiveKitUniFFI.Attribute] = [
-            .init(key: "lk.log.type", value: .str(record.category)),
-            .init(key: "lk.log.source", value: .str(record.source.rawValue)),
-        ]
         let function = "\(record.function)", file = record.path.isEmpty ? "\(record.file)" : record.path
-        if !function.isEmpty { attributes.append(.init(key: "code.function", value: .str(function))) }
-        if !file.isEmpty { attributes.append(.init(key: "code.file.path", value: .str(file))) }
-        if record.line > 0 { attributes.append(.init(key: "code.line.number", value: .int(Int64(record.line)))) }
-        let event = TelemetryEvent(name: "",
-                                   severity: record.level == .error ? .error : .warn,
-                                   body: record.message,
-                                   attributes: attributes,
-                                   timestampNs: record.timestampNs,
-                                   spanId: record.span?.spanId)
-        Task { await shared.receive(event) }
+        let typed = LiveKitUniFFI.LogRecord(severity: record.level.severity,
+                                            source: record.source.core,
+                                            message: record.message,
+                                            logger: record.category,
+                                            function: function.isEmpty ? nil : function,
+                                            file: file.isEmpty ? nil : file,
+                                            line: record.line > 0 ? UInt32(record.line) : nil,
+                                            timestampNs: record.timestampNs,
+                                            spanId: record.span?.spanId)
+        Task { await shared.receive(typed) }
     }
 
-    private func receive(_ event: TelemetryEvent) {
+    private func receive(_ record: LiveKitUniFFI.LogRecord) {
         guard options?.instruments.contains(.logs) == true else { return }
-        core?.emit(event: event)
+        core?.log(record: record)
     }
 
     /// The Room's session, created on first use — together with the pipeline and its process-level
@@ -211,8 +206,9 @@ public actor Telemetry {
     /// Warn/error logs from the Rust core and from WebRTC, through the same `LogHub` the console
     /// uses (see `LogSources`): each source is captured once, per process.
     private func startLogCapture() {
-        LogSources.ffi.enableTelemetry(level: LogHub.telemetryLevel(for: .ffi))
-        LogSources.rtc.enableTelemetry(level: LogHub.telemetryLevel(for: .webrtc))
+        // Capture at the configured floor; the core applies the per-source policy.
+        LogSources.ffi.enableTelemetry(level: LogHub.level.copy())
+        LogSources.rtc.enableTelemetry(level: LogHub.level.copy())
     }
 
     // MARK: - Pipeline
@@ -232,14 +228,6 @@ public actor Telemetry {
     }
 
     /// `wss://x.livekit.cloud/rtc` → `https://x.livekit.cloud/observability/logs/otlp/v0`.
-    static func observabilityEndpoint(for url: URL) -> String? {
-        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false), components.host != nil else { return nil }
-        components.scheme = (components.scheme == "ws" || components.scheme == "http") ? "http" : "https"
-        components.path = "/observability/logs/otlp/v0"
-        components.query = nil
-        return components.url?.absoluteString
-    }
-
     // MARK: - Resource
 
     private static func resource() -> [LiveKitUniFFI.Attribute] {
@@ -319,6 +307,27 @@ final class URLSessionTelemetryTransport: TelemetryTransport, @unchecked Sendabl
             throw ExportError.Retryable(message: "HTTP \(http.statusCode)", retryAfterMs: retryAfter)
         default:
             throw ExportError.Rejected(message: "HTTP \(http.statusCode)")
+        }
+    }
+}
+
+extension Telemetry.LogSource {
+    var core: LiveKitUniFFI.LogSource {
+        switch self {
+        case .sdk: .sdk
+        case .ffi: .core
+        case .webrtc: .webRtc
+        }
+    }
+}
+
+extension LogLevel {
+    var severity: Severity {
+        switch self {
+        case .debug: .debug
+        case .info: .info
+        case .warning: .warn
+        case .error: .error
         }
     }
 }

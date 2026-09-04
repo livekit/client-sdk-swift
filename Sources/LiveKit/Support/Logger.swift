@@ -261,16 +261,10 @@ enum LogHub {
     /// WebRTC, whose "warnings" are internal chatter (duplicate codecs, disabled field trials, RTCP
     /// timeouts — 60 of 77 records in one call) that would eat the flood budget and say nothing the
     /// stats don't.
-    static func telemetryLevel(for source: Telemetry.LogSource) -> LogLevel {
-        source == .webrtc ? max(level.copy(), .error) : level.copy()
-    }
-
     static func emit(_ record: LogRecord) {
-        // The core's own warnings ("cannot cache", "batch rejected") stay out of telemetry: a rejected
-        // batch that produced a record that produced a batch would never end.
-        if record.level >= telemetryLevel(for: record.source),
-           !(record.source == .ffi && record.category.hasPrefix("livekit_telemetry"))
-        {
+        // The configured floor gates what crosses the FFI; the core applies the per-source policy
+        // (WebRTC only at error, its own telemetry module never).
+        if record.level >= level.copy() {
             Telemetry.log(record)
         }
         if record.source == .sdk || LogSources.consoleLevel(record.source).map({ record.level >= $0 }) == true {
@@ -311,7 +305,7 @@ final class LogSource: @unchecked Sendable {
         request { $0.console = min($0.console ?? level, level) }
     }
 
-    /// Telemetry wants this source from `level` up (see `LogHub.telemetryLevel(for:)`).
+    /// Telemetry wants this source from `level` up (the configured floor, `LogHub.level`).
     func enableTelemetry(level: LogLevel) {
         request { $0.telemetry = level }
     }
