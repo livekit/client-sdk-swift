@@ -18,7 +18,7 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-private final class VideoEncoderFactory: LKRTCDefaultVideoEncoderFactory, @unchecked Sendable {}
+private final class DefaultVideoEncoderFactory: LKRTCDefaultVideoEncoderFactory, @unchecked Sendable {}
 
 private final class VideoDecoderFactory: LKRTCDefaultVideoDecoderFactory, @unchecked Sendable {}
 
@@ -129,17 +129,25 @@ extension RTC {
         var isInitialized: Bool = false
         var admType: AudioDeviceModuleType = .audioEngine
         var bypassVoiceProcessing: Bool = false
+        var customVideoEncoderFactory: (any VideoEncoderFactory)?
     }
 
     static let pcFactoryState = StateSync(PeerConnectionFactoryState())
 
     // global properties are already lazy
 
+    // Must not be forced from inside a `pcFactoryState` read or mutate block, since
+    // its initializer reads that state and `StateSync` is not reentrant.
     static let encoderFactory: LKRTCVideoEncoderFactory & Sendable = {
-        let encoderFactory = VideoEncoderFactory()
-        return VideoEncoderFactorySimulcast(primary: encoderFactory,
-                                            fallback: encoderFactory)
-
+        guard let customFactory = pcFactoryState.read({ $0.customVideoEncoderFactory }) else {
+            let defaultFactory = DefaultVideoEncoderFactory()
+            return VideoEncoderFactorySimulcast(primary: defaultFactory,
+                                                fallback: defaultFactory)
+        }
+        // A custom encoder reporting `.fallbackSoftware` falls back to the built in
+        // VideoToolbox encoders instead of failing the stream.
+        return VideoEncoderFactorySimulcast(primary: VideoEncoderFactoryAdapter(factory: customFactory),
+                                            fallback: DefaultVideoEncoderFactory())
     }()
 
     static let decoderFactory: LKRTCVideoDecoderFactory & Sendable = VideoDecoderFactory()
