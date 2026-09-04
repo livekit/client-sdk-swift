@@ -1,0 +1,1 @@
+patch type="fixed" "The v1 signal path's `join_request` parameter is now base64url-encoded instead of standard base64, so payloads containing `+` are no longer corrupted by receivers that parse the query as form-urlencoded, and it is gzip-compressed when that makes it smaller, keeping the WebSocket upgrade request inside a single TCP segment"

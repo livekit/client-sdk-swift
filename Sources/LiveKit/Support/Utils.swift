@@ -299,12 +299,25 @@ class Utils: Loggable {
         }
 
         let joinRequestData = try joinRequest.serializedData()
+
+        // The request travels in the WebSocket upgrade URL, so keeping it within
+        // a single TCP segment avoids paying a retransmission timeout before the
+        // handshake even starts on a lossy link. Mirrors client-sdk-js and
+        // rust-sdks: gzip, but keep the compressed form only when it is actually
+        // smaller — gzip framing exceeds the savings on a small request.
+        let (payload, compression): (Data, Livekit_WrappedJoinRequest_Compression) =
+            if let compressed = Gzip.compress(joinRequestData), compressed.count < joinRequestData.count {
+                (compressed, .gzip)
+            } else {
+                (joinRequestData, .none)
+            }
+
         let wrappedData = try Livekit_WrappedJoinRequest.with {
-            $0.compression = .none
-            $0.joinRequest = joinRequestData
+            $0.compression = compression
+            $0.joinRequest = payload
         }.serializedData()
 
-        return wrappedData.base64EncodedString()
+        return wrappedData.base64URLEncodedString()
     }
 }
 
