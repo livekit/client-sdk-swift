@@ -91,6 +91,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     /// The core's span for the most recent connection attempt.
     var connectSpan: Span? { _state.connectSpan }
 
+    /// Seconds the most recent connection attempt took, to its end or its last checkpoint.
+    public var connectDuration: TimeInterval? { _state.connectSpan?.totalSecs() }
+
     // MARK: - Internal
 
     /// The E2EE manager for the current connection.
