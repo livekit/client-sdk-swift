@@ -142,17 +142,9 @@ extension EncodedVideoFrame {
             h264Info.packetizationMode = packetizationMode == .singleNalUnit ? .singleNalUnit : .nonInterleaved
             return (image, h264Info)
         case let .h265(packetizationMode):
-            // The prebuilt macOS slice does not expose RTCCodecSpecificInfoH265 in its
-            // public headers, unlike all other platform slices. Falls back to generic
-            // info until a WebRTC release ships the header on macOS.
-            #if os(macOS)
-            _ = packetizationMode
-            return (image, GenericCodecSpecificInfo())
-            #else
             let h265Info = LKRTCCodecSpecificInfoH265()
             h265Info.packetizationMode = packetizationMode == .singleNalUnit ? .singleNalUnit : .nonInterleaved
             return (image, h265Info)
-            #endif
         case nil:
             return (image, GenericCodecSpecificInfo())
         }
