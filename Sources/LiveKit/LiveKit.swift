@@ -47,12 +47,12 @@ public class LiveKitSDK: NSObject, Loggable {
     /// shipped out-of-band to an OTLP collector. The pipeline starts with the first Room; each Room
     /// gets its own session (see ``Room/telemetryTraceId``). Same as `Telemetry.shared.configure`.
     public static func setTelemetry(_ options: TelemetryOptions) {
-        Telemetry.shared.configure(options)
+        Task { await Telemetry.shared.configure(options) }
     }
 
     /// Turn telemetry off (the default), stopping a running pipeline after a bounded final flush.
     public static func disableTelemetry() {
-        Telemetry.shared.configure(nil)
+        Task { await Telemetry.shared.configure(nil) }
     }
 
     /// Set a custom ``Tracing`` implementation to capture operation timing.

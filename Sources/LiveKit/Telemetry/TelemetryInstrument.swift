@@ -25,7 +25,7 @@ import Foundation
 /// scope decides when: ``Telemetry`` starts and stops the process-level instruments
 /// (``DeviceTelemetry``, ``LoggingTelemetry``), ``Room`` its own (``RTCTelemetry``).
 @Telemetry
-protocol TelemetryInstrument: AnyObject {
+protocol TelemetryInstrument: AnyObject, Sendable {
     /// Begin observing and pushing.
     func start()
     /// Stop observing. Called once, when the owner's scope ends; settles what is open.

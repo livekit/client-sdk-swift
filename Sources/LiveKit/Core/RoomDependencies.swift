@@ -39,9 +39,9 @@ final class ConnectionDependencies: Sendable {
     /// Span factory for this connection, bound to the Room's telemetry session when telemetry is on.
     let tracer: TelemetryTracer
 
-    init(room: Room, roomOptions: RoomOptions) {
+    init(room: Room, roomOptions: RoomOptions, tracer: TelemetryTracer = .detached) {
         dataTracks = DataTracks(room: room)
-        tracer = Telemetry.shared.tracer(for: room)
+        self.tracer = tracer
         let manager: E2EEManager? = if let e2eeOptions = roomOptions.e2eeOptions {
             E2EEManager(e2eeOptions: e2eeOptions)
         } else if let encryptionOptions = roomOptions.encryptionOptions {
@@ -56,7 +56,7 @@ final class ConnectionDependencies: Sendable {
     func tearDown() {
         e2ee.copy()?.cleanUp(isFullReconnect: false)
         // The connection ended: ship what is queued. The session stays with the Room.
-        Telemetry.shared.flush()
+        Task { await Telemetry.shared.flush() }
     }
 }
 

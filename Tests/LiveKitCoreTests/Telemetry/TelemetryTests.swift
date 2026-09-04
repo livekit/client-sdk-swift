@@ -36,18 +36,23 @@ struct TelemetryTests {
                                            storageDirectory: nil,
                                            flushInterval: 1,
                                            statsWindow: 2)
-        // Process-wide, configured before the Rooms exist — like an app would at launch.
-        LiveKitSDK.setTelemetry(options)
-        Telemetry.shared.setAttribute("acme.tenant", .string(marker))
+        // Process-wide, configured before the Rooms exist — like an app would at launch
+        // (`LiveKitSDK.setTelemetry` is the fire-and-forget form of the same call).
+        await Telemetry.shared.configure(options)
+        await Telemetry.shared.setAttribute("acme.tenant", .string(marker))
 
         var traceIds: Set<String> = []
         try await TestEnvironment.withRooms([
             RoomTestingOptions(canPublish: true),
             RoomTestingOptions(canSubscribe: true),
         ]) { rooms in
-            #expect(rooms[0].telemetryTraceId?.count == 32, "each Room has a printable session trace id")
-            #expect(rooms[0].telemetryTraceId != rooms[1].telemetryTraceId)
-            traceIds = Set(rooms.compactMap(\.telemetryTraceId))
+            var ids: [String] = []
+            for room in rooms {
+                if let id = await room.telemetryTraceId { ids.append(id) }
+            }
+            #expect(ids.count == 2 && ids.allSatisfy { $0.count == 32 }, "each Room has a printable session trace id")
+            #expect(ids[0] != ids[1])
+            traceIds = Set(ids)
 
             // Synthetic frames: no capture device or permission needed in a headless test run.
             let track = LocalVideoTrack.createBufferTrack(name: "telemetry")

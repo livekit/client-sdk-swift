@@ -20,123 +20,98 @@ import Foundation
 /// Client telemetry: the one entry point.
 ///
 /// `Telemetry.shared` owns the pipeline (the Rust core, `livekit-telemetry`), the process-level
-/// instruments (device state, SDK logs) and one session per live Room. Configure it any time with
-/// ``LiveKitSDK/setTelemetry(_:)``; it bootstraps when the first Room registers, and nothing but
-/// trace ids and events crosses its boundary — sessions, handles and instruments stay inside.
-/// As a global actor it is also the isolation domain for the instruments' Swift-side state; its
-/// own entry points are synchronous and thread-safe (the core handles are).
+/// instruments (device state, SDK logs) and one session per live Room — all as actor state, so
+/// there is no lock and no latch. Configure it any time with ``LiveKitSDK/setTelemetry(_:)``; the
+/// pipeline bootstraps when the first Room asks for its session. Nothing but trace ids and events
+/// crosses the boundary: sessions, handles and instruments stay inside. As a global actor it is
+/// also the isolation domain for the instruments' state.
 @globalActor
 public actor Telemetry {
     public static let shared = Telemetry()
 
-    private struct Room_ {
+    private struct Entry {
         let session: TelemetrySession
         let rtc: RTCTelemetry
     }
 
-    private struct State {
-        var options: TelemetryOptions?
-        var core: LiveKitUniFFI.Telemetry?
-        /// Attributes set before the pipeline exists; applied at bootstrap.
-        var attributes: [String: SpanAttribute?] = [:]
-        var rooms: [ObjectIdentifier: Room_] = [:]
-    }
-
-    private nonisolated let state = StateSync(State())
+    private var options: TelemetryOptions?
+    private var core: LiveKitUniFFI.Telemetry?
+    /// Pipeline-wide attributes; kept so those set before bootstrap apply to it.
+    private var attributes: [String: SpanAttribute?] = [:]
+    private var rooms: [ObjectIdentifier: Entry] = [:]
+    private var instruments: [TelemetryInstrument] = []
 
     // MARK: - Configuration
 
-    /// Set or change the options; `nil` turns telemetry off. Before the pipeline runs they shape it;
-    /// afterwards the destination and headers apply at once and the cadence knobs on next launch.
-    public nonisolated func configure(_ options: TelemetryOptions?) {
-        let (core, previous) = state.mutate { state -> (LiveKitUniFFI.Telemetry?, LiveKitUniFFI.Telemetry?) in
-            let previous = state.core
-            state.options = options
-            if options == nil { state.core = nil; state.rooms = [:] }
-            return (options == nil ? nil : state.core, options == nil ? previous : nil)
+    /// Set or change the options; `nil` turns telemetry off. Before the pipeline runs they shape
+    /// it; afterwards the destination and headers apply at once, the cadence knobs on next launch.
+    public func configure(_ options: TelemetryOptions?) async {
+        self.options = options
+        guard let options else {
+            await stop()
+            return
         }
-        if let previous {
-            Task { @Telemetry in await Telemetry.stopInstruments(); await previous.shutdown() }
-        }
-        if let core, let options, let endpoint = options.endpoint {
+        if let core, let endpoint = options.endpoint {
             core.setDestination(endpoint: endpoint.absoluteString, headers: options.headers)
         }
     }
 
     /// Attach an attribute to every record of every session — an `enduser.id`, a tenant, a build
     /// flavor. `nil` removes it.
-    public nonisolated func setAttribute(_ key: String, _ value: SpanAttribute?) {
-        let core = state.mutate { state -> LiveKitUniFFI.Telemetry? in
-            state.attributes[key] = value
-            return state.core
-        }
+    public func setAttribute(_ key: String, _ value: SpanAttribute?) {
+        attributes[key] = value
         core?.setAttribute(key: key, value: value?.lowered)
     }
 
     /// Cache everything queued and upload what the network allows.
-    nonisolated func flush() {
-        let core = state.copy().core
-        Task { await core?.flush() }
+    func flush() async {
+        await core?.flush()
     }
 
     /// Bounded final flush with the session summary; the pipeline stops.
-    @Telemetry func shutdown() async {
-        await Telemetry.stopInstruments()
-        let core = state.mutate { state -> LiveKitUniFFI.Telemetry? in
-            defer { state.core = nil; state.rooms = [:] }
-            return state.core
+    func shutdown() async {
+        await stop()
+    }
+
+    private func stop() async {
+        for instrument in instruments {
+            await instrument.stop()
         }
+        for entry in rooms.values {
+            await entry.rtc.stop()
+        }
+        instruments = []
+        rooms = [:]
+        let core = core
+        self.core = nil
         await core?.shutdown()
     }
 
     // MARK: - Rooms
 
-    /// A Room exists: bootstrap the pipeline if this is the first, give the Room a session (its
-    /// own trace id) and start its instruments. A no-op when telemetry is off.
-    nonisolated func register(_ room: Room) {
-        let (core, rtc, bootstrapped) = state.mutate { state -> (LiveKitUniFFI.Telemetry?, RTCTelemetry?, Bool) in
-            var bootstrapped = false
-            if state.core == nil, let options = state.options, let core = Self.makeCore(options) {
-                for (key, value) in state.attributes {
-                    core.setAttribute(key: key, value: value?.lowered)
-                }
-                state.core = core
-                bootstrapped = true
-            }
-            guard let core = state.core else { return (nil, nil, false) }
-            let session = core.beginSession()
-            let rtc = RTCTelemetry(room: room, session: session)
-            state.rooms[ObjectIdentifier(room)] = Room_(session: session, rtc: rtc)
-            return (core, rtc, bootstrapped)
-        }
-        guard let core, let rtc else { return }
-        Task { @Telemetry in
-            if bootstrapped { Telemetry.startInstruments(core) }
-            rtc.start()
-        }
+    /// A Room exists: give it a session now (and the pipeline, if this is the first).
+    func register(_ room: Room) async {
+        _ = await entry(for: room)
     }
 
     /// The Room is going away: stop its instruments, ship what is queued. The session ends with it.
-    nonisolated func unregister(_ room: Room) {
-        guard let entry = state.mutate({ $0.rooms.removeValue(forKey: ObjectIdentifier(room)) }) else { return }
-        let rtc = entry.rtc
-        Task { @Telemetry in rtc.stop() }
-        flush()
+    func unregister(_ room: ObjectIdentifier) async {
+        guard let entry = rooms.removeValue(forKey: room) else { return }
+        await entry.rtc.stop()
+        await core?.flush()
     }
 
     /// A connect attempt tells the pipeline where telemetry goes — the server's observability
     /// endpoint and the room token — unless the options named an endpoint. Everything cached until
     /// now starts uploading.
-    nonisolated func connecting(to url: URL, token: String) {
-        let state = state.copy()
-        guard let core = state.core, state.options?.endpoint == nil,
-              let endpoint = Self.observabilityEndpoint(for: url) else { return }
+    func connecting(to url: URL, token: String) {
+        guard let core, options?.endpoint == nil, let endpoint = Self.observabilityEndpoint(for: url) else { return }
         core.setDestination(endpoint: endpoint, headers: ["Authorization": "Bearer \(token)"])
     }
 
     /// Session identity, attached to every record of the Room from now on.
-    nonisolated func roomDidConnect(_ room: Room) {
-        guard let session = session(for: room) else { return }
+    func roomDidConnect(_ room: Room) async {
+        guard let session = await entry(for: room)?.session else { return }
         for (key, value) in [("lk.room.sid", room.sid?.stringValue),
                              ("lk.room.name", room.name),
                              ("lk.participant.sid", room.localParticipant.sid?.stringValue),
@@ -147,27 +122,48 @@ public actor Telemetry {
     }
 
     /// The Room's session trace id (32 hex characters); `nil` when telemetry is off.
-    nonisolated func traceId(for room: Room) -> String? {
-        session(for: room)?.traceId()
+    func traceId(for room: Room) async -> String? {
+        await entry(for: room)?.session.traceId()
     }
 
     /// An app-defined event in the Room's session; the core namespaces it under `custom.`.
-    nonisolated func emit(_ name: String, attributes: [String: SpanAttribute], from room: Room) {
-        session(for: room)?.emitCustom(name: name, attributes: attributes.lowered)
+    func emit(_ name: String, attributes: [String: SpanAttribute], from room: Room) async {
+        await entry(for: room)?.session.emitCustom(name: name, attributes: attributes.lowered)
     }
 
     /// The span factory for a connection of this Room, bound to its session when telemetry is on.
-    nonisolated func tracer(for room: Room) -> TelemetryTracer {
-        session(for: room).map(TelemetryTracer.init(session:)) ?? .detached
+    func tracer(for room: Room) async -> TelemetryTracer {
+        await entry(for: room).map { TelemetryTracer(session: $0.session) } ?? .detached
     }
 
-    private nonisolated func session(for room: Room) -> TelemetrySession? {
-        state.copy().rooms[ObjectIdentifier(room)]?.session
+    /// The Room's session, created on first use — together with the pipeline and its process-level
+    /// instruments when this is the first Room. `nil` while telemetry is off. State is updated
+    /// before every `await`, so a concurrent call for the same Room finds the entry.
+    private func entry(for room: Room) async -> Entry? {
+        let id = ObjectIdentifier(room)
+        if let existing = rooms[id] { return existing }
+        if core == nil {
+            guard let options, let made = Self.makeCore(options) else { return nil }
+            for (key, value) in attributes {
+                made.setAttribute(key: key, value: value?.lowered)
+            }
+            core = made
+            instruments = [DeviceTelemetry(core: made), LoggingTelemetry(core: made)]
+            for instrument in instruments {
+                await instrument.start()
+            }
+        }
+        guard let core else { return nil }
+        let session = core.beginSession()
+        let entry = Entry(session: session, rtc: RTCTelemetry(room: room, session: session))
+        rooms[id] = entry
+        await entry.rtc.start()
+        return entry
     }
 
     // MARK: - Pipeline
 
-    private nonisolated static func makeCore(_ options: TelemetryOptions) -> LiveKitUniFFI.Telemetry? {
+    private static func makeCore(_ options: TelemetryOptions) -> LiveKitUniFFI.Telemetry? {
         let config = TelemetryConfig(
             endpoint: options.endpoint?.absoluteString,
             headers: options.headers,
@@ -181,31 +177,12 @@ public actor Telemetry {
     }
 
     /// `wss://x.livekit.cloud/rtc` → `https://x.livekit.cloud/observability/logs/otlp/v0`.
-    nonisolated static func observabilityEndpoint(for url: URL) -> String? {
+    static func observabilityEndpoint(for url: URL) -> String? {
         guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false), components.host != nil else { return nil }
         components.scheme = (components.scheme == "ws" || components.scheme == "http") ? "http" : "https"
         components.path = "/observability/logs/otlp/v0"
         components.query = nil
         return components.url?.absoluteString
-    }
-
-    // MARK: - Process-level instruments (isolated to this actor)
-
-    @Telemetry private static var instruments: [TelemetryInstrument] = []
-
-    @Telemetry private static func startInstruments(_ core: LiveKitUniFFI.Telemetry) {
-        guard instruments.isEmpty else { return }
-        instruments = [DeviceTelemetry(core: core), LoggingTelemetry(core: core)]
-        for instrument in instruments {
-            instrument.start()
-        }
-    }
-
-    @Telemetry private static func stopInstruments() async {
-        for instrument in instruments {
-            instrument.stop()
-        }
-        instruments = []
     }
 
     // MARK: - Resource

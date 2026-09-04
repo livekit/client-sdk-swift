@@ -149,14 +149,16 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     /// The telemetry trace id of this Room's session (32 hex characters), or `nil` when telemetry
     /// is off. Show it to users or attach it to support tickets: it opens the full client-side
     /// timeline of the call, including connect attempts that never reached a server.
-    public var telemetryTraceId: String? { Telemetry.shared.traceId(for: self) }
+    public var telemetryTraceId: String? {
+        get async { await Telemetry.shared.traceId(for: self) }
+    }
 
     /// Record an app-defined telemetry event alongside the SDK's own, in this Room's session
     /// trace. The name is namespaced under `custom.` (`"checkout.started"` ships as
     /// `custom.checkout.started`); attributes keep their names. A no-op when telemetry is off.
     /// Subject to the same flood guard as SDK events.
     public func emitTelemetryEvent(_ name: String, attributes: [String: SpanAttribute] = [:]) {
-        Telemetry.shared.emit(name, attributes: attributes, from: self)
+        Task { await Telemetry.shared.emit(name, attributes: attributes, from: self) }
     }
 
     var tracer: TelemetryTracer { _state.stage.connection?.tracer ?? .detached }
@@ -304,7 +306,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         super.init()
         // Telemetry starts with the Room, not with connect(): pre-connect work is part of the call.
-        Telemetry.shared.register(self)
+        Task { await Telemetry.shared.register(self) }
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), ffi: \(LiveKitSDK.ffiVersion), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
 
@@ -392,7 +394,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     }
 
     deinit {
-        Telemetry.shared.unregister(self)
+        let id = ObjectIdentifier(self)
+        Task { await Telemetry.shared.unregister(id) }
     }
 
     // swiftlint:disable:next cyclomatic_complexity function_body_length
@@ -407,7 +410,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
 
         log("Connecting to room...", .info)
-        Telemetry.shared.connecting(to: providedUrl, token: token)
+        await Telemetry.shared.connecting(to: providedUrl, token: token)
 
         var state = _state.copy()
 
@@ -436,7 +439,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         // Connection-scoped subsystems (data tracks, the E2EE manager derived from the room
         // options): carried across full reconnects, released on disconnect.
-        let dependencies = ConnectionDependencies(room: self, roomOptions: state.roomOptions)
+        let dependencies = await ConnectionDependencies(room: self, roomOptions: state.roomOptions,
+                                                        tracer: Telemetry.shared.tracer(for: self))
 
         // One connect() = one attempt; reconnect cycles get their own spans.
         let attempt = dependencies.tracer.beginSpan("lk.connect", kind: .client)
@@ -526,7 +530,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                     $0.connectionState = .connected
                 }
 
-                Telemetry.shared.roomDidConnect(self)
+                await Telemetry.shared.roomDidConnect(self)
 
                 connectSpan?.end()
 
