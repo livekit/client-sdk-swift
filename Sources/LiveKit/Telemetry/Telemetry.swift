@@ -145,26 +145,23 @@ public actor Telemetry {
 
     // MARK: - Logs
 
-    /// A warn/error record from the SDK, the Rust core or WebRTC. Captured synchronously where it
-    /// happened — timestamp, ambient span — then filed under that span's session, or the process
-    /// session. Called from `Loggable.log`, `FFILogForwarder` and the WebRTC log sink; never by apps.
-    nonisolated static func log(_ message: String, level: LogLevel, source: LogSource, type: String,
-                                function: String, file: String, line: UInt)
-    {
-        let ambient = Span.current
+    /// A warn/error record from the SDK, the Rust core or WebRTC, as `LogHub` captured it where it
+    /// happened; filed under the ambient span's session, or the process session.
+    nonisolated static func log(_ record: LogRecord) {
         var attributes: [LiveKitUniFFI.Attribute] = [
-            .init(key: "lk.log.type", value: .str(type)),
-            .init(key: "lk.log.source", value: .str(source.rawValue)),
+            .init(key: "lk.log.type", value: .str(record.category)),
+            .init(key: "lk.log.source", value: .str(record.source.rawValue)),
         ]
+        let function = "\(record.function)", file = record.path.isEmpty ? "\(record.file)" : record.path
         if !function.isEmpty { attributes.append(.init(key: "code.function", value: .str(function))) }
         if !file.isEmpty { attributes.append(.init(key: "code.file.path", value: .str(file))) }
-        if line > 0 { attributes.append(.init(key: "code.line.number", value: .int(Int64(line)))) }
+        if record.line > 0 { attributes.append(.init(key: "code.line.number", value: .int(Int64(record.line)))) }
         let event = TelemetryEvent(name: "",
-                                   severity: level == .error ? .error : .warn,
-                                   body: message,
+                                   severity: record.level == .error ? .error : .warn,
+                                   body: record.message,
                                    attributes: attributes,
-                                   timestampNs: UInt64(Date().timeIntervalSince1970 * 1e9),
-                                   spanId: (ambient?.isEnded == false) ? ambient?.context?.spanId : nil)
+                                   timestampNs: record.timestampNs,
+                                   spanId: record.span?.spanId)
         Task { await shared.receive(event) }
     }
 
@@ -204,11 +201,11 @@ public actor Telemetry {
         return entry
     }
 
-    /// Warn/error logs from the Rust core and from WebRTC: the same process-wide forwarders the
-    /// console logger uses (see `LogForwarders`), which deliver warn/error to `Telemetry.log`.
+    /// Warn/error logs from the Rust core and from WebRTC, through the same `LogHub` the console
+    /// uses (see `LogSources`): each source is captured once, per process.
     private func startLogCapture() {
-        LogForwarders.ffi.start(minLevel: .warning)
-        LogForwarders.rtc.start(minLevel: .warning)
+        LogSources.ffi.enableTelemetry()
+        LogSources.rtc.enableTelemetry()
     }
 
     // MARK: - Pipeline

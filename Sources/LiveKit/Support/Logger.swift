@@ -124,13 +124,9 @@ open class OSLogger: Logger, @unchecked Sendable {
     public init(minLevel: LogLevel = .info, rtc: Bool = false, ffi: Bool = true) {
         self.minLevel = minLevel
 
-        if rtc {
-            startRTCLogForwarding(minLevel: minLevel)
-        }
-
-        if ffi {
-            startFFILogForwarding(minLevel: minLevel)
-        }
+        // External sources arrive through `log(...)` like any other record, typed `WebRTCLog` / `FFILog`.
+        if rtc { LogSources.rtc.enable(console: minLevel) }
+        if ffi { LogSources.ffi.enable(console: minLevel) }
     }
 
     // swiftlint:disable:next function_parameter_count
@@ -171,20 +167,6 @@ open class OSLogger: Logger, @unchecked Sendable {
             os_log("%{public}@", log: getOSLog(for: type), type: level.osLogType, "\(type).\(function) \(message)\(metadata)")
         }
     }
-
-    private func startRTCLogForwarding(minLevel: LogLevel) {
-        let rtcLog = OSLog(subsystem: Self.subsystem, category: "WebRTC")
-        LogForwarders.rtc.start(minLevel: minLevel) { entry in
-            os_log("%{public}@", log: rtcLog, type: entry.severity.osLogType, entry.message)
-        }
-    }
-
-    private func startFFILogForwarding(minLevel: LogLevel) {
-        let ffiLog = OSLog(subsystem: Self.subsystem, category: "FFI")
-        LogForwarders.ffi.start(minLevel: minLevel) { entry in
-            os_log("%{public}@", log: ffiLog, type: entry.level.osLogType, "\(entry.target) \(entry.message)")
-        }
-    }
 }
 
 // MARK: - Loggable
@@ -212,127 +194,164 @@ extension Loggable {
                     function: StaticString = #function,
                     line: UInt = #line)
     {
-        // Telemetry first, so the app's logger cannot take its place. Warn/error only leave the
-        // device (design doc); captured here synchronously — timestamp, ambient span — then handed over.
-        if level >= .warning {
-            Telemetry.log(message?.description ?? "", level: level, source: .sdk,
-                          type: String(describing: Self.self), function: "\(function)", file: "\(file)", line: line)
-        }
-        sharedLogger.log(message ?? "",
-                         level,
-                         file: file,
-                         type: Self.self,
-                         function: function,
-                         line: line)
+        LogHub.emit(LogRecord(level: level, source: .sdk, type: Self.self, function: function, file: file, line: line,
+                              message: message?.description ?? ""))
     }
 }
 
-// MARK: - External log sources
+// MARK: - Log hub
 
-/// A log source outside the SDK's own logger — the Rust core, WebRTC — with a single subscription
-/// per process: drained once and fanned out to the console handlers that registered and, at
-/// warn/error, to telemetry. Started by whoever needs it first (`OSLogger`, or telemetry when the
-/// app uses its own logger), at the lowest level asked for.
-final class LogForwarder<Entry: Sendable>: @unchecked Sendable {
-    typealias Handler = @Sendable (Entry) -> Void
+/// Records that did not originate in Swift carry these as their `type`, so loggers can tell.
+enum FFILog {}
+enum WebRTCLog {}
 
-    /// The parts of an entry telemetry records.
-    struct Record {
-        let level: LogLevel
-        let message: String
-        let type: String
-        let file: String
-        let line: UInt
+/// One log line as a value — the record every destination receives (swift-otel's `OTelLogRecord`
+/// shape). Captured where the log happened: level, origin, code location, the message, and the
+/// ambient span so console and telemetry correlate.
+struct LogRecord: Sendable {
+    let level: LogLevel
+    let source: Telemetry.LogSource
+    /// The Swift type that logged, or a marker (`FFILog`, `WebRTCLog`) for external sources.
+    let type: Any.Type
+    /// Rust target / WebRTC / the Swift type name — what telemetry files under `lk.log.type`.
+    let category: String
+    let function: StaticString
+    let file: StaticString
+    let line: UInt
+    /// Source path for external records (the Rust file); `file` is the SDK's `#fileID`.
+    let path: String
+    let message: String
+    let timestampNs: UInt64
+    /// The span the emitting task runs in, if any and still open.
+    let span: SpanContext?
+
+    init(level: LogLevel, source: Telemetry.LogSource, type: Any.Type, category: String? = nil,
+         function: StaticString = "", file: StaticString = "", line: UInt = 0, path: String = "", message: String)
+    {
+        self.level = level
+        self.source = source
+        self.type = type
+        self.category = category ?? String(describing: type)
+        self.function = function
+        self.file = file
+        self.line = line
+        self.path = path
+        self.message = message
+        timestampNs = UInt64(Date().timeIntervalSince1970 * 1e9)
+        let ambient = Span.current
+        span = (ambient?.isEnded == false) ? ambient?.context : nil
     }
+}
 
+/// Every log line the SDK produces or captures — its own `Loggable.log` calls, the Rust core's,
+/// WebRTC's — passes through here once and goes two ways: to the app's ``Logger``, which filters
+/// by its own level, and, at warn/error, to telemetry, whose threshold is fixed. Neither side
+/// learns the other's level (swift-log's `MultiplexLogHandler`, Datadog's console format vs
+/// `remoteLogThreshold`). The ambient span travels with the record to both, the way swift-log's
+/// `MetadataProvider` attaches trace context: console lines and telemetry records correlate.
+/// External sources are captured only while someone asked (``LogSources``), and the console sees
+/// them from the level it asked for.
+enum LogHub {
+    static func emit(_ record: LogRecord) {
+        // The core's own warnings ("cannot cache", "batch rejected") stay out of telemetry: a rejected
+        // batch that produced a record that produced a batch would never end.
+        if record.level >= .warning, !(record.source == .ffi && record.category.hasPrefix("livekit_telemetry")) {
+            Telemetry.log(record)
+        }
+        if record.source == .sdk || LogSources.consoleLevel(record.source).map({ record.level >= $0 }) == true {
+            var metaData = ScopedMetadataContainer()
+            if let span = record.span {
+                metaData["lk.trace_id"] = span.traceId
+                metaData["lk.span_id"] = String(span.spanId, radix: 16)
+            }
+            sharedLogger.log(record.message, record.level, file: record.file, type: record.type,
+                             function: record.function, line: record.line, metaData: metaData)
+        }
+    }
+}
+
+/// An external log source — the Rust core, WebRTC — with one subscription per process. Runs at the
+/// lowest level any consumer asked for; ``LogHub`` filters per consumer.
+final class LogSource: @unchecked Sendable {
     private struct State {
-        var level: LogLevel?
-        var handlers: [Handler] = []
+        var console: LogLevel?
+        var telemetry = false
+        var running: LogLevel?
     }
 
     private let state = StateSync(State())
-    private let source: Telemetry.LogSource
-    /// Begin producing entries at a level, delivering each through the closure. Called once.
-    private let begin: @Sendable (LogLevel, @escaping Handler) -> Void
-    /// Lower the level of a running source.
+    private let begin: @Sendable (LogLevel) -> Void
     private let adjust: @Sendable (LogLevel) -> Void
-    private let record: @Sendable (Entry) -> Record
 
-    init(source: Telemetry.LogSource,
-         begin: @escaping @Sendable (LogLevel, @escaping Handler) -> Void,
-         adjust: @escaping @Sendable (LogLevel) -> Void,
-         record: @escaping @Sendable (Entry) -> Record)
-    {
-        self.source = source
+    init(begin: @escaping @Sendable (LogLevel) -> Void, adjust: @escaping @Sendable (LogLevel) -> Void) {
         self.begin = begin
         self.adjust = adjust
-        self.record = record
     }
 
-    func start(minLevel: LogLevel, handler: Handler? = nil) {
-        let (previous, lower) = state.mutate { state -> (LogLevel?, Bool) in
-            if let handler { state.handlers.append(handler) }
-            let previous = state.level
-            let lower = previous.map { minLevel < $0 } ?? true
-            if lower { state.level = minLevel }
-            return (previous, lower)
-        }
-        if previous == nil {
-            begin(minLevel) { [self] entry in deliver(entry) }
-        } else if lower {
-            adjust(minLevel)
-        }
+    /// The level the console asked for; `nil` means the console gets nothing from this source.
+    var consoleLevel: LogLevel? { state.copy().console }
+
+    /// The console (the app's logger) wants this source from `level` up.
+    func enable(console level: LogLevel) {
+        request { $0.console = min($0.console ?? level, level) }
     }
 
-    private func deliver(_ entry: Entry) {
-        for handler in state.copy().handlers {
-            handler(entry)
+    /// Telemetry wants warn/error from this source.
+    func enableTelemetry() {
+        request { $0.telemetry = true }
+    }
+
+    private func request(_ change: (inout State) -> Void) {
+        let (was, now) = state.mutate { state -> (LogLevel?, LogLevel?) in
+            change(&state)
+            let wanted = [state.console, state.telemetry ? LogLevel.warning : nil].compactMap(\.self).min()
+            let was = state.running
+            if let wanted, was.map({ wanted < $0 }) ?? true { state.running = wanted }
+            return (was, state.running)
         }
-        let record = record(entry)
-        if record.level >= .warning {
-            Telemetry.log(record.message, level: record.level, source: source,
-                          type: record.type, function: "", file: record.file, line: record.line)
-        }
+        guard let now, now != was else { return }
+        was == nil ? begin(now) : adjust(now)
     }
 }
 
-enum LogForwarders {
+enum LogSources {
     /// The Rust core: `logForwardReceive` has one consumer.
-    static let ffi = LogForwarder<LogForwardEntry>(
-        source: .ffi,
-        begin: { level, deliver in
+    static let ffi = LogSource(
+        begin: { level in
             logForwardBootstrap(level: level.logForwardFilter)
             Task(priority: .utility) {
                 while let entry = await logForwardReceive() {
-                    deliver(entry)
+                    LogHub.emit(LogRecord(level: LogLevel(entry.level), source: .ffi, type: FFILog.self, category: entry.target,
+                                          line: entry.line.map { UInt($0) } ?? 0, path: entry.file ?? "",
+                                          message: "\(entry.target) \(entry.message)"))
                 }
             }
         },
         adjust: { logForwardBootstrap(level: $0.logForwardFilter) },
-        record: { entry in
-            .init(level: entry.level == .error ? .error : entry.level == .warn ? .warning : .debug,
-                  message: "\(entry.target) \(entry.message)", type: entry.target,
-                  file: entry.file ?? "", line: entry.line.map { UInt($0) } ?? 0)
-        },
     )
 
     /// WebRTC: one callback logger for the process.
-    static let rtc: LogForwarder<(message: String, severity: LKRTCLoggingSeverity)> = {
+    static let rtc: LogSource = {
         let logger = LKRTCCallbackLogger()
-        return LogForwarder(
-            source: .webrtc,
-            begin: { level, deliver in
+        return LogSource(
+            begin: { level in
                 logger.severity = level.rtcSeverity
-                logger.start { message, severity in deliver((message, severity)) }
+                logger.start { message, severity in
+                    LogHub.emit(LogRecord(level: LogLevel(severity), source: .webrtc, type: WebRTCLog.self, category: "WebRTC",
+                                          message: message.trimmingCharacters(in: .whitespacesAndNewlines)))
+                }
             },
             adjust: { logger.severity = $0.rtcSeverity },
-            record: { entry in
-                .init(level: entry.severity == .error ? .error : entry.severity == .warning ? .warning : .debug,
-                      message: entry.message.trimmingCharacters(in: .whitespacesAndNewlines), type: "WebRTC",
-                      file: "", line: 0)
-            },
         )
     }()
+
+    static func consoleLevel(_ source: Telemetry.LogSource) -> LogLevel? {
+        switch source {
+        case .ffi: ffi.consoleLevel
+        case .webrtc: rtc.consoleLevel
+        case .sdk: .debug
+        }
+    }
 }
 
 // MARK: - Level
@@ -384,6 +403,27 @@ public enum LogLevel: Int, Sendable, Comparable, CustomStringConvertible {
         case .info: "Info"
         case .warning: "Warning"
         case .error: "Error"
+        }
+    }
+}
+
+extension LogLevel {
+    init(_ level: LogForwardLevel) {
+        self = switch level {
+        case .error: .error
+        case .warn: .warning
+        case .info: .info
+        case .debug, .trace: .debug
+        }
+    }
+
+    init(_ severity: LKRTCLoggingSeverity) {
+        self = switch severity {
+        case .error: .error
+        case .warning: .warning
+        case .info: .info
+        case .verbose, .none: .debug
+        @unknown default: .debug
         }
     }
 }
