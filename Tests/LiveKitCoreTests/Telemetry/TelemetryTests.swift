@@ -87,6 +87,11 @@ struct TelemetryTests {
         for event in ["lk.device.thermal.changed", "lk.device.memory.changed", "lk.device.network.changed"] {
             #expect(logs.contains { $0.eventName == event }, "\(event) initial value reached the collector")
         }
+        // The rule: nothing leaves the device as an empty line, and no info-level log record leaves at all.
+        #expect(logs.allSatisfy { !($0.body ?? "").isEmpty }, "every record has a body")
+        #expect(logs.filter(\.eventName.isEmpty).allSatisfy { $0.severity >= 13 }, "log records are warn/error only")
+        #expect(logs.filter { !$0.eventName.isEmpty }.allSatisfy { $0.attributes["otel.event.name"] == $0.eventName },
+                "events carry otel.event.name for backends without EventName")
         let tenant = Set(logs.filter { $0.attributes["acme.tenant"] == marker }.map(\.traceId))
         #expect(tenant.isSuperset(of: traceIds), "the pipeline-wide attribute reaches every session: \(tenant)")
 
@@ -103,6 +108,7 @@ struct OTLPFile {
         let eventName: String
         let body: String?
         let traceId: String
+        let severity: Int
         let attributes: [String: String]
     }
 
@@ -126,6 +132,7 @@ struct OTLPFile {
                         logs.append(Log(eventName: record["eventName"] as? String ?? "",
                                         body: (record["body"] as? [String: Any])?["stringValue"] as? String,
                                         traceId: record["traceId"] as? String ?? "",
+                                        severity: record["severityNumber"] as? Int ?? 0,
                                         attributes: Self.attributes(record["attributes"])))
                     }
                 }

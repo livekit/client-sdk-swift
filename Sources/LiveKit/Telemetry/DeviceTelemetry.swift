@@ -60,10 +60,9 @@ final class DeviceTelemetry: TelemetryInstrument, Loggable {
         }
         Task { @MainActor in AppStateListener.shared.delegates.add(delegate: self) }
         observeMemory()
-        observeNetwork()
+        observeNetwork() // its first update, immediate on start, pushes the first device state
         observeBattery()
         observeAudioSession()
-        pushDeviceState()
     }
 
     func stop() {
@@ -123,8 +122,8 @@ final class DeviceTelemetry: TelemetryInstrument, Loggable {
     /// Path type plus the two flags that matter for traffic: expensive (cellular/hotspot) and
     /// constrained (Low Data Mode — the user asked for less).
     private func observeNetwork() {
-        // Seed from the current path so the first state is not a spurious `unknown`.
-        record(pathMonitor.currentPath)
+        // No seed: on iOS `currentPath` reads `unavailable` before the monitor starts, and the
+        // monitor delivers the real path immediately on start.
         pathMonitor.pathUpdateHandler = { [weak self] path in
             Task { @Telemetry in
                 guard let self else { return }
@@ -178,22 +177,22 @@ final class DeviceTelemetry: TelemetryInstrument, Loggable {
             let reason = (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt)
                 .flatMap(AVAudioSession.RouteChangeReason.init(rawValue:)) ?? .unknown
             let outputs = AVAudioSession.sharedInstance().currentRoute.outputs.map(\.portType.rawValue).joined(separator: ",")
-            self?.emit("lk.device.audio_route.changed", [
+            self?.emit("lk.device.audio_route.changed", body: "audio route: \(outputs) (\(Self.name(reason)))", [
                 .init(key: "lk.device.audio_route.reason", value: .str(Self.name(reason))),
                 .init(key: "lk.device.audio_route.outputs", value: .str(outputs)),
             ])
         })
         notificationTokens.append(center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: nil) { [weak self] note in
             let began = (note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt) == AVAudioSession.InterruptionType.began.rawValue
-            self?.emit("lk.device.audio.interruption", [
+            self?.emit("lk.device.audio.interruption", body: "audio interruption \(began ? "began" : "ended")", [
                 .init(key: "lk.device.audio.interruption", value: .str(began ? "began" : "ended")),
             ])
         })
         #endif
     }
 
-    private nonisolated func emit(_ name: String, _ attributes: [LiveKitUniFFI.Attribute]) {
-        core.emit(event: TelemetryEvent(name: name, severity: .info, body: nil, attributes: attributes, spanId: nil))
+    private nonisolated func emit(_ name: String, body: String, _ attributes: [LiveKitUniFFI.Attribute]) {
+        core.emit(event: TelemetryEvent(name: name, severity: .info, body: body, attributes: attributes, spanId: nil))
     }
 
     #if os(iOS) || os(tvOS) || os(visionOS)

@@ -36,6 +36,9 @@ public final class TelemetryOptions: NSObject, Sendable {
     public let statsWindow: TimeInterval
     /// Which instruments run; all by default. App-defined events and session identity are always on.
     public let instruments: TelemetryInstruments
+    /// Lowest log level that leaves the device (design doc: warnings and errors). Events are not
+    /// logs and are not subject to it; WebRTC's own logs go from `.error` regardless.
+    public let logLevel: LogLevel
 
     /// `Caches/livekit-telemetry`: purgeable and excluded from backups — the right class for telemetry.
     public static var defaultStorageDirectory: URL? {
@@ -48,7 +51,8 @@ public final class TelemetryOptions: NSObject, Sendable {
                 storageDirectory: URL? = TelemetryOptions.defaultStorageDirectory,
                 flushInterval: TimeInterval = 15,
                 statsWindow: TimeInterval = 15,
-                instruments: TelemetryInstruments = .all)
+                instruments: TelemetryInstruments = .all,
+                logLevel: LogLevel = .warning)
     {
         self.endpoint = endpoint
         self.headers = headers
@@ -56,6 +60,7 @@ public final class TelemetryOptions: NSObject, Sendable {
         self.flushInterval = flushInterval
         self.statsWindow = statsWindow
         self.instruments = instruments
+        self.logLevel = logLevel
     }
 
     // MARK: - Equal
@@ -67,7 +72,8 @@ public final class TelemetryOptions: NSObject, Sendable {
             storageDirectory == other.storageDirectory &&
             flushInterval == other.flushInterval &&
             statsWindow == other.statsWindow &&
-            instruments == other.instruments
+            instruments == other.instruments &&
+            logLevel == other.logLevel
     }
 
     override public var hash: Int {
@@ -78,6 +84,7 @@ public final class TelemetryOptions: NSObject, Sendable {
         hasher.combine(flushInterval)
         hasher.combine(statsWindow)
         hasher.combine(instruments.rawValue)
+        hasher.combine(logLevel)
         return hasher.finalize()
     }
 }

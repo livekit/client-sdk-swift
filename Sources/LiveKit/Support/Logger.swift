@@ -252,10 +252,23 @@ struct LogRecord: Sendable {
 /// External sources are captured only while someone asked (``LogSources``), and the console sees
 /// them from the level it asked for.
 enum LogHub {
+    /// The configured threshold (`TelemetryOptions.logLevel`, default warning), set by `Telemetry`.
+    static let level = StateSync<LogLevel>(.warning)
+
+    /// What leaves the device: the configured level for the SDK and the Rust core; errors only from
+    /// WebRTC, whose "warnings" are internal chatter (duplicate codecs, disabled field trials, RTCP
+    /// timeouts — 60 of 77 records in one call) that would eat the flood budget and say nothing the
+    /// stats don't.
+    static func telemetryLevel(for source: Telemetry.LogSource) -> LogLevel {
+        source == .webrtc ? max(level.copy(), .error) : level.copy()
+    }
+
     static func emit(_ record: LogRecord) {
         // The core's own warnings ("cannot cache", "batch rejected") stay out of telemetry: a rejected
         // batch that produced a record that produced a batch would never end.
-        if record.level >= .warning, !(record.source == .ffi && record.category.hasPrefix("livekit_telemetry")) {
+        if record.level >= telemetryLevel(for: record.source),
+           !(record.source == .ffi && record.category.hasPrefix("livekit_telemetry"))
+        {
             Telemetry.log(record)
         }
         if record.source == .sdk || LogSources.consoleLevel(record.source).map({ record.level >= $0 }) == true {
@@ -275,7 +288,7 @@ enum LogHub {
 final class LogSource: @unchecked Sendable {
     private struct State {
         var console: LogLevel?
-        var telemetry = false
+        var telemetry: LogLevel?
         var running: LogLevel?
     }
 
@@ -296,15 +309,15 @@ final class LogSource: @unchecked Sendable {
         request { $0.console = min($0.console ?? level, level) }
     }
 
-    /// Telemetry wants warn/error from this source.
-    func enableTelemetry() {
-        request { $0.telemetry = true }
+    /// Telemetry wants this source from `level` up (see `LogHub.telemetryLevel(for:)`).
+    func enableTelemetry(level: LogLevel) {
+        request { $0.telemetry = level }
     }
 
     private func request(_ change: (inout State) -> Void) {
         let (was, now) = state.mutate { state -> (LogLevel?, LogLevel?) in
             change(&state)
-            let wanted = [state.console, state.telemetry ? LogLevel.warning : nil].compactMap(\.self).min()
+            let wanted = [state.console, state.telemetry].compactMap(\.self).min()
             let was = state.running
             if let wanted, was.map({ wanted < $0 }) ?? true { state.running = wanted }
             return (was, state.running)

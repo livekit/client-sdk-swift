@@ -52,6 +52,7 @@ public actor Telemetry {
     /// it; afterwards the destination and headers apply at once, the cadence knobs on next launch.
     public func configure(_ options: TelemetryOptions?) async {
         self.options = options
+        LogHub.level.mutate { $0 = options?.logLevel ?? .warning }
         guard let options else {
             await stop()
             return
@@ -204,8 +205,8 @@ public actor Telemetry {
     /// Warn/error logs from the Rust core and from WebRTC, through the same `LogHub` the console
     /// uses (see `LogSources`): each source is captured once, per process.
     private func startLogCapture() {
-        LogSources.ffi.enableTelemetry()
-        LogSources.rtc.enableTelemetry()
+        LogSources.ffi.enableTelemetry(level: LogHub.telemetryLevel(for: .ffi))
+        LogSources.rtc.enableTelemetry(level: LogHub.telemetryLevel(for: .webrtc))
     }
 
     // MARK: - Pipeline
@@ -218,6 +219,7 @@ public actor Telemetry {
             storageDir: options.storageDirectory?.path,
             flushIntervalMs: UInt64(max(0, options.flushInterval) * 1000),
             statsWindowMs: UInt64(max(0, options.statsWindow) * 1000),
+            logSeverity: options.logLevel == .error ? .error : options.logLevel == .warning ? .warn : options.logLevel == .info ? .info : .debug,
         )
         // Fail-open: the app runs without telemetry rather than not at all.
         return try? LiveKitUniFFI.Telemetry(config: config, transport: URLSessionTelemetryTransport())
