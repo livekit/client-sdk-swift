@@ -62,7 +62,13 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
 
     /// Use a single peer connection for both publishing and subscribing.
     ///
-    /// - Note: Requires LiveKit Cloud or LiveKit OSS >= 1.9.2.
+    /// Defaults to `true`, matching client-sdk-js and rust-sdks. One connection means one ICE and
+    /// DTLS handshake instead of two, and it is the only mode that can carry the publisher offer
+    /// in the JOIN request — which removes an offer/answer round trip from the connect path.
+    ///
+    /// - Note: Requires LiveKit Cloud or LiveKit OSS >= 1.9.2. Against an older server the SDK
+    ///   falls back to the legacy dual peer connection path automatically, so setting this has no
+    ///   effect there beyond one extra failed request.
     public let singlePeerConnection: Bool
 
     override public init() {
@@ -79,7 +85,7 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
         e2eeOptions = nil
         encryptionOptions = nil
         reportRemoteTrackStatistics = false
-        singlePeerConnection = false
+        singlePeerConnection = true
     }
 
     public init(defaultCameraCaptureOptions: CameraCaptureOptions = CameraCaptureOptions(),
@@ -95,7 +101,7 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
                 e2eeOptions: E2EEOptions? = nil,
                 encryptionOptions: EncryptionOptions? = nil,
                 reportRemoteTrackStatistics: Bool = false,
-                singlePeerConnection: Bool = false)
+                singlePeerConnection: Bool = true)
     {
         self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
         self.defaultScreenShareCaptureOptions = defaultScreenShareCaptureOptions
