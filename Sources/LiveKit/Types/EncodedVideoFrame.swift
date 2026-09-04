@@ -55,7 +55,8 @@ public struct EncodedVideoFrame: Sendable {
     /// Resolution of the encoded frame.
     public let dimensions: Dimensions
 
-    /// RTP timestamp in 90kHz clock, typically derived from the source frame's `timeStampNs`.
+    /// RTP timestamp in the 90kHz clock, which must be copied from the source
+    /// ``VideoFrame/rtpTimestamp`` and not derived from `timeStampNs`.
     public let rtpTimestamp: UInt32
 
     /// Capture time in milliseconds.

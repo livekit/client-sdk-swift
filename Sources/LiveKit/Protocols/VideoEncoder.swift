@@ -81,7 +81,8 @@ public protocol VideoEncoder: Sendable {
     func startEncode(with settings: VideoEncoderSettings, numberOfCores: Int) -> VideoEncoderStatus
 
     /// Encodes a single frame. Deliver the result asynchronously via the callback
-    /// set in ``setCallback(_:)``.
+    /// set in ``setCallback(_:)``. The encoded output must carry the frame's
+    /// ``VideoFrame/rtpTimestamp``.
     /// - Parameter frameTypes: Requested frame types, one entry per stream. A `.key`
     ///   entry requests a key frame.
     func encode(_ frame: VideoFrame, frameTypes: [EncodedVideoFrame.FrameType]) -> VideoEncoderStatus

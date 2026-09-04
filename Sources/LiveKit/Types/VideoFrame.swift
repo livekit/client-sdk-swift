@@ -78,10 +78,17 @@ public class VideoFrame: NSObject, @unchecked Sendable {
     public let dimensions: Dimensions
     public let rotation: VideoRotation
     public let timeStampNs: Int64
+
+    /// The RTP timestamp of this frame in the 90kHz clock used on the wire.
+    ///
+    /// Assigned by the transport, and distinct from ``timeStampNs``, which is a
+    /// capture time in nanoseconds. It is populated for frames handed to a
+    /// ``VideoEncoder``, and is 0 for frames the application creates itself.
+    public let rtpTimestamp: UInt32
+
     public let buffer: VideoBuffer
 
-    // TODO: Implement
-
+    /// Creates a frame without an RTP timestamp, which is set to 0.
     public init(dimensions: Dimensions,
                 rotation: VideoRotation,
                 timeStampNs: Int64,
@@ -90,6 +97,21 @@ public class VideoFrame: NSObject, @unchecked Sendable {
         self.dimensions = dimensions
         self.rotation = rotation
         self.timeStampNs = timeStampNs
+        rtpTimestamp = 0
+        self.buffer = buffer
+    }
+
+    /// Creates a frame, carrying the RTP timestamp of the stream it belongs to.
+    public init(dimensions: Dimensions,
+                rotation: VideoRotation,
+                timeStampNs: Int64,
+                rtpTimestamp: UInt32,
+                buffer: VideoBuffer)
+    {
+        self.dimensions = dimensions
+        self.rotation = rotation
+        self.timeStampNs = timeStampNs
+        self.rtpTimestamp = rtpTimestamp
         self.buffer = buffer
     }
 }
@@ -110,6 +132,7 @@ extension LKRTCVideoFrame: Loggable {
         return VideoFrame(dimensions: Dimensions(width: width, height: height),
                           rotation: rotation.toLKType(),
                           timeStampNs: timeStampNs,
+                          rtpTimestamp: UInt32(bitPattern: timeStamp),
                           buffer: lkBuffer)
     }
 }
@@ -119,9 +142,11 @@ extension VideoFrame {
         // This should never happen
         guard let buffer = buffer as? RTCCompatibleVideoBuffer else { fatalError("Buffer must be a RTCCompatibleVideoBuffer") }
 
-        return LKRTCVideoFrame(buffer: buffer.toRTCType(),
-                               rotation: rotation.toRTCType(),
-                               timeStampNs: timeStampNs)
+        let rtcFrame = LKRTCVideoFrame(buffer: buffer.toRTCType(),
+                                       rotation: rotation.toRTCType(),
+                                       timeStampNs: timeStampNs)
+        rtcFrame.timeStamp = Int32(bitPattern: rtpTimestamp)
+        return rtcFrame
     }
 }
 
