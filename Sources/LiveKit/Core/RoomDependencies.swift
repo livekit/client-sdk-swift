@@ -58,6 +58,93 @@ extension ConnectionDependencies: Equatable {
     static func == (lhs: ConnectionDependencies, rhs: ConnectionDependencies) -> Bool { lhs === rhs }
 }
 
+// MARK: - Early publisher
+
+/// A publisher peer connection built *before* the signal socket opens, so its offer can be
+/// bundled with the JOIN request and the WebRTC cold start (SSL init, peer connection factory,
+/// audio device module) overlaps the TLS/WebSocket handshake instead of following it.
+///
+/// Deliberately not a stage payload: it is owned lexically by the connect sequence, which either
+/// hands it to ``JoinDependencies/make(room:connection:joinResponse:rtcConfiguration:singlePeerConnection:earlyPublisher:)``
+/// or closes it. So the stage invariant still holds — staged transports exist if and only if the
+/// stage is `.connected`. Mirrors the `early_publisher_pc` local in rust-sdks' `RtcSession::connect`.
+struct EarlyPublisher: Sendable {
+    let transport: Transport
+    let dataChannels: PublisherDataChannels
+
+    /// The offer to bundle with the JOIN request, or `nil` when it could not be produced.
+    /// Absent means "negotiate the ordinary way", never a failed connect.
+    let offer: Livekit_SessionDescription?
+
+    /// Builds the transport, its data channels, and the deferred initial offer.
+    ///
+    /// Only ever called for single PC mode, where the publisher is primary — so the
+    /// configuration passed here carries the client-side settings only, and the server's ICE
+    /// servers are installed later by `JoinDependencies.make`.
+    static func make(room: Room, rtcConfiguration: LKRTCConfiguration) async throws -> EarlyPublisher {
+        let transport = try await Transport(config: rtcConfiguration,
+                                            target: .publisher,
+                                            primary: true,
+                                            singlePCMode: true,
+                                            delegate: room)
+
+        // Created before the offer so its `m=application` section is negotiated by the JOIN
+        // exchange rather than costing a second one.
+        let dataChannels = await PublisherDataChannels.make(on: transport)
+
+        do {
+            let initialOffer = try await transport.createInitialOffer()
+            return EarlyPublisher(transport: transport,
+                                  dataChannels: dataChannels,
+                                  offer: initialOffer.map { $0.offer.toPBType(offerId: $0.offerId) })
+        } catch {
+            // A failed offer is recoverable: drop it and let the transport negotiate normally
+            // once the JOIN response arrives.
+            room.log("Failed to create the initial publisher offer, falling back to negotiation after JOIN: \(error)", .warning)
+            await transport.clearPendingInitialOffer()
+            return EarlyPublisher(transport: transport, dataChannels: dataChannels, offer: nil)
+        }
+    }
+
+    func close() async {
+        await transport.close()
+    }
+}
+
+/// The publisher's three outbound data channels, created together so both the early and the
+/// post-JOIN publisher paths negotiate the same layout.
+struct PublisherDataChannels: Sendable {
+    let reliable: LKRTCDataChannel?
+    let lossy: LKRTCDataChannel?
+    let dataTrack: LKRTCDataChannel?
+
+    static func make(on transport: Transport) async -> PublisherDataChannels {
+        // data over pub channel for backwards compatibility
+        let reliable = await transport.dataChannel(for: LKRTCDataChannel.Labels.reliable,
+                                                   configuration: RTC.createDataChannelConfiguration())
+
+        let lossy = await transport.dataChannel(for: LKRTCDataChannel.Labels.lossy,
+                                                configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
+
+        // Data track channel (unordered, unreliable — DTP handles its own sequencing).
+        let dataTrack = await transport.dataChannel(for: LKRTCDataChannel.Labels.dataTrack,
+                                                    configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
+
+        return PublisherDataChannels(reliable: reliable, lossy: lossy, dataTrack: dataTrack)
+    }
+
+    /// Hands the channels to the room's pairs and to the connection-scoped data track subsystem.
+    func install(room: Room, connection: ConnectionDependencies) {
+        room.publisherDataChannel.set(reliable: reliable)
+        room.publisherDataChannel.set(lossy: lossy)
+        if let dataTrack { connection.dataTracks.setPublisherChannel(dataTrack) }
+
+        room.log("dataChannel.\(String(describing: reliable?.label)) : \(String(describing: reliable?.channelId))")
+        room.log("dataChannel.\(String(describing: lossy?.label)) : \(String(describing: lossy?.channelId))")
+        room.log("dataChannel.\(String(describing: dataTrack?.label)) : \(String(describing: dataTrack?.channelId))")
+    }
+}
+
 // MARK: - Join dependencies
 
 /// Subsystems scoped to one server JOIN: created from a JOIN response, retired on full reconnect
@@ -78,22 +165,39 @@ final class JoinDependencies: Sendable {
 
     /// Builds the join-tier graph from a JOIN response: transports, their data channels, and the
     /// hand-off of the data track channel to the connection-scoped subsystem.
+    /// - Parameter earlyPublisher: A publisher built before the socket opened, whose offer was
+    ///   bundled with this JOIN. Adopted rather than rebuilt; the server's ICE servers are
+    ///   installed onto it here, which is what releases its deferred initial offer for
+    ///   application when the answer lands. Must be `nil` unless `singlePeerConnection`.
     static func make(room: Room,
                      connection: ConnectionDependencies,
                      joinResponse: Livekit_JoinResponse,
                      rtcConfiguration: LKRTCConfiguration,
-                     singlePeerConnection: Bool) async throws -> JoinDependencies
+                     singlePeerConnection: Bool,
+                     earlyPublisher: EarlyPublisher? = nil) async throws -> JoinDependencies
     {
         let isSinglePC = singlePeerConnection
         let isSubscriberPrimary = isSinglePC ? false : joinResponse.subscriberPrimary
         room.log("subscriberPrimary: \(isSubscriberPrimary), singlePeerConnection: \(isSinglePC)")
 
-        // Publisher always created; is primary in single PC mode
-        let publisher = try await Transport(config: rtcConfiguration,
+        let publisher: Transport
+        let dataChannels: PublisherDataChannels
+
+        if let earlyPublisher {
+            publisher = earlyPublisher.transport
+            dataChannels = earlyPublisher.dataChannels
+            // The early publisher only had the client-side configuration, so ICE gathering has
+            // not started yet. This installs the server's ICE servers first.
+            try await publisher.set(configuration: rtcConfiguration)
+        } else {
+            // Publisher always created; is primary in single PC mode
+            publisher = try await Transport(config: rtcConfiguration,
                                             target: .publisher,
                                             primary: isSinglePC || !isSubscriberPrimary,
                                             singlePCMode: isSinglePC,
                                             delegate: room)
+            dataChannels = await PublisherDataChannels.make(on: publisher)
+        }
 
         await publisher.set { [weak room] offer, offerId in
             guard let room else { return }
@@ -102,25 +206,7 @@ final class JoinDependencies: Sendable {
             room.connectSpan?.record("offer_sent")
         }
 
-        // data over pub channel for backwards compatibility
-
-        let reliableDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.reliable,
-                                                              configuration: RTC.createDataChannelConfiguration())
-
-        let lossyDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.lossy,
-                                                           configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
-
-        room.publisherDataChannel.set(reliable: reliableDataChannel)
-        room.publisherDataChannel.set(lossy: lossyDataChannel)
-
-        // Data track channel (unordered, unreliable — DTP handles its own sequencing).
-        let dataTrackChannel = await publisher.dataChannel(for: LKRTCDataChannel.Labels.dataTrack,
-                                                           configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
-        if let dataTrackChannel { connection.dataTracks.setPublisherChannel(dataTrackChannel) }
-
-        room.log("dataChannel.\(String(describing: reliableDataChannel?.label)) : \(String(describing: reliableDataChannel?.channelId))")
-        room.log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
-        room.log("dataChannel.\(String(describing: dataTrackChannel?.label)) : \(String(describing: dataTrackChannel?.channelId))")
+        dataChannels.install(room: room, connection: connection)
 
         let subscriber: Transport? = if isSinglePC {
             nil

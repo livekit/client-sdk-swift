@@ -214,6 +214,7 @@ class Utils: Loggable {
         reconnectMode: ReconnectMode? = nil,
         participantSid: Participant.Sid? = nil,
         adaptiveStream: Bool,
+        publisherOffer: Livekit_SessionDescription? = nil,
     ) throws -> URL {
         let connectOptions = connectOptions ?? ConnectOptions()
 
@@ -239,7 +240,8 @@ class Utils: Loggable {
         let encoded = try buildWrappedJoinRequest(connectOptions: connectOptions,
                                                   reconnectMode: reconnectMode,
                                                   participantSid: participantSid,
-                                                  adaptiveStream: adaptiveStream)
+                                                  adaptiveStream: adaptiveStream,
+                                                  publisherOffer: publisherOffer)
 
         builder.queryItems = [URLQueryItem(name: "join_request", value: encoded)]
 
@@ -272,6 +274,7 @@ class Utils: Loggable {
         reconnectMode: ReconnectMode?,
         participantSid: Participant.Sid?,
         adaptiveStream: Bool,
+        publisherOffer: Livekit_SessionDescription?,
     ) throws -> String {
         let joinRequest = Livekit_JoinRequest.with { request in
             request.clientInfo = Livekit_ClientInfo.with {
@@ -287,6 +290,12 @@ class Utils: Loggable {
             request.connectionSettings = Livekit_ConnectionSettings.with {
                 $0.autoSubscribe = connectOptions.autoSubscribe
                 $0.adaptiveStream = adaptiveStream
+            }
+
+            // Bundling the publisher offer lets the server answer it in the same exchange,
+            // removing a round trip from the connect path.
+            if let publisherOffer {
+                request.publisherOffer = publisherOffer
             }
 
             if reconnectMode == .quick {

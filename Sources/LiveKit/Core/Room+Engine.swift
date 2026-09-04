@@ -125,33 +125,42 @@ extension Room {
 // MARK: - Internal
 
 extension Room {
-    func configureTransports(connectResponse: SignalClient.ConnectResponse, singlePeerConnection: Bool) async throws {
-        func makeConfiguration() -> LKRTCConfiguration {
-            let connectOptions = _state.connectOptions
+    /// Builds the peer connection configuration.
+    ///
+    /// - Parameter connectResponse: The JOIN/RECONNECT response, or `nil` before the socket has
+    ///   opened. Without it the server's ICE servers and relay policy are unknown, so the result
+    ///   carries client-side settings only and must be replaced via `Transport.set(configuration:)`
+    ///   once the response arrives — see ``EarlyPublisher``.
+    func makeRTCConfiguration(connectResponse: SignalClient.ConnectResponse?) -> LKRTCConfiguration {
+        let connectOptions = _state.connectOptions
 
-            // Make a copy, instead of modifying the user-supplied RTCConfiguration object.
-            let rtcConfiguration = LKRTCConfiguration.liveKitDefault()
+        // Make a copy, instead of modifying the user-supplied RTCConfiguration object.
+        let rtcConfiguration = LKRTCConfiguration.liveKitDefault()
 
-            // Set iceServers provided by the server
-            rtcConfiguration.iceServers = connectResponse.rtcIceServers
+        // Set iceServers provided by the server
+        rtcConfiguration.iceServers = connectResponse?.rtcIceServers ?? []
 
-            if !connectOptions.iceServers.isEmpty {
-                // Override with user provided iceServers
-                rtcConfiguration.iceServers = connectOptions.iceServers.map { $0.toRTCType() }
-            }
-
-            if connectResponse.clientConfiguration.forceRelay == .enabled {
-                rtcConfiguration.iceTransportPolicy = .relay
-            } else {
-                rtcConfiguration.iceTransportPolicy = connectOptions.iceTransportPolicy.toRTCType()
-            }
-
-            rtcConfiguration.enableDscp = connectOptions.isDscpEnabled
-
-            return rtcConfiguration
+        if !connectOptions.iceServers.isEmpty {
+            // Override with user provided iceServers
+            rtcConfiguration.iceServers = connectOptions.iceServers.map { $0.toRTCType() }
         }
 
-        let rtcConfiguration = makeConfiguration()
+        if connectResponse?.clientConfiguration.forceRelay == .enabled {
+            rtcConfiguration.iceTransportPolicy = .relay
+        } else {
+            rtcConfiguration.iceTransportPolicy = connectOptions.iceTransportPolicy.toRTCType()
+        }
+
+        rtcConfiguration.enableDscp = connectOptions.isDscpEnabled
+
+        return rtcConfiguration
+    }
+
+    func configureTransports(connectResponse: SignalClient.ConnectResponse,
+                             singlePeerConnection: Bool,
+                             earlyPublisher: EarlyPublisher? = nil) async throws
+    {
+        let rtcConfiguration = makeRTCConfiguration(connectResponse: connectResponse)
 
         if case let .join(joinResponse) = connectResponse {
             log("Configuring transports with JOIN response...")
@@ -165,7 +174,8 @@ extension Room {
                                                        connection: connection,
                                                        joinResponse: joinResponse,
                                                        rtcConfiguration: rtcConfiguration,
-                                                       singlePeerConnection: singlePeerConnection)
+                                                       singlePeerConnection: singlePeerConnection,
+                                                       earlyPublisher: earlyPublisher)
             do {
                 try _state.mutate { try $0.stage.join(join) }
             } catch {
@@ -223,54 +233,93 @@ extension Room {
     func fullConnectSequence(_ url: URL, _ token: String) async throws {
         var singlePC = _state.roomOptions.singlePeerConnection
 
-        let connectResponse: SignalClient.ConnectResponse
+        // Built before the socket opens so its offer rides along with the JOIN request,
+        // removing the offer→answer round trip from the connect path, and so the WebRTC cold
+        // start overlaps the TLS/WebSocket handshake instead of following it.
+        var earlyPublisher: EarlyPublisher? = if singlePC {
+            try await EarlyPublisher.make(room: self,
+                                          rtcConfiguration: makeRTCConfiguration(connectResponse: nil))
+        } else {
+            nil
+        }
+        if earlyPublisher != nil { connectSpan?.record("early_pc_created") }
+
+        // Until `configureTransports` adopts it into the stage, the early publisher is not
+        // reachable from `cleanUp()`, so every exit before that point closes it here.
+        var isAdopted = false
+
         do {
-            connectResponse = try await signalClient.connect(url,
-                                                             token,
-                                                             connectOptions: _state.connectOptions,
-                                                             reconnectMode: _state.isReconnectingWithMode,
-                                                             adaptiveStream: _state.roomOptions.adaptiveStream,
-                                                             singlePeerConnection: singlePC,
-                                                             connectSpan: connectSpan)
-        } catch let error as LiveKitError where error.type == .serviceNotFound && singlePC {
-            log("v1 RTC path not supported, retrying with legacy path", .warning)
-            singlePC = false
-            connectResponse = try await signalClient.connect(url,
-                                                             token,
-                                                             connectOptions: _state.connectOptions,
-                                                             reconnectMode: _state.isReconnectingWithMode,
-                                                             adaptiveStream: _state.roomOptions.adaptiveStream,
-                                                             singlePeerConnection: false,
-                                                             connectSpan: connectSpan)
-        }
+            let connectResponse: SignalClient.ConnectResponse
+            do {
+                connectResponse = try await signalClient.connect(url,
+                                                                 token,
+                                                                 connectOptions: _state.connectOptions,
+                                                                 reconnectMode: _state.isReconnectingWithMode,
+                                                                 adaptiveStream: _state.roomOptions.adaptiveStream,
+                                                                 singlePeerConnection: singlePC,
+                                                                 publisherOffer: earlyPublisher?.offer,
+                                                                 connectSpan: connectSpan)
+            } catch let error as LiveKitError where error.type == .serviceNotFound && singlePC {
+                log("v1 RTC path not supported, retrying with legacy path", .warning)
+                singlePC = false
 
-        // Check cancellation after WebSocket connected
-        try Task.checkCancellation()
+                // The legacy path needs a dual-PC publisher, which differs in both `primary`
+                // and `singlePCMode` — immutable on `Transport` — so the early one cannot be
+                // reused and `configureTransports` builds a fresh pair.
+                await earlyPublisher?.close()
+                earlyPublisher = nil
 
-        connectSpan?.record("signal")
-        connectSpan?.record("join_recv")
-
-        try await configureTransports(connectResponse: connectResponse, singlePeerConnection: singlePC)
-        connectSpan?.record("pc_created")
-        // Check cancellation after configuring transports
-        try Task.checkCancellation()
-
-        // Resume after configuring transports...
-        await signalClient.resumeQueues()
-        try Task.checkCancellation()
-
-        // Eager publisher negotiation must run after `resumeQueues()` —
-        // offers are not queueable, so sending while suspended drops them.
-        if case let .join(joinResponse) = connectResponse {
-            let isSubscriberPrimary = singlePC ? false : joinResponse.subscriberPrimary
-            if singlePC || !isSubscriberPrimary || joinResponse.fastPublish {
-                try await publisherShouldNegotiate(force: true)
+                connectResponse = try await signalClient.connect(url,
+                                                                 token,
+                                                                 connectOptions: _state.connectOptions,
+                                                                 reconnectMode: _state.isReconnectingWithMode,
+                                                                 adaptiveStream: _state.roomOptions.adaptiveStream,
+                                                                 singlePeerConnection: false,
+                                                                 connectSpan: connectSpan)
             }
-        }
 
-        // Wait for transport...
-        try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
-        try Task.checkCancellation()
+            // Check cancellation after WebSocket connected
+            try Task.checkCancellation()
+
+            connectSpan?.record("signal")
+            connectSpan?.record("join_recv")
+
+            try await configureTransports(connectResponse: connectResponse,
+                                          singlePeerConnection: singlePC,
+                                          earlyPublisher: earlyPublisher)
+            isAdopted = true
+            connectSpan?.record("pc_created")
+            // Check cancellation after configuring transports
+            try Task.checkCancellation()
+
+            // Resume after configuring transports...
+            await signalClient.resumeQueues()
+            try Task.checkCancellation()
+
+            // Eager publisher negotiation must run after `resumeQueues()` —
+            // offers are not queueable, so sending while suspended drops them.
+            if case let .join(joinResponse) = connectResponse {
+                if earlyPublisher?.offer != nil {
+                    // The offer went out with the JOIN request and the server answers it over
+                    // the signal channel, so negotiating again here would offer over the top
+                    // of it. Matches `sent_publisher_offer` in rust-sdks.
+                    _state.mutate { $0.hasPublished = true }
+                } else {
+                    let isSubscriberPrimary = singlePC ? false : joinResponse.subscriberPrimary
+                    if singlePC || !isSubscriberPrimary || joinResponse.fastPublish {
+                        try await publisherShouldNegotiate(force: true)
+                    }
+                }
+            }
+
+            // Wait for transport...
+            try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
+            try Task.checkCancellation()
+        } catch {
+            // Once adopted, the staged join owns teardown through `cleanUp()`.
+            if !isAdopted { await earlyPublisher?.close() }
+            throw error
+        }
 
         connectSpan?.record("engine")
         connectSpan?.record("pc_connected")
