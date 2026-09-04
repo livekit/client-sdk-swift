@@ -38,7 +38,7 @@ public class LiveKitSDK: NSObject, Loggable {
 
     fileprivate struct State {
         var logger: any Logger = OSLogger()
-        var tracing: (any Tracing)?
+        var tracing: any Tracing = Telemetry.shared
     }
 
     fileprivate static let state = StateSync(State())
@@ -57,9 +57,9 @@ public class LiveKitSDK: NSObject, Loggable {
 
     /// Set a custom ``Tracing`` implementation to capture operation timing.
     ///
-    /// Without one the SDK's spans are the telemetry core's alone, logged at debug level when they
-    /// end and shipped when telemetry is on. A custom tracer creates the ``Span`` handles and the
-    /// core still binds them.
+    /// The default is ``Telemetry/shared`` itself: spans are the core's, logged at debug level when
+    /// they end and shipped when telemetry is on; app spans made through it join the process trace.
+    /// A custom tracer creates the ``Span`` handles and the core still binds the SDK's own.
     /// Provide a custom implementation to capture timing data
     /// programmatically (e.g., for benchmarks).
     ///
@@ -106,4 +106,4 @@ public class LiveKitSDK: NSObject, Loggable {
 let sharedLogger = LiveKitSDK.state.logger
 
 // Lazily initialized to the first tracing
-let sharedTracing: (any Tracing)? = LiveKitSDK.state.tracing
+let sharedTracing: any Tracing = LiveKitSDK.state.tracing

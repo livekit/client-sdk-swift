@@ -85,11 +85,13 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
         let core = session?.start(name: name, parent: parent?.core)
         let label = spanLabel(name: name)
         let span: Span
-        if let tracing = sharedTracing {
-            span = tracing.beginSpan(label)
-            if let core { span.core = core }
-        } else {
+        if sharedTracing is Telemetry {
             span = Span(core: core, label: label)
+        } else {
+            // An injected tracer creates the handle it wants to observe; the SDK's span replaces
+            // the handle's own core.
+            span = sharedTracing.beginSpan(label)
+            if let core { span.core = core }
         }
         span.parent = parent
         if core != nil {
