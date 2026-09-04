@@ -53,6 +53,15 @@ public class CVPixelVideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
     func toRTCType() -> LKRTCVideoFrameBuffer {
         _rtcType
     }
+
+    // Formats the underlying conversion handles. Anything else is a debug
+    // assertion in WebRTC and undefined pixel data in release builds.
+    static let i420ConvertiblePixelFormats: Set<OSType> = [
+        kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+        kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+        kCVPixelFormatType_32BGRA,
+        kCVPixelFormatType_32ARGB,
+    ]
 }
 
 /// A ``VideoBuffer`` holding I420 planar data, with one full resolution luma
@@ -108,10 +117,18 @@ public struct I420VideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
 
 public extension VideoBuffer {
     /// Converts the buffer to I420 planar format, copying pixel data if the
-    /// underlying buffer is not already I420. Returns `nil` if the buffer is
-    /// not backed by a format the SDK can convert.
+    /// underlying buffer is not already I420.
+    ///
+    /// Returns `nil` if the buffer is not backed by a format the SDK can
+    /// convert. Pixel buffers must be NV12 (video or full range), 32BGRA or
+    /// 32ARGB.
     func toI420() -> I420VideoBuffer? {
         guard let rtcBuffer = self as? RTCCompatibleVideoBuffer else { return nil }
+        if let pixelBuffer = (self as? CVPixelVideoBuffer)?.pixelBuffer,
+           !CVPixelVideoBuffer.i420ConvertiblePixelFormats.contains(CVPixelBufferGetPixelFormatType(pixelBuffer))
+        {
+            return nil
+        }
         return I420VideoBuffer(rtcI420Buffer: rtcBuffer.toRTCType().toI420())
     }
 }
