@@ -138,7 +138,7 @@ extension RTCTelemetry: TrackDelegate {
         }
     }
 
-    /// One `RtcStatsSample` per RTP stream of the track; counters pass through as reported.
+    /// One `RtcStatsSample` per inbound RTP stream and one for all outbound layers of the track.
     nonisolated static func samples(for track: Track, statistics: TrackStatistics) -> [RtcStatsSample] {
         guard let sid = track.sid?.stringValue else { return [] }
         let kind: TrackKind
@@ -168,16 +168,20 @@ extension RTCTelemetry: TrackDelegate {
             sample.audioLevel = stream.audioLevel
             samples.append(sample)
         }
-        let rtt = statistics.remoteInboundRtpStream.first?.roundTripTime.map { $0 * 1000 }
-        for stream in statistics.outboundRtpStream {
+        // Simulcast publishes one outbound-rtp stream per layer under the same track sid; the
+        // window is per track, so layers are summed here (a suspended top layer would otherwise
+        // freeze the counters, and a first-layer-to-last-layer delta reads as garbage bitrate).
+        let layers = statistics.outboundRtpStream
+        if let top = layers.max(by: { ($0.bytesSent ?? 0) < ($1.bytesSent ?? 0) }) {
             var sample = RtcStatsSample(trackSid: sid, kind: kind, direction: .outbound)
-            sample.codec = stream.codecId.flatMap { codecs[$0] ?? nil }
-            sample.bytes = stream.bytesSent
-            sample.packets = stream.packetsSent
-            sample.framesPerSecond = stream.framesPerSecond
-            sample.rttMs = rtt
-            sample.qualityLimitationBandwidthMs = ms(stream.qualityLimitationDurations?.bandwidth)
-            sample.qualityLimitationCpuMs = ms(stream.qualityLimitationDurations?.cpu)
+            sample.codec = top.codecId.flatMap { codecs[$0] ?? nil }
+            sample.bytes = layers.compactMap(\.bytesSent).reduce(0, +)
+            sample.packets = layers.compactMap(\.packetsSent).reduce(0, +)
+            sample.framesPerSecond = layers.compactMap(\.framesPerSecond).max()
+            sample.rttMs = statistics.remoteInboundRtpStream.first?.roundTripTime.map { $0 * 1000 }
+            // Per encoder, not per layer: WebRTC reports the same durations on every layer.
+            sample.qualityLimitationBandwidthMs = ms(layers.compactMap { $0.qualityLimitationDurations?.bandwidth }.max())
+            sample.qualityLimitationCpuMs = ms(layers.compactMap { $0.qualityLimitationDurations?.cpu }.max())
             samples.append(sample)
         }
         return samples
