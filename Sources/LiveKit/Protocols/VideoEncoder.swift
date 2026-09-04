@@ -28,6 +28,12 @@ public struct VideoEncoderStatus: RawRepresentable, Sendable, Equatable, Hashabl
 
     /// The operation completed successfully.
     public static let ok = Self(rawValue: 0)
+    /// The frame was consumed but produced no output.
+    public static let noOutput = Self(rawValue: 1)
+    /// The operation completed and the encoder requests a key frame next.
+    public static let okRequestKeyframe = Self(rawValue: 4)
+    /// The encoder produced significantly more bits than the target bitrate.
+    public static let targetBitrateOvershoot = Self(rawValue: 5)
     /// The operation failed with a generic error.
     public static let error = Self(rawValue: -1)
     /// The operation failed due to a memory allocation failure.
@@ -40,8 +46,6 @@ public struct VideoEncoderStatus: RawRepresentable, Sendable, Equatable, Hashabl
     public static let uninitialized = Self(rawValue: -7)
     /// Requests WebRTC to fall back to another encoder for this codec.
     public static let fallbackSoftware = Self(rawValue: -13)
-    /// The encoder produced significantly more bits than the target bitrate.
-    public static let targetBitrateOvershoot = Self(rawValue: -14)
     /// The encoder cannot honor the requested simulcast configuration.
     public static let simulcastParametersNotSupported = Self(rawValue: -15)
     /// The encoder failed and should be released.
@@ -52,6 +56,8 @@ extension VideoEncoderStatus: CustomStringConvertible {
     public var description: String {
         switch self {
         case .ok: "ok"
+        case .noOutput: "noOutput"
+        case .okRequestKeyframe: "okRequestKeyframe"
         case .error: "error"
         case .memory: "memory"
         case .invalidParameter: "invalidParameter"
@@ -75,18 +81,28 @@ public typealias VideoEncoderCallback = @Sendable (EncodedVideoFrame) -> Bool
 ///
 /// Create instances from a ``VideoEncoderFactory`` registered via
 /// ``LiveKitSDK/set(videoEncoderFactory:)``. WebRTC drives the encoder lifecycle:
-/// `setCallback` and `startEncode` are called before the first frame, then `encode`
-/// per captured frame, with `setBitrate` adapting to network conditions, and
-/// finally `releaseEncoder`.
+/// `startEncode` and `setCallback` are both called before the first frame, in
+/// either order, then `encode` per captured frame, with `setBitrate` adapting to
+/// network conditions, and finally `releaseEncoder`. The callback must not be
+/// required until the first `encode`.
+///
+/// - Note: The underlying WebRTC bridge reports every encoder as hardware
+///   accelerated, so CPU overuse detection uses the more permissive thresholds
+///   meant for hardware encoders. A software encoder should keep its own CPU
+///   usage in check.
 public protocol VideoEncoder: Sendable {
     /// Human readable name of the encoder implementation reported in stats.
     var implementationName: String { get }
 
     /// Encoded resolutions must be aligned to this value. Defaults to 1.
+    ///
+    /// - Note: The current WebRTC bridge always reports an alignment of 1, so
+    ///   values other than 1 are not honored yet. Encoders must handle
+    ///   unaligned input themselves until that is fixed.
     var resolutionAlignment: Int { get }
 
     /// Whether ``resolutionAlignment`` is applied to all simulcast layers simultaneously.
-    /// Defaults to `false`.
+    /// Defaults to `false`. Has no effect while ``resolutionAlignment`` is not honored.
     var applyAlignmentToAllSimulcastLayers: Bool { get }
 
     /// Whether the encoder accepts frames backed by `CVPixelBuffer` directly.
