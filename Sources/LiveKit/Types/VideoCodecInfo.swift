@@ -54,6 +54,19 @@ public struct VideoCodecInfo: Hashable, Sendable {
 // MARK: - Internal
 
 extension VideoCodecInfo {
+    /// The H264/H265 packetization mode negotiated through the SDP
+    /// `packetization-mode` parameter.
+    ///
+    /// RFC 6184 treats an absent parameter as mode 0, but non interleaved is
+    /// used here instead. In single NAL unit mode WebRTC drops any frame
+    /// whose NAL unit exceeds the packet size, so a factory that omits the
+    /// parameter would silently lose most key frames, while receivers
+    /// depacketize both modes regardless of what was negotiated. The built
+    /// in encoders make the same choice.
+    var negotiatedPacketizationMode: EncodedVideoFrame.PacketizationMode {
+        parameters["packetization-mode"] == "0" ? .singleNalUnit : .nonInterleaved
+    }
+
     init(fromRTCType rtcType: LKRTCVideoCodecInfo) {
         self.init(name: rtcType.name,
                   parameters: rtcType.parameters,

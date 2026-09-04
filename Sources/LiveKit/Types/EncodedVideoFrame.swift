@@ -49,10 +49,13 @@ public struct EncodedVideoFrame: Sendable {
 
     /// Codec specific packetization details attached to an encoded frame.
     ///
-    /// When omitted, H264 and H265 frames default to ``PacketizationMode/nonInterleaved``
-    /// based on the codec the encoder was created for. AV1 needs no codec
-    /// specific info. VP8 and VP9 cannot be bridged yet, see
-    /// ``LiveKitSDK/set(videoEncoderFactory:)``.
+    /// When omitted, H264 and H265 frames default to the packetization mode
+    /// negotiated for the codec the encoder was created for, which is
+    /// ``PacketizationMode/nonInterleaved`` unless the codec's
+    /// `packetization-mode` parameter is `0`. Info for a different codec than
+    /// the encoder was created for is normalized to that codec, keeping only
+    /// the packetization mode. AV1 needs no codec specific info. VP8 and VP9
+    /// cannot be bridged yet, see ``LiveKitSDK/set(videoEncoderFactory:)``.
     public enum CodecSpecificInfo: Sendable {
         /// H264 packetization details.
         case h264(packetizationMode: PacketizationMode)
@@ -85,8 +88,8 @@ public struct EncodedVideoFrame: Sendable {
     /// The kind of content carried by the frame.
     public let contentType: ContentType
 
-    /// Codec specific packetization details. Defaults to non interleaved
-    /// packetization for H264 and H265 when `nil`.
+    /// Codec specific packetization details. Defaults to the negotiated
+    /// packetization mode for H264 and H265 when `nil`.
     public let codecSpecificInfo: CodecSpecificInfo?
 
     /// Creates an encoded frame to deliver to the SDK.
@@ -140,11 +143,12 @@ extension EncodedVideoFrame {
     // specific info instead of allocating one per encoded frame.
     private static let genericCodecSpecificInfo = GenericCodecSpecificInfo()
 
-    /// - Parameter codecName: SDP name of the codec the encoder was created for,
-    ///   used to synthesize H264/H265 packetization info when the frame has none.
-    ///   The RTP packetizer for those codecs requires the typed header and
-    ///   aborts on a generic one.
-    func toRTCType(codecName: String) -> (LKRTCEncodedImage, LKRTCCodecSpecificInfo) {
+    /// - Parameter codec: The codec the encoder was created for. The RTP
+    ///   packetizer for H264 requires a matching typed header and aborts on a
+    ///   generic or mismatched one, so the codec specific info is always derived
+    ///   from this codec, using the frame's packetization mode when given and
+    ///   the negotiated mode otherwise.
+    func toRTCType(codec: VideoCodecInfo) -> (LKRTCEncodedImage, LKRTCCodecSpecificInfo) {
         let image = LKRTCEncodedImage()
         image.buffer = data
         image.encodedWidth = dimensions.width
@@ -161,14 +165,15 @@ extension EncodedVideoFrame {
         // while -1 is what the quality scaler treats as unknown.
         image.qp = NSNumber(value: qp ?? -1)
 
-        let info: CodecSpecificInfo? = switch codecSpecificInfo {
-        case let .some(info): info
-        case nil:
-            switch codecName.uppercased() {
-            case "H264": .h264(packetizationMode: .nonInterleaved)
-            case "H265": .h265(packetizationMode: .nonInterleaved)
-            default: nil
-            }
+        let packetizationMode: PacketizationMode = switch codecSpecificInfo {
+        case let .h264(mode), let .h265(mode): mode
+        case nil: codec.negotiatedPacketizationMode
+        }
+
+        let info: CodecSpecificInfo? = switch codec.name.uppercased() {
+        case "H264": .h264(packetizationMode: packetizationMode)
+        case "H265": .h265(packetizationMode: packetizationMode)
+        default: nil
         }
 
         switch info {
