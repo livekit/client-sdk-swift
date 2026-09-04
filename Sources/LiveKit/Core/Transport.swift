@@ -58,6 +58,10 @@ final class Transport: NSObject, Loggable {
     private let _debounce = Debounce(delay: 0.02) // 20ms
 
     private var _reNegotiate: Bool = false
+
+    /// A local offer that has been signalled but not yet applied with
+    /// `setLocalDescription`. See ``createInitialOffer()``.
+    private var _pendingInitialOffer: LKRTCSessionDescription?
     private var _onOffer: OnOfferBlock?
     private var _isRestartingIce: Bool = false
     private var _latestOfferId: UInt32 = 0
@@ -125,6 +129,55 @@ final class Transport: NSObject, Loggable {
         _onOffer = block
     }
 
+    /// Creates the offer that rides along with the JOIN request, *without* applying it.
+    ///
+    /// `setLocalDescription` is deferred until the answer arrives, because applying it
+    /// starts ICE gathering — and at this point the peer connection has only the
+    /// client-side configuration, so it would gather without the server's TURN servers
+    /// and never produce relay candidates. ``set(remoteDescription:)`` applies the
+    /// pending offer once ``set(configuration:)`` has installed them, mirroring
+    /// `createInitialOffer` in client-sdk-js and `create_initial_offer` in rust-sdks.
+    ///
+    /// - Returns: The offer to signal and its id, or `nil` outside single PC mode
+    ///   (the dual-PC subscriber-primary flow has the server offer first).
+    /// - Note: The munges are applied here and the result is signalled as-is, so unlike
+    ///   ``set(localDescription:munging:)`` a munge libwebrtc rejects cannot be dropped
+    ///   and retried — the peer has already been told what we offered. Both munges on
+    ///   this path are the ones every single PC mode offer already carries.
+    func createInitialOffer() async throws -> (offer: LKRTCSessionDescription, offerId: UInt32)? {
+        guard singlePCMode else { return nil }
+
+        guard signalingState == .stable else {
+            log("Signaling state is \(signalingState), cannot create the initial offer", .warning)
+            return nil
+        }
+
+        let offer = try await createOffer()
+        let mungedSDP = [Self.mungeInactiveToRecvOnlyForMedia, Self.mungeOpusStereoForAllAudio]
+            .reduce(offer.sdp) { $1($0) }
+        let munged = mungedSDP == offer.sdp ? offer : RTC.createSessionDescription(type: offer.type, sdp: mungedSDP)
+
+        _latestOfferId += 1
+        _pendingInitialOffer = munged
+        return (munged, _latestOfferId)
+    }
+
+    /// Drops an initial offer that will never be answered, so the transport falls back to
+    /// ordinary negotiation. Used when the JOIN it was bundled with did not succeed.
+    func clearPendingInitialOffer() {
+        _pendingInitialOffer = nil
+    }
+
+    /// Applies a deferred initial offer, if one is outstanding. Take-once, so callers on
+    /// both remote-description paths are safe.
+    private func applyPendingInitialOffer() async throws {
+        guard let pendingInitialOffer = _pendingInitialOffer else { return }
+        _pendingInitialOffer = nil
+
+        log("Applying the initial offer deferred from JOIN")
+        try await set(localDescription: pendingInitialOffer)
+    }
+
     func setIsRestartingIce() {
         _isRestartingIce = true
     }
@@ -134,6 +187,10 @@ final class Transport: NSObject, Loggable {
     }
 
     func set(remoteDescription sd: LKRTCSessionDescription, offerId: UInt32) async throws {
+        // Before the state check: an offer bundled with JOIN leaves the connection
+        // `.stable` until its answer arrives.
+        try await applyPendingInitialOffer()
+
         if signalingState != .haveLocalOffer {
             log("Received answer with unexpected signaling state: \(signalingState), expected .haveLocalOffer", .warning)
         }
@@ -148,6 +205,8 @@ final class Transport: NSObject, Loggable {
     }
 
     func set(remoteDescription sd: LKRTCSessionDescription) async throws {
+        try await applyPendingInitialOffer()
+
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             _pc.setRemoteDescription(sd) { @Sendable error in
                 if let error {
@@ -187,7 +246,11 @@ final class Transport: NSObject, Loggable {
             _isRestartingIce = true
         }
 
-        if signalingState == .haveLocalOffer, !(iceRestart && remoteDescription != nil) {
+        // A deferred initial offer counts as awaiting an answer even though the
+        // connection still reads `.stable`, so a publish racing the JOIN queues a
+        // renegotiation instead of offering over the top of it.
+        let isAwaitingAnswer = signalingState == .haveLocalOffer || _pendingInitialOffer != nil
+        if isAwaitingAnswer, !(iceRestart && remoteDescription != nil) {
             _reNegotiate = true
             return
         }
@@ -216,6 +279,8 @@ final class Transport: NSObject, Loggable {
     func close() async {
         // prevent debounced negotiate firing
         await _debounce.cancel()
+
+        _pendingInitialOffer = nil
 
         // Stop listening to delegate
         _pc.delegate = nil
