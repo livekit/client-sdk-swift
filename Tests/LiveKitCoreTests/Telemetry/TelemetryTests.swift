@@ -71,7 +71,7 @@ struct TelemetryTests {
             // in that Room's trace — the whole path: Loggable → LogHub → Telemetry → core `session_of`.
             let op = rooms[0].beginSpan("e2e.op")
             Span.$current.withValue(op) { rooms[0].log(marker, .error) }
-            op.end()
+            op?.end()
             rooms[0].log("\(marker) outside", .error) // no ambient span: the process scope
             rooms[0].emitTelemetryEvent("e2e.checkpoint", attributes: ["e2e.marker": .string(marker)])
             // Two stats windows plus a flush.

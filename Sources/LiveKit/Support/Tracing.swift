@@ -29,10 +29,10 @@ extension TelemetrySpan {
     /// without any handle being passed around; does not cross the WebRTC callback boundary.
     @TaskLocal static var current: TelemetrySpan?
 
-    /// An SDK span in `scope`'s trace, stamped now in the core; detached (timed, never exported)
-    /// when telemetry is off.
-    static func begin(_ name: SpanName, in scope: TelemetryScope?, parent: TelemetrySpan? = TelemetrySpan.current) -> TelemetrySpan {
-        scope?.start(name: name, parent: parent) ?? TelemetrySpan.detached(name: name)
+    /// An SDK span in `scope`'s trace, stamped now in the core; `nil` when telemetry is off, so a
+    /// span costs nothing there (call sites chain optionally).
+    static func begin(_ name: SpanName, in scope: TelemetryScope?, parent: TelemetrySpan? = TelemetrySpan.current) -> TelemetrySpan? {
+        scope?.start(name: name, parent: parent)
     }
 
     /// An SDK checkpoint, stamped now in the core.

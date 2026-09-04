@@ -27,20 +27,16 @@ import LiveKitTestSupport
 
     // Default publish flow
     @Test func defaultMicPublish() async throws {
-        let span = Span.detached(name: .custom(name: "Test: Normal publish sequence"))
+        let start = Date()
 
         let room1Opts = RoomTestingOptions(url: url, token: token, canPublish: true)
         try await TestEnvironment.withRooms([room1Opts]) { rooms in
-            span.step(step: .custom(name: "Connected to room"))
             // Alias to Rooms
             let room1 = rooms[0]
             try await room1.localParticipant.setMicrophone(enabled: true)
-            span.step(step: .custom(name: "Did publish mic"))
         }
-        span.step(step: .custom(name: "Sequence complete"))
-        print(span)
 
-        print("Total time: \(span.totalSecs())")
+        print("Total time: \(Date().timeIntervalSince(start))")
     }
 
     // No-VP publish flow
@@ -48,39 +44,31 @@ import LiveKitTestSupport
         // Turn off Apple's VP
         try AudioManager.shared.setPlatformVoiceProcessingAllowed(false)
 
-        let span = Span.detached(name: .custom(name: "Test: No-VP publish sequence"))
+        let start = Date()
 
         let room1Opts = RoomTestingOptions(url: url, token: token, canPublish: true)
         try await TestEnvironment.withRooms([room1Opts]) { rooms in
-            span.step(step: .custom(name: "Connected to room"))
             // Alias to Rooms
             let room1 = rooms[0]
             try await room1.localParticipant.setMicrophone(enabled: true)
-            span.step(step: .custom(name: "Did publish mic"))
         }
-        span.step(step: .custom(name: "Sequence complete"))
-        print(span)
 
-        print("Total time: \(span.totalSecs())")
+        print("Total time: \(Date().timeIntervalSince(start))")
     }
 
     // Concurrent device acquisition publish flow
     @Test func concurrentMicPublish() async throws {
-        let span = Span.detached(name: .custom(name: "Test: Normal publish sequence"))
+        let start = Date()
 
         let room1Opts = RoomTestingOptions(url: url, token: token, enableMicrophone: true, canPublish: true)
         try await TestEnvironment.withRooms([room1Opts]) { rooms in
-            span.step(step: .custom(name: "Connected to room"))
             // Alias to Rooms
             let room1 = rooms[0]
             // Mic should be already enabled at this point
             let isMicEnabled = room1.localParticipant.isMicrophoneEnabled()
             #expect(isMicEnabled, "Mic should be enabled at this point")
-            span.step(step: .custom(name: "Did publish mic"))
         }
-        span.step(step: .custom(name: "Sequence complete"))
-        print(span)
 
-        print("Total time: \(span.totalSecs())")
+        print("Total time: \(Date().timeIntervalSince(start))")
     }
 }

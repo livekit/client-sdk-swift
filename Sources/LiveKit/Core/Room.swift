@@ -168,7 +168,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     var telemetryScope: TelemetryScope? { _state.stage.connection?.telemetry }
 
     /// An app-defined span in this Room's trace; a no-op when telemetry is off.
-    func beginSpan(_ label: String) -> Span {
+    func beginSpan(_ label: String) -> Span? {
         Span.begin(.custom(name: label), in: telemetryScope)
     }
 
@@ -453,7 +453,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         // One connect() = one attempt; reconnect cycles get their own spans.
         let attempt = Span.begin(.connect, in: dependencies.telemetry)
-        attempt.setAttribute("lk.connect.attempt", .int(1))
+        attempt?.setAttribute("lk.connect.attempt", .int(1))
 
         try _state.mutate {
             try $0.stage.begin(dependencies)

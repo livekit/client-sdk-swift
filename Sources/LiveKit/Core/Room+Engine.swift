@@ -437,7 +437,7 @@ extension Room {
                         return mode
                     }
 
-                    reconnectSpan.step(.attempt(number: UInt32(currentAttempt), full: mode == .full))
+                    reconnectSpan?.step(.attempt(number: UInt32(currentAttempt), full: mode == .full))
 
                     do {
                         if case .quick = mode {
@@ -462,7 +462,7 @@ extension Room {
 
                 // Re-connect sequence successful
                 log("[Connect] Sequence completed")
-                reconnectSpan.end()
+                reconnectSpan?.end()
                 _state.mutate {
                     $0.connectionState = .connected
                     $0.reconnectTask = nil
@@ -476,7 +476,7 @@ extension Room {
                 }
             } catch {
                 log("[Connect] Sequence failed with error: \(error)")
-                if Task.isCancelled { reconnectSpan.cancel() } else { reconnectSpan.end(with: error) }
+                if Task.isCancelled { reconnectSpan?.cancel() } else { reconnectSpan?.end(with: error) }
 
                 // Only clean up if the reconnect task wasn't cancelled — when cancelled,
                 // the caller (disconnect() or a new reconnect) handles cleanup separately.

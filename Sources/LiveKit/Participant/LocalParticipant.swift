@@ -598,16 +598,16 @@ extension LocalParticipant {
     func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         let room = try requireRoom()
         let span = Span.begin(.publish, in: room.telemetryScope)
-        span.setTrack(track.kind, source: track.source)
+        span?.setTrack(track.kind, source: track.source)
         do {
             let publication = try await Span.$current.withValue(span) {
                 try await _publishTrack(track: track, options: options)
             }
-            span.setTrack(track.kind, source: track.source, sid: publication.sid)
-            span.end()
+            span?.setTrack(track.kind, source: track.source, sid: publication.sid)
+            span?.end()
             return publication
         } catch {
-            span.end(with: error)
+            span?.end(with: error)
             throw error
         }
     }

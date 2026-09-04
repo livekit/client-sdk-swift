@@ -58,7 +58,7 @@ final class RTCTelemetry: TelemetryInstrument, Loggable {
     private func beginSubscribe(_ publication: RemoteTrackPublication, participant: RemoteParticipant, scope: TelemetryScope?) {
         let sid = publication.sid
         guard subscribeSpans[sid] == nil else { return }
-        let span = Span.begin(.subscribe, in: scope, parent: nil)
+        guard let span = Span.begin(.subscribe, in: scope, parent: nil) else { return }
         span.setTrack(publication.kind, source: publication.source, sid: sid, remoteIdentity: participant.identity?.stringValue)
         subscribeSpans[sid] = span
         subscribeTimeouts[sid]?.cancel()
