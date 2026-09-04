@@ -315,7 +315,7 @@ extension Telemetry.LogSource {
     var core: LiveKitUniFFI.LogSource {
         switch self {
         case .sdk: .sdk
-        case .ffi: .core
+        case .ffi: .ffi
         case .webrtc: .webRtc
         }
     }
