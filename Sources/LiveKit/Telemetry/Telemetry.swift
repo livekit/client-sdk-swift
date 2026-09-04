@@ -139,11 +139,10 @@ public actor Telemetry {
         await entry(for: room)?.session.emitCustom(name: name, attributes: attributes.lowered)
     }
 
-    /// The span factory for a connection of this Room, bound to its session when telemetry and the
-    /// `room` instrument are on.
-    func tracer(for room: Room) async -> TelemetryTracer {
-        guard options?.instruments.contains(.room) == true, let entry = await entry(for: room) else { return .detached }
-        return TelemetryTracer(session: entry.session)
+    /// The Room's session for a connection's spans, when telemetry and the `room` instrument are on.
+    func session(for room: Room) async -> TelemetrySession? {
+        guard options?.instruments.contains(.room) == true else { return nil }
+        return await entry(for: room)?.session
     }
 
     // MARK: - Logs

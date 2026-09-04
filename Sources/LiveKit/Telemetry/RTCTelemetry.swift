@@ -55,10 +55,10 @@ final class RTCTelemetry: TelemetryInstrument, Loggable {
         Task { await track.set(reportStatistics: true) }
     }
 
-    private func beginSubscribe(_ publication: RemoteTrackPublication, participant: RemoteParticipant, tracer: TelemetryTracer) {
+    private func beginSubscribe(_ publication: RemoteTrackPublication, participant: RemoteParticipant, session: TelemetrySession?) {
         let sid = publication.sid
         guard subscribeSpans[sid] == nil else { return }
-        let span = tracer.beginSpan(.subscribe, parent: nil)
+        let span = Span.begin(.subscribe, in: session, parent: nil)
         span.setTrack(publication.kind, source: publication.source, sid: sid, remoteIdentity: participant.identity?.stringValue)
         subscribeSpans[sid] = span
         subscribeTimeouts[sid]?.cancel()
@@ -95,14 +95,14 @@ extension RTCTelemetry: RoomDelegate {
     nonisolated func room(_ room: Room, participant: RemoteParticipant, didPublishTrack publication: RemoteTrackPublication) {
         // With autoSubscribe the intent exists the moment the track is known.
         guard room._state.connectOptions.autoSubscribe else { return }
-        let tracer = room.tracer
-        Task { @Telemetry in self.beginSubscribe(publication, participant: participant, tracer: tracer) }
+        let session = room.telemetrySession
+        Task { @Telemetry in self.beginSubscribe(publication, participant: participant, session: session) }
     }
 
     nonisolated func room(_ room: Room, participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
-        let tracer = room.tracer
+        let session = room.telemetrySession
         Task { @Telemetry in
-            self.beginSubscribe(publication, participant: participant, tracer: tracer) // manual subscription
+            self.beginSubscribe(publication, participant: participant, session: session) // manual subscription
             self.subscribeSpans[publication.sid]?.step(.subscribed)
             if let track = publication.track { self.observe(track) }
         }

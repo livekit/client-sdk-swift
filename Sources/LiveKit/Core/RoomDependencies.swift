@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitUniFFI
 import Foundation
 
 internal import LiveKitWebRTC
@@ -36,12 +37,13 @@ final class ConnectionDependencies: Sendable {
     /// while its lifetime is the connection's.
     let e2ee: StateSync<E2EEManager?>
 
-    /// Span factory for this connection, bound to the Room's telemetry session when telemetry is on.
-    let tracer: TelemetryTracer
+    /// The Room's telemetry session for this connection; `nil` when telemetry (or its `room`
+    /// instrument) is off, and every span is a no-op.
+    let telemetry: TelemetrySession?
 
-    init(room: Room, roomOptions: RoomOptions, tracer: TelemetryTracer = .detached) {
+    init(room: Room, roomOptions: RoomOptions, telemetry: TelemetrySession? = nil) {
         dataTracks = DataTracks(room: room)
-        self.tracer = tracer
+        self.telemetry = telemetry
         let manager: E2EEManager? = if let e2eeOptions = roomOptions.e2eeOptions {
             E2EEManager(e2eeOptions: e2eeOptions)
         } else if let encryptionOptions = roomOptions.encryptionOptions {

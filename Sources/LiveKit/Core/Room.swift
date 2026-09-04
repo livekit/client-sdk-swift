@@ -161,7 +161,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         Task { await Telemetry.shared.emit(name, attributes: attributes, from: self) }
     }
 
-    var tracer: TelemetryTracer { _state.stage.connection?.tracer ?? .detached }
+    /// The telemetry session of the current connection; `nil` when telemetry is off.
+    var telemetrySession: TelemetrySession? { _state.stage.connection?.telemetry }
+
+    /// An app-defined span in this Room's trace; a no-op when telemetry is off.
+    func beginSpan(_ label: String) -> Span {
+        Span.begin(.custom(name: label), in: telemetrySession)
+    }
 
     // MARK: - PreConnect
 
@@ -440,10 +446,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         // Connection-scoped subsystems (data tracks, the E2EE manager derived from the room
         // options): carried across full reconnects, released on disconnect.
         let dependencies = await ConnectionDependencies(room: self, roomOptions: state.roomOptions,
-                                                        tracer: Telemetry.shared.tracer(for: self))
+                                                        telemetry: Telemetry.shared.session(for: self))
 
         // One connect() = one attempt; reconnect cycles get their own spans.
-        let attempt = dependencies.tracer.beginSpan(.connect)
+        let attempt = Span.begin(.connect, in: dependencies.telemetry)
         attempt.setAttribute("lk.connect.attempt", .int(1))
 
         try _state.mutate {

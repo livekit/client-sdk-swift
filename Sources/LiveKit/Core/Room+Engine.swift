@@ -308,7 +308,7 @@ extension Room {
         }
 
         // One reconnect cycle = one span; attempts are its checkpoints.
-        let reconnectSpan = tracer.beginSpan(.reconnect(reason: String(describing: reason)))
+        let reconnectSpan = Span.begin(.reconnect(reason: String(describing: reason)), in: telemetrySession)
 
         // quick connect sequence, does not update connection state
         @Sendable func quickReconnectSequence() async throws {
