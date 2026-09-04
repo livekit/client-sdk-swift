@@ -157,7 +157,7 @@ final class DeviceTelemetry: TelemetryInstrument, Loggable {
     }
 
     #if os(iOS) || os(visionOS)
-    @MainActor private nonisolated func readBattery() {
+    @MainActor private func readBattery() {
         let device = UIDevice.current
         let level = device.batteryLevel // -1 while unknown
         let percent: UInt32? = level < 0 ? nil : UInt32((level * 100).rounded())
