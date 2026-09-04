@@ -136,14 +136,18 @@ extension RTC {
 
     // global properties are already lazy
 
+    // Must not be forced from inside a `pcFactoryState` read or mutate block, since
+    // its initializer reads that state and `StateSync` is not reentrant.
     static let encoderFactory: LKRTCVideoEncoderFactory & Sendable = {
-        let encoderFactory: LKRTCVideoEncoderFactory & Sendable = if let customFactory = pcFactoryState.read({ $0.customVideoEncoderFactory }) {
-            VideoEncoderFactoryAdapter(factory: customFactory)
-        } else {
-            DefaultVideoEncoderFactory()
+        guard let customFactory = pcFactoryState.read({ $0.customVideoEncoderFactory }) else {
+            let defaultFactory = DefaultVideoEncoderFactory()
+            return VideoEncoderFactorySimulcast(primary: defaultFactory,
+                                                fallback: defaultFactory)
         }
-        return VideoEncoderFactorySimulcast(primary: encoderFactory,
-                                            fallback: encoderFactory)
+        // A custom encoder reporting `.fallbackSoftware` falls back to the built in
+        // VideoToolbox encoders instead of failing the stream.
+        return VideoEncoderFactorySimulcast(primary: VideoEncoderFactoryAdapter(factory: customFactory),
+                                            fallback: DefaultVideoEncoderFactory())
     }()
 
     static let decoderFactory: LKRTCVideoDecoderFactory & Sendable = VideoDecoderFactory()

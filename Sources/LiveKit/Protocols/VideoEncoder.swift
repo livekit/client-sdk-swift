@@ -90,7 +90,8 @@ public protocol VideoEncoder: Sendable {
     /// Updates the target bitrate (kilobits per second) and framerate.
     func setBitrate(_ bitrateKbps: UInt32, framerate: UInt32) -> VideoEncoderStatus
 
-    /// Releases encoder resources. The encoder may be started again afterwards.
+    /// Releases encoder resources. No frames may be delivered to the callback
+    /// after this returns. The encoder may be started again afterwards.
     func releaseEncoder() -> VideoEncoderStatus
 }
 

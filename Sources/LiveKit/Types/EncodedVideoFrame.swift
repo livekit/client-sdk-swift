@@ -121,7 +121,11 @@ extension EncodedVideoFrame.FrameType {
 }
 
 extension EncodedVideoFrame {
-    private final class GenericCodecSpecificInfo: NSObject, LKRTCCodecSpecificInfo {}
+    private final class GenericCodecSpecificInfo: NSObject, LKRTCCodecSpecificInfo, @unchecked Sendable {}
+
+    // Stateless, so one instance is shared by every frame that carries no codec
+    // specific info instead of allocating one per encoded frame.
+    private static let genericCodecSpecificInfo = GenericCodecSpecificInfo()
 
     func toRTCType() -> (LKRTCEncodedImage, LKRTCCodecSpecificInfo) {
         let image = LKRTCEncodedImage()
@@ -133,9 +137,9 @@ extension EncodedVideoFrame {
         image.frameType = frameType.toRTCType()
         image.rotation = rotation.toRTCType()
         image.contentType = contentType == .screenshare ? .screenshare : .unspecified
-        if let qp {
-            image.qp = NSNumber(value: qp)
-        }
+        // Always set: the native side reads `intValue`, so a nil would land as 0,
+        // while -1 is what the quality scaler treats as unknown.
+        image.qp = NSNumber(value: qp ?? -1)
 
         switch codecSpecificInfo {
         case let .h264(packetizationMode):
@@ -147,7 +151,7 @@ extension EncodedVideoFrame {
             h265Info.packetizationMode = packetizationMode == .singleNalUnit ? .singleNalUnit : .nonInterleaved
             return (image, h265Info)
         case nil:
-            return (image, GenericCodecSpecificInfo())
+            return (image, Self.genericCodecSpecificInfo)
         }
     }
 }

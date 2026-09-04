@@ -21,7 +21,9 @@ public extension LiveKitSDK {
     /// replacing the SDK's default VideoToolbox backed encoders.
     ///
     /// The factory is wrapped in WebRTC's simulcast encoder adapter, so each
-    /// simulcast layer is encoded by an encoder created from this factory.
+    /// simulcast layer is encoded by an encoder created from this factory, with
+    /// the SDK's built in encoders as the fallback when an encoder reports
+    /// ``VideoEncoderStatus/fallbackSoftware``.
     ///
     /// Pass `nil` to restore the default factory.
     ///

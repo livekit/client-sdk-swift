@@ -21,9 +21,11 @@ internal import LiveKitWebRTC
 /// Bridges a public ``VideoEncoderFactory`` to WebRTC's `RTCVideoEncoderFactory`.
 final class VideoEncoderFactoryAdapter: NSObject, LKRTCVideoEncoderFactory, @unchecked Sendable {
     private let factory: any VideoEncoderFactory
+    private let supportedRTCCodecs: [LKRTCVideoCodecInfo]
 
     init(factory: any VideoEncoderFactory) {
         self.factory = factory
+        supportedRTCCodecs = factory.supportedCodecs.map { $0.toRTCType() }
         super.init()
     }
 
@@ -33,13 +35,53 @@ final class VideoEncoderFactoryAdapter: NSObject, LKRTCVideoEncoderFactory, @unc
     }
 
     func supportedCodecs() -> [LKRTCVideoCodecInfo] {
-        factory.supportedCodecs.map { $0.toRTCType() }
+        supportedRTCCodecs
     }
 }
 
 /// Bridges a public ``VideoEncoder`` to WebRTC's `RTCVideoEncoder`.
 final class VideoEncoderAdapter: NSObject, LKRTCVideoEncoder, @unchecked Sendable {
+    /// Holds the current WebRTC callback so the closure handed to the encoder can
+    /// stay the same object across `setCallback` calls, and so clearing it cannot
+    /// race with a frame being delivered from an encoder thread.
+    private final class CallbackBox: @unchecked Sendable {
+        private let lock: some Lock = createLock()
+        // WebRTC's encoded image callback is safe to invoke from any thread,
+        // and access to the stored block is serialized by the lock.
+        private nonisolated(unsafe) var callback: RTCVideoEncoderCallback?
+        private var isAttached = false
+
+        /// Stores `callback` and reports whether the encoder still needs to be
+        /// handed the forwarding closure.
+        func set(_ callback: RTCVideoEncoderCallback?) -> Bool {
+            lock.sync {
+                self.callback = callback
+                guard callback != nil, !isAttached else { return false }
+                isAttached = true
+                return true
+            }
+        }
+
+        func clear() {
+            lock.sync {
+                callback = nil
+                isAttached = false
+            }
+        }
+
+        // The callback runs under the lock so that clear() does not return while a
+        // frame is still being delivered. WebRTC never calls back into the encoder
+        // from inside this callback, so holding the lock here cannot deadlock.
+        func invoke(_ image: LKRTCEncodedImage, _ info: any LKRTCCodecSpecificInfo) -> Bool {
+            lock.sync {
+                guard let callback else { return false }
+                return callback(image, info)
+            }
+        }
+    }
+
     private let encoder: any VideoEncoder
+    private let callbackBox = CallbackBox()
 
     init(encoder: any VideoEncoder) {
         self.encoder = encoder
@@ -47,15 +89,16 @@ final class VideoEncoderAdapter: NSObject, LKRTCVideoEncoder, @unchecked Sendabl
     }
 
     func setCallback(_ callback: RTCVideoEncoderCallback?) {
-        guard let callback else {
+        guard callback != nil else {
+            callbackBox.clear()
             encoder.setCallback(nil)
             return
         }
-        // WebRTC's encoded image callback is safe to invoke from any thread.
-        nonisolated(unsafe) let rtcCallback = callback
+        guard callbackBox.set(callback) else { return }
+        let box = callbackBox
         encoder.setCallback { frame in
             let (image, info) = frame.toRTCType()
-            return rtcCallback(image, info)
+            return box.invoke(image, info)
         }
     }
 
@@ -65,7 +108,8 @@ final class VideoEncoderAdapter: NSObject, LKRTCVideoEncoder, @unchecked Sendabl
     }
 
     func release() -> Int {
-        encoder.releaseEncoder().rawValue
+        callbackBox.clear()
+        return encoder.releaseEncoder().rawValue
     }
 
     func encode(_ frame: LKRTCVideoFrame,
@@ -73,16 +117,21 @@ final class VideoEncoderAdapter: NSObject, LKRTCVideoEncoder, @unchecked Sendabl
                 frameTypes: [NSNumber]) -> Int
     {
         guard let lkFrame = frame.toLKType() else {
-            return VideoEncoderStatus.invalidParameter.rawValue
+            // Lets the simulcast adapter switch to the built in encoder instead of
+            // dropping every frame with a buffer the SDK cannot map.
+            return VideoEncoderStatus.fallbackSoftware.rawValue
         }
-        let types = frameTypes.compactMap {
-            LKRTCFrameType(rawValue: $0.uintValue).flatMap { EncodedVideoFrame.FrameType(fromRTCType: $0) }
+        // The array is positional, one entry per simulcast stream, so arity is
+        // preserved and anything not a known video frame type becomes a delta.
+        let types = frameTypes.map {
+            LKRTCFrameType(rawValue: $0.uintValue)
+                .flatMap { EncodedVideoFrame.FrameType(fromRTCType: $0) } ?? .delta
         }
         return encoder.encode(lkFrame, frameTypes: types).rawValue
     }
 
     func setBitrate(_ bitrateKbit: UInt32, framerate: UInt32) -> Int32 {
-        Int32(encoder.setBitrate(bitrateKbit, framerate: framerate).rawValue)
+        Int32(truncatingIfNeeded: encoder.setBitrate(bitrateKbit, framerate: framerate).rawValue)
     }
 
     func implementationName() -> String {
