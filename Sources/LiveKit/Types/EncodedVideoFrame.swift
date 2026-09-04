@@ -88,17 +88,6 @@ public struct EncodedVideoFrame: Sendable {
     /// Codec specific packetization details, required for correct H264/H265 packetization.
     public let codecSpecificInfo: CodecSpecificInfo?
 
-    /// Wall clock time in milliseconds at which encoding of this frame began,
-    /// reported in encode time stats.
-    public let encodeStartMs: Int64?
-
-    /// Wall clock time in milliseconds at which encoding of this frame finished,
-    /// reported in encode time stats.
-    public let encodeFinishMs: Int64?
-
-    /// NTP timestamp of the frame in milliseconds, if known.
-    public let ntpTimeMs: Int64?
-
     /// Creates an encoded frame to deliver to the SDK.
     public init(data: Data,
                 dimensions: Dimensions,
@@ -108,10 +97,7 @@ public struct EncodedVideoFrame: Sendable {
                 rotation: VideoRotation = ._0,
                 qp: Int? = nil,
                 contentType: ContentType = .unspecified,
-                codecSpecificInfo: CodecSpecificInfo? = nil,
-                encodeStartMs: Int64? = nil,
-                encodeFinishMs: Int64? = nil,
-                ntpTimeMs: Int64? = nil)
+                codecSpecificInfo: CodecSpecificInfo? = nil)
     {
         self.data = data
         self.dimensions = dimensions
@@ -122,9 +108,6 @@ public struct EncodedVideoFrame: Sendable {
         self.qp = qp
         self.contentType = contentType
         self.codecSpecificInfo = codecSpecificInfo
-        self.encodeStartMs = encodeStartMs
-        self.encodeFinishMs = encodeFinishMs
-        self.ntpTimeMs = ntpTimeMs
     }
 }
 
@@ -166,15 +149,9 @@ extension EncodedVideoFrame {
         image.frameType = frameType.toRTCType()
         image.rotation = rotation.toRTCType()
         image.contentType = contentType == .screenshare ? .screenshare : .unspecified
-        if let encodeStartMs {
-            image.encodeStartMs = encodeStartMs
-        }
-        if let encodeFinishMs {
-            image.encodeFinishMs = encodeFinishMs
-        }
-        if let ntpTimeMs {
-            image.ntpTimeMs = ntpTimeMs
-        }
+        // Encode timing, NTP time and timing flags are filled in by WebRTC itself
+        // once the encoded image is matched to its source frame by RTP timestamp,
+        // so they are intentionally not part of the public type.
         // Always set: the native side reads `intValue`, so a nil would land as 0,
         // while -1 is what the quality scaler treats as unknown.
         image.qp = NSNumber(value: qp ?? -1)
