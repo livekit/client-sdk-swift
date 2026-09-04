@@ -33,8 +33,9 @@ import Foundation
 /// try LiveKitSDK.set(videoEncoderFactory: MyEncoderFactory())
 /// ```
 public protocol VideoEncoderFactory: Sendable {
-    /// The codecs this factory can create encoders for. Determines which codecs
-    /// are advertised for publishing.
+    /// The codecs this factory takes over from the SDK's built in encoders. The
+    /// built in encoders continue to serve every other codec, so this list can
+    /// only add to what is advertised for publishing, never narrow it.
     var supportedCodecs: [VideoCodecInfo] { get }
 
     /// Creates an encoder for the given codec, or `nil` if the codec is not supported.

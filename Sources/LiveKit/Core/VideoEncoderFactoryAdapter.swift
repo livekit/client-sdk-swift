@@ -30,8 +30,9 @@ final class VideoEncoderFactoryAdapter: NSObject, LKRTCVideoEncoderFactory, @unc
     }
 
     func createEncoder(_ info: LKRTCVideoCodecInfo) -> (any LKRTCVideoEncoder)? {
-        guard let encoder = factory.createEncoder(for: VideoCodecInfo(fromRTCType: info)) else { return nil }
-        return VideoEncoderAdapter(encoder: encoder)
+        let codec = VideoCodecInfo(fromRTCType: info)
+        guard let encoder = factory.createEncoder(for: codec) else { return nil }
+        return VideoEncoderAdapter(encoder: encoder, codecName: codec.name)
     }
 
     func supportedCodecs() -> [LKRTCVideoCodecInfo] {
@@ -81,10 +82,12 @@ final class VideoEncoderAdapter: NSObject, LKRTCVideoEncoder, @unchecked Sendabl
     }
 
     private let encoder: any VideoEncoder
+    private let codecName: String
     private let callbackBox = CallbackBox()
 
-    init(encoder: any VideoEncoder) {
+    init(encoder: any VideoEncoder, codecName: String) {
         self.encoder = encoder
+        self.codecName = codecName
         super.init()
     }
 
@@ -96,8 +99,9 @@ final class VideoEncoderAdapter: NSObject, LKRTCVideoEncoder, @unchecked Sendabl
         }
         guard callbackBox.set(callback) else { return }
         let box = callbackBox
+        let codecName = codecName
         encoder.setCallback { frame in
-            let (image, info) = frame.toRTCType()
+            let (image, info) = frame.toRTCType(codecName: codecName)
             return box.invoke(image, info)
         }
     }

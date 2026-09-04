@@ -48,11 +48,11 @@ public struct EncodedVideoFrame: Sendable {
     }
 
     /// Codec specific packetization details attached to an encoded frame.
-    /// Omit for codecs other than H264/H265.
     ///
-    /// - Note: Codecs other than H264 and H265 currently receive generic codec
-    ///   info, so the layer indices VP8, VP9 and AV1 use for temporal and spatial
-    ///   scalability cannot be reported yet.
+    /// When omitted, H264 and H265 frames default to ``PacketizationMode/nonInterleaved``
+    /// based on the codec the encoder was created for. AV1 needs no codec
+    /// specific info. VP8 and VP9 cannot be bridged yet, see
+    /// ``LiveKitSDK/set(videoEncoderFactory:)``.
     public enum CodecSpecificInfo: Sendable {
         /// H264 packetization details.
         case h264(packetizationMode: PacketizationMode)
@@ -85,7 +85,8 @@ public struct EncodedVideoFrame: Sendable {
     /// The kind of content carried by the frame.
     public let contentType: ContentType
 
-    /// Codec specific packetization details, required for correct H264/H265 packetization.
+    /// Codec specific packetization details. Defaults to non interleaved
+    /// packetization for H264 and H265 when `nil`.
     public let codecSpecificInfo: CodecSpecificInfo?
 
     /// Creates an encoded frame to deliver to the SDK.
@@ -139,7 +140,11 @@ extension EncodedVideoFrame {
     // specific info instead of allocating one per encoded frame.
     private static let genericCodecSpecificInfo = GenericCodecSpecificInfo()
 
-    func toRTCType() -> (LKRTCEncodedImage, LKRTCCodecSpecificInfo) {
+    /// - Parameter codecName: SDP name of the codec the encoder was created for,
+    ///   used to synthesize H264/H265 packetization info when the frame has none.
+    ///   The RTP packetizer for those codecs requires the typed header and
+    ///   aborts on a generic one.
+    func toRTCType(codecName: String) -> (LKRTCEncodedImage, LKRTCCodecSpecificInfo) {
         let image = LKRTCEncodedImage()
         image.buffer = data
         image.encodedWidth = dimensions.width
@@ -156,7 +161,17 @@ extension EncodedVideoFrame {
         // while -1 is what the quality scaler treats as unknown.
         image.qp = NSNumber(value: qp ?? -1)
 
-        switch codecSpecificInfo {
+        let info: CodecSpecificInfo? = switch codecSpecificInfo {
+        case let .some(info): info
+        case nil:
+            switch codecName.uppercased() {
+            case "H264": .h264(packetizationMode: .nonInterleaved)
+            case "H265": .h265(packetizationMode: .nonInterleaved)
+            default: nil
+            }
+        }
+
+        switch info {
         case let .h264(packetizationMode):
             let h264Info = LKRTCCodecSpecificInfoH264()
             h264Info.packetizationMode = packetizationMode == .singleNalUnit ? .singleNalUnit : .nonInterleaved
