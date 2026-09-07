@@ -22,16 +22,27 @@ internal import LiveKitWebRTC
 final class VideoEncoderFactoryAdapter: NSObject, LKRTCVideoEncoderFactory, @unchecked Sendable {
     private let factory: any VideoEncoderFactory
     private let supportedRTCCodecs: [LKRTCVideoCodecInfo]
+    private let supportedCodecNames: Set<String>
 
-    init(factory: any VideoEncoderFactory) {
+    /// - Parameter supportedCodecs: The codecs validated when the factory was set.
+    ///   Read once here rather than from the factory again, so the list that was
+    ///   checked is the list that gets advertised and enforced.
+    init(factory: any VideoEncoderFactory, supportedCodecs: [VideoCodecInfo]) {
         self.factory = factory
-        supportedRTCCodecs = factory.supportedCodecs.map { $0.toRTCType() }
+        supportedRTCCodecs = supportedCodecs.map { $0.toRTCType() }
+        supportedCodecNames = Set(supportedCodecs.map { $0.name.uppercased() })
         super.init()
     }
 
     func createEncoder(_ info: LKRTCVideoCodecInfo) -> (any LKRTCVideoEncoder)? {
         let codec = VideoCodecInfo(fromRTCType: info)
+        // The simulcast factory asks the primary for whatever codec was negotiated,
+        // including ones only the built in fallback advertised. Declining here
+        // routes those to the fallback and keeps unbridgeable codecs such as VP8
+        // away from the packetizer.
+        guard supportedCodecNames.contains(codec.name.uppercased()) else { return nil }
         guard let encoder = factory.createEncoder(for: codec) else { return nil }
+
         return VideoEncoderAdapter(encoder: encoder, codec: codec)
     }
 

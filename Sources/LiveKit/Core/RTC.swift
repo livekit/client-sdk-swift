@@ -130,6 +130,9 @@ extension RTC {
         var admType: AudioDeviceModuleType = .audioEngine
         var bypassVoiceProcessing: Bool = false
         var customVideoEncoderFactory: (any VideoEncoderFactory)?
+        // Snapshot of the factory's supported codecs taken when it was set, so the
+        // validated list is the one advertised and enforced.
+        var customVideoEncoderCodecs: [VideoCodecInfo] = []
     }
 
     static let pcFactoryState = StateSync(PeerConnectionFactoryState())
@@ -139,15 +142,18 @@ extension RTC {
     // Must not be forced from inside a `pcFactoryState` read or mutate block, since
     // its initializer reads that state and `StateSync` is not reentrant.
     static let encoderFactory: LKRTCVideoEncoderFactory & Sendable = {
-        guard let customFactory = pcFactoryState.read({ $0.customVideoEncoderFactory }) else {
+        let (customFactory, customCodecs) = pcFactoryState.read { ($0.customVideoEncoderFactory, $0.customVideoEncoderCodecs) }
+        guard let customFactory else {
             let defaultFactory = DefaultVideoEncoderFactory()
             return VideoEncoderFactorySimulcast(primary: defaultFactory,
                                                 fallback: defaultFactory)
         }
         // A custom encoder reporting `.fallbackSoftware` falls back to the built in
         // VideoToolbox encoders instead of failing the stream.
-        return VideoEncoderFactorySimulcast(primary: VideoEncoderFactoryAdapter(factory: customFactory),
+        return VideoEncoderFactorySimulcast(primary: VideoEncoderFactoryAdapter(factory: customFactory,
+                                                                                supportedCodecs: customCodecs),
                                             fallback: DefaultVideoEncoderFactory())
+
     }()
 
     static let decoderFactory: LKRTCVideoDecoderFactory & Sendable = VideoDecoderFactory()

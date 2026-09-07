@@ -45,8 +45,10 @@ public extension LiveKitSDK {
     ///   process, and this method throws ``LiveKitError`` with type `.invalidState`
     ///   afterwards.
     static func set(videoEncoderFactory: (any VideoEncoderFactory)?) throws {
-        if let videoEncoderFactory {
-            let codecs = videoEncoderFactory.supportedCodecs
+        // Read once and stored alongside the factory, so validation, the advertised
+        // list and the codecs the adapter will accept all come from the same snapshot.
+        let codecs = videoEncoderFactory?.supportedCodecs ?? []
+        if videoEncoderFactory != nil {
             guard !codecs.isEmpty else {
                 throw LiveKitError(.invalidParameter, message: "videoEncoderFactory must advertise at least one supported codec")
             }
@@ -60,6 +62,7 @@ public extension LiveKitSDK {
                 throw LiveKitError(.invalidState, message: "Cannot set videoEncoderFactory after the peer connection factory has been initialized")
             }
             $0.customVideoEncoderFactory = videoEncoderFactory
+            $0.customVideoEncoderCodecs = codecs
         }
     }
 
