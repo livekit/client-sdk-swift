@@ -53,42 +53,50 @@ final class VideoEncoderFactoryAdapter: NSObject, LKRTCVideoEncoderFactory, @unc
 
 /// Bridges a public ``VideoEncoder`` to WebRTC's `RTCVideoEncoder`.
 final class VideoEncoderAdapter: NSObject, LKRTCVideoEncoder, @unchecked Sendable {
-    /// Holds the current WebRTC callback so the closure handed to the encoder can
-    /// stay the same object across `setCallback` calls, and so clearing it cannot
-    /// race with a frame being delivered from an encoder thread.
+    /// Holds the current WebRTC callback behind one stable closure handed to the
+    /// encoder.
+    ///
+    /// WebRTC re-registers a fresh callback without an intervening nil whenever the
+    /// simulcast adapter's stream contexts are moved, so the closure stays the same
+    /// across consecutive non nil registrations and only the stored block changes.
+    /// After `clear()` a later registration attaches a new closure. A delivery that
+    /// finds the box cleared is dropped, while one that already copied the block out
+    /// may still finish, so teardown relies on the encoder honoring the
+    /// ``VideoEncoder/releaseEncoder()`` contract of delivering nothing afterwards.
+    /// The callback runs outside the lock: the block only holds a raw pointer to
+    /// WebRTC's native callback, so a lock could not extend its lifetime, and
+    /// holding one across the packetize and send path would make `release()` wait
+    /// on every frame.
     private final class CallbackBox: @unchecked Sendable {
-        private let lock: some Lock = createLock()
-        // WebRTC's encoded image callback is safe to invoke from any thread,
-        // and access to the stored block is serialized by the lock.
-        private nonisolated(unsafe) var callback: RTCVideoEncoderCallback?
-        private var isAttached = false
+        private struct State {
+            var callback: RTCVideoEncoderCallback?
+            var isAttached = false
+        }
+
+        private let state = StateSync(State())
 
         /// Stores `callback` and reports whether the encoder still needs to be
         /// handed the forwarding closure.
         func set(_ callback: RTCVideoEncoderCallback?) -> Bool {
-            lock.sync {
-                self.callback = callback
-                guard callback != nil, !isAttached else { return false }
-                isAttached = true
+            state.mutate {
+                $0.callback = callback
+                guard callback != nil, !$0.isAttached else { return false }
+                $0.isAttached = true
                 return true
             }
         }
 
         func clear() {
-            lock.sync {
-                callback = nil
-                isAttached = false
+            state.mutate {
+                $0.callback = nil
+                $0.isAttached = false
             }
         }
 
-        // The callback runs under the lock so that clear() does not return while a
-        // frame is still being delivered. WebRTC never calls back into the encoder
-        // from inside this callback, so holding the lock here cannot deadlock.
         func invoke(_ image: LKRTCEncodedImage, _ info: any LKRTCCodecSpecificInfo) -> Bool {
-            lock.sync {
-                guard let callback else { return false }
-                return callback(image, info)
-            }
+            // Copied out so the callback runs outside the lock.
+            guard let callback = state.read({ $0.callback }) else { return false }
+            return callback(image, info)
         }
     }
 
