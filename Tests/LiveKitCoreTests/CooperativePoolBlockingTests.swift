@@ -26,7 +26,18 @@ import LiveKitTestSupport
 /// every Swift Concurrency task in the process.
 ///
 /// Serialized because the pool, the RTC executor, and libwebrtc's signaling thread are process-wide.
-@Suite(.tags(.concurrency), .serialized, .bug("https://github.com/livekit/client-sdk-swift/issues/1100"))
+///
+/// Quarantined while the test-process wedges are investigated. This suite deliberately blocks
+/// `activeProcessorCount + 2` cooperative-pool threads at once, which on a 3-core hosted runner is
+/// two more blockers than the pool has threads to give. Since it landed, CI has been wedging in
+/// whichever suite runs next — most often `DropOldestContinuationTests`, the very next one — with
+/// the process idle and no test recorded as failed. Whether this suite is the cause is unproven;
+/// removing it from the run is the cheapest way to find out.
+///
+/// Remove the `.disabled` trait to run it locally.
+@Suite(.tags(.concurrency), .serialized,
+       .disabled("Wedges the test process on hosted CI runners"),
+       .bug("https://github.com/livekit/client-sdk-swift/issues/1100"))
 struct CooperativePoolBlockingTests {
     private final class StubTransportDelegate: TransportDelegate {
         func transport(_: Transport, didUpdateState _: LKRTCPeerConnectionState) {}
