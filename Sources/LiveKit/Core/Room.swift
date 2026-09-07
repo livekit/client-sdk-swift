@@ -19,7 +19,7 @@
 import Combine
 import Foundation
 
-internal import LiveKitUniFFI
+public import LiveKitUniFFI
 internal import LiveKitWebRTC
 
 #if canImport(Network)
@@ -158,8 +158,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     /// trace. The name is namespaced under `custom.` (`"checkout.started"` ships as
     /// `custom.checkout.started`); attributes keep their names. A no-op when telemetry is off.
     /// Subject to the same flood guard as SDK events.
-    public func emitTelemetryEvent(_ name: String, attributes: [String: SpanAttribute] = [:]) {
-        telemetryScope?.emitCustom(name: name, attributes: attributes.lowered)
+    public func emitTelemetryEvent(_ name: String, attributes: [String: AttributeValue] = [:]) {
+        telemetryScope?.emitCustom(name: name, attributes: attributes.map { Attribute(key: $0.key, value: $0.value) })
     }
 
     /// This Room's scope on the process pipeline — one trace for the Room's lifetime — or `nil`
@@ -169,7 +169,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     /// The scope for this Room's spans, when the `room` instrument is on.
     var traceScope: TelemetryScope? {
-        Telemetry.options.copy()?.instruments.contains(.room) == true ? telemetryScope : nil
+        Telemetry.options.copy().map { !$0.disabledInstruments.contains(.room) } == true ? telemetryScope : nil
     }
 
     /// An app-defined span in this Room's trace; a no-op when telemetry is off.
@@ -320,7 +320,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         telemetryScope = LiveKitUniFFI.telemetryScope()
         super.init()
-        if let scope = telemetryScope, Telemetry.options.copy()?.instruments.contains(.rtc) == true {
+        if let scope = telemetryScope, Telemetry.options.copy().map({ !$0.disabledInstruments.contains(.rtc) }) == true {
             let rtc = RTCTelemetry(room: self, scope: scope)
             rtcTelemetry = rtc
             Task { await rtc.start() }

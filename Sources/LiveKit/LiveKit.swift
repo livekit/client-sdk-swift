@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-internal import LiveKitUniFFI
+public import LiveKitUniFFI
 internal import LiveKitWebRTC
 import Foundation
 
@@ -43,9 +43,9 @@ public class LiveKitSDK: NSObject, Loggable {
     fileprivate static let state = StateSync(State())
 
     /// Turn client telemetry on: warn/error records, RTC statistics, spans and device state,
-    /// shipped out-of-band to an OTLP collector. The pipeline starts with the first Room; each Room
-    /// gets its own session (see ``Room/telemetryTraceId``). Same as `Telemetry.configure`.
-    public static func setTelemetry(_ options: TelemetryOptions) {
+    /// shipped out-of-band to an OTLP collector. The pipeline starts now, before any Room; each
+    /// Room gets its own scope (see ``Room/telemetryTraceId``). Same as `Telemetry.configure`.
+    public static func setTelemetry(_ options: TelemetryConfig) {
         Task { await Telemetry.configure(options) }
     }
 
@@ -55,7 +55,7 @@ public class LiveKitSDK: NSObject, Loggable {
     }
 
     /// No-op, kept for source compatibility: operation spans live in the telemetry core and ship
-    /// with telemetry; see ``TelemetryOptions``.
+    /// with telemetry; see ``TelemetryConfig``.
     @available(*, deprecated, message: "Spans live in the telemetry core; setTracing is a no-op.")
     public static func setTracing(_: any Tracing) {}
 

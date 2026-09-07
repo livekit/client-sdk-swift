@@ -41,8 +41,8 @@ extension TelemetrySpan {
     }
 
     /// The open bag; keys follow `SPEC.md`.
-    func setAttribute(_ key: String, _ value: SpanAttribute) {
-        setAttribute(key: key, value: value.lowered)
+    func setAttribute(_ key: String, _ value: AttributeValue) {
+        setAttribute(key: key, value: value)
     }
 
     /// The track a publish or subscribe span is about; call again once the sid is known.
@@ -79,14 +79,6 @@ extension TelemetrySpan: Equatable {
     static func == (lhs: TelemetrySpan, rhs: TelemetrySpan) -> Bool {
         lhs === rhs
     }
-}
-
-/// A typed span attribute; keys follow `SPEC.md` (`lk.connect.attempt`, `lk.reconnect.mode`, …).
-public enum SpanAttribute: Sendable, Equatable {
-    case string(String)
-    case int(Int64)
-    case double(Double)
-    case bool(Bool)
 }
 
 // MARK: - Tracing
