@@ -83,8 +83,8 @@ import Testing
 
 struct GzipTests {
     /// Known-answer vector for CRC-32 of "123456789".
-    @Test func crc32MatchesKnownVector() throws {
-        let data = try #require("123456789".data(using: .utf8))
+    @Test func crc32MatchesKnownVector() {
+        let data = Data("123456789".utf8)
         #expect(Gzip.crc32(data) == 0xCBF4_3926)
     }
 
