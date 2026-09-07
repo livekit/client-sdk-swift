@@ -44,14 +44,14 @@ public class LiveKitSDK: NSObject, Loggable {
 
     /// Turn client telemetry on: warn/error records, RTC statistics, spans and device state,
     /// shipped out-of-band to an OTLP collector. The pipeline starts with the first Room; each Room
-    /// gets its own session (see ``Room/telemetryTraceId``). Same as `Telemetry.shared.configure`.
+    /// gets its own session (see ``Room/telemetryTraceId``). Same as `Telemetry.configure`.
     public static func setTelemetry(_ options: TelemetryOptions) {
-        Task { await Telemetry.shared.configure(options) }
+        Task { await Telemetry.configure(options) }
     }
 
     /// Turn telemetry off (the default), stopping a running pipeline after a bounded final flush.
     public static func disableTelemetry() {
-        Task { await Telemetry.shared.configure(nil) }
+        Task { await Telemetry.configure(nil) }
     }
 
     /// No-op, kept for source compatibility: operation spans live in the telemetry core and ship

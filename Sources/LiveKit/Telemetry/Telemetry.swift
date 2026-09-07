@@ -18,71 +18,50 @@ internal import LiveKitUniFFI
 import Foundation
 
 /// Client telemetry. The pipeline lives in the core, one per process like a logger
-/// (`telemetryConfigure`, `telemetryLog`, `telemetryScope` …), so nothing here mirrors it. This
-/// actor owns only what a core cannot: the platform instruments (device state, log capture) and
-/// their lifecycle, and it is the isolation domain for the instruments' state. Configure it with
+/// (`telemetryConfigure`, `telemetryLog`, `telemetryScope` …), and so do the instruments it runs:
+/// Swift only builds the platform ones and hands them over. Configure with
 /// ``LiveKitSDK/setTelemetry(_:)`` before creating Rooms, like the logger.
-@globalActor
-public actor Telemetry {
-    public static let shared = Telemetry()
-
+public enum Telemetry {
     /// What was configured: the instruments a Room starts (`room`, `rtc`) and the log gate.
-    nonisolated static let options = StateSync<TelemetryOptions?>(nil)
+    static let options = StateSync<TelemetryOptions?>(nil)
 
     /// Where a log record came from.
     enum LogSource: String, Sendable {
         case sdk, ffi, webrtc
     }
 
-    private var instruments: [TelemetryInstrument] = []
-
-    // MARK: - Configuration
-
     /// Set or change the options; `nil` turns telemetry off after a final flush. The pipeline
     /// starts now, so pre-connect errors are captured; its destination waits for the first connect
     /// unless the options name an endpoint.
-    public func configure(_ options: TelemetryOptions?) async {
-        for instrument in instruments {
-            await instrument.stop()
-        }
-        instruments = []
+    public static func configure(_ options: TelemetryOptions?) async {
         Self.options.mutate { $0 = options }
         LogHub.level.mutate { $0 = options?.logLevel ?? .warning }
         guard let options else {
             await telemetryShutdown()
             return
         }
+        var instruments: [TelemetryInstrument] = []
+        if options.instruments.contains(.device) { instruments.append(DeviceTelemetry()) }
+        if options.instruments.contains(.logs) { instruments.append(LogCapture(level: options.logLevel)) }
         // Fail-open: the app runs without telemetry rather than not at all.
-        guard (try? telemetryConfigure(config: options.coreConfig, transport: URLSessionTelemetryTransport())) != nil else { return }
-        if options.instruments.contains(.device) {
-            let device = DeviceTelemetry()
-            await device.start()
-            instruments.append(device)
-        }
-        if options.instruments.contains(.logs) {
-            // Capture at the configured floor; the core applies the per-source policy.
-            LogSources.ffi.enableTelemetry(level: options.logLevel)
-            LogSources.rtc.enableTelemetry(level: options.logLevel)
-        }
+        try? telemetryConfigure(config: options.coreConfig, transport: URLSessionTelemetryTransport(), instruments: instruments)
     }
 
     /// Attach an attribute to every record of every scope — an `enduser.id`, a tenant, a build
     /// flavor. `nil` removes it.
-    public nonisolated func setAttribute(_ key: String, _ value: SpanAttribute?) {
+    public static func setAttribute(_ key: String, _ value: SpanAttribute?) {
         telemetrySetAttribute(key: key, value: value?.lowered)
     }
 
     /// A one-line readout of the pipeline's health for a debug console: status, throughput,
     /// backlog and losses.
-    public nonisolated func diagnostics() -> String {
+    public static func diagnostics() -> String {
         telemetryDiagnostics()
     }
 
-    // MARK: - Logs
-
     /// A warn/error record from the SDK, the Rust core or WebRTC, as `LogHub` captured it where it
     /// happened; the core files it under the ambient span's scope, or the process.
-    nonisolated static func log(_ record: LogRecord) {
+    static func log(_ record: LogRecord) {
         guard options.copy()?.instruments.contains(.logs) == true else { return }
         let function = "\(record.function)", file = record.path.isEmpty ? "\(record.file)" : record.path
         telemetryLog(record: LiveKitUniFFI.LogRecord(severity: record.level.severity,
@@ -94,6 +73,26 @@ public actor Telemetry {
                                                      line: record.line > 0 ? UInt32(record.line) : nil,
                                                      timestampNs: record.timestampNs,
                                                      spanId: record.span?.spanId))
+    }
+}
+
+/// Warn/error lines from the Rust core and from WebRTC, through the same `LogHub` the console
+/// uses: each source is captured once, per process, from the configured floor up.
+final class LogCapture: TelemetryInstrument, @unchecked Sendable {
+    private let level: LogLevel
+
+    init(level: LogLevel) {
+        self.level = level
+    }
+
+    func start() {
+        LogSources.ffi.enableTelemetry(level: level)
+        LogSources.rtc.enableTelemetry(level: level)
+    }
+
+    func stop() {
+        LogSources.ffi.disableTelemetry()
+        LogSources.rtc.disableTelemetry()
     }
 }
 

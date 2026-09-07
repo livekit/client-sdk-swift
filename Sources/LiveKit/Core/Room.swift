@@ -323,7 +323,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         if let scope = telemetryScope, Telemetry.options.copy()?.instruments.contains(.rtc) == true {
             let rtc = RTCTelemetry(room: self, scope: scope)
             rtcTelemetry = rtc
-            Task { @Telemetry in await rtc.start() }
+            Task { await rtc.start() }
         }
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), ffi: \(LiveKitSDK.ffiVersion), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
@@ -413,7 +413,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     deinit {
         if let rtc = rtcTelemetry {
-            Task { @Telemetry in await rtc.stop() }
+            Task { await rtc.stop() }
         }
     }
 

@@ -310,6 +310,11 @@ final class LogSource: @unchecked Sendable {
         request { $0.telemetry = level }
     }
 
+    /// Telemetry is done with this source (a running capture keeps its level; it never raises).
+    func disableTelemetry() {
+        request { $0.telemetry = nil }
+    }
+
     private func request(_ change: (inout State) -> Void) {
         let (was, now) = state.mutate { state -> (LogLevel?, LogLevel?) in
             change(&state)

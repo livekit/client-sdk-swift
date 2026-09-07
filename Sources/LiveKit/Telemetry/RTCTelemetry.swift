@@ -22,8 +22,7 @@ import Foundation
 /// windows them into `lk.rtc.stats.sample`). It also owns the `lk.subscribe` span — subscription
 /// intent to first media, "time to media" — because its natural end is an RTC fact: the first
 /// reading with inbound bytes.
-@Telemetry
-final class RTCTelemetry: TelemetryInstrument, Loggable {
+actor RTCTelemetry: Loggable {
     /// A subscription that shows no media within this window ends with `error.type = timedOut`.
     nonisolated static let subscribeTimeout: TimeInterval = 30
 
@@ -33,7 +32,7 @@ final class RTCTelemetry: TelemetryInstrument, Loggable {
     private var subscribeSpans: [Track.Sid: Span] = [:]
     private var subscribeTimeouts: [Track.Sid: Task<Void, Never>] = [:]
 
-    nonisolated init(room: Room, scope: TelemetryScope) {
+    init(room: Room, scope: TelemetryScope) {
         self.scope = scope
         self.room = room
     }
@@ -65,13 +64,19 @@ final class RTCTelemetry: TelemetryInstrument, Loggable {
         subscribeTimeouts[sid] = Task { [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(Self.subscribeTimeout * 1_000_000_000))
             guard !Task.isCancelled else { return }
-            self?.endSubscribe(sid, outcome: .error, error: LiveKitError(.timedOut, message: "No media within \(Self.subscribeTimeout)s"))
+            await self?.endSubscribe(sid, outcome: .error, error: LiveKitError(.timedOut, message: "No media within \(Self.subscribeTimeout)s"))
         }
     }
 
     private func endSubscribe(_ sid: Track.Sid, outcome: SpanOutcome, error: Error? = nil) {
         subscribeTimeouts.removeValue(forKey: sid)?.cancel()
         subscribeSpans.removeValue(forKey: sid)?.end(outcome: outcome, error: error.map(Span.errorType))
+    }
+
+    private func subscribed(_ publication: RemoteTrackPublication, participant: RemoteParticipant, scope: TelemetryScope?) {
+        beginSubscribe(publication, participant: participant, scope: scope) // manual subscription
+        subscribeSpans[publication.sid]?.step(.subscribed)
+        if let track = publication.track { observe(track) }
     }
 
     /// First media on a subscribed track: the subscribe span's natural end.
@@ -85,7 +90,7 @@ final class RTCTelemetry: TelemetryInstrument, Loggable {
 extension RTCTelemetry: RoomDelegate {
     nonisolated func room(_: Room, participant _: LocalParticipant, didPublishTrack publication: LocalTrackPublication) {
         guard let track = publication.track else { return }
-        Task { @Telemetry in self.observe(track) }
+        Task { await self.observe(track) }
     }
 
     nonisolated func room(_: Room, participant _: LocalParticipant, didUnpublishTrack publication: LocalTrackPublication) {
@@ -96,29 +101,25 @@ extension RTCTelemetry: RoomDelegate {
         // With autoSubscribe the intent exists the moment the track is known.
         guard room._state.connectOptions.autoSubscribe else { return }
         let scope = room.traceScope
-        Task { @Telemetry in self.beginSubscribe(publication, participant: participant, scope: scope) }
+        Task { await self.beginSubscribe(publication, participant: participant, scope: scope) }
     }
 
     nonisolated func room(_ room: Room, participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
         let scope = room.traceScope
-        Task { @Telemetry in
-            self.beginSubscribe(publication, participant: participant, scope: scope) // manual subscription
-            self.subscribeSpans[publication.sid]?.step(.subscribed)
-            if let track = publication.track { self.observe(track) }
-        }
+        Task { await self.subscribed(publication, participant: participant, scope: scope) }
     }
 
     nonisolated func room(_: Room, participant _: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication) {
         publication.track?.remove(delegate: self)
-        Task { @Telemetry in self.endSubscribe(publication.sid, outcome: .cancelled) }
+        Task { await self.endSubscribe(publication.sid, outcome: .cancelled) }
     }
 
     nonisolated func room(_: Room, participant _: RemoteParticipant, didUnpublishTrack publication: RemoteTrackPublication) {
-        Task { @Telemetry in self.endSubscribe(publication.sid, outcome: .cancelled) }
+        Task { await self.endSubscribe(publication.sid, outcome: .cancelled) }
     }
 
     nonisolated func room(_: Room, participant _: RemoteParticipant, didFailToSubscribeTrackWithSid trackSid: Track.Sid, error: LiveKitError) {
-        Task { @Telemetry in self.endSubscribe(trackSid, outcome: .error, error: error) }
+        Task { await self.endSubscribe(trackSid, outcome: .error, error: error) }
     }
 }
 
@@ -129,7 +130,7 @@ extension RTCTelemetry: TrackDelegate {
         }
         // First media, at the stats timer's 1 s granularity.
         if let sid = track.sid, statistics.inboundRtpStream.contains(where: { ($0.bytesReceived ?? 0) > 0 }) {
-            Task { @Telemetry in self.mediaArrived(sid) }
+            Task { await self.mediaArrived(sid) }
         }
     }
 

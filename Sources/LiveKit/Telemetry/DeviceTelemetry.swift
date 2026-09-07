@@ -26,8 +26,7 @@ import UIKit
 /// battery, app lifecycle and the audio session, observed process-wide (a device has no room) and
 /// pushed to the pipeline as `DeviceState` — which stretches the cadence and holds uploads — plus
 /// the `lk.device.*` events. Notification-driven throughout: nothing polls, nothing samples CPU.
-@Telemetry
-final class DeviceTelemetry: TelemetryInstrument, Loggable {
+actor DeviceTelemetry: TelemetryInstrument, Loggable {
     /// Instruments run here, never on a media or UI thread.
     private nonisolated let queue = DispatchQueue(label: "LiveKitSDK.telemetry.device", qos: .utility)
     private nonisolated let pathMonitor = NWPathMonitor()
@@ -43,16 +42,24 @@ final class DeviceTelemetry: TelemetryInstrument, Loggable {
     private var batteryLevel: UInt32?
     private var batteryCharging = false
 
-    nonisolated init() {}
+    init() {}
 
-    func start() {
+    nonisolated func start() {
+        Task { await self.begin() }
+    }
+
+    nonisolated func stop() {
+        Task { await self.end() }
+    }
+
+    private func begin() {
         let center = NotificationCenter.default
         notificationTokens.append(center.addObserver(forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: nil) { [weak self] _ in
-            Task { @Telemetry in self?.pushDeviceState() }
+            Task { await self?.pushDeviceState() }
         })
         if #available(macOS 12.0, iOS 9.0, tvOS 9.0, *) {
             notificationTokens.append(center.addObserver(forName: .NSProcessInfoPowerStateDidChange, object: nil, queue: nil) { [weak self] _ in
-                Task { @Telemetry in self?.pushDeviceState() }
+                Task { await self?.pushDeviceState() }
             })
         }
         Task { @MainActor in AppStateListener.shared.delegates.add(delegate: self) }
@@ -62,7 +69,7 @@ final class DeviceTelemetry: TelemetryInstrument, Loggable {
         observeAudioSession()
     }
 
-    func stop() {
+    private func end() {
         for token in notificationTokens {
             NotificationCenter.default.removeObserver(token)
         }
@@ -106,14 +113,15 @@ final class DeviceTelemetry: TelemetryInstrument, Loggable {
         source.setEventHandler { [weak self, weak source] in
             guard let event = source?.data else { return }
             let pressure: MemoryPressure = event.contains(.critical) ? .critical : event.contains(.warning) ? .warning : .normal
-            Task { @Telemetry in
-                guard let self else { return }
-                self.memory = pressure
-                self.pushDeviceState()
-            }
+            Task { await self?.memoryChanged(pressure) }
         }
         source.resume()
         memorySource = source
+    }
+
+    private func memoryChanged(_ pressure: MemoryPressure) {
+        memory = pressure
+        pushDeviceState()
     }
 
     /// Path type plus the two flags that matter for traffic: expensive (cellular/hotspot) and
@@ -122,19 +130,16 @@ final class DeviceTelemetry: TelemetryInstrument, Loggable {
         // No seed: on iOS `currentPath` reads `unavailable` before the monitor starts, and the
         // monitor delivers the real path immediately on start.
         pathMonitor.pathUpdateHandler = { [weak self] path in
-            Task { @Telemetry in
-                guard let self else { return }
-                self.record(path)
-                self.pushDeviceState()
-            }
+            Task { await self?.pathChanged(path) }
         }
         pathMonitor.start(queue: queue)
     }
 
-    private func record(_ path: NWPath) {
+    private func pathChanged(_ path: NWPath) {
         network = Self.networkType(path)
         networkExpensive = path.isExpensive
         networkConstrained = path.isConstrained
+        pushDeviceState()
     }
 
     private func observeBattery() {
@@ -158,11 +163,13 @@ final class DeviceTelemetry: TelemetryInstrument, Loggable {
         let level = device.batteryLevel // -1 while unknown
         let percent: UInt32? = level < 0 ? nil : UInt32((level * 100).rounded())
         let charging = device.batteryState == .charging || device.batteryState == .full
-        Task { @Telemetry in
-            self.batteryLevel = percent
-            self.batteryCharging = charging
-            self.pushDeviceState()
-        }
+        Task { await self.batteryChanged(percent, charging: charging) }
+    }
+
+    private func batteryChanged(_ level: UInt32?, charging: Bool) {
+        batteryLevel = level
+        batteryCharging = charging
+        pushDeviceState()
     }
     #endif
 
@@ -220,15 +227,15 @@ final class DeviceTelemetry: TelemetryInstrument, Loggable {
 // MARK: - App state
 
 extension DeviceTelemetry: AppStateDelegate {
-    nonisolated func appDidEnterBackground() { Task { @Telemetry in self.setAppState(.background) } }
-    nonisolated func appWillEnterForeground() { Task { @Telemetry in self.setAppState(.foreground) } }
-    nonisolated func appWillSleep() { Task { @Telemetry in self.setAppState(.background) } }
-    nonisolated func appDidWake() { Task { @Telemetry in self.setAppState(.foreground) } }
+    nonisolated func appDidEnterBackground() { Task { await self.setAppState(.background) } }
+    nonisolated func appWillEnterForeground() { Task { await self.setAppState(.foreground) } }
+    nonisolated func appWillSleep() { Task { await self.setAppState(.background) } }
+    nonisolated func appDidWake() { Task { await self.setAppState(.foreground) } }
 
     /// The last chance to ship: the shutdown summary included.
     nonisolated func appWillTerminate() {
-        Task { @Telemetry in
-            self.setAppState(.background)
+        Task {
+            await self.setAppState(.background)
             await telemetryShutdown()
         }
     }
