@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-public import LiveKitUniFFI
+internal import LiveKitUniFFI
 internal import LiveKitWebRTC
 import Foundation
 
@@ -45,7 +45,7 @@ public class LiveKitSDK: NSObject, Loggable {
     /// Turn client telemetry on: warn/error records, RTC statistics, spans and device state,
     /// shipped out-of-band to an OTLP collector. The pipeline starts now, before any Room; each
     /// Room gets its own scope (see ``Room/telemetryTraceId``). Same as `Telemetry.configure`.
-    public static func setTelemetry(_ options: TelemetryConfig) {
+    public static func setTelemetry(_ options: TelemetryOptions) {
         Task { await Telemetry.configure(options) }
     }
 

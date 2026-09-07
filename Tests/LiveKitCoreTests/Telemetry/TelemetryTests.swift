@@ -17,7 +17,6 @@
 import CoreVideo
 import Foundation
 @testable import LiveKit
-import LiveKitUniFFI
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -33,11 +32,14 @@ struct TelemetryTests {
     @Test func statsErrorsAndSpansReachTheCollector() async throws {
         let start = UInt64(Date().timeIntervalSince1970 * 1e9)
         let marker = "telemetry e2e \(UUID().uuidString)"
-        let options = TelemetryConfig(endpoint: "http://127.0.0.1:4319/v1/logs", flushIntervalMs: 1000, statsWindowMs: 2000)
+        let options = try TelemetryOptions(endpoint: #require(URL(string: "http://127.0.0.1:4319/v1/logs")),
+                                           storageDirectory: nil,
+                                           flushInterval: 1,
+                                           statsWindow: 2)
         // Process-wide, configured before the Rooms exist — like an app would at launch
         // (`LiveKitSDK.setTelemetry` is the fire-and-forget form of the same call).
         await Telemetry.configure(options)
-        Telemetry.setAttribute("acme.tenant", .str(marker))
+        Telemetry.setAttribute("acme.tenant", .string(marker))
 
         var traceIds: Set<String> = []
         try await TestEnvironment.withRooms([
@@ -71,7 +73,7 @@ struct TelemetryTests {
             Span.$current.withValue(op) { rooms[0].log(marker, .error) }
             op?.end()
             rooms[0].log("\(marker) outside", .error) // no ambient span: the process scope
-            rooms[0].emitTelemetryEvent("e2e.checkpoint", attributes: ["e2e.marker": .str(marker)])
+            rooms[0].emitTelemetryEvent("e2e.checkpoint", attributes: ["e2e.marker": .string(marker)])
             // Two stats windows plus a flush.
             try await Task.sleep(nanoseconds: 6_000_000_000)
             frames.cancel()

@@ -17,6 +17,14 @@
 internal import LiveKitUniFFI
 import Foundation
 
+/// A typed telemetry attribute; keys follow `SPEC.md`.
+public enum SpanAttribute: Sendable, Equatable {
+    case string(String)
+    case int(Int64)
+    case double(Double)
+    case bool(Bool)
+}
+
 // MARK: - Span
 
 /// The telemetry core's span, shared by every LiveKit SDK: names, checkpoints, timing, attributes,
@@ -41,8 +49,8 @@ extension TelemetrySpan {
     }
 
     /// The open bag; keys follow `SPEC.md`.
-    func setAttribute(_ key: String, _ value: AttributeValue) {
-        setAttribute(key: key, value: value)
+    func setAttribute(_ key: String, _ value: SpanAttribute) {
+        setAttribute(key: key, value: value.lowered)
     }
 
     /// The track a publish or subscribe span is about; call again once the sid is known.

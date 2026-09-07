@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-public import LiveKitUniFFI
+internal import LiveKitUniFFI
 import Foundation
 
 /// Client telemetry. The pipeline lives in the core, one per process like a logger
@@ -23,7 +23,7 @@ import Foundation
 /// ``LiveKitSDK/setTelemetry(_:)`` before creating Rooms, like the logger.
 public enum Telemetry {
     /// What was configured: the instruments a Room starts (`room`, `rtc`) and the log gate.
-    static let options = StateSync<TelemetryConfig?>(nil)
+    static let options = StateSync<TelemetryOptions?>(nil)
 
     /// Where a log record came from.
     enum LogSource: String, Sendable {
@@ -33,34 +33,24 @@ public enum Telemetry {
     /// Set or change the options; `nil` turns telemetry off after a final flush. The pipeline
     /// starts now, so pre-connect errors are captured; its destination waits for the first connect
     /// unless the options name an endpoint.
-    public static func configure(_ options: TelemetryConfig?) async {
+    public static func configure(_ options: TelemetryOptions?) async {
         Self.options.mutate { $0 = options }
-        LogHub.level.mutate { $0 = (options?.logSeverity ?? .warn).logLevel }
-        guard var options else {
+        LogHub.level.mutate { $0 = options?.logLevel ?? .warning }
+        guard let options else {
             await telemetryShutdown()
             return
         }
-        // The platform's part of the config: who is reporting, and where the cache lives.
-        options.sdk = TelemetryResource(sdk: .swift,
-                                        sdkVersion: LiveKitSDK.version,
-                                        osName: String(describing: Utils.os()),
-                                        osVersion: Utils.osVersionString(),
-                                        deviceModel: Utils.modelIdentifier())
-        if options.storageDir == nil {
-            options.storageDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
-                .appendingPathComponent("livekit-telemetry", isDirectory: true).path
-        }
         var instruments: [TelemetryInstrument] = []
-        if !options.disabledInstruments.contains(.device) { instruments.append(DeviceTelemetry()) }
-        if !options.disabledInstruments.contains(.logs) { instruments.append(LogCapture(level: LogHub.level.copy())) }
+        if options.instruments.contains(.device) { instruments.append(DeviceTelemetry()) }
+        if options.instruments.contains(.logs) { instruments.append(LogCapture(level: options.logLevel)) }
         // Fail-open: the app runs without telemetry rather than not at all.
-        try? telemetryConfigure(config: options, transport: URLSessionTelemetryTransport(), instruments: instruments)
+        try? telemetryConfigure(config: options.config, transport: URLSessionTelemetryTransport(), instruments: instruments)
     }
 
     /// Attach an attribute to every record of every scope — an `enduser.id`, a tenant, a build
     /// flavor. `nil` removes it.
-    public static func setAttribute(_ key: String, _ value: AttributeValue?) {
-        telemetrySetAttribute(key: key, value: value)
+    public static func setAttribute(_ key: String, _ value: SpanAttribute?) {
+        telemetrySetAttribute(key: key, value: value?.lowered)
     }
 
     /// A one-line readout of the pipeline's health for a debug console: status, throughput,
@@ -72,7 +62,7 @@ public enum Telemetry {
     /// A warn/error record from the SDK, the Rust core or WebRTC, as `LogHub` captured it where it
     /// happened; the core files it under the ambient span's scope, or the process.
     static func log(_ record: LogRecord) {
-        guard options.copy().map({ !$0.disabledInstruments.contains(.logs) }) == true else { return }
+        guard options.copy()?.instruments.contains(.logs) == true else { return }
         let function = "\(record.function)", file = record.path.isEmpty ? "\(record.file)" : record.path
         telemetryLog(record: LiveKitUniFFI.LogRecord(severity: record.level.severity,
                                                      source: record.source.core,
@@ -103,6 +93,25 @@ final class LogCapture: TelemetryInstrument, @unchecked Sendable {
     func stop() {
         LogSources.ffi.disableTelemetry()
         LogSources.rtc.disableTelemetry()
+    }
+}
+
+// MARK: - Attribute lowering
+
+extension SpanAttribute {
+    var lowered: LiveKitUniFFI.AttributeValue {
+        switch self {
+        case let .string(s): .str(s)
+        case let .int(i): .int(i)
+        case let .double(d): .double(d)
+        case let .bool(b): .bool(b)
+        }
+    }
+}
+
+extension [String: SpanAttribute] {
+    var lowered: [LiveKitUniFFI.Attribute] {
+        map { .init(key: $0.key, value: $0.value.lowered) }
     }
 }
 
