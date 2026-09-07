@@ -23,11 +23,12 @@ import Foundation
 ///
 /// ```swift
 /// final class MyEncoderFactory: VideoEncoderFactory {
-///     var supportedCodecs: [VideoCodecInfo] { [VideoCodecInfo(name: "VP8")] }
+///     var supportedCodecs: [VideoCodecInfo] { [VideoCodecInfo(name: "H264")] }
 ///
 ///     func createEncoder(for codec: VideoCodecInfo) -> (any VideoEncoder)? {
-///         codec.name == "VP8" ? MyVP8Encoder() : nil
+///         codec.name == "H264" ? MyH264Encoder() : nil
 ///     }
+
 /// }
 ///
 /// try LiveKitSDK.set(videoEncoderFactory: MyEncoderFactory())
