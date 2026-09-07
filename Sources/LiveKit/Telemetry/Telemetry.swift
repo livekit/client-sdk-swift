@@ -17,216 +17,103 @@
 internal import LiveKitUniFFI
 import Foundation
 
-/// Client telemetry: the one entry point.
-///
-/// `Telemetry.shared` owns the pipeline (the Rust core, `livekit-telemetry`), the process-level
-/// instruments (device state, log capture) and one scope per live Room — all as actor state, so
-/// there is no lock and no latch. Configure it any time with ``LiveKitSDK/setTelemetry(_:)``; the
-/// pipeline bootstraps when the first Room asks for its scope. Nothing but trace ids and events
-/// crosses the boundary: sessions, handles and instruments stay inside. As a global actor it is
-/// also the isolation domain for the instruments' state.
+/// Client telemetry. The pipeline lives in the core, one per process like a logger
+/// (`telemetryConfigure`, `telemetryLog`, `telemetryScope` …), so nothing here mirrors it. This
+/// actor owns only what a core cannot: the platform instruments (device state, log capture) and
+/// their lifecycle, and it is the isolation domain for the instruments' state. Configure it with
+/// ``LiveKitSDK/setTelemetry(_:)`` before creating Rooms, like the logger.
 @globalActor
 public actor Telemetry {
     public static let shared = Telemetry()
 
-    private struct Entry {
-        let scope: TelemetryScope
-        let rtc: RTCTelemetry?
-    }
+    /// What was configured: the instruments a Room starts (`room`, `rtc`) and the log gate.
+    nonisolated static let options = StateSync<TelemetryOptions?>(nil)
 
     /// Where a log record came from.
     enum LogSource: String, Sendable {
         case sdk, ffi, webrtc
     }
 
-    private var options: TelemetryOptions?
-    private var core: LiveKitUniFFI.Telemetry?
-
-    /// Pipeline-wide attributes; kept so those set before bootstrap apply to it.
-    private var attributes: [String: SpanAttribute?] = [:]
-    private var rooms: [ObjectIdentifier: Entry] = [:]
     private var instruments: [TelemetryInstrument] = []
 
     // MARK: - Configuration
 
-    /// Set or change the options; `nil` turns telemetry off. Before the pipeline runs they shape
-    /// it; afterwards the destination and headers apply at once, the cadence knobs on next launch.
+    /// Set or change the options; `nil` turns telemetry off after a final flush. The pipeline
+    /// starts now, so pre-connect errors are captured; its destination waits for the first connect
+    /// unless the options name an endpoint.
     public func configure(_ options: TelemetryOptions?) async {
-        self.options = options
+        for instrument in instruments {
+            await instrument.stop()
+        }
+        instruments = []
+        Self.options.mutate { $0 = options }
         LogHub.level.mutate { $0 = options?.logLevel ?? .warning }
         guard let options else {
-            await stop()
+            await telemetryShutdown()
             return
         }
-        if let core, let endpoint = options.endpoint {
-            core.setDestination(endpoint: endpoint.absoluteString, headers: options.headers)
+        // Fail-open: the app runs without telemetry rather than not at all.
+        guard (try? telemetryConfigure(config: options.coreConfig, transport: URLSessionTelemetryTransport())) != nil else { return }
+        if options.instruments.contains(.device) {
+            let device = DeviceTelemetry()
+            await device.start()
+            instruments.append(device)
+        }
+        if options.instruments.contains(.logs) {
+            // Capture at the configured floor; the core applies the per-source policy.
+            LogSources.ffi.enableTelemetry(level: options.logLevel)
+            LogSources.rtc.enableTelemetry(level: options.logLevel)
         }
     }
 
     /// Attach an attribute to every record of every scope — an `enduser.id`, a tenant, a build
     /// flavor. `nil` removes it.
-    public func setAttribute(_ key: String, _ value: SpanAttribute?) {
-        attributes[key] = value
-        core?.setAttribute(key: key, value: value?.lowered)
+    public nonisolated func setAttribute(_ key: String, _ value: SpanAttribute?) {
+        telemetrySetAttribute(key: key, value: value?.lowered)
     }
 
-    /// A one-line readout of the pipeline's health, for a debug console: batches sent and cached,
-    /// upload failures and timeouts, holds that hit their cap, records dropped by reason.
-    public func diagnostics() async -> String {
-        core?.diagnostics() ?? "telemetry: off"
-    }
-
-    /// Cache everything queued and upload what the network allows.
-    func flush() async {
-        await core?.flush()
-    }
-
-    /// Bounded final flush with the scope summary; the pipeline stops.
-    func shutdown() async {
-        await stop()
-    }
-
-    private func stop() async {
-        for instrument in instruments {
-            await instrument.stop()
-        }
-        for entry in rooms.values {
-            await entry.rtc?.stop()
-        }
-        instruments = []
-        rooms = [:]
-        let core = core
-        self.core = nil
-        await core?.shutdown()
-    }
-
-    // MARK: - Rooms
-
-    /// A Room exists: give it a scope now (and the pipeline, if this is the first).
-    func register(_ room: Room) async {
-        _ = await entry(for: room)
-    }
-
-    /// The Room is going away: stop its instruments, ship what is queued. The scope ends with it.
-    func unregister(_ room: ObjectIdentifier) async {
-        guard let entry = rooms.removeValue(forKey: room) else { return }
-        await entry.rtc?.stop()
-        await core?.flush()
-    }
-
-    /// A connect attempt tells the pipeline where telemetry goes — the server's observability
-    /// endpoint and the room token — unless the options named an endpoint. Everything cached until
-    /// now starts uploading.
-    func connecting(to url: URL, token: String) {
-        core?.setServer(url: url.absoluteString, token: token)
-    }
-
-    /// Scope identity, attached to every record of the Room from now on.
-    func roomDidConnect(_ room: Room) async {
-        guard let scope = await entry(for: room)?.scope else { return }
-        scope.setRoom(room: RoomIdentity(sid: room.sid?.stringValue,
-                                         name: room.name,
-                                         participantSid: room.localParticipant.sid?.stringValue,
-                                         participantIdentity: room.localParticipant.identity?.stringValue))
-    }
-
-    /// The Room's scope trace id (32 hex characters); `nil` when telemetry is off.
-    func traceId(for room: Room) async -> String? {
-        await entry(for: room)?.scope.traceId()
-    }
-
-    /// An app-defined event in the Room's scope; the core namespaces it under `custom.`.
-    func emit(_ name: String, attributes: [String: SpanAttribute], from room: Room) async {
-        await entry(for: room)?.scope.emitCustom(name: name, attributes: attributes.lowered)
-    }
-
-    /// The Room's scope for a connection's spans, when telemetry and the `room` instrument are on.
-    func scope(for room: Room) async -> TelemetryScope? {
-        guard options?.instruments.contains(.room) == true else { return nil }
-        return await entry(for: room)?.scope
+    /// A one-line readout of the pipeline's health for a debug console: status, throughput,
+    /// backlog and losses.
+    public nonisolated func diagnostics() -> String {
+        telemetryDiagnostics()
     }
 
     // MARK: - Logs
 
     /// A warn/error record from the SDK, the Rust core or WebRTC, as `LogHub` captured it where it
-    /// happened; filed under the ambient span's scope, or the process scope.
+    /// happened; the core files it under the ambient span's scope, or the process.
     nonisolated static func log(_ record: LogRecord) {
+        guard options.copy()?.instruments.contains(.logs) == true else { return }
         let function = "\(record.function)", file = record.path.isEmpty ? "\(record.file)" : record.path
-        let typed = LiveKitUniFFI.LogRecord(severity: record.level.severity,
-                                            source: record.source.core,
-                                            message: record.message,
-                                            logger: record.category,
-                                            function: function.isEmpty ? nil : function,
-                                            file: file.isEmpty ? nil : file,
-                                            line: record.line > 0 ? UInt32(record.line) : nil,
-                                            timestampNs: record.timestampNs,
-                                            spanId: record.span?.spanId)
-        Task { await shared.receive(typed) }
+        telemetryLog(record: LiveKitUniFFI.LogRecord(severity: record.level.severity,
+                                                     source: record.source.core,
+                                                     message: record.message,
+                                                     logger: record.category,
+                                                     function: function.isEmpty ? nil : function,
+                                                     file: file.isEmpty ? nil : file,
+                                                     line: record.line > 0 ? UInt32(record.line) : nil,
+                                                     timestampNs: record.timestampNs,
+                                                     spanId: record.span?.spanId))
     }
+}
 
-    private func receive(_ record: LiveKitUniFFI.LogRecord) {
-        guard options?.instruments.contains(.logs) == true else { return }
-        core?.log(record: record)
-    }
-
-    /// The Room's scope, created on first use — together with the pipeline and its process-level
-    /// instruments when this is the first Room. `nil` while telemetry is off. State is updated
-    /// before every `await`, so a concurrent call for the same Room finds the entry.
-    private func entry(for room: Room) async -> Entry? {
-        let id = ObjectIdentifier(room)
-        if let existing = rooms[id] { return existing }
-        if core == nil {
-            guard let options, let made = Self.makeCore(options) else { return nil }
-            for (key, value) in attributes {
-                made.setAttribute(key: key, value: value?.lowered)
-            }
-            core = made
-            if options.instruments.contains(.device) {
-                instruments = [DeviceTelemetry(core: made)]
-            }
-            for instrument in instruments {
-                await instrument.start()
-            }
-            if options.instruments.contains(.logs) {
-                startLogCapture()
-            }
-        }
-        guard let core, let options else { return nil }
-        let scope = core.beginScope()
-        let entry = Entry(scope: scope,
-                          rtc: options.instruments.contains(.rtc) ? RTCTelemetry(room: room, scope: scope) : nil)
-        rooms[id] = entry
-        await entry.rtc?.start()
-        return entry
-    }
-
-    /// Warn/error logs from the Rust core and from WebRTC, through the same `LogHub` the console
-    /// uses (see `LogSources`): each source is captured once, per process.
-    private func startLogCapture() {
-        // Capture at the configured floor; the core applies the per-source policy.
-        LogSources.ffi.enableTelemetry(level: LogHub.level.copy())
-        LogSources.rtc.enableTelemetry(level: LogHub.level.copy())
-    }
-
-    // MARK: - Pipeline
-
-    private static func makeCore(_ options: TelemetryOptions) -> LiveKitUniFFI.Telemetry? {
-        let config = TelemetryConfig(
-            endpoint: options.endpoint?.absoluteString,
-            headers: options.headers,
+extension TelemetryOptions {
+    /// The core's configuration; the resource is typed, the core owns the keys.
+    var coreConfig: TelemetryConfig {
+        TelemetryConfig(
+            endpoint: endpoint?.absoluteString,
+            headers: headers,
             resource: [],
             sdk: TelemetryResource(sdk: .swift,
                                    sdkVersion: LiveKitSDK.version,
                                    osName: String(describing: Utils.os()),
                                    osVersion: Utils.osVersionString(),
                                    deviceModel: Utils.modelIdentifier()),
-            storageDir: options.storageDirectory?.path,
-            flushIntervalMs: UInt64(max(0, options.flushInterval) * 1000),
-            statsWindowMs: UInt64(max(0, options.statsWindow) * 1000),
-            logSeverity: options.logLevel == .error ? .error : options.logLevel == .warning ? .warn : options.logLevel == .info ? .info : .debug,
+            storageDir: storageDirectory?.path,
+            flushIntervalMs: UInt64(max(0, flushInterval) * 1000),
+            statsWindowMs: UInt64(max(0, statsWindow) * 1000),
+            logSeverity: logLevel.severity,
         )
-        // Fail-open: the app runs without telemetry rather than not at all.
-        return try? LiveKitUniFFI.Telemetry(config: config, transport: URLSessionTelemetryTransport())
     }
 }
 

@@ -28,7 +28,6 @@ import UIKit
 /// the `lk.device.*` events. Notification-driven throughout: nothing polls, nothing samples CPU.
 @Telemetry
 final class DeviceTelemetry: TelemetryInstrument, Loggable {
-    private nonisolated let core: LiveKitUniFFI.Telemetry
     /// Instruments run here, never on a media or UI thread.
     private nonisolated let queue = DispatchQueue(label: "LiveKitSDK.telemetry.device", qos: .utility)
     private nonisolated let pathMonitor = NWPathMonitor()
@@ -44,9 +43,7 @@ final class DeviceTelemetry: TelemetryInstrument, Loggable {
     private var batteryLevel: UInt32?
     private var batteryCharging = false
 
-    nonisolated init(core: LiveKitUniFFI.Telemetry) {
-        self.core = core
-    }
+    nonisolated init() {}
 
     func start() {
         let center = NotificationCenter.default
@@ -86,15 +83,15 @@ final class DeviceTelemetry: TelemetryInstrument, Loggable {
         #else
         if #available(macOS 12.0, *) { lowPower = info.isLowPowerModeEnabled }
         #endif
-        core.setDeviceState(state: DeviceState(thermal: Self.thermal(info.thermalState),
-                                               lowPowerMode: lowPower,
-                                               appState: appState,
-                                               memory: memory,
-                                               network: network,
-                                               networkExpensive: networkExpensive,
-                                               networkConstrained: networkConstrained,
-                                               batteryLevel: batteryLevel,
-                                               batteryCharging: batteryCharging))
+        telemetrySetDeviceState(state: DeviceState(thermal: Self.thermal(info.thermalState),
+                                                   lowPowerMode: lowPower,
+                                                   appState: appState,
+                                                   memory: memory,
+                                                   network: network,
+                                                   networkExpensive: networkExpensive,
+                                                   networkConstrained: networkConstrained,
+                                                   batteryLevel: batteryLevel,
+                                                   batteryCharging: batteryCharging))
     }
 
     private func setAppState(_ appState: LiveKitUniFFI.AppState) {
@@ -177,11 +174,11 @@ final class DeviceTelemetry: TelemetryInstrument, Loggable {
             let reason = (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt)
                 .flatMap(AVAudioSession.RouteChangeReason.init(rawValue:)) ?? .unknown
             let outputs = AVAudioSession.sharedInstance().currentRoute.outputs.map(\.portType.rawValue)
-            self?.core.deviceEvent(event: .audioRouteChanged(outputs: outputs, reason: Self.reason(reason)))
+            telemetryDeviceEvent(event: .audioRouteChanged(outputs: outputs, reason: Self.reason(reason)))
         })
         notificationTokens.append(center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: nil) { [weak self] note in
             let began = (note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt) == AVAudioSession.InterruptionType.began.rawValue
-            self?.core.deviceEvent(event: .audioInterruption(began: began))
+            telemetryDeviceEvent(event: .audioInterruption(began: began))
         })
         #endif
     }
@@ -232,7 +229,7 @@ extension DeviceTelemetry: AppStateDelegate {
     nonisolated func appWillTerminate() {
         Task { @Telemetry in
             self.setAppState(.background)
-            await Telemetry.shared.shutdown()
+            await telemetryShutdown()
         }
     }
 }

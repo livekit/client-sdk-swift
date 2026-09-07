@@ -152,24 +152,29 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     /// The telemetry trace id of this Room's scope (32 hex characters), or `nil` when telemetry
     /// is off. Show it to users or attach it to support tickets: it opens the full client-side
     /// timeline of the call, including connect attempts that never reached a server.
-    public var telemetryTraceId: String? {
-        get async { await Telemetry.shared.traceId(for: self) }
-    }
+    public var telemetryTraceId: String? { telemetryScope?.traceId() }
 
     /// Record an app-defined telemetry event alongside the SDK's own, in this Room's scope
     /// trace. The name is namespaced under `custom.` (`"checkout.started"` ships as
     /// `custom.checkout.started`); attributes keep their names. A no-op when telemetry is off.
     /// Subject to the same flood guard as SDK events.
     public func emitTelemetryEvent(_ name: String, attributes: [String: SpanAttribute] = [:]) {
-        Task { await Telemetry.shared.emit(name, attributes: attributes, from: self) }
+        telemetryScope?.emitCustom(name: name, attributes: attributes.lowered)
     }
 
-    /// The telemetry scope of the current connection; `nil` when telemetry is off.
-    var telemetryScope: TelemetryScope? { _state.stage.connection?.telemetry }
+    /// This Room's scope on the process pipeline — one trace for the Room's lifetime — or `nil`
+    /// when telemetry is off. Taken at init, so pre-connect work is part of the call.
+    let telemetryScope: TelemetryScope?
+    private var rtcTelemetry: RTCTelemetry?
+
+    /// The scope for this Room's spans, when the `room` instrument is on.
+    var traceScope: TelemetryScope? {
+        Telemetry.options.copy()?.instruments.contains(.room) == true ? telemetryScope : nil
+    }
 
     /// An app-defined span in this Room's trace; a no-op when telemetry is off.
     func beginSpan(_ label: String) -> Span? {
-        Span.begin(.custom(name: label), in: telemetryScope)
+        Span.begin(.custom(name: label), in: traceScope)
     }
 
     // MARK: - PreConnect
@@ -313,9 +318,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         _state = StateSync(State(connectOptions: connectOptions ?? ConnectOptions(),
                                  roomOptions: roomOptions ?? RoomOptions()))
 
+        telemetryScope = LiveKitUniFFI.telemetryScope()
         super.init()
-        // Telemetry starts with the Room, not with connect(): pre-connect work is part of the call.
-        Task { await Telemetry.shared.register(self) }
+        if let scope = telemetryScope, Telemetry.options.copy()?.instruments.contains(.rtc) == true {
+            let rtc = RTCTelemetry(room: self, scope: scope)
+            rtcTelemetry = rtc
+            Task { @Telemetry in await rtc.start() }
+        }
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), ffi: \(LiveKitSDK.ffiVersion), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
 
@@ -403,8 +412,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     }
 
     deinit {
-        let id = ObjectIdentifier(self)
-        Task { await Telemetry.shared.unregister(id) }
+        if let rtc = rtcTelemetry {
+            Task { @Telemetry in await rtc.stop() }
+        }
     }
 
     // swiftlint:disable:next cyclomatic_complexity function_body_length
@@ -419,7 +429,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
 
         log("Connecting to room...", .info)
-        await Telemetry.shared.connecting(to: providedUrl, token: token)
+        telemetrySetServer(url: providedUrl.absoluteString, token: token)
 
         var state = _state.copy()
 
@@ -448,11 +458,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         // Connection-scoped subsystems (data tracks, the E2EE manager derived from the room
         // options): carried across full reconnects, released on disconnect.
-        let dependencies = await ConnectionDependencies(room: self, roomOptions: state.roomOptions,
-                                                        telemetry: Telemetry.shared.scope(for: self))
+        let dependencies = ConnectionDependencies(room: self, roomOptions: state.roomOptions)
 
         // One connect() = one attempt; reconnect cycles get their own spans.
-        let attempt = Span.begin(.connect, in: dependencies.telemetry)
+        let attempt = Span.begin(.connect, in: traceScope)
         attempt?.setAttribute("lk.connect.attempt", .int(1))
 
         try _state.mutate {
@@ -539,7 +548,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                     $0.connectionState = .connected
                 }
 
-                await Telemetry.shared.roomDidConnect(self)
+                telemetryScope?.setRoom(room: RoomIdentity(sid: sid?.stringValue,
+                                                           name: name,
+                                                           participantSid: localParticipant.sid?.stringValue,
+                                                           participantIdentity: localParticipant.identity?.stringValue))
 
                 connectSpan?.end()
 

@@ -95,12 +95,12 @@ extension RTCTelemetry: RoomDelegate {
     nonisolated func room(_ room: Room, participant: RemoteParticipant, didPublishTrack publication: RemoteTrackPublication) {
         // With autoSubscribe the intent exists the moment the track is known.
         guard room._state.connectOptions.autoSubscribe else { return }
-        let scope = room.telemetryScope
+        let scope = room.traceScope
         Task { @Telemetry in self.beginSubscribe(publication, participant: participant, scope: scope) }
     }
 
     nonisolated func room(_ room: Room, participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
-        let scope = room.telemetryScope
+        let scope = room.traceScope
         Task { @Telemetry in
             self.beginSubscribe(publication, participant: participant, scope: scope) // manual subscription
             self.subscribeSpans[publication.sid]?.step(.subscribed)
