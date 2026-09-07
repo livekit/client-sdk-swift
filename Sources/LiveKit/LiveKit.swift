@@ -55,7 +55,7 @@ public class LiveKitSDK: NSObject, Loggable {
     }
 
     /// No-op, kept for source compatibility: operation spans live in the telemetry core and ship
-    /// with telemetry; see ``TelemetryConfig``.
+    /// with telemetry; see ``TelemetryOptions``.
     @available(*, deprecated, message: "Spans live in the telemetry core; setTracing is a no-op.")
     public static func setTracing(_: any Tracing) {}
 

@@ -254,7 +254,7 @@ struct LogRecord: Sendable {
 /// External sources are captured only while someone asked (``LogSources``), and the console sees
 /// them from the level it asked for.
 enum LogHub {
-    /// The configured threshold (`TelemetryConfig.logLevel`, default warning), set by `Telemetry`.
+    /// The configured threshold (`TelemetryOptions.logLevel`, default warning), set by `Telemetry`.
     static let level = StateSync<LogLevel>(.warning)
 
     /// What leaves the device: the configured level for the SDK and the Rust core; errors only from
