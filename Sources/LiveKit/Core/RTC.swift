@@ -127,6 +127,10 @@ extension RTC {
 extension RTC {
     struct PeerConnectionFactoryState {
         var isInitialized: Bool = false
+        // Set once `encoderFactory` has resolved and captured the custom factory.
+        // Kept separate from `isInitialized`, which audio configuration guards read
+        // to mean the peer connection factory and its audio module exist.
+        var isEncoderFactoryInitialized: Bool = false
         var admType: AudioDeviceModuleType = .audioEngine
         var bypassVoiceProcessing: Bool = false
         var customVideoEncoderFactory: (any VideoEncoderFactory)?
@@ -140,9 +144,16 @@ extension RTC {
     // global properties are already lazy
 
     // Must not be forced from inside a `pcFactoryState` read or mutate block, since
-    // its initializer reads that state and `StateSync` is not reentrant.
+    // its initializer mutates that state and `StateSync` is not reentrant.
     static let encoderFactory: LKRTCVideoEncoderFactory & Sendable = {
-        let (customFactory, customCodecs) = pcFactoryState.read { ($0.customVideoEncoderFactory, $0.customVideoEncoderCodecs) }
+        // Resolving this captures the custom factory for the life of the process,
+        // so it records that itself. Otherwise a set() after this point but before
+        // the peer connection factory would succeed and do nothing.
+        let (customFactory, customCodecs) = pcFactoryState.mutate {
+            $0.isEncoderFactoryInitialized = true
+            return ($0.customVideoEncoderFactory, $0.customVideoEncoderCodecs)
+        }
+
         guard let customFactory else {
             let defaultFactory = DefaultVideoEncoderFactory()
             return VideoEncoderFactorySimulcast(primary: defaultFactory,

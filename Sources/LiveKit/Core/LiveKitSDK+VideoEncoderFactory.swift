@@ -58,8 +58,8 @@ public extension LiveKitSDK {
             }
         }
         try RTC.pcFactoryState.mutate {
-            guard !$0.isInitialized else {
-                throw LiveKitError(.invalidState, message: "Cannot set videoEncoderFactory after the peer connection factory has been initialized")
+            guard !$0.isInitialized, !$0.isEncoderFactoryInitialized else {
+                throw LiveKitError(.invalidState, message: "Cannot set videoEncoderFactory after the encoder factory or peer connection factory has been initialized")
             }
             $0.customVideoEncoderFactory = videoEncoderFactory
             $0.customVideoEncoderCodecs = codecs
