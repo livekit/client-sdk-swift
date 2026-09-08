@@ -49,17 +49,28 @@ public struct VideoCodecInfo: Hashable, Sendable {
 // MARK: - Internal
 
 extension VideoCodecInfo {
-    /// The H264/H265 packetization mode negotiated through the SDP
-    /// `packetization-mode` parameter.
-    ///
-    /// RFC 6184 treats an absent parameter as mode 0, but non interleaved is
-    /// used here instead. In single NAL unit mode WebRTC drops any frame
-    /// whose NAL unit exceeds the packet size, so a factory that omits the
-    /// parameter would silently lose most key frames, while receivers
-    /// depacketize both modes regardless of what was negotiated. The built
-    /// in encoders make the same choice.
+    static let packetizationModeParameter = "packetization-mode"
+
+    /// The H264 packetization mode negotiated through the SDP
+    /// `packetization-mode` parameter. Absent means mode 0 per RFC 6184, but
+    /// ``normalizedForAdvertising()`` fills the parameter in before anything is
+    /// advertised, so for a negotiated codec it is always present.
     var negotiatedPacketizationMode: EncodedVideoFrame.PacketizationMode {
-        parameters["packetization-mode"] == "0" ? .singleNalUnit : .nonInterleaved
+        parameters[Self.packetizationModeParameter] == "0" ? .singleNalUnit : .nonInterleaved
+    }
+
+    /// Makes what is advertised match what the bridge packetizes.
+    ///
+    /// An H264 format without `packetization-mode` negotiates as mode 0, but
+    /// frames without an explicit mode are packetized non interleaved, so the
+    /// parameter is set to `1` when absent. This also matches the built in
+    /// factory, which only ever advertises mode 1. Single NAL unit mode is
+    /// still available by advertising `packetization-mode` `0` explicitly.
+    func normalizedForAdvertising() -> VideoCodecInfo {
+        guard name.uppercased() == "H264", parameters[Self.packetizationModeParameter] == nil else { return self }
+        var parameters = parameters
+        parameters[Self.packetizationModeParameter] = "1"
+        return VideoCodecInfo(name: name, parameters: parameters)
     }
 
     init(fromRTCType rtcType: LKRTCVideoCodecInfo) {

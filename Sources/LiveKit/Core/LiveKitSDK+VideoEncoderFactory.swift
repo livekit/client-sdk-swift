@@ -47,7 +47,7 @@ public extension LiveKitSDK {
     static func set(videoEncoderFactory: (any VideoEncoderFactory)?) throws {
         // Read once and stored alongside the factory, so validation, the advertised
         // list and the codecs the adapter will accept all come from the same snapshot.
-        let codecs = videoEncoderFactory?.supportedCodecs ?? []
+        let codecs = (videoEncoderFactory?.supportedCodecs ?? []).map { $0.normalizedForAdvertising() }
         if videoEncoderFactory != nil {
             guard !codecs.isEmpty else {
                 throw LiveKitError(.invalidParameter, message: "videoEncoderFactory must advertise at least one supported codec")

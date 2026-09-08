@@ -37,6 +37,11 @@ public protocol VideoEncoderFactory: Sendable {
     /// The codecs this factory takes over from the SDK's built in encoders. The
     /// built in encoders continue to serve every other codec, so this list can
     /// only add to what is advertised for publishing, never narrow it.
+    ///
+    /// H264 entries without a `packetization-mode` parameter are advertised as
+    /// mode 1, matching how frames are packetized by default. Include the
+    /// `profile-level-id` parameter to advertise a specific profile, otherwise
+    /// the remote side assumes constrained baseline level 1.
     var supportedCodecs: [VideoCodecInfo] { get }
 
     /// Creates an encoder for the given codec, or `nil` if the codec is not supported.
