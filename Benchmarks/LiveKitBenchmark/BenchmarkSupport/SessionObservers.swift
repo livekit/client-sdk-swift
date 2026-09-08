@@ -25,19 +25,34 @@ func nowMs() -> Double { ProcessInfo.processInfo.systemUptime * 1000 }
 /// A one-shot latch that records *when* something first happened, so a benchmark can await an
 /// event and then subtract timestamps rather than wrapping each step in its own measurement.
 final class EventLatch: @unchecked Sendable {
-    private let _state = StateSync<(fired: Double?, waiters: [CheckedContinuation<Double, Error>])>((nil, []))
+    /// A waiter is keyed so cancellation can settle *its own* continuation, and carries a
+    /// `cancelled` state because `withTaskCancellationHandler` can fire its handler before the
+    /// operation body has registered anything — the body then settles itself instead of parking a
+    /// continuation nobody holds.
+    private enum Waiter {
+        case waiting(CheckedContinuation<Double, Error>)
+        case cancelled
+    }
+
+    private struct State {
+        var fired: Double?
+        var waiters: [UInt64: Waiter] = [:]
+        var nextWaiterID: UInt64 = 0
+    }
+
+    private let _state = StateSync(State())
 
     /// Records the first occurrence and releases anyone waiting. Later calls are ignored, so a
     /// repeated delegate callback cannot move the mark.
     func fire(at time: Double = nowMs()) {
-        let waiters: [CheckedContinuation<Double, Error>] = _state.mutate { state in
+        let waiters: [Waiter] = _state.mutate { state in
             guard state.fired == nil else { return [] }
             state.fired = time
             defer { state.waiters.removeAll() }
-            return state.waiters
+            return Array(state.waiters.values)
         }
-        for waiter in waiters {
-            waiter.resume(returning: time)
+        for case let .waiting(continuation) in waiters {
+            continuation.resume(returning: time)
         }
     }
 
@@ -46,16 +61,7 @@ final class EventLatch: @unchecked Sendable {
         if let fired = _state.read({ $0.fired }) { return fired }
 
         return try await withThrowingTaskGroup(of: Double.self) { group in
-            group.addTask {
-                try await withCheckedThrowingContinuation { continuation in
-                    let fired: Double? = self._state.mutate { state in
-                        if let fired = state.fired { return fired }
-                        state.waiters.append(continuation)
-                        return nil
-                    }
-                    if let fired { continuation.resume(returning: fired) }
-                }
-            }
+            group.addTask { try await self.awaitFire() }
             group.addTask {
                 try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
                 throw BenchmarkTimeout()
@@ -65,8 +71,61 @@ final class EventLatch: @unchecked Sendable {
         }
     }
 
+    /// Suspends until ``fire(at:)``, or until cancelled — which is how the timing-out sibling
+    /// releases this one.
+    ///
+    /// The cancellation handler is what makes the timeout observable at all: a checked
+    /// continuation does not resume on cancellation by itself, and `withThrowingTaskGroup` cannot
+    /// propagate the sibling's `BenchmarkTimeout` until every child has finished. Without it the
+    /// group never drains and `wait` hangs for the life of the process instead of reporting which
+    /// milestone was missed.
+    private func awaitFire() async throws -> Double {
+        let id = _state.mutate { state -> UInt64 in
+            state.nextWaiterID += 1
+            return state.nextWaiterID
+        }
+
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                enum Settle { case fired(Double), cancelled, parked }
+                let settle: Settle = _state.mutate { state in
+                    if let fired = state.fired { return .fired(fired) }
+                    // The handler already ran: settle here rather than park unreachably.
+                    if case .cancelled = state.waiters[id] {
+                        state.waiters[id] = nil
+                        return .cancelled
+                    }
+                    state.waiters[id] = .waiting(continuation)
+                    return .parked
+                }
+                switch settle {
+                case let .fired(time): continuation.resume(returning: time)
+                case .cancelled: continuation.resume(throwing: CancellationError())
+                case .parked: break
+                }
+            }
+        } onCancel: {
+            let waiter: Waiter? = _state.mutate { state in
+                let existing = state.waiters[id]
+                state.waiters[id] = .cancelled
+                return existing
+            }
+            // Resumed outside the lock: `fire()` may be running on a delegate thread.
+            if case let .waiting(continuation) = waiter {
+                _state.mutate { $0.waiters[id] = nil }
+                continuation.resume(throwing: CancellationError())
+            }
+        }
+    }
+
     func reset() {
-        _state.mutate { $0 = (nil, []) }
+        let waiters: [Waiter] = _state.mutate { state in
+            defer { state = State() }
+            return Array(state.waiters.values)
+        }
+        for case let .waiting(continuation) in waiters {
+            continuation.resume(throwing: CancellationError())
+        }
     }
 }
 
@@ -146,7 +205,7 @@ enum SyntheticVideo {
         for plane in 0 ..< CVPixelBufferGetPlaneCount(pixelBuffer) {
             guard let base = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, plane) else { continue }
             let bytes = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, plane) * CVPixelBufferGetHeightOfPlane(pixelBuffer, plane)
-            memset(base, plane == 0 ? 128 : 128, bytes)
+            memset(base, 128, bytes)
         }
         return pixelBuffer
     }

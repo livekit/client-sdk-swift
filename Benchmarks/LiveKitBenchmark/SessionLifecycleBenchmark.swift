@@ -116,46 +116,56 @@ private func runSession(benchmark: Benchmark,
         _ = (peerVisible, dataEcho, subscriberObserver, echoDelegate)
     }
 
-    // connect_ms — the publisher joins an empty room.
-    let connectStart = nowMs()
-    try await publisher.connect(url: config.url,
-                                token: tokenGen.generate(roomName: roomName, identity: "bench-pub"))
-    benchmark.measurement(mConnect, Int(nowMs() - connectStart))
+    do {
+        // connect_ms — the publisher joins an empty room.
+        let connectStart = nowMs()
+        try await publisher.connect(url: config.url,
+                                    token: tokenGen.generate(roomName: roomName, identity: "bench-pub"))
+        benchmark.measurement(mConnect, Int(nowMs() - connectStart))
 
-    // peer_visible_ms — from the subscriber starting its connect to the publisher seeing it.
-    let peerStart = nowMs()
-    try await subscriber.connect(url: config.url,
-                                 token: tokenGen.generate(roomName: roomName, identity: "bench-sub"))
-    let visibleAt = try await peerVisible.visible.wait()
-    benchmark.measurement(mPeerVisible, Int(visibleAt - peerStart))
+        // peer_visible_ms — from the subscriber starting its connect to the publisher seeing it.
+        let peerStart = nowMs()
+        try await subscriber.connect(url: config.url,
+                                     token: tokenGen.generate(roomName: roomName, identity: "bench-sub"))
+        let visibleAt = try await peerVisible.visible.wait()
+        benchmark.measurement(mPeerVisible, Int(visibleAt - peerStart))
 
-    // pub_to_sub_ms / first_frame_ms / publish_to_first_frame_ms
-    let track = await LocalVideoTrack.createBufferTrack(options: BufferCaptureOptions())
-    let frameFeeder = startFeedingFrames(into: track)
-    defer { frameFeeder.cancel() }
+        // pub_to_sub_ms / first_frame_ms / publish_to_first_frame_ms
+        let track = await LocalVideoTrack.createBufferTrack(options: BufferCaptureOptions())
+        let frameFeeder = startFeedingFrames(into: track)
+        defer { frameFeeder.cancel() }
 
-    let publishStart = nowMs()
-    try await publisher.localParticipant.publish(videoTrack: track)
-    let subscribedAt = try await subscriberObserver.subscribed.wait()
-    let firstFrameAt = try await subscriberObserver.firstFrame.wait()
+        let publishStart = nowMs()
+        try await publisher.localParticipant.publish(videoTrack: track)
+        let subscribedAt = try await subscriberObserver.subscribed.wait()
+        let firstFrameAt = try await subscriberObserver.firstFrame.wait()
 
-    benchmark.measurement(mPubToSub, Int(subscribedAt - publishStart))
-    benchmark.measurement(mFirstFrame, Int(firstFrameAt - subscribedAt))
-    benchmark.measurement(mPubToFrame, Int(firstFrameAt - publishStart))
+        benchmark.measurement(mPubToSub, Int(subscribedAt - publishStart))
+        benchmark.measurement(mFirstFrame, Int(firstFrameAt - subscribedAt))
+        benchmark.measurement(mPubToFrame, Int(firstFrameAt - publishStart))
 
-    // data_rtt_ms — publisher → subscriber → publisher.
-    let rttStart = nowMs()
-    try await publisher.localParticipant.publish(data: Data("ping".utf8),
-                                                 options: DataPublishOptions(topic: dataTopic))
-    let echoedAt = try await dataEcho.received.wait()
-    benchmark.measurement(mDataRtt, Int(echoedAt - rttStart))
+        // data_rtt_ms — publisher → subscriber → publisher.
+        let rttStart = nowMs()
+        try await publisher.localParticipant.publish(data: Data("ping".utf8),
+                                                     options: DataPublishOptions(topic: dataTopic))
+        let echoedAt = try await dataEcho.received.wait()
+        benchmark.measurement(mDataRtt, Int(echoedAt - rttStart))
 
-    // disconnect_ms — publisher teardown only; the subscriber is closed outside the measurement.
-    let disconnectStart = nowMs()
-    await publisher.disconnect()
-    benchmark.measurement(mDisconnect, Int(nowMs() - disconnectStart))
+        // disconnect_ms — publisher teardown only; the subscriber is closed outside the measurement.
+        let disconnectStart = nowMs()
+        await publisher.disconnect()
+        benchmark.measurement(mDisconnect, Int(nowMs() - disconnectStart))
 
-    await subscriber.disconnect()
+        await subscriber.disconnect()
+    } catch {
+        // Spelled out because `defer` cannot await. Without it a thrown milestone leaves two
+        // connected Rooms — live peer connections, an audio device module — running for the rest
+        // of the benchmark, so every later iteration measures on a progressively busier host.
+        // Deliberately unmeasured: this is cleanup, not the teardown `disconnect_ms` reports.
+        await publisher.disconnect()
+        await subscriber.disconnect()
+        throw error
+    }
 }
 
 /// Drives the buffer track at ~15fps until cancelled, so the subscriber has frames to render.
