@@ -1,1 +1,1 @@
-minor type="added" "Custom video encoder factories: set LiveKitSDK.set(videoEncoderFactory:) with an implementation of the new VideoEncoderFactory/VideoEncoder protocols to replace the default VideoToolbox backed encoders"
+minor type="added" "Custom video encoder factories: call LiveKitSDK.set(videoEncoderFactory:) before any other SDK API with an implementation of the new VideoEncoderFactory and VideoEncoder protocols to supply H264 or H265 encoders in place of the default VideoToolbox backed ones"

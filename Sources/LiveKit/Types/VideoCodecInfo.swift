@@ -78,8 +78,9 @@ extension VideoCodecInfo {
                   parameters: rtcType.parameters)
     }
 
-    // Scalability modes are not advertised: without a codec support query on the
-    // factory, WebRTC reports every mode as unsupported anyway.
+    // Scalability modes are not advertised. WebRTC only enforces them when a
+    // sender sets scalabilityMode, which the SDK does for SVC codecs alone, and
+    // neither H264 nor H265 is one.
     func toRTCType() -> LKRTCVideoCodecInfo {
         LKRTCVideoCodecInfo(name: name,
                             parameters: parameters,
