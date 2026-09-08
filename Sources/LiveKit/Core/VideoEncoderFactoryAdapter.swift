@@ -165,13 +165,11 @@ final class VideoEncoderAdapter: NSObject, LKRTCVideoEncoder, @unchecked Sendabl
         encoder.scalingSettings?.toRTCType()
     }
 
-    var resolutionAlignment: Int {
-        encoder.resolutionAlignment
-    }
+    // Not exposed on the public protocol: the bridge always reports 1 to WebRTC
+    // regardless of this value, so encoders must accept any resolution.
+    var resolutionAlignment: Int { 1 }
 
-    var applyAlignmentToAllSimulcastLayers: Bool {
-        encoder.applyAlignmentToAllSimulcastLayers
-    }
+    var applyAlignmentToAllSimulcastLayers: Bool { false }
 
     var supportsNativeHandle: Bool {
         encoder.supportsNativeHandle

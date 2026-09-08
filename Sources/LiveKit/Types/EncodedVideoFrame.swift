@@ -20,6 +20,10 @@ internal import LiveKitWebRTC
 
 /// An encoded frame produced by a custom ``VideoEncoder`` and delivered
 /// to the SDK via ``VideoEncoderCallback``.
+///
+/// Only fields WebRTC actually reads from the encoder are exposed. Capture time,
+/// rotation, content type, NTP time and encode timing are filled in by WebRTC
+/// from its own record of the source frame, matched by ``rtpTimestamp``.
 public struct EncodedVideoFrame: Sendable {
     /// The role of a frame within the encoded stream.
     public enum FrameType: Sendable {
@@ -31,36 +35,12 @@ public struct EncodedVideoFrame: Sendable {
         case delta
     }
 
-    /// The kind of content carried by the frame.
-    public enum ContentType: Sendable {
-        /// Camera or application video.
-        case unspecified
-        /// Screen content, which the receiver may render and buffer differently.
-        case screenshare
-    }
-
-    /// NAL unit packetization arrangement for H264/H265 payloads.
+    /// NAL unit packetization arrangement for H264 payloads.
     public enum PacketizationMode: Sendable {
         /// Mode 1, STAP-A and FU-A allowed.
         case nonInterleaved
         /// Mode 0, only single NAL units allowed.
         case singleNalUnit
-    }
-
-    /// Codec specific packetization details attached to an encoded frame.
-    ///
-    /// When omitted, H264 and H265 frames default to the packetization mode
-    /// negotiated for the codec the encoder was created for, which is
-    /// ``PacketizationMode/nonInterleaved`` unless the codec's
-    /// `packetization-mode` parameter is `0`. Info for a different codec than
-    /// the encoder was created for is normalized to that codec, keeping only
-    /// the packetization mode. AV1 needs no codec specific info. VP8 and VP9
-    /// cannot be bridged yet, see ``LiveKitSDK/set(videoEncoderFactory:)``.
-    public enum CodecSpecificInfo: Sendable {
-        /// H264 packetization details.
-        case h264(packetizationMode: PacketizationMode)
-        /// H265 packetization details.
-        case h265(packetizationMode: PacketizationMode)
     }
 
     /// The encoded bitstream.
@@ -73,45 +53,34 @@ public struct EncodedVideoFrame: Sendable {
     /// ``VideoFrame/rtpTimestamp`` and not derived from `timeStampNs`.
     public let rtpTimestamp: UInt32
 
-    /// Capture time in milliseconds.
-    public let captureTimeMs: Int64
-
     /// Whether this is a key or delta frame.
     public let frameType: FrameType
-
-    /// Rotation of the source frame.
-    public let rotation: VideoRotation
 
     /// Quantization parameter the frame was encoded with, if known.
     public let qp: Int?
 
-    /// The kind of content carried by the frame.
-    public let contentType: ContentType
-
-    /// Codec specific packetization details. Defaults to the negotiated
-    /// packetization mode for H264 and H265 when `nil`.
-    public let codecSpecificInfo: CodecSpecificInfo?
+    /// How the H264 bitstream is arranged for RTP packetization.
+    ///
+    /// When `nil`, the mode negotiated for the codec is used, which is
+    /// ``PacketizationMode/nonInterleaved`` unless the codec's
+    /// `packetization-mode` parameter is `0`. Ignored for H265, whose packetizer
+    /// takes no mode.
+    public let packetizationMode: PacketizationMode?
 
     /// Creates an encoded frame to deliver to the SDK.
     public init(data: Data,
                 dimensions: Dimensions,
                 rtpTimestamp: UInt32,
-                captureTimeMs: Int64,
                 frameType: FrameType,
-                rotation: VideoRotation = ._0,
                 qp: Int? = nil,
-                contentType: ContentType = .unspecified,
-                codecSpecificInfo: CodecSpecificInfo? = nil)
+                packetizationMode: PacketizationMode? = nil)
     {
         self.data = data
         self.dimensions = dimensions
         self.rtpTimestamp = rtpTimestamp
-        self.captureTimeMs = captureTimeMs
         self.frameType = frameType
-        self.rotation = rotation
         self.qp = qp
-        self.contentType = contentType
-        self.codecSpecificInfo = codecSpecificInfo
+        self.packetizationMode = packetizationMode
     }
 }
 
@@ -136,11 +105,19 @@ extension EncodedVideoFrame.FrameType {
     }
 }
 
+extension EncodedVideoFrame.PacketizationMode {
+    func toRTCType() -> LKRTCH264PacketizationMode {
+        switch self {
+        case .nonInterleaved: .nonInterleaved
+        case .singleNalUnit: .singleNalUnit
+        }
+    }
+}
+
 extension EncodedVideoFrame {
     private final class GenericCodecSpecificInfo: NSObject, LKRTCCodecSpecificInfo, @unchecked Sendable {}
 
-    // Stateless, so one instance is shared by every frame that carries no codec
-    // specific info instead of allocating one per encoded frame.
+    // Stateless, so one instance is shared instead of allocating one per frame.
     private static let genericCodecSpecificInfo = GenericCodecSpecificInfo()
 
     /// - Parameter codec: The codec the encoder was created for. The RTP
@@ -154,38 +131,24 @@ extension EncodedVideoFrame {
         image.encodedWidth = dimensions.width
         image.encodedHeight = dimensions.height
         image.timeStamp = rtpTimestamp
-        image.captureTimeMs = captureTimeMs
         image.frameType = frameType.toRTCType()
-        image.rotation = rotation.toRTCType()
-        image.contentType = contentType == .screenshare ? .screenshare : .unspecified
-        // Encode timing, NTP time and timing flags are filled in by WebRTC itself
-        // once the encoded image is matched to its source frame by RTP timestamp,
-        // so they are intentionally not part of the public type.
         // Always set: the native side reads `intValue`, so a nil would land as 0,
         // while -1 is what the quality scaler treats as unknown.
         image.qp = NSNumber(value: qp ?? -1)
 
-        let packetizationMode: PacketizationMode = switch codecSpecificInfo {
-        case let .h264(mode), let .h265(mode): mode
-        case nil: codec.negotiatedPacketizationMode
-        }
+        let mode = (packetizationMode ?? codec.negotiatedPacketizationMode).toRTCType()
 
-        let info: CodecSpecificInfo? = switch codec.name.uppercased() {
-        case "H264": .h264(packetizationMode: packetizationMode)
-        case "H265": .h265(packetizationMode: packetizationMode)
-        default: nil
-        }
-
-        switch info {
-        case let .h264(packetizationMode):
+        switch codec.name.uppercased() {
+        case "H264":
             let h264Info = LKRTCCodecSpecificInfoH264()
-            h264Info.packetizationMode = packetizationMode == .singleNalUnit ? .singleNalUnit : .nonInterleaved
+            h264Info.packetizationMode = mode
             return (image, h264Info)
-        case let .h265(packetizationMode):
+        case "H265":
+            // Separate ObjC enum with the same cases. The H265 packetizer ignores it.
             let h265Info = LKRTCCodecSpecificInfoH265()
-            h265Info.packetizationMode = packetizationMode == .singleNalUnit ? .singleNalUnit : .nonInterleaved
+            h265Info.packetizationMode = mode == .singleNalUnit ? .singleNalUnit : .nonInterleaved
             return (image, h265Info)
-        case nil:
+        default:
             return (image, Self.genericCodecSpecificInfo)
         }
     }

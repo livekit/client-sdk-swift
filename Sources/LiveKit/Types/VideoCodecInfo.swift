@@ -24,7 +24,7 @@ internal import LiveKitWebRTC
 /// a `VideoCodecInfo` describing which codec an encoder should be created for, and
 /// advertises the codecs it supports as a list of `VideoCodecInfo`.
 public struct VideoCodecInfo: Hashable, Sendable {
-    /// The codec name as used in SDP, e.g. `H264`, `VP8`, `VP9`, `AV1`.
+    /// The codec name as used in SDP, e.g. `H264` or `H265`.
     ///
     /// SDP casing is used, so this is `H264` rather than `h264`. Compare against
     /// ``videoCodec`` instead of matching the string.
@@ -33,21 +33,16 @@ public struct VideoCodecInfo: Hashable, Sendable {
     /// SDP format parameters, e.g. the H264 `profile-level-id`.
     public let parameters: [String: String]
 
-    /// Supported scalability modes, e.g. `L1T3`.
-    public let scalabilityModes: [String]
-
     /// The codec ``name`` resolved to a ``VideoCodec``, or `nil` if the SDK does
     /// not know the codec.
     public var videoCodec: VideoCodec? { VideoCodec.from(name: name) }
 
     /// Creates a codec description for a custom ``VideoEncoderFactory``.
     public init(name: String,
-                parameters: [String: String] = [:],
-                scalabilityModes: [String] = [])
+                parameters: [String: String] = [:])
     {
         self.name = name
         self.parameters = parameters
-        self.scalabilityModes = scalabilityModes
     }
 }
 
@@ -69,13 +64,14 @@ extension VideoCodecInfo {
 
     init(fromRTCType rtcType: LKRTCVideoCodecInfo) {
         self.init(name: rtcType.name,
-                  parameters: rtcType.parameters,
-                  scalabilityModes: rtcType.scalabilityModes)
+                  parameters: rtcType.parameters)
     }
 
+    // Scalability modes are not advertised: without a codec support query on the
+    // factory, WebRTC reports every mode as unsupported anyway.
     func toRTCType() -> LKRTCVideoCodecInfo {
         LKRTCVideoCodecInfo(name: name,
                             parameters: parameters,
-                            scalabilityModes: scalabilityModes)
+                            scalabilityModes: [])
     }
 }

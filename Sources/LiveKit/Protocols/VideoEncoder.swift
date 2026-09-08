@@ -89,21 +89,11 @@ public typealias VideoEncoderCallback = @Sendable (EncodedVideoFrame) -> Bool
 /// - Note: The underlying WebRTC bridge reports every encoder as hardware
 ///   accelerated, so CPU overuse detection uses the more permissive thresholds
 ///   meant for hardware encoders. A software encoder should keep its own CPU
-///   usage in check.
+///   usage in check. Encoders must also accept any input resolution, since
+///   alignment requirements cannot be communicated to WebRTC yet.
 public protocol VideoEncoder: Sendable {
     /// Human readable name of the encoder implementation reported in stats.
     var implementationName: String { get }
-
-    /// Encoded resolutions must be aligned to this value. Defaults to 1.
-    ///
-    /// - Note: The current WebRTC bridge always reports an alignment of 1, so
-    ///   values other than 1 are not honored yet. Encoders must handle
-    ///   unaligned input themselves until that is fixed.
-    var resolutionAlignment: Int { get }
-
-    /// Whether ``resolutionAlignment`` is applied to all simulcast layers simultaneously.
-    /// Defaults to `false`. Has no effect while ``resolutionAlignment`` is not honored.
-    var applyAlignmentToAllSimulcastLayers: Bool { get }
 
     /// Whether the encoder accepts frames backed by `CVPixelBuffer` directly.
     ///
@@ -139,8 +129,6 @@ public protocol VideoEncoder: Sendable {
 }
 
 public extension VideoEncoder {
-    var resolutionAlignment: Int { 1 }
-    var applyAlignmentToAllSimulcastLayers: Bool { false }
     var supportsNativeHandle: Bool { true }
     var scalingSettings: VideoEncoderQpThresholds? { nil }
 }

@@ -26,9 +26,9 @@ public extension LiveKitSDK {
     /// SDK's built in encoders remain the fallback, both for codecs the factory
     /// declines and when an encoder reports ``VideoEncoderStatus/fallbackSoftware``.
     ///
-    /// Only H264, H265 and AV1 can be supplied by a custom factory. VP8 and VP9
-    /// require codec specific layer information that the bridge cannot carry
-    /// yet, so advertising them throws ``LiveKitError`` with type `.invalidParameter`.
+    /// Only H264 and H265 can be supplied by a custom factory. VP8, VP9 and AV1
+    /// need layer or dependency information that the bridge cannot carry yet, so
+    /// advertising them throws ``LiveKitError`` with type `.invalidParameter`.
     ///
     /// Pass `nil` to restore the default factory.
     ///
@@ -54,7 +54,7 @@ public extension LiveKitSDK {
             }
             let unsupported = codecs.map(\.name).filter { !Self.bridgeableCodecNames.contains($0.uppercased()) }
             guard unsupported.isEmpty else {
-                throw LiveKitError(.invalidParameter, message: "videoEncoderFactory cannot supply encoders for \(unsupported.joined(separator: ", ")), only H264, H265 and AV1 are supported")
+                throw LiveKitError(.invalidParameter, message: "videoEncoderFactory cannot supply encoders for \(unsupported.joined(separator: ", ")), only H264 and H265 are supported")
             }
         }
         try RTC.pcFactoryState.mutate {
@@ -66,7 +66,8 @@ public extension LiveKitSDK {
         }
     }
 
-    /// Codecs whose RTP packetization needs no codec specific info beyond what
-    /// ``EncodedVideoFrame/CodecSpecificInfo`` can express.
-    private static let bridgeableCodecNames: Set<String> = ["H264", "H265", "AV1"]
+    /// Codecs whose RTP packetization needs nothing beyond the H264 packetization
+    /// mode the bridge can express. VP8 and VP9 need per frame layer info and AV1
+    /// needs a dependency descriptor, none of which reach WebRTC from here.
+    private static let bridgeableCodecNames: Set<String> = ["H264", "H265"]
 }
