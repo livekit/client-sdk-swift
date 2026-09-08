@@ -17,6 +17,11 @@
 import Foundation
 
 /// Result of a ``VideoEncoder`` operation, mirroring WebRTC's video codec error codes.
+///
+/// Only codes WebRTC acts on are named. Any other negative value is logged and
+/// the frame dropped. Positive values are not exposed: the stream encoder treats
+/// them as success, but the simulcast adapter stops encoding the remaining
+/// layers of a frame on anything other than ``ok``.
 public struct VideoEncoderStatus: RawRepresentable, Sendable, Equatable, Hashable {
     /// The underlying WebRTC video codec error code.
     public let rawValue: Int
@@ -28,12 +33,6 @@ public struct VideoEncoderStatus: RawRepresentable, Sendable, Equatable, Hashabl
 
     /// The operation completed successfully.
     public static let ok = Self(rawValue: 0)
-    /// The frame was consumed but produced no output.
-    public static let noOutput = Self(rawValue: 1)
-    /// The operation completed and the encoder requests a key frame next.
-    public static let okRequestKeyframe = Self(rawValue: 4)
-    /// The encoder produced significantly more bits than the target bitrate.
-    public static let targetBitrateOvershoot = Self(rawValue: 5)
     /// The operation failed with a generic error.
     public static let error = Self(rawValue: -1)
     /// The operation failed due to a memory allocation failure.
@@ -56,15 +55,12 @@ extension VideoEncoderStatus: CustomStringConvertible {
     public var description: String {
         switch self {
         case .ok: "ok"
-        case .noOutput: "noOutput"
-        case .okRequestKeyframe: "okRequestKeyframe"
         case .error: "error"
         case .memory: "memory"
         case .invalidParameter: "invalidParameter"
         case .timeout: "timeout"
         case .uninitialized: "uninitialized"
         case .fallbackSoftware: "fallbackSoftware"
-        case .targetBitrateOvershoot: "targetBitrateOvershoot"
         case .simulcastParametersNotSupported: "simulcastParametersNotSupported"
         case .encoderFailure: "encoderFailure"
         default: "unknown(\(rawValue))"
