@@ -28,7 +28,6 @@ import Foundation
 ///     func createEncoder(for codec: VideoCodecInfo) -> (any VideoEncoder)? {
 ///         codec.name == "H264" ? MyH264Encoder() : nil
 ///     }
-
 /// }
 ///
 /// try LiveKitSDK.set(videoEncoderFactory: MyEncoderFactory())
