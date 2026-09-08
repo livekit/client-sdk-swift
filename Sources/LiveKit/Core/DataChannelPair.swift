@@ -54,6 +54,21 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     let openCompleter = AsyncCompleter<Void>(label: "Data channel open", defaultTimeout: .defaultPublisherDataChannelOpen)
 
+    /// Per-channel open latches, for callers that will use one channel rather than the pair.
+    ///
+    /// The two are independent SCTP streams and open independently, so gating a lossy send on the
+    /// reliable channel would stall — or fail — a send that its own channel was ready to take.
+    /// Both references gate per kind for exactly this reason: `ensure_publisher_connected(kind)` →
+    /// `data_channel(Publisher, kind)` in rust-sdks, and `ensureDataTransportConnected(kind)` →
+    /// `dataChannelForKind(kind)` in client-sdk-js.
+    private let reliableOpenCompleter = AsyncCompleter<Void>(label: "Reliable data channel open", defaultTimeout: .defaultPublisherDataChannelOpen)
+    private let lossyOpenCompleter = AsyncCompleter<Void>(label: "Lossy data channel open", defaultTimeout: .defaultPublisherDataChannelOpen)
+
+    /// The open latch for the channel a packet of `kind` will be sent on.
+    func openCompleter(for kind: Livekit_DataPacket_Kind) -> AsyncCompleter<Void> {
+        kind == .lossy ? lossyOpenCompleter : reliableOpenCompleter
+    }
+
     /// Whether *both* channels can currently take bytes. Only the open latch and diagnostics use
     /// this; the send path gates per channel.
     var isOpen: Bool { lossy.isOpen && reliable.isOpen }
@@ -131,6 +146,8 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     /// Resolves the open latch once both channels are usable. Reached from either drain's state
     /// callback and from a channel swap.
     private func handleStateChange() {
+        if reliable.isOpen { reliableOpenCompleter.resume(returning: ()) }
+        if lossy.isOpen { lossyOpenCompleter.resume(returning: ()) }
         if isOpen {
             openCompleter.resume(returning: ())
         }
@@ -154,6 +171,8 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         // Negotiated per session (from the SDP answer); the next session must not inherit it.
         set(maxMessageSize: Self.defaultMaxMessageSize)
         openCompleter.reset(throwing: error)
+        reliableOpenCompleter.reset(throwing: error)
+        lossyOpenCompleter.reset(throwing: error)
     }
 
     // MARK: - Send
