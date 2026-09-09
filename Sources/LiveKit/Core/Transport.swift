@@ -170,12 +170,23 @@ final class Transport: NSObject, Loggable {
 
     /// Applies a deferred initial offer, if one is outstanding. Take-once, so callers on
     /// both remote-description paths are safe.
+    ///
+    /// Cleared before the `await` to keep take-once across the suspension, and restored if the
+    /// apply throws: dropping it on failure would lose the offer, the answer and any queued
+    /// renegotiation at once, and `didReceiveAnswer` only logs the error, so nothing would
+    /// recover. rust-sdks has the same hazard — its `set_remote_description` `take()`s the
+    /// pending offer and propagates with `?` — so this deliberately diverges.
     private func applyPendingInitialOffer() async throws {
         guard let pendingInitialOffer = _pendingInitialOffer else { return }
         _pendingInitialOffer = nil
 
         log("Applying the initial offer deferred from JOIN")
-        try await set(localDescription: pendingInitialOffer)
+        do {
+            try await set(localDescription: pendingInitialOffer)
+        } catch {
+            _pendingInitialOffer = pendingInitialOffer
+            throw error
+        }
     }
 
     func setIsRestartingIce() {
@@ -187,18 +198,21 @@ final class Transport: NSObject, Loggable {
     }
 
     func set(remoteDescription sd: LKRTCSessionDescription, offerId: UInt32) async throws {
+        // Validate before mutating anything: applying the deferred offer consumes it and moves
+        // the connection to `.haveLocalOffer`, so an answer we are about to reject must not get
+        // that far.
+        if offerId == 0 {
+            log("Skipping validation for legacy server (missing offerId), latestOfferId: \(_latestOfferId)", .warning)
+        } else if offerId != _latestOfferId {
+            throw LiveKitError(.invalidState, message: "OfferId mismatch, expected \(_latestOfferId) but got \(offerId)")
+        }
+
         // Before the state check: an offer bundled with JOIN leaves the connection
         // `.stable` until its answer arrives.
         try await applyPendingInitialOffer()
 
         if signalingState != .haveLocalOffer {
             log("Received answer with unexpected signaling state: \(signalingState), expected .haveLocalOffer", .warning)
-        }
-
-        if offerId == 0 {
-            log("Skipping validation for legacy server (missing offerId), latestOfferId: \(_latestOfferId)", .warning)
-        } else if offerId != _latestOfferId {
-            throw LiveKitError(.invalidState, message: "OfferId mismatch, expected \(_latestOfferId) but got \(offerId)")
         }
 
         try await set(remoteDescription: sd)

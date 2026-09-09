@@ -61,8 +61,14 @@ extension ConnectionDependencies: Equatable {
 // MARK: - Early publisher
 
 /// A publisher peer connection built *before* the signal socket opens, so its offer can be
-/// bundled with the JOIN request and the WebRTC cold start (SSL init, peer connection factory,
-/// audio device module) overlaps the TLS/WebSocket handshake instead of following it.
+/// bundled with the JOIN request and the server answers it in the same exchange, removing the
+/// offer→answer round trip from the connect path.
+///
+/// The WebRTC cold start (SSL init, peer connection factory, audio device module) is *not*
+/// overlapped with the TLS/WebSocket handshake: `make` is awaited to completion before
+/// `signalClient.connect`, because the offer has to be in the JOIN URL. It is serialized ahead
+/// of the handshake, so the measured win is the saved round trip alone. rust-sdks orders it the
+/// same way in `RtcSession::connect`.
 ///
 /// Deliberately not a stage payload: it is owned lexically by the connect sequence, which either
 /// hands it to ``JoinDependencies/make(room:connection:joinResponse:rtcConfiguration:singlePeerConnection:earlyPublisher:)``
@@ -113,10 +119,14 @@ struct EarlyPublisher: Sendable {
 
 /// The publisher's three outbound data channels, created together so both the early and the
 /// post-JOIN publisher paths negotiate the same layout.
+/// Boxed rather than stored raw: a proxy's last release is a `BlockingCall` on a WebRTC thread,
+/// and these are dropped wherever this value dies — on the v1→v0 fallback that is the connect
+/// sequence's cooperative-pool thread. ``RTCBox`` parks each release on ``RTC/park(_:)`` from its
+/// own `deinit`, so no caller has to remember to.
 struct PublisherDataChannels: Sendable {
-    let reliable: LKRTCDataChannel?
-    let lossy: LKRTCDataChannel?
-    let dataTrack: LKRTCDataChannel?
+    private let reliableBox: RTCBox<LKRTCDataChannel>?
+    private let lossyBox: RTCBox<LKRTCDataChannel>?
+    private let dataTrackBox: RTCBox<LKRTCDataChannel>?
 
     static func make(on transport: Transport) async -> PublisherDataChannels {
         // data over pub channel for backwards compatibility
@@ -130,11 +140,20 @@ struct PublisherDataChannels: Sendable {
         let dataTrack = await transport.dataChannel(for: LKRTCDataChannel.Labels.dataTrack,
                                                     configuration: RTC.createDataChannelConfiguration(ordered: false, maxRetransmits: 0))
 
-        return PublisherDataChannels(reliable: reliable, lossy: lossy, dataTrack: dataTrack)
+        return PublisherDataChannels(reliableBox: reliable.map(RTCBox.init),
+                                     lossyBox: lossy.map(RTCBox.init),
+                                     dataTrackBox: dataTrack.map(RTCBox.init))
     }
 
     /// Hands the channels to the room's pairs and to the connection-scoped data track subsystem.
-    func install(room: Room, connection: ConnectionDependencies) {
+    ///
+    /// `@RTC`-isolated because it reads the boxed proxies and calls `label`/`channelId` on them,
+    /// which are `BlockingCall`s.
+    @RTC func install(room: Room, connection: ConnectionDependencies) {
+        let reliable = reliableBox?.value
+        let lossy = lossyBox?.value
+        let dataTrack = dataTrackBox?.value
+
         room.publisherDataChannel.set(reliable: reliable)
         room.publisherDataChannel.set(lossy: lossy)
         if let dataTrack { connection.dataTracks.setPublisherChannel(dataTrack) }
@@ -206,7 +225,7 @@ final class JoinDependencies: Sendable {
             room.connectSpan?.record("offer_sent")
         }
 
-        dataChannels.install(room: room, connection: connection)
+        await dataChannels.install(room: room, connection: connection)
 
         let subscriber: Transport? = if isSinglePC {
             nil

@@ -233,10 +233,15 @@ extension Room {
     func fullConnectSequence(_ url: URL, _ token: String) async throws {
         var singlePC = _state.roomOptions.singlePeerConnection
 
-        // Built before the socket opens so its offer rides along with the JOIN request,
-        // removing the offer→answer round trip from the connect path, and so the WebRTC cold
-        // start overlaps the TLS/WebSocket handshake instead of following it.
-        var earlyPublisher: EarlyPublisher? = if singlePC {
+        // Built before the socket opens so its offer rides along with the JOIN request, removing
+        // the offer→answer round trip from the connect path. It is serialized ahead of the
+        // handshake rather than overlapped with it — the offer has to be in the JOIN URL.
+        //
+        // Skipped once the signal client knows this server only speaks v0: the peer connection
+        // and its three data channels would be built and immediately discarded on every
+        // full-reconnect and region-failover attempt. `quickReconnectSequence` gates the same way.
+        let mayBundleOffer = await !signalClient.useV0SignalPath
+        var earlyPublisher: EarlyPublisher? = if singlePC, mayBundleOffer {
             try await EarlyPublisher.make(room: self,
                                           rtcConfiguration: makeRTCConfiguration(connectResponse: nil))
         } else {
@@ -287,7 +292,10 @@ extension Room {
             try await configureTransports(connectResponse: connectResponse,
                                           singlePeerConnection: singlePC,
                                           earlyPublisher: earlyPublisher)
-            isAdopted = true
+            // Adoption happens only on the `.join` branch inside `configureTransports`. A
+            // `.reconnect` response leaves the early publisher unowned, so the catch below must
+            // still close it.
+            if case .join = connectResponse { isAdopted = true }
             connectSpan?.record("pc_created")
             // Check cancellation after configuring transports
             try Task.checkCancellation()
