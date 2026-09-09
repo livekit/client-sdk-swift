@@ -60,6 +60,7 @@ jobs:
           hosting-repo: ${{ env.HOSTING_REPO }}
           files: |
             .build/xcframework/Package.swift:Package.swift
+            .build/xcframework/LiveKitClient-XCFramework.podspec:LiveKitClient-XCFramework.podspec
             CHANGELOG.md:CHANGELOG.md
             README.md:README.md
             LICENSE:LICENSE

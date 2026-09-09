@@ -479,6 +479,18 @@ struct BuildXCFramework: AsyncParsableCommand {
         try generatePackageSwift(outputDir: outputDir, context: context, repoRoot: repoRoot)
         print("  Written to \(outputDir)/Package.swift (local=\(local))")
 
+        // --- Generate podspec (release only; a local build has nothing to point a pod at) ---
+        if let version {
+            step("Generating podspec...")
+            let webrtcVersion = try manifest.extractVersion(pattern: "webrtc-xcframework")
+            let uniffiVersion = try manifest.extractVersion(pattern: "uniffi-xcframework")
+            try generatePodspec(
+                outputDir: outputDir, repoRoot: repoRoot, version: version,
+                webrtcVersion: webrtcVersion, uniffiVersion: uniffiVersion,
+            )
+            print("  Written to \(outputDir)/LiveKitClient-XCFramework.podspec")
+        }
+
         // --- Summary ---
         step("Done! Output: \(outputDir)")
         print("")
@@ -516,5 +528,27 @@ struct BuildXCFramework: AsyncParsableCommand {
             "uniffiChecksum": context.uniffiDep.checksum,
         ])
         try (outputDir + "Package.swift").write(rendered)
+    }
+
+    func generatePodspec(outputDir: Path, repoRoot: Path, version: String, webrtcVersion: String, uniffiVersion: String) throws {
+        let tmpl: String = try (repoRoot + "scripts" + "LiveKitClient-XCFramework.podspec.stencil").read()
+
+        // Platform support is whatever the source pod supports, verbatim.
+        let sourcePodspec: String = try (repoRoot + "LiveKitClient.podspec").read()
+        let platforms = sourcePodspec.components(separatedBy: .newlines)
+            .filter { $0.contains(".deployment_target") }
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        guard !platforms.isEmpty else {
+            throw ValidationError("No deployment targets found in LiveKitClient.podspec")
+        }
+
+        let env = Environment(loader: DictionaryLoader(templates: ["podspec": tmpl]))
+        let rendered = try env.renderTemplate(name: "podspec", context: [
+            "version": version,
+            "platforms": platforms.joined(separator: "\n  "),
+            "webrtcVersion": webrtcVersion,
+            "uniffiVersion": uniffiVersion,
+        ])
+        try (outputDir + "LiveKitClient-XCFramework.podspec").write(rendered)
     }
 }
