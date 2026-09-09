@@ -125,6 +125,43 @@ import Testing
         #expect(await sentOffers.count == 1)
     }
 
+    /// `didReceiveMediaSectionsRequirement` and a publish racing the JOIN both add transceivers
+    /// while the bundled offer is outstanding, so by the time it is applied the offer may no
+    /// longer describe the transceiver set. The `isAwaitingAnswer` gate stops the racing *offer*
+    /// but not the mutation, so this pins down what libwebrtc does with the stale offer.
+    @Test func transceiverAddedWhileTheInitialOfferIsPending() async throws {
+        let delegate = StubDelegate()
+        let transport = try await makeTransport(singlePCMode: true, delegate: delegate)
+        defer { Task { await transport.close() } }
+
+        _ = await transport.dataChannel(for: LKRTCDataChannel.Labels.reliable,
+                                        configuration: RTC.createDataChannelConfiguration())
+
+        let initial = try await transport.createInitialOffer()
+        let offer = try #require(initial)
+
+        let sentOffers = SentOffers()
+        await transport.set { offer, offerId in
+            await sentOffers.append(offer: offer, offerId: offerId)
+        }
+
+        // Stands in for the media-sections requirement adding recvonly sections mid-flight.
+        let transceiverInit = LKRTCRtpTransceiverInit()
+        transceiverInit.direction = .recvOnly
+        try await RTC.run { _ = try transport.addTransceiver(ofType: .video, transceiverInit: transceiverInit) }
+
+        try await transport.negotiate(force: true)
+        #expect(await sentOffers.count == 0, "The racing offer stays gated behind the bundled one")
+
+        let answer = try await answer(to: offer.offer)
+        try await transport.set(remoteDescription: answer, offerId: offer.offerId)
+
+        #expect(await transport.localDescription != nil,
+                "The bundled offer must still apply even though a transceiver was added after it")
+        #expect(await sentOffers.count == 1,
+                "The transceiver added mid-flight is negotiated by the follow-up offer")
+    }
+
     @Test func joinRequestCarriesThePublisherOffer() throws {
         let sdp = "v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\na=group:BUNDLE 0\r\n"
         let publisherOffer = Livekit_SessionDescription.with {

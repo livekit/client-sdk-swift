@@ -229,6 +229,42 @@ public enum StartReconnectReason: Sendable {
 
 // Room+ConnectSequences
 extension Room {
+    /// Opens the signal socket, falling back to the legacy path when the server has no `/rtc/v1`.
+    ///
+    /// Returns the negotiated state rather than mutating the caller's: on fallback the early
+    /// publisher is closed and dropped, because the legacy path needs a dual-PC publisher, which
+    /// differs in both `primary` and `singlePCMode` — immutable on `Transport` — so it cannot be
+    /// reused and `configureTransports` builds a fresh pair.
+    private func connectSignal(_ url: URL, _ token: String,
+                               singlePC: Bool,
+                               earlyPublisher: EarlyPublisher?) async throws
+        -> (response: SignalClient.ConnectResponse, singlePC: Bool, earlyPublisher: EarlyPublisher?)
+    {
+        do {
+            let response = try await signalClient.connect(url,
+                                                          token,
+                                                          connectOptions: _state.connectOptions,
+                                                          reconnectMode: _state.isReconnectingWithMode,
+                                                          adaptiveStream: _state.roomOptions.adaptiveStream,
+                                                          singlePeerConnection: singlePC,
+                                                          publisherOffer: earlyPublisher?.offer,
+                                                          connectSpan: connectSpan)
+            return (response, singlePC, earlyPublisher)
+        } catch let error as LiveKitError where error.type == .serviceNotFound && singlePC {
+            log("v1 RTC path not supported, retrying with legacy path", .warning)
+            await earlyPublisher?.close()
+
+            let response = try await signalClient.connect(url,
+                                                          token,
+                                                          connectOptions: _state.connectOptions,
+                                                          reconnectMode: _state.isReconnectingWithMode,
+                                                          adaptiveStream: _state.roomOptions.adaptiveStream,
+                                                          singlePeerConnection: false,
+                                                          connectSpan: connectSpan)
+            return (response, false, nil)
+        }
+    }
+
     // full connect sequence, doesn't update connection state
     func fullConnectSequence(_ url: URL, _ token: String) async throws {
         var singlePC = _state.roomOptions.singlePeerConnection
@@ -254,34 +290,12 @@ extension Room {
         var isAdopted = false
 
         do {
-            let connectResponse: SignalClient.ConnectResponse
-            do {
-                connectResponse = try await signalClient.connect(url,
-                                                                 token,
-                                                                 connectOptions: _state.connectOptions,
-                                                                 reconnectMode: _state.isReconnectingWithMode,
-                                                                 adaptiveStream: _state.roomOptions.adaptiveStream,
-                                                                 singlePeerConnection: singlePC,
-                                                                 publisherOffer: earlyPublisher?.offer,
-                                                                 connectSpan: connectSpan)
-            } catch let error as LiveKitError where error.type == .serviceNotFound && singlePC {
-                log("v1 RTC path not supported, retrying with legacy path", .warning)
-                singlePC = false
-
-                // The legacy path needs a dual-PC publisher, which differs in both `primary`
-                // and `singlePCMode` — immutable on `Transport` — so the early one cannot be
-                // reused and `configureTransports` builds a fresh pair.
-                await earlyPublisher?.close()
-                earlyPublisher = nil
-
-                connectResponse = try await signalClient.connect(url,
-                                                                 token,
-                                                                 connectOptions: _state.connectOptions,
-                                                                 reconnectMode: _state.isReconnectingWithMode,
-                                                                 adaptiveStream: _state.roomOptions.adaptiveStream,
-                                                                 singlePeerConnection: false,
-                                                                 connectSpan: connectSpan)
-            }
+            let connected = try await connectSignal(url, token,
+                                                    singlePC: singlePC,
+                                                    earlyPublisher: earlyPublisher)
+            let connectResponse = connected.response
+            singlePC = connected.singlePC
+            earlyPublisher = connected.earlyPublisher
 
             // Check cancellation after WebSocket connected
             try Task.checkCancellation()
