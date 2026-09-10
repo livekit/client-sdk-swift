@@ -817,7 +817,7 @@ public extension Room {
 // MARK: - DataChannelDelegate
 
 extension Room: DataChannelDelegate {
-    func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket, encryptionType: EncryptionType) {
+    func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket, serialized: Data?, encryptionType: EncryptionType) {
         switch dataPacket.value {
         case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
         case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket, encryptionType: encryptionType)
@@ -829,7 +829,7 @@ extension Room: DataChannelDelegate {
             // Forward the whole (already-decrypted, deduped) packet; the UniFFI incoming manager
             // decodes the stream header/chunk/trailer itself. The encryption type travels beside it
             // because decryption consumed the packet field that carried it.
-            dataStreams.handleIncoming(dataPacket, encryptionType: encryptionType)
+            dataStreams.handleIncoming(dataPacket, serialized: serialized, encryptionType: encryptionType)
         default: return
         }
     }
