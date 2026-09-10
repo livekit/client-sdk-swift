@@ -68,6 +68,8 @@ extension StreamError {
             self = .encryptionTypeMismatch(expected: EncryptionType(expected), received: EncryptionType(received))
         case .AlreadyClosed, .InvalidHeader, .MissedChunk, .SendFailed, .Internal, .InvalidFileName:
             self = .terminated
+        @unknown default:
+            self = .terminated
         }
     }
 }

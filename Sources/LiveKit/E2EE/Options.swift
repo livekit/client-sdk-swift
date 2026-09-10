@@ -52,6 +52,8 @@ extension EncryptionType {
         case .none: self = .none
         case .gcm: self = .gcm
         case .custom: self = .custom
+        // A scheme added after this SDK is still a scheme — never report it as plaintext.
+        @unknown default: self = .custom
         }
     }
 }
