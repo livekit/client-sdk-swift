@@ -24,9 +24,9 @@ import Testing
 struct DependencyStageTests {
     @Test func beginStagesConnection() throws {
         let room = Room()
-        let connection = ConnectionDependencies(room: room, roomOptions: RoomOptions())
+        let connection = ConnectionDependencies(idle: room.idleDeps, room: room, roomOptions: RoomOptions())
 
-        var stage = DependencyStage.idle
+        var stage = DependencyStage.idle(room.idleDeps)
         try stage.begin(connection)
 
         #expect(stage.connection === connection)
@@ -36,19 +36,32 @@ struct DependencyStageTests {
     @Test func beginWhileStagedThrows() throws {
         let room = Room()
 
-        var stage = DependencyStage.idle
-        try stage.begin(ConnectionDependencies(room: room, roomOptions: RoomOptions()))
+        var stage = DependencyStage.idle(room.idleDeps)
+        try stage.begin(ConnectionDependencies(idle: room.idleDeps, room: room, roomOptions: RoomOptions()))
 
         #expect(throws: LiveKitError.self) {
-            try stage.begin(ConnectionDependencies(room: room, roomOptions: RoomOptions()))
+            try stage.begin(ConnectionDependencies(idle: room.idleDeps, room: room, roomOptions: RoomOptions()))
+        }
+    }
+
+    /// The room-scoped tier is duplicated across the payloads, so the transition is what keeps
+    /// them from disagreeing: a connection built against another room can't be staged here.
+    @Test func beginWithForeignRoomTierThrows() throws {
+        let room = Room()
+        let other = Room()
+
+        var stage = DependencyStage.idle(room.idleDeps)
+
+        #expect(throws: LiveKitError.self) {
+            try stage.begin(ConnectionDependencies(idle: other.idleDeps, room: other, roomOptions: RoomOptions()))
         }
     }
 
     @Test func retireJoinWithoutJoinKeepsConnection() throws {
         let room = Room()
-        let connection = ConnectionDependencies(room: room, roomOptions: RoomOptions())
+        let connection = ConnectionDependencies(idle: room.idleDeps, room: room, roomOptions: RoomOptions())
 
-        var stage = DependencyStage.idle
+        var stage = DependencyStage.idle(room.idleDeps)
         try stage.begin(connection)
 
         #expect(stage.retireJoin() == nil)
@@ -57,30 +70,31 @@ struct DependencyStageTests {
 
     @Test func endRetiresConnection() throws {
         let room = Room()
-        let connection = ConnectionDependencies(room: room, roomOptions: RoomOptions())
+        let connection = ConnectionDependencies(idle: room.idleDeps, room: room, roomOptions: RoomOptions())
 
-        var stage = DependencyStage.idle
+        var stage = DependencyStage.idle(room.idleDeps)
         try stage.begin(connection)
 
         let retired = stage.end()
         #expect(retired.connection === connection)
         #expect(retired.join == nil)
-        #expect(stage == .idle)
+        #expect(stage == .idle(room.idleDeps))
         #expect(stage.connection == nil)
     }
 
     @Test func endFromIdleRetiresNothing() {
-        var stage = DependencyStage.idle
+        let room = Room()
+        var stage = DependencyStage.idle(room.idleDeps)
 
         let retired = stage.end()
         #expect(retired.connection == nil)
         #expect(retired.join == nil)
-        #expect(stage == .idle)
+        #expect(stage == .idle(room.idleDeps))
     }
 
     @Test func freshRoomStartsIdle() {
         let room = Room()
-        #expect(room._state.stage == .idle)
+        #expect(room._state.stage == .idle(room.idleDeps))
         #expect(room.dataTracks == nil)
         #expect(room._state.transport == nil)
         #expect(room.e2eeManager == nil)
@@ -95,7 +109,7 @@ struct DependencyStageTests {
         #expect(room.e2eeManager == nil)
 
         // Built outside the lock, like connect() — its construction touches Room state.
-        let dependencies = ConnectionDependencies(room: room, roomOptions: RoomOptions(encryptionOptions: encryptionOptions))
+        let dependencies = ConnectionDependencies(idle: room.idleDeps, room: room, roomOptions: RoomOptions(encryptionOptions: encryptionOptions))
         try room._state.mutate { try $0.stage.begin(dependencies) }
         #expect(room.e2eeManager != nil, "Staging a connection derives the manager from the room options")
 
@@ -106,4 +120,9 @@ struct DependencyStageTests {
         _ = room._state.mutate { $0.stage.end() }
         #expect(room.e2eeManager == nil, "The manager is released with its connection")
     }
+}
+
+private extension Room {
+    /// The room-scoped tier every stage carries, for building stages standalone.
+    var idleDeps: IdleDependencies { _state.stage.idle }
 }

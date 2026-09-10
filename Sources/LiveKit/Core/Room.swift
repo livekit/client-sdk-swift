@@ -136,10 +136,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         self?.notify(bufferStatus: isLow, of: kind)
     })
 
-    // The data stream subsystem (incoming/outgoing UniFFI managers, the topic→handler registry, and
-    // packet routing) behind one reference. Kept for the Room's lifetime — not session-scoped like
-    // ``DataTracks`` — so stream handlers survive reconnects and can be registered before connect.
-    private(set) var dataStreams: DataStreams!
+    // The data stream subsystem (the topic→handler registry, the outgoing manager, and packet
+    // routing) behind one reference. Staged as the room-scoped dependency tier, so it is present
+    // whatever the stage: stream handlers survive reconnects and can be registered before connect.
+    var dataStreams: DataStreams { _state.stage.dataStreams }
 
     // MARK: - Data Tracks
 
@@ -200,7 +200,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         // Dependency plane: which per-connection / per-join subsystems exist. Payloads are staged
         // and retired only through its transitions (connect / configureTransports / cleanUp).
-        var stage: DependencyStage = .idle
+        // No default: the room-scoped tier every stage carries has to be supplied by `Room.init`.
+        var stage: DependencyStage
 
         var transport: TransportMode? { stage.join?.transport }
 
@@ -283,12 +284,16 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         AudioManager.prepare()
         #endif
 
+        // Built before `super.init()`, so without the back-reference it needs; `attach` supplies
+        // that below, while the room is still unreachable to anything else.
+        let dataStreams = DataStreams()
         _state = StateSync(State(connectOptions: connectOptions ?? ConnectOptions(),
-                                 roomOptions: roomOptions ?? RoomOptions()))
+                                 roomOptions: roomOptions ?? RoomOptions(),
+                                 stage: .idle(IdleDependencies(dataStreams: dataStreams))))
 
         super.init()
 
-        dataStreams = DataStreams(room: self)
+        dataStreams.attach(room: self)
 
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), ffi: \(LiveKitSDK.ffiVersion), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
@@ -416,7 +421,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         // Connection-scoped subsystems (data tracks, the E2EE manager derived from the room
         // options): carried across full reconnects, released on disconnect.
-        let dependencies = ConnectionDependencies(room: self, roomOptions: state.roomOptions)
+        let dependencies = ConnectionDependencies(idle: state.stage.idle, room: self, roomOptions: state.roomOptions)
 
         try _state.mutate {
             try $0.stage.begin(dependencies)
@@ -607,15 +612,15 @@ extension Room {
         primaryTransportConnectedCompleter.reset(throwing: disconnectError)
         publisherTransportConnectedCompleter.reset(throwing: disconnectError)
         await activeParticipantCompleters.reset(throwing: disconnectError)
-        // Fail open data streams so their handlers return; a handler blocked on a
-        // reader that will never finish would stall its topic's ordered queue.
-        dataStreams.reset()
-
         await signalClient.cleanUp(withError: disconnectError)
         // Cancel all track stats timers before closing transports to prevent
         // stats collection from accessing destroyed WebRTC channels.
         cancelTimers()
         await cleanUpRTC(withError: disconnectError)
+        // Fail open data streams so their handlers return; a handler blocked on a reader that will
+        // never finish would stall its topic's ordered queue. After the transports are down, so no
+        // late packet can open a reader that outlives the abort.
+        dataStreams.reset()
         var retiredConnection: ConnectionDependencies?
         if isFullReconnect {
             // Data tracks are connection-scoped: across a full reconnect only their transport
@@ -663,6 +668,7 @@ extension Room {
                 connectionState: .disconnected,
                 reconnectTask: $0.reconnectTask,
                 disconnectError: LiveKitError.from(error: disconnectError),
+                stage: $0.stage,
             )
         }
     }
