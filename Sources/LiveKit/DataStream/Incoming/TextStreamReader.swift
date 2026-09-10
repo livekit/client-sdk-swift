@@ -16,17 +16,27 @@
 
 import Foundation
 
+internal import LiveKitUniFFI
+
+/// The slice of ``TextStreamReader`` the SDK's own consumers (the RPC managers) need. They take
+/// this rather than the concrete reader so a stand-in can be built in the test target — otherwise
+/// the reader itself has to carry a second, in-memory backing that ships to every app.
+protocol TextStreamReading: Sendable {
+    var info: TextStreamInfo { get }
+    func readAll() async throws -> String
+}
+
 /// An asynchronous sequence of chunks read from a text data stream.
 @objcMembers
-public final class TextStreamReader: NSObject, AsyncSequence, Sendable {
+public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStreamReading {
     /// Information about the incoming text stream.
     public let info: TextStreamInfo
 
-    let source: StreamReaderSource
+    private let reader: LiveKitUniFFI.TextStreamReader
 
-    init(info: TextStreamInfo, source: StreamReaderSource) {
+    init(_ reader: LiveKitUniFFI.TextStreamReader, info: TextStreamInfo) {
+        self.reader = reader
         self.info = info
-        self.source = source
     }
 
     /// Reads incoming chunks from the text stream, concatenating them into a single string which is returned
@@ -36,26 +46,28 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable {
     /// - Throws: ``StreamError`` if an error occurs while reading the stream.
     ///
     public func readAll() async throws -> String {
-        try await collect()
+        do {
+            return try await reader.readAll()
+        } catch let error as LiveKitUniFFI.DataStreamError {
+            throw StreamError(error)
+        }
     }
 
     /// An asynchronous iterator of incoming chunks.
     public struct AsyncChunks: AsyncIteratorProtocol {
-        fileprivate var source: StreamReaderSource.Iterator
+        fileprivate let reader: LiveKitUniFFI.TextStreamReader
 
         public mutating func next() async throws -> String? {
-            guard let data = try await source.next() else {
-                return nil
+            do {
+                return try await reader.next()
+            } catch let error as LiveKitUniFFI.DataStreamError {
+                throw StreamError(error)
             }
-            guard let string = String(data: data, encoding: .utf8) else {
-                throw StreamError.decodeFailed
-            }
-            return string
         }
     }
 
     public func makeAsyncIterator() -> AsyncChunks {
-        AsyncChunks(source: source.makeAsyncIterator())
+        AsyncChunks(reader: reader)
     }
 }
 

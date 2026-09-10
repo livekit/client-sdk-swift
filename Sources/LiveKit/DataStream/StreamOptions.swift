@@ -16,6 +16,8 @@
 
 import Foundation
 
+internal import LiveKitUniFFI
+
 /// Options used when opening an outgoing data stream.
 public protocol StreamOptions: Sendable {
     /// Topic name used to route the stream to the appropriate handler.
@@ -43,6 +45,10 @@ public final class StreamTextOptions: NSObject, StreamOptions {
     public let attachedStreamIDs: [String]
     public let replyToStreamID: String?
 
+    /// Whether to compress the payload when every recipient supports it. `true` by default; the
+    /// stream is still sent uncompressed to recipients that can't decompress it.
+    public let compress: Bool
+
     // TODO: Expose additional protocol level fields
 
     public init(
@@ -53,6 +59,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         version: Int = 0,
         attachedStreamIDs: [String] = [],
         replyToStreamID: String? = nil,
+        compress: Bool = true,
     ) {
         self.topic = topic
         self.attributes = attributes
@@ -61,6 +68,23 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         self.version = version
         self.attachedStreamIDs = attachedStreamIDs
         self.replyToStreamID = replyToStreamID
+        self.compress = compress
+    }
+
+    var ffi: LiveKitUniFFI.StreamTextOptions {
+        LiveKitUniFFI.StreamTextOptions(
+            topic: topic,
+            attributes: attributes,
+            destinationIdentities: destinationIdentities.map(\.stringValue),
+            id: id,
+            operationType: nil,
+            version: Int32(truncatingIfNeeded: version),
+            replyToStreamId: replyToStreamID,
+            attachedStreamIds: attachedStreamIDs,
+            generated: nil,
+            compress: compress,
+            senderIdentity: nil,
+        )
     }
 }
 
@@ -80,7 +104,14 @@ public final class StreamByteOptions: NSObject, StreamOptions {
     public let name: String?
 
     /// Total expected size in bytes, if known.
+    ///
+    /// - Note: A negative value is treated as `nil` — the size is simply not declared, rather than
+    ///   trapping on the conversion to the wire's unsigned length.
     public let totalSize: Int?
+
+    /// Whether to compress the payload when every recipient supports it. `true` by default; the
+    /// stream is still sent uncompressed to recipients that can't decompress it.
+    public let compress: Bool
 
     public init(
         topic: String,
@@ -90,6 +121,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
         mimeType: String? = nil,
         name: String? = nil,
         totalSize: Int? = nil,
+        compress: Bool = true,
     ) {
         self.topic = topic
         self.attributes = attributes
@@ -97,7 +129,22 @@ public final class StreamByteOptions: NSObject, StreamOptions {
         self.id = id
         self.mimeType = mimeType
         self.name = name
-        self.totalSize = totalSize
+        self.totalSize = totalSize.flatMap { $0 >= 0 ? $0 : nil }
+        self.compress = compress
+    }
+
+    var ffi: LiveKitUniFFI.StreamByteOptions {
+        LiveKitUniFFI.StreamByteOptions(
+            topic: topic,
+            attributes: attributes,
+            destinationIdentities: destinationIdentities.map(\.stringValue),
+            id: id,
+            mimeType: mimeType,
+            name: name,
+            totalLength: totalSize.map { UInt64($0) },
+            compress: compress,
+            senderIdentity: nil,
+        )
     }
 
     /// ObjC-compatible initializer that accepts `NSNumber?` for `totalSize`.
@@ -113,6 +160,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
         mimeType: String?,
         name: String?,
         totalSizeNumber: NSNumber?,
+        compress: Bool = true,
     ) {
         self.init(
             topic: topic,
@@ -122,6 +170,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
             mimeType: mimeType,
             name: name,
             totalSize: totalSizeNumber?.intValue,
+            compress: compress,
         )
     }
 }

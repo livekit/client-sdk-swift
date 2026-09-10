@@ -21,6 +21,11 @@ import Files // JohnSundell/Files ~> 4.2
 import Foundation
 import ShellOut // JohnSundell/ShellOut ~> 2.3
 
+// swift-sh compiles one file, so this tool cannot be split across several, and being a tool it is
+// mostly prose about what the digester reports and why. Neither length limit says anything useful
+// here: obeying them costs the explanations, not complexity.
+// swiftlint:disable file_length type_body_length
+
 // Run via: swiftly run +xcode swift-sh .github/api-check/api-check.swift --base <ref> [--platform P]
 //
 // Builds LiveKit for distribution (library evolution) at HEAD and at a base ref,
@@ -54,13 +59,15 @@ struct APICheck: ParsableCommand {
         let old = try dump(source: baseTree, into: work, named: "base")
         let new = try dump(source: head.path, into: work, named: "head")
 
-        let breaking = try diagnose(old: old, new: new, into: work, named: "breaking")
-        let additions = try additions(old: old, new: new, into: work)
-        guard !breaking.isEmpty || !additions.isEmpty else {
+        var breaking = try diagnose(old: old, new: new, into: work, named: "breaking")
+        var additions = try additions(old: old, new: new, into: work)
+        let widened = try widenedSignatures(old: old, new: new)
+        (breaking, additions) = setAside(widened, breaking: breaking, additions: additions)
+        guard !breaking.isEmpty || !additions.isEmpty || !widened.isEmpty else {
             print("No public API changes on \(platform).")
             return
         }
-        emit(render(breaking: breaking, additions: additions))
+        emit(render(breaking: breaking, additions: additions, widened: widened))
         guard breaking.isEmpty else {
             print("::error::Public API breakage on \(platform) — see the job summary.")
             throw ExitCode.failure
@@ -220,9 +227,145 @@ struct APICheck: ParsableCommand {
         return sections.filter { !$0.1.isEmpty }.map { (section: $0.0, lines: $0.1) }
     }
 
+    // MARK: - Widened signatures
+
+    /// One decl of the API dump, flattened to what a caller has to write.
+    private struct Decl {
+        let context: String
+        let base: String
+        let printedName: String
+        let labels: [String]
+        let types: [String]
+        let defaulted: [Bool]
+        let result: String
+        let isObjC: Bool
+
+        var qualified: String { context.isEmpty ? printedName : "\(context).\(printedName)" }
+    }
+
+    /// A signature that gained parameters, all of them defaulted.
+    struct Widened {
+        let before: String
+        let after: String
+        let isObjC: Bool
+    }
+
+    /// The digester keys a function by its argument labels, so adding a parameter reads as one decl
+    /// removed and another added. When every parameter the new one gained carries a default, that
+    /// pair is not a break a Swift caller can hit: the old call still compiles, unchanged.
+    ///
+    /// It is not free, though, which is why these are reported rather than dropped — the mangled
+    /// symbol moves, so a consumer that links a prebuilt binary has to rebuild, and an `@objc`
+    /// member's selector changes with it (Swift defaults don't exist in Objective-C, so its callers
+    /// must pass the new argument).
+    private func widenedSignatures(old: String, new: String) throws -> [Widened] {
+        let before = try decls(inDumpAt: old)
+        let after = try decls(inDumpAt: new)
+        var candidates: [String: [Decl]] = [:]
+        for decl in after {
+            candidates["\(decl.context)|\(decl.base)", default: []].append(decl)
+        }
+
+        return before.compactMap { was in
+            guard candidates["\(was.context)|\(was.base)"]?.contains(where: { $0.printedName == was.printedName }) != true,
+                  let now = candidates["\(was.context)|\(was.base)"]?.first(where: { isWidening(was, $0) })
+            else { return nil }
+            return Widened(before: was.qualified, after: now.qualified, isObjC: was.isObjC || now.isObjC)
+        }
+    }
+
+    /// True when `now` is `was` plus parameters that all have defaults: dropping the additions has
+    /// to leave the old signature exactly, labels, types and result included.
+    private func isWidening(_ was: Decl, _ now: Decl) -> Bool {
+        guard now.labels.count > was.labels.count, now.result == was.result else { return false }
+        var matched = 0
+        for index in now.labels.indices {
+            if matched < was.labels.count,
+               now.labels[index] == was.labels[matched], now.types[index] == was.types[matched]
+            {
+                matched += 1
+            } else if !now.defaulted[index] {
+                return false
+            }
+        }
+        return matched == was.labels.count
+    }
+
+    /// Every function and initializer in a `-dump-sdk` tree, qualified the way the report names it.
+    private func decls(inDumpAt path: String) throws -> [Decl] {
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let module = root["ABIRoot"] as? [String: Any] else { return [] }
+
+        var found: [Decl] = []
+        func walk(_ node: [String: Any], context: [String]) {
+            let children = node["children"] as? [[String: Any]] ?? []
+            let name = node["name"] as? String ?? ""
+            let kind = node["kind"] as? String ?? ""
+            let printedName = node["printedName"] as? String ?? ""
+
+            if kind == "Function" || kind == "Constructor", printedName.contains("(") {
+                // The first child is the result type; the rest are the parameters, in the order
+                // their labels appear in `printedName`.
+                let parameters = Array(children.dropFirst())
+                let labels = printedName.drop { $0 != "(" }.dropFirst().dropLast()
+                    .split(separator: ":", omittingEmptySubsequences: false).dropLast().map(String.init)
+                if labels.count == parameters.count {
+                    let attributes = node["declAttributes"] as? [String] ?? []
+                    found.append(Decl(
+                        context: context.joined(separator: "."),
+                        base: name,
+                        printedName: printedName,
+                        labels: labels,
+                        types: parameters.map { $0["printedName"] as? String ?? "" },
+                        defaulted: parameters.map { $0["hasDefaultArg"] as? Bool ?? false },
+                        result: children.first?["printedName"] as? String ?? "",
+                        isObjC: attributes.contains("ObjC") || node["objc_name"] != nil,
+                    ))
+                }
+            }
+
+            // Type nodes carry a decl's parameters, not its members; only decls extend the context.
+            let isDecl = node["declKind"] != nil
+            let nested = isDecl && kind != "Function" && kind != "Constructor" ? context + [name] : context
+            for child in children where child["declKind"] != nil {
+                walk(child, context: nested)
+            }
+        }
+        walk(module, context: [])
+        return found
+    }
+
+    /// Moves each widened signature's own lines out of the breaking and added reports, so the pair
+    /// is stated once, as a pair.
+    ///
+    /// The digester phrases one widening either way round depending on whether it paired the two
+    /// decls itself: as a removal plus an addition, or as a rename (with the `@objc` selector
+    /// change filed beside it). All three name the old signature, which is what these match on.
+    private func setAside(_ widened: [Widened],
+                          breaking: [(section: String, lines: [String])],
+                          additions: [String]) -> ([(section: String, lines: [String])], [String])
+    {
+        let removed = Set(widened.map(\.before))
+        let added = Set(widened.map(\.after))
+        let phrasings = [" has been removed", " has been renamed to ", " has ObjC name change from "]
+        func names(_ line: String) -> String { line.split(separator: " ").dropFirst().first.map(String.init) ?? "" }
+
+        let keptBreaking = breaking.compactMap { finding -> (section: String, lines: [String])? in
+            let lines = finding.lines.filter { line in
+                !(phrasings.contains(where: line.contains) && removed.contains(names(line)))
+            }
+            return lines.isEmpty ? nil : (section: finding.section, lines: lines)
+        }
+        let keptAdditions = additions.filter { !($0.hasSuffix(" has been added") && added.contains(names($0))) }
+        return (keptBreaking, keptAdditions)
+    }
+
     // MARK: - Output
 
-    private func render(breaking: [(section: String, lines: [String])], additions: [String]) -> String {
+    private func render(breaking: [(section: String, lines: [String])], additions: [String],
+                        widened: [Widened]) -> String
+    {
         var md = "## 🔒 LiveKit SDK — public API changes (`\(platform)`)\n\n"
         md += "Comparing `HEAD` against `\(base)`:\n\n"
         if !breaking.isEmpty {
@@ -235,6 +378,15 @@ struct APICheck: ParsableCommand {
                 md += "\n"
             }
         }
+        if !widened.isEmpty {
+            md += "### ⚠️ Widened (source-compatible)\n\n"
+            md += "Gained parameters, all defaulted — existing Swift call sites compile unchanged.\n\n"
+            for change in widened {
+                md += "- `\(change.before)` → `\(change.after)`"
+                md += change.isObjC ? " — **`@objc`: the selector changes, so Obj-C callers must pass it**\n" : "\n"
+            }
+            md += "\n"
+        }
         if !additions.isEmpty {
             md += "### ✅ Added\n\n"
             for line in additions {
@@ -243,7 +395,9 @@ struct APICheck: ParsableCommand {
             md += "\n"
         }
         md += "<sub>Breaking changes fail the job: they are source- or ABI-breaking for existing "
-        md += "consumers, so bump accordingly if intended. Additions are reported for review only, "
+        md += "consumers, so bump accordingly if intended. Widened signatures do not: they stay "
+        md += "ABI-breaking, so a consumer linking a prebuilt binary rebuilds, but no Swift source "
+        md += "has to change. Additions are reported for review only, "
         md += "and a mid-enum `@objc` case is not among them — the digester does not see the raw "
         md += "values it shifts. Generated by `.github/api-check`.</sub>\n"
         return md
@@ -264,3 +418,5 @@ struct APICheck: ParsableCommand {
 }
 
 APICheck.main()
+
+// swiftlint:enable file_length type_body_length

@@ -125,6 +125,8 @@ struct RoomStateTests {
     // MARK: - Helpers
 
     private func makeState() -> Room.State {
-        Room.State(connectOptions: ConnectOptions(), roomOptions: RoomOptions())
+        Room.State(connectOptions: ConnectOptions(),
+                   roomOptions: RoomOptions(),
+                   stage: .idle(IdleDependencies(dataStreams: DataStreams())))
     }
 }

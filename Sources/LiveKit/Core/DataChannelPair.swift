@@ -24,7 +24,11 @@ protocol DataChannelDelegate: AnyObject, Sendable {
     /// `encryptionType` is how the packet arrived on the wire. It rides alongside the packet
     /// because decryption rewrites the payload oneof, which *clears* `encryptedPacket` — reading
     /// the type off a decrypted packet reports every encrypted message as unencrypted.
-    func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket, encryptionType: EncryptionType)
+    ///
+    /// `serialized` is the bytes `dataPacket` was decoded from, for the consumers that need the
+    /// wire form again (the data stream core takes bytes). `nil` once decryption has rebuilt the
+    /// packet, since the received bytes no longer describe it — those callers re-encode.
+    func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket, serialized: Data?, encryptionType: EncryptionType)
     func dataChannel(_ dataChannelPair: DataChannelPair, didFailToDecryptDataPacket dataPacket: Livekit_DataPacket, error: LiveKitError)
 }
 
@@ -224,7 +228,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
               let e2eeManager = _state.e2eeManager
         else {
             delegates.notify {
-                $0.dataChannel(self, didReceiveDataPacket: dataPacket, encryptionType: .none)
+                $0.dataChannel(self, didReceiveDataPacket: dataPacket, serialized: data, encryptionType: .none)
             }
             return
         }
@@ -240,7 +244,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             let decrypted = dataPacket.modifying { decryptedPayload.applyTo(&$0) }
 
             delegates.notify { [decrypted] in
-                $0.dataChannel(self, didReceiveDataPacket: decrypted, encryptionType: encryptionType)
+                $0.dataChannel(self, didReceiveDataPacket: decrypted, serialized: nil, encryptionType: encryptionType)
             }
         } catch {
             log("Failed to decrypt data packet: \(error)", .error)

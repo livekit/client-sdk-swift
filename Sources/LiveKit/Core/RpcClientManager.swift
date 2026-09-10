@@ -180,7 +180,7 @@ actor RpcClientManager: Loggable {
     /// with the streamed payload — but only if `senderIdentity` matches the original
     /// destination of the call. A response from any other peer is ignored (and the
     /// pending entry is left in place so the legitimate sender can still resolve).
-    func handleIncomingResponseStream(reader: TextStreamReader, senderIdentity: Participant.Identity) async {
+    func handleIncomingResponseStream(reader: some TextStreamReading, senderIdentity: Participant.Identity) async {
         guard let requestId = reader.info.attributes[RpcStreamAttribute.requestId] else {
             log("[Rpc] Incoming v2 RPC response stream is missing request id attribute", .error)
             return

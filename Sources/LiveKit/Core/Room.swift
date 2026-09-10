@@ -136,12 +136,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         self?.notify(bufferStatus: isLow, of: kind)
     })
 
-    let incomingStreamManager = IncomingStreamManager()
-    lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
-        try await self?.send(dataPacket: packet)
-    } encryptionProvider: { [weak self] in
-        self?.e2eeManager?.dataChannelEncryptionType ?? .none
-    }
+    // The data stream subsystem (the topic→handler registry, the outgoing manager, and packet
+    // routing) behind one reference. Staged as the room-scoped dependency tier, so it is present
+    // whatever the stage: stream handlers survive reconnects and can be registered before connect.
+    var dataStreams: DataStreams { _state.stage.dataStreams }
 
     // MARK: - Data Tracks
 
@@ -202,7 +200,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         // Dependency plane: which per-connection / per-join subsystems exist. Payloads are staged
         // and retired only through its transitions (connect / configureTransports / cleanUp).
-        var stage: DependencyStage = .idle
+        // No default: the room-scoped tier every stage carries has to be supplied by `Room.init`.
+        var stage: DependencyStage
 
         var transport: TransportMode? { stage.join?.transport }
 
@@ -285,10 +284,17 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         AudioManager.prepare()
         #endif
 
+        // Built before `super.init()`, so without the back-reference it needs; `attach` supplies
+        // that below, while the room is still unreachable to anything else.
+        let dataStreams = DataStreams()
         _state = StateSync(State(connectOptions: connectOptions ?? ConnectOptions(),
-                                 roomOptions: roomOptions ?? RoomOptions()))
+                                 roomOptions: roomOptions ?? RoomOptions(),
+                                 stage: .idle(IdleDependencies(dataStreams: dataStreams))))
 
         super.init()
+
+        dataStreams.attach(room: self)
+
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), ffi: \(LiveKitSDK.ffiVersion), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
 
@@ -415,7 +421,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         // Connection-scoped subsystems (data tracks, the E2EE manager derived from the room
         // options): carried across full reconnects, released on disconnect.
-        let dependencies = ConnectionDependencies(room: self, roomOptions: state.roomOptions)
+        let dependencies = ConnectionDependencies(idle: state.stage.idle, room: self, roomOptions: state.roomOptions)
 
         try _state.mutate {
             try $0.stage.begin(dependencies)
@@ -606,15 +612,15 @@ extension Room {
         primaryTransportConnectedCompleter.reset(throwing: disconnectError)
         publisherTransportConnectedCompleter.reset(throwing: disconnectError)
         await activeParticipantCompleters.reset(throwing: disconnectError)
-        // Fail open data streams so their handlers return; a handler blocked on a
-        // reader that will never finish would stall its topic's ordered queue.
-        await incomingStreamManager.reset()
-
         await signalClient.cleanUp(withError: disconnectError)
         // Cancel all track stats timers before closing transports to prevent
         // stats collection from accessing destroyed WebRTC channels.
         cancelTimers()
         await cleanUpRTC(withError: disconnectError)
+        // Fail open data streams so their handlers return; a handler blocked on a reader that will
+        // never finish would stall its topic's ordered queue. After the transports are down, so no
+        // late packet can open a reader that outlives the abort.
+        dataStreams.reset()
         var retiredConnection: ConnectionDependencies?
         if isFullReconnect {
             // Data tracks are connection-scoped: across a full reconnect only their transport
@@ -662,6 +668,7 @@ extension Room {
                 connectionState: .disconnected,
                 reconnectTask: $0.reconnectTask,
                 disconnectError: LiveKitError.from(error: disconnectError),
+                stage: $0.stage,
             )
         }
     }
@@ -677,10 +684,10 @@ extension Room {
     private func setupRpc() async {
         await rpcClient.attach(to: self)
         await rpcServer.attach(to: self)
-        await incomingStreamManager.registerTextStreamHandlerIfNeeded(for: RpcStreamTopic.request) { [weak rpcServer] reader, identity in
+        dataStreams.registerTextStreamHandlerIfNeeded(for: RpcStreamTopic.request) { [weak rpcServer] reader, identity in
             await rpcServer?.handleIncomingRequestStream(reader: reader, callerIdentity: identity)
         }
-        await incomingStreamManager.registerTextStreamHandlerIfNeeded(for: RpcStreamTopic.response) { [weak rpcClient] reader, identity in
+        dataStreams.registerTextStreamHandlerIfNeeded(for: RpcStreamTopic.response) { [weak rpcClient] reader, identity in
             await rpcClient?.handleIncomingResponseStream(reader: reader, senderIdentity: identity)
         }
     }
@@ -719,7 +726,7 @@ extension Room {
         // so the caller sees `recipientDisconnected` (1503) immediately instead of
         // hanging until the user-supplied `responseTimeout`.
         await rpcClient.handleParticipantDisconnected(identity)
-        await incomingStreamManager.closeStreams(from: identity)
+        dataStreams.closeStreams(from: identity)
 
         guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: identity) }) else {
             throw LiveKitError(.invalidState, message: "Participant not found for \(identity)")
@@ -816,7 +823,7 @@ public extension Room {
 // MARK: - DataChannelDelegate
 
 extension Room: DataChannelDelegate {
-    func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket, encryptionType: EncryptionType) {
+    func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket, serialized: Data?, encryptionType: EncryptionType) {
         switch dataPacket.value {
         case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
         case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket, encryptionType: encryptionType)
@@ -824,12 +831,11 @@ extension Room: DataChannelDelegate {
         case let .rpcResponse(response): room(didReceiveRpcResponse: response)
         case let .rpcAck(ack): room(didReceiveRpcAck: ack)
         case let .rpcRequest(request): room(didReceiveRpcRequest: request, from: dataPacket.participantIdentity)
-        case let .streamHeader(header):
-            incomingStreamManager.handle(.header(header, dataPacket.participantIdentity, encryptionType))
-        case let .streamChunk(chunk):
-            incomingStreamManager.handle(.chunk(chunk, encryptionType))
-        case let .streamTrailer(trailer):
-            incomingStreamManager.handle(.trailer(trailer, encryptionType))
+        case .streamHeader, .streamChunk, .streamTrailer:
+            // Forward the whole (already-decrypted, deduped) packet; the UniFFI incoming manager
+            // decodes the stream header/chunk/trailer itself. The encryption type travels beside it
+            // because decryption consumed the packet field that carried it.
+            dataStreams.handleIncoming(dataPacket, serialized: serialized, encryptionType: encryptionType)
         default: return
         }
     }

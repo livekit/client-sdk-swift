@@ -16,17 +16,20 @@
 
 import Foundation
 
+internal import LiveKitUniFFI
+
 /// Asynchronously write to an open byte stream.
 @objcMembers
 public final class ByteStreamWriter: NSObject, Sendable {
     /// Information about the outgoing byte stream.
     public let info: ByteStreamInfo
 
-    private let destination: StreamWriterDestination
+    private let writer: LiveKitUniFFI.ByteStreamWriter
 
-    /// Whether or not the stream is still open.
+    /// Whether or not the stream is still open. Reflects the FFI writer's state, so it becomes
+    /// `false` once the stream is closed locally or a send fails (e.g. the room disconnected).
     public var isOpen: Bool {
-        get async { await destination.isOpen }
+        get async { await writer.isOpen() }
     }
 
     /// Write data to the stream.
@@ -36,7 +39,11 @@ public final class ByteStreamWriter: NSObject, Sendable {
     ///   cannot be sent to remote participants.
     ///
     public func write(_ data: Data) async throws {
-        try await destination.write(data)
+        do {
+            try await writer.write(data: data)
+        } catch let error as LiveKitUniFFI.DataStreamError {
+            throw StreamError(error)
+        }
     }
 
     /// Close the stream.
@@ -47,26 +54,19 @@ public final class ByteStreamWriter: NSObject, Sendable {
     ///   cannot be communicated to remote participants.
     ///
     public func close(reason: String? = nil) async throws {
-        try await destination.close(reason: reason)
-    }
-
-    init(info: ByteStreamInfo, destination: StreamWriterDestination) {
-        self.info = info
-        self.destination = destination
-    }
-}
-
-extension ByteStreamWriter {
-    /// Write the contents of the file located at the given URL to the stream.
-    func write(contentsOf fileURL: URL) async throws {
-        try await Task { [weak self] in
-            guard let self else { return }
-            let reader = try AsyncFileStream(readingFrom: fileURL)
-            for try await chunk in reader.chunks() {
-                try await write(chunk)
+        do {
+            if let reason {
+                try await writer.closeWithReason(reason: reason)
+            } else {
+                try await writer.close()
             }
-        }.value
+        } catch let error as LiveKitUniFFI.DataStreamError {
+            throw StreamError(error)
+        }
     }
 
-    private static let fileReadChunkSize = 4096
+    init(_ writer: LiveKitUniFFI.ByteStreamWriter, encryptionType: EncryptionType) {
+        self.writer = writer
+        info = ByteStreamInfo(writer.info(), encryptionType: encryptionType)
+    }
 }

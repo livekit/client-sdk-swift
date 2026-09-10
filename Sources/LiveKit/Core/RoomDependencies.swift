@@ -16,7 +16,22 @@
 
 import Foundation
 
+internal import LiveKitUniFFI
 internal import LiveKitWebRTC
+
+// MARK: - Idle dependencies
+
+/// Subsystems scoped to the ``Room`` itself: present in every stage, retired only with the room.
+///
+/// Carried by the tiers below — a connection stores it, a join reaches it through its connection —
+/// so ``DependencyStage/idle`` is total: there is no stage in which the data stream subsystem is
+/// absent. ``DependencyStage/begin(_:)`` checks identity, so the tiers can't disagree about it.
+struct IdleDependencies: Sendable, Equatable {
+    /// The data stream subsystem: the topic→handler registry, the outgoing manager, and packet
+    /// routing. Room-scoped because handlers are registrable before connect and must survive a
+    /// reconnect; only its incoming manager is per-connection (see ``ConnectionDependencies``).
+    let dataStreams: DataStreams
+}
 
 // MARK: - Connection dependencies
 
@@ -26,18 +41,35 @@ internal import LiveKitWebRTC
 /// Membership in this type is the survival policy: a full reconnect retires the
 /// ``JoinDependencies`` built on top of it and keeps this value; a disconnect retires both.
 final class ConnectionDependencies: Sendable {
+    /// The room-scoped tier this connection was opened on.
+    let idle: IdleDependencies
+
     /// The data track subsystem (managers, channels, signal/packet routing) behind one reference.
     /// Across a full reconnect only its transport channels are swapped so published tracks can be
     /// republished.
     let dataTracks: DataTracks
+
+    /// The data stream subsystem's FFI managers. Connection-scoped: the incoming one because its
+    /// payload cap is fixed at construction from the options this connection was opened with, the
+    /// outgoing one because releasing it closes the writers opened on this session. The handler
+    /// registry stays on the ``Room`` — handlers are registrable before connect and must survive a
+    /// reconnect.
+    let incomingDataStreams: LiveKitUniFFI.IncomingDataStreamManager
+    let outgoingDataStreams: LiveKitUniFFI.OutgoingDataStreamManager
 
     /// The E2EE manager, derived from the room options. A synchronized cell rather than a `let`:
     /// the public ``Room/e2eeManager`` setter writes through it, so the value stays swappable
     /// while its lifetime is the connection's.
     let e2ee: StateSync<E2EEManager?>
 
-    init(room: Room, roomOptions: RoomOptions) {
+    init(idle: IdleDependencies, room: Room, roomOptions: RoomOptions) {
+        self.idle = idle
         dataTracks = DataTracks(room: room)
+        incomingDataStreams = DataStreams.makeIncomingManager(
+            coordinator: idle.dataStreams,
+            maxPayloadByteLength: roomOptions.dataStreamOptions.maxPayloadByteLength,
+        )
+        outgoingDataStreams = DataStreams.makeOutgoingManager(room: room)
         let manager: E2EEManager? = if let e2eeOptions = roomOptions.e2eeOptions {
             E2EEManager(e2eeOptions: e2eeOptions)
         } else if let encryptionOptions = roomOptions.encryptionOptions {
@@ -70,6 +102,9 @@ final class JoinDependencies: Sendable {
     /// The connection this join was established on. Join implies connection, by construction.
     let connection: ConnectionDependencies
     let transport: TransportMode
+
+    /// The room-scoped tier, carried down from the connection.
+    var idle: IdleDependencies { connection.idle }
 
     private init(connection: ConnectionDependencies, transport: TransportMode) {
         self.connection = connection
@@ -160,12 +195,23 @@ extension JoinDependencies: Equatable {
 /// Lives inside `Room.State`, so a stage transition and its data-tier reset are one atomic
 /// mutation under the same lock.
 enum DependencyStage: Equatable {
-    case idle
+    case idle(IdleDependencies)
     case connecting(ConnectionDependencies)
     case connected(JoinDependencies)
 }
 
 extension DependencyStage {
+    /// The room-scoped tier. Total: every stage carries it.
+    var idle: IdleDependencies {
+        switch self {
+        case let .idle(idle): idle
+        case let .connecting(connection): connection.idle
+        case let .connected(join): join.idle
+        }
+    }
+
+    var dataStreams: DataStreams { idle.dataStreams }
+
     var connection: ConnectionDependencies? {
         switch self {
         case .idle: nil
@@ -185,8 +231,11 @@ extension DependencyStage {
     /// `connect()`: idle → connecting. Throws if a previous session is still staged —
     /// `cleanUp()` must have retired it first.
     mutating func begin(_ connection: ConnectionDependencies) throws {
-        guard case .idle = self else {
+        guard case let .idle(idle) = self else {
             throw LiveKitError(.invalidState, message: "Cannot begin a connection while one is staged")
+        }
+        guard connection.idle == idle else {
+            throw LiveKitError(.invalidState, message: "Connection was built against a different room")
         }
         self = .connecting(connection)
     }
@@ -213,7 +262,7 @@ extension DependencyStage {
     mutating func end() -> (join: JoinDependencies?, connection: ConnectionDependencies?) {
         let join = retireJoin()
         guard case let .connecting(connection) = self else { return (join, nil) }
-        self = .idle
+        self = .idle(connection.idle)
         return (join, connection)
     }
 }

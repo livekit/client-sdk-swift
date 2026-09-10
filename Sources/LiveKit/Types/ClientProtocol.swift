@@ -28,6 +28,9 @@ public enum ClientProtocol: Int, Sendable {
     /// Adds RPC v2: request and response payloads transported over data streams,
     /// lifting the v1 15 KB payload size limit.
     case v1 = 1
+    /// Adds Data streams v2: inline data track payloads and DEFLATE compression via the livekit-uniffi
+    /// exposed livekit-data-stream rust crate.
+    case v2 = 2
 }
 
 // MARK: - Comparable
@@ -45,6 +48,7 @@ extension ClientProtocol: CustomStringConvertible {
         switch rawValue {
         case 0: "v0"
         case 1: "v1"
+        case 2: "v2"
         default: "unknown"
         }
     }

@@ -91,6 +91,19 @@ import LiveKitTestSupport
         try await Task.sleep(nanoseconds: 1_000_000_000)
     }
 
+    /// A write submitted to a drain parks until a channel attaches. Once teardown has begun none
+    /// ever will, so the send has to fail rather than hang — `.disconnecting` included, which the
+    /// reset of the drains happens under.
+    @Test(arguments: [ConnectionState.disconnected, .disconnecting])
+    func sendDataPacketFailsWhileTearingDown(state: ConnectionState) async throws {
+        let room = Room()
+        room._state.mutate { $0.connectionState = state }
+
+        await #expect(throws: LiveKitError.self) {
+            try await room.send(dataPacket: Livekit_DataPacket())
+        }
+    }
+
     @Test func sendDataPacket() async throws {
         try await TestEnvironment.withRoom { room in
             try await confirmation("Should send data packet") { confirm in
@@ -134,8 +147,7 @@ private struct WeakRoomRefs: @unchecked Sendable {
     weak var subscriber: Transport?
     weak var publisherDataChannel: DataChannelPair?
     weak var subscriberDataChannel: DataChannelPair?
-    weak var incomingStreamManager: IncomingStreamManager?
-    weak var outgoingStreamManager: OutgoingStreamManager?
+    weak var dataStreams: DataStreams?
     weak var e2eeManager: E2EEManager?
     weak var preConnectBuffer: PreConnectAudioBuffer?
     weak var rpcClient: RpcClientManager?
@@ -161,8 +173,7 @@ private struct WeakRoomRefs: @unchecked Sendable {
 
         publisherDataChannel = room.publisherDataChannel
         subscriberDataChannel = room.subscriberDataChannel
-        incomingStreamManager = room.incomingStreamManager
-        outgoingStreamManager = room.outgoingStreamManager
+        dataStreams = room.dataStreams
         if let mgr = room.e2eeManager { e2eeManager = mgr }
         preConnectBuffer = room.preConnectBuffer
         rpcClient = room.rpcClient
@@ -189,8 +200,7 @@ private struct WeakRoomRefs: @unchecked Sendable {
         #expect(subscriber == nil, "Leaked object: Subscriber Transport")
         #expect(publisherDataChannel == nil, "Leaked object: Publisher DataChannel")
         #expect(subscriberDataChannel == nil, "Leaked object: Subscriber DataChannel")
-        #expect(incomingStreamManager == nil, "Leaked object: IncomingStreamManager")
-        #expect(outgoingStreamManager == nil, "Leaked object: OutgoingStreamManager")
+        #expect(dataStreams == nil, "Leaked object: DataStreams")
         #expect(e2eeManager == nil, "Leaked object: E2EEManager")
         #expect(preConnectBuffer == nil, "Leaked object: PreConnectBuffer")
         #expect(rpcClient == nil, "Leaked object: RpcClientManager")

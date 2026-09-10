@@ -108,7 +108,7 @@ actor RpcServerManager: Loggable {
     /// Handle an RPC request that arrived as a v2 data stream on the `lk.rpc_request` topic.
     /// Successful responses are sent back as a data stream on `lk.rpc_response`; errors are
     /// sent as v1 `RpcResponse` packets per the spec.
-    func handleIncomingRequestStream(reader: TextStreamReader,
+    func handleIncomingRequestStream(reader: some TextStreamReading,
                                      callerIdentity: Participant.Identity) async
     {
         guard let room = try? requireRoom() else { return }

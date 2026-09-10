@@ -134,6 +134,24 @@ class Utils: Loggable {
         }
     }
 
+    /// Client capabilities this SDK advertises to peers. Defined once so both connection paths
+    /// (query-param and join-request) announce the same set — otherwise peers connected via the
+    /// path that omits a capability never enable the corresponding feature (e.g. compression).
+    ///
+    /// Advertised unconditionally: deflate-raw payloads are decompressed by the Rust data stream
+    /// layer, so support doesn't vary by platform or options.
+    static let advertisedClientCapabilities: [Livekit_ClientInfo_Capability] = [.capCompressionDeflateRaw]
+
+    /// Wire (protobuf enum) name for a capability. The query-param connection path advertises
+    /// capabilities as a comma-separated list of these names, which the server maps back to the enum.
+    private static func capabilityWireName(_ capability: Livekit_ClientInfo_Capability) -> String? {
+        switch capability {
+        case .capPacketTrailer: "CAP_PACKET_TRAILER"
+        case .capCompressionDeflateRaw: "CAP_COMPRESSION_DEFLATE_RAW"
+        default: nil
+        }
+    }
+
     static func buildUrl(
         _ url: URL,
         connectOptions: ConnectOptions? = nil,
@@ -198,6 +216,13 @@ class Utils: Loggable {
 
         queryItems.append(URLQueryItem(name: "auto_subscribe", value: connectOptions.autoSubscribe ? "1" : "0"))
         queryItems.append(URLQueryItem(name: "adaptive_stream", value: adaptiveStream ? "1" : "0"))
+
+        // Advertise client capabilities on this (query-param) path too, matching the join-request
+        // path — otherwise peers connected this way never learn we support e.g. deflate compression.
+        let capabilityNames = advertisedClientCapabilities.compactMap(capabilityWireName)
+        if !capabilityNames.isEmpty {
+            queryItems.append(URLQueryItem(name: "capabilities", value: capabilityNames.joined(separator: ",")))
+        }
 
         builder.queryItems = queryItems
 
@@ -279,6 +304,7 @@ class Utils: Loggable {
                 $0.version = LiveKitSDK.version
                 $0.protocol = Int32(connectOptions.protocolVersion.rawValue)
                 $0.clientProtocol = Int32(connectOptions.clientProtocol.rawValue)
+                $0.capabilities = advertisedClientCapabilities
                 $0.os = String(describing: os())
                 $0.osVersion = osVersionString()
                 if let model = modelIdentifier() { $0.deviceModel = model }
