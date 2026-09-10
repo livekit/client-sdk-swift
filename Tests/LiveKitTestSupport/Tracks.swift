@@ -251,3 +251,26 @@ public class AudioTrackWatcher: AudioRenderer, @unchecked Sendable {
         }
     }
 }
+
+public extension BufferCapturer {
+    /// Feeds blank frames at ~30 fps until the returned task is cancelled. Publishing waits on
+    /// the capturer's dimensions, and `stopCapture()` resets them, so a track that is published
+    /// more than once needs frames to keep arriving for the whole test.
+    func startFeedingFrames(dimensions: Dimensions) -> Task<Void, Never> {
+        Task {
+            var pixelBuffer: CVPixelBuffer?
+            CVPixelBufferCreate(kCFAllocatorDefault,
+                                Int(dimensions.width),
+                                Int(dimensions.height),
+                                kCVPixelFormatType_32BGRA,
+                                nil,
+                                &pixelBuffer)
+            guard let pixelBuffer else { return }
+
+            while !Task.isCancelled {
+                capture(pixelBuffer)
+                try? await Task.sleep(nanoseconds: 33_000_000)
+            }
+        }
+    }
+}

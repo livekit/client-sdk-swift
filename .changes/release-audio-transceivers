@@ -1,0 +1,1 @@
+patch type="fixed" "Audio transceivers are now stopped on unpublish, the same as video, so repeated publish/unpublish cycles no longer accumulate native transceiver memory for the lifetime of the connection"
