@@ -171,22 +171,17 @@ final class Transport: NSObject, Loggable {
     /// Applies a deferred initial offer, if one is outstanding. Take-once, so callers on
     /// both remote-description paths are safe.
     ///
-    /// Cleared before the `await` to keep take-once across the suspension, and restored if the
-    /// apply throws: dropping it on failure would lose the offer, the answer and any queued
-    /// renegotiation at once, and `didReceiveAnswer` only logs the error, so nothing would
-    /// recover. rust-sdks has the same hazard — its `set_remote_description` `take()`s the
-    /// pending offer and propagates with `?` — so this deliberately diverges.
+    /// Cleared before the `await` and not restored if the apply throws. `didReceiveAnswer` only
+    /// logs, so the answer is gone either way; keeping the offer would additionally leave
+    /// `isAwaitingAnswer` true forever, making every later `createAndSendOffer` a no-op. Dropping
+    /// it costs the in-flight negotiation, which the connect timeout and reconnect rebuild
+    /// anyway. Same as `take()` in rust-sdks.
     private func applyPendingInitialOffer() async throws {
         guard let pendingInitialOffer = _pendingInitialOffer else { return }
         _pendingInitialOffer = nil
 
         log("Applying the initial offer deferred from JOIN")
-        do {
-            try await set(localDescription: pendingInitialOffer)
-        } catch {
-            _pendingInitialOffer = pendingInitialOffer
-            throw error
-        }
+        try await set(localDescription: pendingInitialOffer)
     }
 
     func setIsRestartingIce() {
