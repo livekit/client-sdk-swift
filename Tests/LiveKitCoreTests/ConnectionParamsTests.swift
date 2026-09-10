@@ -17,6 +17,9 @@
 import Foundation
 @testable import LiveKit
 import Testing
+#if canImport(LiveKitTestSupport)
+import LiveKitTestSupport
+#endif
 
 /// Client capabilities must be advertised on *both* connection paths (query-param and
 /// join-request); otherwise peers connected via the path that omits them never enable the
@@ -40,5 +43,19 @@ struct ConnectionParamsTests {
         let wrapped = try Livekit_WrappedJoinRequest(serializedBytes: wrappedData)
         let joinRequest = try Livekit_JoinRequest(serializedBytes: wrapped.joinRequest)
         #expect(joinRequest.clientInfo.capabilities.contains(.capCompressionDeflateRaw))
+    }
+
+    /// Emitting the parameter is only half of it: the server has to mirror it back onto the
+    /// participant for a peer to read. Compression never engages without that round trip, so
+    /// assert it rather than the client's own outgoing string.
+    @Test(.tags(.e2e))
+    func peerSeesAdvertisedCapabilities() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
+            let observer = rooms[0]
+            let peer = try #require(rooms[1].localParticipant.identity)
+            let remote = try #require(observer.remoteParticipants[peer])
+            #expect(remote.capabilities.contains(.compressionDeflateRaw))
+            #expect(remote.clientProtocol == .v2)
+        }
     }
 }
