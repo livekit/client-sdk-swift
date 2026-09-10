@@ -102,7 +102,7 @@ extension DataStreams {
         }
 
         private func participant(for identity: String) -> RemoteParticipant? {
-            room?.remoteParticipants.first { $0.key.stringValue == identity }?.value
+            room?.remoteParticipants[Participant.Identity(from: identity)]
         }
 
         func remoteClientProtocol(identity: String) -> Int32 {
