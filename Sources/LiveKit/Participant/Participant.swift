@@ -60,18 +60,14 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
     /// ``ClientProtocol/v0`` means the participant only supports RPC v1. ``ClientProtocol/v1``
     /// means it supports RPC v2 (data-stream-based payloads). Absent or unrecognized values
     /// are treated as ``ClientProtocol/v0``.
-    public var clientProtocol: ClientProtocol {
-        ClientProtocol(rawValue: Int(info?.clientProtocol ?? 0)) ?? .v0
-    }
+    public var clientProtocol: ClientProtocol { _state.clientProtocol }
 
     /// The optional feature capabilities advertised by this participant.
     ///
     /// Mirrored by the server from the participant's `ClientInfo`. The protocol's
     /// `CAP_UNUSED` placeholder and any value this SDK does not recognize are omitted,
     /// so an empty array means the participant advertised no usable capabilities.
-    public var capabilities: [ClientCapability] {
-        (info?.capabilities ?? []).compactMap { ClientCapability(rawValue: $0.rawValue) }
-    }
+    public var capabilities: [ClientCapability] { _state.capabilities }
 
     public var trackPublications: [Track.Sid: TrackPublication] { _state.trackPublications }
 
@@ -109,6 +105,10 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
         var dataTracks: [RemoteDataTrack] = []
         var attributes = [String: String]()
         var agentAttributes: AgentAttributes?
+        // Mirrored out of `info` so they can be read off the signaling thread: the outgoing data
+        // stream registry reads both per send, from the FFI's own threads.
+        var clientProtocol: ClientProtocol = .v0
+        var capabilities: [ClientCapability] = []
     }
 
     struct InternalState: Equatable, Hashable {
@@ -258,6 +258,8 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
             $0.attributes = info.attributes
             $0.agentAttributes = info.attributes.mapped(to: AgentAttributes.self)
             $0.state = info.state.toLKType()
+            $0.clientProtocol = ClientProtocol(rawValue: Int(info.clientProtocol)) ?? .v0
+            $0.capabilities = info.capabilities.compactMap { ClientCapability(rawValue: $0.rawValue) }
 
             // Attempt to get millisecond precision.
             if info.joinedAtMs != 0 {
