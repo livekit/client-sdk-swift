@@ -129,6 +129,9 @@ public final class StreamByteOptions: NSObject, StreamOptions {
     public let name: String?
 
     /// Total expected size in bytes, if known.
+    ///
+    /// - Note: A negative value is treated as `nil` — the size is simply not declared, rather than
+    ///   trapping on the conversion to the wire's unsigned length.
     public let totalSize: Int?
 
     /// Whether to compress the payload when every recipient supports it. `nil` (the default) leaves
@@ -151,7 +154,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
         self.id = id
         self.mimeType = mimeType
         self.name = name
-        self.totalSize = totalSize
+        self.totalSize = totalSize.flatMap { $0 >= 0 ? $0 : nil }
         self.compress = compress
     }
 

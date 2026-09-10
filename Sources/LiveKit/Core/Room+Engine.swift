@@ -95,6 +95,14 @@ extension Room {
     }
 
     func send(dataPacket packet: consuming Livekit_DataPacket) async throws {
+        // A disconnected room has no channel to attach to, and a drain parks a submitted write
+        // until one arrives — so without this the send never settles. `.connecting` /
+        // `.reconnecting` still park by design: the write resumes on the channel that session
+        // brings up.
+        guard _state.connectionState != .disconnected else {
+            throw LiveKitError(.invalidState, message: "Room is not connected")
+        }
+
         try await ensurePublisherConnected()
 
         // At this point publisher should be .connected and dc should be .open

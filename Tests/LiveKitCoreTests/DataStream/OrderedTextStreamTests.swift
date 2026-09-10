@@ -61,6 +61,19 @@ extension IncomingStreamManagerTests {
         }
     }
 
+    /// Short pause used only where the assertion is that something has *not* happened, and so has
+    /// no condition to poll on.
+    private func settle() async {
+        try? await Task.sleep(nanoseconds: 200_000_000)
+    }
+
+    private func waitForClosedStreams(timeout: TimeInterval = 10) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while await coordinator.openStreamCount() > 0, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+    }
+
     private func waitUntil(_ condition: @Sendable () -> Bool, timeout: TimeInterval = 10) async {
         let deadline = Date().addingTimeInterval(timeout)
         while !condition(), Date() < deadline {
@@ -142,6 +155,49 @@ extension IncomingStreamManagerTests {
         feedTextTrailer(streamID: "open-a")
         await waitUntil { received.copy().count >= 2 }
         #expect(received.copy() == ["b", "a"])
+        coordinator.unregisterTextStreamHandler(for: topicName)
+    }
+
+    /// Nothing stops a sender from reusing a stream id once the first stream has closed. v1 kept a
+    /// per-stream generation so a finished handler's cleanup could not erase its successor's entry;
+    /// the FFI-backed coordinator has to keep that property, or the successor silently stops gating
+    /// the streams that open after it.
+    @Test func orderedTopicSurvivesReusedStreamID() async throws {
+        let received = StateSync<[String]>([])
+        let gateA = TestGate()
+        let gateB = TestGate()
+
+        try coordinator.registerTextStreamHandler(for: topicName, ordered: true) { reader, _ in
+            let payload = try await reader.readAll()
+            if payload == "a" { await gateA.wait() }
+            if payload == "b" { await gateB.wait() }
+            received.mutate { $0.append(payload) }
+        }
+
+        // Both streams carry the same id; the second opens only after the first has closed.
+        await feedTextStream(chunks: ["a"], streamID: "reused")
+        await feedTextStream(chunks: ["b"], streamID: "reused")
+        // The hazard is the first handler's completion racing the second stream's *close*, so wait
+        // for both closes to land before releasing "a".
+        await waitForClosedStreams()
+
+        await gateA.open()
+        await waitUntil { received.copy() == ["a"] }
+        // The erasure this guards against happens in the coordinator *after* the handler returns,
+        // so let that land before opening the stream that has to observe the result.
+        await settle()
+
+        // "c" opened after the reused-id stream and so must stay gated behind it. This is the
+        // assertion that fails when the first handler's cleanup drops its successor's entry: "c"
+        // runs straight away and lands before "b".
+        await feedTextStream(chunks: ["c"], streamID: "later")
+        await waitForClosedStreams()
+        await settle()
+        #expect(received.copy() == ["a"])
+
+        await gateB.open()
+        await waitUntil { received.copy().count >= 3 }
+        #expect(received.copy() == ["a", "b", "c"])
         coordinator.unregisterTextStreamHandler(for: topicName)
     }
 

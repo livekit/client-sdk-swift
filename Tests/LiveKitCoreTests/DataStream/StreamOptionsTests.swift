@@ -72,4 +72,12 @@ struct StreamOptionsTests {
         #expect(DataStreamOptions(maxPayloadByteLength: value).maxPayloadByteLength == nil)
         #expect(DataStreamOptions(maxPayloadByteLengthNumber: NSNumber(value: value)).maxPayloadByteLength == nil)
     }
+
+    /// Same hazard on the other side: a negative expected size reached `UInt64(_:)` when the stream
+    /// was opened. Zero is a legitimate length (an empty file), so only negatives are dropped.
+    @Test(arguments: [-1, Int.min])
+    func byteNegativeTotalSizeIsIgnored(_ value: Int) {
+        #expect(StreamByteOptions(topic: "t", totalSize: value).totalSize == nil)
+        #expect(StreamByteOptions(topic: "t", totalSize: 0).totalSize == 0)
+    }
 }
