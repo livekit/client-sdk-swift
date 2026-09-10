@@ -21,6 +21,11 @@ import Files // JohnSundell/Files ~> 4.2
 import Foundation
 import ShellOut // JohnSundell/ShellOut ~> 2.3
 
+// swift-sh compiles one file, so this tool cannot be split across several, and being a tool it is
+// mostly prose about what the digester reports and why. Neither length limit says anything useful
+// here: obeying them costs the explanations, not complexity.
+// swiftlint:disable file_length type_body_length
+
 // Run via: swiftly run +xcode swift-sh .github/api-check/api-check.swift --base <ref> [--platform P]
 //
 // Builds LiveKit for distribution (library evolution) at HEAD and at a base ref,
@@ -413,3 +418,5 @@ struct APICheck: ParsableCommand {
 }
 
 APICheck.main()
+
+// swiftlint:enable file_length type_body_length
