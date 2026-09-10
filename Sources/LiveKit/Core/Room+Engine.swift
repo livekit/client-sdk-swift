@@ -229,6 +229,14 @@ public enum StartReconnectReason: Sendable {
 
 // Room+ConnectSequences
 extension Room {
+    /// The outcome of ``connectSignal(_:_:singlePC:earlyPublisher:)``: what the server answered,
+    /// and the connect state as it stands after any fallback.
+    private struct SignalConnection {
+        let response: SignalClient.ConnectResponse
+        let singlePC: Bool
+        let earlyPublisher: EarlyPublisher?
+    }
+
     /// Opens the signal socket, falling back to the legacy path when the server has no `/rtc/v1`.
     ///
     /// Returns the negotiated state rather than mutating the caller's: on fallback the early
@@ -237,8 +245,7 @@ extension Room {
     /// reused and `configureTransports` builds a fresh pair.
     private func connectSignal(_ url: URL, _ token: String,
                                singlePC: Bool,
-                               earlyPublisher: EarlyPublisher?) async throws
-        -> (response: SignalClient.ConnectResponse, singlePC: Bool, earlyPublisher: EarlyPublisher?)
+                               earlyPublisher: EarlyPublisher?) async throws -> SignalConnection
     {
         do {
             let response = try await signalClient.connect(url,
@@ -249,7 +256,7 @@ extension Room {
                                                           singlePeerConnection: singlePC,
                                                           publisherOffer: earlyPublisher?.offer,
                                                           connectSpan: connectSpan)
-            return (response, singlePC, earlyPublisher)
+            return SignalConnection(response: response, singlePC: singlePC, earlyPublisher: earlyPublisher)
         } catch let error as LiveKitError where error.type == .serviceNotFound && singlePC {
             log("v1 RTC path not supported, retrying with legacy path", .warning)
             await earlyPublisher?.close()
@@ -261,7 +268,7 @@ extension Room {
                                                           adaptiveStream: _state.roomOptions.adaptiveStream,
                                                           singlePeerConnection: false,
                                                           connectSpan: connectSpan)
-            return (response, false, nil)
+            return SignalConnection(response: response, singlePC: false, earlyPublisher: nil)
         }
     }
 
