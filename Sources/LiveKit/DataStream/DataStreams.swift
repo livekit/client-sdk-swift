@@ -63,15 +63,42 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     // and must not delay each other — a live transcript arriving while an earlier message stream is
     // still open has to be delivered immediately.
     //
-    // So a newly opened stream waits on `finishingHandlers` — handlers whose stream has already
-    // closed but which haven't returned yet — and *not* on handlers of streams that are still open.
-    // `runningHandlers` holds the latter until the FFI reports the close, at which point the entry
-    // moves across. Both are keyed by stream id within a topic, and entries are removed when the
-    // handler returns, so neither grows without bound.
-    private let runningHandlers = StateSync<[String: [String: Task<Void, Never>]]>([:])
-    private let finishingHandlers = StateSync<[String: [String: Task<Void, Never>]]>([:])
-    // Stream id -> topic, so a close event (which carries no topic) can find its queue.
-    private let streamTopics = StateSync<[String: String]>([:])
+    // So a newly opened stream waits on `finishing` — handlers whose stream has already closed but
+    // which haven't returned yet — and *not* on handlers of streams that are still open. `running`
+    // holds the latter until the FFI reports the close, at which point the entry moves across.
+    // Entries are removed when the handler returns, so neither map grows without bound.
+    //
+    // One lock for all of it: an open reads `finishing` and writes `running` + `openStreams`, a
+    // close moves an entry between the first two, and a completion clears all three — they have to
+    // agree.
+    private struct OrderedHandlers {
+        /// Which entry a close event should move, by the stream id the sender chose.
+        struct OpenStream {
+            let topic: String
+            let token: UInt64
+        }
+
+        // Keyed by a token unique to the handler, not by stream id: nothing stops a sender from
+        // reusing an id, and a successor must neither evict its predecessor's entry nor be evicted
+        // by the predecessor's completion.
+        var running: [String: [UInt64: Task<Void, Never>]] = [:]
+        var finishing: [String: [UInt64: Task<Void, Never>]] = [:]
+        var openStreams: [String: OpenStream] = [:]
+        private var nextToken: UInt64 = 0
+
+        mutating func makeToken() -> UInt64 {
+            defer { nextToken &+= 1 }
+            return nextToken
+        }
+
+        mutating func removeTopic(_ topic: String) {
+            running[topic] = nil
+            finishing[topic] = nil
+            openStreams = openStreams.filter { $0.value.topic != topic }
+        }
+    }
+
+    private let ordered = StateSync(OrderedHandlers())
 
     init(room: Room) {
         self.room = room
@@ -151,8 +178,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     func unregisterTextStreamHandler(for topic: String) {
         textStreamHandlers.mutate { $0[topic] = nil }
         orderedTopics.mutate { $0.remove(topic) }
-        runningHandlers.mutate { $0[topic] = nil }
-        finishingHandlers.mutate { $0[topic] = nil }
+        ordered.mutate { $0.removeTopic(topic) }
     }
 
     // MARK: - Sending
@@ -281,10 +307,11 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         // after they ended, so it comes after them on the wire. Streams still open right now overlap
         // with this one and must not gate it.
         let streamID = info.id
-        streamTopics.mutate { $0[streamID] = topic }
-        let predecessors = Array(finishingHandlers.copy()[topic]?.values ?? [:].values)
-        runningHandlers.mutate { running in
-            running[topic, default: [:]][streamID] = Task.detached { [weak self] in
+        ordered.mutate { state in
+            let token = state.makeToken()
+            let predecessors = Array(state.finishing[topic]?.values ?? [:].values)
+            state.openStreams[streamID] = .init(topic: topic, token: token)
+            state.running[topic, default: [:]][token] = Task.detached { [weak self] in
                 for predecessor in predecessors {
                     await predecessor.value
                 }
@@ -293,7 +320,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
                 } catch {
                     self?.log("Ordered text stream handler for topic '\(topic)' threw: \(error)", .warning)
                 }
-                self?.handlerCompleted(topic: topic, streamID: streamID)
+                self?.handlerCompleted(topic: topic, streamID: streamID, token: token)
             }
         }
     }
@@ -302,16 +329,24 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     /// streams that open from now on — so move it out of `runningHandlers` and into the set later
     /// streams wait for.
     func handleStreamClosed(streamID: String, identity _: String) {
-        guard let topic = streamTopics.copy()[streamID] else { return }
-        guard let task = runningHandlers.mutate({ $0[topic]?.removeValue(forKey: streamID) }) else { return }
-        finishingHandlers.mutate { $0[topic, default: [:]][streamID] = task }
+        ordered.mutate { state in
+            // Dropped here rather than on completion: the id is free again the moment the stream
+            // ends, and a sender that reuses it must register a fresh entry.
+            guard let entry = state.openStreams.removeValue(forKey: streamID) else { return }
+            guard let task = state.running[entry.topic]?.removeValue(forKey: entry.token) else { return }
+            state.finishing[entry.topic, default: [:]][entry.token] = task
+        }
     }
 
     /// Handler returned: it no longer gates anything, so drop it and stop tracking its stream.
-    private func handlerCompleted(topic: String, streamID: String) {
-        runningHandlers.mutate { $0[topic]?.removeValue(forKey: streamID) }
-        finishingHandlers.mutate { $0[topic]?.removeValue(forKey: streamID) }
-        streamTopics.mutate { $0[streamID] = nil }
+    private func handlerCompleted(topic: String, streamID: String, token: UInt64) {
+        ordered.mutate { state in
+            state.running[topic]?.removeValue(forKey: token)
+            state.finishing[topic]?.removeValue(forKey: token)
+            // Only if this handler is still the one that id maps to: a successor that reused the
+            // id owns the entry now.
+            if state.openStreams[streamID]?.token == token { state.openStreams[streamID] = nil }
+        }
     }
 
     private func logMissingHandler(topic: String, id: String, identity: String) {
