@@ -185,6 +185,30 @@ struct IncomingStreamManagerTests: Sendable {
         #expect(error as? StreamError == .encryptionTypeMismatch(expected: .gcm, received: .none))
     }
 
+    /// A stream failing mid-flight (here: exceeding its declared length) must not block a new
+    /// stream that immediately reuses the same stream id. v1's spec, re-pointed at the core.
+    @Test func reusedStreamIDAfterChunkErrorDeliversNextStream() async throws {
+        let received = StateSync<[String]>([])
+
+        try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in
+            let payload = try await reader.readAll()
+            received.mutate { $0.append(payload) }
+        }
+
+        let streamID = UUID().uuidString
+        // 8-byte chunk against a declared total of 4 → lengthExceeded.
+        await feedTextStream(rawPayload: Data("ABCDEFGH".utf8), totalLength: 4, streamID: streamID)
+        await feedTextStream(chunks: ["ok"], streamID: streamID)
+
+        let deadline = Date().addingTimeInterval(10)
+        while received.copy().isEmpty, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+
+        #expect(received.copy() == ["ok"])
+        coordinator.unregisterTextStreamHandler(for: topicName)
+    }
+
     // MARK: - Helpers
 
     /// Registers a byte handler, feeds a stream via `feed(streamID:)`, and returns the error the

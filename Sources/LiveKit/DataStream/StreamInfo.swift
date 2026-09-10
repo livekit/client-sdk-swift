@@ -113,6 +113,9 @@ extension TextStreamInfo.OperationType {
         case .update: self = .update
         case .delete: self = .delete
         case .reaction: self = .reaction
+        // The FFI enum is resilient: an operation this SDK predates reads as a new message, the
+        // only reading that can't corrupt an existing one.
+        @unknown default: self = .create
         }
     }
 }
