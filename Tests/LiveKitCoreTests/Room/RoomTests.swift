@@ -91,6 +91,19 @@ import LiveKitTestSupport
         try await Task.sleep(nanoseconds: 1_000_000_000)
     }
 
+    /// A write submitted to a drain parks until a channel attaches. Once teardown has begun none
+    /// ever will, so the send has to fail rather than hang — `.disconnecting` included, which the
+    /// reset of the drains happens under.
+    @Test(arguments: [ConnectionState.disconnected, .disconnecting])
+    func sendDataPacketFailsWhileTearingDown(state: ConnectionState) async throws {
+        let room = Room()
+        room._state.mutate { $0.connectionState = state }
+
+        await #expect(throws: LiveKitError.self) {
+            try await room.send(dataPacket: Livekit_DataPacket())
+        }
+    }
+
     @Test func sendDataPacket() async throws {
         try await TestEnvironment.withRoom { room in
             try await confirmation("Should send data packet") { confirm in
