@@ -26,6 +26,11 @@ extension LKRTCConfiguration {
         result.continualGatheringPolicy = .gatherContinually
         result.candidateNetworkPolicy = .all
         result.tcpCandidatePolicy = .enabled
+        // WARP SNAP (SCTP INIT in SDP). Engages only when the server
+        // negotiates it. This maps to an immutable field of the native
+        // configuration, so it must stay the same value here for both peer
+        // connection creation and set(configuration:) calls.
+        result.enableSctpSnap = true
 
         return result
     }
