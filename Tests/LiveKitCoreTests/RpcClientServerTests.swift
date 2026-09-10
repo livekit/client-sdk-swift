@@ -413,7 +413,7 @@ struct RpcClientTests {
 
             await room.rpcClient.setAfterPublish { requestId in
                 await room.rpcClient.handleIncomingAck(requestId: requestId)
-                let reader = RpcTestSupport.makeFailingResponseReader(requestId: requestId)
+                let reader = RpcTestSupport.makeResponseReader(requestId: requestId, error: StreamError.terminated)
                 await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
             }
 
@@ -785,7 +785,7 @@ struct RpcServerTests {
             }
         }
 
-        func makeReader() -> TextStreamReader {
+        func makeReader() -> StubTextStreamReader {
             switch self {
             case .missingMethod:
                 RpcTestSupport.makeRequestReader(
@@ -796,8 +796,8 @@ struct RpcServerTests {
                     requestId: requestId, method: "anything", payload: "", timeoutMs: 8000, version: "3",
                 )
             case .readerFailure:
-                RpcTestSupport.makeFailingRequestReader(
-                    requestId: requestId, method: "anything", timeoutMs: 8000,
+                RpcTestSupport.makeRequestReader(
+                    requestId: requestId, method: "anything", timeoutMs: 8000, error: StreamError.terminated,
                 )
             }
         }
@@ -909,48 +909,53 @@ private enum RpcTestSupport {
 
     /// Builds a v2 request-stream reader. Pass `nil` for any attribute to omit
     /// it from the wire — used by negative tests that exercise the missing-attr
-    /// error paths in `RpcServerManager.handleIncomingRequestStream`.
+    /// error paths in `RpcServerManager.handleIncomingRequestStream`. Pass an
+    /// `error` to simulate a peer-closed or decrypt-failed stream, which
+    /// exercises the `APPLICATION_ERROR` fast-fail branch.
     static func makeRequestReader(
         requestId: String?,
         method: String?,
-        payload: String,
+        payload: String = "",
         timeoutMs: UInt32?,
         version: String? = RPC_STREAM_VERSION,
-    ) -> TextStreamReader {
+        error: Error? = nil,
+    ) -> StubTextStreamReader {
         var attributes: [String: String] = [:]
         if let requestId { attributes[RpcStreamAttribute.requestId] = requestId }
         if let method { attributes[RpcStreamAttribute.method] = method }
         if let timeoutMs { attributes[RpcStreamAttribute.timeoutMs] = String(timeoutMs) }
         if let version { attributes[RpcStreamAttribute.version] = version }
-        let info = TextStreamInfo(
-            id: UUID().uuidString,
-            topic: RpcStreamTopic.request,
-            timestamp: Date(),
-            totalLength: nil,
-            attributes: attributes,
-            encryptionType: .none,
-            operationType: .create,
-            version: 0,
-            replyToStreamID: nil,
-            attachedStreamIDs: [],
-            generated: false,
-        )
-        let source = StreamReaderSource { continuation in
-            if let data = payload.data(using: .utf8) { continuation.yield(data) }
-            continuation.finish()
-        }
-        return TextStreamReader(info: info, source: source)
+        return StubTextStreamReader(topic: RpcStreamTopic.request,
+                                    attributes: attributes,
+                                    result: error.map { .failure($0) } ?? .success(payload))
     }
 
     /// Builds a v2 response-stream reader. Pass `nil` for `requestId` to omit
     /// the correlation attribute — used by negative tests that exercise
     /// `RpcClientManager.handleIncomingResponseStream`'s missing-id branch.
-    static func makeResponseReader(requestId: String?, payload: String) -> TextStreamReader {
+    static func makeResponseReader(
+        requestId: String?,
+        payload: String = "",
+        error: Error? = nil,
+    ) -> StubTextStreamReader {
         var attributes: [String: String] = [:]
         if let requestId { attributes[RpcStreamAttribute.requestId] = requestId }
-        let info = TextStreamInfo(
+        return StubTextStreamReader(topic: RpcStreamTopic.response,
+                                    attributes: attributes,
+                                    result: error.map { .failure($0) } ?? .success(payload))
+    }
+}
+
+/// Stands in for the FFI-backed reader the RPC managers consume, so a test can hand them a
+/// payload — or a read failure — without a connection.
+struct StubTextStreamReader: TextStreamReading {
+    let info: TextStreamInfo
+    private let result: Result<String, Error>
+
+    init(topic: String, attributes: [String: String], result: Result<String, Error>) {
+        info = TextStreamInfo(
             id: UUID().uuidString,
-            topic: RpcStreamTopic.response,
+            topic: topic,
             timestamp: Date(),
             totalLength: nil,
             attributes: attributes,
@@ -961,69 +966,11 @@ private enum RpcTestSupport {
             attachedStreamIDs: [],
             generated: false,
         )
-        let source = StreamReaderSource { continuation in
-            if let data = payload.data(using: .utf8) { continuation.yield(data) }
-            continuation.finish()
-        }
-        return TextStreamReader(info: info, source: source)
+        self.result = result
     }
 
-    /// Builds a v2 request-stream reader whose `readAll()` throws — simulates
-    /// peer-closed or decrypt-failed mid-stream. Used to exercise the
-    /// server-side `APPLICATION_ERROR` fast-fail branch.
-    static func makeFailingRequestReader(
-        requestId: String,
-        method: String,
-        timeoutMs: UInt32,
-        error: Error = StreamError.terminated,
-    ) -> TextStreamReader {
-        let info = TextStreamInfo(
-            id: UUID().uuidString,
-            topic: RpcStreamTopic.request,
-            timestamp: Date(),
-            totalLength: nil,
-            attributes: [
-                RpcStreamAttribute.requestId: requestId,
-                RpcStreamAttribute.method: method,
-                RpcStreamAttribute.timeoutMs: String(timeoutMs),
-                RpcStreamAttribute.version: RPC_STREAM_VERSION,
-            ],
-            encryptionType: .none,
-            operationType: .create,
-            version: 0,
-            replyToStreamID: nil,
-            attachedStreamIDs: [],
-            generated: false,
-        )
-        let source = StreamReaderSource { continuation in
-            continuation.finish(throwing: error)
-        }
-        return TextStreamReader(info: info, source: source)
-    }
-
-    /// Builds a v2 response-stream reader whose `readAll()` throws — used to
-    /// exercise the caller-side `APPLICATION_ERROR` fast-fail branch.
-    static func makeFailingResponseReader(
-        requestId: String,
-        error: Error = StreamError.terminated,
-    ) -> TextStreamReader {
-        let info = TextStreamInfo(
-            id: UUID().uuidString,
-            topic: RpcStreamTopic.response,
-            timestamp: Date(),
-            totalLength: nil,
-            attributes: [RpcStreamAttribute.requestId: requestId],
-            encryptionType: .none,
-            operationType: .create,
-            version: 0,
-            replyToStreamID: nil,
-            attachedStreamIDs: [],
-            generated: false,
-        )
-        let source = StreamReaderSource { continuation in
-            continuation.finish(throwing: error)
-        }
-        return TextStreamReader(info: info, source: source)
+    func readAll() async throws -> String {
+        try result.get()
     }
 }
 

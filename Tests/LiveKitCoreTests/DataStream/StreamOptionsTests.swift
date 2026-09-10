@@ -18,29 +18,21 @@ import Foundation
 @testable import LiveKit
 import Testing
 
-/// Covers the public `compress` option added for data streams v2, including the two `StreamTextOptions`
-/// initializers (the compress-bearing designated initializer and the compatibility initializer that
-/// preserves the pre-`compress` — and Objective-C — call site).
+/// Covers the public `compress` option added for data streams v2.
 @Suite(.tags(.dataStream))
 struct StreamOptionsTests {
-    @Test func textCompressDefaultsToNilViaCompatInit() {
-        #expect(StreamTextOptions(topic: "t").compress == nil)
-        #expect(StreamTextOptions(topic: "t", version: 2).compress == nil)
+    /// On by default, and the core reads the same value (`unwrap_or(true)`) when it isn't set.
+    @Test func compressDefaultsToOn() {
+        #expect(StreamTextOptions(topic: "t").compress)
+        #expect(StreamTextOptions(topic: "t", version: 2).compress)
+        #expect(StreamByteOptions(topic: "t").compress)
     }
 
-    @Test func textCompressExplicit() {
-        #expect(StreamTextOptions(topic: "t", compress: true).compress == true)
-        #expect(StreamTextOptions(topic: "t", compress: false).compress == false)
-        #expect(StreamTextOptions(topic: "t", compress: nil).compress == nil)
-    }
-
-    @Test func byteCompressDefaultsToNil() {
-        #expect(StreamByteOptions(topic: "t").compress == nil)
-    }
-
-    @Test func byteCompressExplicit() {
-        #expect(StreamByteOptions(topic: "t", compress: true).compress == true)
-        #expect(StreamByteOptions(topic: "t", compress: false).compress == false)
+    @Test func compressExplicit() {
+        #expect(StreamTextOptions(topic: "t", compress: true).compress)
+        #expect(!StreamTextOptions(topic: "t", compress: false).compress)
+        #expect(StreamByteOptions(topic: "t", compress: true).compress)
+        #expect(!StreamByteOptions(topic: "t", compress: false).compress)
     }
 
     @Test func otherFieldsUnaffected() {

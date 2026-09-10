@@ -99,7 +99,8 @@
                                                                       id:nil
                                                                  version:0
                                                        attachedStreamIDs:@[]
-                                                         replyToStreamID:nil];
+                                                         replyToStreamID:nil
+                                                                compress:YES];
     XCTestExpectation *sendExp = [self expectationWithDescription:@"textSent"];
 
     [room1.localParticipant sendText:@"Hello from ObjC" options:options completionHandler:^(TextStreamInfo *info, NSError *err) {
@@ -211,7 +212,8 @@
                                                                       id:nil
                                                                  version:0
                                                        attachedStreamIDs:@[]
-                                                         replyToStreamID:nil];
+                                                         replyToStreamID:nil
+                                                                compress:YES];
 
     [room1.localParticipant streamTextWithOptions:options completionHandler:^(TextStreamWriter *writer, NSError *err) {
         XCTAssertNil(err);
@@ -314,7 +316,8 @@
                                                                       id:nil
                                                                 mimeType:@"text/plain"
                                                                     name:@"objc_test_file.txt"
-                                                               totalSizeNumber:nil];
+                                                               totalSizeNumber:nil
+                                                                compress:YES];
     XCTestExpectation *sendExp = [self expectationWithDescription:@"fileSent"];
 
     [room1.localParticipant sendFile:fileURL options:options completionHandler:^(ByteStreamInfo *info, NSError *err) {
@@ -416,7 +419,8 @@
                                                                       id:nil
                                                                 mimeType:@"application/octet-stream"
                                                                     name:nil
-                                                               totalSizeNumber:nil];
+                                                               totalSizeNumber:nil
+                                                                compress:YES];
 #pragma clang diagnostic pop
 
     NSData *chunk1 = [@"Hello " dataUsingEncoding:NSUTF8StringEncoding];
