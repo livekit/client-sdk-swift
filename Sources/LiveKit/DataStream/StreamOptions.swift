@@ -45,14 +45,12 @@ public final class StreamTextOptions: NSObject, StreamOptions {
     public let attachedStreamIDs: [String]
     public let replyToStreamID: String?
 
-    /// Whether to compress the payload when every recipient supports it. `nil` (the default) leaves
-    /// the decision to the SDK, which compresses when able; `false` disables compression.
-    public let compress: Bool?
+    /// Whether to compress the payload when every recipient supports it. `true` by default; the
+    /// stream is still sent uncompressed to recipients that can't decompress it.
+    public let compress: Bool
 
     // TODO: Expose additional protocol level fields
 
-    /// - Note: `compress` is required here to disambiguate from the compatibility initializer below;
-    ///   omit it (use the other initializer) to accept the default behavior.
     public init(
         topic: String,
         attributes: [String: String] = [:],
@@ -61,7 +59,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         version: Int = 0,
         attachedStreamIDs: [String] = [],
         replyToStreamID: String? = nil,
-        compress: Bool?,
+        compress: Bool = true,
     ) {
         self.topic = topic
         self.attributes = attributes
@@ -71,29 +69,6 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         self.attachedStreamIDs = attachedStreamIDs
         self.replyToStreamID = replyToStreamID
         self.compress = compress
-    }
-
-    /// Creates options with the default compression behavior. Preserved as the Objective-C entry
-    /// point and for source compatibility with callers that predate `compress`.
-    public convenience init(
-        topic: String,
-        attributes: [String: String] = [:],
-        destinationIdentities: [Participant.Identity] = [],
-        id: String? = nil,
-        version: Int = 0,
-        attachedStreamIDs: [String] = [],
-        replyToStreamID: String? = nil,
-    ) {
-        self.init(
-            topic: topic,
-            attributes: attributes,
-            destinationIdentities: destinationIdentities,
-            id: id,
-            version: version,
-            attachedStreamIDs: attachedStreamIDs,
-            replyToStreamID: replyToStreamID,
-            compress: nil,
-        )
     }
 
     var ffi: LiveKitUniFFI.StreamTextOptions {
@@ -134,9 +109,9 @@ public final class StreamByteOptions: NSObject, StreamOptions {
     ///   trapping on the conversion to the wire's unsigned length.
     public let totalSize: Int?
 
-    /// Whether to compress the payload when every recipient supports it. `nil` (the default) leaves
-    /// the decision to the SDK, which compresses when able; `false` disables compression.
-    public let compress: Bool?
+    /// Whether to compress the payload when every recipient supports it. `true` by default; the
+    /// stream is still sent uncompressed to recipients that can't decompress it.
+    public let compress: Bool
 
     public init(
         topic: String,
@@ -146,7 +121,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
         mimeType: String? = nil,
         name: String? = nil,
         totalSize: Int? = nil,
-        compress: Bool? = nil,
+        compress: Bool = true,
     ) {
         self.topic = topic
         self.attributes = attributes
@@ -185,6 +160,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
         mimeType: String?,
         name: String?,
         totalSizeNumber: NSNumber?,
+        compress: Bool = true,
     ) {
         self.init(
             topic: topic,
@@ -194,6 +170,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
             mimeType: mimeType,
             name: name,
             totalSize: totalSizeNumber?.intValue,
+            compress: compress,
         )
     }
 }

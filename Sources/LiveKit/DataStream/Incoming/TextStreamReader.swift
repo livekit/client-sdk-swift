@@ -18,28 +18,24 @@ import Foundation
 
 internal import LiveKitUniFFI
 
+/// The slice of ``TextStreamReader`` the SDK's own consumers (the RPC managers) need. They take
+/// this rather than the concrete reader so a stand-in can be built in the test target — otherwise
+/// the reader itself has to carry a second, in-memory backing that ships to every app.
+protocol TextStreamReading: Sendable {
+    var info: TextStreamInfo { get }
+    func readAll() async throws -> String
+}
+
 /// An asynchronous sequence of chunks read from a text data stream.
 @objcMembers
-public final class TextStreamReader: NSObject, AsyncSequence, Sendable {
+public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStreamReading {
     /// Information about the incoming text stream.
     public let info: TextStreamInfo
 
-    // A reader is backed either by the UniFFI core (production) or an in-memory source (internal
-    // producers/tests that inject content directly). The FFI path stays pull-based for backpressure.
-    private enum Backing: Sendable {
-        case ffi(LiveKitUniFFI.TextStreamReader)
-        case source(StreamReaderSource)
-    }
-
-    private let backing: Backing
+    private let reader: LiveKitUniFFI.TextStreamReader
 
     init(_ reader: LiveKitUniFFI.TextStreamReader, info: TextStreamInfo) {
-        backing = .ffi(reader)
-        self.info = info
-    }
-
-    init(info: TextStreamInfo, source: StreamReaderSource) {
-        backing = .source(source)
+        self.reader = reader
         self.info = info
     }
 
@@ -50,59 +46,28 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable {
     /// - Throws: ``StreamError`` if an error occurs while reading the stream.
     ///
     public func readAll() async throws -> String {
-        switch backing {
-        case let .ffi(reader):
-            do {
-                return try await reader.readAll()
-            } catch let error as LiveKitUniFFI.DataStreamError {
-                throw StreamError(error)
-            }
-        case let .source(source):
-            var result = ""
-            for try await chunk in source {
-                guard let string = String(data: chunk, encoding: .utf8) else {
-                    throw StreamError.decodeFailed
-                }
-                result += string
-            }
-            return result
+        do {
+            return try await reader.readAll()
+        } catch let error as LiveKitUniFFI.DataStreamError {
+            throw StreamError(error)
         }
     }
 
     /// An asynchronous iterator of incoming chunks.
     public struct AsyncChunks: AsyncIteratorProtocol {
-        enum Backing {
-            case ffi(LiveKitUniFFI.TextStreamReader)
-            case source(StreamReaderSource.Iterator)
-        }
-
-        var backing: Backing
+        fileprivate let reader: LiveKitUniFFI.TextStreamReader
 
         public mutating func next() async throws -> String? {
-            switch backing {
-            case let .ffi(reader):
-                do {
-                    return try await reader.next()
-                } catch let error as LiveKitUniFFI.DataStreamError {
-                    throw StreamError(error)
-                }
-            case var .source(iterator):
-                let data = try await iterator.next()
-                backing = .source(iterator)
-                guard let data else { return nil }
-                guard let string = String(data: data, encoding: .utf8) else {
-                    throw StreamError.decodeFailed
-                }
-                return string
+            do {
+                return try await reader.next()
+            } catch let error as LiveKitUniFFI.DataStreamError {
+                throw StreamError(error)
             }
         }
     }
 
     public func makeAsyncIterator() -> AsyncChunks {
-        switch backing {
-        case let .ffi(reader): AsyncChunks(backing: .ffi(reader))
-        case let .source(source): AsyncChunks(backing: .source(source.makeAsyncIterator()))
-        }
+        AsyncChunks(reader: reader)
     }
 }
 

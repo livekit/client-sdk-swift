@@ -113,9 +113,9 @@ struct OutgoingStreamManagerTests {
     @Test func compressMapsToFFIOptions() {
         #expect(LiveKit.StreamTextOptions(topic: "t", compress: true).ffi.compress == true)
         #expect(LiveKit.StreamTextOptions(topic: "t", compress: false).ffi.compress == false)
-        #expect(LiveKit.StreamTextOptions(topic: "t").ffi.compress == nil)
+        #expect(LiveKit.StreamTextOptions(topic: "t").ffi.compress == true)
         #expect(LiveKit.StreamByteOptions(topic: "t", compress: true).ffi.compress == true)
-        #expect(LiveKit.StreamByteOptions(topic: "t").ffi.compress == nil)
+        #expect(LiveKit.StreamByteOptions(topic: "t").ffi.compress == true)
     }
 
     @Test func writerIsOpenReflectsClose() async throws {
