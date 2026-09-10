@@ -61,12 +61,16 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     // The Swift-side handler registry. The FFI reports every opened stream regardless of topic
     // (`onByteStreamOpened`/`onTextStreamOpened`); we route by `info.topic` to these handlers.
     private let byteStreamHandlers = StateSync<[String: ByteStreamHandler]>([:])
-    private let textStreamHandlers = StateSync<[String: TextStreamHandler]>([:])
+    // Handler and ordering policy in one entry: dispatch resolves both from a single read, so a
+    // stream can't open between them and take the unordered path on an ordered topic.
+    private struct TextEntry {
+        let handler: TextStreamHandler
+        let isOrdered: Bool
+    }
+
+    private let textStreamHandlers = StateSync<[String: TextEntry]>([:])
     // Topics we've already logged a missing-handler warning for, to avoid log spam.
     private let failedTopics = StateSync<Set<String>>([])
-    // Topics whose text handlers run in wire order. Used by internal consumers like transcription;
-    // off by default so concurrent consumers (e.g. RPC) aren't slowed.
-    private let orderedTopics = StateSync<Set<String>>([])
 
     // Ordering is a wire *happens-before* relation: a stream that opened after another one closed
     // must have its handler run after that one's. Streams that overlap on the wire are concurrent
@@ -163,9 +167,8 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     func registerTextStreamHandler(for topic: String, ordered: Bool = false, _ onNewStream: @escaping TextStreamHandler) throws {
         try textStreamHandlers.mutate {
             guard $0[topic] == nil else { throw StreamError.handlerAlreadyRegistered }
-            $0[topic] = onNewStream
+            $0[topic] = TextEntry(handler: onNewStream, isOrdered: ordered)
         }
-        if ordered { orderedTopics.mutate { $0.insert(topic) } }
     }
 
     /// SDK-internal: register `onNewStream` for `topic` if no handler is registered yet, otherwise
@@ -175,7 +178,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     func registerTextStreamHandlerIfNeeded(for topic: String, _ onNewStream: @escaping TextStreamHandler) -> Bool {
         textStreamHandlers.mutate {
             guard $0[topic] == nil else { return false }
-            $0[topic] = onNewStream
+            $0[topic] = TextEntry(handler: onNewStream, isOrdered: false)
             return true
         }
     }
@@ -186,7 +189,6 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
 
     func unregisterTextStreamHandler(for topic: String) {
         textStreamHandlers.mutate { $0[topic] = nil }
-        orderedTopics.mutate { $0.remove(topic) }
         ordered.mutate { $0.removeTopic(topic) }
     }
 
@@ -295,14 +297,15 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     func handleTextStreamOpened(_ ffiReader: LiveKitUniFFI.TextStreamReader, identity: String) {
         let ffiInfo = ffiReader.info()
         let info = TextStreamInfo(ffiInfo, encryptionType: EncryptionType(ffiInfo.encryptionType))
-        guard let handler = textStreamHandlers.copy()[info.topic] else {
+        guard let entry = textStreamHandlers.copy()[info.topic] else {
             logMissingHandler(topic: info.topic, id: info.id, identity: identity)
             return
         }
+        let handler = entry.handler
         let reader = TextStreamReader(ffiReader, info: info)
         let participantIdentity = Participant.Identity(from: identity)
         let topic = info.topic
-        guard orderedTopics.copy().contains(topic) else {
+        guard entry.isOrdered else {
             Task.detachedDiscarding { try await handler(reader, participantIdentity) }
             return
         }
