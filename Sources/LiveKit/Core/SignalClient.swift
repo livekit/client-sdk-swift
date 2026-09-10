@@ -106,6 +106,8 @@ actor SignalClient: Loggable {
         var messageLoopTask: AnyTaskCancellable?
         var lastJoinResponse: Livekit_JoinResponse?
         var rtt: Int64 = 0
+        // Set while a reconnect awaits its Join/ReconnectResponse; other messages in that window are stale.
+        var isAwaitingReconnectResponse: Bool = false
         // Tracks whether the v0 signal path (/rtc) is in use, set during connect.
         // Reused by reconnect to avoid re-attempting the unsupported v1 path.
         var useV0SignalPath: Bool = false
@@ -183,7 +185,10 @@ actor SignalClient: Loggable {
             log("Connecting with url: \(url)")
         }
 
-        _state.mutate { $0.connectionState = (isReconnect ? .reconnecting : .connecting) }
+        _state.mutate {
+            $0.connectionState = (isReconnect ? .reconnecting : .connecting)
+            $0.isAwaitingReconnectResponse = isReconnect
+        }
 
         do {
             let socket = try await WebSocket(url: url,
@@ -282,6 +287,7 @@ actor SignalClient: Loggable {
             $0.socket?.close()
             $0.socket = nil
             $0.lastJoinResponse = nil
+            $0.isAwaitingReconnectResponse = false
         }
 
         _connectResponseCompleter.reset(throwing: disconnectError)
@@ -349,6 +355,18 @@ private extension SignalClient {
         else {
             log("Failed to decode SignalResponse", .warning)
             return
+        }
+
+        switch response.message {
+        case .join, .reconnect:
+            _state.mutate { $0.isAwaitingReconnectResponse = false }
+        case .leave:
+            break
+        default:
+            if _state.isAwaitingReconnectResponse {
+                log("Dropping signal message received before reconnect response: \(String(describing: response.message))", .warning)
+                return
+            }
         }
 
         // Forward only what the data-track managers consume; every other message would cross the
