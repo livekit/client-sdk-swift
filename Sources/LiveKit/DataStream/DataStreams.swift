@@ -230,13 +230,15 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Incoming packets
 
     /// Feeds a received data-stream packet (already decrypted and deduped by `DataChannelPair`) to
-    /// the incoming manager. The FFI re-decodes the serialized `DataPacket` itself.
+    /// the incoming manager. The core takes the wire form and decodes the header/chunk/trailer
+    /// itself, so `serialized` — the bytes the packet was decoded from — is reused when it still
+    /// describes the packet, and re-encoded only when decryption has rebuilt it.
     ///
     /// `encryptionType` is passed separately because decryption consumes the packet field that
     /// carried it; the core compares it against the stream's header to reject a sender that mixes
     /// encrypted and plaintext frames within one stream.
-    func handleIncoming(_ dataPacket: Livekit_DataPacket, encryptionType: EncryptionType) {
-        guard let data = try? dataPacket.serializedData() else { return }
+    func handleIncoming(_ dataPacket: Livekit_DataPacket, serialized: Data?, encryptionType: EncryptionType) {
+        guard let data = try? serialized ?? dataPacket.serializedData() else { return }
         incomingManager().handlePacketReceived(packet: data, encryptionType: encryptionType.ffiValue)
     }
 

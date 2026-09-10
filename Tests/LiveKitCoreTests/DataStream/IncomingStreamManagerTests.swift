@@ -300,11 +300,14 @@ struct IncomingStreamManagerTests: Sendable {
         feed(encryptionType: encryptionType) { $0.streamTrailer = trailer }
     }
 
+    /// `serialized: nil` drives the re-encode fallback — the path a decrypted packet takes, since
+    /// its received bytes no longer describe it. The reuse path is covered end-to-end by
+    /// ``DataStreamTests``, which feeds real bytes off the wire.
     private func feed(encryptionType: EncryptionType = .none, _ configure: (inout Livekit_DataPacket.Builder) -> Void) {
         let packet = Livekit_DataPacket.with {
             $0.participantIdentity = participant.stringValue
             configure(&$0)
         }
-        coordinator.handleIncoming(packet, encryptionType: encryptionType)
+        coordinator.handleIncoming(packet, serialized: nil, encryptionType: encryptionType)
     }
 }
