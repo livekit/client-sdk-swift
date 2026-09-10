@@ -32,14 +32,18 @@ struct OutgoingDeliveryTests {
             let writer = try await sender.localParticipant.streamBytes(options: StreamByteOptions(topic: "delivery"))
 
             try await writer.write(Data(repeating: 0x01, count: 1024))
-            await #expect(writer.isOpen)
+            // Read out of the macro: under Swift 6.1 `#expect` puts its expression somewhere an
+            // `async` property access can't go.
+            var isOpen = await writer.isOpen
+            #expect(isOpen)
 
             await sender.disconnect()
 
             await #expect(throws: StreamError.terminated) {
                 try await writer.write(Data(repeating: 0x02, count: 1024))
             }
-            await #expect(!writer.isOpen)
+            isOpen = await writer.isOpen
+            #expect(!isOpen)
         }
     }
 }
