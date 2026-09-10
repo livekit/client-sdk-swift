@@ -17,6 +17,12 @@
 import Foundation
 import Network
 
+/// The server answered the upgrade request with an HTTP response instead of switching
+/// protocols. Carried as the `internalError` of the thrown ``LiveKitError``.
+struct WebSocketUpgradeFailure: Error, Sendable {
+    let statusCode: Int
+}
+
 actor WebSocket: Loggable, AsyncSequence {
     typealias Element = URLSessionWebSocketTask.Message
 
@@ -37,11 +43,13 @@ actor WebSocket: Loggable, AsyncSequence {
         return config
     }
 
-    init(url: URL, token: String, connectOptions: ConnectOptions?) async throws {
+    init(url: URL, headers: [String: String], timeoutInterval: TimeInterval) async throws {
         var request = URLRequest(url: url,
                                  cachePolicy: .useProtocolCachePolicy,
-                                 timeoutInterval: connectOptions?.socketConnectTimeoutInterval ?? .defaultSocketConnect)
-        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                                 timeoutInterval: timeoutInterval)
+        for (name, value) in headers {
+            request.addValue(value, forHTTPHeaderField: name)
+        }
 
         #if targetEnvironment(simulator)
         if #available(iOS 26.0, *) {
@@ -136,13 +144,21 @@ actor WebSocket: Loggable, AsyncSequence {
             }
         }
 
-        func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {
+        func urlSession(_: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
             log("didCompleteWithError: \(String(describing: error))", error != nil ? .error : .debug)
 
+            // A rejected upgrade (401 on a bad token, 404 on a wrong path) arrives as a
+            // plain URLError with the HTTP response still attached. Keep the status: it is
+            // the difference between failing fast and reconnecting forever.
+            let upgradeStatus = (task.response as? HTTPURLResponse)
+                .map(\.statusCode)
+                .flatMap { $0 == 101 ? nil : WebSocketUpgradeFailure(statusCode: $0) }
+
             _continuation.mutate {
-                if let error {
-                    let lkError = LiveKitError.from(error: error) ?? LiveKitError(.unknown)
-                    $0?.resume(throwing: lkError)
+                if let upgradeStatus {
+                    $0?.resume(throwing: LiveKitError(.network, internalError: upgradeStatus))
+                } else if let error {
+                    $0?.resume(throwing: LiveKitError.from(error: error) ?? LiveKitError(.unknown))
                 } else {
                     $0?.resume()
                 }

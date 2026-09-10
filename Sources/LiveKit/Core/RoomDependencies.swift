@@ -37,6 +37,11 @@ final class ConnectionDependencies: Sendable {
     let e2ee: StateSync<E2EEManager?>
 
     init(room: Room, roomOptions: RoomOptions) {
+        // Process-wide rather than connection-scoped — livekit-net keeps the first
+        // registration — but this is the earliest construction on the connect path, so
+        // no signalling can outrun it.
+        _ = rustTransport
+
         dataTracks = DataTracks(room: room)
         let manager: E2EEManager? = if let e2eeOptions = roomOptions.e2eeOptions {
             E2EEManager(e2eeOptions: e2eeOptions)

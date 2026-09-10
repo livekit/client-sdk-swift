@@ -1,0 +1,1 @@
+patch type="changed" "Register the SDK's own WebSocket/URLSession stack as livekit-net's transport, so Rust-side signalling and HTTP reuse the tuned session (call-signaling QoS, multipath handover, TLS workarounds) instead of a second parallel client; a rejected WebSocket upgrade now keeps its HTTP status"
