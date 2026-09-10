@@ -20,29 +20,39 @@ internal import LiveKitUniFFI
 
 // MARK: - DataStreams
 
-/// Owns the incoming/outgoing UniFFI data stream managers and the topic→handler registry, and
-/// routes Room/participant calls to the right manager. The ``Room`` holds a single reference,
-/// keeping the subsystem off the Room's surface.
+/// Owns the outgoing UniFFI data stream manager and the topic→handler registry, and routes
+/// Room/participant calls to the right manager. Staged as ``IdleDependencies``, the room-scoped
+/// dependency tier, keeping the subsystem off the Room's surface.
 ///
 /// Unlike ``DataTracks``, this subsystem is **Room-scoped, not session-scoped**: stream handlers
 /// (registered by the app, and by internal RPC/transcription wiring) must survive reconnects and be
-/// registrable before connect, so the registry lives here for the Room's lifetime. The FFI managers
-/// hold no channel handles — inbound packets are pushed in via ``handleIncoming(_:)`` and outbound
-/// packets are pulled out via the delegate — so they too live for the whole Room.
+/// registrable before connect, so the registry lives here for the Room's lifetime. The outgoing
+/// manager holds no channel handle — packets are pulled out of it via the delegate — and nothing
+/// per-connection, so it lives here too. Its incoming counterpart does not: see ``incoming``.
 ///
-/// `@unchecked Sendable`: the only mutable state is the StateSync-guarded registry; the managers and
+/// `@unchecked Sendable`: the only mutable state is the StateSync-guarded registry and the
+/// back-references ``attach(room:)`` fills in before the room can be shared; the managers and
 /// delegates are immutable after init. Not an actor — the UniFFI delegate callbacks are synchronous
 /// and can't `await`.
 final class DataStreams: NSObject, @unchecked Sendable, Loggable {
-    private let outgoing: LiveKitUniFFI.OutgoingDataStreamManager
+    // Neither FFI manager is held here: both are owned by ``ConnectionDependencies`` and live
+    // exactly as long as one connection. The incoming one because its payload cap is fixed at
+    // construction (the FFI exposes no setter) from the options passed to `connect`; the outgoing
+    // one so that dropping it at disconnect closes the writers opened on that session — their next
+    // chunk would otherwise reach the *next* session, whose receivers never saw the header.
+    //
+    // Before connect and after disconnect there is neither, which is what a stream needs anyway:
+    // a transport to travel on.
+    private var incoming: LiveKitUniFFI.IncomingDataStreamManager? {
+        room?._state.stage.connection?.incomingDataStreams
+    }
 
-    // Created lazily on the first inbound packet of a session, not at init: the incoming manager's
-    // payload cap is fixed at construction (the FFI exposes no setter) and comes from the room's
-    // options, which aren't finalized until `connect` — after this coordinator is built at
-    // `Room.init`. Deferring lets it pick up a `maxPayloadByteLength` passed at connect time, and
-    // `reset()` drops it at teardown so the *next* connect re-reads the cap rather than inheriting
-    // the first session's. StateSync-guarded so it's constructed exactly once even if packets race in.
-    private let _incoming = StateSync<LiveKitUniFFI.IncomingDataStreamManager?>(nil)
+    private func outgoing() throws -> LiveKitUniFFI.OutgoingDataStreamManager {
+        guard let outgoing = room?._state.stage.connection?.outgoingDataStreams else {
+            throw LiveKitError(.invalidState, message: "Room is not connected")
+        }
+        return outgoing
+    }
 
     // Held weakly: the Room owns this coordinator, so the back-reference must not retain it. Used
     // for the room-level encryption type stamped onto stream info, and for logging.
@@ -100,36 +110,35 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
 
     private let ordered = StateSync(OrderedHandlers())
 
-    init(room: Room) {
+    /// Supplies the back-reference, in `Room.init`'s second phase.
+    ///
+    /// Split from `init` because this subsystem is staged inside `Room.State` — built in the first
+    /// phase, where `self` isn't available yet. Nothing can reach the room, and so nothing can reach
+    /// this reference, until its initializer returns.
+    func attach(room: Room) {
         self.room = room
-        let outgoingDelegate = OutgoingDelegate(room: room)
-        let registry = Registry(room: room)
-        outgoing = LiveKitUniFFI.OutgoingDataStreamManager(delegate: outgoingDelegate, registry: registry)
-        super.init()
     }
 
-    /// The incoming manager, created on first use with the room's current payload cap. Topic routing
-    /// (incl. the `lk.rpc` guard) is handled Swift-side in `Room+DataStream`.
-    private func incomingManager() -> LiveKitUniFFI.IncomingDataStreamManager {
-        // Fast path: after the first packet of a session this is a plain read, keeping the exclusive
-        // lock off the per-packet inbound path. `mutate` re-checks, so the race is still safe.
-        if let existing = _incoming.copy() { return existing }
-        return _incoming.mutate { existing in
-            if let existing { return existing }
-            let delegate = IncomingDelegate()
-            delegate.coordinator = self
-            // `nil` → the core's default cap. Read now (first packet, i.e. post-connect) so a
-            // `maxPayloadByteLength` supplied via `connect(roomOptions:)` is honored.
-            // `DataStreamOptions` normalizes non-positive values to `nil`, so the conversion below
-            // can't trap.
-            let maxPayloadByteLength = room?._state.roomOptions.dataStreamOptions.maxPayloadByteLength
-            let manager = LiveKitUniFFI.IncomingDataStreamManager(
-                delegate: delegate,
-                maxPayloadByteLength: maxPayloadByteLength.map { UInt64($0) },
-            )
-            existing = manager
-            return manager
-        }
+    /// Builds the connection-scoped incoming manager, wired back to this coordinator for stream
+    /// dispatch. Called by ``ConnectionDependencies`` — topic routing (incl. the `lk.rpc` guard) is
+    /// handled Swift-side here, so the manager itself carries no handler state.
+    ///
+    /// - Parameter maxPayloadByteLength: `nil` → the core's default cap. `DataStreamOptions`
+    ///   normalizes non-positive values to `nil`, so the conversion below can't trap.
+    static func makeIncomingManager(coordinator: DataStreams, maxPayloadByteLength: Int?) -> LiveKitUniFFI.IncomingDataStreamManager {
+        let delegate = IncomingDelegate()
+        delegate.coordinator = coordinator
+        return LiveKitUniFFI.IncomingDataStreamManager(
+            delegate: delegate,
+            maxPayloadByteLength: maxPayloadByteLength.map { UInt64($0) },
+        )
+    }
+
+    /// Builds the connection-scoped outgoing manager. Called by ``ConnectionDependencies``; when it
+    /// is released the FFI cancels the task draining its packets, so writers left open on the
+    /// retired session fail their next write instead of emitting into the next one.
+    static func makeOutgoingManager(room: Room) -> LiveKitUniFFI.OutgoingDataStreamManager {
+        LiveKitUniFFI.OutgoingDataStreamManager(delegate: OutgoingDelegate(room: room), registry: Registry(room: room))
     }
 
     // Encryption type for *outgoing* stream info. Inbound infos carry the real per-packet value
@@ -185,7 +194,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
 
     func sendText(_ text: String, options: StreamTextOptions) async throws -> TextStreamInfo {
         try await mappingErrors {
-            let info = try await outgoing.sendText(text: text, options: options.ffi)
+            let info = try await outgoing().sendText(text: text, options: options.ffi)
             return TextStreamInfo(info, encryptionType: currentEncryptionType)
         }
     }
@@ -208,21 +217,21 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
             senderIdentity: nil,
         )
         return try await mappingErrors {
-            let info = try await outgoing.sendFile(path: fileURL.path, options: ffiOptions)
+            let info = try await outgoing().sendFile(path: fileURL.path, options: ffiOptions)
             return ByteStreamInfo(info, encryptionType: currentEncryptionType)
         }
     }
 
     func streamText(options: StreamTextOptions) async throws -> TextStreamWriter {
         try await mappingErrors {
-            let writer = try await outgoing.streamText(options: options.ffi)
+            let writer = try await outgoing().streamText(options: options.ffi)
             return TextStreamWriter(writer, encryptionType: currentEncryptionType)
         }
     }
 
     func streamBytes(options: StreamByteOptions) async throws -> ByteStreamWriter {
         try await mappingErrors {
-            let writer = try await outgoing.streamBytes(options: options.ffi)
+            let writer = try await outgoing().streamBytes(options: options.ffi)
             return ByteStreamWriter(writer, encryptionType: currentEncryptionType)
         }
     }
@@ -238,16 +247,16 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     /// carried it; the core compares it against the stream's header to reject a sender that mixes
     /// encrypted and plaintext frames within one stream.
     func handleIncoming(_ dataPacket: Livekit_DataPacket, serialized: Data?, encryptionType: EncryptionType) {
-        guard let data = try? serialized ?? dataPacket.serializedData() else { return }
-        incomingManager().handlePacketReceived(packet: data, encryptionType: encryptionType.ffiValue)
+        guard let incoming, let data = try? serialized ?? dataPacket.serializedData() else { return }
+        incoming.handlePacketReceived(packet: data, encryptionType: encryptionType.ffiValue)
     }
 
     /// Number of incoming streams currently open. Restores the introspection v1 exposed on its
     /// manager: it lets a caller wait for a stream's descriptor to actually register before driving
     /// the abort paths, rather than inferring it from a handler having been dispatched.
     func openStreamCount() async -> UInt64 {
-        guard let manager = _incoming.copy() else { return 0 }
-        return await manager.openStreamCount()
+        guard let incoming else { return 0 }
+        return await incoming.openStreamCount()
     }
 
     // MARK: - Stream lifecycle
@@ -256,25 +265,17 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     /// on a reader that will never finish would otherwise stall its topic's ordered queue. Handler
     /// registrations survive, so streams arriving after a reconnect are still handled.
     ///
-    /// The incoming manager itself is discarded, not just drained: its payload cap is immutable after
-    /// construction, so a fresh one has to be built for the next session to honor that session's
-    /// `maxPayloadByteLength`. It holds no handler state — that lives here — so this loses nothing.
+    /// The manager survives: a full reconnect keeps the connection it belongs to, and a disconnect
+    /// releases it along with that connection — so the next connect always gets one built from that
+    /// connection's `maxPayloadByteLength`.
     func reset() {
-        // No-op if the incoming manager was never created (no packets received): nothing is open.
-        let existing = _incoming.mutate { manager -> LiveKitUniFFI.IncomingDataStreamManager? in
-            let current = manager
-            manager = nil
-            return current
-        }
-        // Aborted through the reference taken above, so open readers still error out even though the
-        // manager is no longer reachable from `_incoming`.
-        existing?.abortAllStreams()
+        incoming?.abortAllStreams()
     }
 
     /// Fails open incoming streams sent by `identity` (they disconnected mid-send), so their readers
     /// throw and their handlers return instead of hanging.
     func closeStreams(from identity: Participant.Identity) {
-        _incoming.copy()?.abortStreamsFrom(identity: identity.stringValue)
+        incoming?.abortStreamsFrom(identity: identity.stringValue)
     }
 
     // MARK: - Stream open dispatch (called from the incoming delegate)

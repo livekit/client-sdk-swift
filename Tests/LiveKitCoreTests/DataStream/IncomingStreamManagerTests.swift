@@ -33,9 +33,12 @@ struct IncomingStreamManagerTests: Sendable {
     let topicName = "someTopic"
     let participant = Participant.Identity(from: "someName")
 
-    init() {
+    init() throws {
         room = Room()
-        coordinator = DataStreams(room: room)
+        coordinator = room.dataStreams
+        // The incoming manager is connection-scoped, so packets fed at `.idle` would be dropped.
+        let connection = ConnectionDependencies(idle: room._state.stage.idle, room: room, roomOptions: RoomOptions())
+        try room._state.mutate { try $0.stage.begin(connection) }
     }
 
     @Test func registerByteHandler() throws {
