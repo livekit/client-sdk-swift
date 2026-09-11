@@ -174,6 +174,26 @@ struct CompleterTests {
         completer.resume(returning: ())
         try await secondTask.value
     }
+
+    /// `wait()` reads the cached result on a fast path and registers its waiter afterwards. A
+    /// `resume` landing between the two caches its result and finds no waiter to hand it to, so
+    /// the continuation has to be resolved by the same lock that registers it — otherwise it
+    /// waits out the full timeout on an already-resolved completer.
+    ///
+    /// Timing-dependent by nature, so this leans on repetition: the short timeout turns a strand
+    /// into a fast failure rather than a 30 s hang, and one strand across the run fails the test.
+    @Test func resumeRacingRegistrationNeverStrands() async throws {
+        for _ in 0 ..< 500 {
+            let completer = AsyncCompleter<Void>(label: "register-race", defaultTimeout: 0.5)
+
+            // Started concurrently and resumed immediately, so the resume lands somewhere in the
+            // check-then-register window rather than cleanly before or after it.
+            async let waited: Void = completer.wait()
+            completer.resume(returning: ())
+
+            try await waited
+        }
+    }
 }
 
 @Suite(.tags(.concurrency))

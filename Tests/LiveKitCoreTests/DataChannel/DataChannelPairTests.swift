@@ -125,6 +125,33 @@ struct DataChannelPairTests {
             try await sendTask.value
         } throws: { ($0 as? LiveKitError)?.type == .cancelled }
     }
+
+    /// The whole point of the split: a lossy send must not be gated on the reliable channel.
+    @Test func openLatchesAreDistinctPerKind() {
+        let pair = DataChannelPair()
+
+        let reliable = pair.openCompleter(for: .reliable)
+        let lossy = pair.openCompleter(for: .lossy)
+
+        #expect(reliable !== lossy, "Each kind must gate on its own channel")
+        #expect(pair.openCompleter(for: .reliable) === reliable, "The latch for a kind must be stable")
+        #expect(pair.openCompleter(for: .lossy) === lossy)
+    }
+
+    /// A send parked on either latch has to fail when the pair is torn down, or it outlives the
+    /// connection it was waiting on.
+    @Test func resetFailsWaitersOnBothLatches() async throws {
+        let pair = DataChannelPair()
+
+        let waiters = (kind: Task { try await pair.openCompleter(for: .reliable).wait() },
+                       lossy: Task { try await pair.openCompleter(for: .lossy).wait() })
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        pair.reset(throwing: LiveKitError(.cancelled, message: "test teardown"))
+
+        await #expect { try await waiters.kind.value } throws: { ($0 as? LiveKitError)?.type == .cancelled }
+        await #expect { try await waiters.lossy.value } throws: { ($0 as? LiveKitError)?.type == .cancelled }
+    }
 }
 
 /// Pins the parser's behavior against each shape of `a=max-message-size`

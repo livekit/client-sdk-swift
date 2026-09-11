@@ -71,40 +71,81 @@ extension Room {
     }
 
     /// Negotiates the publisher peer connection on demand (subscriber-primary dual-PC mode defers
-    /// it until something is published) and waits until it and the data channels are open.
+    /// it until something is published) and waits until it and the channel `kind` will use are open.
+    ///
+    /// The wait is not conditional on the transport mode. `connect()` returns once the *primary*
+    /// transport is connected and never waits on data channels — they open on the SCTP association
+    /// afterwards — so in the modes where the publisher is primary a send issued right after
+    /// connect still races the channel opening. Under `.dropOldest` a lossy write parked through
+    /// that window resolves its waiter even when evicted, so the send reports success for a packet
+    /// that never shipped.
+    ///
+    /// rust-sdks is the reference here: `publish_data` → `ensure_publisher_connected(kind)`
+    /// (`rtc_session.rs:2415`) resolves `data_channel(Publisher, kind)` on every call and polls
+    /// until that channel reports open, with no transport-mode branch anywhere on the path.
+    /// client-sdk-js gates from the same place (`sendDataPacket` → `ensurePublisherConnected(kind)`,
+    /// `RTCEngine.ts:1574`) but memoizes one connection-scoped `publisherConnectionPromise` rather
+    /// than one per kind, so after the first call resolves a send of the other kind proceeds
+    /// without its own channel having been checked — the case this gate exists to prevent.
+    ///
+    /// - Parameter kind: Gates on this kind's channel alone. The two are independent SCTP streams,
+    ///   so waiting on the pair would let a lagging reliable channel fail a lossy send.
+    func ensureDataChannelReady(kind: Livekit_DataPacket_Kind) async throws {
+        // Concurrently, not in sequence: in subscriber-primary mode the channel opens on the SCTP
+        // association the transport is still bringing up, so these two complete together.
+        async let transportReady: Void = ensurePublisherConnected()
+        async let channelReady: Void = publisherDataChannel.openCompleter(for: kind).wait()
+        _ = try await (transportReady, channelReady)
+    }
+
+    /// Negotiates the publisher peer connection on demand and waits for it to connect.
+    ///
+    /// Transport only — it does not gate on any data channel. Callers that are about to write a
+    /// packet want ``ensureDataChannelReady(kind:)``; callers that only need the peer connection
+    /// (the data-track publish path, which gates on its own channel) want this.
+    ///
+    /// Explicit over the whole enum rather than `guard case .subscriberPrimary`: `_state.transport`
+    /// is `nil` between `cleanUpRTC` and the next JOIN, and a negated pattern-match folds that case
+    /// in with the publisher-primary modes, which need opposite handling.
     func ensurePublisherConnected() async throws {
-        // Only needed when subscriber is primary in dual PC mode
-        guard case .subscriberPrimary = _state.transport else {
+        switch _state.transport {
+        case .subscriberPrimary:
+            // The only mode that defers publisher negotiation until something is published.
+            let publisher = try requirePublisher()
+
+            let connectionState = await publisher.connectionState
+            if connectionState != .connected, connectionState != .connecting {
+                try await publisherShouldNegotiate()
+            }
+
+            try await publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
+
+        case .publisherOnly, .publisherPrimary:
+            // The publisher is the primary transport, so `connect()` already waited for it.
+            return
+
+        case nil:
+            // No transport to negotiate — between `cleanUpRTC` and the next JOIN. Returning keeps
+            // the reconnect window a no-op, as it was before the channel gate existed.
             return
         }
-
-        let publisher = try requirePublisher()
-
-        let connectionState = await publisher.connectionState
-        if connectionState != .connected, connectionState != .connecting {
-            try await publisherShouldNegotiate()
-        }
-
-        // Single combined gate: wait for both the publisher PC to be ICE-
-        // connected *and* the data channels to reach `.open` concurrently.
-        // Mirrors the prevailing pattern in client-sdk-js / -rust, where a
-        // single poll loop checks both conditions before any send proceeds.
-        async let transportReady: Void = publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
-        async let dataChannelReady: Void = publisherDataChannel.openCompleter.wait()
-        _ = try await (transportReady, dataChannelReady)
     }
 
     func send(dataPacket packet: consuming Livekit_DataPacket) async throws {
-        try await ensurePublisherConnected()
+        // The same field `DataChannelPair.send` routes on, so the channel awaited here is the one
+        // the packet is handed to.
+        let kind = packet.kind
+        try await ensureDataChannelReady(kind: kind)
 
         // At this point publisher should be .connected and dc should be .open
         if await !(_state.transport?.publisher.isConnected ?? false) {
             log("publisher is not .connected", .error)
         }
 
-        let dataChannelIsOpen = publisherDataChannel.isOpen
-        if !dataChannelIsOpen {
-            log("publisher data channel is not .open", .error)
+        // Per kind, matching the gate above: the pair-wide `isOpen` would report a lagging
+        // reliable channel on a lossy send that is perfectly fine.
+        if !publisherDataChannel.isOpen(kind: kind) {
+            log("publisher \(kind == .lossy ? "lossy" : "reliable") data channel is not .open", .error)
         }
 
         // `modifying` is consuming: with no other owner this stamps in place,

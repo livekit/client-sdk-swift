@@ -1,0 +1,1 @@
+patch type="fixed" "Data sent immediately after `connect()` could be discarded without reporting an error in single peer connection and publisher-primary modes, because the send path skipped the data channel open wait outside subscriber-primary; every send now waits for the specific channel (reliable or lossy) it will be written to"
