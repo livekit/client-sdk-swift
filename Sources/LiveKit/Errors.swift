@@ -142,6 +142,11 @@ public class LiveKitError: NSError, @unchecked Sendable, Loggable {
     public let message: String?
     public let internalError: Error?
 
+    /// HTTP status this error was derived from, when it came from an HTTP response.
+    /// Callers should branch on this rather than parsing `message`, which is a
+    /// human-readable string with no stability guarantees.
+    public let statusCode: Int?
+
     @available(*, deprecated, renamed: "internalError")
     public var underlyingError: Error? { internalError }
 
@@ -151,7 +156,8 @@ public class LiveKitError: NSError, @unchecked Sendable, Loggable {
 
     public init(_ type: LiveKitErrorType,
                 message: String? = nil,
-                internalError: Error? = nil)
+                internalError: Error? = nil,
+                statusCode: Int? = nil)
     {
         func _computeDescription() -> String {
             var suffix = ""
@@ -166,6 +172,7 @@ public class LiveKitError: NSError, @unchecked Sendable, Loggable {
         self.type = type
         self.message = message
         self.internalError = internalError
+        self.statusCode = statusCode
 
         var userInfo: [String: Any] = [NSLocalizedDescriptionKey: _computeDescription()]
         if let internalError {
@@ -230,9 +237,24 @@ extension Error {
         }
     }
 
-    /// Returns `true` for network/timeouts that should trigger region failover.
+    /// Returns `true` for errors that should trigger region failover: network issues, timeouts,
+    /// and the 403 LiveKit Cloud uses to signal project-level region pinning.
+    ///
+    /// Cloud returns 403 on the RTC paths when the project is not allowed in the region the client
+    /// geo-routed to, leaving `/settings/regions` reachable so the client can discover its allowed
+    /// regions and connect there. That arrives here as `.validation`, which is otherwise terminal,
+    /// so it has to be admitted on the status.
+    ///
+    /// We key on the status rather than the server's message because that message is an unversioned
+    /// human-readable string; matching it would let a copy edit break already-shipped clients. A 401
+    /// stays terminal — no other region will accept a token this one rejected — as does the 404 that
+    /// surfaces as `.serviceNotFound`. If a 403 really was a permissions failure rather than region
+    /// pinning, every region attempt fails the same way and the original error still surfaces.
     var isRetryableForRegionFailover: Bool {
         if let liveKitError = self as? LiveKitError {
+            if liveKitError.statusCode == 403 {
+                return true
+            }
             switch liveKitError.type {
             case .network, .timedOut:
                 return true
