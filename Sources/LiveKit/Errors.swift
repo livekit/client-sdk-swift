@@ -143,9 +143,9 @@ public class LiveKitError: NSError, @unchecked Sendable, Loggable {
     public let internalError: Error?
 
     /// HTTP status this error was derived from, when it came from an HTTP response.
-    /// Callers should branch on this rather than parsing `message`, which is a
+    /// Internal consumers branch on this rather than parsing `message`, which is a
     /// human-readable string with no stability guarantees.
-    public let statusCode: Int?
+    let statusCode: Int?
 
     @available(*, deprecated, renamed: "internalError")
     public var underlyingError: Error? { internalError }
@@ -154,33 +154,53 @@ public class LiveKitError: NSError, @unchecked Sendable, Loggable {
         [internalError].compactMap(\.self)
     }
 
-    public init(_ type: LiveKitErrorType,
-                message: String? = nil,
-                internalError: Error? = nil,
-                statusCode: Int? = nil)
+    private static func _userInfo(type: LiveKitErrorType,
+                                  message: String?,
+                                  internalError: Error?) -> [String: Any]
     {
-        func _computeDescription() -> String {
-            var suffix = ""
-            if let message {
-                suffix = "(\(message))"
-            } else if let internalError {
-                suffix = "(\(internalError.localizedDescription))"
-            }
-            return String(describing: type) + suffix
+        var suffix = ""
+        if let message {
+            suffix = "(\(message))"
+        } else if let internalError {
+            suffix = "(\(internalError.localizedDescription))"
         }
 
+        var userInfo: [String: Any] = [NSLocalizedDescriptionKey: String(describing: type) + suffix]
+        if let internalError {
+            userInfo[NSUnderlyingErrorKey] = internalError as NSError
+        }
+        return userInfo
+    }
+
+    public init(_ type: LiveKitErrorType,
+                message: String? = nil,
+                internalError: Error? = nil)
+    {
+        self.type = type
+        self.message = message
+        self.internalError = internalError
+        statusCode = nil
+
+        super.init(domain: "io.livekit.swift-sdk",
+                   code: type.rawValue,
+                   userInfo: Self._userInfo(type: type, message: message, internalError: internalError))
+    }
+
+    /// Records the HTTP status alongside the error. Kept separate from the public initializer so
+    /// that one's signature — and the public API surface — stays unchanged.
+    init(_ type: LiveKitErrorType,
+         message: String? = nil,
+         internalError: Error? = nil,
+         statusCode: Int?)
+    {
         self.type = type
         self.message = message
         self.internalError = internalError
         self.statusCode = statusCode
 
-        var userInfo: [String: Any] = [NSLocalizedDescriptionKey: _computeDescription()]
-        if let internalError {
-            userInfo[NSUnderlyingErrorKey] = internalError as NSError
-        }
         super.init(domain: "io.livekit.swift-sdk",
                    code: type.rawValue,
-                   userInfo: userInfo)
+                   userInfo: Self._userInfo(type: type, message: message, internalError: internalError))
     }
 
     @available(*, unavailable)
