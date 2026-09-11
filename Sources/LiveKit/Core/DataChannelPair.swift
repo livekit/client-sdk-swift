@@ -159,13 +159,22 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         // `rearm()` leaves in-flight waiters waiting rather than failing them, so a channel that
         // flaps does not fail a send that the reopened channel can take. `DataTracks` re-arms its
         // own publisher latch the same way.
-        if reliable.isOpen { reliableOpenCompleter.resume(returning: ()) } else { reliableOpenCompleter.rearm() }
-        if lossy.isOpen { lossyOpenCompleter.resume(returning: ()) } else { lossyOpenCompleter.rearm() }
-        if isOpen {
-            openCompleter.resume(returning: ())
-        } else {
-            openCompleter.rearm()
+        //
+        // Serialized on the existing state lock, and each channel's state is read *inside* it.
+        // `onStateChange` fires both from `setChannel` and from WebRTC's delegate thread, so
+        // sampling `isOpen` outside would let a stale invocation resolve a latch that a newer
+        // close had already re-armed — leaving the next send to skip the gate and park in a
+        // closed drain.
+        _state.mutate { _ in
+            sync(reliableOpenCompleter, isOpen: reliable.isOpen)
+            sync(lossyOpenCompleter, isOpen: lossy.isOpen)
+            sync(openCompleter, isOpen: isOpen)
         }
+    }
+
+    /// Points a latch at `isOpen`, sampled by the caller under the state lock.
+    private func sync(_ completer: AsyncCompleter<Void>, isOpen: Bool) {
+        if isOpen { completer.resume(returning: ()) } else { completer.rearm() }
     }
 
     /// Update the negotiated SCTP max-message-size cap on both channels. Called by the room after
