@@ -58,9 +58,11 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     ///
     /// The two are independent SCTP streams and open independently, so gating a lossy send on the
     /// reliable channel would stall — or fail — a send that its own channel was ready to take.
-    /// Both references gate per kind for exactly this reason: `ensure_publisher_connected(kind)` →
-    /// `data_channel(Publisher, kind)` in rust-sdks, and `ensureDataTransportConnected(kind)` →
-    /// `dataChannelForKind(kind)` in client-sdk-js.
+    /// rust-sdks resolves the channel per kind on every send (`ensure_publisher_connected(kind)` →
+    /// `data_channel(Publisher, kind)`). client-sdk-js resolves per kind one level down
+    /// (`ensureDataTransportConnected(kind)` → `dataChannelForKind(kind)`) but memoizes a single
+    /// connection-scoped promise above it, so in practice only its first send is gated per kind —
+    /// see the note on `Room.ensureDataChannelReady(kind:)`.
     private let reliableOpenCompleter = AsyncCompleter<Void>(label: "Reliable data channel open", defaultTimeout: .defaultPublisherDataChannelOpen)
     private let lossyOpenCompleter = AsyncCompleter<Void>(label: "Lossy data channel open", defaultTimeout: .defaultPublisherDataChannelOpen)
 
@@ -69,8 +71,13 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         kind == .lossy ? lossyOpenCompleter : reliableOpenCompleter
     }
 
-    /// Whether *both* channels can currently take bytes. Only the open latch and diagnostics use
-    /// this; the send path gates per channel.
+    /// Whether the channel a packet of `kind` would be written to can currently take bytes.
+    func isOpen(kind: Livekit_DataPacket_Kind) -> Bool {
+        kind == .lossy ? lossy.isOpen : reliable.isOpen
+    }
+
+    /// Whether *both* channels can currently take bytes. Only the pair-wide latch and diagnostics
+    /// use this; the send path gates per channel.
     var isOpen: Bool { lossy.isOpen && reliable.isOpen }
 
     // MARK: - Private
@@ -146,10 +153,18 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     /// Resolves the open latch once both channels are usable. Reached from either drain's state
     /// callback and from a channel swap.
     private func handleStateChange() {
-        if reliable.isOpen { reliableOpenCompleter.resume(returning: ()) }
-        if lossy.isOpen { lossyOpenCompleter.resume(returning: ()) }
+        // Re-armed, not just resolved: libwebrtc closes an SCTP channel itself on a
+        // max-message-size violation, and a latch that only ever resolves would let the next send
+        // through instantly to park in the drain — the same silent drop the gate exists to stop.
+        // `rearm()` leaves in-flight waiters waiting rather than failing them, so a channel that
+        // flaps does not fail a send that the reopened channel can take. `DataTracks` re-arms its
+        // own publisher latch the same way.
+        if reliable.isOpen { reliableOpenCompleter.resume(returning: ()) } else { reliableOpenCompleter.rearm() }
+        if lossy.isOpen { lossyOpenCompleter.resume(returning: ()) } else { lossyOpenCompleter.rearm() }
         if isOpen {
             openCompleter.resume(returning: ())
+        } else {
+            openCompleter.rearm()
         }
     }
 
