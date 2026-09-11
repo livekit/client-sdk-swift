@@ -189,6 +189,15 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
                 }
 
                 _lock.sync {
+                    // Re-checked here, under the same lock that registers the waiter. The read
+                    // above is only a fast path: between it and this block a `resume` can land,
+                    // cache its result and find no waiter to hand it to, stranding this
+                    // continuation until it times out on an already-resolved completer.
+                    if let result = _result {
+                        continuation.resume(with: result)
+                        return
+                    }
+
                     // Schedule time-out block
                     let computedTimeout = (timeout?.toDispatchTimeInterval ?? _defaultTimeout)
                     _timerQueue.asyncAfter(deadline: .now() + computedTimeout, execute: timeoutBlock)
