@@ -122,6 +122,31 @@ struct SDPMediaSection {
         return false
     }
 
+    /// Sets `name=value` in the fmtp config of `payload`: replaces the parameter's value
+    /// if present, appends it to an existing fmtp line otherwise, and inserts a new
+    /// `a=fmtp:<payload> <name>=<value>` line at the end of the section when the payload
+    /// has none (e.g. VP8, which libwebrtc offers without an fmtp line). Returns `true` if
+    /// the section was modified; `false` when the parameter already carries `value`.
+    @discardableResult
+    mutating func setFmtpParameter(_ name: String, value: String, forPayload payload: String) -> Bool {
+        let parameter = "\(name)=\(value)"
+        for (index, line) in lines.enumerated() {
+            guard let fmtp = Self.fmtp(fromLine: line), fmtp.payload == payload else { continue }
+            // Split without trimming so every other parameter is written back verbatim.
+            var pieces = fmtp.config.split(separator: ";", omittingEmptySubsequences: false).map(String.init)
+            if let existing = pieces.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("\(name)=") }) {
+                guard pieces[existing].trimmingCharacters(in: .whitespaces) != parameter else { return false }
+                pieces[existing] = parameter
+            } else {
+                pieces.append(parameter)
+            }
+            lines[index] = "a=fmtp:\(payload) \(pieces.joined(separator: ";"))"
+            return true
+        }
+        lines.append("a=fmtp:\(payload) \(parameter)")
+        return true
+    }
+
     /// Whether an `a=rtcp-fb:<payload> <value>` line with exactly `value` exists for
     /// `payload`. Exact-value match: `nack` does not match `nack pli` (RFC 4585 §4.2
     /// — they are distinct feedback parameters).

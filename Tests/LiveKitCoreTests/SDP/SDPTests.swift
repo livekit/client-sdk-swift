@@ -242,6 +242,47 @@ struct SDPTests {
         #expect(document.write() == SDPFixture.normal)
     }
 
+    /// `setFmtpParameter` replaces an existing value in place (keeping the other parameters
+    /// byte-for-byte, space padding included), appends to an existing fmtp line otherwise,
+    /// and reports no change when the value is already there.
+    @Test func setsFmtpParameterOnExistingLine() throws {
+        var section = try #require(SDP(parsing: SDPFixture.simulcast).mediaSections.last)
+
+        let replaced = section.setFmtpParameter("profile-level-id", value: "42e01f", forPayload: "97")
+        let replacedPadded = section.setFmtpParameter("max-fs", value: "1", forPayload: "98")
+        let appended = section.setFmtpParameter("x-google-start-bitrate", value: "1000", forPayload: "99")
+
+        #expect(replaced && replacedPadded && appended)
+        #expect(section.fmtp(forPayload: "97")?.config == "profile-level-id=42e01f; max-fs=3600; max-mbps=108000")
+        #expect(section.fmtp(forPayload: "98")?.config == "profile-level-id=42c00b;max-fs=1; max-mbps=3600")
+        #expect(section.fmtp(forPayload: "99")?.config == "profile-level-id=42c00b; max-fs=120; max-mbps=1800;x-google-start-bitrate=1000")
+
+        let before = section.lines
+        let sameAppended = section.setFmtpParameter("x-google-start-bitrate", value: "1000", forPayload: "99")
+        let sameReplaced = section.setFmtpParameter("max-fs", value: "1", forPayload: "98")
+        #expect(!sameAppended && !sameReplaced)
+        #expect(section.lines == before)
+    }
+
+    /// A payload with no fmtp line (VP8 in the simulcast fixture) gets one inserted at the
+    /// end of the section; the parameter name must match whole, so `sprop-stereo` is not
+    /// mistaken for `stereo`.
+    @Test func setFmtpParameterInsertsLineWhenAbsent() {
+        var document = SDP(parsing: SDPFixture.simulcast)
+
+        let inserted = document.mediaSections[1].setFmtpParameter("x-google-start-bitrate", value: "1000", forPayload: "100")
+
+        #expect(inserted)
+        #expect(document.mediaSections[1].lines.last == "a=fmtp:100 x-google-start-bitrate=1000")
+        #expect(document.mediaSections[1].fmtp(forPayload: "100")?.parameters == ["x-google-start-bitrate=1000"])
+        #expect(document.write().hasSuffix("a=fmtp:100 x-google-start-bitrate=1000"))
+
+        var opus = SDPMediaSection(lines: ["m=audio 9 UDP/TLS/RTP/SAVPF 111", "a=fmtp:111 sprop-stereo=1"])
+        let stereoAppended = opus.setFmtpParameter("stereo", value: "1", forPayload: "111")
+        #expect(stereoAppended)
+        #expect(opus.fmtp(forPayload: "111")?.config == "sprop-stereo=1;stereo=1")
+    }
+
     @Test func appendsLineAtEndOfSection() throws {
         var document = SDP(parsing: SDPFixture.jsep)
         try #require(!document.mediaSections.isEmpty)
