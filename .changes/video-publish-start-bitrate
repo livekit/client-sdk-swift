@@ -1,0 +1,1 @@
+minor type="changed" "Published video starts at 90% of the track's target bitrate (capped at 1 Mbps unless it is a screen share) instead of libwebrtc's ~300 kbps default, by declaring `x-google-start-bitrate` on the video codecs' fmtp in the publisher's offer — the same behaviour as client-sdk-js and rust-sdks"

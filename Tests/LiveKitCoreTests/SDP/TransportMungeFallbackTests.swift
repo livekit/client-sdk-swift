@@ -118,4 +118,38 @@ struct TransportMungeFallbackTests {
             #expect(applied.sdp != offer.sdp)
         }
     }
+
+    // MARK: - Video start bitrate
+
+    /// The premise of ``Transport/mungeVideoStartBitrate(_:kbpsBySenderId:)`` on the shipped
+    /// libwebrtc: a send-only video section's `a=msid` carries the sender id (so the map is
+    /// keyed correctly), and a local offer with `x-google-start-bitrate` set on every video
+    /// codec — inserted for VP8, appended for the rest — is accepted rather than rejected as
+    /// disallowed munging.
+    @Test func acceptsVideoStartBitrateMungedIntoTheOffer() async throws {
+        try await withTransport { transport in
+            let transceiverInit = LKRTCRtpTransceiverInit()
+            transceiverInit.direction = .sendOnly
+            let senderId = try await RTC.run {
+                try transport.addTransceiver(ofType: .video, transceiverInit: transceiverInit).sender.senderId
+            }
+            let offer = try await transport.createOffer()
+
+            let video = try #require(SDP(parsing: offer.sdp).mediaSections.first { $0.mediaType == "video" })
+            #expect(video.attributeValue("msid")?.split(separator: " ").last.map(String.init) == senderId)
+
+            let munged = Transport.mungeVideoStartBitrate(offer.sdp, kbpsBySenderId: [senderId: 1000])
+            let applied = try await transport.set(localDescription: offer, munging: [
+                { Transport.mungeVideoStartBitrate($0, kbpsBySenderId: [senderId: 1000]) },
+            ])
+
+            #expect(munged != offer.sdp)
+            #expect(applied.sdp == munged)
+            let appliedVideo = try #require(SDP(parsing: applied.sdp).mediaSections.first { $0.mediaType == "video" })
+            for rtpmap in appliedVideo.rtpmaps where Transport.startBitrateCodecs.contains(rtpmap.codec.uppercased()) {
+                #expect(appliedVideo.fmtp(forPayload: rtpmap.payload)?.parameters.contains("x-google-start-bitrate=1000") == true,
+                        "payload \(rtpmap.payload) (\(rtpmap.codec))")
+            }
+        }
+    }
 }
