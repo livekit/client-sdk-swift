@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-// Modified for Collog to serialize lazy device discovery initialization.
-
 @preconcurrency import AVFoundation
 
 // Internal-only for now
