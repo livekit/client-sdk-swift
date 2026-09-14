@@ -45,6 +45,11 @@ struct MicrophoneTransceiverReleaseTests {
     ///
     /// A buffer-backed video track stands in for the camera so the test needs only microphone
     /// permission, while still contributing the second m-line the overlap depends on.
+    /// Cycles to run; `TEST_RUNNER_LK_SOAK=<n>` turns this into the unbounded field repro.
+    static var cycles: Int {
+        ProcessInfo.processInfo.environment["LK_SOAK"].flatMap(Int.init) ?? 10
+    }
+
     @Test(.enabled(if: hasMicrophonePermission, "Requires microphone permission"))
     func microphoneAndVideoUnpublishAllCycles() async throws {
         try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
@@ -54,7 +59,7 @@ struct MicrophoneTransceiverReleaseTests {
             let publisher = try #require(room._state.transport?.publisher)
             let baseline = await publisher.unstoppedTransceiverCount
 
-            for _ in 0 ..< 10 {
+            for _ in 0 ..< Self.cycles {
                 let videoTrack = await LocalVideoTrack.createBufferTrack(
                     name: "camera",
                     source: .camera,
