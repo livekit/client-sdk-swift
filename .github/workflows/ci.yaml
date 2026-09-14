@@ -136,7 +136,6 @@ jobs:
             -only-testing:LiveKitNanopbTests \
             -only-testing:LiveKitObjCTests \
             -parallel-testing-enabled NO \
-            -retry-tests-on-failure -test-iterations 2 \
             | tee "$RUNNER_TEMP/xcodebuild.log" \
             | xcbeautify --renderer github-actions
 
