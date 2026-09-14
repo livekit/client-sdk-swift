@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// swiftlint:disable file_length
+
 import Foundation
 @testable import LiveKit
 import Testing
@@ -274,15 +276,25 @@ struct DropOldestContinuationTests {
         drain.attach(sendTarget: channel)
     }
 
-    private func sendAsync(_ tag: UInt8) -> Task<Void, any Error> {
-        Task { try await drain.send(DrainFixture.frame(tag)) }
+    /// Starts a send and returns once its submit has reached the drain's event stream, so a
+    /// `flushEvents()` that follows is a barrier behind it: `Task {}` alone may not have run yet.
+    private func sendAsync(_ tag: UInt8) async -> Task<Void, any Error> {
+        let (submitted, mark) = AsyncStream.makeStream(of: Void.self)
+        let task = Task {
+            try await withCheckedThrowingContinuation { continuation in
+                drain.submit(DrainFixture.frame(tag), continuation: continuation)
+                mark.finish()
+            }
+        }
+        for await _ in submitted {}
+        return task
     }
 
     @Test(.spec("https://github.com/livekit/client-sdk-js/blob/499c8420/src/room/RTCEngine.ts#L1458"))
     func evictionResolvesTheDisplacedWaiter() async throws {
         try await drain.fillBuffer(of: channel)
 
-        let displaced = sendAsync(1)
+        let displaced = await sendAsync(1)
         try await drain.flushEvents()
 
         // A newer group evicts the queued one; its waiter must not be left suspended.
@@ -294,7 +306,7 @@ struct DropOldestContinuationTests {
     @Test func channelSwapResolvesQueuedWaiters() async throws {
         try await drain.fillBuffer(of: channel)
 
-        let queued = sendAsync(1)
+        let queued = await sendAsync(1)
         try await drain.flushEvents()
 
         drain.attach(sendTarget: FakeSendChannel())
@@ -309,7 +321,7 @@ struct DropOldestContinuationTests {
     @Test func rejectedSendFailsItsWaiterExactlyOnce() async throws {
         channel.acceptsSends = false
 
-        let waiter = sendAsync(1)
+        let waiter = await sendAsync(1)
 
         await #expect {
             try await waiter.value
@@ -324,7 +336,7 @@ struct DropOldestContinuationTests {
     @Test func teardownFailsQueuedWaiters() async throws {
         try await drain.fillBuffer(of: channel)
 
-        let queued = sendAsync(1)
+        let queued = await sendAsync(1)
         try await drain.flushEvents()
 
         drain.reset(throwing: LiveKitError(.invalidState, message: "torn down"))
