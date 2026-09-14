@@ -118,13 +118,6 @@ struct TransceiverReleaseTests {
         transceiverA = nil
     }
 
-    /// Cycles per case. The field repro (webrtc-sdk#194) looped unbounded; 10 keeps CI honest
-    /// while `TEST_RUNNER_LK_SOAK=<n> xcodebuild test ...` reproduces the long-running shape
-    /// locally or on a device.
-    static var cycles: Int {
-        ProcessInfo.processInfo.environment["LK_SOAK"].flatMap(Int.init) ?? 10
-    }
-
     /// Publishing and unpublishing repeatedly must stop every send transceiver, freeing its
     /// media channel, and the publisher must still work afterwards.
     ///
@@ -159,7 +152,7 @@ struct TransceiverReleaseTests {
             }
             defer { feeders.forEach { $0.cancel() } }
 
-            for _ in 0 ..< Self.cycles {
+            for _ in 0 ..< 100 {
                 for track in tracks {
                     _ = try await publish(track, on: participant)
                 }
