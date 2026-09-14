@@ -109,20 +109,13 @@ actor SignalClient: Loggable {
         // Tracks whether the v0 signal path (/rtc) is in use, set during connect.
         // Reused by reconnect to avoid re-attempting the unsupported v1 path.
         var useV0SignalPath: Bool = false
+        // Advanced when `cleanUp` finishes. A message loop carries the value of its connection and
+        // the data-track notifications it queues check it at delivery, so a response from a
+        // torn-down connection is dropped instead of applied to the next.
+        var connectionGeneration = 0
     }
 
     let _state = StateSync(State())
-
-    // The data-track managers parse signal responses themselves, so the ones they consume are
-    // forwarded as raw protobuf bytes. They drain through a single consumer task per connection,
-    // so the managers see them in wire order — a detached task per message could reorder e.g. a
-    // publish/unpublish response pair. The path deliberately bypasses `_responseQueue`: the
-    // managers own their reconnect semantics (republish, subscription re-requests, sync state)
-    // and consume wire order directly. Connection-scoped — started in `connect`, stopped in
-    // `cleanUp` — so messages still buffered from a dead connection are dropped, not applied to
-    // the next.
-    private var _dataTrackResponses: AsyncStream<Data>.Continuation?
-    private var _dataTrackResponsesConsumer: AnyTaskCancellable?
 
     // Requests the SFU answers by echoing an id, keyed by it. The counter is shared so ids stay
     // unique per connection; data blobs are the only user today. (Data track publishes also
@@ -191,10 +184,9 @@ actor SignalClient: Loggable {
                                              connectOptions: connectOptions)
             connectSpan?.record("ws_open")
 
-            startDataTrackResponses()
-
+            let generation = _state.connectionGeneration
             let messageLoopTask = socket.subscribe(self) { observer, message in
-                await observer.onWebSocketMessage(message)
+                await observer.onWebSocketMessage(message, generation: generation)
             } onFailure: { observer, error in
                 await observer.cleanUp(withError: error)
             }
@@ -293,11 +285,11 @@ actor SignalClient: Loggable {
         _dataBlobCompleters.removeAll()
         await _requestQueue.clear()
         await _responseQueue.clear()
-        stopDataTrackResponses()
 
         _state.mutate {
             $0.disconnectError = LiveKitError.from(error: disconnectError)
             $0.connectionState = .disconnected
+            $0.connectionGeneration += 1
         }
     }
 }
@@ -315,27 +307,7 @@ private extension SignalClient {
         await _requestQueue.processIfResumed(request, elseEnqueue: request.canBeQueued())
     }
 
-    /// Starts delivering data-track responses for a new connection; see the property note.
-    func startDataTrackResponses() {
-        let (responses, continuation) = AsyncStream.makeStream(of: Data.self)
-        _dataTrackResponses = continuation
-        _dataTrackResponsesConsumer = Task { [weak self] in
-            for await data in responses {
-                guard let self else { break }
-                try? await _delegate.notifyAsync { await $0.signalClient(self, didReceiveDataTrackResponse: data) }
-            }
-        }.cancellable()
-    }
-
-    /// Stops delivery and drops anything still buffered from the connection being torn down
-    /// (releasing the consumer cancels it; finishing alone would let it drain the backlog).
-    func stopDataTrackResponses() {
-        _dataTrackResponses?.finish()
-        _dataTrackResponses = nil
-        _dataTrackResponsesConsumer = nil
-    }
-
-    func onWebSocketMessage(_ message: URLSessionWebSocketTask.Message) async {
+    func onWebSocketMessage(_ message: URLSessionWebSocketTask.Message, generation: Int) async {
         // The server mirrors the client's encoding and this SDK has sent
         // binary protobuf since 2021, so text (JSON) frames cannot occur
         // against livekit-server; they are unsupported here (as on Android).
@@ -351,23 +323,31 @@ private extension SignalClient {
             return
         }
 
-        // Forward only what the data-track managers consume; every other message would cross the
-        // FFI boundary just to be rejected as an unsupported type. `requestResponse` carries
-        // publish request errors, so it belongs here even though it isn't data-track-specific.
+        // The data-track managers parse signal responses themselves, so the ones they consume are
+        // forwarded as raw protobuf bytes. Only those: every other message would cross the FFI
+        // boundary just to be rejected as an unsupported type. `requestResponse` carries publish
+        // request errors, so it belongs here even though it isn't data-track-specific. The path
+        // deliberately bypasses `_responseQueue`: the managers own their reconnect semantics
+        // (republish, subscription re-requests, sync state) and consume wire order directly. A
+        // response still queued when its connection is torn down is dropped at delivery, not
+        // applied to the next.
         switch response.message {
         case .requestResponse, .publishDataTrackResponse, .dataTrackSubscriberHandles:
-            _dataTrackResponses?.yield(rawData)
+            _delegate.notifyDetached { delegate in
+                guard self._state.connectionGeneration == generation else { return }
+                await delegate.signalClient(self, didReceiveDataTrackResponse: rawData)
+            }
         default: break
         }
 
-        Task.detached {
-            let alwaysProcess = switch response.message {
-            case .join, .reconnect, .leave: true
-            default: false
-            }
-            // Always process join or reconnect messages even if suspended...
-            await self._responseQueue.processIfResumed((response: response, encoded: rawData), or: alwaysProcess)
+        let alwaysProcess = switch response.message {
+        case .join, .reconnect, .leave: true
+        default: false
         }
+        // Awaited in place so responses enter the queue in socket order; a task per message would
+        // race to the queue actor. Nothing in `_process` waits on the network or on a later
+        // message, so the loop is not held up. Join, reconnect and leave bypass a suspended queue.
+        await _responseQueue.processIfResumed((response: response, encoded: rawData), or: alwaysProcess)
     }
 
     // swiftlint:disable:next cyclomatic_complexity function_body_length
@@ -388,11 +368,11 @@ private extension SignalClient {
             // `SignalResponse`, and this is kept for the whole session
             _state.mutate { $0.lastJoinResponse = joinResponse.owned() }
             // The encoded form second: consumers that parse the wire format themselves must see
-            // it only once the room has applied the decoded one. Ordered but not awaited — this
-            // runs on the response queue, so waiting here would put app delegate code in front
-            // of every later signal message.
-            _delegate.notifyDetached(inOrder: { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) },
-                                     { await $0.signalClient(self, didReceiveEncodedResponse: .join(encoded)) })
+            // it only once the room has applied the decoded one. Not awaited: this runs on the
+            // response queue, so waiting here would put app delegate code in front of every later
+            // signal message.
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveEncodedResponse: .join(encoded)) }
             _connectResponseCompleter.resume(returning: .join(joinResponse))
             await _restartPingTimer()
 
@@ -418,8 +398,8 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didReceiveIceCandidate: iceCandidate, target: trickle.target) }
 
         case let .update(update):
-            _delegate.notifyDetached(inOrder: { await $0.signalClient(self, didUpdateParticipants: update.participants) },
-                                     { await $0.signalClient(self, didReceiveEncodedResponse: .participantUpdate(encoded)) })
+            _delegate.notifyDetached { await $0.signalClient(self, didUpdateParticipants: update.participants) }
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveEncodedResponse: .participantUpdate(encoded)) }
 
         case let .roomUpdate(update):
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRoom: update.room) }
