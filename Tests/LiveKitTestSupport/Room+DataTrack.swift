@@ -133,17 +133,12 @@ public final class DataTrackDelegateRecorder: NSObject, RoomDelegate, Participan
 /// waits forever if a frame is lost — on an unreliable channel that turns a failed assertion into
 /// a hung job.
 public extension DataTrackStream {
-    /// The next frame, or `nil` if none arrives in time.
+    /// The next frame, or `nil` if none arrives in time. The read is not cancelled on timeout — the
+    /// UniFFI future under `next()` cannot be — so it is left to finish when the stream ends.
     func next(within timeout: TimeInterval = 15) async -> DataTrackFrame? {
-        await withTaskGroup(of: DataTrackFrame?.self) { group in
-            group.addTask { await self.next() }
-            group.addTask {
-                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                return nil
-            }
-            defer { group.cancelAll() }
-            return await group.next() ?? nil
-        }
+        let frame = AsyncCompleter<DataTrackFrame?>(label: "data track frame", defaultTimeout: timeout)
+        Task { await frame.resume(returning: self.next()) }
+        return try? await frame.wait()
     }
 
     /// Up to `count` frames matching `predicate`, or fewer if the deadline passes first.
