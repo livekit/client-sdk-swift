@@ -60,13 +60,23 @@ struct MicrophoneTransceiverReleaseTests {
                     source: .camera,
                     options: BufferCaptureOptions(dimensions: .h720_169),
                 )
-                let feeder = (videoTrack.capturer as? BufferCapturer)?.startFeedingFrames(dimensions: .h720_169)
+                let capturer = videoTrack.capturer as? BufferCapturer
+                let feeder = capturer?.startFeedingFrames(dimensions: .h720_169)
+                // `defer`, not a trailing cancel: a throw from either publish would otherwise
+                // leave a 30 fps task feeding a capturer for the rest of the run.
+                defer { feeder?.cancel() }
 
+                // `_publish` waits on dimensions before starting the capturer, and a brand new
+                // buffer track has none until it is fed.
+                if let capturer { _ = try await capturer.dimensionsCompleter.wait() }
+
+                // Each cycle republishes from scratch: `unpublishAll()` leaves no publication,
+                // so `setMicrophone` creates and publishes a new ADM-backed track rather than
+                // unmuting an existing one.
                 _ = try await participant.setMicrophone(enabled: true)
                 _ = try await participant.publish(videoTrack: videoTrack)
 
                 await participant.unpublishAll()
-                feeder?.cancel()
             }
 
             let unstopped = await publisher.unstoppedTransceiverCount

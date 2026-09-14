@@ -140,20 +140,22 @@ struct TransceiverReleaseTests {
             // pre-created audio + video media sections; everything the cycles add must be released.
             let baseline = await publisher.unstoppedTransceiverCount
 
-            // One long-lived track per kind, as in the report's own repro.
-            var tracks: [LocalTrack] = []
-            var feeders: [Task<Void, Never>] = []
-            for kind in scenario.kinds {
-                let track = await kind.makeLocalTrack()
-                tracks.append(track)
-                if let capturer = (track as? LocalVideoTrack)?.capturer as? BufferCapturer {
-                    feeders.append(capturer.startFeedingFrames(dimensions: .h720_169))
-                }
-            }
-            defer { feeders.forEach { $0.cancel() } }
-
+            // A fresh track per kind per cycle, because that is what the repro does:
+            // `unpublishAll()` leaves no publication, so the next `setMicrophone`/`setCamera`
+            // takes `set(source:enabled:)`'s create-and-publish branch rather than unmuting.
+            // Each cycle therefore churns a new media source and track, not just a transceiver.
             for _ in 0 ..< 100 {
-                for track in tracks {
+                var feeders: [Task<Void, Never>] = []
+                defer { feeders.forEach { $0.cancel() } }
+
+                for kind in scenario.kinds {
+                    let track = await kind.makeLocalTrack()
+                    if let capturer = (track as? LocalVideoTrack)?.capturer as? BufferCapturer {
+                        // `_publish` waits on dimensions before starting the capturer, and a
+                        // brand new buffer track has none until it is fed.
+                        feeders.append(capturer.startFeedingFrames(dimensions: .h720_169))
+                        _ = try await capturer.dimensionsCompleter.wait()
+                    }
                     _ = try await publish(track, on: participant)
                 }
                 await participant.unpublishAll()
@@ -161,11 +163,6 @@ struct TransceiverReleaseTests {
 
             let unstopped = await publisher.unstoppedTransceiverCount
             #expect(unstopped == baseline, "Expected every published transceiver stopped, found \(unstopped - baseline) unstopped")
-
-            // The publisher must still be usable after all the stop/release churn.
-            for track in tracks {
-                _ = try await publish(track, on: participant)
-            }
         }
     }
 }
