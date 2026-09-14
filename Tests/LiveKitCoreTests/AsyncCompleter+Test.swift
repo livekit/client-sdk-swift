@@ -15,6 +15,7 @@
  */
 
 @testable import LiveKit
+import Testing
 
 extension AsyncCompleter {
     /// Yields until at least one waiter has parked on this completer — used
@@ -24,5 +25,29 @@ extension AsyncCompleter {
         while waiterCount == 0 {
             await Task.yield()
         }
+    }
+}
+
+struct AsyncCompleterCancellationTests {
+    /// A waiter cancelled while its own timeout is firing must settle, not deadlock: the first child
+    /// to time out cancels the rest at the very moment their timers go off.
+    @Test func cancelRacingTimeoutSettles() async throws {
+        let races = Task.detached {
+            for _ in 0 ..< 2000 {
+                let first = AsyncCompleter<Void>(label: "first", defaultTimeout: 1)
+                let second = AsyncCompleter<Void>(label: "second", defaultTimeout: 1)
+                _ = try? await withThrowingTaskGroup(of: Void.self) { group in
+                    group.addTask { try await first.wait(timeout: 0.001) }
+                    group.addTask { try await second.wait(timeout: 0.001) }
+                    for try await _ in group.prefix(1) {
+                        group.cancelAll()
+                    }
+                }
+            }
+        }
+        // Bounded by a completer of its own, so a regression fails the test instead of the job.
+        let finished = AsyncCompleter<Void>(label: "races", defaultTimeout: 30)
+        Task.detached { await races.value; finished.resume(returning: ()) }
+        try await finished.wait()
     }
 }
