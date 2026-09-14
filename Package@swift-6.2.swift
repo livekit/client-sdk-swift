@@ -52,6 +52,7 @@ let package = Package(
                 .product(name: "LiveKitWebRTC", package: "webrtc-xcframework"),
                 .product(name: "LiveKitUniFFI", package: "livekit-uniffi-xcframework"),
                 "LiveKitNanopb",
+                "CLiveKitProto",
                 "LKObjCHelpers",
             ],
             exclude: [
