@@ -1,0 +1,1 @@
+minor type="added" "LocalTrackPublication.set(videoPublishOptions:) to re-apply encoding parameters of a published video track to the live RTP sender without republishing"
