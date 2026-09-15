@@ -117,6 +117,20 @@ import Testing
         #expect(!NSError(domain: "other", code: -1).isRetryableForRegionFailover)
     }
 
+    /// LiveKit Cloud signals project-level region pinning with a 403 on the RTC paths. It arrives
+    /// as `.validation`, which is otherwise terminal, so failover has to admit it on the status —
+    /// otherwise a client that geo-routes to a disallowed region never reaches its allowed one.
+    @Test func regionPinning403IsRetryableButOtherValidationFailuresAreNot() {
+        #expect(LiveKitError(.validation,
+                             message: "project not allowed in this region.",
+                             statusCode: 403).isRetryableForRegionFailover)
+
+        // No other region will accept a token this one rejected.
+        #expect(!LiveKitError(.validation, message: "unauthorized", statusCode: 401).isRetryableForRegionFailover)
+        // The v1 → v0 RTC path fallback owns this one; it is not a region problem.
+        #expect(!LiveKitError(.serviceNotFound, message: "not found", statusCode: 404).isRetryableForRegionFailover)
+    }
+
     @Test(arguments: [
         (401, LiveKitErrorType.validation),
         (500, LiveKitErrorType.regionManager),

@@ -137,11 +137,10 @@ extension Room {
                     throw error
                 }
 
-                if let liveKitError = error as? LiveKitError, liveKitError.type == .validation {
-                    // Don't retry other regions for validation errors.
-                    throw liveKitError
-                }
-
+                // Validation errors are terminal — another region will reject the same token the
+                // same way — except for the 403 Cloud uses to signal project-level region pinning,
+                // which is precisely the case region failover exists to recover from.
+                // `isRetryableForRegionFailover` makes that distinction on the HTTP status.
                 guard error.isRetryableForRegionFailover else {
                     throw error
                 }
