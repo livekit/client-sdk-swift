@@ -209,3 +209,48 @@ extension Track.Kind {
         }
     }
 }
+
+// MARK: - Shared vocabulary
+
+extension StartReconnectReason {
+    var telemetry: ReconnectReason {
+        switch self {
+        case .websocket: .signalDisconnected
+        case .transport: .transportFailed
+        case .networkSwitch: .networkChanged
+        case .debug: .debug
+        }
+    }
+}
+
+extension Track.Source {
+    var telemetry: TrackSource {
+        switch self {
+        case .camera: .camera
+        case .microphone: .microphone
+        case .screenShareVideo: .screenShare
+        case .screenShareAudio: .screenShareAudio
+        case .unknown: .unknown
+        }
+    }
+}
+
+extension DisconnectReason {
+    /// The error a Room's clean-up was given, in the shared vocabulary; none is the app's own
+    /// `disconnect()`.
+    init(_ error: Error?) {
+        guard let error else { self = .clientInitiated; return }
+        guard let error = error as? LiveKitError else { self = .unknown; return }
+        self = switch error.type {
+        case .cancelled: .clientInitiated
+        case .duplicateIdentity: .duplicateIdentity
+        case .serverShutdown: .serverShutdown
+        case .participantRemoved: .participantRemoved
+        case .roomDeleted: .roomDeleted
+        case .stateMismatch: .stateMismatch
+        case .joinFailure: .joinFailure
+        case .timedOut, .serverPingTimedOut: .connectionTimeout
+        default: .unknown
+        }
+    }
+}

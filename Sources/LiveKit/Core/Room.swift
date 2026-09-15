@@ -652,6 +652,10 @@ extension Room {
                           isFullReconnect: Bool = false) async
     {
         log("withError: \(String(describing: disconnectError)), isFullReconnect: \(isFullReconnect)")
+        // connect() cleans up first too; only a session that existed has ended.
+        if !isFullReconnect, _state.connectionState != .disconnected {
+            telemetryScope?.disconnected(reason: DisconnectReason(disconnectError))
+        }
 
         // Reap all in-flight RPCs with `recipientDisconnected` (1503). Runs before the
         // participant-state wipe so callers don't hang on the response timeout during

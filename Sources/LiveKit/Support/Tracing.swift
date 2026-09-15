@@ -56,7 +56,7 @@ extension TelemetrySpan {
     /// The track a publish or subscribe span is about; call again once the sid is known.
     func setTrack(_ kind: Track.Kind, source: Track.Source, sid: Track.Sid? = nil, remoteIdentity: String? = nil) {
         guard let kind = kind.telemetry else { return }
-        setTrack(track: SpanTrack(sid: sid?.stringValue, kind: kind, source: String(describing: source), remoteIdentity: remoteIdentity))
+        setTrack(track: SpanTrack(sid: sid?.stringValue, kind: kind, source: source.telemetry, remoteIdentity: remoteIdentity))
     }
 
     /// End successfully.

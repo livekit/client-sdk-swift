@@ -157,6 +157,9 @@ extension RTCTelemetry: TrackDelegate {
             sample.freezesDurationMs = ms(stream.totalFreezesDuration)
             sample.concealedSamples = stream.concealedSamples
             sample.concealmentEvents = stream.concealmentEvents
+            sample.silentConcealedSamples = stream.silentConcealedSamples
+            sample.pauseCount = stream.pauseCount.map(UInt64.init)
+            sample.pausesDurationMs = ms(stream.totalPausesDuration)
             sample.jitterBufferDelayMs = ms(stream.jitterBufferDelay)
             sample.jitterBufferEmittedCount = stream.jitterBufferEmittedCount
             sample.jitterMs = stream.jitter.map { $0 * 1000 }
@@ -177,6 +180,7 @@ extension RTCTelemetry: TrackDelegate {
             sample.rttMs = rtt
             sample.qualityLimitationBandwidthMs = ms(stream.qualityLimitationDurations?.bandwidth)
             sample.qualityLimitationCpuMs = ms(stream.qualityLimitationDurations?.cpu)
+            sample.qualityLimitationOtherMs = ms(stream.qualityLimitationDurations?.other)
             samples.append(sample)
         }
         return samples

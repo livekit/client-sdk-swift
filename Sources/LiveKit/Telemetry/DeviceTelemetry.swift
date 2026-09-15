@@ -180,7 +180,7 @@ actor DeviceTelemetry: TelemetryInstrument, Loggable {
         notificationTokens.append(center.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: nil) { [weak self] note in
             let reason = (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt)
                 .flatMap(AVAudioSession.RouteChangeReason.init(rawValue:)) ?? .unknown
-            let outputs = AVAudioSession.sharedInstance().currentRoute.outputs.map(\.portType.rawValue)
+            let outputs = AVAudioSession.sharedInstance().currentRoute.outputs.map { Self.output($0.portType) }
             telemetryDeviceEvent(event: .audioRouteChanged(outputs: outputs, reason: Self.reason(reason)))
         })
         notificationTokens.append(center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: nil) { [weak self] note in
@@ -201,6 +201,20 @@ actor DeviceTelemetry: TelemetryInstrument, Loggable {
         case .noSuitableRouteForCategory: .noSuitableRoute
         case .routeConfigurationChange: .routeConfigurationChange
         default: .unknown
+        }
+    }
+
+    private nonisolated static func output(_ port: AVAudioSession.Port) -> AudioOutput {
+        switch port {
+        case .builtInSpeaker: .speaker
+        case .builtInReceiver: .receiver
+        case .headphones, .lineOut: .wiredHeadset
+        case .bluetoothA2DP, .bluetoothHFP, .bluetoothLE: .bluetooth
+        case .carAudio: .carAudio
+        case .airPlay: .airPlay
+        case .HDMI: .hdmi
+        case .usbAudio: .usb
+        default: .other
         }
     }
     #endif

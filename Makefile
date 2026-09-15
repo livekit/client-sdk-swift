@@ -95,4 +95,4 @@ endif
 telemetry-harness:
 	@lsof -nP -iTCP:4319 -sTCP:LISTEN >/dev/null || { echo "collector not running: otelcol-contrib --config Tests/LiveKitCoreTests/Telemetry/otelcol-lgtm.yaml"; exit 1; }
 	@lsof -nP -iTCP:7880 -sTCP:LISTEN >/dev/null || { echo "livekit-server --dev not running"; exit 1; }
-	swift test --filter 'TelemetryTests|TelemetryHarness'
+	swift test --filter TelemetryTests

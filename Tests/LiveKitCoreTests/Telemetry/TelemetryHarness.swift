@@ -28,8 +28,9 @@ import LiveKitTestSupport
 /// also fans the session out to a Grafana LGTM stack for browsing); `make telemetry-harness` runs it.
 ///
 /// `LIVEKIT_TELEMETRY_HOLD=<seconds>` keeps the session alive longer, to watch it live in Grafana.
-@Suite(.serialized, .tags(.e2e))
-struct TelemetryHarness {
+///
+/// Part of the `TelemetryTests` suite: the pipeline is process-wide, so its tests must not overlap.
+extension TelemetryTests {
     /// One full session: connect → publish audio + video → the subscriber gets media → quick
     /// reconnect → full reconnect → disconnect. Everything the core promises about it must be in
     /// the collector afterwards, the disconnect flush included.
@@ -39,13 +40,14 @@ struct TelemetryHarness {
                                            flushInterval: 1, statsWindow: 2)
         await Telemetry.configure(options)
 
-        var publisherTrace = ""
+        var publisherTrace = "", subscriberTrace = ""
         try await TestEnvironment.withRooms([
             RoomTestingOptions(canPublish: true),
             RoomTestingOptions(canSubscribe: true),
         ]) { rooms in
             let publisher = rooms[0], subscriber = rooms[1]
             publisherTrace = try #require(await publisher.telemetryTraceId)
+            subscriberTrace = try #require(await subscriber.telemetryTraceId)
 
             let video = LocalVideoTrack.createBufferTrack(name: "harness")
             let frames = try #require(video.capturer as? BufferCapturer).feedSyntheticFrames()
@@ -72,7 +74,9 @@ struct TelemetryHarness {
         }
         try await Task.sleep(nanoseconds: 3_000_000_000) // the disconnect flush, and the collector's write
 
-        let otlp = try OTLPFile(url: TelemetryTests.collectorOutput, since: start)
+        // Only this session's records: other e2e tests share the process pipeline and the collector.
+        let mine: Set<String> = [publisherTrace, subscriberTrace]
+        let otlp = try OTLPFile(url: Self.collectorOutput, since: start)
         let spans = otlp.spans.filter { $0.traceId == publisherTrace }
 
         // The user-initiated connect, with its steps; reconnects are their own spans.
@@ -90,17 +94,20 @@ struct TelemetryHarness {
 
         // Publisher side: a publish span per track; subscriber side: intent → first media.
         #expect(spans.filter { $0.name == "lk.publish" }.count >= 2, "audio + video publish spans")
-        let subscribes = otlp.spans.filter { $0.name == "lk.subscribe" && $0.traceId != publisherTrace && $0.events.contains("first_media") }
+        let subscribes = otlp.spans.filter { $0.name == "lk.subscribe" && $0.traceId == subscriberTrace && $0.events.contains("first_media") }
         #expect(subscribes.count >= 2, "subscribe spans reaching first media: \(subscribes.count)")
 
         // One stats window per track and direction.
-        let windows = otlp.logs.filter { $0.eventName == "lk.rtc.stats.sample" }
+        let windows = otlp.logs.filter { $0.eventName == "lk.rtc.stats.sample" && mine.contains($0.traceId) }
         for (kind, direction) in [("audio", "outbound"), ("video", "outbound"), ("audio", "inbound"), ("video", "inbound")] {
             #expect(windows.contains { $0.attributes["lk.track.kind"] == kind && $0.attributes["lk.track.direction"] == direction },
                     "\(direction) \(kind) window")
         }
         #expect(windows.allSatisfy { $0.attributes["lk.room.name"] != nil && $0.attributes["lk.participant.identity"] != nil },
                 "every window carries the room scope")
+        // Both Rooms hung up themselves, and said so before the disconnect flush.
+        let ended = otlp.logs.filter { $0.eventName == "lk.room.disconnected" && mine.contains($0.traceId) }
+        #expect(ended.count == 2 && ended.allSatisfy { $0.attributes["lk.disconnect.reason"] == "client_initiated" }, "\(ended.map(\.attributes))")
         // The pipeline's own health: the whole session shipped.
         #expect(Telemetry.diagnostics().contains("lost 0"), Comment(rawValue: Telemetry.diagnostics()))
     }
