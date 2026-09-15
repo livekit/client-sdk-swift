@@ -635,7 +635,7 @@ extension SignalClient {
         }
 
         // Get completer for this add track request...
-        let completer = await _addTrackCompleters.completer(for: cid)
+        let completer = await _addTrackCompleters.rearmedCompleter(for: cid)
 
         // Send the request to server...
         try await _sendRequest(request)

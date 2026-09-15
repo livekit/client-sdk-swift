@@ -38,6 +38,34 @@ struct CompleterTests {
         }
     }
 
+    /// A key reused across attempts — a track republished under the same CID — must not replay
+    /// the previous outcome. Without rearming, a rejected publish leaves a cached failure that
+    /// fails the retry instantly while the server still answers the request that was sent.
+    @Test func completerMapRearmsReusedKey() async throws {
+        let map = CompleterMapActor<Int>(label: "map-rearm-test", defaultTimeout: 1)
+
+        // First attempt is rejected by the peer.
+        let first = await map.rearmedCompleter(for: "cid-1")
+        await map.resume(throwing: LiveKitError(.invalidState, message: "rejected"), for: "cid-1")
+        await #expect(throws: LiveKitError.self) { try await first.wait() }
+
+        // The retry must wait for its own response. With no response forthcoming it should block
+        // and time out; replaying the cached rejection would surface `.invalidState` at once.
+        let retry = await map.rearmedCompleter(for: "cid-1")
+        do {
+            _ = try await retry.wait(timeout: 0.3)
+            Issue.record("retry resolved without a response")
+        } catch let error as LiveKitError {
+            #expect(error.type == .timedOut, "retry replayed the cached rejection instead of waiting")
+        }
+
+        // And it still resolves normally when its own response does arrive.
+        let second = await map.rearmedCompleter(for: "cid-1")
+        async let waited = second.wait()
+        await map.resume(returning: 42, for: "cid-1")
+        #expect(try await waited == 42)
+    }
+
     @Test func completerRearm() async throws {
         let completer = AsyncCompleter<Void>(label: "rearm-test", defaultTimeout: 1)
 
