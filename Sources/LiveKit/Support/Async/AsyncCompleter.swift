@@ -189,15 +189,18 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
                     _lock.sync { _entries.removeValue(forKey: entryId) }?.timeout()
                 }
 
-                _lock.sync {
-                    // Re-checked here, under the same lock that registers the waiter. The read
-                    // above is only a fast path: between it and this block a `resume` can land,
-                    // cache its result and find no waiter to hand it to, stranding this
-                    // continuation until it times out on an already-resolved completer.
-                    if let result = _result {
-                        continuation.resume(with: result)
-                        return
-                    }
+                // Decided under the same lock that registers the waiter. The read above is only a
+                // fast path: between it and this block a `resume` can land, cache its result and
+                // find no waiter to hand it to, stranding this continuation until it times out on
+                // an already-resolved completer.
+                //
+                // The result is carried *out* of the lock and resumed after it. Resuming a
+                // continuation needs the task's status-record lock, and cancellation takes that
+                // lock before running `onCancel`, which takes `_lock` — so resuming under `_lock`
+                // is the lock-order inversion that wedged this type on CI. Every other resume here
+                // settles outside the lock for the same reason; this one must too.
+                let cached: Result<T, Error>? = _lock.sync {
+                    if let result = _result { return result }
 
                     // Schedule time-out block
                     let computedTimeout = (timeout?.toDispatchTimeInterval ?? _defaultTimeout)
@@ -206,7 +209,9 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
                     _entries[entryId] = WaitEntry(continuation: continuation, timeoutBlock: timeoutBlock)
 
                     log("\(label) id: \(entryId) waiting for \(computedTimeout)")
+                    return nil
                 }
+                if let cached { continuation.resume(with: cached) }
             }
         } onCancel: {
             // Cancel only this completer when Task gets cancelled

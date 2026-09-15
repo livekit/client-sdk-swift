@@ -182,17 +182,44 @@ struct CompleterTests {
     ///
     /// Timing-dependent by nature, so this leans on repetition: the short timeout turns a strand
     /// into a fast failure rather than a 30 s hang, and one strand across the run fails the test.
+    ///
+    /// Racing one waiter against one `resume` does not reach the window: the waiter has either not started
+    /// (and takes the cached result on the fast path) or has already registered. The window is a
+    /// few instructions wide, so this fans out — 32 waiters per round give the single `resume` a
+    /// chance to land inside one of them. Verified by removing the re-check, which fails this in
+    /// well under a second.
     @Test func resumeRacingRegistrationNeverStrands() async throws {
-        for _ in 0 ..< 500 {
+        for _ in 0 ..< 200 {
             let completer = AsyncCompleter<Void>(label: "register-race", defaultTimeout: 0.5)
-
-            // Started concurrently and resumed immediately, so the resume lands somewhere in the
-            // check-then-register window rather than cleanly before or after it.
-            async let waited: Void = completer.wait()
-            completer.resume(returning: ())
-
-            try await waited
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for _ in 0 ..< 32 {
+                    group.addTask { try await completer.wait() }
+                }
+                group.addTask { completer.resume(returning: ()) }
+                try await group.waitForAll()
+            }
         }
+    }
+
+    /// The re-check that closes the strand above runs under the registration lock, and cancellation
+    /// takes the task's status-record lock before `onCancel` takes that same lock — so a resume
+    /// issued while holding it inverts the order and wedges. Races a resume against a cancellation
+    /// for a fixed wall-clock budget: a slow host just completes fewer rounds, only a deadlock
+    /// leaves the loop unfinished.
+    @Test func resumeRacingCancellationSettles() async throws {
+        let races = Task.detached {
+            let deadline = Date().addingTimeInterval(3)
+            while Date() < deadline {
+                let completer = AsyncCompleter<Void>(label: "resume-vs-cancel", defaultTimeout: 1)
+                let waiter = Task { try await completer.wait() }
+                completer.resume(returning: ())
+                waiter.cancel()
+                _ = try? await waiter.value
+            }
+        }
+        let finished = AsyncCompleter<Void>(label: "races", defaultTimeout: 120)
+        Task.detached { await races.value; finished.resume(returning: ()) }
+        try await finished.wait()
     }
 
     /// A waiter cancelled while its own timeout is firing must settle, not deadlock: the first child
@@ -218,7 +245,8 @@ struct CompleterTests {
         // because utility-QoS timers have been seen to fire tens of seconds late on loaded simulators.
         let finished = AsyncCompleter<Void>(label: "races", defaultTimeout: 120)
         Task.detached { await races.value; finished.resume(returning: ()) }
-        try await finished.wait()    }
+        try await finished.wait()
+    }
 }
 
 @Suite(.tags(.concurrency))
