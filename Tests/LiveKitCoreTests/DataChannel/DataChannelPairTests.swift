@@ -152,6 +152,21 @@ struct DataChannelPairTests {
         await #expect { try await waiters.kind.value } throws: { ($0 as? LiveKitError)?.type == .cancelled }
         await #expect { try await waiters.lossy.value } throws: { ($0 as? LiveKitError)?.type == .cancelled }
     }
+
+    /// With no transport there is nothing that could open a channel, so the send gate has to turn
+    /// the caller away rather than hold them for the latch's full `.defaultPublisherDataChannelOpen`
+    /// (15 s) before reporting a `.timedOut` that says nothing about why.
+    @Test(arguments: [Livekit_DataPacket_Kind.reliable, .lossy])
+    func sendBeforeConnectFailsWithoutWaitingOutTheLatch(kind: Livekit_DataPacket_Kind) async {
+        let room = Room()
+        let started = Date()
+
+        await #expect {
+            try await room.send(dataPacket: .with { $0.kind = kind })
+        } throws: { ($0 as? LiveKitError)?.type == .invalidState }
+
+        #expect(Date().timeIntervalSince(started) < 1, "The gate must not wait on a latch nothing can resolve")
+    }
 }
 
 /// Pins the parser's behavior against each shape of `a=max-message-size`

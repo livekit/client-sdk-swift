@@ -91,6 +91,16 @@ extension Room {
     /// - Parameter kind: Gates on this kind's channel alone. The two are independent SCTP streams,
     ///   so waiting on the pair would let a lagging reliable channel fail a lossy send.
     func ensureDataChannelReady(kind: Livekit_DataPacket_Kind) async throws {
+        // Between `cleanUpRTC` and the next JOIN there is no transport to open a channel, so the
+        // latch below has nothing that could resolve it and the wait would only burn its full
+        // timeout before failing. `ensurePublisherConnected` returns immediately in this state, so
+        // this is the only place the window is visible. Racy by nature — the transport can go away
+        // right after the check — but a waiter already registered when it does is failed by
+        // `DataChannelPair.reset(throwing:)`, so the remaining window is one hop wide.
+        guard _state.transport != nil else {
+            throw LiveKitError(.invalidState, message: "Room is not connected")
+        }
+
         // Concurrently, not in sequence: in subscriber-primary mode the channel opens on the SCTP
         // association the transport is still bringing up, so these two complete together.
         async let transportReady: Void = ensurePublisherConnected()
@@ -125,8 +135,9 @@ extension Room {
             return
 
         case nil:
-            // No transport to negotiate — between `cleanUpRTC` and the next JOIN. Returning keeps
-            // the reconnect window a no-op, as it was before the channel gate existed.
+            // No transport to negotiate — between `cleanUpRTC` and the next JOIN. Send callers are
+            // already turned away by `ensureDataChannelReady`; the data-track path gates on its own
+            // channel, so for those this stays the no-op it was before the channel gate existed.
             return
         }
     }
