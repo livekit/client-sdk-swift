@@ -23,19 +23,36 @@ class HTTP: NSObject {
                                                    delegate: nil,
                                                    delegateQueue: operationQueue)
 
-    static func requestValidation(from url: URL, token: String) async throws {
-        var request = URLRequest(url: url,
-                                 cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
-                                 timeoutInterval: .defaultHTTPConnect)
-        // Attach token to header
-        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        // Make the data request
+    /// Perform one request on the shared session.
+    ///
+    /// Both parameters are applied to `request`, overriding whatever it carries, so the
+    /// transport owns them rather than each call site.
+    ///
+    /// - Parameter cachePolicy: Defaults to bypassing the cache: the shared session uses
+    ///   `URLCache.shared`, and a cached validation or region response is a stale one.
+    /// - Parameter timeoutInterval: Defaults to ``TimeInterval/defaultHTTPConnect``.
+    static func request(_ request: URLRequest,
+                        cachePolicy: URLRequest.CachePolicy = .reloadIgnoringLocalAndRemoteCacheData,
+                        timeoutInterval: TimeInterval = .defaultHTTPConnect) async throws -> (Data, HTTPURLResponse)
+    {
+        var request = request
+        request.cachePolicy = cachePolicy
+        request.timeoutInterval = timeoutInterval
         let (data, response) = try await session.data(for: request)
-
         guard let httpResponse = response as? HTTPURLResponse else {
             throw URLError(.badServerResponse)
         }
+        return (data, httpResponse)
+    }
+
+    static func requestValidation(from url: URL, token: String) async throws {
+        var request = URLRequest(url: url)
+        // Attach token to header
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, httpResponse) = try await Self.request(request,
+                                                          cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
+                                                          timeoutInterval: .defaultHTTPConnect)
 
         guard (200 ..< 300).contains(httpResponse.statusCode) else {
             let statusCode = httpResponse.statusCode
