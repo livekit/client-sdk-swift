@@ -124,6 +124,8 @@ jobs:
       - name: Build & Test
         timeout-minutes: 30
         run: |
+          # A hung job's log goes quiet; capture where the test host is stuck before the timeout kills it.
+          .github/stall-dump/stall-dump.sh "$RUNNER_TEMP/xcodebuild.log" "$RUNNER_TEMP/stall-dump" &
           set -o pipefail && xcodebuild test \
             -scheme LiveKit \
             -destination 'platform=${{ matrix.platform }}' \
@@ -134,7 +136,6 @@ jobs:
             -only-testing:LiveKitNanopbTests \
             -only-testing:LiveKitObjCTests \
             -parallel-testing-enabled NO \
-            -retry-tests-on-failure -test-iterations 2 \
             | tee "$RUNNER_TEMP/xcodebuild.log" \
             | xcbeautify --renderer github-actions
 
@@ -146,7 +147,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: test-log-${{ strategy.job-index }}
-          path: ${{ runner.temp }}/xcodebuild.log
+          path: |
+            ${{ runner.temp }}/xcodebuild.log
+            ${{ runner.temp }}/stall-dump
           retention-days: 5
 
       # Client-side logs can't distinguish "we gave up" from "the SFU hung up on

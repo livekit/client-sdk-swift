@@ -45,6 +45,7 @@ let benchmarks: @Sendable () -> Void = {
 
     // Register all benchmark suites
     connectionBenchmarks()
+    sessionLifecycleBenchmarks()
     dataChannelBenchmarks()
     rpcBenchmarks()
 }
