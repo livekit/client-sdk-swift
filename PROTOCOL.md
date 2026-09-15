@@ -99,7 +99,7 @@ names are flat** (`Livekit_DataPacket_Kind`), and **enums are open**
 
 Three layers:
 
-1. **`CLiveKitProto`** — vendored nanopb 0.4.9.1 runtime + generated C structs
+1. **`CLiveKitProto`** — vendored nanopb 0.4.9.2 runtime + generated C structs
    and field descriptors. All fields use `FT_POINTER` (heap-allocated), so
    structs are small and `pb_release` frees everything. ABI defines and the
    `pb_*` → `lk_pb_*` symbol renames live in `lk_pb_config.h` /
