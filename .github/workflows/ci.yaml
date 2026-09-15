@@ -303,6 +303,25 @@ jobs:
             echo "Working tree is clean - all Swift protobuf files are up to date"
           fi
 
+  check-tuist:
+    name: Check Tuist
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install Tuist
+        run: brew install tuist
+
+      # Consumes the checkout with LiveKit as a per-target dynamic framework,
+      # which fails to link on imports Package.swift does not declare (#1126).
+      - name: Build Tuist example
+        run: .github/tuist-check/run.sh
+
   check-changes:
     name: Check Changes
     if: github.event_name == 'pull_request'
