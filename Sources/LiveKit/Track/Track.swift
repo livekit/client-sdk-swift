@@ -18,6 +18,7 @@
 
 import Foundation
 
+internal import LiveKitUniFFI
 internal import LiveKitWebRTC
 
 @objcMembers
@@ -104,6 +105,8 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         var isMuted: Bool = false
         var statistics: TrackStatistics?
         var simulcastStatistics: [VideoCodec: TrackStatistics] = [:]
+        /// Set by the Room's RTC instrument: every raw `getStats()` report goes to this scope.
+        var telemetryScope: TelemetryScope?
         var reportStatistics: Bool = false
 
         // Only for LocalTracks
@@ -453,6 +456,15 @@ extension Track {
             return
         }
 
+        // Telemetry gets the raw report; the core does the mapping, the same for every SDK.
+        let telemetry = _state.telemetryScope
+        let forward = { (report: LKRTCStatisticsReport) in
+            guard let telemetry, let sid = self.sid?.stringValue, let kind = self.kind.telemetry else { return }
+            telemetry.recordStatsReport(trackSid: sid, kind: kind, direction: rtpSender != nil ? .outbound : .inbound,
+                                        report: report.telemetryStats, timestampNs: report.telemetryTimestampNs)
+        }
+        forward(statisticsReport)
+
         let trackStatistics = TrackStatistics(from: Array(statisticsReport.statistics.values), prevStatistics: prevStatistics)
 
         // Simulcast statistics
@@ -462,6 +474,7 @@ extension Track {
 
         for _sender in simulcastRtpSenders {
             let _report = await transport.statistics(for: _sender.value)
+            forward(_report)
             _simulcastStatistics[_sender.key] = TrackStatistics(from: Array(_report.statistics.values),
                                                                 prevStatistics: prevSimulcastStatistics[_sender.key])
         }
