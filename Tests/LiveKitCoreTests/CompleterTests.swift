@@ -175,6 +175,53 @@ struct CompleterTests {
         try await secondTask.value
     }
 
+    /// `wait()` reads the cached result on a fast path and registers its waiter afterwards. A
+    /// `resume` landing between the two caches its result and finds no waiter to hand it to, so
+    /// the continuation has to be resolved by the same lock that registers it — otherwise it
+    /// waits out the full timeout on an already-resolved completer.
+    ///
+    /// Timing-dependent by nature, so this leans on repetition: the short timeout turns a strand
+    /// into a fast failure rather than a 30 s hang, and one strand across the run fails the test.
+    ///
+    /// Racing one waiter against one `resume` does not reach the window: the waiter has either not started
+    /// (and takes the cached result on the fast path) or has already registered. The window is a
+    /// few instructions wide, so this fans out — 32 waiters per round give the single `resume` a
+    /// chance to land inside one of them. Verified by removing the re-check, which fails this in
+    /// well under a second.
+    @Test func resumeRacingRegistrationNeverStrands() async throws {
+        for _ in 0 ..< 200 {
+            let completer = AsyncCompleter<Void>(label: "register-race", defaultTimeout: 0.5)
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for _ in 0 ..< 32 {
+                    group.addTask { try await completer.wait() }
+                }
+                group.addTask { completer.resume(returning: ()) }
+                try await group.waitForAll()
+            }
+        }
+    }
+
+    /// The re-check that closes the strand above runs under the registration lock, and cancellation
+    /// takes the task's status-record lock before `onCancel` takes that same lock — so a resume
+    /// issued while holding it inverts the order and wedges. Races a resume against a cancellation
+    /// for a fixed wall-clock budget: a slow host just completes fewer rounds, only a deadlock
+    /// leaves the loop unfinished.
+    @Test func resumeRacingCancellationSettles() async throws {
+        let races = Task.detached {
+            let deadline = Date().addingTimeInterval(3)
+            while Date() < deadline {
+                let completer = AsyncCompleter<Void>(label: "resume-vs-cancel", defaultTimeout: 1)
+                let waiter = Task { try await completer.wait() }
+                completer.resume(returning: ())
+                waiter.cancel()
+                _ = try? await waiter.value
+            }
+        }
+        let finished = AsyncCompleter<Void>(label: "races", defaultTimeout: 120)
+        Task.detached { await races.value; finished.resume(returning: ()) }
+        try await finished.wait()
+    }
+
     /// A waiter cancelled while its own timeout is firing must settle, not deadlock: the first child
     /// to time out cancels the rest at the very moment their timers go off. Races for a fixed wall-clock
     /// budget rather than a count, so a slow host cannot turn slowness into a timeout: only a deadlock

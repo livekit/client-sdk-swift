@@ -58,7 +58,7 @@ struct PublishDataTests {
             try await withThrowingTaskGroup { group in
                 for topic in topics {
                     group.addTask {
-                        try await room1.localParticipant.publish(data: jsonData, options: DataPublishOptions(topic: topic))
+                        try await room1.localParticipant.publish(data: jsonData, options: DataPublishOptions(topic: topic, reliable: true))
                     }
                 }
 

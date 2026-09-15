@@ -125,6 +125,48 @@ struct DataChannelPairTests {
             try await sendTask.value
         } throws: { ($0 as? LiveKitError)?.type == .cancelled }
     }
+
+    /// The whole point of the split: a lossy send must not be gated on the reliable channel.
+    @Test func openLatchesAreDistinctPerKind() {
+        let pair = DataChannelPair()
+
+        let reliable = pair.openCompleter(for: .reliable)
+        let lossy = pair.openCompleter(for: .lossy)
+
+        #expect(reliable !== lossy, "Each kind must gate on its own channel")
+        #expect(pair.openCompleter(for: .reliable) === reliable, "The latch for a kind must be stable")
+        #expect(pair.openCompleter(for: .lossy) === lossy)
+    }
+
+    /// A send parked on either latch has to fail when the pair is torn down, or it outlives the
+    /// connection it was waiting on.
+    @Test func resetFailsWaitersOnBothLatches() async throws {
+        let pair = DataChannelPair()
+
+        let waiters = (kind: Task { try await pair.openCompleter(for: .reliable).wait() },
+                       lossy: Task { try await pair.openCompleter(for: .lossy).wait() })
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        pair.reset(throwing: LiveKitError(.cancelled, message: "test teardown"))
+
+        await #expect { try await waiters.kind.value } throws: { ($0 as? LiveKitError)?.type == .cancelled }
+        await #expect { try await waiters.lossy.value } throws: { ($0 as? LiveKitError)?.type == .cancelled }
+    }
+
+    /// With no transport there is nothing that could open a channel, so the send gate has to turn
+    /// the caller away rather than hold them for the latch's full `.defaultPublisherDataChannelOpen`
+    /// (15 s) before reporting a `.timedOut` that says nothing about why.
+    @Test(arguments: [Livekit_DataPacket_Kind.reliable, .lossy])
+    func sendBeforeConnectFailsWithoutWaitingOutTheLatch(kind: Livekit_DataPacket_Kind) async {
+        let room = Room()
+        let started = Date()
+
+        await #expect {
+            try await room.send(dataPacket: .with { $0.kind = kind })
+        } throws: { ($0 as? LiveKitError)?.type == .invalidState }
+
+        #expect(Date().timeIntervalSince(started) < 1, "The gate must not wait on a latch nothing can resolve")
+    }
 }
 
 /// Pins the parser's behavior against each shape of `a=max-message-size`
