@@ -194,6 +194,31 @@ struct CompleterTests {
             try await waited
         }
     }
+
+    /// A waiter cancelled while its own timeout is firing must settle, not deadlock: the first child
+    /// to time out cancels the rest at the very moment their timers go off. Races for a fixed wall-clock
+    /// budget rather than a count, so a slow host cannot turn slowness into a timeout: only a deadlock
+    /// leaves the loop unfinished.
+    @Test func cancelRacingTimeoutSettles() async throws {
+        let races = Task.detached {
+            let deadline = Date().addingTimeInterval(3)
+            while Date() < deadline {
+                let first = AsyncCompleter<Void>(label: "first", defaultTimeout: 1)
+                let second = AsyncCompleter<Void>(label: "second", defaultTimeout: 1)
+                _ = try? await withThrowingTaskGroup(of: Void.self) { group in
+                    group.addTask { try await first.wait(timeout: 0.001) }
+                    group.addTask { try await second.wait(timeout: 0.001) }
+                    for try await _ in group.prefix(1) {
+                        group.cancelAll()
+                    }
+                }
+            }
+        }
+        // Bounded by a completer of its own, so a regression fails the test instead of the job. Generous,
+        // because utility-QoS timers have been seen to fire tens of seconds late on loaded simulators.
+        let finished = AsyncCompleter<Void>(label: "races", defaultTimeout: 120)
+        Task.detached { await races.value; finished.resume(returning: ()) }
+        try await finished.wait()    }
 }
 
 @Suite(.tags(.concurrency))

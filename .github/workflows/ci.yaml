@@ -124,6 +124,8 @@ jobs:
       - name: Build & Test
         timeout-minutes: 30
         run: |
+          # A hung job's log goes quiet; capture where the test host is stuck before the timeout kills it.
+          .github/stall-dump/stall-dump.sh "$RUNNER_TEMP/xcodebuild.log" "$RUNNER_TEMP/stall-dump" &
           set -o pipefail && xcodebuild test \
             -scheme LiveKit \
             -destination 'platform=${{ matrix.platform }}' \
@@ -134,7 +136,6 @@ jobs:
             -only-testing:LiveKitNanopbTests \
             -only-testing:LiveKitObjCTests \
             -parallel-testing-enabled NO \
-            -retry-tests-on-failure -test-iterations 2 \
             | tee "$RUNNER_TEMP/xcodebuild.log" \
             | xcbeautify --renderer github-actions
 
@@ -146,7 +147,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: test-log-${{ strategy.job-index }}
-          path: ${{ runner.temp }}/xcodebuild.log
+          path: |
+            ${{ runner.temp }}/xcodebuild.log
+            ${{ runner.temp }}/stall-dump
           retention-days: 5
 
       # Client-side logs can't distinguish "we gave up" from "the SFU hung up on
@@ -299,6 +302,25 @@ jobs:
           else
             echo "Working tree is clean - all Swift protobuf files are up to date"
           fi
+
+  check-tuist:
+    name: Check Tuist
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install Tuist
+        run: brew install tuist
+
+      # Consumes the checkout with LiveKit as a per-target dynamic framework,
+      # which fails to link on imports Package.swift does not declare (#1126).
+      - name: Build Tuist example
+        run: .github/tuist-check/run.sh
 
   check-changes:
     name: Check Changes
