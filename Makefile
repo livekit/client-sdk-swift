@@ -88,3 +88,11 @@ swift-docs:
 ifeq (, $(shell which swift-doc))
 	brew install swiftdocorg/formulae/swift-doc
 endif
+
+# Telemetry harness: headless session on macOS against a local livekit-server and a collector that
+# also fans out to Grafana LGTM (Tests/LiveKitCoreTests/Telemetry/otelcol-lgtm.yaml). Set
+# LIVEKIT_TELEMETRY_HOLD=<seconds> to keep the session open while browsing http://localhost:3000.
+telemetry-harness:
+	@lsof -nP -iTCP:4319 -sTCP:LISTEN >/dev/null || { echo "collector not running: otelcol-contrib --config Tests/LiveKitCoreTests/Telemetry/otelcol-lgtm.yaml"; exit 1; }
+	@lsof -nP -iTCP:7880 -sTCP:LISTEN >/dev/null || { echo "livekit-server --dev not running"; exit 1; }
+	swift test --filter 'TelemetryTests|TelemetryHarness'

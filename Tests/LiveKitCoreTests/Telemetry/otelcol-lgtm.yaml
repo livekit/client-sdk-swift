@@ -1,0 +1,26 @@
+# Local harness variant of otelcol.yaml: the same file sink the tests read back, plus a fan-out to
+# a Grafana LGTM stack (docker run -p 3000:3000 -p 4318:4318 grafana/otel-lgtm) so a session can be
+# browsed in Loki/Tempo at http://localhost:3000. Run: otelcol-contrib --config Tests/LiveKitCoreTests/Telemetry/otelcol-lgtm.yaml
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 127.0.0.1:4319
+exporters:
+  file:
+    path: /tmp/livekit-telemetry-otlp.jsonl
+  otlphttp/lgtm:
+    endpoint: http://127.0.0.1:4318
+    retry_on_failure:
+      enabled: false
+service:
+  telemetry:
+    metrics:
+      level: none
+  pipelines:
+    logs:
+      receivers: [otlp]
+      exporters: [file, otlphttp/lgtm]
+    traces:
+      receivers: [otlp]
+      exporters: [file, otlphttp/lgtm]

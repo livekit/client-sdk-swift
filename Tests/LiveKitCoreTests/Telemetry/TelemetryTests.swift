@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import CoreVideo
 import Foundation
 @testable import LiveKit
 import Testing
@@ -56,16 +55,7 @@ struct TelemetryTests {
 
             // Synthetic frames: no capture device or permission needed in a headless test run.
             let track = LocalVideoTrack.createBufferTrack(name: "telemetry")
-            let capturer = try #require(track.capturer as? BufferCapturer)
-            let frames = Task {
-                var pixelBuffer: CVPixelBuffer?
-                guard CVPixelBufferCreate(kCFAllocatorDefault, 320, 240, kCVPixelFormatType_32BGRA, nil, &pixelBuffer) == kCVReturnSuccess,
-                      let pixelBuffer else { return }
-                while !Task.isCancelled {
-                    capturer.capture(pixelBuffer)
-                    try? await Task.sleep(nanoseconds: 100_000_000)
-                }
-            }
+            let frames = try #require(track.capturer as? BufferCapturer).feedSyntheticFrames()
             try await rooms[0].localParticipant.publish(videoTrack: track)
             // A warn/error record emitted inside an operation must end up on that operation's span,
             // in that Room's trace — the whole path: Loggable → LogHub → Telemetry → core `session_of`.
@@ -127,6 +117,9 @@ struct OTLPFile {
         let name: String
         let traceId: String
         let spanId: String
+        let attributes: [String: String]
+        /// Span event names — the steps (`ws_open`, `first_media`, `attempt 1 quick`, …).
+        let events: [String]
     }
 
     private(set) var logs: [Log] = []
@@ -155,7 +148,9 @@ struct OTLPFile {
                     for span in scope["spans"] as? [[String: Any]] ?? [] {
                         guard Self.nanos(span["startTimeUnixNano"]) >= since else { continue }
                         spans.append(Span(name: span["name"] as? String ?? "", traceId: span["traceId"] as? String ?? "",
-                                          spanId: span["spanId"] as? String ?? ""))
+                                          spanId: span["spanId"] as? String ?? "",
+                                          attributes: Self.attributes(span["attributes"]),
+                                          events: (span["events"] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String }))
                     }
                 }
             }

@@ -118,14 +118,15 @@ extension [String: SpanAttribute] {
 // MARK: - Transport
 
 /// The host's half of the pipeline: a dumb bytes mover. The core composed URL, headers and body;
-/// this only performs the POST and maps the HTTP outcome onto `ExportError` so the core decides
-/// retry / drop / go-silent.
+/// this only performs the POST and hands back whatever came back. The core reads the status,
+/// `Retry-After`, the `google.rpc.Status` body and the "disabled" answer, so retry / drop /
+/// go-silent is decided the same way on every platform.
 final class URLSessionTelemetryTransport: TelemetryTransport, @unchecked Sendable {
     /// Background traffic class (`NET_SERVICE_TYPE_BK`): the local stack queues it below best-effort
     /// media and signaling (fq_codel BK class, Wi-Fi AC_BK) and switches its TCP flows to LEDBAT
     /// whenever foreground traffic is active — the one knob that actually protects the uplink.
     /// Ephemeral: no cookies, no cache; one connection.
-    private static let session: URLSession = {
+    static let defaultSession: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.networkServiceType = .background
         configuration.httpMaximumConnectionsPerHost = 1
@@ -133,9 +134,15 @@ final class URLSessionTelemetryTransport: TelemetryTransport, @unchecked Sendabl
         return URLSession(configuration: configuration)
     }()
 
-    func send(request: ExportRequest) async throws {
+    private let session: URLSession
+
+    init(session: URLSession = URLSessionTelemetryTransport.defaultSession) {
+        self.session = session
+    }
+
+    func send(request: ExportRequest) async throws -> ExportResponse {
         guard let url = URL(string: request.url) else {
-            throw ExportError.Rejected(message: "invalid url \(request.url)")
+            throw ExportError.Rejected(reason: "invalid url \(request.url)")
         }
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
@@ -143,23 +150,21 @@ final class URLSessionTelemetryTransport: TelemetryTransport, @unchecked Sendabl
         for (name, value) in request.headers {
             urlRequest.setValue(value, forHTTPHeaderField: name)
         }
+        let data: Data
         let response: URLResponse
         do {
-            (_, response) = try await Self.session.data(for: urlRequest)
+            (data, response) = try await session.data(for: urlRequest)
         } catch {
-            throw ExportError.Retryable(message: error.localizedDescription, retryAfterMs: nil)
+            throw ExportError.Retryable(reason: error.localizedDescription, retryAfterMs: nil)
         }
         guard let http = response as? HTTPURLResponse else {
-            throw ExportError.Retryable(message: "not an HTTP response", retryAfterMs: nil)
+            throw ExportError.Retryable(reason: "not an HTTP response", retryAfterMs: nil)
         }
-        switch http.statusCode {
-        case 200 ..< 300: return
-        case 429, 502, 503, 504:
-            let retryAfter = http.value(forHTTPHeaderField: "Retry-After").flatMap { UInt64($0) }.map { $0 * 1000 }
-            throw ExportError.Retryable(message: "HTTP \(http.statusCode)", retryAfterMs: retryAfter)
-        default:
-            throw ExportError.Rejected(message: "HTTP \(http.statusCode)")
+        var headers: [String: String] = [:]
+        for (name, value) in http.allHeaderFields {
+            if let name = name as? String, let value = value as? String { headers[name] = value }
         }
+        return ExportResponse(status: UInt16(clamping: http.statusCode), headers: headers, body: data)
     }
 }
 
