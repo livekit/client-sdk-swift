@@ -64,15 +64,21 @@ public enum Telemetry {
     static func log(_ record: LogRecord) {
         guard options.copy()?.instruments.contains(.logs) == true else { return }
         let function = "\(record.function)", file = record.path.isEmpty ? "\(record.file)" : record.path
-        telemetryLog(record: LiveKitUniFFI.LogRecord(severity: record.level.severity,
-                                                     source: record.source.core,
-                                                     message: record.message,
-                                                     logger: record.category,
-                                                     function: function.isEmpty ? nil : function,
-                                                     file: file.isEmpty ? nil : file,
-                                                     line: record.line > 0 ? UInt32(record.line) : nil,
-                                                     timestampNs: record.timestampNs,
-                                                     spanId: record.span?.spanId))
+        let core = LiveKitUniFFI.LogRecord(severity: record.level.severity,
+                                           source: record.source.core,
+                                           message: record.message,
+                                           logger: record.category,
+                                           function: function.isEmpty ? nil : function,
+                                           file: file.isEmpty ? nil : file,
+                                           line: record.line > 0 ? UInt32(record.line) : nil,
+                                           timestampNs: record.timestampNs,
+                                           spanId: record.span?.spanId)
+        // A span names the session; otherwise the emitter's Room does; otherwise the process.
+        if record.span == nil, let scope = record.scope {
+            scope.log(record: core)
+        } else {
+            telemetryLog(record: core)
+        }
     }
 }
 
@@ -253,4 +259,10 @@ extension DisconnectReason {
         default: .unknown
         }
     }
+}
+
+extension Room: TelemetryScoped {}
+
+extension Participant: TelemetryScoped {
+    var telemetryScope: TelemetryScope? { _room?.telemetryScope }
 }

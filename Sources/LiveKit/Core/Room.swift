@@ -164,6 +164,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     /// This Room's scope on the process pipeline — one trace for the Room's lifetime — or `nil`
     /// when telemetry is off. Taken at init, so pre-connect work is part of the call.
+    /// The Room's telemetry session (`TelemetryScoped`); nil while telemetry is off.
     let telemetryScope: TelemetryScope?
     private var rtcTelemetry: RTCTelemetry?
 

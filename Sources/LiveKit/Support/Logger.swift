@@ -176,6 +176,12 @@ open class OSLogger: Logger, @unchecked Sendable {
 /// Allows to extend with custom `log` method which automatically captures current type (class name).
 public protocol Loggable {}
 
+/// Something that belongs to a Room's telemetry session: its records land in that Room's trace
+/// even without an ambient span (the same rule as the Dart and Kotlin SDKs).
+protocol TelemetryScoped {
+    var telemetryScope: TelemetryScope? { get }
+}
+
 extension Loggable {
     func log(_ message: CustomStringConvertible? = nil,
              _ level: LogLevel = .debug,
@@ -187,17 +193,19 @@ extension Loggable {
                  level,
                  file: file,
                  function: function,
-                 line: line)
+                 line: line,
+                 scope: (self as? TelemetryScoped)?.telemetryScope)
     }
 
     static func log(_ message: CustomStringConvertible? = nil,
                     _ level: LogLevel = .debug,
                     file: StaticString = #fileID,
                     function: StaticString = #function,
-                    line: UInt = #line)
+                    line: UInt = #line,
+                    scope: TelemetryScope? = nil)
     {
         LogHub.emit(LogRecord(level: level, source: .sdk, type: Self.self, function: function, file: file, line: line,
-                              message: message?.description ?? ""))
+                              message: message?.description ?? "", scope: scope))
     }
 }
 
@@ -226,10 +234,14 @@ struct LogRecord: Sendable {
     let timestampNs: UInt64
     /// The span the emitting task runs in, if any and still open.
     let span: TraceContext?
+    /// The Room session the emitter belongs to, when it has one and no span says otherwise.
+    let scope: TelemetryScope?
 
     init(level: LogLevel, source: Telemetry.LogSource, type: Any.Type, category: String? = nil,
-         function: StaticString = "", file: StaticString = "", line: UInt = 0, path: String = "", message: String)
+         function: StaticString = "", file: StaticString = "", line: UInt = 0, path: String = "", message: String,
+         scope: TelemetryScope? = nil)
     {
+        self.scope = scope
         self.level = level
         self.source = source
         self.type = type
