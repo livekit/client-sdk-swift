@@ -129,6 +129,7 @@ extension RTC {
         var isInitialized: Bool = false
         var admType: AudioDeviceModuleType = .audioEngine
         var bypassVoiceProcessing: Bool = false
+        var isWARPEnabled: Bool = false
     }
 
     static let pcFactoryState = StateSync(PeerConnectionFactoryState())
@@ -149,6 +150,35 @@ extension RTC {
     static let videoSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(forKind: kLKRTCMediaStreamTrackKindVideo)
     static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(forKind: kLKRTCMediaStreamTrackKindAudio)
 
+    /// The field trials the SDK asks libwebrtc for, keyed by trial name; empty when none.
+    static func fieldTrials(isWARPEnabled: Bool) -> [String: String] {
+        var trials: [String: String] = [:]
+        if isWARPEnabled {
+            // The part of WARP libwebrtc implements: the DTLS handshake piggybacked on the ICE STUN
+            // binding exchange, so DTLS and ICE negotiate in parallel instead of one after the other.
+            trials[kLKRTCFieldTrialIceHandshakeDtlsKey] = kLKRTCFieldTrialEnabledValue
+        }
+        return trials
+    }
+
+    /// Writes the trials into libwebrtc's process-global field trial string, replacing whatever was
+    /// there, so every trial the process wants has to be in this one set.
+    ///
+    /// Deliberately not `LKRTCPeerConnectionFactory.configureFieldTrials(_:)`: that one is snapshot
+    /// into the factory's environment when the factory is built, and a later call does nothing. The
+    /// global string is what an environment without its own trials reads, and it reads it on every
+    /// lookup — each peer connection asks for `WebRTC-IceHandshakeDtls` as it is created — so trials
+    /// set here still reach connections made after the factory exists.
+    ///
+    /// - Note: Only safe to call while no peer connection is being created: the swap frees the
+    ///   previous string, which libwebrtc may be reading on another thread.
+    static func applyFieldTrials(isWARPEnabled: Bool) {
+        let trials = fieldTrials(isWARPEnabled: isWARPEnabled)
+        Room.log("Configuring field trials: \(trials)")
+        // Deprecated upstream in favor of per-factory trials, which cannot be changed afterwards.
+        LKRTCInitFieldTrialDictionary(trials)
+    }
+
     static let peerConnectionFactory: LKRTCPeerConnectionFactory = {
         // Update pc init lock
         let (admType, bypassVoiceProcessing) = pcFactoryState.mutate {
@@ -160,13 +190,30 @@ extension RTC {
 
         LKRTCInitializeSSL()
 
+        // No field trials are passed to the factory on purpose: that would snapshot them into its
+        // environment for good. They live in the global string instead, see `applyFieldTrials`.
+
         Room.log("Initializing PeerConnectionFactory...")
 
-        return LKRTCPeerConnectionFactory(audioDeviceModuleType: admType.toRTCType(),
-                                          bypassVoiceProcessing: bypassVoiceProcessing,
-                                          encoderFactory: encoderFactory,
-                                          decoderFactory: decoderFactory,
-                                          audioProcessingModule: audioProcessingModule)
+        let factory = LKRTCPeerConnectionFactory(audioDeviceModuleType: admType.toRTCType(),
+                                                 bypassVoiceProcessing: bypassVoiceProcessing,
+                                                 encoderFactory: encoderFactory,
+                                                 decoderFactory: decoderFactory,
+                                                 audioProcessingModule: audioProcessingModule)
+
+        // The ADM is born with the factory, so its observer is installed here rather than from
+        // `AudioManager.init()`: doing it there forced this factory to be built as soon as anything
+        // touched `AudioManager.shared` — `Room.init` does — which is before the settings that are
+        // read at factory creation (field trials, `admType`) can still be changed.
+        //
+        // `factory.audioDeviceModule`, never `RTC.audioDeviceModule`: reading that static from
+        // inside its own initializer would deadlock. The ADM holds `observer` weakly; the adapter
+        // is kept alive by the shared `AudioManager` instantiated on this line.
+        #if !LK_BENCHMARK
+        factory.audioDeviceModule.observer = AudioManager.shared._admDelegateAdapter
+        #endif
+
+        return factory
     }()
 
     // forbid direct access

@@ -151,7 +151,9 @@ extension Room {
             rtcConfiguration.iceTransportPolicy = connectOptions.iceTransportPolicy.toRTCType()
         }
 
-        rtcConfiguration.enableDscp = connectOptions.isDscpEnabled
+        // WARP also marks outgoing packets with DSCP; the field trial that carries the DTLS
+        // handshake in the ICE exchange is read as this peer connection is created.
+        rtcConfiguration.enableDscp = connectOptions.isDscpEnabled || RTC.pcFactoryState.isWARPEnabled
 
         return rtcConfiguration
     }
