@@ -81,6 +81,43 @@ public class LiveKitSDK: NSObject, Loggable {
         setLogLevel(.debug)
     }
 
+    /// Whether WARP is opted into for this process. See ``setWARPEnabled(_:)``.
+    public static var isWARPEnabled: Bool {
+        RTC.pcFactoryState.isWARPEnabled
+    }
+
+    /// Opt into WARP (WebRTC Abridged Roundtrip Protocol,
+    /// [draft-uberti-tsvwg-warp](https://www.ietf.org/archive/id/draft-uberti-tsvwg-warp-00.html)),
+    /// which shortens the WebRTC connection setup from ~6 round trips to ~2.
+    ///
+    /// The part of it the SDK turns on is the DTLS handshake carried inside the ICE STUN binding
+    /// exchange (libwebrtc's `WebRTC-IceHandshakeDtls` field trial), so DTLS and ICE negotiate in
+    /// parallel instead of one after the other. Rooms connected afterwards also mark their outgoing
+    /// packets with DSCP, as ``ConnectOptions/isDscpEnabled`` does.
+    ///
+    /// ```swift
+    /// LiveKitSDK.setWARPEnabled(true)
+    ///
+    /// let room = Room()
+    /// try await room.connect(url: url, token: token)
+    /// ```
+    ///
+    /// Can be called at any point, including after a ``Room`` has connected: the setting is read
+    /// when a peer connection is created, so it applies to every room connected afterwards and
+    /// leaves the ones already connected as they were negotiated. Call it before ``Room/connect(url:token:connectOptions:roomOptions:)``
+    /// for it to take effect on that connection.
+    ///
+    /// - Note: The setting is process-global, not per ``Room``, and it replaces libwebrtc's global
+    ///   field trial string — an app that sets its own trials through
+    ///   `LKRTCInitFieldTrialDictionary` should set them again afterwards.
+    /// - Note: A peer that does not implement the piggybacked handshake negotiates the standard
+    ///   way, so enabling this does not break connections to servers without WARP support.
+    /// - SeeAlso: ``ConnectOptions/isDscpEnabled``
+    public static func setWARPEnabled(_ enabled: Bool) {
+        RTC.pcFactoryState.mutate { $0.isWARPEnabled = enabled }
+        RTC.applyFieldTrials(isWARPEnabled: enabled)
+    }
+
     /// Notify the SDK to start initializing for faster connection/publishing later on. This is non-blocking.
     public static func prepare() {
         // TODO: Add RTC related initializations
