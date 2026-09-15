@@ -31,9 +31,13 @@ extension Utils {
 
         if let videoCodec, videoCodec.isSVC {
             // SVC mode
-            log("Using SVC mode")
-            // VP9/AV1 with screen sharing requires single spatial layer
-            return [RTC.createRtpEncodingParameters(encoding: encoding, scalabilityMode: isScreenShare ? .L1T3 : .L3T3_KEY)]
+            // VP9/AV1 with screen sharing requires single spatial layer, so `.L1T3` stays forced
+            // there — a multi-spatial mode publishes no frames at all. An explicit
+            // `publishOptions.scalabilityMode` only applies to camera encodings (parity with
+            // livekit-client `scalabilityMode`).
+            let scalabilityMode: ScalabilityMode = isScreenShare ? .L1T3 : (publishOptions.scalabilityMode ?? .L3T3_KEY)
+            log("Using SVC mode, scalabilityMode: \(scalabilityMode)")
+            return [RTC.createRtpEncodingParameters(encoding: encoding, scalabilityMode: scalabilityMode)]
         } else if !publishOptions.simulcast {
             // Not-simulcast mode
             log("Simulcast not enabled")
