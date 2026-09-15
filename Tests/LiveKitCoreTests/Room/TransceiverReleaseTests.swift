@@ -65,6 +65,13 @@ struct TransceiverReleaseTests {
             case .both: MediaKind.allCases
             }
         }
+
+        /// Chosen so `cycles * kinds.count` stays under the SFU's 20 pending-track cap: it only
+        /// clears a pending track when that track's media arrives (`addMediaTrack`), and this
+        /// loop unpublishes before any RTP can flow — `TestAudioTrack` never produces any — so
+        /// every publish leaks a slot for the participant's lifetime and the 21st is rejected
+        /// with LIMIT_EXCEEDED. A real push-to-talk app holds the track long enough to clear it.
+        var cycles: Int { 18 / kinds.count }
     }
 
     /// Reproduces the exact interleaving that crashed the SDK before the video-only workaround:
@@ -144,7 +151,7 @@ struct TransceiverReleaseTests {
             // `unpublishAll()` leaves no publication, so the next `setMicrophone`/`setCamera`
             // takes `set(source:enabled:)`'s create-and-publish branch rather than unmuting.
             // Each cycle therefore churns a new media source and track, not just a transceiver.
-            for _ in 0 ..< 100 {
+            for _ in 0 ..< scenario.cycles {
                 var feeders: [Task<Void, Never>] = []
                 defer { feeders.forEach { $0.cancel() } }
 

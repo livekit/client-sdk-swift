@@ -54,7 +54,8 @@ struct MicrophoneTransceiverReleaseTests {
             let publisher = try #require(room._state.transport?.publisher)
             let baseline = await publisher.unstoppedTransceiverCount
 
-            for _ in 0 ..< 100 {
+            // Capped well under the SFU's 20 pending-track limit; see TransceiverReleaseTests.
+            for _ in 0 ..< 15 {
                 let videoTrack = await LocalVideoTrack.createBufferTrack(
                     name: "camera",
                     source: .camera,
