@@ -297,7 +297,7 @@ struct PeerConnectionSignalingTests {
 
             let room2Watcher: RoomWatcher<TestPayload> = room2.createWatcher()
 
-            try await room1.localParticipant.publish(data: jsonData, options: DataPublishOptions(topic: topic))
+            try await room1.localParticipant.publish(data: jsonData, options: DataPublishOptions(topic: topic, reliable: true))
 
             let received = try await room2Watcher.didReceiveDataCompleters.completer(for: topic).wait()
             #expect(received.content == testPayload.content, "Received data should match sent data")

@@ -220,18 +220,24 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     /// stream so it is ordered after submissions already in flight from concurrent callers, and no
     /// continuation leaks across a disconnect.
     func reset(throwing error: Error? = nil) {
+        release(detachSendTarget(throwing: error))
+    }
+
+    /// Clears the send target and fails everything queued, touching nothing in WebRTC. The
+    /// detached channel is handed back so the caller can ``release(_:)`` it once it holds no lock.
+    ///
+    /// Split out for owners that need the state transition to be atomic with their own: the pair
+    /// clears both drains and their latches under one lock, so a state callback cannot resolve a
+    /// latch that teardown just cleared.
+    func detachSendTarget(throwing error: Error? = nil) -> DrainSendChannel? {
         let previous = _state.mutate { state -> DrainSendChannel? in
             let previous = state.sendTarget
             state.sendTarget = nil
             state.wasReset = true
             return previous
         }
-        if let channel = previous as? LKRTCDataChannel, channel.delegate === self {
-            channel.delegate = nil
-        }
-        parkChannelRelease(previous, closing: true)
-
         eventContinuation.yield(.fail(error))
+        return previous
     }
 
     func info() -> Livekit_DataChannelInfo? {
@@ -429,6 +435,21 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     func dataChannel(_ dataChannel: LKRTCDataChannel, didReceiveMessageWith buffer: LKRTCDataBuffer) {
         guard isCurrent(dataChannel) else { return }
         onMessage(buffer.data)
+    }
+}
+
+// MARK: - Channel release
+
+extension DataChannelDrain {
+    /// Hands a detached channel back to WebRTC.
+    /// - Warning: Blocking. Detaching a delegate and closing a channel are proxied `BlockingCall`s
+    ///   onto WebRTC's threads, and one of those threads may be inside `dataChannelDidChangeState`
+    ///   waiting on a lock the caller holds — never call this while holding one.
+    func release(_ previous: DrainSendChannel?) {
+        if let channel = previous as? LKRTCDataChannel, channel.delegate === self {
+            channel.delegate = nil
+        }
+        parkChannelRelease(previous, closing: true)
     }
 }
 

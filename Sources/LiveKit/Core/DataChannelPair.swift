@@ -54,8 +54,30 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     let openCompleter = AsyncCompleter<Void>(label: "Data channel open", defaultTimeout: .defaultPublisherDataChannelOpen)
 
-    /// Whether *both* channels can currently take bytes. Only the open latch and diagnostics use
-    /// this; the send path gates per channel.
+    /// Per-channel open latches, for callers that will use one channel rather than the pair.
+    ///
+    /// The two are independent SCTP streams and open independently, so gating a lossy send on the
+    /// reliable channel would stall — or fail — a send that its own channel was ready to take.
+    /// rust-sdks resolves the channel per kind on every send (`ensure_publisher_connected(kind)` →
+    /// `data_channel(Publisher, kind)`). client-sdk-js resolves per kind one level down
+    /// (`ensureDataTransportConnected(kind)` → `dataChannelForKind(kind)`) but memoizes a single
+    /// connection-scoped promise above it, so in practice only its first send is gated per kind —
+    /// see the note on `Room.ensureDataChannelReady(kind:)`.
+    private let reliableOpenCompleter = AsyncCompleter<Void>(label: "Reliable data channel open", defaultTimeout: .defaultPublisherDataChannelOpen)
+    private let lossyOpenCompleter = AsyncCompleter<Void>(label: "Lossy data channel open", defaultTimeout: .defaultPublisherDataChannelOpen)
+
+    /// The open latch for the channel a packet of `kind` will be sent on.
+    func openCompleter(for kind: Livekit_DataPacket_Kind) -> AsyncCompleter<Void> {
+        kind == .lossy ? lossyOpenCompleter : reliableOpenCompleter
+    }
+
+    /// Whether the channel a packet of `kind` would be written to can currently take bytes.
+    func isOpen(kind: Livekit_DataPacket_Kind) -> Bool {
+        kind == .lossy ? lossy.isOpen : reliable.isOpen
+    }
+
+    /// Whether *both* channels can currently take bytes. Only the pair-wide latch and diagnostics
+    /// use this; the send path gates per channel.
     var isOpen: Bool { lossy.isOpen && reliable.isOpen }
 
     // MARK: - Private
@@ -131,9 +153,28 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     /// Resolves the open latch once both channels are usable. Reached from either drain's state
     /// callback and from a channel swap.
     private func handleStateChange() {
-        if isOpen {
-            openCompleter.resume(returning: ())
+        // Re-armed, not just resolved: libwebrtc closes an SCTP channel itself on a
+        // max-message-size violation, and a latch that only ever resolves would let the next send
+        // through instantly to park in the drain — the same silent drop the gate exists to stop.
+        // `rearm()` leaves in-flight waiters waiting rather than failing them, so a channel that
+        // flaps does not fail a send that the reopened channel can take. `DataTracks` re-arms its
+        // own publisher latch the same way.
+        //
+        // Serialized on the existing state lock, and each channel's state is read *inside* it.
+        // `onStateChange` fires both from `setChannel` and from WebRTC's delegate thread, so
+        // sampling `isOpen` outside would let a stale invocation resolve a latch that a newer
+        // close had already re-armed — leaving the next send to skip the gate and park in a
+        // closed drain.
+        _state.mutate { _ in
+            sync(reliableOpenCompleter, isOpen: reliable.isOpen)
+            sync(lossyOpenCompleter, isOpen: lossy.isOpen)
+            sync(openCompleter, isOpen: isOpen)
         }
+    }
+
+    /// Points a latch at `isOpen`, sampled by the caller under the state lock.
+    private func sync(_ completer: AsyncCompleter<Void>, isOpen: Bool) {
+        if isOpen { completer.resume(returning: ()) } else { completer.rearm() }
     }
 
     /// Update the negotiated SCTP max-message-size cap on both channels. Called by the room after
@@ -148,12 +189,29 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     func reset(throwing error: Error? = nil) {
-        _state.mutate { $0.reliableReceivedState.removeAll() }
-        lossy.reset(throwing: error)
-        reliable.reset(throwing: error)
+        // Clearing the drains and the latches they feed happens under the same lock
+        // `handleStateChange` samples them with, so the two cannot interleave. Without that, a
+        // state callback can read a channel as open, lose the race to this reset, and then resolve
+        // a latch teardown just cleared — leaving the next send to skip the gate and park in a
+        // drain whose `.fail` event is already gone.
+        //
+        // Only the state transitions run under the lock — no WebRTC call does. Detaching a
+        // delegate and closing a channel are proxied `BlockingCall`s onto WebRTC's threads, and a
+        // state callback on one of those threads may already be waiting for `_state` inside
+        // `handleStateChange`: holding it across them deadlocks teardown against the callback.
+        let detached = _state.mutate { state -> (lossy: DrainSendChannel?, reliable: DrainSendChannel?) in
+            state.reliableReceivedState.removeAll()
+            let lossyChannel = lossy.detachSendTarget(throwing: error)
+            let reliableChannel = reliable.detachSendTarget(throwing: error)
+            openCompleter.reset(throwing: error)
+            reliableOpenCompleter.reset(throwing: error)
+            lossyOpenCompleter.reset(throwing: error)
+            return (lossyChannel, reliableChannel)
+        }
+        lossy.release(detached.lossy)
+        reliable.release(detached.reliable)
         // Negotiated per session (from the SDP answer); the next session must not inherit it.
         set(maxMessageSize: Self.defaultMaxMessageSize)
-        openCompleter.reset(throwing: error)
     }
 
     // MARK: - Send

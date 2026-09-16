@@ -29,19 +29,27 @@ import LiveKitWebRTC
     private let _onDecryptionError = StateSync<(() -> Void)?>(nil)
 
     /// Awaits the next delegate callback (data received or decryption error).
-    private func awaitEvent() async {
-        await withCheckedContinuation { continuation in
-            let previous = self._onDataReceived.copy()
-            self._onDataReceived.mutate { $0 = {
-                previous?()
-                continuation.resume()
-            }}
-            let previousError = self._onDecryptionError.copy()
-            self._onDecryptionError.mutate { $0 = {
-                previousError?()
-                continuation.resume()
-            }}
-        }
+    ///
+    /// Bounded, because the callback rides on actual delivery: a dropped packet used to park this
+    /// on an unbounded continuation forever, so the whole job hit its 30-minute cap instead of the
+    /// test failing in seconds. `AsyncCompleter` also tolerates being resolved twice, where the two
+    /// closures below resuming one continuation would trap with a continuation misuse.
+    ///
+    /// Both handlers keep chaining whatever was registered before them — the `confirmation` blocks
+    /// install their `confirm()` that way.
+    private func awaitEvent(timeout: TimeInterval = 15) async throws {
+        let event = AsyncCompleter<Void>(label: "Encrypted data channel event", defaultTimeout: timeout)
+        let previous = _onDataReceived.copy()
+        _onDataReceived.mutate { $0 = {
+            previous?()
+            event.resume(returning: ())
+        }}
+        let previousError = _onDecryptionError.copy()
+        _onDecryptionError.mutate { $0 = {
+            previousError?()
+            event.resume(returning: ())
+        }}
+        try await event.wait()
     }
 
     /// Builds a publisher/subscriber room pair, each with its own key provider.
@@ -79,7 +87,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                await self.awaitEvent()
+                try await self.awaitEvent()
             }
 
             let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
@@ -124,7 +132,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                await self.awaitEvent()
+                try await self.awaitEvent()
             }
 
             let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
@@ -162,7 +170,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                await self.awaitEvent()
+                try await self.awaitEvent()
             }
 
             #expect(self._lastDecryptionError.copy() != nil, "Decryption error should have occurred")
@@ -209,7 +217,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                await self.awaitEvent()
+                try await self.awaitEvent()
             }
 
             #expect(self._lastDecryptionError.copy() != nil, "Decryption error should have occurred with mismatched per-participant keys")
@@ -256,7 +264,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                await self.awaitEvent()
+                try await self.awaitEvent()
             }
 
             let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
@@ -301,7 +309,7 @@ import LiveKitWebRTC
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                await self.awaitEvent()
+                try await self.awaitEvent()
             }
 
             let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
@@ -354,7 +362,7 @@ extension EncryptedDataChannelTests {
 
                 try await sender.send(userPacket: userPacket, kind: .reliable)
 
-                await self.awaitEvent()
+                try await self.awaitEvent()
             }
 
             let receivedMessage = String(data: self._receivedData.copy(), encoding: .utf8)
