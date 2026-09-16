@@ -189,14 +189,26 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     }
 
     func reset(throwing error: Error? = nil) {
-        _state.mutate { $0.reliableReceivedState.removeAll() }
-        lossy.reset(throwing: error)
-        reliable.reset(throwing: error)
+        // Clearing the drains and the latches they feed happens under the same lock
+        // `handleStateChange` samples them with, so the two cannot interleave. Without that, a
+        // state callback can read a channel as open, lose the race to this reset, and then resolve
+        // a latch teardown just cleared — leaving the next send to skip the gate and park in a
+        // drain whose `.fail` event is already gone.
+        //
+        // Safe to hold across the drain and completer resets: both settle their continuations
+        // outside their own locks, and nothing taken under `_state` is acquired by a cancellation
+        // handler, so there is no path back into this lock.
+        _state.mutate { state in
+            state.reliableReceivedState.removeAll()
+            lossy.reset(throwing: error)
+            reliable.reset(throwing: error)
+            openCompleter.reset(throwing: error)
+            reliableOpenCompleter.reset(throwing: error)
+            lossyOpenCompleter.reset(throwing: error)
+        }
         // Negotiated per session (from the SDP answer); the next session must not inherit it.
+        // Outside the lock: it only yields onto each drain's event stream.
         set(maxMessageSize: Self.defaultMaxMessageSize)
-        openCompleter.reset(throwing: error)
-        reliableOpenCompleter.reset(throwing: error)
-        lossyOpenCompleter.reset(throwing: error)
     }
 
     // MARK: - Send
