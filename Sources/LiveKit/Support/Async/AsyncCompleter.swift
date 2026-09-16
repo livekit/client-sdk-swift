@@ -186,7 +186,7 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
                 let timeoutBlock = DispatchWorkItem { [weak self] in
                     guard let self else { return }
                     log("\(label) id: \(entryId) timed out")
-                    _lock.sync { _entries.removeValue(forKey: entryId) }?.timeout()
+                    _lock.sync { self._entries.removeValue(forKey: entryId) }?.timeout()
                 }
 
                 _lock.sync {
