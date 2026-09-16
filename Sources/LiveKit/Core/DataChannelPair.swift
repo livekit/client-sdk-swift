@@ -195,19 +195,22 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         // a latch teardown just cleared — leaving the next send to skip the gate and park in a
         // drain whose `.fail` event is already gone.
         //
-        // Safe to hold across the drain and completer resets: both settle their continuations
-        // outside their own locks, and nothing taken under `_state` is acquired by a cancellation
-        // handler, so there is no path back into this lock.
-        _state.mutate { state in
+        // Only the state transitions run under the lock — no WebRTC call does. Detaching a
+        // delegate and closing a channel are proxied `BlockingCall`s onto WebRTC's threads, and a
+        // state callback on one of those threads may already be waiting for `_state` inside
+        // `handleStateChange`: holding it across them deadlocks teardown against the callback.
+        let detached = _state.mutate { state -> (lossy: DrainSendChannel?, reliable: DrainSendChannel?) in
             state.reliableReceivedState.removeAll()
-            lossy.reset(throwing: error)
-            reliable.reset(throwing: error)
+            let lossyChannel = lossy.detachSendTarget(throwing: error)
+            let reliableChannel = reliable.detachSendTarget(throwing: error)
             openCompleter.reset(throwing: error)
             reliableOpenCompleter.reset(throwing: error)
             lossyOpenCompleter.reset(throwing: error)
+            return (lossyChannel, reliableChannel)
         }
+        lossy.release(detached.lossy)
+        reliable.release(detached.reliable)
         // Negotiated per session (from the SDP answer); the next session must not inherit it.
-        // Outside the lock: it only yields onto each drain's event stream.
         set(maxMessageSize: Self.defaultMaxMessageSize)
     }
 
