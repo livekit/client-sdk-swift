@@ -91,14 +91,22 @@ extension Room {
     /// - Parameter kind: Gates on this kind's channel alone. The two are independent SCTP streams,
     ///   so waiting on the pair would let a lagging reliable channel fail a lossy send.
     func ensureDataChannelReady(kind: Livekit_DataPacket_Kind) async throws {
-        // Between `cleanUpRTC` and the next JOIN there is no transport to open a channel, so the
-        // latch below has nothing that could resolve it and the wait would only burn its full
-        // timeout before failing. `ensurePublisherConnected` returns immediately in this state, so
-        // this is the only place the window is visible. Racy by nature — the transport can go away
-        // right after the check — but a waiter already registered when it does is failed by
-        // `DataChannelPair.reset(throwing:)`, so the remaining window is one hop wide.
-        guard _state.transport != nil else {
+        // Nothing will open a channel once teardown has started, so the latch below has nothing
+        // that could resolve it and the wait would only burn its full timeout before failing.
+        //
+        // Gated on the connection state rather than on `transport != nil`: `cleanUpRTC` resets the
+        // latches *before* awaiting transport closure and retires the transport only afterwards,
+        // so `transport` stays non-nil across a blocking WebRTC teardown and a waiter registered
+        // in that window is not covered by the reset that already ran. `disconnect()` moves to
+        // `.disconnecting` before any of that, which closes the whole window.
+        //
+        // `.reconnecting` deliberately still waits: a full reconnect clears the transport too, but
+        // there a send should park until the rebuilt channel opens rather than fail.
+        switch _state.connectionState {
+        case .disconnecting, .disconnected:
             throw LiveKitError(.invalidState, message: "Room is not connected")
+        case .connecting, .reconnecting, .connected:
+            break
         }
 
         // Concurrently, not in sequence: in subscriber-primary mode the channel opens on the SCTP
@@ -135,9 +143,10 @@ extension Room {
             return
 
         case nil:
-            // No transport to negotiate — between `cleanUpRTC` and the next JOIN. Send callers are
-            // already turned away by `ensureDataChannelReady`; the data-track path gates on its own
-            // channel, so for those this stays the no-op it was before the channel gate existed.
+            // No transport to negotiate — between `cleanUpRTC` and the next JOIN. Sends on a room
+            // that is tearing down are already turned away by `ensureDataChannelReady`; what
+            // reaches here is a reconnect in progress, where the rebuilt channel resolves the
+            // latch, and the data-track path, which gates on its own channel.
             return
         }
     }
