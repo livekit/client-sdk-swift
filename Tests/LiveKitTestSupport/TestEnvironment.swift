@@ -31,13 +31,13 @@ public enum TestEnvironment {
         readEnvironmentString(for: "LIVEKIT_TESTING_URL", defaultValue: "ws://localhost:7880")
     }
 
-    // swiftlint:disable:next function_parameter_count
+    /// Grants default to the minimum needed to connect and observe; pass them explicitly to publish.
     public static func liveKitServerToken(for room: String,
                                           identity: String,
-                                          canPublish: Bool,
-                                          canPublishData: Bool,
-                                          canPublishSources: Set<Track.Source>,
-                                          canSubscribe: Bool) throws -> String
+                                          canPublish: Bool = false,
+                                          canPublishData: Bool = false,
+                                          canPublishSources: Set<Track.Source> = [],
+                                          canSubscribe: Bool = true) throws -> String
     {
         let apiKey = readEnvironmentString(for: "LIVEKIT_TESTING_API_KEY", defaultValue: "devkey")
         let apiSecret = readEnvironmentString(for: "LIVEKIT_TESTING_API_SECRET", defaultValue: "secret")
