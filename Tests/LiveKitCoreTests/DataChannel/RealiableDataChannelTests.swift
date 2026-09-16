@@ -63,6 +63,29 @@ import LiveKitTestSupport
     private let _receivedIndices = StateSync<[UInt32]>([])
     var onDataReceived: (() -> Void)?
 
+    /// Waits until the final index lands, or delivery goes idle for `idleTimeout`.
+    ///
+    /// Waits for the *last* index rather than a full count: a reconnect mode can legitimately drop
+    /// the in-flight window, where waiting for every index would always burn the whole timeout.
+    ///
+    /// The timeout is on *idle*, not on the whole wait. This test ships ~3.9 MB of reliable payload
+    /// and a loaded runner can still be draining it well past any flat window; stopping early tears
+    /// the room down with packets still in the transport, and those are lost — `send` resolves when
+    /// a write reaches `sendData`, not when it is delivered. Resetting on progress keeps a genuine
+    /// stall failing within `idleTimeout` while letting a slow drain finish.
+    private func waitForDelivery(upTo iterations: Int, idleTimeout: TimeInterval) async {
+        var lastCount = -1
+        var idleDeadline = Date().addingTimeInterval(idleTimeout)
+        while Date() < idleDeadline, _receivedIndices.copy().last != UInt32(iterations - 1) {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            let count = _receivedIndices.copy().count
+            if count != lastCount {
+                lastCount = count
+                idleDeadline = Date().addingTimeInterval(idleTimeout)
+            }
+        }
+    }
+
     /// The delivery guarantees the reliable channel actually makes, per reconnect mode.
     private func expectDelivery(_ received: [UInt32], mode: ReconnectMode, iterations: Int) {
         // True in every mode: the channel neither reorders nor duplicates, and never invents an
@@ -151,13 +174,7 @@ import LiveKitTestSupport
                 // open until every packet has been delivered; waiting after the body
                 // returns loses anything still in flight to the room teardown.
                 //
-                // Waits for the *last* index rather than a full count: a reconnect mode can drop
-                // the in-flight window, where waiting for `iterations` would always burn the whole
-                // deadline before asserting.
-                let deadline = Date().addingTimeInterval(receiveDeadline)
-                while Date() < deadline, self._receivedIndices.copy().last != UInt32(iterations - 1) {
-                    try? await Task.sleep(nanoseconds: 100_000_000)
-                }
+                await self.waitForDelivery(upTo: iterations, idleTimeout: receiveDeadline)
             }
         }
 
