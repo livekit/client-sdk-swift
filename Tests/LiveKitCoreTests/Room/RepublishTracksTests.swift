@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import CoreVideo
+import Foundation
 @testable import LiveKit
 import Testing
 #if canImport(LiveKitTestSupport)
@@ -108,7 +108,7 @@ struct RepublishTracksTests {
             let stopSpy = CapturerStopSpy()
             capturer?.add(delegate: stopSpy)
 
-            let feeder = capturer.map { startFeeding($0) }
+            let feeder = capturer?.startFeedingFrames(dimensions: Self.dimensions)
             defer { feeder?.cancel() }
 
             let publication = try await publish(track, in: room)
@@ -141,26 +141,5 @@ struct RepublishTracksTests {
         }
         let videoTrack = try #require(track as? LocalVideoTrack)
         return try await room.localParticipant.publish(videoTrack: videoTrack)
-    }
-
-    /// Publishing waits on the capturer's dimensions, and `stopCapture()` resets them, so a
-    /// re-published track needs frames to keep arriving for the whole test.
-    private func startFeeding(_ capturer: BufferCapturer) -> Task<Void, Never> {
-        let dimensions = Self.dimensions
-        return Task {
-            var pixelBuffer: CVPixelBuffer?
-            CVPixelBufferCreate(kCFAllocatorDefault,
-                                Int(dimensions.width),
-                                Int(dimensions.height),
-                                kCVPixelFormatType_32BGRA,
-                                nil,
-                                &pixelBuffer)
-            guard let pixelBuffer else { return }
-
-            while !Task.isCancelled {
-                capturer.capture(pixelBuffer)
-                try? await Task.sleep(nanoseconds: 33_000_000)
-            }
-        }
     }
 }

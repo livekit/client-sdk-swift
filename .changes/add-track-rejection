@@ -1,0 +1,1 @@
+patch type="fixed" "A track publish rejected by the server (for example when the per-participant pending-track limit is hit) now fails immediately with the server's reason instead of waiting out the publish timeout and reporting `Timed out`"

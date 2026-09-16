@@ -373,7 +373,8 @@ extension Room: SignalClientDelegate {
         do {
             try await subscriber.set(remoteDescription: offer)
             var answer = try await subscriber.createAnswer()
-            answer = try await subscriber.set(localDescription: answer, munging: [
+            // Both are receiver preferences: nothing breaks if the peer rejects them.
+            answer = try await subscriber.set(localDescription: answer, munging: [], droppable: [
                 { Transport.mungeOpusStereo($0, matchingOffer: offer.sdp) },
                 { Transport.mungeOpusNack($0, matchingOffer: offer.sdp) },
             ])
