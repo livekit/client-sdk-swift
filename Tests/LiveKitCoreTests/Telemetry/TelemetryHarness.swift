@@ -28,6 +28,10 @@ import LiveKitTestSupport
 /// also fans the session out to a Grafana LGTM stack for browsing); `make telemetry-harness` runs it.
 ///
 /// `LIVEKIT_TELEMETRY_HOLD=<seconds>` keeps the session alive longer, to watch it live in Grafana.
+/// `LIVEKIT_TELEMETRY_ENDPOINT=<url>` and `LIVEKIT_TELEMETRY_TOKEN=<jwt>` point the same session at
+/// LiveKit Cloud instead (`https://<project>/observability/client/logs/otlp/v0`, a token with an
+/// `observability:write` grant) — how the upload policy gets exercised against the real ingest,
+/// rate limits included.
 ///
 /// Part of the `TelemetryTests` suite: the pipeline is process-wide, so its tests must not overlap.
 extension TelemetryTests {
@@ -36,7 +40,13 @@ extension TelemetryTests {
     /// the collector afterwards, the disconnect flush included.
     @Test func sessionWithReconnects() async throws {
         let start = UInt64(Date().timeIntervalSince1970 * 1e9)
-        let options = try TelemetryOptions(endpoint: #require(URL(string: "http://127.0.0.1:4319/v1/logs")),
+        // `LIVEKIT_TELEMETRY_ENDPOINT` (+ `LIVEKIT_TELEMETRY_TOKEN`) sends the session to a real
+        // collector — LiveKit Cloud — instead of the local one. The collector's file is then empty,
+        // so such a run reports the pipeline's own account of the upload policy rather than asserting.
+        let environment = ProcessInfo.processInfo.environment
+        let cloud = environment["LIVEKIT_TELEMETRY_ENDPOINT"]
+        let options = try TelemetryOptions(endpoint: #require(URL(string: cloud ?? "http://127.0.0.1:4319/v1/logs")),
+                                           headers: environment["LIVEKIT_TELEMETRY_TOKEN"].map { ["Authorization": "Bearer \($0)"] } ?? [:],
                                            flushInterval: 1, statsWindow: 2)
         await Telemetry.configure(options)
 
@@ -73,6 +83,16 @@ extension TelemetryTests {
             print("telemetry harness: trace \(publisherTrace) — \(Telemetry.diagnostics())")
         }
         try await Task.sleep(nanoseconds: 3_000_000_000) // the disconnect flush, and the collector's write
+
+        // A cloud run has no local file to read: watch the pipeline instead, long enough for a
+        // throttle hold (60 s) to expire and the backlog to ship.
+        if cloud != nil {
+            for _ in 0 ..< 8 {
+                print("telemetry harness: \(Telemetry.diagnostics())")
+                try await Task.sleep(nanoseconds: 15_000_000_000)
+            }
+            return
+        }
 
         // Only this session's records: other e2e tests share the process pipeline and the collector.
         let mine: Set<String> = [publisherTrace, subscriberTrace]
