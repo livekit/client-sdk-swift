@@ -157,6 +157,13 @@ final class Transport: NSObject, Loggable {
             .reduce(offer.sdp) { $1($0) }
         let munged = mungedSDP == offer.sdp ? offer : RTC.createSessionDescription(type: offer.type, sdp: mungedSDP)
 
+        // `goog-sped-v1` is the ice-option libwebrtc adds once it is going to piggyback the DTLS
+        // handshake on the STUN exchange; its absence means WARP was not in effect when this peer
+        // connection was created.
+        if munged.sdp.contains("goog-sped-v1") {
+            log("negotiate with sped (WARP)")
+        }
+
         _latestOfferId += 1
         _pendingInitialOffer = munged
         return (munged, _latestOfferId)
@@ -273,6 +280,12 @@ final class Transport: NSObject, Loggable {
             offer = try await set(localDescription: offer, munging: singlePCMode
                 ? [Self.mungeInactiveToRecvOnlyForMedia, Self.mungeOpusStereoForAllAudio]
                 : [])
+            // `goog-sped-v1` is the ice-option libwebrtc adds once it is going to piggyback the DTLS
+            // handshake on the STUN exchange; its absence means WARP was not in effect when this peer
+            // connection was created.
+            if offer.sdp.contains("goog-sped-v1") {
+                log("negotiate with sped (WARP)")
+            }
             try await _onOffer(offer, _latestOfferId)
         }
 

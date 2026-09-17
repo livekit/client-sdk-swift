@@ -564,7 +564,9 @@ public class AudioManager: Loggable {
         #endif
         _state = StateSync(State(engineObservers: engineObservers))
         _admDelegateAdapter.audioManager = self
-        RTC.audioDeviceModule.observer = _admDelegateAdapter
+        // The adapter is installed on the ADM when the peer connection factory creates it, not
+        // from here: touching the ADM at this point would build the factory as soon as anything
+        // reads `AudioManager.shared`, locking in the settings that are read at that moment.
     }
 }
 

@@ -153,6 +153,9 @@ extension Room {
 
         rtcConfiguration.enableDscp = connectOptions.isDscpEnabled
 
+        // Enables SCTP SNAP for WARP
+        rtcConfiguration.enableSctpSnap = RTC.pcFactoryState.isWARPEnabled
+
         return rtcConfiguration
     }
 
