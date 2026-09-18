@@ -456,6 +456,26 @@ struct DataChannelOpenLatchTests {
         } throws: { ($0 as? LiveKitError)?.type == .timedOut }
     }
 
+    /// A delegate callback that lands after teardown must not resolve the latch from the channel it
+    /// was called for. The drain publishes the state of whatever it is pointing at *now*, so the
+    /// torn-down channel still reporting `.open` cannot reopen a gate that teardown just closed —
+    /// a send crossing one of those parks in a drain with no channel, where the next one evicts it
+    /// and reports success.
+    @Test func stateChangeArrivingAfterResetLeavesTheLatchArmed() async throws {
+        let channel = FakeSendChannel()
+        drain.attach(sendTarget: channel)
+        try await drain.whenOpen.wait(timeout: 1)
+
+        drain.reset()
+        #expect(channel.isOpen, "the superseded channel has not been closed yet")
+
+        drain.publishOpenState() // the callback for `channel`, arriving now
+
+        await #expect {
+            try await drain.whenOpen.wait(timeout: 0.1)
+        } throws: { ($0 as? LiveKitError)?.type == .timedOut }
+    }
+
     /// The defect, stated as a test. Five writes submitted while the channel is still opening leave
     /// only the last one — and the four that died reported success, which is why this was invisible
     /// in the logs for as long as it was.

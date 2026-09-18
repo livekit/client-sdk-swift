@@ -179,7 +179,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         if previous !== channel { parkChannelRelease(previous) }
         channel?.delegate = self
         eventContinuation.yield(.attached(channel))
-        syncOpenLatch(isOpen: channel?.isOpen == true)
+        publishOpenState()
     }
 
     /// Attaches what writes go to. A test seam: production goes through ``setChannel(_:)``, which
@@ -191,7 +191,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             if sendTarget != nil { $0.wasReset = false }
         }
         eventContinuation.yield(.attached(sendTarget))
-        syncOpenLatch(isOpen: sendTarget?.isOpen == true)
+        publishOpenState()
     }
 
     /// Updates the negotiated SCTP max-message-size cap, ordered with the writes it gates.
@@ -247,7 +247,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         // Before the queue is failed, so a send racing teardown either parks for the next channel
         // or is failed by the event below — never sails through a stale-open latch into a drain
         // that has nothing left to ship it.
-        whenOpen.rearm()
+        publishOpenState()
 
         eventContinuation.yield(.fail(error))
     }
@@ -441,7 +441,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             log("data channel '\(dataChannel.label)' closed unexpectedly", .error)
         }
 
-        syncOpenLatch(isOpen: dataChannel.readyState == .open)
+        publishOpenState()
         if dataChannel.readyState == .open {
             eventContinuation.yield(.wakeup)
         }
@@ -455,11 +455,27 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
 
 // MARK: - Open latch
 
-private extension DataChannelDrain {
-    /// Points ``whenOpen`` at the channel's current state. Never called while holding a lock: the
-    /// completer resumes its waiters inline.
-    func syncOpenLatch(isOpen: Bool) {
-        if isOpen { whenOpen.resume(returning: ()) } else { whenOpen.rearm() }
+extension DataChannelDrain {
+    /// Points ``whenOpen`` at whatever this drain is sending on *now*.
+    ///
+    /// Deliberately reads `sendTarget` rather than taking a channel argument, and decides under
+    /// `_state` rather than sampling and acting separately. A delegate callback validates the
+    /// channel's identity and then publishes; without both of those, a teardown or a swap landing
+    /// in between lets the superseded channel's callback resolve a latch the replacement has not
+    /// earned — and a send that crosses a latch like that parks in a drain with no channel, where
+    /// the next one evicts it and reports success. Whoever takes the lock last now publishes the
+    /// state that is actually true, whichever order the two arrive in.
+    ///
+    /// Resuming a waiter under `_state` is safe: `AsyncCompleter.resume` hands its entries out of
+    /// its own lock first, and resuming a continuation schedules the awaiting task rather than
+    /// running it inline.
+    ///
+    /// Internal rather than private so a test can stand in for a delegate callback arriving late;
+    /// production reaches it only through the mutation sites above.
+    func publishOpenState() {
+        _state.read { state in
+            if state.sendTarget?.isOpen == true { whenOpen.resume(returning: ()) } else { whenOpen.rearm() }
+        }
     }
 }
 

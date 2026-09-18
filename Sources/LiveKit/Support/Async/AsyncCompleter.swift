@@ -189,17 +189,26 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
                     _lock.sync { self._entries.removeValue(forKey: entryId) }?.timeout()
                 }
 
-                // Re-checked under the lock that registers the waiter: the read above is only a
-                // fast path, and a `resume` landing between the two caches its result and finds no
-                // waiter to hand it to, stranding this continuation on an already-resolved
-                // completer until its timeout.
+                // Two things are decided under the lock that registers the waiter, because both
+                // are races against that registration:
                 //
-                // Carried out of the lock and resumed after it. Resuming takes the task's
-                // status-record lock, and cancellation takes that lock before running `onCancel`,
-                // which takes `_lock` — resuming under `_lock` is the inversion that deadlocked
-                // this type on CI. Every other resume here settles outside the lock; so does this.
-                let cached: Result<T, Error>? = _lock.sync {
+                // `_result` — the read above is only a fast path, and a `resume` landing between
+                // the two caches its result and finds no waiter to hand it to, stranding this
+                // continuation on an already-resolved completer until its timeout.
+                //
+                // `Task.isCancelled` — `withTaskCancellationHandler` runs `onCancel` immediately
+                // for a task that is already cancelled, so it looks for an entry that does not
+                // exist yet and never runs again. Checking here closes both orderings: either this
+                // sees the cancellation, or `onCancel` runs after registration and finds the entry.
+                //
+                // Both outcomes are carried out of the lock and resumed after it. Resuming takes
+                // the task's status-record lock, and cancellation takes that lock before running
+                // `onCancel`, which takes `_lock` — resuming under `_lock` is the inversion that
+                // deadlocked this type on CI. Every other resume here settles outside the lock; so
+                // does this.
+                let settled: Result<T, Error>? = _lock.sync {
                     if let _result { return _result }
+                    if Task.isCancelled { return .failure(LiveKitError(.cancelled)) }
 
                     // Schedule time-out block
                     let computedTimeout = (timeout?.toDispatchTimeInterval ?? _defaultTimeout)
@@ -212,7 +221,7 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
                 }
                 // No entry was stored and the timer was never scheduled on this path, so nothing
                 // else can reach this continuation.
-                if let cached { continuation.resume(with: cached) }
+                if let settled { continuation.resume(with: settled) }
             }
         } onCancel: {
             // Cancel only this completer when Task gets cancelled
