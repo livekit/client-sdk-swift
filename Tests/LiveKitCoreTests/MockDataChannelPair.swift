@@ -40,8 +40,6 @@ class MockDataChannelPair: DataChannelPair, @unchecked Sendable {
 
     override func isOpen(kind _: Livekit_DataPacket_Kind) -> Bool { true }
 
-    override var isOpen: Bool { true }
-
     override func send(dataPacket packet: Livekit_DataPacket) async throws {
         packetHandler(packet)
     }

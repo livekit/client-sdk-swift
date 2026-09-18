@@ -69,10 +69,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         kind == .lossy ? lossy.isOpen : reliable.isOpen
     }
 
-    /// Whether *both* channels can currently take bytes. Diagnostics only; the send path gates per
-    /// channel.
-    var isOpen: Bool { lossy.isOpen && reliable.isOpen }
-
     // MARK: - Private
 
     private struct State {

@@ -505,10 +505,12 @@ struct DataChannelOpenLatchTests {
         let send = Task { try await room.send(dataPacket: .with { $0.kind = .lossy }) }
         defer { send.cancel() }
 
-        // Generous: building the first `Room` in a process pays one-time device and audio setup,
-        // so the send can take a while to reach the gate at all. What is being pinned is that it
-        // parks there, not how fast.
-        try await poll(timeout: 15, for: "the send to park on the lossy channel's latch") {
+        // Generous on purpose. What is pinned here is *where* the send waits, not how quickly it
+        // gets there — and getting there costs a `Room` construction plus one task scheduling on a
+        // cooperative pool that the rest of the suite is also using. If the gate were skipped the
+        // send would park in the drain instead and no waiter would ever appear, so a long budget
+        // only delays that report.
+        try await poll(timeout: 30, for: "the send to park on the lossy channel's latch") {
             room.publisherDataChannel.whenOpen(kind: .lossy).waiterCount == 1
         }
         #expect(room.publisherDataChannel.whenOpen(kind: .reliable).waiterCount == 0,

@@ -65,6 +65,7 @@ struct DataTrackLifecycleTests {
             // Confirm the subscriber sees the initial publication.
             let remoteTrack = try await subscriber.waitForDataTrack(name: "survives-reconnect")
             let originalSid = remoteTrack.info.sid
+            let participantBefore = subscriber.remoteParticipants.values.first
 
             // No unpublish/republish events should fire on the subscriber during the reconnect.
             let recorder = DataTrackDelegateRecorder()
@@ -89,15 +90,21 @@ struct DataTrackLifecycleTests {
             #expect(participant.dataTracks.count == 1)
 
             // Depending on whether the SFU signals the publisher's brief departure, the app sees
-            // either silent continuity (no events) or a coherent unpublish → publish pair when the
-            // participant is dropped and recreated — never a publish without its unpublish.
+            // either silent continuity (no events) or a coherent unpublish → publish pair.
             //
-            // The two events are delivered through `MulticastDelegate`, not synchronously with the
-            // participant update that produced them, so the second can trail the first by more than
-            // a moment on a loaded runner — and `waitFor` scans what has been recorded rather than
-            // what comes next, so a generous window only affects how long a genuine violation takes
-            // to report.
-            if await (try? recorder.waitFor(.roomRemotePublish, timeout: 5)) != nil {
+            // Only paired while the *same* participant object survives. When the publisher is
+            // dropped and recreated the app has already been told to forget everything that
+            // participant had (`participantDidDisconnect`), and `remoteTrackUnpublished` resolves
+            // the publisher from `remoteParticipants` — so there is deliberately no unpublish for a
+            // participant that no longer exists, and requiring one here failed on the runs where
+            // the SFU signalled the departure.
+            //
+            // The window is generous because the two events are delivered through
+            // `MulticastDelegate`, not synchronously with the participant update that produced
+            // them; `waitFor` scans what has been recorded, so it only affects how long a genuine
+            // violation takes to report.
+            let participantSurvived = participant === participantBefore
+            if participantSurvived, await (try? recorder.waitFor(.roomRemotePublish, timeout: 5)) != nil {
                 #expect(try await recorder.waitFor(.roomRemoteUnpublish, timeout: 10) == originalSid)
             }
             _ = track.isPublished // keep the publication alive across the reconnect (dropping it unpublishes)

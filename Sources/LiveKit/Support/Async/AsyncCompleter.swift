@@ -210,10 +210,9 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
                     log("\(label) id: \(entryId) waiting for \(computedTimeout)")
                     return nil
                 }
-                if let cached {
-                    timeoutBlock.cancel()
-                    continuation.resume(with: cached)
-                }
+                // No entry was stored and the timer was never scheduled on this path, so nothing
+                // else can reach this continuation.
+                if let cached { continuation.resume(with: cached) }
             }
         } onCancel: {
             // Cancel only this completer when Task gets cancelled
