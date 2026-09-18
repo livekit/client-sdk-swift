@@ -496,25 +496,35 @@ struct DataChannelOpenLatchTests {
     ///
     /// A connected room with no transport is exactly the state the old gate fell through on: it
     /// opened with `guard case .subscriberPrimary = _state.transport else { return }`, which is
-    /// false for both publisher-primary modes *and* for `nil`. So the send must park here, and on
-    /// the latch for the kind it is about to write — not the pair's, and not the other kind's.
-    @Test func sendParksOnItsOwnChannelWithNoTransport() async throws {
+    /// false for both publisher-primary modes *and* for `nil`. Nothing can open a channel here, so
+    /// the gate must not return. (That it waits on *this kind's* channel is
+    /// ``DataChannelPairTests/openLatchesAreDistinctPerKind()``.)
+    ///
+    /// Raced inside one task group rather than observed from another task. Polling a waiter count
+    /// from outside measures whether the SDK's task has been *scheduled*, which at the tail of a
+    /// full suite it may not be for tens of seconds — verified: the probe showed the send unstarted
+    /// after 30 s, on a room still `.connected`. Here, a gate that returns early beats the sleep
+    /// and fails; a starved one loses to the sleep and passes, so slowness can never manufacture a
+    /// red.
+    @Test func sendGateDoesNotReturnWithoutAChannel() async {
         let room = Room()
         room._state.mutate { $0.connectionState = .connected }
 
-        let send = Task { try await room.send(dataPacket: .with { $0.kind = .lossy }) }
-        defer { send.cancel() }
-
-        // Generous on purpose. What is pinned here is *where* the send waits, not how quickly it
-        // gets there — and getting there costs a `Room` construction plus one task scheduling on a
-        // cooperative pool that the rest of the suite is also using. If the gate were skipped the
-        // send would park in the drain instead and no waiter would ever appear, so a long budget
-        // only delays that report.
-        try await poll(timeout: 30, for: "the send to park on the lossy channel's latch") {
-            room.publisherDataChannel.whenOpen(kind: .lossy).waiterCount == 1
+        let gated = await withTaskGroup(of: Bool.self) { group in
+            group.addTask {
+                try? await room.ensureDataChannelReady(kind: .lossy)
+                return false
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                return true
+            }
+            let first = await group.next() ?? true
+            group.cancelAll()
+            return first
         }
-        #expect(room.publisherDataChannel.whenOpen(kind: .reliable).waiterCount == 0,
-                "A lossy send must not be gated on the reliable channel")
+
+        #expect(gated, "The send gate must wait for the channel in every transport mode")
     }
 
     /// The same burst, gated the way `Room.send(dataPacket:)` gates it. Every write survives,

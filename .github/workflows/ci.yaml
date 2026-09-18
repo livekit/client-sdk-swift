@@ -80,7 +80,7 @@ jobs:
             platform: "macOS,variant=Mac Catalyst"
           - os: xcode-27
             xcode: latest
-            platform: "iOS Simulator,name=iPhone 17 Pro,OS=27.0"
+            platform: "iOS Simulator,name=iPhone 18 Pro,OS=27.0"
           - os: xcode-27
             xcode: latest
             platform: "visionOS Simulator,name=Apple Vision Pro,OS=27.0"
