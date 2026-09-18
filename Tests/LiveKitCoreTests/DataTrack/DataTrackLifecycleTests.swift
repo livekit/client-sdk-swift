@@ -157,7 +157,7 @@ struct DataTrackLifecycleTests {
             }
             defer { pusher.cancel() }
 
-            let received = await stream.collect(1) { $0.payload == payload }
+            let received = await stream.reader().collect(1) { $0.payload == payload }
             #expect(!received.isEmpty, "Frames should keep flowing after a quick reconnect")
         }
     }
@@ -207,7 +207,7 @@ struct DataTrackLifecycleTests {
             }
             defer { pusher.cancel() }
 
-            let received = await stream.collect(1) { $0.payload == payload }
+            let received = await stream.reader().collect(1) { $0.payload == payload }
             #expect(!received.isEmpty, "Frames should keep flowing after the local client's full reconnect")
         }
     }
