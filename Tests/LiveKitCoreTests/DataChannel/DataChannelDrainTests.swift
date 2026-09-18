@@ -410,3 +410,113 @@ struct BufferStatusReportingTests {
         try await poll(for: "the recovering transition") { reports.copy() == [false, true] }
     }
 }
+
+// MARK: - Open latch
+
+/// The send gate: ``DataChannelDrain/whenOpen`` and the loss it exists to prevent.
+///
+/// A drop-oldest channel has room for exactly one queued group, so "the channel has not opened
+/// yet" and "the transport is saturated" produce the same eviction — except the first discards
+/// writes the transport never even saw, and settles their submitters *successfully*. Everything
+/// here uses the ``FakeSendChannel`` seam, so nothing depends on how fast SCTP comes up.
+@Suite(.tags(.dataChannel, .dataTrack))
+struct DataChannelOpenLatchTests {
+    private let drain = DrainFixture.makeDrain()
+
+    /// A never-attached drain must hold its waiters, not wave them through.
+    @Test func latchIsArmedBeforeAnyChannelArrives() async {
+        await #expect {
+            try await drain.whenOpen.wait(timeout: 0.1)
+        } throws: { ($0 as? LiveKitError)?.type == .timedOut }
+    }
+
+    @Test func latchFollowsTheAttachedChannel() async throws {
+        let channel = FakeSendChannel()
+        channel.isOpen = false
+        drain.attach(sendTarget: channel)
+        await #expect {
+            try await drain.whenOpen.wait(timeout: 0.1)
+        } throws: { ($0 as? LiveKitError)?.type == .timedOut }
+
+        channel.isOpen = true
+        drain.attach(sendTarget: channel)
+        try await drain.whenOpen.wait(timeout: 1)
+    }
+
+    /// Teardown re-arms rather than resolving: without this a send issued after a disconnect sails
+    /// through a latch the dead channel left resolved and parks in a drain that has nothing left
+    /// to ship it.
+    @Test func resetRearmsTheLatch() async throws {
+        drain.attach(sendTarget: FakeSendChannel())
+        try await drain.whenOpen.wait(timeout: 1)
+
+        drain.reset()
+        await #expect {
+            try await drain.whenOpen.wait(timeout: 0.1)
+        } throws: { ($0 as? LiveKitError)?.type == .timedOut }
+    }
+
+    /// The defect, stated as a test. Five writes submitted while the channel is still opening leave
+    /// only the last one — and the four that died reported success, which is why this was invisible
+    /// in the logs for as long as it was.
+    @Test func ungatedBurstBeforeOpenCollapsesToItsLastWrite() async throws {
+        let channel = FakeSendChannel()
+        channel.isOpen = false
+        drain.attach(sendTarget: channel)
+
+        // `submit`, not `send`: a parked write never settles, which is exactly the point — the
+        // four that die here are settled *successfully* by the eviction, not by delivery.
+        for tag in UInt8(1) ... 5 {
+            drain.submit(DrainFixture.frame(tag))
+        }
+        try await drain.flushEvents()
+        #expect(channel.sent.isEmpty, "nothing reaches a channel that is not open")
+
+        channel.isOpen = true
+        drain.reportDrained(0) // the wake-up the real delegate posts on `.open`
+        try await poll(for: "the surviving write") { channel.tags == [5] }
+    }
+
+    /// With no transport there is nothing that could open a channel, so the gate has to turn the
+    /// caller away rather than hold them for the latch's full 15 s and then report a `.timedOut`
+    /// that says nothing about why.
+    @Test(arguments: [Livekit_DataPacket_Kind.reliable, .lossy])
+    func sendOnADisconnectedRoomFailsWithoutWaitingOutTheLatch(kind: Livekit_DataPacket_Kind) async {
+        let room = Room()
+        let started = Date()
+
+        await #expect {
+            try await room.send(dataPacket: .with { $0.kind = kind })
+        } throws: { ($0 as? LiveKitError)?.type == .invalidState }
+
+        #expect(Date().timeIntervalSince(started) < 1, "the gate must not wait on a latch nothing can resolve")
+    }
+
+    /// The same burst, gated the way `Room.send(dataPacket:)` gates it. Every write survives,
+    /// because each submitter waits for the channel instead of racing the one before it.
+    @Test func gatedBurstSurvivesAChannelThatOpensLate() async throws {
+        let channel = FakeSendChannel()
+        channel.isOpen = false
+        drain.attach(sendTarget: channel)
+
+        let senders = Task {
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for tag in UInt8(1) ... 5 {
+                    group.addTask {
+                        try await drain.whenOpen.wait(timeout: 5)
+                        try await drain.send(DrainFixture.frame(tag))
+                    }
+                }
+                try await group.waitForAll()
+            }
+        }
+        await drain.whenOpen.waitForRegistration(count: 5)
+
+        channel.isOpen = true
+        drain.attach(sendTarget: channel)
+
+        try await senders.value
+        #expect(channel.sent.count == 5, "a gated burst loses nothing")
+        #expect(Set(channel.tags) == Set(UInt8(1) ... 5))
+    }
+}

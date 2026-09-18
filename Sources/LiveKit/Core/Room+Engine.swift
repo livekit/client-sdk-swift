@@ -70,13 +70,14 @@ extension Room {
         })
     }
 
-    /// Negotiates the publisher peer connection on demand (subscriber-primary dual-PC mode defers
-    /// it until something is published) and waits until it and the data channels are open.
+    /// Negotiates the publisher peer connection on demand and waits for it to connect.
+    ///
+    /// Transport only — it gates on no data channel. Callers about to write a packet want
+    /// ``ensureDataChannelReady(kind:)``, which adds the channel's own latch.
     func ensurePublisherConnected() async throws {
-        // Only needed when subscriber is primary in dual PC mode
-        guard case .subscriberPrimary = _state.transport else {
-            return
-        }
+        // Subscriber-primary dual PC is the only mode that defers publisher negotiation until
+        // something is published; elsewhere `connect()` already waited for this transport.
+        guard case .subscriberPrimary = _state.transport else { return }
 
         let publisher = try requirePublisher()
 
@@ -85,26 +86,53 @@ extension Room {
             try await publisherShouldNegotiate()
         }
 
-        // Single combined gate: wait for both the publisher PC to be ICE-
-        // connected *and* the data channels to reach `.open` concurrently.
-        // Mirrors the prevailing pattern in client-sdk-js / -rust, where a
-        // single poll loop checks both conditions before any send proceeds.
-        async let transportReady: Void = publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
-        async let dataChannelReady: Void = publisherDataChannel.openCompleter.wait()
-        _ = try await (transportReady, dataChannelReady)
+        try await publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
+    }
+
+    /// Waits until the channel a packet of `kind` will be written to can take bytes, negotiating
+    /// the publisher first where that is deferred.
+    ///
+    /// The channel wait is **not** conditional on the transport mode, which is what the old
+    /// `guard case .subscriberPrimary` made it. `connect()` returns once the *primary* transport is
+    /// connected and never waits on data channels — those open on the SCTP association afterwards —
+    /// so where the publisher is primary a send issued right after connect races the channel
+    /// opening. That race is not benign: an ungated write lands in the drain's queue, and under
+    /// `.dropOldest` the next submitter evicts it and resolves its waiter *successfully*, so a
+    /// burst of publishes right after connect collapses to its last packet with every earlier one
+    /// reporting success.
+    ///
+    /// - Parameter kind: Gates on this kind's channel alone; see ``DataChannelPair/whenOpen(kind:)``.
+    func ensureDataChannelReady(kind: Livekit_DataPacket_Kind) async throws {
+        // Nothing can open a channel once teardown has started, so the latch below has nothing that
+        // could resolve it and the wait would only burn its full timeout. `.reconnecting`
+        // deliberately still waits: there the rebuilt channel resolves it.
+        switch _state.connectionState {
+        case .disconnecting, .disconnected:
+            throw LiveKitError(.invalidState, message: "Room is not connected")
+        case .connecting, .reconnecting, .connected:
+            break
+        }
+
+        // Concurrently: in subscriber-primary mode the channel opens on the SCTP association the
+        // transport is still bringing up, so the two complete together.
+        async let transportReady: Void = ensurePublisherConnected()
+        async let channelReady: Void = publisherDataChannel.whenOpen(kind: kind).wait()
+        _ = try await (transportReady, channelReady)
     }
 
     func send(dataPacket packet: consuming Livekit_DataPacket) async throws {
-        try await ensurePublisherConnected()
+        // The same field `DataChannelPair.send` routes on, so the channel awaited here is the one
+        // the packet is handed to.
+        let kind = packet.kind
+        try await ensureDataChannelReady(kind: kind)
 
         // At this point publisher should be .connected and dc should be .open
         if await !(_state.transport?.publisher.isConnected ?? false) {
             log("publisher is not .connected", .error)
         }
 
-        let dataChannelIsOpen = publisherDataChannel.isOpen
-        if !dataChannelIsOpen {
-            log("publisher data channel is not .open", .error)
+        if !publisherDataChannel.isOpen(kind: kind) {
+            log("publisher \(kind == .lossy ? "lossy" : "reliable") data channel is not .open", .error)
         }
 
         // `modifying` is consuming: with no other owner this stamps in place,

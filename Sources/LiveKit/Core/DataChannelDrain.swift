@@ -28,8 +28,8 @@ internal import LiveKitWebRTC
 /// ## Delegate
 /// The drain *is* the channel's `LKRTCDataChannelDelegate`, so buffered-amount and state callbacks
 /// land on the object that owns the affected state — no dispatching on channel labels. What it does
-/// not own it forwards to its creator: inbound messages via `onMessage`, readiness via
-/// `onStateChange`. (The shape of `DataChannelManager` in client-sdk-android, its channel's
+/// not own it forwards to its creator: inbound messages via `onMessage`. Readiness it publishes
+/// itself, through ``whenOpen``. (The shape of `DataChannelManager` in client-sdk-android, its channel's
 /// `DataChannel.Observer` with a forwarding listener.)
 ///
 /// ## Concurrency
@@ -41,6 +41,22 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     var isOpen: Bool {
         _state.read { $0.sendTarget?.isOpen == true }
     }
+
+    /// Resolved while this channel can take bytes, re-armed whenever it cannot.
+    ///
+    /// Owned here because this object *is* the channel's delegate: it sees every state transition
+    /// first, and ``setChannel(_:)`` reports the state of a channel that opened before its delegate
+    /// landed — so no owner has to probe `readyState` or keep a latch of its own in step.
+    ///
+    /// Callers about to write must await this. A write handed to a drain whose channel is not open
+    /// yet sits in the queue, and under ``SendOverflow/dropOldest`` the *next* submitter evicts it
+    /// and resolves its waiter successfully — so an ungated burst issued right after connect
+    /// collapses to its last write, with every earlier send reporting success.
+    ///
+    /// Re-armed rather than failed on teardown: a reconnect swaps the channel underneath, and a
+    /// write parked across that window should ship on the replacement rather than fail. A channel
+    /// that never comes back is bounded by the waiter's own timeout.
+    let whenOpen: AsyncCompleter<Void>
 
     // MARK: - Private
 
@@ -97,7 +113,6 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     private let label: String
     private let overflow: SendOverflow
     private let onMessage: @Sendable (Data) -> Void
-    private let onStateChange: @Sendable (LKRTCDataChannel) -> Void
     /// Called on a transition only, never per change in the amount buffered.
     private let onBufferStatusChange: @Sendable (Bool) -> Void
 
@@ -115,13 +130,12 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         stage: Stage,
         maxMessageSize: UInt64 = 0,
         onMessage: @escaping @Sendable (Data) -> Void = { _ in },
-        onStateChange: @escaping @Sendable (LKRTCDataChannel) -> Void = { _ in },
         onBufferStatusChange: @escaping @Sendable (Bool) -> Void = { _ in },
     ) {
         self.label = label
+        whenOpen = AsyncCompleter(label: "Data channel '\(label)' open", defaultTimeout: .defaultPublisherDataChannelOpen)
         self.overflow = overflow
         self.onMessage = onMessage
-        self.onStateChange = onStateChange
         self.onBufferStatusChange = onBufferStatusChange
 
         let (events, continuation) = AsyncStream.makeStream(of: Event.self)
@@ -147,7 +161,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
 
     /// Attaches the channel this drain sends on, takes over its delegate slot (detaching the
     /// replaced channel; the identity guard on the hooks backstops callbacks already in flight),
-    /// and reports the channel's current state through `onStateChange` — so an owner never probes
+    /// and points ``whenOpen`` at the channel's current state — so an owner never probes
     /// `readyState` itself to cover a channel that opened before its delegate landed.
     /// Under ``SendOverflow/park`` anything queued survives the swap and ships on the new channel
     /// (what makes a fast reconnect lossless); under ``SendOverflow/dropOldest`` it is stale and
@@ -165,19 +179,19 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         if previous !== channel { parkChannelRelease(previous) }
         channel?.delegate = self
         eventContinuation.yield(.attached(channel))
-        if let channel {
-            onStateChange(channel)
-        }
+        syncOpenLatch(isOpen: channel?.isOpen == true)
     }
 
     /// Attaches what writes go to. A test seam: production goes through ``setChannel(_:)``, which
-    /// also owns the delegate slot and the readiness report.
+    /// also owns the delegate slot. Points ``whenOpen`` at the new target like the real path does,
+    /// so a test can open a channel without a live `LKRTCDataChannel` to deliver the callback.
     func attach(sendTarget: DrainSendChannel?) {
         _state.mutate {
             $0.sendTarget = sendTarget
             if sendTarget != nil { $0.wasReset = false }
         }
         eventContinuation.yield(.attached(sendTarget))
+        syncOpenLatch(isOpen: sendTarget?.isOpen == true)
     }
 
     /// Updates the negotiated SCTP max-message-size cap, ordered with the writes it gates.
@@ -230,6 +244,10 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             channel.delegate = nil
         }
         parkChannelRelease(previous, closing: true)
+        // Before the queue is failed, so a send racing teardown either parks for the next channel
+        // or is failed by the event below — never sails through a stale-open latch into a drain
+        // that has nothing left to ship it.
+        whenOpen.rearm()
 
         eventContinuation.yield(.fail(error))
     }
@@ -325,7 +343,10 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
                 // drops the incoming payload; this drain keeps the freshest, which suits the
                 // supersede-style data (cursor, presence, state) the lossy channel carries.
                 state.dropped += 1
-                if state.dropped % Self.dropLogInterval == 0 {
+                // The first one too, not only every hundredth: a channel that silently discards a
+                // write reports success to its submitter, so without this line the only evidence
+                // of loss below a hundred packets is the missing data at the far end.
+                if state.dropped == 1 || state.dropped % Self.dropLogInterval == 0 {
                     log("Dropped \(state.dropped) writes on '\(label)' under backpressure", .warning)
                 }
                 evicted.settle(with: .success(()))
@@ -420,15 +441,25 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             log("data channel '\(dataChannel.label)' closed unexpectedly", .error)
         }
 
+        syncOpenLatch(isOpen: dataChannel.readyState == .open)
         if dataChannel.readyState == .open {
             eventContinuation.yield(.wakeup)
         }
-        onStateChange(dataChannel)
     }
 
     func dataChannel(_ dataChannel: LKRTCDataChannel, didReceiveMessageWith buffer: LKRTCDataBuffer) {
         guard isCurrent(dataChannel) else { return }
         onMessage(buffer.data)
+    }
+}
+
+// MARK: - Open latch
+
+private extension DataChannelDrain {
+    /// Points ``whenOpen`` at the channel's current state. Never called while holding a lock: the
+    /// completer resumes its waiters inline.
+    func syncOpenLatch(isOpen: Bool) {
+        if isOpen { whenOpen.resume(returning: ()) } else { whenOpen.rearm() }
     }
 }
 

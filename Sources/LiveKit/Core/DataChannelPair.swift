@@ -37,12 +37,14 @@ protocol DataChannelDelegate: AnyObject, Sendable {
 /// readiness changes that only matter to the pair.
 ///
 /// ## Live readiness vs. the open latch
-/// ``openCompleter`` is a *sticky latch* that resolves the first time **both** channels reach
-/// `.open`, and stays resolved until ``reset(throwing:)``. `room.send(dataPacket:)` awaits it so a
-/// never-connected transport fails in bounded time instead of hanging forever.
+/// Each drain owns a latch for its own channel (``DataChannelDrain/whenOpen``), surfaced here by
+/// ``whenOpen(kind:)``. `room.send(dataPacket:)` awaits the one for the kind it is about to write,
+/// so a never-connected transport fails in bounded time instead of hanging forever — and, more to
+/// the point, so a burst issued before the channel opens is not silently collapsed by the
+/// drop-oldest queue.
 ///
-/// It is not a live gate. Each drain decides for itself, per send, whether its own channel can take
-/// bytes — the two are independent SCTP streams, so a lossy blip must not stall reliable sends.
+/// Per channel rather than pair-wide: the two are independent SCTP streams, so a lossy blip must
+/// not stall reliable sends, and a lagging reliable channel must not fail a lossy send.
 ///
 /// ## Concurrency model
 /// `@unchecked Sendable`. `_state` holds the dedup table and the E2EE manager behind a lock; the
@@ -52,10 +54,23 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     let delegates = MulticastDelegate<DataChannelDelegate>(label: "DataChannelDelegate")
 
-    let openCompleter = AsyncCompleter<Void>(label: "Data channel open", defaultTimeout: .defaultPublisherDataChannelOpen)
+    /// The open latch for the channel a packet of `kind` will be written to.
+    ///
+    /// Per kind, not pair-wide: the two are independent SCTP streams that open independently, so
+    /// gating a lossy send on the reliable channel would stall — or time out — a send its own
+    /// channel was ready to take. rust-sdks resolves the channel per kind on every send
+    /// (`ensure_publisher_connected(kind)` → `data_channel(Publisher, kind)`).
+    func whenOpen(kind: Livekit_DataPacket_Kind) -> AsyncCompleter<Void> {
+        kind == .lossy ? lossy.whenOpen : reliable.whenOpen
+    }
 
-    /// Whether *both* channels can currently take bytes. Only the open latch and diagnostics use
-    /// this; the send path gates per channel.
+    /// Whether the channel a packet of `kind` would be written to can currently take bytes.
+    func isOpen(kind: Livekit_DataPacket_Kind) -> Bool {
+        kind == .lossy ? lossy.isOpen : reliable.isOpen
+    }
+
+    /// Whether *both* channels can currently take bytes. Diagnostics only; the send path gates per
+    /// channel.
     var isOpen: Bool { lossy.isOpen && reliable.isOpen }
 
     // MARK: - Private
@@ -98,7 +113,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             stage: LossyStage(),
             maxMessageSize: Self.defaultMaxMessageSize,
             onMessage: { [weak self] data in self?.handle(received: data, isReliable: false) },
-            onStateChange: { [weak self] _ in self?.handleStateChange() },
             onBufferStatusChange: { isLow in onBufferStatusChange?(isLow, .lossy) },
         )
         reliable = DataChannelDrain(
@@ -108,7 +122,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             stage: ReliableStage(retryFloor: Self.reliableRetryAmount),
             maxMessageSize: Self.defaultMaxMessageSize,
             onMessage: { [weak self] data in self?.handle(received: data, isReliable: true) },
-            onStateChange: { [weak self] _ in self?.handleStateChange() },
             onBufferStatusChange: { isLow in onBufferStatusChange?(isLow, .reliable) },
         )
 
@@ -120,20 +133,10 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     func set(reliable channel: LKRTCDataChannel?) {
         reliable.setChannel(channel)
-        handleStateChange()
     }
 
     func set(lossy channel: LKRTCDataChannel?) {
         lossy.setChannel(channel)
-        handleStateChange()
-    }
-
-    /// Resolves the open latch once both channels are usable. Reached from either drain's state
-    /// callback and from a channel swap.
-    private func handleStateChange() {
-        if isOpen {
-            openCompleter.resume(returning: ())
-        }
     }
 
     /// Update the negotiated SCTP max-message-size cap on both channels. Called by the room after
@@ -151,9 +154,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         _state.mutate { $0.reliableReceivedState.removeAll() }
         lossy.reset(throwing: error)
         reliable.reset(throwing: error)
+        // `reset` only re-arms the drains' latches, because a data track publish is meant to park
+        // across a reconnect. This pair is torn down per connection, so a send parked here fails
+        // with the disconnect instead of waiting out its 15 s timeout — matching every other
+        // completer `Room.cleanUp(withError:)` resets.
+        lossy.whenOpen.reset(throwing: error)
+        reliable.whenOpen.reset(throwing: error)
         // Negotiated per session (from the SDP answer); the next session must not inherit it.
         set(maxMessageSize: Self.defaultMaxMessageSize)
-        openCompleter.reset(throwing: error)
     }
 
     // MARK: - Send

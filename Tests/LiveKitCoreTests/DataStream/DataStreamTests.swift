@@ -15,7 +15,7 @@
  */
 
 import Foundation
-import LiveKit
+@testable import LiveKit
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -39,6 +39,8 @@ struct DataStreamTests {
         let topic = "some-topic"
         let testChunk = "Hello world!"
 
+        let delivered = AsyncCompleter<Void>(label: "Text stream delivered", defaultTimeout: 15)
+
         try await confirmation("Receives stream chunk") { confirm in
             try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
                 let room0 = rooms[0]
@@ -53,6 +55,7 @@ struct DataStreamTests {
                     } catch {
                         Issue.record("Read failed: \(error.localizedDescription)")
                     }
+                    delivered.resume(returning: ())
                 }
 
                 do {
@@ -68,7 +71,11 @@ struct DataStreamTests {
                     Issue.record("Write failed: \(error.localizedDescription)")
                 }
 
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                // Waits for the handler, not for a second of wall clock: the handler runs on its
+                // own task and a loaded runner routinely needs longer than a fixed sleep allows,
+                // which is what made these confirm zero times on CI. The stream rides the
+                // *reliable* channel, so a timeout here is a real failure, not a tolerable drop.
+                try await delivered.wait()
             }
         }
     }
@@ -77,6 +84,8 @@ struct DataStreamTests {
     func byteDataStream(via method: Method) async throws {
         let topic = "some-topic"
         let testChunk = Data(repeating: 0xFF, count: 256)
+
+        let delivered = AsyncCompleter<Void>(label: "Byte stream delivered", defaultTimeout: 15)
 
         try await confirmation("Receives stream chunk") { confirm in
             try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
@@ -92,6 +101,7 @@ struct DataStreamTests {
                     } catch {
                         Issue.record("Read failed: \(error.localizedDescription)")
                     }
+                    delivered.resume(returning: ())
                 }
 
                 do {
@@ -117,7 +127,11 @@ struct DataStreamTests {
                     Issue.record("Write failed: \(error.localizedDescription)")
                 }
 
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                // Waits for the handler, not for a second of wall clock: the handler runs on its
+                // own task and a loaded runner routinely needs longer than a fixed sleep allows,
+                // which is what made these confirm zero times on CI. The stream rides the
+                // *reliable* channel, so a timeout here is a real failure, not a tolerable drop.
+                try await delivered.wait()
             }
         }
     }

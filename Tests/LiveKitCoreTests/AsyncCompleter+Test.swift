@@ -17,11 +17,11 @@
 @testable import LiveKit
 
 extension AsyncCompleter {
-    /// Yields until at least one waiter has parked on this completer — used
+    /// Yields until at least `count` waiters have parked on this completer — used
     /// when a Task awaits on a completer and the test needs to act only after
     /// the wait has parked.
-    func waitForRegistration() async {
-        while waiterCount == 0 {
+    func waitForRegistration(count: Int = 1) async {
+        while waiterCount < count {
             await Task.yield()
         }
     }

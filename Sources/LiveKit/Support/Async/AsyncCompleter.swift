@@ -189,7 +189,18 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
                     _lock.sync { self._entries.removeValue(forKey: entryId) }?.timeout()
                 }
 
-                _lock.sync {
+                // Re-checked under the lock that registers the waiter: the read above is only a
+                // fast path, and a `resume` landing between the two caches its result and finds no
+                // waiter to hand it to, stranding this continuation on an already-resolved
+                // completer until its timeout.
+                //
+                // Carried out of the lock and resumed after it. Resuming takes the task's
+                // status-record lock, and cancellation takes that lock before running `onCancel`,
+                // which takes `_lock` — resuming under `_lock` is the inversion that deadlocked
+                // this type on CI. Every other resume here settles outside the lock; so does this.
+                let cached: Result<T, Error>? = _lock.sync {
+                    if let _result { return _result }
+
                     // Schedule time-out block
                     let computedTimeout = (timeout?.toDispatchTimeInterval ?? _defaultTimeout)
                     _timerQueue.asyncAfter(deadline: .now() + computedTimeout, execute: timeoutBlock)
@@ -197,6 +208,11 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
                     _entries[entryId] = WaitEntry(continuation: continuation, timeoutBlock: timeoutBlock)
 
                     log("\(label) id: \(entryId) waiting for \(computedTimeout)")
+                    return nil
+                }
+                if let cached {
+                    timeoutBlock.cancel()
+                    continuation.resume(with: cached)
                 }
             }
         } onCancel: {

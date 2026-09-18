@@ -160,13 +160,18 @@ struct DataTrackApiTests {
             let stream = try await fixture.remoteTrack.subscribe()
             fixture.remoteTrack.setPipelineOptions(maxPartialFrames: 0)
 
-            // Spans several packets, so the depacketizer has to reassemble it. Delivery is lossy
-            // and losing one packet loses the whole frame, so retry rather than assert on one push.
+            // Spans several packets, so the depacketizer has to reassemble it. The channel is
+            // unordered and never retransmits, and `maxPartialFrames` is clamped to one — so a
+            // single lost or reordered packet loses the whole frame, and a fixed three attempts
+            // just moved the flake's probability rather than removing it. Retries against a
+            // deadline instead: a loaded runner takes more attempts, not a failure, and a genuine
+            // reassembly regression still fails because no attempt ever succeeds.
             let payload = Data(repeating: 0xFA, count: 32000)
             var received: Data?
-            for _ in 0 ..< 3 where received == nil {
+            let deadline = Date().addingTimeInterval(30)
+            while received == nil, Date() < deadline {
                 try fixture.track.tryPush(frame: DataTrackFrame(payload: payload))
-                received = await stream.next(within: 15)?.payload
+                received = await stream.next(within: 5)?.payload
             }
             #expect(received == payload)
         }

@@ -34,13 +34,28 @@ actor TestObserver {
     func recordItem(_ item: Int) {
         processedItems.append(item)
     }
+
+    /// Waits until at least `count` items have been recorded, or `timeout` elapses.
+    ///
+    /// `subscribe` delivers on its own unstructured task, so "has it processed them yet" is a
+    /// scheduling question, not a timing one. A fixed sleep answers it correctly only on an idle
+    /// machine; on a loaded CI runner the task has simply not been scheduled yet, which is what
+    /// made these assert against an empty or half-filled array. Polling still fails a genuine
+    /// regression — nothing ever arrives — it just stops failing for being slow.
+    func waitForItems(_ count: Int, timeout: TimeInterval = 5) async -> [Int] {
+        let deadline = Date().addingTimeInterval(timeout)
+        while processedItems.count < count, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 5_000_000)
+        }
+        return processedItems
+    }
 }
 
 // MARK: - Tests
 
 @Suite(.tags(.concurrency))
 struct TaskObserveTests {
-    @Test func streamProcessesAllElements() async throws {
+    @Test func streamProcessesAllElements() async {
         let observer = TestObserver()
         let stream = AsyncStream<Int> { continuation in
             for i in 1 ... 5 {
@@ -53,9 +68,7 @@ struct TaskObserveTests {
             await observer.recordItem(element)
         }
 
-        try await Task.sleep(nanoseconds: 100_000_000)
-
-        let items = await observer.processedItems
+        let items = await observer.waitForItems(5)
         #expect(items == [1, 2, 3, 4, 5])
     }
 
@@ -71,15 +84,19 @@ struct TaskObserveTests {
 
         continuation.yield(1)
         continuation.yield(2)
-        try await Task.sleep(nanoseconds: 50_000_000)
 
-        let itemsBeforeDealloc = await observer?.processedItems
+        let itemsBeforeDealloc = await observer?.waitForItems(2)
         #expect(itemsBeforeDealloc == [1, 2])
 
         observer = nil
 
-        try await Task.sleep(nanoseconds: 50_000_000)
-
+        // The subscription holds the observer weakly, but its task may still be mid-element; poll
+        // rather than assume the drop lands inside a fixed window. Inline rather than via `poll`,
+        // because a `weak var` local cannot cross into a `@Sendable` closure.
+        let deallocDeadline = Date().addingTimeInterval(5)
+        while weakObserver != nil, Date() < deallocDeadline {
+            try await Task.sleep(nanoseconds: 5_000_000)
+        }
         #expect(weakObserver == nil, "Observer should have been deallocated")
         weakObserver = nil
 
@@ -97,9 +114,8 @@ struct TaskObserveTests {
         }
 
         continuation.yield(1)
-        try await Task.sleep(nanoseconds: 50_000_000)
 
-        let itemsBeforeCancel = await observer.processedItems
+        let itemsBeforeCancel = await observer.waitForItems(1)
         #expect(itemsBeforeCancel == [1])
 
         task.cancel()
@@ -111,7 +127,7 @@ struct TaskObserveTests {
         #expect(itemsAfterCancel.count <= 2)
     }
 
-    @Test func streamFinishEndsTask() async throws {
+    @Test func streamFinishEndsTask() async {
         let observer = TestObserver()
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
 
@@ -123,9 +139,7 @@ struct TaskObserveTests {
         continuation.yield(2)
         continuation.finish()
 
-        try await Task.sleep(nanoseconds: 100_000_000)
-
-        let items = await observer.processedItems
+        let items = await observer.waitForItems(2)
         #expect(items == [1, 2])
     }
 }

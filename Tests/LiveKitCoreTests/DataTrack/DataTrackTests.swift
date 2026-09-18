@@ -40,30 +40,39 @@ struct DataTrackTests {
         static let largeFrames = ReceiveScenario(name: "largeFrames", payloadSize: 196 * 1024, frameCount: 3, interFrameDelayMs: 100)
     }
 
+    /// Pushes each frame only once the previous one has arrived.
+    ///
+    /// The `_data_track` channel is unreliable *and* drop-oldest with room for exactly one queued
+    /// frame, and its buffered-amount low-water mark is 8 KiB — deliberately small, so at most one
+    /// message is handed to SCTP at a time (`DATA_TRACK_BUFFERED_AMOUNT_LOW_THRESHOLD` in
+    /// rust-sdks: "data tracks prefer dropping packets over queueing"). A producer that pushes
+    /// faster than the channel drains is *supposed* to lose the frames waiting behind the one in
+    /// flight, so a burst plus "tolerate one drop" asserted a guarantee the channel does not make
+    /// and failed on any runner slow enough to widen that window.
+    ///
+    /// Waiting for delivery paces the producer within the queue's capacity, which is the one
+    /// condition under which the channel does owe every frame — so this can assert exactly that,
+    /// and covers packetization and reassembly of every frame rather than all-but-one.
+    private func pushAndReceive(_ scenario: ReceiveScenario, on fixture: DataTrackFixture) async throws {
+        let stream = try await fixture.remoteTrack.subscribe()
+        let payload = Data(repeating: 0xAB, count: scenario.payloadSize)
+
+        for index in 0 ..< scenario.frameCount {
+            try fixture.track.tryPush(frame: .now(payload: payload))
+            let frame = await stream.next(within: 15)
+            #expect(frame?.payload == payload, "Frame \(index) did not arrive intact")
+        }
+    }
+
     @Test(arguments: [ReceiveScenario.smallFrames, .largeFrames])
     func publishAndReceive(_ scenario: ReceiveScenario) async throws {
         try await TestEnvironment.withPublishedDataTrack { fixture in
-            let track = fixture.track
-            #expect(track.isPublished)
+            #expect(fixture.track.isPublished)
             #expect(fixture.remoteTrack.info.name == "test")
             // withRooms enables E2EE by default, so the track should be encrypted.
             #expect(fixture.remoteTrack.info.usesE2ee)
 
-            let stream = try await fixture.remoteTrack.subscribe()
-
-            let payload = Data(repeating: 0xAB, count: scenario.payloadSize)
-            for _ in 0 ..< scenario.frameCount {
-                try track.tryPush(frame: .now(payload: payload))
-                if scenario.interFrameDelayMs > 0 {
-                    try? await Task.sleep(nanoseconds: scenario.interFrameDelayMs * 1_000_000)
-                }
-            }
-
-            // The channel is unreliable, so tolerate a single dropped frame.
-            let expected = scenario.frameCount - 1
-            let received = await stream.collect(expected)
-            #expect(received.count >= expected, "Expected at least \(expected) frames, got \(received.count)")
-            #expect(received.allSatisfy { $0.payload == payload }, "Payload mismatch")
+            try await pushAndReceive(scenario, on: fixture)
         }
     }
 
