@@ -492,6 +492,29 @@ struct DataChannelOpenLatchTests {
         #expect(Date().timeIntervalSince(started) < 1, "the gate must not wait on a latch nothing can resolve")
     }
 
+    /// The gate must depend on the channel, not on the transport mode.
+    ///
+    /// A connected room with no transport is exactly the state the old gate fell through on: it
+    /// opened with `guard case .subscriberPrimary = _state.transport else { return }`, which is
+    /// false for both publisher-primary modes *and* for `nil`. So the send must park here, and on
+    /// the latch for the kind it is about to write — not the pair's, and not the other kind's.
+    @Test func sendParksOnItsOwnChannelWithNoTransport() async throws {
+        let room = Room()
+        room._state.mutate { $0.connectionState = .connected }
+
+        let send = Task { try await room.send(dataPacket: .with { $0.kind = .lossy }) }
+        defer { send.cancel() }
+
+        // Generous: building the first `Room` in a process pays one-time device and audio setup,
+        // so the send can take a while to reach the gate at all. What is being pinned is that it
+        // parks there, not how fast.
+        try await poll(timeout: 15, for: "the send to park on the lossy channel's latch") {
+            room.publisherDataChannel.whenOpen(kind: .lossy).waiterCount == 1
+        }
+        #expect(room.publisherDataChannel.whenOpen(kind: .reliable).waiterCount == 0,
+                "A lossy send must not be gated on the reliable channel")
+    }
+
     /// The same burst, gated the way `Room.send(dataPacket:)` gates it. Every write survives,
     /// because each submitter waits for the channel instead of racing the one before it.
     @Test func gatedBurstSurvivesAChannelThatOpensLate() async throws {
