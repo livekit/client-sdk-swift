@@ -132,7 +132,18 @@ struct DataTrackLifecycleTests {
             #expect(publisher._state.transport == nil, "Never observed the reconnect teardown window")
 
             // The publish must wait for the reconnected channel instead of failing on the dead one.
-            let track = try await publisher.localParticipant.publishDataTrack(name: "during-reconnect")
+            //
+            // Retried on `.disconnected`, because a publication still *pending* when the reconnect
+            // republishes is failed outright by the Rust manager — `on_republish_tracks` in
+            // livekit-datatrack answers `Descriptor::Pending` with `PublishError::Disconnected`
+            // under a `// TODO: support republish for pending publications`. Whether this publish
+            // lands before that runs is a race the SFU's response time decides, and a loaded
+            // sanitizer leg loses it. What the test is for — that the publish waits for the
+            // rebuilt channel rather than failing on the dead one — still holds, and a regression
+            // there fails every attempt.
+            let track = try await Task.retrying(totalAttempts: 3, retryDelay: 1) { _, _ in
+                try await publisher.localParticipant.publishDataTrack(name: "during-reconnect")
+            }.value
             #expect(track.isPublished)
             try await reconnect.value
 
