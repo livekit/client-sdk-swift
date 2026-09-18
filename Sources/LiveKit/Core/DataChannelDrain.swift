@@ -386,8 +386,16 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             // channel opens. (No-op for `.park`, which never uses `pending`.)
             guard let channel = state.sendTarget, channel.isOpen else {
                 // The channel can go away between the readiness report and here — e.g. mid
-                // fast-reconnect. Leave the write at the head; the next `.wakeup` ships it, and
-                // permanent teardown fails it via `.fail`.
+                // fast-reconnect. Leave the write at the head; a replacement ships it (`.attached`
+                // keeps the queue under `.park`, which is what makes a fast reconnect lossless) and
+                // teardown fails it (`.fail`). Deliberately *not* failed on `.closed` itself: a
+                // close followed by `setChannel` is the ordinary reconnect sequence, and failing
+                // here would drop exactly the writes that path exists to carry.
+                //
+                // Residual: a close that is followed by neither — libwebrtc closing one channel on
+                // its own while the room stays up — leaves this write parked. `enqueue`'s
+                // max-message-size check is the primary defense against that, and
+                // `dataChannelDidChangeState` logs it if anything gets past.
                 return
             }
             state.queue.promoteIfIdle()
