@@ -64,12 +64,16 @@ struct TaskObserveTests {
             continuation.finish()
         }
 
-        _ = stream.subscribe(observer) { observer, element in
+        // Bound, not discarded: `subscribe` hands back an `AnyTaskCancellable` that cancels the
+        // subscription from its `deinit`, so `_ = stream.subscribe(…)` cancels it on the spot and
+        // whether anything is processed becomes a race the test loses on a loaded runner.
+        let subscription = stream.subscribe(observer) { observer, element in
             await observer.recordItem(element)
         }
 
         let items = await observer.waitForItems(5)
         #expect(items == [1, 2, 3, 4, 5])
+        withExtendedLifetime(subscription) {}
     }
 
     @Test func streamBreaksWhenObserverDeallocates() async throws {
@@ -78,7 +82,9 @@ struct TaskObserveTests {
 
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
 
-        _ = try stream.subscribe(#require(observer)) { observer, element in
+        // Held for the whole test: this one is about the *observer* being released, so cancelling
+        // the subscription by discarding its handle would test nothing.
+        let subscription = try stream.subscribe(#require(observer)) { observer, element in
             await observer.recordItem(element)
         }
 
@@ -103,6 +109,7 @@ struct TaskObserveTests {
         continuation.yield(3)
         continuation.yield(4)
         try await Task.sleep(nanoseconds: 50_000_000)
+        withExtendedLifetime(subscription) {}
     }
 
     @Test func streamCancellation() async throws {
@@ -131,7 +138,7 @@ struct TaskObserveTests {
         let observer = TestObserver()
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
 
-        _ = stream.subscribe(observer) { observer, element in
+        let subscription = stream.subscribe(observer) { observer, element in
             await observer.recordItem(element)
         }
 
@@ -141,5 +148,6 @@ struct TaskObserveTests {
 
         let items = await observer.waitForItems(2)
         #expect(items == [1, 2])
+        withExtendedLifetime(subscription) {}
     }
 }

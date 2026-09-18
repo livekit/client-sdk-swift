@@ -110,7 +110,19 @@ actor WebSocket: Loggable, AsyncSequence {
     // MARK: - Send
 
     nonisolated func send(data: Data) async throws {
-        try await task.send(.data(data))
+        // Callback API rather than the async overlay, for the same reason as `next()` below: the
+        // overlay's continuation bridge carries a TSan-visible data race between the thread that
+        // creates the continuation and the one that completes it. CI caught it on the TSan leg,
+        // where it aborts the whole test bundle.
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            task.send(.data(data)) { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
     }
 
     // MARK: - Delegate
