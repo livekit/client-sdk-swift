@@ -129,34 +129,6 @@ public final class DataTrackDelegateRecorder: NSObject, RoomDelegate, Participan
     public func participant(_: RemoteParticipant, didUnpublishDataTrack sid: DataTrack.Sid) { record(.participantRemoteUnpublish, sid) }
 }
 
-/// Bounded reads. `DataTrackStream` only ends when the track is unpublished, so a bare `next()`
-/// waits forever if a frame is lost — on an unreliable channel that turns a failed assertion into
-/// a hung job.
-public extension DataTrackStream {
-    /// The next frame, or `nil` if none arrives in time. The read is not cancelled on timeout — the
-    /// UniFFI future under `next()` cannot be — so it is left to finish when the stream ends.
-    func next(within timeout: TimeInterval = 15) async -> DataTrackFrame? {
-        let frame = AsyncCompleter<DataTrackFrame?>(label: "data track frame", defaultTimeout: timeout)
-        Task { await frame.resume(returning: self.next()) }
-        return try? await frame.wait()
-    }
-
-    /// Up to `count` frames matching `predicate`, or fewer if the deadline passes first.
-    func collect(_ count: Int,
-                 within timeout: TimeInterval = 15,
-                 where predicate: @escaping @Sendable (DataTrackFrame) -> Bool = { _ in true }) async -> [DataTrackFrame]
-    {
-        var frames: [DataTrackFrame] = []
-        let deadline = Date().addingTimeInterval(timeout)
-        while frames.count < count {
-            let remaining = deadline.timeIntervalSinceNow
-            guard remaining > 0, let frame = await next(within: remaining) else { break }
-            if predicate(frame) { frames.append(frame) }
-        }
-        return frames
-    }
-}
-
 /// A publisher and a subscriber with one data track published and already observed — the preamble
 /// of most data track tests. Holding `track` keeps the publication alive for the body's duration.
 public struct DataTrackFixture {

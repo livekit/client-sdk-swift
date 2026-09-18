@@ -22,7 +22,19 @@ import LiveKitUniFFI
 @objcMembers
 public class LKObjCRoomHelper: NSObject {
     private static let connectAttempts = 3
-    private static let connectRetryDelay: UInt64 = 2_000_000_000
+    private static let connectRetryDelay: TimeInterval = 2
+
+    /// How long a caller must allow for ``connect(room:url:token:completionHandler:)`` to report.
+    ///
+    /// The retry loop can legitimately run for `attempts × (connect timeout + delay)`, which
+    /// already exceeds the 30 s the ObjC tests used to allow — so one slow cold connect, the very
+    /// case the retry exists for, blew the XCTest expectation before the retry could save it.
+    /// Derived rather than written down twice: changing the attempt count or the connect timeout
+    /// must move this with it.
+    public static var connectTimeout: TimeInterval {
+        let perAttempt = ConnectOptions().primaryTransportConnectTimeout + connectRetryDelay
+        return TimeInterval(connectAttempts) * perAttempt + 10 // slack for the one-time WebRTC init
+    }
 
     /// Connects with retries, matching `TestEnvironment.withRooms`. The first `Room`
     /// in a process pays one-time WebRTC and audio-stack initialization that can
@@ -45,7 +57,7 @@ public class LKObjCRoomHelper: NSObject {
                     // Reset so a half-established connect doesn't leak a participant.
                     await room.disconnect()
                     if attempt < connectAttempts {
-                        try? await Task.sleep(nanoseconds: connectRetryDelay)
+                        try? await Task.sleep(nanoseconds: UInt64(connectRetryDelay * 1_000_000_000))
                     }
                 }
             }

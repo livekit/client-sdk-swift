@@ -59,7 +59,7 @@
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     // Set up expectation for participant join
     self.participantJoinedExp = [self expectationWithDescription:@"participantJoined"];
@@ -72,7 +72,7 @@
         XCTAssertNil(err);
         [connect2 fulfill];
     }];
-    [self waitForExpectations:@[connect2, self.participantJoinedExp] timeout:30];
+    [self waitForExpectations:@[connect2, self.participantJoinedExp] timeout:[LKObjCRoomHelper connectTimeout]];
 
     XCTAssertEqual(room1.remoteParticipants.count, (NSUInteger)1);
 
@@ -103,7 +103,7 @@
         XCTAssertNil(err);
         [connectExp fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     LocalParticipant *local = room.localParticipant;
     XCTAssertNotNil(local);

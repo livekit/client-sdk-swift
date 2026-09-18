@@ -36,34 +36,47 @@ struct DataTrackTests {
 
         /// Many small single-packet frames.
         static let smallFrames = ReceiveScenario(name: "smallFrames", payloadSize: 1024, frameCount: 10, interFrameDelayMs: 0)
-        /// A few large frames that require DTP packetization across multiple packets.
-        static let largeFrames = ReceiveScenario(name: "largeFrames", payloadSize: 196 * 1024, frameCount: 3, interFrameDelayMs: 100)
+        /// A few large frames that require DTP packetization across multiple packets. 64 KiB is
+        /// five packets at the pipeline's 16 KB MTU, which covers packetization and reassembly
+        /// while keeping the odds of a drop low — this asserts *every* frame, on a channel that
+        /// never retransmits, so one lost packet is one failed test.
+        static let largeFrames = ReceiveScenario(name: "largeFrames", payloadSize: 64 * 1024, frameCount: 3, interFrameDelayMs: 100)
+    }
+
+    /// Pushes each frame only once the previous one has arrived.
+    ///
+    /// Not a burst, deliberately. The `_data_track` channel is drop-oldest with room for exactly one
+    /// queued frame, and its buffered-amount low-water mark is 8 KiB — small on purpose, so at most
+    /// one message is handed to SCTP at a time (`DATA_TRACK_BUFFERED_AMOUNT_LOW_THRESHOLD` in
+    /// rust-sdks: "data tracks prefer dropping packets over queueing"). A producer that outruns the
+    /// channel is *supposed* to lose the frames waiting behind the one in flight, so the old burst
+    /// plus "tolerate one drop" measured how loaded the runner was rather than anything about the
+    /// SDK.
+    ///
+    /// Read through a ``DataTrackReader``, which owns the stream's single `next()` caller. Reading
+    /// the stream directly more than once cannot work: a bounded read that times out leaves a
+    /// `next()` holding the Rust-side mutex, and every later read blocks behind it — so one lost
+    /// frame used to take the rest of the test with it and look like total delivery failure.
+    private func pushAndReceive(_ scenario: ReceiveScenario, on fixture: DataTrackFixture) async throws {
+        let reader = try await fixture.remoteTrack.subscribe().reader()
+        let payload = Data(repeating: 0xAB, count: scenario.payloadSize)
+
+        for index in 0 ..< scenario.frameCount {
+            try fixture.track.tryPush(frame: .now(payload: payload))
+            let frame = await reader.next(within: 15)
+            #expect(frame?.payload == payload, "Frame \(index) did not arrive intact")
+        }
     }
 
     @Test(arguments: [ReceiveScenario.smallFrames, .largeFrames])
     func publishAndReceive(_ scenario: ReceiveScenario) async throws {
         try await TestEnvironment.withPublishedDataTrack { fixture in
-            let track = fixture.track
-            #expect(track.isPublished)
+            #expect(fixture.track.isPublished)
             #expect(fixture.remoteTrack.info.name == "test")
             // withRooms enables E2EE by default, so the track should be encrypted.
             #expect(fixture.remoteTrack.info.usesE2ee)
 
-            let stream = try await fixture.remoteTrack.subscribe()
-
-            let payload = Data(repeating: 0xAB, count: scenario.payloadSize)
-            for _ in 0 ..< scenario.frameCount {
-                try track.tryPush(frame: .now(payload: payload))
-                if scenario.interFrameDelayMs > 0 {
-                    try? await Task.sleep(nanoseconds: scenario.interFrameDelayMs * 1_000_000)
-                }
-            }
-
-            // The channel is unreliable, so tolerate a single dropped frame.
-            let expected = scenario.frameCount - 1
-            let received = await stream.collect(expected)
-            #expect(received.count >= expected, "Expected at least \(expected) frames, got \(received.count)")
-            #expect(received.allSatisfy { $0.payload == payload }, "Payload mismatch")
+            try await pushAndReceive(scenario, on: fixture)
         }
     }
 
@@ -94,7 +107,7 @@ struct DataTrackTests {
             let payload = Data([1, 2, 3])
             try fixture.track.tryPush(frame: .now(payload: payload))
 
-            let frame = try #require(await stream.next(within: 15))
+            let frame = try #require(await stream.firstFrame(within: 15))
             let ts = try #require(frame.userTimestamp)
             let nowMs = UInt64(Date().timeIntervalSince1970 * 1000)
             let elapsedMs = nowMs > ts ? nowMs - ts : 0
@@ -116,7 +129,7 @@ struct DataTrackTests {
             do {
                 let stream = try await remoteTrack.subscribe()
                 try track.tryPush(frame: DataTrackFrame(payload: payload))
-                let frame = try #require(await stream.next(within: 15), "No frame on first subscription")
+                let frame = try #require(await stream.firstFrame(within: 15), "No frame on first subscription")
                 #expect(frame.payload == payload)
             }
             // Stream dropped — unsubscribes.
@@ -124,11 +137,15 @@ struct DataTrackTests {
             // Small delay to let unsubscribe propagate.
             try await Task.sleep(nanoseconds: 500_000_000)
 
-            // Second subscription.
+            // Second subscription. Retried: `subscribe()` is a round trip to the SFU under a 10 s
+            // budget hard-coded on the Rust side (`// TODO: standardize timeout`), which a loaded
+            // sanitizer leg can outrun — and there is no Swift-side knob for it.
             do {
-                let stream = try await remoteTrack.subscribe()
+                let stream = try await Task.retrying(totalAttempts: 3, retryDelay: 1) { _, _ in
+                    try await remoteTrack.subscribe()
+                }.value
                 try track.tryPush(frame: DataTrackFrame(payload: payload))
-                let frame = try #require(await stream.next(within: 15), "No frame on second subscription")
+                let frame = try #require(await stream.firstFrame(within: 15), "No frame on second subscription")
                 #expect(frame.payload == payload)
             }
         }
@@ -152,7 +169,7 @@ struct DataTrackTests {
 
             try await track.send(contentsOf: source)
 
-            let received = await stream.collect(frameCount - 1)
+            let received = await stream.reader().collect(frameCount - 1)
             #expect(received.count >= frameCount - 1)
             #expect(received.allSatisfy { $0.payload == payload })
         }

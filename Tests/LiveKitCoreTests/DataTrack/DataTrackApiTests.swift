@@ -125,7 +125,7 @@ struct DataTrackApiTests {
 
             let payload = Data([0x2A])
             try fixture.track.tryPush(frame: DataTrackFrame(payload: payload))
-            #expect(await stream.next(within: 15)?.payload == payload)
+            #expect(await stream.firstFrame(within: 15)?.payload == payload)
         }
     }
 
@@ -144,29 +144,39 @@ struct DataTrackApiTests {
             // Let the last frames arrive before reading, so the buffer has to evict.
             try await Task.sleep(nanoseconds: 1_000_000_000)
 
-            let first = try #require(await stream.next(within: 15)?.payload.first)
+            // `firstFrame`, not a reader: a reader drains continuously, which is exactly what this test
+            // must not do — the drop-oldest behaviour it checks happens in the subscription's buffer.
+            let first = try #require(await stream.firstFrame(within: 15)?.payload.first)
             #expect(first > 0, "A capacity-one buffer should have dropped the earliest frames")
         }
     }
 
     // MARK: - Pipeline Options
 
-    /// `maxPartialFrames` can be set before and after subscribing, and a multi-packet frame
-    /// still reassembles. Zero is clamped to one rather than rejected.
+    /// `maxPartialFrames` can be set before and after subscribing, and a multi-packet frame still
+    /// reassembles under the clamped value. Zero is clamped to one rather than rejected.
+    ///
+    /// This looked for a while like a receive-path gap — every attempt lost the frame while the
+    /// sender's drop counter showed nothing discarded. It was the reads: the old bounded read
+    /// abandoned its `next()` on timeout, which wedged the stream (see ``DataTrackReader``), so the
+    /// retries below could never have worked. They do now, which is why the assertion is back to
+    /// requiring reassembly under the clamp.
     @Test
     func setPipelineOptionsReassemblesMultiPacketFrames() async throws {
         try await TestEnvironment.withPublishedDataTrack(named: "partials") { fixture in
             fixture.remoteTrack.setPipelineOptions(maxPartialFrames: 4)
-            let stream = try await fixture.remoteTrack.subscribe()
+            // A reader, because this reads more than once: a bounded read taken straight off the
+            // stream wedges it for good if it ever times out.
+            let reader = try await fixture.remoteTrack.subscribe().reader()
             fixture.remoteTrack.setPipelineOptions(maxPartialFrames: 0)
 
-            // Spans several packets, so the depacketizer has to reassemble it. Delivery is lossy
-            // and losing one packet loses the whole frame, so retry rather than assert on one push.
+            // Spans several packets, so the depacketizer has to reassemble it. Retried because the
+            // channel is unordered and never retransmits, so losing one packet loses the frame.
             let payload = Data(repeating: 0xFA, count: 32000)
             var received: Data?
             for _ in 0 ..< 3 where received == nil {
                 try fixture.track.tryPush(frame: DataTrackFrame(payload: payload))
-                received = await stream.next(within: 15)?.payload
+                received = await reader.next(within: 10)?.payload
             }
             #expect(received == payload)
         }

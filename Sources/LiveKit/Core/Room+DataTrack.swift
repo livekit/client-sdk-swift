@@ -43,9 +43,6 @@ final class DataTracks: NSObject, @unchecked Sendable {
     // The subscriber channel is retained (not just delegated) because its Swift wrapper must stay
     // alive for native callbacks to reach us. The publisher channel is owned by `publisher`.
     private let _subscriberChannel = StateSync<LKRTCDataChannel?>(nil)
-    // Resolves when the publisher data-track channel reaches `.open`; reset when the channel is
-    // swapped on a full reconnect. Gates publishing so frames aren't dropped into a closed channel.
-    private let _publisherChannelOpen = AsyncCompleter<Void>(label: "Data track publisher channel open", defaultTimeout: .defaultTransportState)
     // Whether this session ever published, so a full reconnect knows to re-establish the
     // publisher transport (media republishing only does this for media publishers).
     private let _hasPublished = StateSync<Bool>(false)
@@ -79,7 +76,6 @@ final class DataTracks: NSObject, @unchecked Sendable {
             overflow: .dropOldest,
             stage: DataTrackStage(),
             onMessage: { [weak self] data in self?.handlePacket(data) },
-            onStateChange: { [weak self] channel in self?.handlePublisherStateChange(channel) },
             onBufferStatusChange: { [weak room] isLow in room?.notify(bufferStatus: isLow, of: .dataTrack) },
         )
         // The UniFFI managers retain their delegate strongly, so it points back here weakly to
@@ -111,7 +107,7 @@ final class DataTracks: NSObject, @unchecked Sendable {
         // as publish errors, since that's what the caller asked for.
         do {
             try await room?.ensurePublisherConnected()
-            try await _publisherChannelOpen.wait()
+            try await publisher.whenOpen.wait()
         } catch let error as LiveKitError where error.type == .timedOut {
             throw DataTrackPublishError.timeout("Timed out establishing the publisher data track channel")
         } catch let error as LiveKitError where error.type == .cancelled {
@@ -183,14 +179,14 @@ final class DataTracks: NSObject, @unchecked Sendable {
         handleParticipantUpdate(encoded, localIdentity: localIdentity)
     }
 
-    /// Handles the room discarding its transports for a full reconnect: the publisher channel is
-    /// dead, so re-arm the open gate — a publish issued before the replacement channel arrives
-    /// waits for it instead of proceeding against the torn-down transport. (The channel's own
-    /// `.closed` delegate callback re-arms too, but arrives asynchronously from WebRTC's thread.)
+    /// Handles the room discarding its transports for a full reconnect.
+    ///
+    /// `reset` drops the frames queued for the dead channel (stale by definition on this
+    /// drop-oldest channel), marks the close as expected so it isn't logged as an error, and
+    /// re-arms the open latch so a publish issued before the replacement channel arrives waits for
+    /// it instead of proceeding against the torn-down transport. Called directly rather than left
+    /// to the channel's own `.closed` callback, which arrives asynchronously from WebRTC's thread.
     func handleTransportsTeardown() {
-        _publisherChannelOpen.rearm()
-        // The channel dies with the transport: drop queued frames (stale by definition on this
-        // drop-oldest channel) and mark the close as expected so it isn't logged as an error.
         publisher.reset()
     }
 
@@ -203,7 +199,7 @@ final class DataTracks: NSObject, @unchecked Sendable {
             // media republish path only does this when media tracks exist. Gate waiters are
             // publishes that arrived during the reconnect window — their own
             // `ensurePublisherConnected` ran against the torn-down transport and was a no-op.
-            if _hasPublished.copy() || _publisherChannelOpen.waiterCount > 0, let room {
+            if _hasPublished.copy() || publisher.whenOpen.waiterCount > 0, let room {
                 Task { try? await room.ensurePublisherConnected() }
             }
         }
@@ -284,13 +280,10 @@ final class DataTracks: NSObject, @unchecked Sendable {
     // MARK: - Channels
 
     func setPublisherChannel(_ channel: LKRTCDataChannel) {
-        // A new channel usually arrives unopened (e.g. swapped in by a full reconnect); re-arm the
-        // gate without cancelling waiters — a publish issued during the reconnect window keeps
-        // waiting for this channel to open. `setChannel` reports the channel's current state, so
-        // `handlePublisherStateChange` resolves the gate if it is already open — no probe here.
-        // Frames queued for the old channel belong to the torn-down transport, which `.dropOldest`
-        // discards on attach.
-        _publisherChannelOpen.rearm()
+        // `setChannel` points the drain's open latch at the new channel's state, so a publish
+        // issued during a reconnect keeps waiting until *this* channel opens rather than being
+        // released by the one it replaced. Frames queued for the old channel belong to the
+        // torn-down transport, which `.dropOldest` discards on attach.
         publisher.setChannel(channel)
     }
 
@@ -365,19 +358,12 @@ final class DataTracks: NSObject, @unchecked Sendable {
 private extension DataTracks {
     /// Resume sending when this many bytes or fewer are outstanding; parity with
     /// `DATA_TRACK_BUFFERED_AMOUNT_LOW_THRESHOLD` in rust-sdks.
+    ///
+    /// Deliberately far below the 2 MB the reliable/lossy channels use: at most one message is
+    /// handed to SCTP at a time, because a data track prefers dropping a stale frame to queueing
+    /// it. A producer pushing faster than the channel drains is *expected* to lose the frames
+    /// waiting behind the one in flight.
     static var frameLowWaterMark: UInt64 { 8 * 1024 }
-
-    /// Reported by the publisher drain, which owns that channel's delegate slot.
-    func handlePublisherStateChange(_ channel: LKRTCDataChannel) {
-        if channel.readyState == .open {
-            _publisherChannelOpen.resume(returning: ())
-        } else {
-            // The channel left `.open` (transport teardown or failure): re-arm the gate so a
-            // publish issued before the replacement channel arrives waits instead of proceeding
-            // against a dead transport.
-            _publisherChannelOpen.rearm()
-        }
-    }
 }
 
 // MARK: - Subscriber Channel Delegate
