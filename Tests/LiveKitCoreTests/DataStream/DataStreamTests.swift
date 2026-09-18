@@ -39,7 +39,7 @@ struct DataStreamTests {
         let topic = "some-topic"
         let testChunk = "Hello world!"
 
-        let delivered = AsyncCompleter<Void>(label: "Text stream delivered", defaultTimeout: 15)
+        let delivered = AsyncCompleter<Void>(label: "Text stream delivered", defaultTimeout: 30)
 
         try await confirmation("Receives stream chunk") { confirm in
             try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
@@ -74,7 +74,9 @@ struct DataStreamTests {
                 // Waits for the handler, not for a second of wall clock: the handler runs on its
                 // own task and a loaded runner routinely needs longer than a fixed sleep allows,
                 // which is what made these confirm zero times on CI. The stream rides the
-                // *reliable* channel, so a timeout here is a real failure, not a tolerable drop.
+                // *reliable* channel, so a timeout here is a real failure, not a tolerable drop —
+                // hence a budget that covers scheduling on the slowest leg rather than one that
+                // doubles as a latency assertion.
                 try await delivered.wait()
             }
         }
@@ -85,7 +87,7 @@ struct DataStreamTests {
         let topic = "some-topic"
         let testChunk = Data(repeating: 0xFF, count: 256)
 
-        let delivered = AsyncCompleter<Void>(label: "Byte stream delivered", defaultTimeout: 15)
+        let delivered = AsyncCompleter<Void>(label: "Byte stream delivered", defaultTimeout: 30)
 
         try await confirmation("Receives stream chunk") { confirm in
             try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
@@ -130,7 +132,9 @@ struct DataStreamTests {
                 // Waits for the handler, not for a second of wall clock: the handler runs on its
                 // own task and a loaded runner routinely needs longer than a fixed sleep allows,
                 // which is what made these confirm zero times on CI. The stream rides the
-                // *reliable* channel, so a timeout here is a real failure, not a tolerable drop.
+                // *reliable* channel, so a timeout here is a real failure, not a tolerable drop —
+                // hence a budget that covers scheduling on the slowest leg rather than one that
+                // doubles as a latency assertion.
                 try await delivered.wait()
             }
         }
