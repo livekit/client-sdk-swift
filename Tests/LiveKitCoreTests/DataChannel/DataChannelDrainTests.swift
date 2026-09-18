@@ -575,3 +575,36 @@ struct DataChannelOpenLatchTests {
         #expect(Set(channel.tags) == Set(UInt8(1) ... 5))
     }
 }
+
+// MARK: - Teardown
+
+/// What a submission arriving *after* teardown does. `.fail` settles what was queued when it ran,
+/// and nothing attaches another channel afterwards, so a write that lands later has to be turned
+/// away rather than parked — `Room.send` gates first, but the gate and the submission are separate
+/// steps and a disconnect can land between them.
+@Suite(.tags(.dataChannel))
+struct DataChannelTeardownTests {
+    private let drain = DrainFixture.makeDrain()
+
+    @Test func sendAfterResetFailsInsteadOfParking() async throws {
+        drain.attach(sendTarget: FakeSendChannel())
+        drain.reset()
+        try await drain.flushEvents()
+
+        await #expect {
+            try await drain.send(DrainFixture.frame(1))
+        } throws: { ($0 as? LiveKitError)?.type == .invalidState }
+    }
+
+    /// The same "no channel" state before one has *ever* arrived means the opposite: connect is
+    /// still in progress, so the write is queued rather than turned away. (This fixture is
+    /// drop-oldest, so attaching then settles it as dropped — what matters here is that it was
+    /// accepted, not failed.)
+    @Test func sendBeforeFirstChannelIsNotTurnedAway() async throws {
+        let send = Task { try await drain.send(DrainFixture.frame(1)) }
+        try await drain.flushEvents()
+
+        drain.attach(sendTarget: FakeSendChannel())
+        try await send.value
+    }
+}

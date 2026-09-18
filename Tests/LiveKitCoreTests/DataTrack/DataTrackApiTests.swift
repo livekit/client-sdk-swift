@@ -153,15 +153,14 @@ struct DataTrackApiTests {
 
     // MARK: - Pipeline Options
 
-    /// `maxPartialFrames` can be set before and after subscribing, zero is clamped rather than
-    /// rejected, and a multi-packet frame still reassembles afterwards.
+    /// `maxPartialFrames` can be set before and after subscribing, and a multi-packet frame still
+    /// reassembles under the clamped value. Zero is clamped to one rather than rejected.
     ///
-    /// The reassembly is checked with the value set *before* subscribing. Requiring it under the
-    /// clamped value instead is where this kept going red: on a loaded simulator leg all three
-    /// attempts lost the frame outright, with the sender's drop counter showing nothing discarded,
-    /// so the loss is in the data-track receive path rather than anything this test configures.
-    /// That gap is worth its own investigation; meanwhile what is pinned here is that the setter
-    /// works on both sides of `subscribe()` and that a clamped value leaves a working pipeline.
+    /// This looked for a while like a receive-path gap — every attempt lost the frame while the
+    /// sender's drop counter showed nothing discarded. It was the reads: the old bounded read
+    /// abandoned its `next()` on timeout, which wedged the stream (see ``DataTrackReader``), so the
+    /// retries below could never have worked. They do now, which is why the assertion is back to
+    /// requiring reassembly under the clamp.
     @Test
     func setPipelineOptionsReassemblesMultiPacketFrames() async throws {
         try await TestEnvironment.withPublishedDataTrack(named: "partials") { fixture in
@@ -169,6 +168,7 @@ struct DataTrackApiTests {
             // A reader, because this reads more than once: a bounded read taken straight off the
             // stream wedges it for good if it ever times out.
             let reader = try await fixture.remoteTrack.subscribe().reader()
+            fixture.remoteTrack.setPipelineOptions(maxPartialFrames: 0)
 
             // Spans several packets, so the depacketizer has to reassemble it. Retried because the
             // channel is unordered and never retransmits, so losing one packet loses the frame.
@@ -179,12 +179,6 @@ struct DataTrackApiTests {
                 received = await reader.next(within: 10)?.payload
             }
             #expect(received == payload)
-
-            // Zero is clamped to one rather than rejected, and the pipeline keeps delivering.
-            fixture.remoteTrack.setPipelineOptions(maxPartialFrames: 0)
-            let single = Data(repeating: 0xFB, count: 64)
-            try fixture.track.tryPush(frame: DataTrackFrame(payload: single))
-            #expect(await reader.next(within: 10)?.payload == single)
         }
     }
 }

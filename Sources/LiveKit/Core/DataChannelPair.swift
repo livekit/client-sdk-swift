@@ -64,11 +64,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         kind == .lossy ? lossy.whenOpen : reliable.whenOpen
     }
 
-    /// Whether the channel a packet of `kind` would be written to can currently take bytes.
-    func isOpen(kind: Livekit_DataPacket_Kind) -> Bool {
-        kind == .lossy ? lossy.isOpen : reliable.isOpen
-    }
-
     // MARK: - Private
 
     private struct State {

@@ -104,8 +104,14 @@ extension Room {
     /// - Parameter kind: Gates on this kind's channel alone; see ``DataChannelPair/whenOpen(kind:)``.
     func ensureDataChannelReady(kind: Livekit_DataPacket_Kind) async throws {
         // Nothing can open a channel once teardown has started, so the latch below has nothing that
-        // could resolve it and the wait would only burn its full timeout. `.reconnecting`
-        // deliberately still waits: there the rebuilt channel resolves it.
+        // could resolve it and the wait would only burn its full timeout.
+        //
+        // `.reconnecting` is let through, but note that a *full* reconnect runs `cleanUpRTC` and so
+        // fails anything waiting here — along with everything already queued in the drains. The two
+        // go together on purpose: preserving a gate waiter while failing the writes behind it would
+        // only move where the caller finds out. (`DataTracks` does preserve its own gate across a
+        // reconnect; it has no queued writes to contradict.) A quick reconnect never resets, so a
+        // send spanning one parks and ships on the resumed channel.
         switch _state.connectionState {
         case .disconnecting, .disconnected:
             throw LiveKitError(.invalidState, message: "Room is not connected")
@@ -129,10 +135,6 @@ extension Room {
         // At this point publisher should be .connected and dc should be .open
         if await !(_state.transport?.publisher.isConnected ?? false) {
             log("publisher is not .connected", .error)
-        }
-
-        if !publisherDataChannel.isOpen(kind: kind) {
-            log("publisher \(kind == .lossy ? "lossy" : "reliable") data channel is not .open", .error)
         }
 
         // `modifying` is consuming: with no other owner this stamps in place,

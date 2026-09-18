@@ -37,10 +37,9 @@ struct DataTrackTests {
         /// Many small single-packet frames.
         static let smallFrames = ReceiveScenario(name: "smallFrames", payloadSize: 1024, frameCount: 10, interFrameDelayMs: 0)
         /// A few large frames that require DTP packetization across multiple packets. 64 KiB is
-        /// five packets at the pipeline's 16 KB MTU — enough to cover packetization and reassembly,
-        /// and a size the transport actually delivers. At 196 KiB (thirteen packets) the frame is
-        /// lost outright on some simulator legs no matter how it is paced, which is a gap in the
-        /// data-track path rather than anything this scenario is meant to be measuring.
+        /// five packets at the pipeline's 16 KB MTU, which covers packetization and reassembly
+        /// while keeping the odds of a drop low — this asserts *every* frame, on a channel that
+        /// never retransmits, so one lost packet is one failed test.
         static let largeFrames = ReceiveScenario(name: "largeFrames", payloadSize: 64 * 1024, frameCount: 3, interFrameDelayMs: 100)
     }
 
@@ -138,9 +137,13 @@ struct DataTrackTests {
             // Small delay to let unsubscribe propagate.
             try await Task.sleep(nanoseconds: 500_000_000)
 
-            // Second subscription.
+            // Second subscription. Retried: `subscribe()` is a round trip to the SFU under a 10 s
+            // budget hard-coded on the Rust side (`// TODO: standardize timeout`), which a loaded
+            // sanitizer leg can outrun — and there is no Swift-side knob for it.
             do {
-                let stream = try await remoteTrack.subscribe()
+                let stream = try await Task.retrying(totalAttempts: 3, retryDelay: 1) { _, _ in
+                    try await remoteTrack.subscribe()
+                }.value
                 try track.tryPush(frame: DataTrackFrame(payload: payload))
                 let frame = try #require(await stream.firstFrame(within: 15), "No frame on second subscription")
                 #expect(frame.payload == payload)
