@@ -58,6 +58,47 @@ public class LocalTrackPublication: TrackPublication, @unchecked Sendable {
         try await track._unmute()
     }
 
+    /// Updates the publish options of an already published local video track and applies the
+    /// re-computed encoding parameters (e.g. ``VideoEncoding/maxBitrate``,
+    /// ``VideoEncoding/maxFps``) to the RTP sender without re-publishing the track.
+    ///
+    /// The encoding layer structure (number of layers and their `rid`s) is fixed at publish
+    /// time and cannot change here: passing options that would produce a different layer
+    /// structure (e.g. toggling simulcast) throws ``LiveKitErrorType/invalidState``.
+    /// Only per-layer encoding parameters (`isActive`, `scaleResolutionDownBy`, `maxBitrate`,
+    /// `maxFps`) are re-applied; codec preferences, scalability mode, and
+    /// ``VideoPublishOptions/degradationPreference`` remain as published.
+    public func set(videoPublishOptions options: VideoPublishOptions) throws {
+        guard let track = track as? LocalVideoTrack else {
+            throw LiveKitError(.invalidState, message: "track is nil or not a LocalVideoTrack")
+        }
+
+        guard participant?._room != nil else {
+            throw LiveKitError(.invalidState, message: "Participant or room is not available")
+        }
+
+        guard let sender = track._state.rtpSender else {
+            throw LiveKitError(.invalidState, message: "RTP sender is not available")
+        }
+
+        guard let dimensions = track.capturer.dimensions else {
+            throw LiveKitError(.invalidState, message: "Capturer dimensions are not resolved")
+        }
+
+        let newEncodings = Utils.computeVideoEncodings(dimensions: dimensions,
+                                                       publishOptions: options,
+                                                       isScreenShare: track.source == .screenShareVideo)
+        let currentEncodings = sender.parameters.encodings
+        guard newEncodings.count == currentEncodings.count,
+              zip(newEncodings, currentEncodings).allSatisfy({ $0.rid == $1.rid })
+        else {
+            throw LiveKitError(.invalidState, message: "Encoding layer structure must match the published track")
+        }
+
+        track._state.mutate { $0.lastPublishOptions = options }
+        recomputeSenderParameters()
+    }
+
     @discardableResult
     override func set(track newValue: Track?) async -> Track? {
         let oldValue = await super.set(track: newValue)
