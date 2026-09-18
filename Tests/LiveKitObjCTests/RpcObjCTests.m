@@ -62,7 +62,7 @@
         XCTAssertNil(err);
         [connect0 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     self.participantJoinedExp = [self expectationWithDescription:@"participantJoined"];
 
@@ -72,7 +72,7 @@
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
-    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:30];
+    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:[LKObjCRoomHelper connectTimeout]];
 
     // Register RPC method on room0
 #pragma clang diagnostic push
@@ -133,7 +133,7 @@
         XCTAssertNil(err);
         [connectExp fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     // Register RPC method
 #pragma clang diagnostic push

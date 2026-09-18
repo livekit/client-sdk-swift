@@ -80,7 +80,10 @@ struct DataTrackLifecycleTests {
             #expect(newSid != originalSid)
             #expect(remoteTrack.info.name == "survives-reconnect")
 
-            // The participant's name-keyed track map keeps working across the SID rotation.
+            // The participant's name-keyed track map keeps working across the SID rotation. Polled:
+            // a publisher full reconnect can drop and recreate the participant, so the map is
+            // transiently empty right after the republish lands.
+            try await poll(for: "the publisher to be re-registered") { !subscriber.remoteParticipants.isEmpty }
             let participant = try #require(subscriber.remoteParticipants.values.first)
             #expect(participant.dataTracks["survives-reconnect"] === remoteTrack)
             #expect(participant.dataTracks.count == 1)
@@ -88,8 +91,14 @@ struct DataTrackLifecycleTests {
             // Depending on whether the SFU signals the publisher's brief departure, the app sees
             // either silent continuity (no events) or a coherent unpublish → publish pair when the
             // participant is dropped and recreated — never a publish without its unpublish.
-            if await (try? recorder.waitFor(.roomRemotePublish, timeout: 2)) != nil {
-                #expect(try await recorder.waitFor(.roomRemoteUnpublish, timeout: 2) == originalSid)
+            //
+            // The two events are delivered through `MulticastDelegate`, not synchronously with the
+            // participant update that produced them, so the second can trail the first by more than
+            // a moment on a loaded runner — and `waitFor` scans what has been recorded rather than
+            // what comes next, so a generous window only affects how long a genuine violation takes
+            // to report.
+            if await (try? recorder.waitFor(.roomRemotePublish, timeout: 5)) != nil {
+                #expect(try await recorder.waitFor(.roomRemoteUnpublish, timeout: 10) == originalSid)
             }
             _ = track.isPublished // keep the publication alive across the reconnect (dropping it unpublishes)
         }
