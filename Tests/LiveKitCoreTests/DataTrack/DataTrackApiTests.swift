@@ -167,11 +167,13 @@ struct DataTrackApiTests {
             // deadline instead: a loaded runner takes more attempts, not a failure, and a genuine
             // reassembly regression still fails because no attempt ever succeeds.
             let payload = Data(repeating: 0xFA, count: 32000)
+            // Few, long attempts rather than many short ones: a timed-out `next(within:)` cannot
+            // cancel the UniFFI read under it, so every retry leaves one more read outstanding.
             var received: Data?
             let deadline = Date().addingTimeInterval(30)
             while received == nil, Date() < deadline {
                 try fixture.track.tryPush(frame: DataTrackFrame(payload: payload))
-                received = await stream.next(within: 5)?.payload
+                received = await stream.next(within: 10)?.payload
             }
             #expect(received == payload)
         }
