@@ -35,7 +35,7 @@ public actor ConcurrentCounter {
     /// The default is generous on purpose: callers use this for liveness ("it fired at all"), and
     /// the work being counted usually rides a `.utility` task whose wake-ups a loaded host is free
     /// to coalesce. A shorter budget turns that into a failed assertion rather than a slower pass.
-    public func wait(untilAtLeast target: Int, timeout: TimeInterval = 30) async -> Int {
+    public func wait(untilAtLeast target: Int, timeout: TimeInterval = 60) async -> Int {
         let deadline = Date().addingTimeInterval(timeout)
         while count < target, Date() < deadline {
             try? await Task.sleep(nanoseconds: 10_000_000)

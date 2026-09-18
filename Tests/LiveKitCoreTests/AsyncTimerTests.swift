@@ -49,7 +49,7 @@ private actor ManualSleeper {
         }
     }
 
-    func waitForParked(_ count: Int, timeout: TimeInterval = 30) async {
+    func waitForParked(_ count: Int, timeout: TimeInterval = 60) async {
         let deadline = Date().addingTimeInterval(timeout)
         while parked.count < count, Date() < deadline {
             try? await Task.sleep(nanoseconds: 10_000_000)

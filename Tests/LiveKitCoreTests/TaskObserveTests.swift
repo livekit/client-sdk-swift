@@ -42,7 +42,7 @@ actor TestObserver {
     /// machine; on a loaded CI runner the task has simply not been scheduled yet, which is what
     /// made these assert against an empty or half-filled array. Polling still fails a genuine
     /// regression — nothing ever arrives — it just stops failing for being slow.
-    func waitForItems(_ count: Int, timeout: TimeInterval = 5) async -> [Int] {
+    func waitForItems(_ count: Int, timeout: TimeInterval = 30) async -> [Int] {
         let deadline = Date().addingTimeInterval(timeout)
         while processedItems.count < count, Date() < deadline {
             try? await Task.sleep(nanoseconds: 5_000_000)
