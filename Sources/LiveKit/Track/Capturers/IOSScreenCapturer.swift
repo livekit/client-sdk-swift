@@ -109,9 +109,11 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
             // Only one selection is honored; further picker updates would have nothing to resume.
             await dismissPicker()
         } catch {
-            // Unwinds whatever got as far as running, and rebalances the counter
-            // `super.startCapture()` incremented.
-            _ = try? await stopCapture()
+            // Unconditional: an overlapping `startCapture()` would leave the counter above zero, so
+            // `stopCapture()` would decline to clean up after this attempt.
+            await releasePicker()
+            // Rebalance the counter `super.startCapture()` incremented; report the original failure.
+            _ = try? await super.stopCapture()
             throw error
         }
 
@@ -188,11 +190,16 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
         // Already stopped
         guard didStop else { return false }
 
-        await dismissPicker()
-
-        await teardownStream()
+        await releasePicker()
 
         return true
+    }
+
+    /// Dismisses the picker and releases the stream, whatever stage this attempt reached.
+    private func releasePicker() async {
+        await dismissPicker()
+        // `makeStream` may already have registered outputs before a failure.
+        await teardownStream()
     }
 }
 
