@@ -120,6 +120,16 @@ extension Room {
         }
     }
 
+    /// Bounds ``connectWithCloudRegionFailover``, independently of how the region list is
+    /// maintained.
+    ///
+    /// The list is refreshed from the server *inside* the loop, so termination must not rest on an
+    /// invariant about how `remaining` is kept. rust-sdks gets this structurally — its fallback
+    /// iterates a list fetched once (`for region_url in urls.iter()` in `livekit-signaling`), so
+    /// nothing can refill it mid-loop. Until this loop is reshaped the same way, the cap is what
+    /// guarantees `connect` returns rather than hangs. Comfortably above any real region count.
+    private static let maxRegionFailoverAttempts = 10
+
     /// Connects using LiveKit Cloud region settings and fails over across regions on retryable errors.
     func connectWithCloudRegionFailover(
         regionManager: RegionManager,
@@ -129,6 +139,7 @@ extension Room {
     ) async throws -> URL {
         var nextUrl = initialUrl
         var nextRegion = initialRegion
+        var attempts = 0
 
         while true {
             do {
@@ -158,12 +169,28 @@ extension Room {
 
                 await cleanUp(isFullReconnect: true)
 
-                // Exhaustion rethrows the connection failure rather than replacing it: a 403 that
-                // was an ordinary permission error fails every region identically, and the
-                // server's response is what the caller needs — not "No more remaining regions."
-                // A throw from `resolveBest` is a genuine settings fetch/parse failure and
-                // propagates unchanged.
-                guard let region = try await regionManager.resolveBest(token: token) else {
+                attempts += 1
+                guard attempts < Self.maxRegionFailoverAttempts else {
+                    log("Region failover giving up after \(attempts) attempts", .warning)
+                    throw error
+                }
+
+                // Every way of failing to get another region surfaces the *connection* error:
+                // exhaustion, and a failure to fetch or parse the region settings alike. The
+                // caller asked to connect, not to look up regions, so replacing "the server
+                // rejected your token with 403" by "no more remaining regions" or "failed to
+                // parse region settings" loses the half they can act on. rust-sdks makes the same
+                // call explicitly — it logs the lookup failure and returns the original connect
+                // error rather than masking it.
+                let nextCandidate: RegionInfo?
+                do {
+                    nextCandidate = try await regionManager.resolveBest(token: token)
+                } catch let lookupError {
+                    log("Failed to resolve next region: \(lookupError); surfacing the connection error", .warning)
+                    nextCandidate = nil
+                }
+
+                guard let region = nextCandidate else {
                     throw error
                 }
                 nextUrl = region.url
