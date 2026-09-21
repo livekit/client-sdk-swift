@@ -33,7 +33,9 @@ public class LKObjCRoomHelper: NSObject {
     /// must move this with it.
     public static var connectTimeout: TimeInterval {
         let perAttempt = ConnectOptions().primaryTransportConnectTimeout + connectRetryDelay
-        return TimeInterval(connectAttempts) * perAttempt + 10 // slack for the one-time WebRTC init
+        // The readiness wait comes first and is bounded on its own; a server that never answers
+        // must still report through the completion handler before the caller's expectation expires.
+        return TestEnvironment.serverReadyTimeout + TimeInterval(connectAttempts) * perAttempt + 10 // slack for the one-time WebRTC init
     }
 
     /// Connects with retries, matching `TestEnvironment.withRooms`. The first `Room`
@@ -46,7 +48,12 @@ public class LKObjCRoomHelper: NSObject {
                                completionHandler: @escaping @Sendable (Error?) -> Void)
     {
         Task {
-            await TestEnvironment.serverReady.value
+            do {
+                try await TestEnvironment.waitForServer(url)
+            } catch {
+                completionHandler(error)
+                return
+            }
             var lastError: Error?
             for attempt in 1 ... connectAttempts {
                 do {
