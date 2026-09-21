@@ -81,11 +81,14 @@ extension Room {
                 return
             }
 
-            let bestRegion = try await regionManager.resolveBest(token: token)
-            _state.mutate { $0.preparedRegion = bestRegion }
-            Task {
-                await HTTP.prewarmConnection(url: bestRegion.url)
-                log("Prepared connection to \(bestRegion.url)")
+            // Nothing to prewarm if every region has already been tried; the connect path will
+            // surface why.
+            if let bestRegion = try await regionManager.resolveBest(token: token) {
+                _state.mutate { $0.preparedRegion = bestRegion }
+                Task {
+                    await HTTP.prewarmConnection(url: bestRegion.url)
+                    log("Prepared connection to \(bestRegion.url)")
+                }
             }
         } else {
             // Not cloud or no token, just warm the provided URL
@@ -155,7 +158,14 @@ extension Room {
 
                 await cleanUp(isFullReconnect: true)
 
-                let region = try await regionManager.resolveBest(token: token)
+                // Exhaustion rethrows the connection failure rather than replacing it: a 403 that
+                // was an ordinary permission error fails every region identically, and the
+                // server's response is what the caller needs — not "No more remaining regions."
+                // A throw from `resolveBest` is a genuine settings fetch/parse failure and
+                // propagates unchanged.
+                guard let region = try await regionManager.resolveBest(token: token) else {
+                    throw error
+                }
                 nextUrl = region.url
                 nextRegion = region
             }
