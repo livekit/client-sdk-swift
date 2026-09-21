@@ -63,12 +63,32 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
         #endif
     }()
 
+    public convenience init(dimensions: Dimensions = .h1080_169,
+                            fps: Int = 30,
+                            showCursor: Bool = true,
+                            appAudio: Bool = false,
+                            useBroadcastExtension: Bool = defaultToBroadcastExtension,
+                            includeCurrentApplication: Bool = false,
+                            excludeWindowIDs: [UInt32] = [])
+    {
+        self.init(dimensions: dimensions,
+                  fps: fps,
+                  showCursor: showCursor,
+                  appAudio: appAudio,
+                  useBroadcastExtension: useBroadcastExtension,
+                  useScreenCaptureKit: true,
+                  includeCurrentApplication: includeCurrentApplication,
+                  excludeWindowIDs: excludeWindowIDs)
+    }
+
+    /// - Parameter useScreenCaptureKit: See ``useScreenCaptureKit``. Has no default so that the
+    ///   initializer above keeps its original signature for Obj-C and binary consumers.
     public init(dimensions: Dimensions = .h1080_169,
                 fps: Int = 30,
                 showCursor: Bool = true,
                 appAudio: Bool = false,
                 useBroadcastExtension: Bool = defaultToBroadcastExtension,
-                useScreenCaptureKit: Bool = true,
+                useScreenCaptureKit: Bool,
                 includeCurrentApplication: Bool = false,
                 excludeWindowIDs: [UInt32] = [])
     {
