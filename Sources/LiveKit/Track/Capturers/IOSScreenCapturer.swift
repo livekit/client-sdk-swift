@@ -49,9 +49,18 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
     /// user may select system-wide content, including other apps.
     public let captureCurrentApplicationOnly: Bool
 
-    // `SCContentSharingPicker` is process-wide and delivers one selection to every registered
-    // observer, so only one capturer may present it at a time; the rest are turned away.
-    private static let _presenting = StateSync<ObjectIdentifier?>(nil)
+    /// Which capturer holds the process-wide `SCContentSharingPicker`, and in which phase.
+    ///
+    /// The picker delivers one selection to every registered observer, so only one capturer may
+    /// present it at a time; the rest are turned away. `dismissing` keeps the claim held while
+    /// teardown runs, so the next capturer cannot present into a picker that is about to be
+    /// deactivated, and a second teardown of the same capturer becomes a no-op.
+    private enum PickerClaim: Equatable {
+        case presenting(ObjectIdentifier)
+        case dismissing(ObjectIdentifier)
+    }
+
+    private static let _pickerClaim = StateSync<PickerClaim?>(nil)
 
     // `SCContentFilter` is not `Sendable`, so it is handed over through `StateSync` rather than
     // as the completer's value.
@@ -118,9 +127,9 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
     }
 
     private func presentPicker() async throws {
-        let didClaim = Self._presenting.mutate { presenting in
-            guard presenting == nil else { return false }
-            presenting = ObjectIdentifier(self)
+        let didClaim = Self._pickerClaim.mutate { claim -> Bool in
+            guard claim == nil else { return false }
+            claim = .presenting(ObjectIdentifier(self))
             return true
         }
         guard didClaim else {
@@ -151,10 +160,17 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
     }
 
     private func dismissPicker() async {
-        // Hold the claim until the picker is actually torn down, so a capturer that claims next
-        // cannot have its freshly presented picker deactivated by this cleanup.
-        guard Self._presenting.read({ $0 }) == ObjectIdentifier(self) else { return }
-        defer { Self._presenting.mutate { if $0 == ObjectIdentifier(self) { $0 = nil } } }
+        // Take the claim through to `dismissing` in one step: only the caller that wins may tear
+        // down, and nobody else can claim until it has, so this cleanup cannot close a picker
+        // someone else presented in the meantime.
+        let didClaim = Self._pickerClaim.mutate { claim -> Bool in
+            guard claim == .presenting(ObjectIdentifier(self)) else { return false }
+            claim = .dismissing(ObjectIdentifier(self))
+            return true
+        }
+        guard didClaim else { return }
+        // Only the winner reaches here, and `dismissing` blocks every other transition.
+        defer { Self._pickerClaim.mutate { $0 = nil } }
 
         await MainActor.run {
             let picker = SCContentSharingPicker.shared
