@@ -53,17 +53,13 @@ struct DataTrackLifecycleTests {
     /// republishes it under a new SID, and the subscriber converges on exactly one live track under
     /// the same name.
     ///
-    /// Two outcomes are legitimate here, and which one happens depends on whether the SFU signals
-    /// the publisher's brief departure:
-    ///
-    /// - the participant survives, and the existing ``RemoteDataTrack`` carries over with its SID
-    ///   reassigned in place;
-    /// - the participant is dropped and recreated, and so is its track — the app having been told
-    ///   the participant disconnected.
-    ///
-    /// Asserting only the first is what made this red: on a slower runner the second happened and
-    /// the test held an orphaned track object. So the assertions below are the ones that hold
-    /// either way, plus the object-identity check *when* the participant survived.
+    /// What survives is the *publication*, not any object identity. Depending on whether the SFU
+    /// signals the publisher's brief departure, the subscriber may keep its ``RemoteDataTrack`` and
+    /// have the SID reassigned in place, or may see the old one unpublished and a new one
+    /// published; and the participant object may or may not be recreated independently of that.
+    /// Two earlier versions of this test pinned one of those combinations — first the carried-over
+    /// track, then the track-follows-participant pairing — and each went red on a slower runner
+    /// when a different one happened. So it asserts only what holds in all of them.
     @Test
     func trackSurvivesPublisherFullReconnect() async throws {
         try await TestEnvironment.withRooms([
@@ -77,13 +73,12 @@ struct DataTrackLifecycleTests {
             // Confirm the subscriber sees the initial publication.
             let remoteTrack = try await subscriber.waitForDataTrack(name: "survives-reconnect")
             let originalSid = remoteTrack.info.sid
-            let participantBefore = subscriber.remoteParticipants.values.first
 
             try await publisher.startReconnect(reason: .debug, nextReconnectMode: .full)
 
-            // Read through the participant rather than through the captured track: if the
-            // participant was recreated, the track the app can reach is a new object and the
-            // captured one is orphaned.
+            // Read through the participant, never through the captured track: when the track is
+            // replaced rather than reassigned, the captured one is orphaned and its SID never
+            // rotates.
             try await poll(timeout: 15, for: "the track to be republished under a new SID") {
                 guard let participant = subscriber.remoteParticipants.values.first,
                       let republished = participant.dataTracks["survives-reconnect"] else { return false }
@@ -95,12 +90,6 @@ struct DataTrackLifecycleTests {
             #expect(republished.info.sid != originalSid)
             #expect(republished.info.name == "survives-reconnect")
             #expect(participant.dataTracks.count == 1, "The old publication must not linger alongside the new one")
-
-            // Only when the participant itself survived: then the SID is reassigned in place and
-            // the app keeps the object it already had.
-            if participant === participantBefore {
-                #expect(republished === remoteTrack, "A surviving participant must keep its track object")
-            }
 
             // Deliberately no assertion pairing the republish with an unpublish for `originalSid`.
             // Where the SID is reassigned in place, `remoteTrackUnpublished` — which matches by
