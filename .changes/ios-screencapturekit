@@ -1,0 +1,1 @@
+minor type="added" "Screen sharing on iOS 27+ now captures in-process via ScreenCaptureKit (`LocalVideoTrack.createIOSScreenShareTrack`), selecting content through the system picker with no Broadcast Upload Extension or app group; earlier iOS versions keep the existing ReplayKit paths"
