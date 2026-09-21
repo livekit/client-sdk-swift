@@ -134,16 +134,19 @@ struct DataTrackTests {
             }
             // Stream dropped — unsubscribes.
 
-            // Small delay to let unsubscribe propagate.
-            try await Task.sleep(nanoseconds: 500_000_000)
+            // Let the SFU finish the unsubscribe before asking again. Its subscription manager
+            // reconciles the unsubscribe asynchronously and then deletes the subscription entry;
+            // a subscribe that lands in between flips the entry's desired flag and is deleted
+            // with it, so the request is logged (`subscribing to data track`) but never executed
+            // (livekit-server `reconcileDataTrackSubscription`, seen in CI's server log). The
+            // Rust side then waits on a pending subscription that nothing will answer — and a
+            // repeated `subscribe()` joins that same pending list rather than sending a new
+            // request, so retrying cannot recover it. Only distance from the unsubscribe can.
+            try await Task.sleep(nanoseconds: 2_000_000_000)
 
-            // Second subscription. Retried: `subscribe()` is a round trip to the SFU under a 10 s
-            // budget hard-coded on the Rust side (`// TODO: standardize timeout`), which a loaded
-            // sanitizer leg can outrun — and there is no Swift-side knob for it.
+            // Second subscription.
             do {
-                let stream = try await Task.retrying(totalAttempts: 3, retryDelay: 1) { _, _ in
-                    try await remoteTrack.subscribe()
-                }.value
+                let stream = try await remoteTrack.subscribe()
                 try track.tryPush(frame: DataTrackFrame(payload: payload))
                 let frame = try #require(await stream.firstFrame(within: 15), "No frame on second subscription")
                 #expect(frame.payload == payload)
