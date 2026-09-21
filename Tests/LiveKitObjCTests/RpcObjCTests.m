@@ -85,24 +85,31 @@
     // Brief pause for registration to complete
     [NSThread sleepForTimeInterval:1.0];
 
-    // Call RPC from room1
+    // Call RPC from room1. One retry: this suite runs first on a freshly booted simulator, whose
+    // data path can stay starved for a minute or two after it starts answering at all — the same
+    // run's server log shows joins being cancelled sixty seconds before this call — and the
+    // responder's ack then misses even the 7 s round-trip budget below (RpcError 1501). A second
+    // call after that proves the registration and the call path; a failure on both is real.
     ParticipantIdentity *responderIdentity = [[ParticipantIdentity alloc] initFrom:@"rpc-responder"];
-    XCTestExpectation *rpcExp = [self expectationWithDescription:@"rpcResponse"];
     __block NSString *rpcResponse = nil;
+    __block NSError *rpcError = nil;
 
-    [room1.localParticipant performRpcWithDestinationIdentity:responderIdentity
-                                                       method:@"greet"
-                                                      payload:@"World"
-                                              responseTimeout:15.0
-                                          maxRoundTripLatency:7.0
-                                            completionHandler:^(NSString *response, NSError *err) {
-        XCTAssertNil(err);
-        rpcResponse = response;
-        [rpcExp fulfill];
-    }];
+    for (int attempt = 0; attempt < 2 && rpcResponse == nil; attempt++) {
+        XCTestExpectation *rpcExp = [self expectationWithDescription:@"rpcResponse"];
+        [room1.localParticipant performRpcWithDestinationIdentity:responderIdentity
+                                                           method:@"greet"
+                                                          payload:@"World"
+                                                  responseTimeout:15.0
+                                              maxRoundTripLatency:7.0
+                                                completionHandler:^(NSString *response, NSError *err) {
+            rpcResponse = response;
+            rpcError = err;
+            [rpcExp fulfill];
+        }];
+        [self waitForExpectations:@[rpcExp] timeout:30];
+    }
 
-    [self waitForExpectationsWithTimeout:30 handler:nil];
-
+    XCTAssertNil(rpcError);
     XCTAssertEqualObjects(rpcResponse, @"Hello, World!");
 
     // Disconnect

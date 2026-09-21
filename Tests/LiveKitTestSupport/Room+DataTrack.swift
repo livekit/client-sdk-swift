@@ -156,7 +156,17 @@ public extension TestEnvironment {
             let watcher = DataTrackWatcher(expectedName: name)
             rooms[1].delegates.add(delegate: watcher)
 
-            let track = try await rooms[0].localParticipant.publishDataTrack(name: name, options: options)
+            // One retry, because the publish round-trips the SFU under a 10 s budget hard-coded on
+            // the Rust side (`PUBLISH_TIMEOUT`), and the SFU can sit on the request longer than
+            // that without anything being wrong on this end: its per-participant signal loop
+            // handles inbound requests behind outbound sends, and a send that stalls (logged as
+            // `could not send signal message: request timed out`) delays every request queued
+            // behind it. CI's server log for one such run shows the publish received, handled
+            // four seconds later, and answered twelve seconds after it was sent. A publish that
+            // times out is a terminal error for that request, so a second one is a fresh attempt.
+            let track = try await Task.retrying(totalAttempts: 2, retryDelay: 0.5) { _, _ in
+                try await rooms[0].localParticipant.publishDataTrack(name: name, options: options)
+            }.value
             let remoteTrack = try await watcher.waitForTrack()
 
             try await body(DataTrackFixture(publisher: rooms[0],

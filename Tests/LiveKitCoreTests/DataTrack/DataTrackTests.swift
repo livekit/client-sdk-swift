@@ -53,6 +53,14 @@ struct DataTrackTests {
     /// plus "tolerate one drop" measured how loaded the runner was rather than anything about the
     /// SDK.
     ///
+    /// Each frame gets a bounded number of pushes, because even a lone multi-packet frame can be
+    /// lost on the way: the channel is unreliable end to end and nothing retransmits. On one CI
+    /// leg the SFU's own stats for this track read 13 packets in and one gap on a 15-packet run,
+    /// with no downlink drop logged — the packet went missing between the publisher and the SFU.
+    /// What this asserts is that a frame *can* be packetized, forwarded and reassembled intact,
+    /// which one arrival per frame proves; a push that vanishes entirely is the transport, not
+    /// the SDK, and a frame that never arrives in three pushes still fails.
+    ///
     /// Read through a ``DataTrackReader``, which owns the stream's single `next()` caller. Reading
     /// the stream directly more than once cannot work: a bounded read that times out leaves a
     /// `next()` holding the Rust-side mutex, and every later read blocks behind it — so one lost
@@ -62,8 +70,11 @@ struct DataTrackTests {
         let payload = Data(repeating: 0xAB, count: scenario.payloadSize)
 
         for index in 0 ..< scenario.frameCount {
-            try fixture.track.tryPush(frame: .now(payload: payload))
-            let frame = await reader.next(within: 15)
+            var frame: DataTrackFrame?
+            for _ in 0 ..< 3 where frame == nil {
+                try fixture.track.tryPush(frame: .now(payload: payload))
+                frame = await reader.next(within: 10)
+            }
             #expect(frame?.payload == payload, "Frame \(index) did not arrive intact")
         }
     }
