@@ -133,15 +133,23 @@ struct DataTrackStressTests {
             // (checked below).
             Self.expectIntact(received.copy(), trackCount: scenario.trackCount, framesPerTrack: framesPerTrack)
 
-            // Liveness, paced within the queue's capacity: after a burst the channel was entitled
-            // to discard wholesale, one frame pushed on its own must still get through. This is the
-            // property a send-path regression would break, where the arrival count above only
-            // measured how loaded the runner was. Read through the running consumer — cancelling it
-            // first would end the stream out from under the read.
+            // Liveness: after a burst the channel was entitled to discard wholesale, but it must
+            // deliver again once the burst is over. This is the property a send-path regression
+            // would break, where the arrival count above only measured how loaded the runner was.
+            //
+            // The marker is re-pushed on every poll rather than sent once, because a single frame
+            // on this channel is not a guarantee anyone offers: the SFU keeps at most 8 KiB queued
+            // per subscriber and drops beyond it, nothing retransmits, and a subscriber still
+            // digesting the burst can lose a packet on its own side. CI's server log for one such
+            // run shows the lone marker's packets reaching the SFU and being forwarded, and the
+            // slow visionOS subscriber never surfacing the frame. Only a channel that stays dead
+            // fails this. Read through the running consumer — cancelling it first would end the
+            // stream out from under the read.
             let marker = Self.makePayload(track: 0, seq: framesPerTrack, size: scenario.payloadSize)
-            try locals[0].tryPush(frame: DataTrackFrame(payload: marker))
-            try await poll(timeout: 15, for: "the post-burst frame") {
-                received.copy().contains { $0.stream == 0 && $0.seq == UInt32(framesPerTrack) }
+            try await poll(timeout: 15, interval: 0.5, for: "the post-burst frame") {
+                if received.copy().contains(where: { $0.stream == 0 && $0.seq == UInt32(framesPerTrack) }) { return true }
+                try? locals[0].tryPush(frame: DataTrackFrame(payload: marker))
+                return false
             }
 
             for consumer in consumers {
