@@ -146,9 +146,10 @@ struct DataTrackStressTests {
             // fails this. Read through the running consumer — cancelling it first would end the
             // stream out from under the read.
             let marker = Self.makePayload(track: 0, seq: framesPerTrack, size: scenario.payloadSize)
+            let markerTrack = try #require(locals.first)
             try await poll(timeout: 15, interval: 0.5, for: "the post-burst frame") {
                 if received.copy().contains(where: { $0.stream == 0 && $0.seq == UInt32(framesPerTrack) }) { return true }
-                try? locals[0].tryPush(frame: DataTrackFrame(payload: marker))
+                try? markerTrack.tryPush(frame: DataTrackFrame(payload: marker))
                 return false
             }
 
