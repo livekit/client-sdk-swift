@@ -71,7 +71,8 @@ public class MacOSScreenCapturer: SCStreamVideoCapturer, @unchecked Sendable {
 
         let mainDisplay = CGMainDisplayID()
         // try to capture in max resolution
-        setSize(width: CGDisplayPixelsWide(mainDisplay) * 2, height: CGDisplayPixelsHigh(mainDisplay) * 2, on: configuration)
+        configuration.width = CGDisplayPixelsWide(mainDisplay) * 2
+        configuration.height = CGDisplayPixelsHigh(mainDisplay) * 2
 
         configuration.scalesToFit = false
         configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(options.fps))

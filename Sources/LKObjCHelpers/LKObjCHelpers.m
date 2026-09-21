@@ -38,16 +38,6 @@ NS_ASSUME_NONNULL_BEGIN
     node.AUAudioUnit.maximumFramesToRender = maximumFramesToRender;
 }
 
-#ifdef LK_SUPPORTS_SCSTREAM_SIZE
-+ (void)setWidth:(size_t)width height:(size_t)height onConfiguration:(SCStreamConfiguration *)configuration {
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wunguarded-availability-new"
-    configuration.width = width;
-    configuration.height = height;
-    #pragma clang diagnostic pop
-}
-#endif
-
 NS_ASSUME_NONNULL_END
 
 @end

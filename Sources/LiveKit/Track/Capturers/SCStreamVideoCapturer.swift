@@ -23,10 +23,6 @@ import ScreenCaptureKit
 
 internal import LiveKitWebRTC
 
-#if compiler(>=6.4) && !COCOAPODS
-internal import LKObjCHelpers
-#endif
-
 /// Shared engine for ScreenCaptureKit-backed capturers across platforms.
 ///
 /// Owns the `SCStream` lifecycle, sample-buffer delivery (``ScreenCaptureKit/SCStreamOutput``),
@@ -88,18 +84,6 @@ public class SCStreamVideoCapturer: VideoCapturer, @unchecked Sendable {
         }
 
         _screenCapturerState.mutate { $0.scStream = nil }
-    }
-
-    /// Sets `width`/`height` on `configuration`.
-    ///
-    /// Reaches the `size_t` setters from Obj-C, which the Xcode 27 Swift importer otherwise rejects.
-    func setSize(width: Int, height: Int, on configuration: SCStreamConfiguration) {
-        #if compiler(>=6.4) && !COCOAPODS
-        LKObjCHelpers.setWidth(width, height: height, on: configuration)
-        #else
-        configuration.width = width
-        configuration.height = height
-        #endif
     }
 
     // Common capture func

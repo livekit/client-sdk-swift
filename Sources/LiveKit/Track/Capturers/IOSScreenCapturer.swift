@@ -114,7 +114,8 @@ extension IOSScreenCapturer: SCContentSharingPickerObserver {
         let configuration = SCStreamConfiguration()
         configuration.capturesAudio = options.appAudio
         let target = options.dimensions.toEncodeSafeDimensions()
-        setSize(width: Int(target.width), height: Int(target.height), on: configuration)
+        configuration.width = Int(target.width)
+        configuration.height = Int(target.height)
 
         do {
             _ = try makeStream(filter: filter, configuration: configuration)
