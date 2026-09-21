@@ -1,0 +1,1 @@
+patch type="fixed" "Prefix the vendored nanopb header names, include guards and C type names (lk_pb.h, lk_pb_msgdesc_t) so a SwiftPM graph that also contains another nanopb -- Firebase's, or one the app imports directly -- no longer fails to compile (#1133)"

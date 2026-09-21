@@ -77,7 +77,7 @@ struct ConformanceEdgeCaseTests {
 
     // MARK: large payloads
 
-    /// pb_size_t must be 32-bit (PB_FIELD_32BIT in the vendored pb.h) or any
+    /// lk_pb_size_t must be 32-bit (PB_FIELD_32BIT in the vendored lk_pb.h) or any
     /// bytes field over 65535 traps — the pre-connect audio buffer case.
     /// lk_abi_check.c guards the define at compile time; this proves it at
     /// runtime and would catch a regression to the 16-bit default.

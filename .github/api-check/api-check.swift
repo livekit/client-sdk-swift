@@ -152,8 +152,8 @@ struct APICheck: ParsableCommand {
     }
 
     /// swift-api-digester can't reach `CLiveKitProto` on its own: the module lives
-    /// behind the module map Xcode generates for the C target, and its headers
-    /// include nanopb's `<pb.h>` by angle brackets.
+    /// behind the module map Xcode generates for the C target, whose umbrella
+    /// directory must also be on the header search path.
     private func cModuleArguments(source: String, build: Folder) -> [String] {
         guard let intermediates = try? build.subfolder(named: "Intermediates.noindex"),
               let moduleMap = intermediates.files.recursive.first(where: { $0.name == "CLiveKitProto.modulemap" })

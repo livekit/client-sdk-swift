@@ -3,7 +3,7 @@
 
 #ifndef PB_LIVEKIT_LIVEKIT_METRICS_PB_H_INCLUDED
 #define PB_LIVEKIT_LIVEKIT_METRICS_PB_H_INCLUDED
-#include <pb.h>
+#include "lk_pb.h"
 #include "timestamp.pb.h"
 #include "options.pb.h"
 

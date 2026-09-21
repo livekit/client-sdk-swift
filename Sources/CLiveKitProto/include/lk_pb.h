@@ -2,13 +2,13 @@
  * stuff. For the high-level interface, see pb_encode.h and pb_decode.h.
  */
 
-#ifndef PB_H_INCLUDED
-#define PB_H_INCLUDED
+#ifndef LK_PB_H_INCLUDED
+#define LK_PB_H_INCLUDED
 
 /* ===== LiveKit modification (marked per zlib license clause 2) =============
  * All LiveKit-specific configuration (ABI defines, symbol renames) lives in
- * lk_pb_config.h, a LiveKit file; this include is the only change to this
- * upstream file. It must stay in this header, not build settings — see
+ * lk_pb_config.h, a LiveKit file; this include, the lk_ file name and the
+ * LK_ include guard are the only changes to this upstream file. It must stay in this header, not build settings — see
  * lk_pb_config.h for why. */
 #include "lk_pb_config.h"
 /* ========================================================================= */

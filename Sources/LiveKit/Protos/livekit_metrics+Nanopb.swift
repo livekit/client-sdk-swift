@@ -20,7 +20,7 @@ import LiveKitNanopb
 #endif
 
 extension livekit_MetricsBatch: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_MetricsBatch_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_MetricsBatch_msg }
     package static let _emptyBox = NanopbBox<livekit_MetricsBatch>(zero: livekit_MetricsBatch(), descriptor: livekit_MetricsBatch_msg)
 }
 typealias Livekit_MetricsBatch = NanopbMsg<livekit_MetricsBatch>
@@ -90,7 +90,7 @@ extension Livekit_MetricsBatch.Builder {
 }
 
 extension livekit_TimeSeriesMetric: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_TimeSeriesMetric_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_TimeSeriesMetric_msg }
     package static let _emptyBox = NanopbBox<livekit_TimeSeriesMetric>(zero: livekit_TimeSeriesMetric(), descriptor: livekit_TimeSeriesMetric_msg)
 }
 typealias Livekit_TimeSeriesMetric = NanopbMsg<livekit_TimeSeriesMetric>
@@ -154,7 +154,7 @@ extension Livekit_TimeSeriesMetric.Builder {
 }
 
 extension livekit_MetricSample: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_MetricSample_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_MetricSample_msg }
     package static let _emptyBox = NanopbBox<livekit_MetricSample>(zero: livekit_MetricSample(), descriptor: livekit_MetricSample_msg)
 }
 typealias Livekit_MetricSample = NanopbMsg<livekit_MetricSample>
@@ -195,7 +195,7 @@ extension Livekit_MetricSample.Builder {
 }
 
 extension livekit_EventMetric: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_EventMetric_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_EventMetric_msg }
     package static let _emptyBox = NanopbBox<livekit_EventMetric>(zero: livekit_EventMetric(), descriptor: livekit_EventMetric_msg)
 }
 typealias Livekit_EventMetric = NanopbMsg<livekit_EventMetric>
