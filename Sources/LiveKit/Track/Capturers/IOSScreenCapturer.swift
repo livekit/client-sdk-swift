@@ -34,15 +34,34 @@ internal import LiveKitWebRTC
 /// the system ``ScreenCaptureKit/SCContentSharingPicker``; capture begins once the user makes a
 /// selection and the picker delivers an `SCContentFilter`.
 ///
+/// ``startCapture()`` presents the picker and does not return until the user has chosen content and
+/// the stream has started; it throws ``LiveKitError/Type-swift.enum/cancelled`` if the user dismisses
+/// the picker, so a track is never published for a share that never began.
+///
 /// - Note: System-wide capture (across other apps) continues while the app is backgrounded only if
 ///   the app declares the appropriate background mode. Without it, the stream stops with
 ///   `SCStreamError.Code.missingBackgroundMode`.
-/// - Warning: Experimental prototype for evaluating a ReplayKit-free screen-share path on iOS 27+.
 @available(iOS 27.0, *)
-public final class IOSScreenCapturer: SCStreamVideoCapturer, @unchecked Sendable {
+public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
     /// When `true`, only the current application is captured (in-app capture). When `false`, the
     /// user may select system-wide content, including other apps.
     public let captureCurrentApplicationOnly: Bool
+
+    // `SCContentSharingPicker` is process-wide, so at most one selection can be in flight.
+    // `SCContentFilter` is not `Sendable`, so it is handed over through `StateSync` rather than
+    // as the completer's value.
+    private static let _pickedFilter = StateSync<SCContentFilter?>(nil)
+    private static let _pickerCompleter = AsyncCompleter<Void>(label: "Content sharing picker",
+                                                               defaultTimeout: .defaultScreenSharePicker)
+
+    /// Aborts a selection that ``startCapture()`` is currently waiting on, making it throw
+    /// ``LiveKitError/Type-swift.enum/cancelled``.
+    ///
+    /// ``LocalParticipant/set(source:enabled:captureOptions:publishOptions:)`` serializes its work, so
+    /// a request to stop sharing would otherwise queue behind the picker until the user answers it.
+    static func cancelPendingPick() {
+        _pickerCompleter.resume(throwing: LiveKitError(.cancelled, message: "Screen share cancelled"))
+    }
 
     init(delegate: LKRTCVideoCapturerDelegate,
          options: ScreenShareCaptureOptions,
@@ -58,11 +77,37 @@ public final class IOSScreenCapturer: SCStreamVideoCapturer, @unchecked Sendable
         // Already started
         guard didStart else { return false }
 
+        do {
+            try await presentPicker()
+            // Capture only begins once the user picks content; surfacing the wait here keeps a
+            // cancelled picker from publishing an empty track.
+            try await Self._pickerCompleter.wait()
+            guard let filter = Self._pickedFilter.read({ $0 }) else {
+                throw LiveKitError(.invalidState, message: "Content picker resolved without a selection")
+            }
+            try await startStream(with: filter)
+            // Only one selection is honored; further picker updates would have nothing to resume.
+            await dismissPicker()
+        } catch {
+            await dismissPicker()
+            // Rebalance the counter `super.startCapture()` incremented; report the original failure.
+            try? await super.stopCapture()
+            throw error
+        }
+
+        return true
+    }
+
+    private func presentPicker() async throws {
         try await MainActor.run {
             let picker = SCContentSharingPicker.shared
             guard picker.isAvailable else {
                 throw LiveKitError(.invalidState, message: "Screen capture is not available on this device")
             }
+
+            // Discard any result left by a pick that nothing awaited.
+            Self._pickedFilter.mutate { $0 = nil }
+            Self._pickerCompleter.rearm()
 
             var configuration = SCContentSharingPickerConfiguration()
             // App audio (if requested) is captured directly from the stream, so the picker's own
@@ -79,8 +124,25 @@ public final class IOSScreenCapturer: SCStreamVideoCapturer, @unchecked Sendable
                 picker.present()
             }
         }
+    }
 
-        return true
+    private func dismissPicker() async {
+        await MainActor.run {
+            let picker = SCContentSharingPicker.shared
+            picker.isActive = false
+            picker.remove(self)
+        }
+    }
+
+    private func startStream(with filter: SCContentFilter) async throws {
+        let configuration = SCStreamConfiguration()
+        configuration.capturesAudio = options.appAudio
+        let target = options.dimensions.toEncodeSafeDimensions()
+        configuration.width = Int(target.width)
+        configuration.height = Int(target.height)
+
+        let stream = try makeStream(filter: filter, configuration: configuration)
+        try await stream.startCapture()
     }
 
     override public func stopCapture() async throws -> Bool {
@@ -89,11 +151,7 @@ public final class IOSScreenCapturer: SCStreamVideoCapturer, @unchecked Sendable
         // Already stopped
         guard didStop else { return false }
 
-        await MainActor.run {
-            let picker = SCContentSharingPicker.shared
-            picker.isActive = false
-            picker.remove(self)
-        }
+        await dismissPicker()
 
         try await teardownStream()
 
@@ -106,50 +164,26 @@ public final class IOSScreenCapturer: SCStreamVideoCapturer, @unchecked Sendable
 @available(iOS 27.0, *)
 extension IOSScreenCapturer: SCContentSharingPickerObserver {
     public func contentSharingPicker(_: SCContentSharingPicker, didUpdateWith filter: SCContentFilter, for _: SCStream?) {
-        guard scStream == nil else {
-            log("Ignoring content picker re-selection; a stream is already running", .debug)
-            return
-        }
-
-        let configuration = SCStreamConfiguration()
-        configuration.capturesAudio = options.appAudio
-        let target = options.dimensions.toEncodeSafeDimensions()
-        configuration.width = Int(target.width)
-        configuration.height = Int(target.height)
-
-        do {
-            _ = try makeStream(filter: filter, configuration: configuration)
-        } catch {
-            log("Failed to create SCStream: \(error)", .error)
-            return
-        }
-
-        let task = Task.detached { [weak self] in
-            guard let self, let stream = scStream else { return }
-            do {
-                try await stream.startCapture()
-            } catch {
-                log("Failed to start SCStream: \(error)", .error)
-            }
-        }.cancellable()
-
-        _screenCapturerState.mutate { $0.startTask = task }
+        Self._pickedFilter.mutate { $0 = filter }
+        Self._pickerCompleter.resume(returning: ())
     }
 
     public func contentSharingPicker(_: SCContentSharingPicker, didCancelFor _: SCStream?) {
         log("Content sharing picker cancelled by user", .debug)
-        Task.discarding { [weak self] in
-            try await self?.stopCapture()
-        }
+        Self._pickerCompleter.resume(throwing: LiveKitError(.cancelled, message: "Screen share cancelled by user"))
     }
 
     public func contentSharingPickerStartDidFailWithError(_ error: any Error) {
         log("Content sharing picker failed to start: \(error)", .error)
+        Self._pickerCompleter.resume(throwing: LiveKitError.from(error: error) ?? LiveKitError(.invalidState))
     }
 }
 
 public extension LocalVideoTrack {
     /// Creates a screen-share track backed by ScreenCaptureKit (iOS 27+), without a Broadcast Upload Extension.
+    ///
+    /// Starting the returned track presents the system content picker and waits for the user's
+    /// selection, so publishing fails rather than succeeding with a track that carries no frames.
     ///
     /// - Parameter captureCurrentApplicationOnly: When `true`, restricts capture to the current
     ///   application. When `false`, the system picker allows selecting system-wide content.

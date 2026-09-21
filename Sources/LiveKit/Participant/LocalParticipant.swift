@@ -407,7 +407,11 @@ public extension LocalParticipant {
 
     /// Enable or disable screen sharing. This has different behavior depending on the platform.
     ///
-    /// On iOS 27 and later, this uses ``IOSScreenCapturer`` to capture content in-process via ScreenCaptureKit, without a Broadcast Upload Extension.
+    /// On iOS 27 and later, this uses ``IOSScreenCapturer``: content is picked through the system picker and captured
+    /// in-process via ScreenCaptureKit, with no Broadcast Upload Extension or app group. Enabling screen share does not
+    /// complete until the user has chosen what to share, and throws if they dismiss the picker.
+    /// Set ``ScreenShareCaptureOptions/useScreenCaptureKit`` to `false` to keep the ReplayKit paths below on iOS 27.
+    ///
     /// On earlier iOS versions, this uses ``InAppScreenCapturer`` to capture in-app screen only due to Apple's limitation;
     /// to capture the screen while the app is in the background, you will need to create a "Broadcast Upload Extension".
     ///
@@ -429,7 +433,14 @@ public extension LocalParticipant {
              captureOptions: CaptureOptions? = nil,
              publishOptions: TrackPublishOptions? = nil) async throws -> LocalTrackPublication?
     {
-        try await _publishSerialRunner.run {
+        #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
+        // An unanswered content picker holds the serial runner, so stopping has to reach past it.
+        if source == .screenShareVideo, !enabled, #available(iOS 27.0, *) {
+            IOSScreenCapturer.cancelPendingPick()
+        }
+        #endif
+
+        return try await _publishSerialRunner.run {
             let room = try self.requireRoom()
 
             // Try to get existing publication
@@ -458,17 +469,19 @@ public extension LocalParticipant {
                 } else if source == .screenShareVideo {
                     #if os(iOS)
 
-                    #if !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
-                    if #available(iOS 27.0, *) {
-                        let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions
-                        let localTrack = LocalVideoTrack.createIOSScreenShareTrack(options: options,
-                                                                                   reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
-                        return try await self._publish(track: localTrack, options: publishOptions)
-                    }
-                    #endif
-
                     let localTrack: LocalVideoTrack
                     let defaultOptions = room._state.roomOptions.defaultScreenShareCaptureOptions
+
+                    #if !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
+                    if #available(iOS 27.0, *) {
+                        let options = (captureOptions as? ScreenShareCaptureOptions) ?? defaultOptions
+                        if options.useScreenCaptureKit {
+                            let track = LocalVideoTrack.createIOSScreenShareTrack(options: options,
+                                                                                  reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+                            return try await self._publish(track: track, options: publishOptions)
+                        }
+                    }
+                    #endif
 
                     if defaultOptions.useBroadcastExtension {
                         if captureOptions != nil {

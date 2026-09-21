@@ -26,7 +26,7 @@ internal import LiveKitWebRTC
 #if os(macOS)
 
 @available(macOS 12.3, *)
-public class MacOSScreenCapturer: SCStreamVideoCapturer, @unchecked Sendable {
+public class MacOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
     // TODO: Make it possible to change dynamically
     public let captureSource: MacOSScreenCaptureSource?
 

@@ -30,7 +30,7 @@ internal import LiveKitWebRTC
 /// `SCContentFilter` and `SCStreamConfiguration` for their platform — see ``MacOSScreenCapturer``
 /// (enumerated sources) and ``IOSScreenCapturer`` (system picker, iOS 27+).
 @available(macOS 12.3, iOS 27.0, *)
-public class SCStreamVideoCapturer: VideoCapturer, @unchecked Sendable {
+public class ScreenCapturer: VideoCapturer, @unchecked Sendable {
     let capturer = RTC.createVideoCapturer()
 
     /// The ``ScreenShareCaptureOptions`` used for this capturer.
@@ -41,7 +41,6 @@ public class SCStreamVideoCapturer: VideoCapturer, @unchecked Sendable {
         // Cached frame for resending to maintain a minimum of 1 fps
         var lastFrame: LKRTCVideoFrame?
         var resendTimer: AnyTaskCancellable?
-        var startTask: AnyTaskCancellable?
     }
 
     let _screenCapturerState = StateSync(State())
@@ -72,10 +71,7 @@ public class SCStreamVideoCapturer: VideoCapturer, @unchecked Sendable {
         guard let stream = _screenCapturerState.read({ $0.scStream }) else { return }
 
         // Stop resending paused frames
-        _screenCapturerState.mutate {
-            $0.resendTimer = nil
-            $0.startTask = nil
-        }
+        _screenCapturerState.mutate { $0.resendTimer = nil }
 
         try await stream.stopCapture()
         try? stream.removeStreamOutput(self, type: .screen)
@@ -193,7 +189,7 @@ public class SCStreamVideoCapturer: VideoCapturer, @unchecked Sendable {
 // MARK: - SCStreamDelegate
 
 @available(macOS 12.3, iOS 27.0, *)
-extension SCStreamVideoCapturer: SCStreamDelegate {
+extension ScreenCapturer: SCStreamDelegate {
     public func stream(_: SCStream, didStopWithError error: any Error) {
         log("Stream stopped with error: \(error)", .error)
         Task.discarding { [weak self] in
@@ -205,7 +201,7 @@ extension SCStreamVideoCapturer: SCStreamDelegate {
 // MARK: - SCStreamOutput
 
 @available(macOS 12.3, iOS 27.0, *)
-extension SCStreamVideoCapturer: SCStreamOutput {
+extension ScreenCapturer: SCStreamOutput {
     public func stream(_: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer,
                        of outputType: SCStreamOutputType)
     {
