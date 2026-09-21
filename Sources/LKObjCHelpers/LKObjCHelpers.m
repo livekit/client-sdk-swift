@@ -28,16 +28,6 @@ NS_ASSUME_NONNULL_BEGIN
     }
 }
 
-// MARK: - Xcode 27 availability workarounds
-
-+ (AUAudioFrameCount)maximumFramesToRenderForNode:(AVAudioNode *)node {
-    return node.AUAudioUnit.maximumFramesToRender;
-}
-
-+ (void)setMaximumFramesToRender:(AUAudioFrameCount)maximumFramesToRender forNode:(AVAudioNode *)node {
-    node.AUAudioUnit.maximumFramesToRender = maximumFramesToRender;
-}
-
 NS_ASSUME_NONNULL_END
 
 @end
