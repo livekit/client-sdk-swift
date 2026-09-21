@@ -94,6 +94,7 @@ jobs:
     env:
       LIBDISPATCH_COOPERATIVE_POOL_STRICT: ${{ matrix.strict-concurrency-env == true && '1' || '0' }}
       NSUnbufferedIO: "YES"
+      TSAN_OPTIONS: suppressions=${{ github.workspace }}/.github/sanitizers/tsan.supp
     defaults:
       run:
         shell: bash
