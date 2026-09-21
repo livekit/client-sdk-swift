@@ -137,6 +137,16 @@ jobs:
           xcrun simctl boot "$udid" || true
           xcrun simctl bootstatus "$udid" -b
           xcrun simctl spawn "$udid" launchctl print system > /dev/null 2>&1 || true
+          # Booted is not idle: the runtime's processes keep several cores busy for a minute or
+          # more afterwards. Wait for them to go quiet, so that work does not overlap the build.
+          sim_launchd=$(pgrep -x launchd_sim | head -1); quiet=0
+          for _ in $(seq 1 150); do
+            cpu=$(ps -o %cpu= -p "$(pgrep -P "$sim_launchd" | paste -sd, -)" 2>/dev/null | awk '{s+=$1} END {printf "%d", s}')
+            if [ "${cpu:-0}" -lt 20 ]; then quiet=$((quiet+1)); else quiet=0; fi
+            [ "$quiet" -ge 3 ] && break
+            sleep 2
+          done
+          echo "simulator settled at ${cpu:-0}% CPU"
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
 
       - name: Build & Test
