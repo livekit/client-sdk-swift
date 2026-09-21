@@ -171,7 +171,12 @@ struct DataTrackApiTests {
             fixture.remoteTrack.setPipelineOptions(maxPartialFrames: 0)
 
             // Spans several packets, so the depacketizer has to reassemble it. Retried because the
-            // channel is unordered and never retransmits, so losing one packet loses the frame.
+            // SFU may drop one of them on its way to the subscriber: its downlink keeps at most
+            // 8 KiB (or 100 ms at the track's measured bitrate, whichever is larger) buffered per
+            // subscriber and discards anything beyond — CI's server log shows exactly this frame
+            // going with `data dropped due to high buffered amount: buffered amount 16920, min
+            // buffered amount 8192` when a slow sanitizer-leg subscriber was late acknowledging
+            // the first packet. Nothing retransmits, so one lost packet is a lost frame.
             let payload = Data(repeating: 0xFA, count: 32000)
             var received: Data?
             for _ in 0 ..< 3 where received == nil {

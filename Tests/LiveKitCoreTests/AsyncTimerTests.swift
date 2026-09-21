@@ -49,10 +49,17 @@ private actor ManualSleeper {
         }
     }
 
-    func waitForParked(_ count: Int, timeout: TimeInterval = 60) async {
+    /// Fails the test if the countdowns never park: the loop rides a `.utility` task, and when a
+    /// loaded host starves it past the budget, the `tickAll()` that follows releases nothing and
+    /// the fire being waited on can never come. Failing here names that, instead of the counter
+    /// assertion downstream.
+    func waitForParked(_ count: Int, timeout: TimeInterval = 60, sourceLocation: SourceLocation = #_sourceLocation) async {
         let deadline = Date().addingTimeInterval(timeout)
         while parked.count < count, Date() < deadline {
             try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        if parked.count < count {
+            Issue.record("Only \(parked.count) of \(count) countdown(s) parked within \(timeout)s", sourceLocation: sourceLocation)
         }
     }
 }
