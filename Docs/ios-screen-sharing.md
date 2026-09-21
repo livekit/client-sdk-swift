@@ -5,10 +5,16 @@ LiveKit supports three screen sharing modes on iOS. Which one applies depends on
 | Mode | Availability | Captures other apps | Extra setup |
 | --- | --- | --- | --- |
 | **ScreenCaptureKit (default)** | iOS 27+ | Yes | None |
-| **In-app Capture** | All versions | No | None |
 | **Broadcast Capture** | All versions | Yes | Broadcast Upload Extension + app group |
+| **In-app Capture** | All versions | No | None |
 
-On iOS 27 and later, [ScreenCaptureKit](https://developer.apple.com/documentation/screencapturekit/) is used by default and supersedes both ReplayKit modes. Below iOS 27, LiveKit falls back to [ReplayKit](https://developer.apple.com/documentation/replaykit/): Broadcast Capture if you have configured a Broadcast Upload Extension, In-app Capture otherwise.
+`setScreenShare(enabled: true)` picks the first mode that applies:
+
+1. **ScreenCaptureKit**, on iOS 27+ when `useScreenCaptureKit` is set (the default) and the system picker is available.
+2. **Broadcast Capture**, when `useBroadcastExtension` is set — which it is by default once a Broadcast Upload Extension is configured.
+3. **In-app Capture** otherwise.
+
+Modes 2 and 3 use [ReplayKit](https://developer.apple.com/documentation/replaykit/), whose screen sharing API is deprecated as of the iOS 27 SDK in favor of [ScreenCaptureKit](https://developer.apple.com/documentation/screencapturekit/).
 
 ## ScreenCaptureKit Capture
 

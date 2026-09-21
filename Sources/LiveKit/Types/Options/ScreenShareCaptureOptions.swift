@@ -42,7 +42,8 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
     ///
     /// Set to `false` to keep using ReplayKit on iOS 27 — for example while an existing broadcast
     /// extension setup is still in place. Has no effect below iOS 27, on Mac Catalyst, or on other
-    /// platforms.
+    /// platforms. Screen sharing then falls back in order: ScreenCaptureKit, Broadcast Capture if
+    /// ``useBroadcastExtension`` is set, In-app Capture otherwise.
     ///
     /// - SeeAlso: ``IOSScreenCapturer``
     public let useScreenCaptureKit: Bool

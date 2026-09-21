@@ -472,13 +472,18 @@ public extension LocalParticipant {
                     let localTrack: LocalVideoTrack
                     let defaultOptions = room._state.roomOptions.defaultScreenShareCaptureOptions
 
+                    // Preferred on iOS 27+, falling through to the ReplayKit modes below when it is
+                    // turned off or the system picker cannot be presented.
                     #if !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
                     if #available(iOS 27.0, *) {
                         let options = (captureOptions as? ScreenShareCaptureOptions) ?? defaultOptions
                         if options.useScreenCaptureKit {
-                            let track = LocalVideoTrack.createIOSScreenShareTrack(options: options,
-                                                                                  reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
-                            return try await self._publish(track: track, options: publishOptions)
+                            if await IOSScreenCapturer.isAvailable {
+                                let track = LocalVideoTrack.createIOSScreenShareTrack(options: options,
+                                                                                      reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+                                return try await self._publish(track: track, options: publishOptions)
+                            }
+                            self.log("ScreenCaptureKit is unavailable, falling back to ReplayKit", .warning)
                         }
                     }
                     #endif

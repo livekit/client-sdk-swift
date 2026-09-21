@@ -54,6 +54,11 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
     private static let _pickerCompleter = AsyncCompleter<Void>(label: "Content sharing picker",
                                                                defaultTimeout: .defaultScreenSharePicker)
 
+    /// Whether the system content picker can be presented, and so whether this capturer is usable.
+    static var isAvailable: Bool {
+        get async { await MainActor.run { SCContentSharingPicker.shared.isAvailable } }
+    }
+
     /// Aborts a selection that ``startCapture()`` is currently waiting on, making it throw
     /// ``LiveKitError/Type-swift.enum/cancelled``.
     ///
