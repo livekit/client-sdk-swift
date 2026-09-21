@@ -124,6 +124,7 @@ jobs:
 
       # Boot ahead of the test step, so a cold runtime's first launch does not spend the test budget.
       - name: Boot Simulator
+        id: boot
         if: contains(matrix.platform, 'Simulator')
         timeout-minutes: 15
         run: |
@@ -136,6 +137,7 @@ jobs:
           xcrun simctl boot "$udid" || true
           xcrun simctl bootstatus "$udid" -b
           xcrun simctl spawn "$udid" launchctl print system > /dev/null 2>&1 || true
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
 
       - name: Build & Test
         timeout-minutes: 30
@@ -144,7 +146,8 @@ jobs:
           .github/stall-dump/stall-dump.sh "$RUNNER_TEMP/xcodebuild.log" "$RUNNER_TEMP/stall-dump" &
           set -o pipefail && xcodebuild test \
             -scheme LiveKit \
-            -destination 'platform=${{ matrix.platform }}' \
+            -destination '${{ steps.boot.outputs.udid && format('id={0}', steps.boot.outputs.udid) || format('platform={0}', matrix.platform) }}' \
+            -collect-test-diagnostics never \
             -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
             -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
             APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
