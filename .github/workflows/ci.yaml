@@ -122,11 +122,21 @@ jobs:
       - name: Swift Version
         run: xcrun swift --version
 
+      # Binary dependencies come from GitHub release assets, which answer with the odd 5xx.
+      - name: Resolve Packages
+        timeout-minutes: 15
+        run: |
+          for attempt in 1 2 3; do
+            xcodebuild -resolvePackageDependencies -scheme LiveKit && exit 0
+            echo "Package resolution failed (attempt $attempt)"; sleep 20
+          done
+          exit 1
+
       # Boot ahead of the test step, so a cold runtime's first launch does not spend the test budget.
       - name: Boot Simulator
         id: boot
         if: contains(matrix.platform, 'Simulator')
-        timeout-minutes: 15
+        timeout-minutes: 20
         run: |
           platform='${{ matrix.platform }}'
           family=${platform%% Simulator*}; [ "$family" = "visionOS" ] && family=xrOS
