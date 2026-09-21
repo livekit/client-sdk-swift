@@ -53,13 +53,16 @@ struct DataTrackTests {
     /// plus "tolerate one drop" measured how loaded the runner was rather than anything about the
     /// SDK.
     ///
-    /// Each frame gets a bounded number of pushes, because even a lone multi-packet frame can be
-    /// lost on the way: the channel is unreliable end to end and nothing retransmits. On one CI
-    /// leg the SFU's own stats for this track read 13 packets in and one gap on a 15-packet run,
-    /// with no downlink drop logged — the packet went missing between the publisher and the SFU.
-    /// What this asserts is that a frame *can* be packetized, forwarded and reassembled intact,
-    /// which one arrival per frame proves; a push that vanishes entirely is the transport, not
-    /// the SDK, and a frame that never arrives in three pushes still fails.
+    /// Each frame is re-pushed until one copy arrives intact, for up to 15 s, because a
+    /// multi-packet frame to a slow subscriber is lost far more often than not. The SFU queues at
+    /// most 8 KiB per subscriber before it drops (`data dropped due to high buffered amount:
+    /// buffered amount 22720, min buffered amount 8192` in CI's server log, seven times for this
+    /// track on one leg), so whenever a packet reaches it while the subscriber has not yet
+    /// acknowledged the previous one, that packet is gone — and a five-packet frame needs four
+    /// such acknowledgements in a row. Three pushes ten seconds apart all lost on that leg; many
+    /// cheap pushes let one land in the gaps. What this asserts is that a frame *can* be
+    /// packetized, forwarded, reassembled and decrypted intact, which one arrival per frame
+    /// proves; a frame that never arrives in 15 s of trying still fails.
     ///
     /// Read through a ``DataTrackReader``, which owns the stream's single `next()` caller. Reading
     /// the stream directly more than once cannot work: a bounded read that times out leaves a
@@ -70,11 +73,12 @@ struct DataTrackTests {
         let payload = Data(repeating: 0xAB, count: scenario.payloadSize)
 
         for index in 0 ..< scenario.frameCount {
+            let deadline = Date().addingTimeInterval(15)
             var frame: DataTrackFrame?
-            for _ in 0 ..< 3 where frame == nil {
+            repeat {
                 try fixture.track.tryPush(frame: .now(payload: payload))
-                frame = await reader.next(within: 10)
-            }
+                frame = await reader.next(within: 0.5)
+            } while frame == nil && Date() < deadline
             #expect(frame?.payload == payload, "Frame \(index) did not arrive intact")
         }
     }

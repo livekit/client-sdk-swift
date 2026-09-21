@@ -129,36 +129,50 @@ struct AsyncTimerTests {
         #expect(await counter.getCount() == afterCancel)
     }
 
-    @Test func concurrentArmingLeavesSingleLoop() async throws {
+    /// Hammering `restart()`/`startIfStopped()` concurrently must leave exactly one loop. The
+    /// previous design could orphan a scheduling task here and run several loops at once.
+    ///
+    /// Driven by the sleeper rather than real time: the real-time version inferred "one loop"
+    /// from a fire count against a 3× bound and needed the loop to run on schedule, and on a
+    /// freshly booted visionOS simulator the `.utility` loop can go a minute without being
+    /// scheduled at all, which failed the liveness half of that check with nothing wrong in the
+    /// timer. Here "one loop" is measured exactly: every release of the sleeper fires the timer
+    /// block once. Loops that lost the race were cancelled, some of them after parking — a
+    /// countdown does not wake on cancellation — so they sit in the sleeper until released and
+    /// then exit without firing, which is why parked countdowns are not what is counted.
+    @Test func concurrentArmingLeavesSingleLoop() async {
         let counter = ConcurrentCounter()
-        // 5ms rather than 50ms: the loop still races real time here, but fires often
-        // enough that the liveness check below can't be starved out.
-        let interval: TimeInterval = 0.005
-        let timer = AsyncTimer(interval: interval)
+        let sleeper = ManualSleeper()
+        let timer = AsyncTimer(interval: Self.interval, sleep: sleeper.sleep)
         timer.setTimerBlock { _ = await counter.increment() }
 
-        // Hammer with concurrent restart()/startIfStopped(): the previous design
-        // could orphan a scheduling task here and run several loops at once.
         await withTaskGroup(of: Void.self) { group in
             for i in 0 ..< 50 {
                 group.addTask { i.isMultiple(of: 2) ? timer.restart() : timer.startIfStopped() }
             }
         }
 
-        let start = Date()
-        #expect(await counter.wait(untilAtLeast: 1) >= 1) // a loop is running
-        try await Task.sleep(nanoseconds: 100_000_000)
-        timer.cancel()
-        let elapsed = Date().timeIntervalSince(start)
-        let count = await counter.getCount()
+        // Release whatever has parked until the survivor has fired: a release that only lets
+        // cancelled loops out fires nothing, so keep going until the count moves.
+        let deadline = Date().addingTimeInterval(60)
+        while await counter.getCount() == 0, Date() < deadline {
+            await sleeper.tickAll()
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        var fired = await counter.getCount()
+        #expect(fired >= 1, "a loop is running")
 
-        // A single loop can fire at most `elapsed / interval` times. Normalizing by
-        // the measured elapsed time keeps this valid when the host defers wake-ups;
-        // the orphan bug spawned dozens of concurrent loops, so a 3x allowance
-        // still trips on it.
-        let singleLoopBound = elapsed / interval + 1
-        #expect(Double(count) <= singleLoopBound * 3,
-                "\(count) fires in \(elapsed)s exceeds what a single loop can produce")
+        // From here every release must fire exactly once more. The orphan bug ran several
+        // loops, and each release would have fired every one of them.
+        for _ in 0 ..< 3 {
+            await sleeper.waitForParked(1)
+            await sleeper.tickAll()
+            fired += 1
+            #expect(await counter.wait(untilAtLeast: fired) == fired, "a release fired more than one loop")
+        }
+
+        timer.cancel()
+        await sleeper.tickAll()
     }
 
     @Test func blockCancellingOwnTimerFiresOnce() async {
