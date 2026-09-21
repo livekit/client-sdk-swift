@@ -20,7 +20,7 @@ import LiveKitTestSupport
 import Testing
 
 /// Semantics of the publication handle and the subscribe/send conveniences.
-@Suite(.serialized, .tags(.dataTrack, .e2e))
+@Suite(.serialized, .tags(.dataTrack, .e2e), .e2eTimeLimit)
 struct DataTrackApiTests {
     // MARK: - Publication Lifetime
 

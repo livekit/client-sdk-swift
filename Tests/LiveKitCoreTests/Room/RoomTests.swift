@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized, .tags(.e2e)) final class RoomTests: @unchecked Sendable {
+@Suite(.serialized, .tags(.e2e), .e2eTimeLimit) final class RoomTests: @unchecked Sendable {
     @Test func roomProperties() async throws {
         try await TestEnvironment.withRoom { room in
             // SID

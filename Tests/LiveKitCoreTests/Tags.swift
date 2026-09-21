@@ -40,3 +40,15 @@ extension Tag {
     /// RPC v1 / v2 caller and handler tests.
     @Tag static var rpc: Self
 }
+
+/// The wall-clock budget for one end-to-end test case, applied at suite level to every `.e2e`
+/// suite. A suite-level time limit bounds each of the suite's test cases individually, so a
+/// parameterized test gets the full budget per argument.
+///
+/// Generous on purpose. The slowest single case seen on the slowest legs runs about 80 s, and a
+/// case that passes on a degraded runner can also absorb the one-off 90 s server readiness wait
+/// and the harness's 36 s of connect retries. What this exists for is the hang — a wait nothing
+/// can resume — which otherwise costs a leg the whole of its step budget instead of these minutes.
+extension Trait where Self == TimeLimitTrait {
+    static var e2eTimeLimit: Self { .timeLimit(.minutes(5)) }
+}

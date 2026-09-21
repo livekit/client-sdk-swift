@@ -22,7 +22,7 @@ import LiveKitTestSupport
 #endif
 
 /// Publish-time behavior: options and metadata, error cases, and encryption modes.
-@Suite(.serialized, .tags(.dataTrack, .e2e))
+@Suite(.serialized, .tags(.dataTrack, .e2e), .e2eTimeLimit)
 struct DataTrackPublishTests {
     // MARK: - Frame Metadata
 

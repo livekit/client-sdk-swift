@@ -22,7 +22,7 @@ import LiveKitTestSupport
 #endif
 
 /// Data track lifecycle: join-time announcements, publication lifetime, and reconnects.
-@Suite(.serialized, .tags(.dataTrack, .e2e))
+@Suite(.serialized, .tags(.dataTrack, .e2e), .e2eTimeLimit)
 struct DataTrackLifecycleTests {
     /// A track published before a participant joins surfaces via the JoinResponse.
     @Test

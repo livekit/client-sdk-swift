@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized, .tags(.media, .e2e))
+@Suite(.serialized, .tags(.media, .e2e), .e2eTimeLimit)
 struct PublishTrackTests {
     @Test func publishFailureAfterAddTrackRollsBack() async throws {
         try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in

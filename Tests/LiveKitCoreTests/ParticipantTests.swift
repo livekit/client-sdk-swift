@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized, .tags(.e2e))
+@Suite(.serialized, .tags(.e2e), .e2eTimeLimit)
 struct ParticipantTests {
     @Test func localParticipantIdentity() async throws {
         try await TestEnvironment.withRoom { room in

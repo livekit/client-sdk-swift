@@ -22,7 +22,7 @@ import LiveKitTestSupport
 #endif
 
 // swiftformat:disable hoistAwait
-@Suite(.serialized, .tags(.e2e))
+@Suite(.serialized, .tags(.e2e), .e2eTimeLimit)
 struct RemoteParticipantTests {
     /// For the waits that are expected to *time out*: short, so those tests fail fast.
     let timeout: TimeInterval = 0.1
