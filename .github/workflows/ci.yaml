@@ -122,6 +122,21 @@ jobs:
       - name: Swift Version
         run: xcrun swift --version
 
+      # Boot ahead of the test step, so a cold runtime's first launch does not spend the test budget.
+      - name: Boot Simulator
+        if: contains(matrix.platform, 'Simulator')
+        timeout-minutes: 15
+        run: |
+          platform='${{ matrix.platform }}'
+          family=${platform%% Simulator*}; [ "$family" = "visionOS" ] && family=xrOS
+          name=${platform#*name=}; name=${name%%,OS=*}; os=${platform##*OS=}
+          runtime="com.apple.CoreSimulator.SimRuntime.${family}-${os//./-}"
+          udid=$(xcrun simctl list devices available -j | jq -r --arg rt "$runtime" --arg n "$name" '.devices[$rt] // [] | map(select(.name==$n)) | .[0].udid // empty')
+          [ -n "$udid" ] || { echo "No available simulator named '$name' on $runtime"; xcrun simctl list devices available; exit 1; }
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl spawn "$udid" launchctl print system > /dev/null 2>&1 || true
+
       - name: Build & Test
         timeout-minutes: 30
         run: |
