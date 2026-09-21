@@ -144,6 +144,13 @@ extension Room {
         while true {
             do {
                 try await fullConnectSequence(nextUrl, token)
+
+                // Scope the failed set to this failover cycle. Regions excluded by `markFailed`
+                // now survive a settings refresh, so without clearing them on success a region
+                // that failed transiently before another one connected would stay excluded for
+                // the life of the manager — and a later failover would skip it even once it
+                // recovered. Only a successful *reconnect* used to clear them.
+                await regionManager.resetAttempts()
                 return nextUrl
             } catch {
                 // Re-throw if is cancel.
@@ -169,9 +176,12 @@ extension Room {
 
                 await cleanUp(isFullReconnect: true)
 
+                // Counts regions resolved from the manager, not total connects — the provided URL
+                // failed before any of them and must not consume part of the budget, or a project
+                // with exactly this many regions would never reach its last one.
                 attempts += 1
-                guard attempts < Self.maxRegionFailoverAttempts else {
-                    log("Region failover giving up after \(attempts) attempts", .warning)
+                guard attempts <= Self.maxRegionFailoverAttempts else {
+                    log("Region failover giving up after \(attempts - 1) region attempts", .warning)
                     throw error
                 }
 
@@ -185,6 +195,10 @@ extension Room {
                 let nextCandidate: RegionInfo?
                 do {
                     nextCandidate = try await regionManager.resolveBest(token: token)
+                } catch is CancellationError {
+                    // Cancellation is not a lookup failure: the caller asked to stop, and the
+                    // loop's own guard above rethrows it rather than reporting a connect error.
+                    throw CancellationError()
                 } catch let lookupError {
                     log("Failed to resolve next region: \(lookupError); surfacing the connection error", .warning)
                     nextCandidate = nil
