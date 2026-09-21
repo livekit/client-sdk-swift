@@ -28,20 +28,25 @@ import LiveKitWebRTC
     private let _onDataReceived = StateSync<(() -> Void)?>(nil)
     private let _onDecryptionError = StateSync<(() -> Void)?>(nil)
 
-    /// Awaits the next delegate callback (data received or decryption error).
+    /// Awaits the next delegate callback (data received or decryption error), for at most 30 s.
+    ///
+    /// Bounded, because the packet this waits for rides a connection that can drop: on one CI leg
+    /// the sender's ping timed out right after the send and the SDK went into a reconnect, and
+    /// this wait — then an unbounded continuation — held the test host for the rest of the job's
+    /// 30-minute budget. A packet that never arrives is a failed assertion below, not a wedge.
     private func awaitEvent() async {
-        await withCheckedContinuation { continuation in
-            let previous = self._onDataReceived.copy()
-            self._onDataReceived.mutate { $0 = {
-                previous?()
-                continuation.resume()
-            }}
-            let previousError = self._onDecryptionError.copy()
-            self._onDecryptionError.mutate { $0 = {
-                previousError?()
-                continuation.resume()
-            }}
-        }
+        let event = AsyncCompleter<Void>(label: "Encrypted data channel event", defaultTimeout: 30)
+        let previous = _onDataReceived.copy()
+        _onDataReceived.mutate { $0 = {
+            previous?()
+            event.resume(returning: ())
+        }}
+        let previousError = _onDecryptionError.copy()
+        _onDecryptionError.mutate { $0 = {
+            previousError?()
+            event.resume(returning: ())
+        }}
+        try? await event.wait()
     }
 
     /// Builds a publisher/subscriber room pair, each with its own key provider.
