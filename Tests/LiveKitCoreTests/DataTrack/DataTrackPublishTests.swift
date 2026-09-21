@@ -121,7 +121,14 @@ struct DataTrackPublishTests {
 
             let schema = DataTrackSchemaId(name: "reading.v1", encoding: .jsonSchema)
             let definition = #"{"type":"object","properties":{"value":{"type":"number"}}}"#
-            try await publisher.localParticipant.defineSchema(schema, definition: definition)
+            // One retry: storing the definition is a signal round trip under the request's own
+            // fixed budget, and on a loaded leg the SFU has sat on the request past it — CI's
+            // server log shows the store request received and the participant's other responses
+            // flowing, but no answer to it before the client gave up. Storing a blob twice is
+            // idempotent, so a second request is a fresh attempt at the same thing.
+            try await Task.retrying(totalAttempts: 2, retryDelay: 0.5) { _, _ in
+                try await publisher.localParticipant.defineSchema(schema, definition: definition)
+            }.value
 
             let options = DataTrackPublishOptions(schema: schema, frameEncoding: .json)
             let track = try await publisher.localParticipant.publishDataTrack(name: "described", options: options)
