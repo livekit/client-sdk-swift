@@ -103,30 +103,31 @@ extension LocalTrackPublication: VideoCapturerDelegate {
     }
 
     public func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState) {
-        // Broadcasts can always be stopped from system UI that bypasses our normal disable & unpublish methods.
-        // This check ensures that when this happens the track gets unpublished as well.
+        guard state == .stopped, isSystemStoppable(capturer) else { return }
+
+        Task.discarding {
+            guard let participant = try await self.requireParticipant() as? LocalParticipant else {
+                return
+            }
+
+            try await participant.unpublish(publication: self)
+        }
+    }
+
+    /// Whether `capturer` can stop on its own, outside our disable & unpublish methods.
+    ///
+    /// A screen share is stoppable from system UI on both platforms, and on macOS also ends on its
+    /// own when e.g. the display is powered off. The track has to be unpublished to match.
+    private func isSystemStoppable(_ capturer: VideoCapturer) -> Bool {
         #if os(iOS)
-        if state == .stopped, capturer is BroadcastScreenCapturer {
-            Task.discarding {
-                guard let participant = try await self.requireParticipant() as? LocalParticipant else {
-                    return
-                }
-
-                try await participant.unpublish(publication: self)
-            }
-        }
-        // A similar check for macOS may be triggered e.g. when the display is powered off.
-        #elseif os(macOS)
-        if #available(macOS 12.3, *), state == .stopped, capturer is MacOSScreenCapturer {
-            Task.discarding {
-                guard let participant = try await self.requireParticipant() as? LocalParticipant else {
-                    return
-                }
-
-                try await participant.unpublish(publication: self)
-            }
-        }
+        if capturer is BroadcastScreenCapturer { return true }
         #endif
+
+        #if (os(macOS) || (os(iOS) && !targetEnvironment(macCatalyst))) && canImport(ScreenCaptureKit)
+        if #available(macOS 12.3, iOS 27.0, *), capturer is ScreenCapturer { return true }
+        #endif
+
+        return false
     }
 }
 

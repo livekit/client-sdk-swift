@@ -96,7 +96,7 @@ public class MacOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
         // Already stopped
         guard didStop else { return false }
 
-        try await teardownStream()
+        await teardownStream()
 
         return true
     }

@@ -67,13 +67,15 @@ public class ScreenCapturer: VideoCapturer, @unchecked Sendable {
     }
 
     /// Stops and releases the active stream, if any.
-    func teardownStream() async throws {
+    func teardownStream() async {
         guard let stream = _screenCapturerState.read({ $0.scStream }) else { return }
 
         // Stop resending paused frames
         _screenCapturerState.mutate { $0.resendTimer = nil }
 
-        try await stream.stopCapture()
+        // A stream the user stopped from system UI is already gone, which `stopCapture()` reports
+        // as an error. Releasing it is still the right outcome, so don't abort the teardown.
+        try? await stream.stopCapture()
         try? stream.removeStreamOutput(self, type: .screen)
         if options.appAudio, #available(macOS 13.0, *) {
             try? stream.removeStreamOutput(self, type: .audio)

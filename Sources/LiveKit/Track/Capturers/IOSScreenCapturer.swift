@@ -153,7 +153,7 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
 
         await dismissPicker()
 
-        try await teardownStream()
+        await teardownStream()
 
         return true
     }
