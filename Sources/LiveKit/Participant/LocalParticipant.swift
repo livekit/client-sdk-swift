@@ -292,6 +292,9 @@ public class LocalParticipant: Participant, @unchecked Sendable {
 
     private var cancellable = Set<AnyCancellable>()
 
+    /// The screen capturer of a publish that is still waiting on the system content picker.
+    private let _pendingScreenCapturer = StateSync<VideoCapturer?>(nil)
+
     override init(room: Room, sid: Participant.Sid? = nil, identity: Participant.Identity? = nil) {
         super.init(room: room, sid: sid, identity: identity)
 
@@ -435,8 +438,11 @@ public extension LocalParticipant {
     {
         #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
         // An unanswered content picker holds the serial runner, so stopping has to reach past it.
-        if source == .screenShareVideo, !enabled, #available(iOS 27.0, *) {
-            IOSScreenCapturer.cancelPendingPick()
+        // Only this participant's own pending pick is cancelled; the picker is process-wide.
+        if source == .screenShareVideo, !enabled, #available(iOS 27.0, *),
+           let capturer = _pendingScreenCapturer.read({ $0 }) as? IOSScreenCapturer
+        {
+            capturer.cancelPendingPick()
         }
         #endif
 
@@ -481,6 +487,8 @@ public extension LocalParticipant {
                             if await IOSScreenCapturer.isAvailable {
                                 let track = LocalVideoTrack.createIOSScreenShareTrack(options: options,
                                                                                       reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+                                self._pendingScreenCapturer.mutate { $0 = track.capturer }
+                                defer { self._pendingScreenCapturer.mutate { $0 = nil } }
                                 return try await self._publish(track: track, options: publishOptions)
                             }
                             self.log("ScreenCaptureKit is unavailable, falling back to ReplayKit", .warning)

@@ -41,18 +41,23 @@ internal import LiveKitWebRTC
 /// - Note: System-wide capture (across other apps) continues while the app is backgrounded only if
 ///   the app declares the appropriate background mode. Without it, the stream stops with
 ///   `SCStreamError.Code.missingBackgroundMode`.
+/// - Note: ``ScreenShareCaptureOptions/fps`` has no effect here: `SCStreamConfiguration`'s
+///   `minimumFrameInterval` is unavailable on iOS, so the system picks the rate.
 @available(iOS 27.0, *)
 public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
     /// When `true`, only the current application is captured (in-app capture). When `false`, the
     /// user may select system-wide content, including other apps.
     public let captureCurrentApplicationOnly: Bool
 
-    // `SCContentSharingPicker` is process-wide, so at most one selection can be in flight.
+    // `SCContentSharingPicker` is process-wide and delivers one selection to every registered
+    // observer, so only one capturer may present it at a time; the rest are turned away.
+    private static let _presenting = StateSync<ObjectIdentifier?>(nil)
+
     // `SCContentFilter` is not `Sendable`, so it is handed over through `StateSync` rather than
     // as the completer's value.
-    private static let _pickedFilter = StateSync<SCContentFilter?>(nil)
-    private static let _pickerCompleter = AsyncCompleter<Void>(label: "Content sharing picker",
-                                                               defaultTimeout: .defaultScreenSharePicker)
+    private let _pickedFilter = StateSync<SCContentFilter?>(nil)
+    private let _pickerCompleter = AsyncCompleter<Void>(label: "Content sharing picker",
+                                                        defaultTimeout: .defaultScreenSharePicker)
 
     /// Whether the system content picker can be presented, and so whether this capturer is usable.
     static var isAvailable: Bool {
@@ -64,7 +69,7 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
     ///
     /// ``LocalParticipant/set(source:enabled:captureOptions:publishOptions:)`` serializes its work, so
     /// a request to stop sharing would otherwise queue behind the picker until the user answers it.
-    static func cancelPendingPick() {
+    func cancelPendingPick() {
         _pickerCompleter.resume(throwing: LiveKitError(.cancelled, message: "Screen share cancelled"))
     }
 
@@ -86,8 +91,8 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
             try await presentPicker()
             // Capture only begins once the user picks content; surfacing the wait here keeps a
             // cancelled picker from publishing an empty track.
-            try await Self._pickerCompleter.wait()
-            guard let filter = Self._pickedFilter.read({ $0 }) else {
+            try await _pickerCompleter.wait()
+            guard let filter = _pickedFilter.read({ $0 }) else {
                 throw LiveKitError(.invalidState, message: "Content picker resolved without a selection")
             }
             try await startStream(with: filter)
@@ -95,6 +100,8 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
             await dismissPicker()
         } catch {
             await dismissPicker()
+            // `makeStream` may already have registered outputs before the failure.
+            await teardownStream()
             // Rebalance the counter `super.startCapture()` incremented; report the original failure.
             try? await super.stopCapture()
             throw error
@@ -104,6 +111,15 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
     }
 
     private func presentPicker() async throws {
+        let didClaim = Self._presenting.mutate { presenting in
+            guard presenting == nil else { return false }
+            presenting = ObjectIdentifier(self)
+            return true
+        }
+        guard didClaim else {
+            throw LiveKitError(.invalidState, message: "Another screen share is already presenting the content picker")
+        }
+
         try await MainActor.run {
             let picker = SCContentSharingPicker.shared
             guard picker.isAvailable else {
@@ -111,8 +127,8 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
             }
 
             // Discard any result left by a pick that nothing awaited.
-            Self._pickedFilter.mutate { $0 = nil }
-            Self._pickerCompleter.rearm()
+            _pickedFilter.mutate { $0 = nil }
+            _pickerCompleter.rearm()
 
             var configuration = SCContentSharingPickerConfiguration()
             // App audio (if requested) is captured directly from the stream, so the picker's own
@@ -132,6 +148,13 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
     }
 
     private func dismissPicker() async {
+        let wasPresenting = Self._presenting.mutate { presenting -> Bool in
+            guard presenting == ObjectIdentifier(self) else { return false }
+            presenting = nil
+            return true
+        }
+        guard wasPresenting else { return }
+
         await MainActor.run {
             let picker = SCContentSharingPicker.shared
             picker.isActive = false
@@ -169,18 +192,18 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
 @available(iOS 27.0, *)
 extension IOSScreenCapturer: SCContentSharingPickerObserver {
     public func contentSharingPicker(_: SCContentSharingPicker, didUpdateWith filter: SCContentFilter, for _: SCStream?) {
-        Self._pickedFilter.mutate { $0 = filter }
-        Self._pickerCompleter.resume(returning: ())
+        _pickedFilter.mutate { $0 = filter }
+        _pickerCompleter.resume(returning: ())
     }
 
     public func contentSharingPicker(_: SCContentSharingPicker, didCancelFor _: SCStream?) {
         log("Content sharing picker cancelled by user", .debug)
-        Self._pickerCompleter.resume(throwing: LiveKitError(.cancelled, message: "Screen share cancelled by user"))
+        _pickerCompleter.resume(throwing: LiveKitError(.cancelled, message: "Screen share cancelled by user"))
     }
 
     public func contentSharingPickerStartDidFailWithError(_ error: any Error) {
         log("Content sharing picker failed to start: \(error)", .error)
-        Self._pickerCompleter.resume(throwing: LiveKitError.from(error: error) ?? LiveKitError(.invalidState))
+        _pickerCompleter.resume(throwing: LiveKitError.from(error: error) ?? LiveKitError(.invalidState))
     }
 }
 

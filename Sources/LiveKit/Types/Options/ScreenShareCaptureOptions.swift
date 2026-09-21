@@ -20,6 +20,8 @@ import Foundation
 public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sendable {
     public let dimensions: Dimensions
 
+    /// - Note: Not applied by ``IOSScreenCapturer``; `SCStreamConfiguration.minimumFrameInterval`
+    ///   is unavailable on iOS, so the system picks the rate there.
     public let fps: Int
 
     /// Only used for macOS
