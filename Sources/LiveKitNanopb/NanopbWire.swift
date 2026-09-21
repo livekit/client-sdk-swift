@@ -15,7 +15,7 @@
  */
 
 // nanopb's stream API, wrapped so the rest of the runtime never touches a
-// `pb_ostream_t` directly. Typed throws carries the error type through the
+// `lk_pb_ostream_t` directly. Typed throws carries the error type through the
 // stdlib's untyped `rethrows`, which is why several of these capture a failure
 // and re-throw it rather than letting it propagate out of the closure.
 
@@ -28,7 +28,7 @@ import Foundation
 
 package func nanopbDecode(
     into pointer: UnsafeMutablePointer<some Any>,
-    _ descriptor: pb_msgdesc_t,
+    _ descriptor: lk_pb_msgdesc_t,
     _ bytes: UnsafeRawBufferPointer,
 ) throws(NanopbError) {
     var descriptor = descriptor
@@ -44,7 +44,7 @@ package func nanopbDecode(
 }
 
 package func nanopbEncodedSize(
-    _ pointer: UnsafePointer<some Any>, _ descriptor: pb_msgdesc_t,
+    _ pointer: UnsafePointer<some Any>, _ descriptor: lk_pb_msgdesc_t,
 ) throws(NanopbError) -> Int {
     var descriptor = descriptor
     var size = 0
@@ -56,7 +56,7 @@ package func nanopbEncodedSize(
 
 package func nanopbEncode(
     _ pointer: UnsafePointer<some Any>,
-    _ descriptor: pb_msgdesc_t,
+    _ descriptor: lk_pb_msgdesc_t,
     into buffer: UnsafeMutableRawBufferPointer,
 ) throws(NanopbError) -> Int {
     var descriptor = descriptor
@@ -72,7 +72,7 @@ package func nanopbEncode(
 }
 
 package func nanopbEncodedBytes(
-    _ pointer: UnsafePointer<some Any>, _ descriptor: pb_msgdesc_t,
+    _ pointer: UnsafePointer<some Any>, _ descriptor: lk_pb_msgdesc_t,
 ) throws(NanopbError) -> [UInt8] {
     let size = try nanopbEncodedSize(pointer, descriptor)
     var out = [UInt8](repeating: 0, count: size)

@@ -46,35 +46,35 @@ package func lkSetString(_ slot: inout UnsafeMutablePointer<CChar>?, _ value: St
 
 // MARK: - Bytes
 
-/// `pb_bytes_array_t` is a size header followed by an inline byte array; the
+/// `lk_pb_bytes_array_t` is a size header followed by an inline byte array; the
 /// payload starts at that member's offset.
-private let lkBytesHeader = MemoryLayout<pb_bytes_array_t>.offset(of: \pb_bytes_array_t.bytes) ?? 4
+private let lkBytesHeader = MemoryLayout<lk_pb_bytes_array_t>.offset(of: \lk_pb_bytes_array_t.bytes) ?? 4
 
-private func lkBytesBase(_ pointer: UnsafeMutablePointer<pb_bytes_array_t>) -> UnsafeRawPointer {
+private func lkBytesBase(_ pointer: UnsafeMutablePointer<lk_pb_bytes_array_t>) -> UnsafeRawPointer {
     // SAFETY: `pointer` comes from `lkAllocBytes`, which allocates
     // `lkBytesHeader + size` bytes, so the payload is in bounds for `size`
     // bytes. Reading `bytes` as a Swift tuple would only cover one element.
     UnsafeRawPointer(pointer).advanced(by: lkBytesHeader)
 }
 
-package func lkData(_ pointer: UnsafeMutablePointer<pb_bytes_array_t>?) -> Data {
+package func lkData(_ pointer: UnsafeMutablePointer<lk_pb_bytes_array_t>?) -> Data {
     guard let pointer, pointer.pointee.size > 0 else { return Data() }
     return Data(bytes: lkBytesBase(pointer), count: Int(pointer.pointee.size))
 }
 
-package func lkSetData(_ slot: inout UnsafeMutablePointer<pb_bytes_array_t>?, _ value: Data) {
+package func lkSetData(_ slot: inout UnsafeMutablePointer<lk_pb_bytes_array_t>?, _ value: Data) {
     if let old = slot { free(old) }
     slot = lkAllocBytes(value)
 }
 
-func lkAllocBytes(_ value: Data) -> UnsafeMutablePointer<pb_bytes_array_t>? {
+func lkAllocBytes(_ value: Data) -> UnsafeMutablePointer<lk_pb_bytes_array_t>? {
     let header = lkBytesHeader
     // SAFETY: at least one byte is always allocated so the flexible array
     // member has a valid address even for an empty payload; the memcpy below
     // is bounded by the same `value.count` used to size the allocation.
     guard let raw = malloc(header + max(value.count, 1)) else { return nil }
-    let array = raw.bindMemory(to: pb_bytes_array_t.self, capacity: 1)
-    array.pointee.size = pb_size_t(value.count)
+    let array = raw.bindMemory(to: lk_pb_bytes_array_t.self, capacity: 1)
+    array.pointee.size = lk_pb_size_t(value.count)
     if !value.isEmpty {
         value.withUnsafeBytes { _ = memcpy(raw.advanced(by: header), $0.baseAddress!, value.count) }
     }
@@ -197,7 +197,7 @@ package func lkOverwrite<S: NanopbStorage>(_ pointer: UnsafeMutablePointer<S>, w
 // Union members share one address, so switching variants must release the old
 // payload with the *old* variant's layout before the new one is written.
 
-package func lkRelease(message slot: inout UnsafeMutablePointer<some Any>?, _ descriptor: pb_msgdesc_t) {
+package func lkRelease(message slot: inout UnsafeMutablePointer<some Any>?, _ descriptor: lk_pb_msgdesc_t) {
     guard let old = slot else { return }
     var descriptor = descriptor
     lk_pb_release(&descriptor, UnsafeMutableRawPointer(old))
@@ -214,7 +214,7 @@ package func lkFree(_ slot: inout UnsafeMutablePointer<some Any>?) {
 
 /// Borrow a repeated field for the duration of `body` — no array allocated.
 package func withLkRepeated<C, R, E: Error>(
-    _ count: pb_size_t,
+    _ count: lk_pb_size_t,
     _ base: UnsafeMutablePointer<C>?,
     _ body: (UnsafeBufferPointer<C>) throws(E) -> R,
 ) throws(E) -> R {
@@ -222,19 +222,19 @@ package func withLkRepeated<C, R, E: Error>(
     return try body(UnsafeBufferPointer(start: base, count: Int(count)))
 }
 
-package func lkRepeated<C>(_ count: pb_size_t, _ base: UnsafeMutablePointer<C>?) -> [C] {
+package func lkRepeated<C>(_ count: lk_pb_size_t, _ base: UnsafeMutablePointer<C>?) -> [C] {
     withLkRepeated(count, base) { Array($0) }
 }
 
 /// Repeated strings: an array of owned `char *`.
 package func lkRepeated(
-    _ count: pb_size_t, _ base: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
+    _ count: lk_pb_size_t, _ base: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
 ) -> [String] {
     withLkRepeated(count, base) { $0.map { lkString($0) ?? "" } }
 }
 
 package func lkSetRepeated<C>(
-    _ count: inout pb_size_t, _ base: inout UnsafeMutablePointer<C>?, _ values: [C],
+    _ count: inout lk_pb_size_t, _ base: inout UnsafeMutablePointer<C>?, _ values: [C],
 ) {
     if let old = base { free(old) }
     guard !values.isEmpty, let raw = malloc(MemoryLayout<C>.stride * values.count) else {
@@ -247,11 +247,11 @@ package func lkSetRepeated<C>(
         pointer.advanced(by: index).initialize(to: value)
     }
     base = pointer
-    count = pb_size_t(values.count)
+    count = lk_pb_size_t(values.count)
 }
 
 package func lkSetRepeated(
-    _ count: inout pb_size_t,
+    _ count: inout lk_pb_size_t,
     _ base: inout UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
     _ values: [String],
 ) {
@@ -265,20 +265,20 @@ package func lkSetRepeated(
 }
 
 package func lkRepeatedEnum<C: RawRepresentable, E: NanopbEnum>(
-    _ count: pb_size_t, _ base: UnsafeMutablePointer<C>?,
+    _ count: lk_pb_size_t, _ base: UnsafeMutablePointer<C>?,
 ) -> [E] where C.RawValue == UInt32 {
     withLkRepeated(count, base) { $0.map { E(rawValue: Int($0.rawValue)) ?? E() } }
 }
 
 package func lkSetRepeatedEnum<C: RawRepresentable>(
-    _ count: inout pb_size_t, _ base: inout UnsafeMutablePointer<C>?, _ values: [some NanopbEnum],
+    _ count: inout lk_pb_size_t, _ base: inout UnsafeMutablePointer<C>?, _ values: [some NanopbEnum],
 ) where C.RawValue == UInt32 {
     let converted = values.compactMap { C(rawValue: UInt32(truncatingIfNeeded: $0.rawValue)) }
     lkSetRepeated(&count, &base, converted)
 }
 
 package func lkSetRepeatedMessages<S: NanopbStorage>(
-    _ count: inout pb_size_t, _ base: inout UnsafeMutablePointer<S>?, _ values: [NanopbMsg<S>],
+    _ count: inout lk_pb_size_t, _ base: inout UnsafeMutablePointer<S>?, _ values: [NanopbMsg<S>],
 ) {
     // SAFETY: `values` may alias the array being replaced — the getter hands
     // out views into it, so `field.append(x)` reads views and assigns them
@@ -305,13 +305,13 @@ package func lkSetRepeatedMessages<S: NanopbStorage>(
         free(old)
     }
     base = fresh
-    count = fresh == nil ? 0 : pb_size_t(values.count)
+    count = fresh == nil ? 0 : lk_pb_size_t(values.count)
 }
 
 /// Zero-copy views over a repeated submessage field. Each element retains
 /// `owner`, so the parent's storage outlives every view handed out.
 package func lkViews<S: NanopbStorage>(
-    _ count: pb_size_t, _ base: UnsafeMutablePointer<S>?, owner: NanopbAnyBox,
+    _ count: lk_pb_size_t, _ base: UnsafeMutablePointer<S>?, owner: NanopbAnyBox,
 ) -> [NanopbMsg<S>] {
     // SAFETY: every element retains `owner`, so the parent's allocation
     // outlives each view; storage is immutable once published, so the

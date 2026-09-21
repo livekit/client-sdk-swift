@@ -147,13 +147,36 @@ struct APICheck: ParsableCommand {
             guard let size, size > 0 else {
                 throw ValidationError("swift-api-digester produced no dump for \(name)")
             }
+            try prunePackageDecls(in: output)
         }
         return output
     }
 
+    /// The digester dumps `package` declarations next to public ones, flagged
+    /// `isInternal`. Nothing outside this package can reference them, so they are
+    /// not API and a change to them must not fail the check.
+    private func prunePackageDecls(in path: String) throws {
+        let url = URL(fileURLWithPath: path)
+        func prune(_ node: Any) -> Any {
+            guard var dict = node as? [String: Any] else { return node }
+            for (key, value) in dict {
+                if key == "children", let children = value as? [Any] {
+                    dict[key] = children
+                        .filter { (($0 as? [String: Any])?["isInternal"] as? Bool) != true }
+                        .map(prune)
+                } else if value is [String: Any] {
+                    dict[key] = prune(value)
+                }
+            }
+            return dict
+        }
+        let root = try JSONSerialization.jsonObject(with: Data(contentsOf: url))
+        try JSONSerialization.data(withJSONObject: prune(root)).write(to: url)
+    }
+
     /// swift-api-digester can't reach `CLiveKitProto` on its own: the module lives
-    /// behind the module map Xcode generates for the C target, and its headers
-    /// include nanopb's `<pb.h>` by angle brackets.
+    /// behind the module map Xcode generates for the C target, whose umbrella
+    /// directory must also be on the header search path.
     private func cModuleArguments(source: String, build: Folder) -> [String] {
         guard let intermediates = try? build.subfolder(named: "Intermediates.noindex"),
               let moduleMap = intermediates.files.recursive.first(where: { $0.name == "CLiveKitProto.modulemap" })

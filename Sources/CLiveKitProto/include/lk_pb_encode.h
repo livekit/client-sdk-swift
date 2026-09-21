@@ -3,10 +3,12 @@
  * field descriptions created by nanopb_generator.py.
  */
 
-#ifndef PB_ENCODE_H_INCLUDED
-#define PB_ENCODE_H_INCLUDED
+/* LiveKit modification (marked per zlib license clause 2): lk_ file name,
+ * LK_ include guard and lk_ includes -- see lk_pb_config.h. */
+#ifndef LK_PB_ENCODE_H_INCLUDED
+#define LK_PB_ENCODE_H_INCLUDED
 
-#include "pb.h"
+#include "lk_pb.h"
 
 #ifdef __cplusplus
 extern "C" {
