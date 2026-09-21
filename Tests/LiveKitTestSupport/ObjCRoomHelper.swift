@@ -46,6 +46,7 @@ public class LKObjCRoomHelper: NSObject {
                                completionHandler: @escaping @Sendable (Error?) -> Void)
     {
         Task {
+            await TestEnvironment.serverReady.value
             var lastError: Error?
             for attempt in 1 ... connectAttempts {
                 do {

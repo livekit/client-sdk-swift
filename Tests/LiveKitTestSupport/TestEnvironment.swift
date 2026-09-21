@@ -31,6 +31,32 @@ public enum TestEnvironment {
         readEnvironmentString(for: "LIVEKIT_TESTING_URL", defaultValue: "ws://localhost:7880")
     }
 
+    /// Resolves once the test server answers over HTTP; awaited before a process's first connect.
+    ///
+    /// A freshly booted simulator can take most of a minute before loopback traffic reaches the
+    /// host: on the xcode-27 iOS 27.0 leg the first connecting test started 52 s before the SFU
+    /// logged its first request from it, and spent its three connect attempts on `The request
+    /// timed out`. Waiting here turns that into wait time rather than a failed test. Gives up
+    /// after 90 s, so a missing server still fails where it always did.
+    static let serverReady = Task<Void, Never> {
+        guard var components = URLComponents(string: liveKitServerUrl()) else { return }
+        components.scheme = components.scheme == "wss" ? "https" : "http"
+        guard let url = components.url else { return }
+        let deadline = Date().addingTimeInterval(90)
+        while Date() < deadline {
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 2
+            let answered = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+                URLSession.shared.dataTask(with: request) { _, response, _ in
+                    continuation.resume(returning: response is HTTPURLResponse)
+                }.resume()
+            }
+            if answered { return }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+        }
+        print("Test server at \(url) did not answer within 90 s; connecting anyway")
+    }
+
     // swiftlint:disable:next function_parameter_count
     public static func liveKitServerToken(for room: String,
                                           identity: String,
@@ -123,6 +149,7 @@ public enum TestEnvironment {
         // Tear down on every exit path: a `Room` keeps itself alive through its
         // signaling and transport tasks, so an early exit without `disconnect()`
         // leaks a live Room into the rest of the test process.
+        await serverReady.value
         do {
             try await connectAndDiscover(rooms, sharedRoomName: sharedRoomName)
             try await block(allRooms)
