@@ -14,18 +14,13 @@
  * limitations under the License.
  */
 
-#if os(iOS) && !targetEnvironment(macCatalyst)
+#if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
 
 import AVFoundation
 import Foundation
-
-#if canImport(ScreenCaptureKit)
 import ScreenCaptureKit
-#endif
 
 internal import LiveKitWebRTC
-
-#if canImport(ScreenCaptureKit)
 
 /// A ``VideoCapturer`` backed by ScreenCaptureKit, available on iOS 27 and later.
 ///
@@ -69,9 +64,8 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
                                                         defaultTimeout: .defaultScreenSharePicker)
 
     /// Whether the system content picker can be presented, and so whether this capturer is usable.
-    static var isAvailable: Bool {
-        get async { await MainActor.run { SCContentSharingPicker.shared.isAvailable } }
-    }
+    @MainActor
+    static var isAvailable: Bool { SCContentSharingPicker.shared.isAvailable }
 
     /// Aborts a selection that ``startCapture()`` is currently waiting on, making it throw
     /// ``LiveKitError/Type-swift.enum/cancelled``.
@@ -115,11 +109,9 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
             // Only one selection is honored; further picker updates would have nothing to resume.
             await dismissPicker()
         } catch {
-            await dismissPicker()
-            // `makeStream` may already have registered outputs before the failure.
-            await teardownStream()
-            // Rebalance the counter `super.startCapture()` incremented; report the original failure.
-            _ = try? await super.stopCapture()
+            // Unwinds whatever got as far as running, and rebalances the counter
+            // `super.startCapture()` incremented.
+            _ = try? await stopCapture()
             throw error
         }
 
@@ -249,7 +241,5 @@ public extension LocalVideoTrack {
                                reportStatistics: reportStatistics)
     }
 }
-
-#endif
 
 #endif
