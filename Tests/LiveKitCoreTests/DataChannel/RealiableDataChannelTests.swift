@@ -107,9 +107,15 @@ import LiveKitTestSupport
             // restarted. A packet already handed to `sendData` at that moment is lost, and its
             // `send` has already returned success — so exact delivery across a reconnect is not a
             // guarantee the SDK makes, and asserting it made this fail under load for the wrong
-            // reason. What must hold is that the session recovers and keeps delivering.
+            // reason. What must hold is that the session recovers and keeps delivering — and that
+            // the loss stays within what a reconnect can explain: the in-flight window, plus what
+            // the SFU's replay cache (100 KB / 2 s) could not hold while the receiver was away. At
+            // this send rate that is a fraction of the stream, so losing half of it would mean the
+            // channel stopped delivering for a while, not that a reconnect happened.
             #expect(received.last == UInt32(iterations - 1),
                     "Delivery should resume after the reconnect and carry the final packet")
+            #expect(received.count >= iterations / 2,
+                    "A reconnect may lose the in-flight window, not most of the stream (\(received.count) of \(iterations) arrived)")
         }
     }
 

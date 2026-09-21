@@ -451,14 +451,22 @@ extension PeerConnectionSignalingTests {
     ///
     /// `connect()` returns once the *primary* transport is connected and never waits on the data
     /// channels, which open on the SCTP association afterwards. Publishes issued in that window
-    /// used to skip the open gate outside subscriber-primary and land in the drain's queue, where
-    /// each new write evicted the one waiting and resolved its submitter *successfully* — so the
-    /// burst collapsed to its last packet with every earlier publish reporting success.
+    /// used to skip the open gate outside subscriber-primary and land in the drain's queue. What
+    /// happened next depends on the channel: the lossy drain is drop-oldest with room for one
+    /// group, so each new write evicted the one waiting and resolved its submitter *successfully*,
+    /// and the burst collapsed to its last packet. The reliable drain parks instead and shipped
+    /// everything once the channel opened — so the lossy case is the regression this guards, and
+    /// the reliable case shows the gate costs it nothing.
+    ///
+    /// The lossy assertion is a floor, not a count: the channel offers best-effort delivery, so it
+    /// may lose the odd datagram, but the defect loses all but one. These payloads total well under
+    /// the 8 KiB the SFU keeps queued per subscriber before it drops unreliable data, so on a
+    /// healthy channel essentially all of them arrive.
     ///
     /// Single PC is the mode that matters here (it is becoming the default), but the hole was in
     /// publisher-primary too, so this runs on every mode rather than only the new one.
-    @Test(arguments: SignalingMode.allCases)
-    func dataChannelBurstImmediatelyAfterConnect(mode: SignalingMode) async throws {
+    @Test(arguments: SignalingMode.allCases, [Livekit_DataPacket_Kind.reliable, .lossy])
+    func dataChannelBurstImmediatelyAfterConnect(mode: SignalingMode, kind: Livekit_DataPacket_Kind) async throws {
         struct TestPayload: Codable {
             let content: String
         }
@@ -476,23 +484,30 @@ extension PeerConnectionSignalingTests {
                         let payload = try JSONEncoder().encode(TestPayload(content: topic))
                         try await rooms[0].localParticipant.publish(
                             data: payload,
-                            options: DataPublishOptions(topic: topic, reliable: true),
+                            options: DataPublishOptions(topic: topic, reliable: kind == .reliable),
                         )
                     }
                 }
                 try await group.waitForAll()
             }
 
-            // Reliable, so every packet is owed: what this catches is a *send-side* drop, where the
-            // SDK settles a publish successfully for bytes it discarded before the wire.
-            try await withThrowingTaskGroup(of: Void.self) { group in
+            // Every arrival is checked for content; how many must arrive depends on the channel.
+            let arrived = await withTaskGroup(of: Bool.self) { group in
                 for topic in topics {
                     group.addTask {
-                        let received = try await room2Watcher.didReceiveDataCompleters.completer(for: topic).wait()
+                        guard let received = try? await room2Watcher.didReceiveDataCompleters.completer(for: topic).wait() else { return false }
                         #expect(received.content == topic)
+                        return true
                     }
                 }
-                try await group.waitForAll()
+                return await group.reduce(0) { $0 + ($1 ? 1 : 0) }
+            }
+
+            switch kind {
+            case .reliable:
+                #expect(arrived == topics.count, "Reliable: every packet is owed")
+            default:
+                #expect(arrived >= topics.count * 4 / 5, "Lossy: a healthy channel delivers essentially all of a burst this small; the defect delivers one")
             }
         }
     }

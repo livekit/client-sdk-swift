@@ -423,20 +423,23 @@ struct BufferStatusReportingTests {
 struct DataChannelOpenLatchTests {
     private let drain = DrainFixture.makeDrain()
 
-    /// A never-attached drain must hold its waiters, not wave them through.
-    @Test func latchIsArmedBeforeAnyChannelArrives() async {
-        await #expect {
+    /// The latch is holding: a short wait on it times out rather than returning.
+    private func expectArmed(sourceLocation: SourceLocation = #_sourceLocation) async {
+        await #expect(sourceLocation: sourceLocation) {
             try await drain.whenOpen.wait(timeout: 0.1)
         } throws: { ($0 as? LiveKitError)?.type == .timedOut }
+    }
+
+    /// A never-attached drain must hold its waiters, not wave them through.
+    @Test func latchIsArmedBeforeAnyChannelArrives() async {
+        await expectArmed()
     }
 
     @Test func latchFollowsTheAttachedChannel() async throws {
         let channel = FakeSendChannel()
         channel.isOpen = false
         drain.attach(sendTarget: channel)
-        await #expect {
-            try await drain.whenOpen.wait(timeout: 0.1)
-        } throws: { ($0 as? LiveKitError)?.type == .timedOut }
+        await expectArmed()
 
         channel.isOpen = true
         drain.attach(sendTarget: channel)
@@ -451,9 +454,7 @@ struct DataChannelOpenLatchTests {
         try await drain.whenOpen.wait(timeout: 1)
 
         drain.reset()
-        await #expect {
-            try await drain.whenOpen.wait(timeout: 0.1)
-        } throws: { ($0 as? LiveKitError)?.type == .timedOut }
+        await expectArmed()
     }
 
     /// A delegate callback that lands after teardown must not resolve the latch from the channel it
@@ -471,9 +472,7 @@ struct DataChannelOpenLatchTests {
 
         drain.publishOpenState() // the callback for `channel`, arriving now
 
-        await #expect {
-            try await drain.whenOpen.wait(timeout: 0.1)
-        } throws: { ($0 as? LiveKitError)?.type == .timedOut }
+        await expectArmed()
     }
 
     /// The defect, stated as a test. Five writes submitted while the channel is still opening leave
