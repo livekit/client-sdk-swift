@@ -87,6 +87,13 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
         // Already started
         guard didStart else { return false }
 
+        // The completer caches its result, so clear it once this attempt is over rather than when
+        // the next one starts — a cancellation can arrive before the picker is even presented.
+        defer {
+            _pickerCompleter.rearm()
+            _pickedFilter.mutate { $0 = nil }
+        }
+
         do {
             try await presentPicker()
             // Capture only begins once the user picks content; surfacing the wait here keeps a
@@ -103,7 +110,7 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
             // `makeStream` may already have registered outputs before the failure.
             await teardownStream()
             // Rebalance the counter `super.startCapture()` incremented; report the original failure.
-            try? await super.stopCapture()
+            _ = try? await super.stopCapture()
             throw error
         }
 
@@ -126,10 +133,6 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
                 throw LiveKitError(.invalidState, message: "Screen capture is not available on this device")
             }
 
-            // Discard any result left by a pick that nothing awaited.
-            _pickedFilter.mutate { $0 = nil }
-            _pickerCompleter.rearm()
-
             var configuration = SCContentSharingPickerConfiguration()
             // App audio (if requested) is captured directly from the stream, so the picker's own
             // microphone affordance is not needed here.
@@ -148,12 +151,10 @@ public final class IOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
     }
 
     private func dismissPicker() async {
-        let wasPresenting = Self._presenting.mutate { presenting -> Bool in
-            guard presenting == ObjectIdentifier(self) else { return false }
-            presenting = nil
-            return true
-        }
-        guard wasPresenting else { return }
+        // Hold the claim until the picker is actually torn down, so a capturer that claims next
+        // cannot have its freshly presented picker deactivated by this cleanup.
+        guard Self._presenting.read({ $0 }) == ObjectIdentifier(self) else { return }
+        defer { Self._presenting.mutate { if $0 == ObjectIdentifier(self) { $0 = nil } } }
 
         await MainActor.run {
             let picker = SCContentSharingPicker.shared
