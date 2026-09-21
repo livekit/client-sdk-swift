@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized, .tags(.dataChannel, .e2e), .e2eTimeLimit) final class RealiableDataChannelTests: @unchecked Sendable {
+@Suite(.serialized, .tags(.dataChannel, .e2e), TestLimits.e2e) final class RealiableDataChannelTests: @unchecked Sendable {
     enum ReconnectMode: CustomStringConvertible {
         case none, sender, receiver, both, simultaneous, bothLate
 

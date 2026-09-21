@@ -41,14 +41,26 @@ extension Tag {
     @Tag static var rpc: Self
 }
 
-/// The wall-clock budget for one end-to-end test case, applied at suite level to every `.e2e`
-/// suite. A suite-level time limit bounds each of the suite's test cases individually, so a
-/// parameterized test gets the full budget per argument.
-///
-/// Generous on purpose. The slowest single case seen on the slowest legs runs about 80 s, and a
-/// case that passes on a degraded runner can also absorb the one-off 90 s server readiness wait
-/// and the harness's 36 s of connect retries. What this exists for is the hang — a wait nothing
-/// can resume — which otherwise costs a leg the whole of its step budget instead of these minutes.
-extension Trait where Self == TimeLimitTrait {
-    static var e2eTimeLimit: Self { .timeLimit(.minutes(5)) }
+/// Limits shared by the Core suites.
+enum TestLimits {
+    /// The wall-clock budget for one end-to-end test case, applied at suite level to every `.e2e`
+    /// suite. A suite-level time limit bounds each of the suite's test cases individually, so a
+    /// parameterized test gets the full budget per argument.
+    ///
+    /// Generous on purpose. The slowest single case seen on the slowest legs runs about 80 s, and
+    /// a case that passes on a degraded runner can also absorb the one-off 90 s server readiness
+    /// wait and the harness's 36 s of connect retries. What this exists for is the hang — a wait
+    /// nothing can resume — which otherwise costs a leg the whole of its step budget.
+    ///
+    /// `TimeLimitTrait` needs iOS 16 and the package deploys to iOS 13, so this resolves the trait
+    /// at runtime: every host CI runs on gets the limit, and a host too old for the trait gets an
+    /// inert empty tag list instead of a compile error.
+    static var e2e: any SuiteTrait {
+        if #available(iOS 16, macOS 13, tvOS 16, visionOS 1, *) {
+            let limit: TimeLimitTrait = .timeLimit(.minutes(5))
+            return limit
+        }
+        let none: Tag.List = .tags()
+        return none
+    }
 }

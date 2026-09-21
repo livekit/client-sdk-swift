@@ -22,7 +22,7 @@ import LiveKitTestSupport
 #endif
 import LiveKitWebRTC
 
-@Suite(.serialized, .tags(.dataChannel, .e2e, .e2ee), .e2eTimeLimit) final class EncryptedDataChannelTests: @unchecked Sendable {
+@Suite(.serialized, .tags(.dataChannel, .e2e, .e2ee), TestLimits.e2e) final class EncryptedDataChannelTests: @unchecked Sendable {
     private let _receivedData = StateSync(Data())
     private let _lastDecryptionError = StateSync<Error?>(nil)
     private let _onDataReceived = StateSync<(() -> Void)?>(nil)

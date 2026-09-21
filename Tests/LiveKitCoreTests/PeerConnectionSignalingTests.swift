@@ -122,7 +122,7 @@ private final class ReconnectWatcher: NSObject, RoomDelegate, @unchecked Sendabl
 
 // MARK: - PeerConnectionSignalingTests
 
-@Suite(.serialized, .tags(.e2e), .e2eTimeLimit)
+@Suite(.serialized, .tags(.e2e), TestLimits.e2e)
 struct PeerConnectionSignalingTests {
     // MARK: - Helpers
 

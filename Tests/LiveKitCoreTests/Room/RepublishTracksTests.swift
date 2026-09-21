@@ -61,7 +61,7 @@ private final class CapturerStopSpy: VideoCapturerDelegate, @unchecked Sendable 
     }
 }
 
-@Suite(.serialized, .tags(.media, .broadcast, .e2e), .e2eTimeLimit)
+@Suite(.serialized, .tags(.media, .broadcast, .e2e), TestLimits.e2e)
 struct RepublishTracksTests {
     /// What a full reconnect is expected to do to a track's capture source.
     enum CaptureOutcome: Sendable {

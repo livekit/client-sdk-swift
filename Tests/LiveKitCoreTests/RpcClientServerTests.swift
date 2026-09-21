@@ -27,7 +27,7 @@ import LiveKitTestSupport
 
 /// Unit-level coverage of ``RpcClientManager``: caller-side state machine,
 /// pending bookkeeping, timeout codes, cancellation, and sender validation.
-@Suite(.serialized, .tags(.e2e, .rpc), .e2eTimeLimit)
+@Suite(.serialized, .tags(.e2e, .rpc), TestLimits.e2e)
 struct RpcClientTests {
     // MARK: - v1 caller-side state machine
 
@@ -474,7 +474,7 @@ struct RpcClientTests {
 
 /// Unit-level coverage of ``RpcServerManager``: handler registry, v1 dispatch,
 /// v2 stream dispatch error paths.
-@Suite(.serialized, .tags(.e2e, .rpc), .e2eTimeLimit)
+@Suite(.serialized, .tags(.e2e, .rpc), TestLimits.e2e)
 struct RpcServerTests {
     // MARK: - v1 server-side handler dispatch
 

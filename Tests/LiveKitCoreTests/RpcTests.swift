@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized, .tags(.e2e, .rpc), .e2eTimeLimit)
+@Suite(.serialized, .tags(.e2e, .rpc), TestLimits.e2e)
 struct RpcTests {
     /// Spin up a paired responder + caller for an e2e RPC test, exposing the
     /// responder's identity (the most common pre-RPC dependency). Defaults
