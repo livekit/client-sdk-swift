@@ -124,7 +124,7 @@ jobs:
 
       # Binary dependencies come from GitHub release assets, which answer with the odd 5xx.
       - name: Resolve Packages
-        timeout-minutes: 15
+        timeout-minutes: 5
         run: |
           for attempt in 1 2 3; do
             xcodebuild -resolvePackageDependencies -scheme LiveKit && exit 0
@@ -136,7 +136,7 @@ jobs:
       - name: Boot Simulator
         id: boot
         if: contains(matrix.platform, 'Simulator')
-        timeout-minutes: 20
+        timeout-minutes: 10
         run: |
           platform='${{ matrix.platform }}'
           family=${platform%% Simulator*}; [ "$family" = "visionOS" ] && family=xrOS
@@ -150,7 +150,7 @@ jobs:
           # Booted is not idle: the runtime's processes keep several cores busy for a minute or
           # more afterwards. Wait for them to go quiet, so that work does not overlap the build.
           sim_launchd=$(pgrep -x launchd_sim | head -1); quiet=0
-          for _ in $(seq 1 150); do
+          for _ in $(seq 1 60); do
             cpu=$(ps -o %cpu= -p "$(pgrep -P "$sim_launchd" | paste -sd, -)" 2>/dev/null | awk '{s+=$1} END {printf "%d", s}')
             if [ "${cpu:-0}" -lt 20 ]; then quiet=$((quiet+1)); else quiet=0; fi
             [ "$quiet" -ge 3 ] && break
