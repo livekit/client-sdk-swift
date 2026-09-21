@@ -28,7 +28,9 @@ import LiveKitTestSupport
 struct TelemetryTests {
     static let collectorOutput = URL(fileURLWithPath: "/tmp/livekit-telemetry-otlp.jsonl")
 
-    @Test func statsErrorsAndSpansReachTheCollector() async throws {
+    @Test(.disabled(if: ProcessInfo.processInfo.environment["LIVEKIT_TELEMETRY_ENDPOINT"] != nil,
+                    "cloud mode: nothing writes the local collector file"))
+    func statsErrorsAndSpansReachTheCollector() async throws {
         let start = UInt64(Date().timeIntervalSince1970 * 1e9)
         let marker = "telemetry e2e \(UUID().uuidString)"
         let options = try TelemetryOptions(endpoint: #require(URL(string: "http://127.0.0.1:4319/v1/logs")),
