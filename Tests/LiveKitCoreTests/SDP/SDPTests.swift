@@ -326,4 +326,14 @@ struct SDPTests {
         #expect(!appendedAgain)
         #expect(document.mediaSections[0].lines.last == "a=rtcp-fb:111 nack")
     }
+
+    @Test func msidTrackIdIsTheSecondToken() {
+        let section = SDPMediaSection(lines: ["m=video 9 UDP/TLS/RTP/SAVPF 96", "a=msid:- cam"])
+        let noMsid = SDPMediaSection(lines: ["m=video 9 UDP/TLS/RTP/SAVPF 96", "a=mid:1"])
+        let streamOnly = SDPMediaSection(lines: ["m=video 9 UDP/TLS/RTP/SAVPF 96", "a=msid:stream"])
+
+        #expect(section.msidTrackId == "cam")
+        #expect(noMsid.msidTrackId == nil)
+        #expect(streamOnly.msidTrackId == nil)
+    }
 }

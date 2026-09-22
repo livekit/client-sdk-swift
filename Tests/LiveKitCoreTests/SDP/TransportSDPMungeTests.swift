@@ -106,8 +106,9 @@ struct TransportSDPMungeTests {
 
     /// A publisher offer with two video sections sending known tracks (`cam`: H.264 with two
     /// payloads, one lower-cased and already carrying a stale start bitrate, plus VP8 without
-    /// an fmtp line and an rtx payload; `share`: VP9 and AV1), a video section whose sender is
-    /// not mapped, and an Opus audio section.
+    /// an fmtp line and an rtx payload; `share`: VP9 and AV1), a sending video section whose
+    /// sender is not mapped, a receive-only video section whose `a=msid` still names a mapped
+    /// sender (a section left behind by an unpublished track), and an Opus audio section.
     private static let publisherOffer = """
     v=0
     o=- 0 0 IN IP4 127.0.0.1
@@ -143,25 +144,48 @@ struct TransportSDPMungeTests {
     a=rtpmap:96 H264/90000
     a=fmtp:96 packetization-mode=1
     a=sendonly
+    m=video 9 UDP/TLS/RTP/SAVPF 96
+    a=mid:4
+    a=msid:- stale
+    a=rtpmap:96 H264/90000
+    a=fmtp:96 packetization-mode=1
+    a=recvonly
     """.replacingOccurrences(of: "\n", with: "\r\n") + "\r\n"
 
-    /// Each mapped sender's section gains its own start bitrate on every video codec —
-    /// matched case-insensitively, replacing a stale value, appended to an existing fmtp line
-    /// or inserted as a new one — while rtx, audio and the unmapped section are untouched.
-    @Test func declaresStartBitratePerSenderOnEveryVideoCodec() {
-        let munged = Transport.mungeVideoStartBitrate(Self.publisherOffer, kbpsBySenderId: ["cam": 1000, "share": 4500])
-        let sections = SDP(parsing: munged).mediaSections
+    /// The connection-level value is the largest hint among the sending sections' mapped
+    /// senders; the receive-only section neither contributes nor gets one, and a map with no
+    /// sending sender yields none.
+    @Test func connectionStartBitrateIsTheLargestSendingSendersHint() {
+        let document = SDP(parsing: Self.publisherOffer)
 
-        #expect(sections[0].lines == SDP(parsing: Self.publisherOffer).mediaSections[0].lines)
+        #expect(Transport.connectionStartBitrateKbps(for: document, kbpsBySenderId: ["cam": 1000]) == 1000)
+        #expect(Transport.connectionStartBitrateKbps(for: document, kbpsBySenderId: ["cam": 1000, "share": 4500]) == 4500)
+        #expect(Transport.connectionStartBitrateKbps(for: document, kbpsBySenderId: ["cam": 1000, "share": 4500, "stale": 9000]) == 4500)
+        #expect(Transport.connectionStartBitrateKbps(for: document, kbpsBySenderId: ["stale": 9000]) == nil)
+        #expect(Transport.connectionStartBitrateKbps(for: document, kbpsBySenderId: ["mic": 900, "absent": 900]) == nil)
+        #expect(Transport.connectionStartBitrateKbps(for: document, kbpsBySenderId: [:]) == nil)
+    }
+
+    /// One value for the whole connection, on every video codec of every sending video section
+    /// — matched case-insensitively, replacing a stale value, appended to an existing fmtp line
+    /// or inserted as a new one — including the section whose sender is unmapped. rtx, audio
+    /// and the receive-only section are untouched.
+    @Test func declaresTheConnectionStartBitrateOnEverySendingVideoSection() {
+        let munged = Transport.mungeVideoStartBitrate(Self.publisherOffer, kbpsBySenderId: ["cam": 1000, "share": 4500, "stale": 9000])
+        let sections = SDP(parsing: munged).mediaSections
+        let original = SDP(parsing: Self.publisherOffer).mediaSections
+
+        #expect(sections[0].lines == original[0].lines)
         #expect(sections[1].fmtps.map(\.config) == [
-            "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f;x-google-start-bitrate=1000",
-            "packetization-mode=0;x-google-start-bitrate=1000;profile-level-id=42e01f",
+            "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f;x-google-start-bitrate=4500",
+            "packetization-mode=0;x-google-start-bitrate=4500;profile-level-id=42e01f",
             "apt=98",
-            "x-google-start-bitrate=1000",
+            "x-google-start-bitrate=4500",
         ])
-        #expect(sections[1].lines.last == "a=fmtp:98 x-google-start-bitrate=1000")
+        #expect(sections[1].lines.last == "a=fmtp:98 x-google-start-bitrate=4500")
         #expect(sections[2].fmtps.map(\.config) == ["profile-id=0;x-google-start-bitrate=4500", "x-google-start-bitrate=4500"])
-        #expect(sections[3].lines == SDP(parsing: Self.publisherOffer).mediaSections[3].lines)
+        #expect(sections[3].fmtps.map(\.config) == ["packetization-mode=1;x-google-start-bitrate=4500"])
+        #expect(sections[4].lines == original[4].lines)
     }
 
     @Test func startBitrateIsIdempotentAndPreservesUnrelatedSDP() {
@@ -169,15 +193,28 @@ struct TransportSDPMungeTests {
 
         #expect(Transport.mungeVideoStartBitrate(once, kbpsBySenderId: ["cam": 1000]) == once)
         #expect(once.hasSuffix("\r\n"))
-        // Nothing mapped, or no matching sender: byte-identical.
+        // Nothing mapped, no sending sender, or only a receive-only match: byte-identical.
         #expect(Transport.mungeVideoStartBitrate(Self.publisherOffer, kbpsBySenderId: [:]) == Self.publisherOffer)
         #expect(Transport.mungeVideoStartBitrate(Self.publisherOffer, kbpsBySenderId: ["absent": 1000]) == Self.publisherOffer)
+        #expect(Transport.mungeVideoStartBitrate(Self.publisherOffer, kbpsBySenderId: ["stale": 1000]) == Self.publisherOffer)
         // Sections without an msid line are never matched.
         #expect(Transport.mungeVideoStartBitrate(Self.singlePCOffer, kbpsBySenderId: ["cam": 1000]) == Self.singlePCOffer)
     }
 
-    /// Same numbers as client-sdk-js and rust-sdks: 90% of the target, capped at 1 Mbps unless
-    /// the track is a screen share, and no hint at all under 300 kbps.
+    /// The latch condition: only a video section's fmtp counts, and the value is irrelevant.
+    @Test func carriesVideoStartBitrateLooksAtVideoFmtpOnly() {
+        #expect(!Transport.carriesVideoStartBitrate(Self.singlePCOffer))
+        #expect(!Transport.carriesVideoStartBitrate(Self.singlePCOffer.replacingOccurrences(
+            of: "a=fmtp:111 minptime=10;useinbandfec=1", with: "a=fmtp:111 minptime=10;x-google-start-bitrate=1000",
+        )))
+        #expect(Transport.carriesVideoStartBitrate(Self.publisherOffer)) // the stale value on payload 97
+        #expect(Transport.carriesVideoStartBitrate(Transport.mungeVideoStartBitrate(Self.singlePCOffer.replacingOccurrences(
+            of: "a=mid:2\r\n", with: "a=mid:2\r\na=msid:- cam\r\n",
+        ), kbpsBySenderId: ["cam": 1000])))
+    }
+
+    /// Same numbers as client-sdk-js, rust-sdks and client-sdk-android: 90% of the target,
+    /// capped at 1 Mbps unless the track is a screen share, and no hint at all under 300 kbps.
     @Test func startBitrateFormula() {
         #expect(Transport.startBitrateKbps(targetBps: 2_300_000, isScreenShare: false) == 1000) // 2070, capped
         #expect(Transport.startBitrateKbps(targetBps: 800_000, isScreenShare: false) == 720)
