@@ -30,7 +30,7 @@ To capture only your own app's content, publish the track directly instead:
 
 ```swift
 if #available(iOS 27.0, *) {
-    let track = LocalVideoTrack.createIOSScreenShareTrack(captureCurrentApplicationOnly: true)
+    let track = await LocalVideoTrack.createIOSScreenShareTrack(captureCurrentApplicationOnly: true)
     try await room.localParticipant.publish(videoTrack: track)
 }
 ```

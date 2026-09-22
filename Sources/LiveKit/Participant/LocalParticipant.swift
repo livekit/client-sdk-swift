@@ -485,8 +485,8 @@ public extension LocalParticipant {
                         let options = (captureOptions as? ScreenShareCaptureOptions) ?? defaultOptions
                         if options.useScreenCaptureKit {
                             if await IOSScreenCapturer.isAvailable {
-                                let track = LocalVideoTrack.createIOSScreenShareTrack(options: options,
-                                                                                      reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+                                let track = await LocalVideoTrack.createIOSScreenShareTrack(options: options,
+                                                                                            reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
                                 self._pendingScreenCapturer.mutate { $0 = track.capturer }
                                 defer { self._pendingScreenCapturer.mutate { $0 = nil } }
                                 return try await self._publish(track: track, options: publishOptions)
