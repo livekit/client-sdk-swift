@@ -24,8 +24,8 @@ import Foundation
 /// Lazily initialized on first access, like ``sharedLogger``: `livekit-net` keeps its
 /// clients in a `OnceLock`, so this runs once and later accesses are free.
 let rustTransport: Void = {
-    setWsClient(client: WsClientAdapter())
-    setHttpClient(client: HttpClientAdapter())
+    setWsClient(c: WsClientAdapter())
+    setHttpClient(c: HttpClientAdapter())
 }()
 
 // MARK: - WebSocket
