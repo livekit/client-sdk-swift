@@ -166,6 +166,41 @@ import Testing
         #expect(!LiveKitError(.serviceNotFound, message: "not found", statusCode: 404).isRetryableForRegionFailover)
     }
 
+    /// Same invariant as `refreshKeepsFailedRegionsExcluded`, but through the path a real refresh
+    /// takes: the settings *fetch*, which lands in `applyFetchedRegions`. The sibling test drives
+    /// `updateFromServerReportedRegions`, which already excluded failed regions before this change.
+    @Test func fetchedRefreshKeepsFailedRegionsExcluded() async throws {
+        let providedUrl = try #require(URL(string: "https://example.livekit.cloud"))
+        let regionManager = RegionManager(providedUrl: providedUrl)
+
+        try MockURLProtocol.setAllowedHosts([#require(providedUrl.host)])
+        MockURLProtocol.setAllowedPaths(["/settings/regions"])
+        MockURLProtocol.setRequestHandler { (_: URLRequest) in
+            MockURLProtocol.Response(statusCode: 200, headers: [:], body: Data("""
+            {"regions": [
+                {"region": "otokyo1a", "url": "https://example.otokyo1a.livekit.cloud", "distance": "1"},
+                {"region": "dblr1a", "url": "https://example.dblr1a.livekit.cloud", "distance": "2"}
+            ]}
+            """.utf8))
+        }
+        URLProtocol.registerClass(MockURLProtocol.self)
+        defer { cleanUpMockURLProtocol() }
+
+        let first = try #require(await regionManager.resolveBest(token: "token"))
+        await regionManager.markFailed(region: first)
+
+        // Rewind the cache so the next resolve refetches, as it would when per-region failure
+        // outlasts `cacheInterval`.
+        let snapshot = await regionManager.snapshot()
+        await regionManager.setStateForTesting(.init(lastRequested: Date().addingTimeInterval(-(RegionManager.cacheInterval + 1)),
+                                                     all: snapshot.all,
+                                                     remaining: snapshot.remaining))
+
+        let second = try #require(await regionManager.resolveBest(token: "token"))
+        #expect(second.regionId != first.regionId,
+                "A fetched refresh must not put a failed region back at the head of the list")
+    }
+
     @Test(arguments: [
         (401, LiveKitErrorType.validation),
         (500, LiveKitErrorType.regionManager),
