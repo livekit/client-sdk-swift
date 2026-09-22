@@ -144,7 +144,7 @@ struct RustTransportTests {
                                               headers: ["Authorization": "Bearer \(swiftToken)"],
                                               timeoutInterval: 10)
         defer { swiftSocket.close() }
-        var frames = swiftSocket.makeAsyncIterator()
+        let frames = swiftSocket.makeAsyncIterator()
         #expect(try await joinedRoom(in: frames.next()) == room)
 
         let rustToken = try TestEnvironment.liveKitServerToken(for: room, identity: "rust-reader")
