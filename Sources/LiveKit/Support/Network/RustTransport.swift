@@ -94,6 +94,7 @@ final class HttpClientAdapter: HttpClient {
         request.httpMethod = switch method {
         case .get: "GET"
         case .post: "POST"
+        @unknown default: "GET"
         }
         request.httpBody = body
         for header in headers {
