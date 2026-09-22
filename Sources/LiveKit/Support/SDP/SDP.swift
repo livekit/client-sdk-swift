@@ -73,6 +73,11 @@ struct SDPMediaSection {
 
     var mid: String? { attributeValue("mid") }
 
+    /// Track id of the section's `a=msid:<stream id> <track id>` line (RFC 8830 §2), if any.
+    var msidTrackId: String? {
+        attributeValue("msid")?.split(separator: " ").dropFirst().first.map(String.init)
+    }
+
     /// The section's first direction attribute, if any.
     var direction: SDPDirection? {
         lines.dropFirst().lazy.compactMap(SDPDirection.init(line:)).first
