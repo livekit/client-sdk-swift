@@ -28,26 +28,6 @@ NS_ASSUME_NONNULL_BEGIN
     }
 }
 
-// MARK: - Xcode 27 availability workarounds
-
-+ (AUAudioFrameCount)maximumFramesToRenderForNode:(AVAudioNode *)node {
-    return node.AUAudioUnit.maximumFramesToRender;
-}
-
-+ (void)setMaximumFramesToRender:(AUAudioFrameCount)maximumFramesToRender forNode:(AVAudioNode *)node {
-    node.AUAudioUnit.maximumFramesToRender = maximumFramesToRender;
-}
-
-#if TARGET_OS_OSX
-+ (void)setWidth:(size_t)width height:(size_t)height onConfiguration:(SCStreamConfiguration *)configuration {
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wunguarded-availability-new"
-    configuration.width = width;
-    configuration.height = height;
-    #pragma clang diagnostic pop
-}
-#endif
-
 NS_ASSUME_NONNULL_END
 
 @end
