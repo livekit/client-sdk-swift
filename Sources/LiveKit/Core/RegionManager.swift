@@ -187,19 +187,13 @@ actor RegionManager: Loggable {
 
         let statusCode = httpResponse.statusCode
         guard (200 ..< 300).contains(statusCode) else {
-            let rawBody = String(data: data, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            let body = if let rawBody, !rawBody.isEmpty {
-                rawBody.count > 1024 ? String(rawBody.prefix(1024)) + "..." : rawBody
-            } else {
-                "(No server message)"
-            }
+            let details = "HTTP \(statusCode): \(HTTP.describeErrorBody(data))"
 
             if (400 ..< 500).contains(statusCode) {
-                throw LiveKitError(.validation, message: "Region settings error: HTTP \(statusCode): \(body)")
+                throw LiveKitError(.validation, message: "Region settings error: \(details)")
             }
 
-            throw LiveKitError(.regionManager, message: "Failed to fetch region settings: HTTP \(statusCode): \(body)")
+            throw LiveKitError(.regionManager, message: "Failed to fetch region settings: \(details)")
         }
 
         return data

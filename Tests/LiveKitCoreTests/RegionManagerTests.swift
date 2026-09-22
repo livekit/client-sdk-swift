@@ -164,6 +164,28 @@ import Testing
         #expect(!LiveKitError(.validation, message: "unauthorized", statusCode: 401).isRetryableForRegionFailover)
         // The v1 → v0 RTC path fallback owns this one; it is not a region problem.
         #expect(!LiveKitError(.serviceNotFound, message: "not found", statusCode: 404).isRetryableForRegionFailover)
+        // The status only discriminates within the type it belongs to; a 403 recorded on any
+        // other type must not opt itself into failover.
+        #expect(!LiveKitError(.serviceNotFound, message: "not found", statusCode: 403).isRetryableForRegionFailover)
+        #expect(!LiveKitError(.cancelled, message: "stopped", statusCode: 403).isRetryableForRegionFailover)
+    }
+
+    /// Without this the whole feature can be removed by deleting one argument at the throw site:
+    /// `regionPinning403IsRetryableButOtherValidationFailuresAreNot` builds its errors by hand, so
+    /// it stays green even if `requestValidation` stops recording the status.
+    ///
+    /// Goes through the local server rather than `MockURLProtocol`, which only intercepts
+    /// `URLSession.shared` and so cannot see `HTTP`'s own session.
+    @Test func validationErrorCarriesTheHttpStatus() async throws {
+        let serverUrl = try #require(URL(string: TestEnvironment.liveKitServerUrl()))
+        let validateUrl = try #require(URL(string: "/rtc/validate", relativeTo: serverUrl.toHTTPUrl())?.absoluteURL)
+
+        await #expect {
+            try await HTTP.requestValidation(from: validateUrl, token: "not-a-token")
+        } throws: { error in
+            guard let lkError = error as? LiveKitError else { return false }
+            return lkError.type == .validation && lkError.statusCode == 401
+        }
     }
 
     /// Same invariant as `refreshKeepsFailedRegionsExcluded`, but through the path a real refresh

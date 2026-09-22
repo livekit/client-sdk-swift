@@ -191,7 +191,7 @@ public class LiveKitError: NSError, @unchecked Sendable, Loggable {
     init(_ type: LiveKitErrorType,
          message: String? = nil,
          internalError: Error? = nil,
-         statusCode: Int?)
+         statusCode: Int)
     {
         self.type = type
         self.message = message
@@ -272,12 +272,11 @@ extension Error {
     /// pinning, every region attempt fails the same way and the original error still surfaces.
     var isRetryableForRegionFailover: Bool {
         if let liveKitError = self as? LiveKitError {
-            if liveKitError.statusCode == 403 {
-                return true
-            }
             switch liveKitError.type {
             case .network, .timedOut:
                 return true
+            case .validation:
+                return liveKitError.statusCode == 403
             default:
                 return false
             }
