@@ -1,0 +1,1 @@
+patch type="fixed" "Fail over to another LiveKit Cloud region when a connection is rejected with HTTP 403. Cloud signals project-level region pinning with a 403 on the RTC paths, which was previously treated as terminal, so a client that geo-routed to a disallowed region never reached one it was allowed to use (#1120)"
