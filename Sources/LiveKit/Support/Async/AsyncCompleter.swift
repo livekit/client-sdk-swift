@@ -43,17 +43,6 @@ actor CompleterMapActor<T: Sendable> {
         return newCompleter
     }
 
-    /// Get-or-create, clearing any result a previous attempt left behind so the caller waits for
-    /// its own response instead of replaying the last one. Entries live until `reset`, so a key
-    /// that is reused — a track republished under the same CID — would otherwise resolve
-    /// instantly with the earlier outcome, failing a legitimate retry or returning a stale value
-    /// while the server goes on to answer the request that was actually sent.
-    func rearmedCompleter(for key: String) -> AsyncCompleter<T> {
-        let completer = completer(for: key)
-        completer.rearm()
-        return completer
-    }
-
     func resume(returning value: T, for key: String) {
         let completer = completer(for: key)
         completer.resume(returning: value)

@@ -1,1 +1,0 @@
-patch type="fixed" "A rejected local description no longer discards SDP rewrites the connection depends on: `Transport` now distinguishes required munges from droppable ones, and single PC keeps its `inactive`->`recvonly` direction rewrite instead of silently falling back to an offer that cannot receive media. Rejected (port 0) m-sections are also left alone by that rewrite"

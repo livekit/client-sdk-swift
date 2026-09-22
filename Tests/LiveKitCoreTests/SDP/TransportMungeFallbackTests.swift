@@ -91,47 +91,28 @@ struct TransportMungeFallbackTests {
         }
     }
 
-    @Test func fallsBackToTheOriginalWhenEveryDroppableMungeIsRejected() async throws {
+    @Test func fallsBackToTheOriginalWhenEveryMungeIsRejected() async throws {
         try await withTransport { transport in
             let offer = try await transport.createOffer()
 
             let applied = try await transport.set(localDescription: offer,
-                                                  munging: [],
-                                                  droppable: [{ _ in "this is not sdp" }])
+                                                  munging: [{ _ in "this is not sdp" }])
 
             #expect(applied === offer)
         }
     }
 
-    /// A required munge is never traded away to make `setLocalDescription` succeed: the single
-    /// PC direction rewrite is what lets the connection receive media, so dropping it would
-    /// leave a silently deaf peer connection instead of a surfaced error.
-    @Test func rejectionNeverDropsARequiredMunge() async throws {
-        try await withTransport { transport in
-            let offer = try await transport.createOffer()
-
-            await #expect(throws: (any Error).self) {
-                try await transport.set(localDescription: offer,
-                                        munging: [{ _ in "this is not sdp" }])
-            }
-            // The required munge was rejected, so nothing was applied — the transport is
-            // still usable and the caller can decide what to do.
-            try await transport.set(localDescription: offer, munging: [])
-        }
-    }
-
-    /// Droppable munges are dropped from the right on rejection, so a rejected optional munge
+    /// Munges are dropped from the right on rejection, so a rejected optional munge
     /// (here: garbage) cannot revert the required one before it (here: stereo, standing
     /// in for the single-PC direction rewrite).
     @Test func rejectionDropsOnlyTheTailMunge() async throws {
         try await withTransport { transport in
             let offer = try await transport.createOffer()
 
-            let applied = try await transport.set(
-                localDescription: offer,
-                munging: [Transport.mungeOpusStereoForAllAudio],
-                droppable: [{ _ in "this is not sdp" }],
-            )
+            let applied = try await transport.set(localDescription: offer, munging: [
+                Transport.mungeOpusStereoForAllAudio,
+                { _ in "this is not sdp" },
+            ])
 
             #expect(applied.sdp == Transport.mungeOpusStereoForAllAudio(offer.sdp))
             #expect(applied.sdp != offer.sdp)

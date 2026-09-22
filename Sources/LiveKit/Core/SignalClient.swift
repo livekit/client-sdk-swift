@@ -492,18 +492,9 @@ private extension SignalClient {
             // request waiting. Anything else arriving here is for a request that reports its own
             // errors (data track publishes) or none.
             let isFailure = response.reason != .ok && response.reason != .queued
-            guard isFailure else { break }
-
-            let message = response.message.isEmpty ? "Request rejected (reason \(response.reason.rawValue))" : response.message
-            if let completer = _dataBlobCompleters[response.requestID] {
+            if isFailure, let completer = _dataBlobCompleters[response.requestID] {
+                let message = response.message.isEmpty ? "Request rejected (reason \(response.reason.rawValue))" : response.message
                 completer.resume(throwing: LiveKitError(.invalidState, message: message))
-            }
-            // A rejected `addTrack` is correlated by the echoed request, not by id. Without this
-            // the publish waits out its full timeout and reports "Timed out" instead of the
-            // reason the server actually gave (e.g. the per-participant pending-track limit).
-            if case let .addTrack(request) = response.request, !request.cid.isEmpty {
-                let cid = request.cid
-                Task { await self._addTrackCompleters.resume(throwing: LiveKitError(.invalidState, message: message), for: cid) }
             }
 
         case .publishDataTrackResponse, .dataTrackSubscriberHandles:
@@ -635,7 +626,7 @@ extension SignalClient {
         }
 
         // Get completer for this add track request...
-        let completer = await _addTrackCompleters.rearmedCompleter(for: cid)
+        let completer = await _addTrackCompleters.completer(for: cid)
 
         // Send the request to server...
         try await _sendRequest(request)
