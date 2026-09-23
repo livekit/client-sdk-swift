@@ -16,42 +16,46 @@
 
 import Foundation
 
+/// Delivers notifications to one weakly held delegate, one at a time, in call order: every
+/// notification joins a single FIFO drained by one consumer task, so calls made in sequence reach
+/// the delegate in that sequence.
 final class AsyncSerialDelegate<T: Sendable>: Sendable {
     private struct State {
         weak var delegate: AnyObject?
     }
 
-    private let _state = StateSync(State())
-    private let _serialRunner = SerialRunnerActor<Void>()
+    private typealias Notify = @Sendable (T) async -> Void
+
+    private let _state: StateSync<State>
+    private let _notifications: AsyncStream<Notify>.Continuation
+
+    init() {
+        let state = StateSync(State())
+        let (notifications, continuation) = AsyncStream.makeStream(of: Notify.self)
+        _state = state
+        _notifications = continuation
+        // Captures the state and the stream, not self, so it cannot keep this object alive. It
+        // ends on its own once `deinit` finishes the stream and what was queued has been delivered;
+        // cancelling it instead would run those last deliveries on a cancelled task.
+        Task.detached {
+            for await notify in notifications {
+                guard let delegate = state.read({ $0.delegate }) as? T else { continue }
+                await notify(delegate)
+            }
+        }
+    }
+
+    deinit {
+        _notifications.finish()
+    }
 
     func set(delegate: T) {
         _state.mutate { $0.delegate = delegate as AnyObject }
     }
 
-    func notifyAsync(_ fnc: sending @escaping (T) async -> Void) async throws {
-        guard let delegate = _state.read({ $0.delegate }) as? T else { return }
-        try await _serialRunner.run {
-            await fnc(delegate)
-        }
-    }
-
+    /// Queues `fnc` behind every notification queued before it and returns at once. Skipped if the
+    /// delegate is gone by the time its turn comes.
     func notifyDetached(_ fnc: @Sendable @escaping (T) async -> Void) {
-        Task.detachedDiscarding {
-            try await self.notifyAsync(fnc)
-        }
-    }
-
-    /// Notifies in the given order, without waiting for any of it.
-    ///
-    /// One task awaiting each in turn, because a `notifyDetached` per closure would not order
-    /// them: each races to the serial runner in a task of its own. Use when a consumer must see
-    /// one notification only after another — and prefer it to awaiting `notifyAsync` from a
-    /// caller that shouldn't block, such as the signal response queue.
-    func notifyDetached(inOrder fncs: (@Sendable (T) async -> Void)...) {
-        Task.detachedDiscarding {
-            for fnc in fncs {
-                try await self.notifyAsync(fnc)
-            }
-        }
+        _notifications.yield(fnc)
     }
 }
