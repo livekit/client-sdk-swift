@@ -555,6 +555,7 @@ extension LocalParticipant {
 
         let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
                                                     publishOptions: publishOptions,
+                                                    isScreenShare: track.source == .screenShareVideo,
                                                     overrideVideoCodec: videoCodec)
 
         log("[Publish/Backup] Using encodings: \(encodings.map { $0.toDebugString() }.joined(separator: ", "))")
