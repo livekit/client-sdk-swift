@@ -82,6 +82,19 @@ public typealias VideoEncoderCallback = @Sendable (EncodedVideoFrame) -> Bool
 /// network conditions, and finally `releaseEncoder`. The callback must not be
 /// required until the first `encode`.
 ///
+/// ### Threading
+///
+/// WebRTC sequences ``startEncode(with:numberOfCores:)``, ``setCallback(_:)``,
+/// ``encode(_:frameTypes:)``, ``setBitrate(_:framerate:)`` and
+/// ``releaseEncoder()`` on its encoder queue: one call at a time, though not
+/// always from the same thread. The properties are read separately from those
+/// calls, so they should be cheap and safe to read from any thread.
+///
+/// The callback may be invoked from whichever thread produces encoded frames.
+/// WebRTC packetizes, encrypts and paces the frame synchronously inside it, so
+/// it should not be invoked while holding a lock that ``encode(_:frameTypes:)``
+/// or ``releaseEncoder()`` also takes.
+///
 /// - Note: The underlying WebRTC bridge reports every encoder as hardware
 ///   accelerated, so CPU overuse detection uses the more permissive thresholds
 ///   meant for hardware encoders. A software encoder should keep its own CPU
@@ -93,10 +106,11 @@ public protocol VideoEncoder: Sendable {
 
     /// Whether the encoder accepts frames backed by `CVPixelBuffer` directly.
     ///
-    /// Returning `false` only affects how WebRTC crops and scales frames for
-    /// simulcast layers. Frames are still delivered in their native format,
-    /// typically NV12, so an encoder needing planar data must call
-    /// ``VideoFrame/toI420()`` itself. Defaults to `true`.
+    /// Returning `false` only makes WebRTC scale a frame down to the layer
+    /// resolution before handing it over, and that scaled frame is still a
+    /// `CVPixelBuffer`. WebRTC never converts the input to planar data, so an
+    /// encoder needing planes must call ``VideoFrame/toI420()`` itself either
+    /// way. Defaults to `true`.
     var supportsNativeHandle: Bool { get }
 
     /// QP thresholds for WebRTC's quality scaler, or `nil` to disable quality scaling.

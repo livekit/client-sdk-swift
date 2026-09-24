@@ -137,6 +137,7 @@ extension RTC {
         // Snapshot of the factory's supported codecs taken when it was set, so the
         // validated list is the one advertised and enforced.
         var customVideoEncoderCodecs: [VideoCodecInfo] = []
+        var customVideoEncoderIsExclusive: Bool = false
     }
 
     static let pcFactoryState = StateSync(PeerConnectionFactoryState())
@@ -149,9 +150,9 @@ extension RTC {
         // Resolving this captures the custom factory for the life of the process,
         // so it records that itself. Otherwise a set() after this point but before
         // the peer connection factory would succeed and do nothing.
-        let (customFactory, customCodecs) = pcFactoryState.mutate {
+        let (customFactory, customCodecs, isExclusive) = pcFactoryState.mutate {
             $0.isEncoderFactoryInitialized = true
-            return ($0.customVideoEncoderFactory, $0.customVideoEncoderCodecs)
+            return ($0.customVideoEncoderFactory, $0.customVideoEncoderCodecs, $0.customVideoEncoderIsExclusive)
         }
 
         guard let customFactory else {
@@ -159,12 +160,13 @@ extension RTC {
             return VideoEncoderFactorySimulcast(primary: defaultFactory,
                                                 fallback: defaultFactory)
         }
-        // A custom encoder reporting `.fallbackSoftware` falls back to the built in
-        // VideoToolbox encoders instead of failing the stream.
-        return VideoEncoderFactorySimulcast(primary: VideoEncoderFactoryAdapter(factory: customFactory,
-                                                                                supportedCodecs: customCodecs),
-                                            fallback: DefaultVideoEncoderFactory())
-
+        let adapter = VideoEncoderFactoryAdapter(factory: customFactory, supportedCodecs: customCodecs)
+        // Exclusive keeps VideoToolbox out of the graph entirely by making the same
+        // adapter the fallback. Otherwise a custom encoder reporting
+        // `.fallbackSoftware` falls back to the built in VideoToolbox encoders
+        // instead of failing the stream.
+        return VideoEncoderFactorySimulcast(primary: adapter,
+                                            fallback: isExclusive ? adapter : DefaultVideoEncoderFactory())
     }()
 
     static let decoderFactory: LKRTCVideoDecoderFactory & Sendable = VideoDecoderFactory()

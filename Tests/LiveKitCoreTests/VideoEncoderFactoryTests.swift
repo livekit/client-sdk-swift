@@ -200,4 +200,17 @@ struct VideoEncoderFactoryTests {
         #expect(info is LKRTCCodecSpecificInfoH265)
         #expect(image.qp.intValue == 30)
     }
+
+    @Test func withUnsafePlanesExposesPlanesAndReturnsBodyResult() throws {
+        let frame = try #require(makeRTCFrame().toLKType())
+        let i420 = try #require(frame.buffer.toI420())
+
+        let geometry = i420.withUnsafePlanes { planes in
+            (Int(planes.width), Int(planes.height), Int(planes.strideY), planes.dataY[0])
+        }
+
+        #expect(geometry.0 == 16)
+        #expect(geometry.1 == 16)
+        #expect(geometry.2 >= 16)
+    }
 }

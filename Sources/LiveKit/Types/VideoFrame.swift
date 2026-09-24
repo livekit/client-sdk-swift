@@ -96,13 +96,17 @@ public struct I420VideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
     /// Height of each chroma plane in pixels, half of ``height`` rounded up.
     public var chromaHeight: Int32 { _rtcType.chromaHeight }
 
-    /// Pointer to the start of the luma plane. Valid only while the buffer is alive.
+    /// Pointer to the start of the luma plane.
+    ///
+    /// - Warning: Only valid while this buffer is alive. Reading it from a
+    ///   temporary, as in `frame.toI420()!.dataY`, leaves a dangling pointer
+    ///   once the buffer is released. Prefer ``withUnsafePlanes(_:)``.
     public var dataY: UnsafePointer<UInt8> { _rtcType.dataY }
 
-    /// Pointer to the start of the U chroma plane. Valid only while the buffer is alive.
+    /// Pointer to the start of the U chroma plane. See ``dataY`` for lifetime.
     public var dataU: UnsafePointer<UInt8> { _rtcType.dataU }
 
-    /// Pointer to the start of the V chroma plane. Valid only while the buffer is alive.
+    /// Pointer to the start of the V chroma plane. See ``dataY`` for lifetime.
     public var dataV: UnsafePointer<UInt8> { _rtcType.dataV }
 
     /// Number of bytes per row of the luma plane, which may exceed ``width``.
@@ -113,6 +117,25 @@ public struct I420VideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
 
     /// Number of bytes per row of the V chroma plane.
     public var strideV: Int32 { _rtcType.strideV }
+
+    /// Calls `body` with this buffer, keeping its planes alive for the duration.
+    ///
+    /// The plane pointers are only valid while the buffer is, and the buffer may
+    /// be released as soon as its last property is read. Encoders that hand the
+    /// planes to a C API should do so here.
+    ///
+    /// ```swift
+    /// guard let i420 = frame.toI420() else { return .invalidParameter }
+    /// return i420.withUnsafePlanes { planes in
+    ///     encodeFrame(planes.dataY, planes.dataU, planes.dataV,
+    ///                 planes.strideY, planes.strideU, planes.strideV)
+    /// }
+    /// ```
+    ///
+    /// - Note: The pointers must not escape `body`.
+    public func withUnsafePlanes<Result>(_ body: (I420VideoBuffer) throws -> Result) rethrows -> Result {
+        try withExtendedLifetime(_rtcType) { try body(self) }
+    }
 }
 
 public extension VideoBuffer {
