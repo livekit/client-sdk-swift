@@ -58,4 +58,130 @@ struct VideoStartBitrateTests {
 
         #expect(Transport.startBitrateKbps(for: [LKRTCRtpEncodingParameters()], isScreenShare: false) == nil)
     }
+
+    // MARK: - Connection value
+
+    @Test func takesTheLargestHintAmongSendingSenders() {
+        let hints = ["camera": 1000, "screen": 3600, "unpublished": 8000]
+
+        #expect(Transport.connectionStartBitrateKbps(sendingSenderIds: ["camera", "screen"], kbpsBySenderId: hints) == 3600)
+        #expect(Transport.connectionStartBitrateKbps(sendingSenderIds: ["camera"], kbpsBySenderId: hints) == 1000)
+        #expect(Transport.connectionStartBitrateKbps(sendingSenderIds: ["audio"], kbpsBySenderId: hints) == nil)
+        #expect(Transport.connectionStartBitrateKbps(sendingSenderIds: [String](), kbpsBySenderId: hints) == nil)
+    }
+
+    // MARK: - Applying it to a peer connection
+
+    private final class StubTransportDelegate: TransportDelegate {
+        func transport(_: Transport, didUpdateState _: LKRTCPeerConnectionState) {}
+        func transport(_: Transport, didGenerateIceCandidate _: IceCandidate) {}
+        func transport(_: Transport, didOpenDataChannel _: LKRTCDataChannel) {}
+        func transport(_: Transport, didAddTrack _: RTCMediaTrack, rtpReceiver _: RTCReceiver, streamIds _: [String]) {}
+        func transport(_: Transport, didRemoveTrackWithId _: String) {}
+        func transportShouldNegotiate(_: Transport) {}
+    }
+
+    /// Runs `body` with a real, offline publisher transport, closing it even when `body` throws.
+    private func withTransport(_ body: (Transport) async throws -> Void) async throws {
+        let transport = try await Transport(config: .liveKitDefault(),
+                                            target: .publisher,
+                                            primary: true,
+                                            delegate: StubTransportDelegate())
+        do {
+            try await body(transport)
+        } catch {
+            await transport.close()
+            throw error
+        }
+        await transport.close()
+    }
+
+    private func addVideoSender(to transport: Transport, startBitrateKbps: Int?) async throws -> RTCSender {
+        try await RTC.run {
+            let track = RTC.createVideoTrack(source: RTC.createVideoSource(forScreenShare: false))
+            let transceiverInit = LKRTCRtpTransceiverInit()
+            transceiverInit.direction = .sendOnly
+            let transceiver = try transport.addTransceiver(with: track,
+                                                           transceiverInit: transceiverInit,
+                                                           startBitrateKbps: startBitrateKbps)
+            return RTCSender(transceiver.sender)
+        }
+    }
+
+    @Test func seedsTheEstimatorOnceWithTheLargestHint() async throws {
+        try await withTransport { transport in
+            _ = try await addVideoSender(to: transport, startBitrateKbps: 1000)
+            _ = try await addVideoSender(to: transport, startBitrateKbps: 3600)
+
+            await transport.applyVideoStartBitrateIfNeeded()
+            #expect(await transport.videoStartBitrateSeed == .seeded(kbps: 3600))
+
+            // A later publish does not reseed an estimator that is already running.
+            _ = try await addVideoSender(to: transport, startBitrateKbps: 4500)
+            await transport.applyVideoStartBitrateIfNeeded()
+            #expect(await transport.videoStartBitrateSeed == .seeded(kbps: 3600))
+        }
+    }
+
+    @Test func waitsForTheFirstVideo() async throws {
+        try await withTransport { transport in
+            await transport.applyVideoStartBitrateIfNeeded()
+            #expect(await transport.videoStartBitrateSeed == .pending)
+
+            _ = try await addVideoSender(to: transport, startBitrateKbps: 720)
+            await transport.applyVideoStartBitrateIfNeeded()
+            #expect(await transport.videoStartBitrateSeed == .seeded(kbps: 720))
+        }
+    }
+
+    /// Once a video without a hint is flowing, its traffic drives the estimate, so a later video
+    /// with a hint must not reset it.
+    @Test func leavesTheEstimatorAloneWhenTheFirstVideoHasNoHint() async throws {
+        try await withTransport { transport in
+            _ = try await addVideoSender(to: transport, startBitrateKbps: nil)
+            await transport.applyVideoStartBitrateIfNeeded()
+            #expect(await transport.videoStartBitrateSeed == .skipped)
+
+            _ = try await addVideoSender(to: transport, startBitrateKbps: 1000)
+            await transport.applyVideoStartBitrateIfNeeded()
+            #expect(await transport.videoStartBitrateSeed == .skipped)
+        }
+    }
+
+    @Test func seedsOnceTheOfferWithVideoIsSent() async throws {
+        try await withTransport { transport in
+            await transport.set(onOfferBlock: { _, _ in })
+            _ = try await addVideoSender(to: transport, startBitrateKbps: 1000)
+
+            try await transport.createAndSendOffer()
+
+            #expect(await transport.videoStartBitrateSeed == .seeded(kbps: 1000))
+        }
+    }
+
+    /// A negotiation that fails before its offer is sent must not use up the seed.
+    @Test func keepsTheSeedWhenTheOfferIsNotSent() async throws {
+        try await withTransport { transport in
+            await transport.set(onOfferBlock: { _, _ in throw LiveKitError(.invalidState, message: "Offer not sent") })
+            _ = try await addVideoSender(to: transport, startBitrateKbps: 1000)
+
+            await #expect(throws: LiveKitError.self) {
+                try await transport.createAndSendOffer()
+            }
+
+            #expect(await transport.videoStartBitrateSeed == .pending)
+        }
+    }
+
+    @Test func ignoresARemovedSender() async throws {
+        try await withTransport { transport in
+            let screenShare = try await addVideoSender(to: transport, startBitrateKbps: 3600)
+            _ = try await addVideoSender(to: transport, startBitrateKbps: 1000)
+
+            try await transport.remove(track: screenShare)
+
+            await transport.applyVideoStartBitrateIfNeeded()
+            #expect(await transport.videoStartBitrateSeed == .seeded(kbps: 1000))
+        }
+    }
 }
