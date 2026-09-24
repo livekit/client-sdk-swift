@@ -118,16 +118,20 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
     public func stopRecording(flush: Bool = false) {
         guard let recorder, recorder.isRecording else { return }
 
+        // Take ownership of the stream *before* the recorder reports stopped. A send that races
+        // the flush finds nothing to claim and returns silently, which is the contract; taken the
+        // other way round, a send landing between `stop()` and the take would claim the stream
+        // and carry it to a room that may not be connected.
+        let flushed = flush ? state.mutate { $0.audioStream.take() } : nil
+
         recorder.stop()
         log("Stopped capturing audio", .info)
 
         if flush {
-            // Take ownership of the stream so it cannot race with an in-flight send
-            let stream = state.mutate { $0.audioStream.take() }
-            if let stream {
+            if let flushed {
                 log("Flushing audio stream", .info)
                 Task {
-                    for await _ in stream {}
+                    for await _ in flushed {}
                 }
             }
             agentCompleter.reset()

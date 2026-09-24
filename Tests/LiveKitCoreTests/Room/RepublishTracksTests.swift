@@ -61,7 +61,7 @@ private final class CapturerStopSpy: VideoCapturerDelegate, @unchecked Sendable 
     }
 }
 
-@Suite(.serialized, .tags(.media, .broadcast, .e2e))
+@Suite(.serialized, .tags(.media, .broadcast, .e2e), TestLimits.e2e)
 struct RepublishTracksTests {
     /// What a full reconnect is expected to do to a track's capture source.
     enum CaptureOutcome: Sendable {
@@ -145,8 +145,16 @@ struct RepublishTracksTests {
 
     /// Publishing waits on the capturer's dimensions, and `stopCapture()` resets them, so a
     /// re-published track needs frames to keep arriving for the whole test.
+    ///
+    /// Each tick also resolves the dimensions directly. `capture()` only *enqueues* onto the
+    /// capturer's processing queue — `set(dimensions:)` happens inside `_process`, and frames are
+    /// dropped outright while one is in flight — so on a loaded runner the publish gate can wait
+    /// out its whole `.defaultCaptureStart` budget for a value this test already knows. That is a
+    /// property of the capture pipeline, not of republishing, and it is what made this time out on
+    /// the video scenarios while the audio one never did.
     private func startFeeding(_ capturer: BufferCapturer) -> Task<Void, Never> {
         let dimensions = Self.dimensions
+        capturer.set(dimensions: dimensions)
         return Task {
             var pixelBuffer: CVPixelBuffer?
             CVPixelBufferCreate(kCFAllocatorDefault,
@@ -159,6 +167,7 @@ struct RepublishTracksTests {
 
             while !Task.isCancelled {
                 capturer.capture(pixelBuffer)
+                capturer.set(dimensions: dimensions)
                 try? await Task.sleep(nanoseconds: 33_000_000)
             }
         }

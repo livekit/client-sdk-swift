@@ -31,6 +31,55 @@ public enum TestEnvironment {
         readEnvironmentString(for: "LIVEKIT_TESTING_URL", defaultValue: "ws://localhost:7880")
     }
 
+    /// The test server never answered the readiness probe.
+    ///
+    /// Thrown from every connect in the process once ``waitForServer(_:)`` has given up, so each
+    /// test fails at once with the reason, instead of each sitting out its own connect timeouts.
+    public struct ServerUnreachable: Error, CustomStringConvertible {
+        public let url: URL
+        public let timeout: TimeInterval
+        public var description: String { "Test server at \(url) did not answer within \(Int(timeout)) s" }
+    }
+
+    /// How long ``waitForServer(_:)`` gives the configured server to answer before failing.
+    public static let serverReadyTimeout: TimeInterval = 90
+
+    /// Waits, once per process, for the configured test server to answer over HTTP.
+    ///
+    /// A freshly booted simulator can take most of a minute before loopback traffic reaches the
+    /// host: on the xcode-27 iOS 27.0 leg the first connecting test started 52 s before the SFU
+    /// logged its first request from it, and spent its three connect attempts on `The request
+    /// timed out`. Waiting here turns that into wait time rather than a failed test. After
+    /// ``serverReadyTimeout`` it throws ``ServerUnreachable``, which Swift Testing records as the
+    /// test's issue and the Objective-C helper hands to its completion handler.
+    ///
+    /// Only the server from ``liveKitServerUrl()`` is probed. A caller connecting anywhere else
+    /// is using an endpoint this harness does not manage — possibly one it expects to fail
+    /// against — so it goes straight to its connect.
+    static func waitForServer(_ url: String) async throws {
+        guard url == liveKitServerUrl() else { return }
+        try await serverReady.value
+    }
+
+    private static let serverReady = Task<Void, Error> {
+        guard var components = URLComponents(string: liveKitServerUrl()) else { return }
+        components.scheme = components.scheme == "wss" ? "https" : "http"
+        guard let url = components.url else { return }
+        let deadline = Date().addingTimeInterval(serverReadyTimeout)
+        while Date() < deadline {
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 2
+            let answered = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+                URLSession.shared.dataTask(with: request) { _, response, _ in
+                    continuation.resume(returning: response is HTTPURLResponse)
+                }.resume()
+            }
+            if answered { return }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+        }
+        throw ServerUnreachable(url: url, timeout: serverReadyTimeout)
+    }
+
     // swiftlint:disable:next function_parameter_count
     public static func liveKitServerToken(for room: String,
                                           identity: String,
@@ -123,6 +172,9 @@ public enum TestEnvironment {
         // Tear down on every exit path: a `Room` keeps itself alive through its
         // signaling and transport tasks, so an early exit without `disconnect()`
         // leaks a live Room into the rest of the test process.
+        for url in Set(rooms.map(\.url)) {
+            try await waitForServer(url)
+        }
         do {
             try await connectAndDiscover(rooms, sharedRoomName: sharedRoomName)
             try await block(allRooms)

@@ -80,7 +80,7 @@ jobs:
             platform: "macOS,variant=Mac Catalyst"
           - os: xcode-27
             xcode: latest
-            platform: "iOS Simulator,name=iPhone 17 Pro,OS=27.0"
+            platform: "iOS Simulator,name=iPhone 18 Pro,OS=27.0"
           - os: xcode-27
             xcode: latest
             platform: "visionOS Simulator,name=Apple Vision Pro,OS=27.0"
@@ -94,6 +94,7 @@ jobs:
     env:
       LIBDISPATCH_COOPERATIVE_POOL_STRICT: ${{ matrix.strict-concurrency-env == true && '1' || '0' }}
       NSUnbufferedIO: "YES"
+      TSAN_OPTIONS: suppressions=${{ github.workspace }}/.github/sanitizers/tsan.supp
     defaults:
       run:
         shell: bash
@@ -121,6 +122,48 @@ jobs:
       - name: Swift Version
         run: xcrun swift --version
 
+      # Binary dependencies come from GitHub release assets, which answer with the odd 5xx.
+      - name: Resolve Packages
+        timeout-minutes: 5
+        run: |
+          for attempt in 1 2 3; do
+            xcodebuild -resolvePackageDependencies -scheme LiveKit && exit 0
+            echo "Package resolution failed (attempt $attempt)"; sleep 20
+          done
+          exit 1
+
+      # Boot ahead of the test step, so a cold runtime's first launch does not spend the test budget.
+      # An optimization only: if it overruns, the test step targets the platform and boots it itself.
+      - name: Boot Simulator
+        id: boot
+        if: contains(matrix.platform, 'Simulator')
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          step_end=$(( $(date +%s) + 9 * 60 ))
+          platform='${{ matrix.platform }}'
+          family=${platform%% Simulator*}; [ "$family" = "visionOS" ] && family=xrOS
+          name=${platform#*name=}; name=${name%%,OS=*}; os=${platform##*OS=}
+          runtime="com.apple.CoreSimulator.SimRuntime.${family}-${os//./-}"
+          udid=$(xcrun simctl list devices available -j | jq -r --arg rt "$runtime" --arg n "$name" '.devices[$rt] // [] | map(select(.name==$n)) | .[0].udid // empty')
+          [ -n "$udid" ] || { echo "No available simulator named '$name' on $runtime"; xcrun simctl list devices available; exit 1; }
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          xcrun simctl spawn "$udid" launchctl print system > /dev/null 2>&1 || true
+          # Booted is not idle: the runtime's processes keep several cores busy for a minute or
+          # more afterwards. Wait for them to go quiet, for at most two minutes and never past the
+          # step's own budget, however long the boot took.
+          settle_end=$(( $(date +%s) + 120 )); [ "$settle_end" -gt "$step_end" ] && settle_end=$step_end
+          sim_launchd=$(pgrep -x launchd_sim | head -1); quiet=0; cpu=
+          while [ "$(date +%s)" -lt "$settle_end" ]; do
+            cpu=$(ps -o %cpu= -p "$(pgrep -P "$sim_launchd" | paste -sd, -)" 2>/dev/null | awk '{s+=$1} END {printf "%d", s}')
+            if [ "${cpu:-0}" -lt 20 ]; then quiet=$((quiet+1)); else quiet=0; fi
+            [ "$quiet" -ge 3 ] && break
+            sleep 2
+          done
+          echo "simulator settled at ${cpu:-?}% CPU"
+
       - name: Build & Test
         timeout-minutes: 30
         run: |
@@ -128,7 +171,8 @@ jobs:
           .github/stall-dump/stall-dump.sh "$RUNNER_TEMP/xcodebuild.log" "$RUNNER_TEMP/stall-dump" &
           set -o pipefail && xcodebuild test \
             -scheme LiveKit \
-            -destination 'platform=${{ matrix.platform }}' \
+            -destination '${{ steps.boot.outputs.udid && format('id={0}', steps.boot.outputs.udid) || format('platform={0}', matrix.platform) }}' \
+            -collect-test-diagnostics never \
             -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
             -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
             APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \

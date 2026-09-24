@@ -22,7 +22,7 @@ import LiveKitTestSupport
 #endif
 
 /// Delegate events for remote data tracks, on both `RoomDelegate` and `ParticipantDelegate`.
-@Suite(.serialized, .tags(.dataTrack, .e2e))
+@Suite(.serialized, .tags(.dataTrack, .e2e), TestLimits.e2e)
 struct DataTrackDelegateTests {
     // MARK: - Attached to Remote Participant
 

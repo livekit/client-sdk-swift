@@ -28,8 +28,8 @@ internal import LiveKitWebRTC
 /// ## Delegate
 /// The drain *is* the channel's `LKRTCDataChannelDelegate`, so buffered-amount and state callbacks
 /// land on the object that owns the affected state — no dispatching on channel labels. What it does
-/// not own it forwards to its creator: inbound messages via `onMessage`, readiness via
-/// `onStateChange`. (The shape of `DataChannelManager` in client-sdk-android, its channel's
+/// not own it forwards to its creator: inbound messages via `onMessage`. Readiness it publishes
+/// itself, through ``whenOpen``. (The shape of `DataChannelManager` in client-sdk-android, its channel's
 /// `DataChannel.Observer` with a forwarding listener.)
 ///
 /// ## Concurrency
@@ -41,6 +41,22 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     var isOpen: Bool {
         _state.read { $0.sendTarget?.isOpen == true }
     }
+
+    /// Resolved while this channel can take bytes, re-armed whenever it cannot.
+    ///
+    /// Owned here because this object *is* the channel's delegate: it sees every state transition
+    /// first, and ``setChannel(_:)`` reports the state of a channel that opened before its delegate
+    /// landed — so no owner has to probe `readyState` or keep a latch of its own in step.
+    ///
+    /// Callers about to write must await this. A write handed to a drain whose channel is not open
+    /// yet sits in the queue, and under ``SendOverflow/dropOldest`` the *next* submitter evicts it
+    /// and resolves its waiter successfully — so an ungated burst issued right after connect
+    /// collapses to its last write, with every earlier send reporting success.
+    ///
+    /// Re-armed rather than failed on teardown: a reconnect swaps the channel underneath, and a
+    /// write parked across that window should ship on the replacement rather than fail. A channel
+    /// that never comes back is bounded by the waiter's own timeout.
+    let whenOpen: AsyncCompleter<Void>
 
     // MARK: - Private
 
@@ -62,6 +78,9 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         /// Mirror of `State.sendTarget` (via `.attached`/`.fail`, FIFO-ordered with the writes it
         /// governs) so dispatch takes no lock per write.
         var sendTarget: DrainSendChannel?
+        /// Whether the last thing this loop saw was a teardown. Distinguishes "no channel yet",
+        /// where a write correctly waits, from "no channel ever again", where it must not.
+        var wasReset: Bool = false
         /// `0` disables the size guard. Mirrored here for the same reason (via `.configured`).
         var maxMessageSize: UInt64
         /// Writes dropped under backpressure, logged periodically rather than per drop.
@@ -97,7 +116,6 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
     private let label: String
     private let overflow: SendOverflow
     private let onMessage: @Sendable (Data) -> Void
-    private let onStateChange: @Sendable (LKRTCDataChannel) -> Void
     /// Called on a transition only, never per change in the amount buffered.
     private let onBufferStatusChange: @Sendable (Bool) -> Void
 
@@ -115,13 +133,12 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         stage: Stage,
         maxMessageSize: UInt64 = 0,
         onMessage: @escaping @Sendable (Data) -> Void = { _ in },
-        onStateChange: @escaping @Sendable (LKRTCDataChannel) -> Void = { _ in },
         onBufferStatusChange: @escaping @Sendable (Bool) -> Void = { _ in },
     ) {
         self.label = label
+        whenOpen = AsyncCompleter(label: "Data channel '\(label)' open", defaultTimeout: .defaultPublisherDataChannelOpen)
         self.overflow = overflow
         self.onMessage = onMessage
-        self.onStateChange = onStateChange
         self.onBufferStatusChange = onBufferStatusChange
 
         let (events, continuation) = AsyncStream.makeStream(of: Event.self)
@@ -147,7 +164,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
 
     /// Attaches the channel this drain sends on, takes over its delegate slot (detaching the
     /// replaced channel; the identity guard on the hooks backstops callbacks already in flight),
-    /// and reports the channel's current state through `onStateChange` — so an owner never probes
+    /// and points ``whenOpen`` at the channel's current state — so an owner never probes
     /// `readyState` itself to cover a channel that opened before its delegate landed.
     /// Under ``SendOverflow/park`` anything queued survives the swap and ships on the new channel
     /// (what makes a fast reconnect lossless); under ``SendOverflow/dropOldest`` it is stale and
@@ -165,19 +182,19 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         if previous !== channel { parkChannelRelease(previous) }
         channel?.delegate = self
         eventContinuation.yield(.attached(channel))
-        if let channel {
-            onStateChange(channel)
-        }
+        publishOpenState()
     }
 
     /// Attaches what writes go to. A test seam: production goes through ``setChannel(_:)``, which
-    /// also owns the delegate slot and the readiness report.
+    /// also owns the delegate slot. Points ``whenOpen`` at the new target like the real path does,
+    /// so a test can open a channel without a live `LKRTCDataChannel` to deliver the callback.
     func attach(sendTarget: DrainSendChannel?) {
         _state.mutate {
             $0.sendTarget = sendTarget
             if sendTarget != nil { $0.wasReset = false }
         }
         eventContinuation.yield(.attached(sendTarget))
+        publishOpenState()
     }
 
     /// Updates the negotiated SCTP max-message-size cap, ordered with the writes it gates.
@@ -230,6 +247,10 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             channel.delegate = nil
         }
         parkChannelRelease(previous, closing: true)
+        // Before the queue is failed, so a send racing teardown either parks for the next channel
+        // or is failed by the event below — never sails through a stale-open latch into a drain
+        // that has nothing left to ship it.
+        publishOpenState()
 
         eventContinuation.yield(.fail(error))
     }
@@ -259,6 +280,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         case let .attached(target):
             if state.sendTarget !== target { parkChannelRelease(state.sendTarget) }
             state.sendTarget = target
+            state.wasReset = false
             state.meter.reset()
             // Anything queued belonged to the channel that just went away. A dropped write on a
             // drop-oldest channel is the contract rather than a failure, so its waiter is resolved
@@ -273,6 +295,7 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             state.stage.reset()
             parkChannelRelease(state.sendTarget)
             state.sendTarget = nil
+            state.wasReset = true
             // The buffer died with the channel: without this, an app that backed off on
             // `isLow == false` would wait forever for the recovering transition on a
             // permanent disconnect.
@@ -283,13 +306,6 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         publishStatusIfChanged(state: &state)
     }
 
-    private func publishStatusIfChanged(state: inout LoopState) {
-        let isLow = state.meter.hasHeadroom
-        guard isLow != state.wasLow else { return }
-        state.wasLow = isLow
-        onBufferStatusChange(isLow)
-    }
-
     private func enqueue(
         _ input: Stage.Input,
         continuation: CheckedContinuation<Void, any Error>?,
@@ -298,6 +314,30 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
         state.scratch.removeAll(keepingCapacity: true)
         do {
             try state.stage.prepare(input, into: &state.scratch)
+        } catch {
+            continuation?.resume(throwing: error)
+            return
+        }
+        guard !state.scratch.isEmpty else {
+            continuation?.resume()
+            return
+        }
+
+        // Decided here, between serializing and wrapping: after `makeWrites` the continuation
+        // belongs to a `SendToken` on the last write, and resuming it here as well is a double
+        // resume. Before the check above it would also turn away an empty submission, which is how
+        // callers order themselves behind work already in flight.
+        //
+        // A write that arrives after teardown has nowhere to go: `.fail` settles what was queued
+        // when it ran, and nothing will attach another channel or emit another `.fail`, so queueing
+        // this one would park its caller forever. The open gate turns such a send away first, but
+        // the gate and this submission are separate steps and a disconnect can land between them.
+        if state.sendTarget == nil, state.wasReset {
+            continuation?.resume(throwing: LiveKitError(.invalidState, message: "Data channel is closed"))
+            return
+        }
+
+        do {
             try makeWrites(
                 from: state.scratch,
                 into: &state.writes,
@@ -306,10 +346,6 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             )
         } catch {
             continuation?.resume(throwing: error)
-            return
-        }
-        guard !state.writes.isEmpty else {
-            continuation?.resume()
             return
         }
 
@@ -325,7 +361,10 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
                 // drops the incoming payload; this drain keeps the freshest, which suits the
                 // supersede-style data (cursor, presence, state) the lossy channel carries.
                 state.dropped += 1
-                if state.dropped % Self.dropLogInterval == 0 {
+                // The first one too, not only every hundredth: a channel that silently discards a
+                // write reports success to its submitter, so without this line the only evidence
+                // of loss below a hundred packets is the missing data at the far end.
+                if state.dropped == 1 || state.dropped % Self.dropLogInterval == 0 {
                     log("Dropped \(state.dropped) writes on '\(label)' under backpressure", .warning)
                 }
                 evicted.settle(with: .success(()))
@@ -347,8 +386,16 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             // channel opens. (No-op for `.park`, which never uses `pending`.)
             guard let channel = state.sendTarget, channel.isOpen else {
                 // The channel can go away between the readiness report and here — e.g. mid
-                // fast-reconnect. Leave the write at the head; the next `.wakeup` ships it, and
-                // permanent teardown fails it via `.fail`.
+                // fast-reconnect. Leave the write at the head; a replacement ships it (`.attached`
+                // keeps the queue under `.park`, which is what makes a fast reconnect lossless) and
+                // teardown fails it (`.fail`). Deliberately *not* failed on `.closed` itself: a
+                // close followed by `setChannel` is the ordinary reconnect sequence, and failing
+                // here would drop exactly the writes that path exists to carry.
+                //
+                // Residual: a close that is followed by neither — libwebrtc closing one channel on
+                // its own while the room stays up — leaves this write parked. `enqueue`'s
+                // max-message-size check is the primary defense against that, and
+                // `dataChannelDidChangeState` logs it if anything gets past.
                 return
             }
             state.queue.promoteIfIdle()
@@ -369,25 +416,6 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             state.queue.advance()
             write.settle(with: .success(()))
             state.stage.didDispatch(write)
-        }
-    }
-
-    /// Drops what a rejected `sendData` invalidated, settling every discarded write.
-    ///
-    /// Under ``SendOverflow/park`` only the rejected write goes; the rest of the queue belongs to
-    /// other submitters and still has somewhere to go. Under ``SendOverflow/dropOldest`` the rest
-    /// of the group goes with it, since half a frame on the wire is worse than none — and a group's
-    /// continuation rides its *last* write, so the discarded remainder is failed rather than
-    /// dropped, or a caller awaiting a multi-write group would hang forever.
-    private func dropFailedWrite(state: inout LoopState, throwing failure: LiveKitError) {
-        switch overflow {
-        case .park:
-            break // the failed write was already removed; the rest belongs to other submitters
-        case .dropOldest:
-            log("Channel '\(label)' rejected a write; dropping the rest of the group", .debug)
-            for discarded in state.queue.dropInFlight() {
-                discarded.settle(with: .failure(failure))
-            }
         }
     }
 
@@ -420,15 +448,68 @@ final class DataChannelDrain<Stage: SendStage>: NSObject, LKRTCDataChannelDelega
             log("data channel '\(dataChannel.label)' closed unexpectedly", .error)
         }
 
+        publishOpenState()
         if dataChannel.readyState == .open {
             eventContinuation.yield(.wakeup)
         }
-        onStateChange(dataChannel)
     }
 
     func dataChannel(_ dataChannel: LKRTCDataChannel, didReceiveMessageWith buffer: LKRTCDataBuffer) {
         guard isCurrent(dataChannel) else { return }
         onMessage(buffer.data)
+    }
+}
+
+// MARK: - Loop helpers
+
+extension DataChannelDrain {
+    /// Drops what a rejected `sendData` invalidated, settling every discarded write.
+    ///
+    /// Under ``SendOverflow/park`` only the rejected write goes; the rest of the queue belongs to
+    /// other submitters and still has somewhere to go. Under ``SendOverflow/dropOldest`` the rest
+    /// of the group goes with it, since half a frame on the wire is worse than none — and a group's
+    /// continuation rides its *last* write, so the discarded remainder is failed rather than
+    /// dropped, or a caller awaiting a multi-write group would hang forever.
+    private func dropFailedWrite(state: inout LoopState, throwing failure: LiveKitError) {
+        switch overflow {
+        case .park:
+            break // the failed write was already removed; the rest belongs to other submitters
+        case .dropOldest:
+            log("Channel '\(label)' rejected a write; dropping the rest of the group", .debug)
+            for discarded in state.queue.dropInFlight() {
+                discarded.settle(with: .failure(failure))
+            }
+        }
+    }
+
+    /// Reports a transition in the buffered-amount status, never a change in the amount itself.
+    private func publishStatusIfChanged(state: inout LoopState) {
+        let isLow = state.meter.hasHeadroom
+        guard isLow != state.wasLow else { return }
+        state.wasLow = isLow
+        onBufferStatusChange(isLow)
+    }
+
+    /// Points ``whenOpen`` at whatever this drain is sending on *now*.
+    ///
+    /// Deliberately reads `sendTarget` rather than taking a channel argument, and decides under
+    /// `_state` rather than sampling and acting separately. A delegate callback validates the
+    /// channel's identity and then publishes; without both of those, a teardown or a swap landing
+    /// in between lets the superseded channel's callback resolve a latch the replacement has not
+    /// earned — and a send that crosses a latch like that parks in a drain with no channel, where
+    /// the next one evicts it and reports success. Whoever takes the lock last now publishes the
+    /// state that is actually true, whichever order the two arrive in.
+    ///
+    /// Resuming a waiter under `_state` is safe: `AsyncCompleter.resume` hands its entries out of
+    /// its own lock first, and resuming a continuation schedules the awaiting task rather than
+    /// running it inline.
+    ///
+    /// Internal rather than private so a test can stand in for a delegate callback arriving late;
+    /// production reaches it only through the mutation sites above.
+    func publishOpenState() {
+        _state.read { state in
+            if state.sendTarget?.isOpen == true { whenOpen.resume(returning: ()) } else { whenOpen.rearm() }
+        }
     }
 }
 

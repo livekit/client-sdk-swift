@@ -74,7 +74,7 @@
         XCTAssertNil(err);
         [connectExp fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     // Verify room:didDisconnectWithError: fires
     self.roomDidDisconnectExp = [self expectationWithDescription:@"roomDidDisconnect"];
@@ -114,7 +114,7 @@
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     // Set up expectation for participant connect
     self.participantDidConnectExp = [self expectationWithDescription:@"participantDidConnect"];
@@ -127,7 +127,7 @@
         XCTAssertNil(err);
         [connect2 fulfill];
     }];
-    [self waitForExpectations:@[connect2, self.participantDidConnectExp] timeout:30];
+    [self waitForExpectations:@[connect2, self.participantDidConnectExp] timeout:[LKObjCRoomHelper connectTimeout]];
 
     XCTAssertNotNil(self.connectedParticipant);
     XCTAssertNotNil(self.connectedParticipant.identity);
@@ -170,7 +170,7 @@
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     // Set up participant join expectation
     self.participantDidConnectExp = [self expectationWithDescription:@"participantDidConnect"];
@@ -183,7 +183,7 @@
         XCTAssertNil(err);
         [connect2 fulfill];
     }];
-    [self waitForExpectations:@[connect2, self.participantDidConnectExp] timeout:30];
+    [self waitForExpectations:@[connect2, self.participantDidConnectExp] timeout:[LKObjCRoomHelper connectTimeout]];
 
     // Now set up disconnect expectation
     self.participantDidDisconnectExp = [self expectationWithDescription:@"participantDidDisconnect"];
