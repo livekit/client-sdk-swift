@@ -431,6 +431,40 @@ extension Transport {
     }
 }
 
+// MARK: - Video start bitrate
+
+extension Transport {
+    /// Largest start bitrate hinted for a non-screen-share track, in kbps. Stops the bandwidth
+    /// estimator from opening too aggressively on high-bitrate (e.g. 4K) tracks.
+    nonisolated static let maxStartBitrateKbps = 1000
+
+    /// libwebrtc's own start bitrate when none is set (`kDefaultStartBitrateBps`), in kbps.
+    nonisolated static let defaultStartBitrateKbps = 300
+
+    /// Start bitrate hinted to libwebrtc's bandwidth estimator for a video sender whose encodings
+    /// total `targetBps`, or `nil` to leave libwebrtc's default in place.
+    ///
+    /// Without a hint the estimator starts at ``defaultStartBitrateKbps`` and ramps up, so the
+    /// first seconds of a published track are visibly blurry. The hint is 90% of the target
+    /// bitrate, which skips most of the ramp and leaves headroom for the estimator to settle.
+    /// Camera and other sources are capped at ``maxStartBitrateKbps``. Screen share is not,
+    /// because its content needs the bitrate immediately to be legible. A hint below the default
+    /// would only slow the start down, so none is given then.
+    nonisolated static func startBitrateKbps(targetBps: Int, isScreenShare: Bool) -> Int? {
+        let startKbps = Int((Double(targetBps / 1000) * 0.9).rounded())
+        guard startKbps >= defaultStartBitrateKbps else { return nil }
+        return isScreenShare ? startKbps : min(startKbps, maxStartBitrateKbps)
+    }
+
+    /// ``startBitrateKbps(targetBps:isScreenShare:)`` for a sender's encodings. The target is the
+    /// sum of the active encodings' `maxBitrate`, since simulcast layers are independent streams
+    /// the estimator has to fund together. Encodings without a `maxBitrate` contribute nothing.
+    nonisolated static func startBitrateKbps(for encodings: [LKRTCRtpEncodingParameters], isScreenShare: Bool) -> Int? {
+        let targetBps = encodings.filter(\.isActive).compactMap { $0.maxBitrateBps?.intValue }.reduce(0, +)
+        return startBitrateKbps(targetBps: targetBps, isScreenShare: isScreenShare)
+    }
+}
+
 // MARK: - Stats
 
 extension Transport {
