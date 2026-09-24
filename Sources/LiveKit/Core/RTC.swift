@@ -24,6 +24,22 @@ private final class VideoDecoderFactory: LKRTCDefaultVideoDecoderFactory, @unche
 
 private final class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulcast, @unchecked Sendable {}
 
+/// Advertises only the custom factory's codecs. The simulcast factory adds VP9 and
+/// H265 to its list on its own, and with no built in fallback nothing could encode
+/// them, so a session negotiating one would publish no video.
+final class ExclusiveVideoEncoderFactory: LKRTCVideoEncoderFactorySimulcast, @unchecked Sendable {
+    private let adapter: VideoEncoderFactoryAdapter
+
+    init(adapter: VideoEncoderFactoryAdapter) {
+        self.adapter = adapter
+        super.init(primary: adapter, fallback: adapter)
+    }
+
+    override func supportedCodecs() -> [LKRTCVideoCodecInfo] {
+        adapter.supportedCodecs()
+    }
+}
+
 /// The SDK's WebRTC isolation domain, executed on its own dispatch queue.
 ///
 /// libwebrtc's API objects are proxies: every call, and the release of the last reference, is a
@@ -161,12 +177,10 @@ extension RTC {
                                                 fallback: defaultFactory)
         }
         let adapter = VideoEncoderFactoryAdapter(factory: customFactory, supportedCodecs: customCodecs)
-        // Exclusive keeps VideoToolbox out of the graph entirely by making the same
-        // adapter the fallback. Otherwise a custom encoder reporting
-        // `.fallbackSoftware` falls back to the built in VideoToolbox encoders
-        // instead of failing the stream.
-        return VideoEncoderFactorySimulcast(primary: adapter,
-                                            fallback: isExclusive ? adapter : DefaultVideoEncoderFactory())
+        guard !isExclusive else { return ExclusiveVideoEncoderFactory(adapter: adapter) }
+        // A custom encoder reporting `.fallbackSoftware` falls back to the built in
+        // VideoToolbox encoders instead of failing the stream.
+        return VideoEncoderFactorySimulcast(primary: adapter, fallback: DefaultVideoEncoderFactory())
     }()
 
     static let decoderFactory: LKRTCVideoDecoderFactory & Sendable = VideoDecoderFactory()

@@ -213,4 +213,12 @@ struct VideoEncoderFactoryTests {
         #expect(geometry.1 == 16)
         #expect(geometry.2 >= 16)
     }
+
+    @Test func exclusiveFactoryAdvertisesOnlyCustomCodecs() {
+        let adapter = VideoEncoderFactoryAdapter(factory: FakeFactory([h264]), supportedCodecs: [h264])
+        // Called through the protocol, as WebRTC's native factory wrapper does.
+        let factory: any LKRTCVideoEncoderFactory = ExclusiveVideoEncoderFactory(adapter: adapter)
+
+        #expect(factory.supportedCodecs().map(\.name) == ["H264"])
+    }
 }

@@ -46,17 +46,8 @@ public extension LiveKitSDK {
     ///   one, and every layer creates two encoders from it, one of which stays idle
     ///   unless the fallback triggers.
     ///
-    /// - Important: Exclusive publishing still has to negotiate a codec this
-    ///   factory advertises. WebRTC's simulcast factory adds VP9 and H265 to the
-    ///   advertised list on its own, so a session that negotiates one of those
-    ///   finds no encoder at all and the track fails to publish rather than
-    ///   falling back. Set ``VideoPublishOptions/preferredCodec`` to a codec the
-    ///   factory supports:
-    ///
-    ///   ```swift
-    ///   try LiveKitSDK.set(videoEncoderFactory: MyH264Factory(), exclusive: true)
-    ///   let options = VideoPublishOptions(preferredCodec: .h264)
-    ///   ```
+    /// - Important: In exclusive mode only this factory's codecs are offered for
+    ///   publishing, so the room must allow at least one of them.
     ///
     /// - Warning: This method must be called before any other SDK API is used,
     ///   e.g. in the `App.init()` or `application(_:didFinishLaunchingWithOptions:)`.
