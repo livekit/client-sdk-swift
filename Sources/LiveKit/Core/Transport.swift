@@ -65,6 +65,14 @@ final class Transport: NSObject, Loggable {
     private var _onOffer: OnOfferBlock?
     private var _isRestartingIce: Bool = false
     private var _latestOfferId: UInt32 = 0
+    /// Start bitrate (kbps) hinted for each video sender, recorded by
+    /// ``addTransceiver(with:transceiverInit:startBitrateKbps:)``.
+    private var _startBitrateKbpsBySenderId: [String: Int] = [:]
+    /// Whether the bandwidth estimator has been seeded with a start bitrate. It is decided once
+    /// per peer connection, when the first video is negotiated: setting a start bitrate resets
+    /// the current estimate, and libwebrtc keeps the value to reseed after a network route
+    /// change. A full reconnect builds a new `Transport`, whose estimator is seeded again.
+    private(set) var videoStartBitrateSeed: VideoStartBitrateSeed = .pending
 
     // forbid direct access to PeerConnection; the box parks its blocking release on deinit
     private let _pcBox: RTCBox<LKRTCPeerConnection>
@@ -274,6 +282,9 @@ final class Transport: NSObject, Loggable {
                 ? [Self.mungeInactiveToRecvOnlyForMedia, Self.mungeOpusStereoForAllAudio]
                 : [])
             try await _onOffer(offer, _latestOfferId)
+            // After the offer is out, so a negotiation that fails first does not use up the seed.
+            // Media only flows once the answer arrives, so the estimator is still seeded in time.
+            applyVideoStartBitrateIfNeeded()
         }
 
         if signalingState == .haveLocalOffer, iceRestart, let sd = remoteDescription {
@@ -431,9 +442,109 @@ extension Transport {
     }
 }
 
+// MARK: - Video start bitrate
+
+extension Transport {
+    /// Largest start bitrate hinted for a non-screen-share track, in kbps. Stops the bandwidth
+    /// estimator from opening too aggressively on high-bitrate (e.g. 4K) tracks.
+    nonisolated static let maxStartBitrateKbps = 1000
+
+    /// Largest start bitrate hinted for a screen share, in kbps. The start value also restarts
+    /// the estimator after a network change and sizes its first probes, for every stream on the
+    /// connection, so it stays bounded. 3 Mbps leaves the default 1080p15 screen share (about
+    /// 2.8 Mbps) unchanged and limits high frame rate or 4K encodings.
+    nonisolated static let maxScreenShareStartBitrateKbps = 3000
+
+    /// libwebrtc's own start bitrate when none is set (`kDefaultStartBitrateBps`), in kbps.
+    nonisolated static let defaultStartBitrateKbps = 300
+
+    /// Start bitrate hinted to libwebrtc's bandwidth estimator for a video sender whose encodings
+    /// total `targetBps`, or `nil` to leave libwebrtc's default in place.
+    ///
+    /// Without a hint the estimator starts at ``defaultStartBitrateKbps`` and ramps up, so the
+    /// first seconds of a published track are visibly blurry. The hint is 90% of the target
+    /// bitrate, which skips most of the ramp and leaves headroom for the estimator to settle.
+    /// Camera and other sources are capped at ``maxStartBitrateKbps``. Screen share, whose content
+    /// needs the bitrate immediately to be legible, gets the higher
+    /// ``maxScreenShareStartBitrateKbps``. A hint below the default would only slow the start
+    /// down, so none is given then.
+    nonisolated static func startBitrateKbps(targetBps: Int, isScreenShare: Bool) -> Int? {
+        let startKbps = Int((Double(targetBps / 1000) * 0.9).rounded())
+        guard startKbps >= defaultStartBitrateKbps else { return nil }
+        return min(startKbps, isScreenShare ? maxScreenShareStartBitrateKbps : maxStartBitrateKbps)
+    }
+
+    /// ``startBitrateKbps(targetBps:isScreenShare:)`` for a sender's encodings. The target is the
+    /// sum of the active encodings' `maxBitrate`, since simulcast layers are independent streams
+    /// the estimator has to fund together. Encodings without a `maxBitrate` contribute nothing.
+    nonisolated static func startBitrateKbps(for encodings: [LKRTCRtpEncodingParameters], isScreenShare: Bool) -> Int? {
+        let targetBps = encodings.filter(\.isActive).compactMap { $0.maxBitrateBps?.intValue }.reduce(0, +)
+        return startBitrateKbps(targetBps: targetBps, isScreenShare: isScreenShare)
+    }
+
+    /// The start bitrate for the whole peer connection: the largest hint among the video senders
+    /// that are still sending. A sender whose track was removed no longer counts.
+    nonisolated static func connectionStartBitrateKbps(sendingSenderIds: some Sequence<String>,
+                                                       kbpsBySenderId: [String: Int]) -> Int?
+    {
+        sendingSenderIds.compactMap { kbpsBySenderId[$0] }.max()
+    }
+
+    enum VideoStartBitrateSeed: Equatable {
+        /// No video has been negotiated on the peer connection yet.
+        case pending
+        /// The estimator was seeded at this start bitrate.
+        case seeded(kbps: Int)
+        /// The first video had no hint, so the estimator was left alone.
+        case skipped
+    }
+
+    /// Seeds the bandwidth estimator with ``connectionStartBitrateKbps(sendingSenderIds:kbpsBySenderId:)``
+    /// through the peer connection's bitrate API, when the first video is negotiated on the peer
+    /// connection. See ``videoStartBitrateSeed``.
+    ///
+    /// The estimator is shared by every stream the peer connection sends, so the start bitrate is
+    /// one value for the connection, not one per track. Setting it through the API instead of as
+    /// `x-google-start-bitrate` in the offer leaves the SDP untouched, and does not depend on the
+    /// remote answer carrying the fmtp back, which is where libwebrtc reads the SDP hint from.
+    ///
+    /// Only the first video counts. Before it, audio and received media cannot lift the send
+    /// estimate much above libwebrtc's default, since increases are capped at 1.5x the measured
+    /// throughput and probes at twice the allocated bitrate, so the seed raises it. Once video is
+    /// flowing its own traffic drives the estimate, and a later seed could pull it down.
+    func applyVideoStartBitrateIfNeeded() {
+        guard videoStartBitrateSeed == .pending else { return }
+        let sendingSenderIds = _pc.transceivers
+            .filter { $0.mediaType == .video && !$0.isStopped && $0.sender.track != nil }
+            .map(\.sender.senderId)
+        guard !sendingSenderIds.isEmpty else { return }
+        guard let kbps = Self.connectionStartBitrateKbps(sendingSenderIds: sendingSenderIds,
+                                                         kbpsBySenderId: _startBitrateKbpsBySenderId)
+        else {
+            videoStartBitrateSeed = .skipped
+            return
+        }
+        guard _pc.setBweMinBitrateBps(nil, currentBitrateBps: NSNumber(value: kbps * 1000), maxBitrateBps: nil) else {
+            log("Failed to seed the bandwidth estimator at \(kbps) kbps", .warning)
+            return
+        }
+        videoStartBitrateSeed = .seeded(kbps: kbps)
+        log("Seeded the bandwidth estimator at \(kbps) kbps")
+    }
+}
+
 // MARK: - Stats
 
 extension Transport {
+    /// Statistics for the whole connection, including the selected candidate pair.
+    func statistics() async -> LKRTCStatisticsReport {
+        await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport, Never>) in
+            _pc.statistics { @Sendable sd in
+                continuation.resume(returning: sd)
+            }
+        }
+    }
+
     func statistics(for sender: RTCSender) async -> LKRTCStatisticsReport {
         let raw = sender.raw
         return await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport, Never>) in
@@ -564,11 +675,18 @@ extension Transport {
         }
     }
 
+    /// `startBitrateKbps` (see ``startBitrateKbps(targetBps:isScreenShare:)``) is recorded against
+    /// the new sender before returning, so the negotiation this call triggers already sees it.
     func addTransceiver(with track: LKRTCMediaStreamTrack,
-                        transceiverInit: LKRTCRtpTransceiverInit) throws -> LKRTCRtpTransceiver
+                        transceiverInit: LKRTCRtpTransceiverInit,
+                        startBitrateKbps: Int? = nil) throws -> LKRTCRtpTransceiver
     {
         guard let transceiver = _pc.addTransceiver(with: track, init: transceiverInit) else {
             throw LiveKitError(.webRTC, message: "Failed to add transceiver")
+        }
+
+        if let startBitrateKbps {
+            _startBitrateKbpsBySenderId[transceiver.sender.senderId] = startBitrateKbps
         }
 
         return transceiver
@@ -589,6 +707,7 @@ extension Transport {
         guard _pc.removeTrack(raw) else {
             throw LiveKitError(.webRTC, message: "Failed to remove track")
         }
+        _startBitrateKbpsBySenderId.removeValue(forKey: sender.senderId)
 
         releaseTransceiver(sender: raw)
     }
