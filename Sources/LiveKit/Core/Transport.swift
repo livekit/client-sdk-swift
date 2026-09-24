@@ -449,6 +449,12 @@ extension Transport {
     /// estimator from opening too aggressively on high-bitrate (e.g. 4K) tracks.
     nonisolated static let maxStartBitrateKbps = 1000
 
+    /// Largest start bitrate hinted for a screen share, in kbps. The start value also restarts
+    /// the estimator after a network change and sizes its first probes, for every stream on the
+    /// connection, so it stays bounded. 3 Mbps leaves the default 1080p15 screen share (about
+    /// 2.8 Mbps) unchanged and limits high frame rate or 4K encodings.
+    nonisolated static let maxScreenShareStartBitrateKbps = 3000
+
     /// libwebrtc's own start bitrate when none is set (`kDefaultStartBitrateBps`), in kbps.
     nonisolated static let defaultStartBitrateKbps = 300
 
@@ -458,13 +464,14 @@ extension Transport {
     /// Without a hint the estimator starts at ``defaultStartBitrateKbps`` and ramps up, so the
     /// first seconds of a published track are visibly blurry. The hint is 90% of the target
     /// bitrate, which skips most of the ramp and leaves headroom for the estimator to settle.
-    /// Camera and other sources are capped at ``maxStartBitrateKbps``. Screen share is not,
-    /// because its content needs the bitrate immediately to be legible. A hint below the default
-    /// would only slow the start down, so none is given then.
+    /// Camera and other sources are capped at ``maxStartBitrateKbps``. Screen share, whose content
+    /// needs the bitrate immediately to be legible, gets the higher
+    /// ``maxScreenShareStartBitrateKbps``. A hint below the default would only slow the start
+    /// down, so none is given then.
     nonisolated static func startBitrateKbps(targetBps: Int, isScreenShare: Bool) -> Int? {
         let startKbps = Int((Double(targetBps / 1000) * 0.9).rounded())
         guard startKbps >= defaultStartBitrateKbps else { return nil }
-        return isScreenShare ? startKbps : min(startKbps, maxStartBitrateKbps)
+        return min(startKbps, isScreenShare ? maxScreenShareStartBitrateKbps : maxStartBitrateKbps)
     }
 
     /// ``startBitrateKbps(targetBps:isScreenShare:)`` for a sender's encodings. The target is the

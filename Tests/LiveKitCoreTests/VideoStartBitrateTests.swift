@@ -26,7 +26,8 @@ struct VideoStartBitrateTests {
         (2_300_000, false, 1000), // camera, capped
         (800_000, false, 720),
         (334_000, false, 301),
-        (5_000_000, true, 4500), // screen share, uncapped
+        (3_125_000, true, 2813), // default 1080p15 screen share, under its cap
+        (10_000_000, true, 3000), // 4K screen share, capped
     ])
     func hintsNinetyPercentOfTheTarget(targetBps: Int, isScreenShare: Bool, expectedKbps: Int) {
         #expect(Transport.startBitrateKbps(targetBps: targetBps, isScreenShare: isScreenShare) == expectedKbps)
