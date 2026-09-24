@@ -557,7 +557,9 @@ struct DataChannelOpenLatchTests {
             try await withThrowingTaskGroup(of: Void.self) { group in
                 for tag in UInt8(1) ... 5 {
                     group.addTask {
-                        try await drain.whenOpen.wait(timeout: 5)
+                        // Outlasts the registration deadline below, so a slow start cannot make an
+                        // early sender leave before the handshake gives up.
+                        try await drain.whenOpen.wait(timeout: 60)
                         try await drain.send(DrainFixture.frame(tag))
                     }
                 }

@@ -14,14 +14,24 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
+import Testing
 
 extension AsyncCompleter {
     /// Yields until at least `count` waiters have parked on this completer — used
     /// when a Task awaits on a completer and the test needs to act only after
     /// the wait has parked.
-    func waitForRegistration(count: Int = 1) async {
+    ///
+    /// Bounded: a waiter that times out or is cancelled leaves, so a count that is never reached
+    /// records an issue after `timeout` instead of spinning for the rest of the run.
+    func waitForRegistration(count: Int = 1, timeout: TimeInterval = 30, sourceLocation: SourceLocation = #_sourceLocation) async {
+        let deadline = Date().addingTimeInterval(timeout)
         while waiterCount < count {
+            guard Date() < deadline else {
+                Issue.record("Only \(waiterCount) of \(count) waiter(s) registered within \(timeout)s", sourceLocation: sourceLocation)
+                return
+            }
             await Task.yield()
         }
     }

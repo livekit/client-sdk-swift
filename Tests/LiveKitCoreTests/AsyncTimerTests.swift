@@ -32,7 +32,11 @@ private actor ManualSleeper {
         { [weak self] _ in await self?.park() }
     }
 
+    /// A cancelled loop gets no countdown, as `Task.sleep` throws at once for a cancelled task, so
+    /// every countdown that parks belongs to a loop that was live when it parked. One cancelled
+    /// *while* parked still waits for a release, then exits without firing.
     private func park() async {
+        if Task.isCancelled { return }
         await withCheckedContinuation { parked.append($0) }
     }
 
@@ -132,14 +136,12 @@ struct AsyncTimerTests {
     /// Hammering `restart()`/`startIfStopped()` concurrently must leave exactly one loop. The
     /// previous design could orphan a scheduling task here and run several loops at once.
     ///
-    /// Driven by the sleeper rather than real time: the real-time version inferred "one loop"
-    /// from a fire count against a 3× bound and needed the loop to run on schedule, and on a
-    /// freshly booted visionOS simulator the `.utility` loop can go a minute without being
-    /// scheduled at all, which failed the liveness half of that check with nothing wrong in the
-    /// timer. Here "one loop" is measured exactly: every release of the sleeper fires the timer
-    /// block once. Loops that lost the race were cancelled, some of them after parking — a
-    /// countdown does not wake on cancellation — so they sit in the sleeper until released and
-    /// then exit without firing, which is why parked countdowns are not what is counted.
+    /// Driven by the sleeper rather than real time, so "one loop" is measured exactly instead of
+    /// inferred from a fire count against a 3× bound that needed the loop to run on schedule.
+    /// Loops that lost the race were cancelled; any that parked before being cancelled are
+    /// released by the first `tickAll()` and exit, and a cancelled loop can never park again. From
+    /// then on only the survivor parks, so each release must fire exactly once — counted after
+    /// the survivor has parked again, which it does only once its block has finished.
     @Test func concurrentArmingLeavesSingleLoop() async {
         let counter = ConcurrentCounter()
         let sleeper = ManualSleeper()
@@ -152,23 +154,17 @@ struct AsyncTimerTests {
             }
         }
 
-        // Release whatever has parked until the survivor has fired: a release that only lets
-        // cancelled loops out fires nothing, so keep going until the count moves.
-        let deadline = Date().addingTimeInterval(60)
-        while await counter.getCount() == 0, Date() < deadline {
-            await sleeper.tickAll()
-            try? await Task.sleep(nanoseconds: 10_000_000)
-        }
+        await sleeper.tickAll()
+        await sleeper.waitForParked(1)
         var fired = await counter.getCount()
-        #expect(fired >= 1, "a loop is running")
 
-        // From here every release must fire exactly once more. The orphan bug ran several
-        // loops, and each release would have fired every one of them.
         for _ in 0 ..< 3 {
-            await sleeper.waitForParked(1)
             await sleeper.tickAll()
-            fired += 1
-            #expect(await counter.wait(untilAtLeast: fired) == fired, "a release fired more than one loop")
+            await sleeper.waitForParked(1)
+            #expect(await sleeper.parkedCount == 1, "exactly one loop parks for the next cycle")
+            let now = await counter.getCount()
+            #expect(now == fired + 1, "a release fired \(now - fired) times; one loop fires once")
+            fired = now
         }
 
         timer.cancel()
