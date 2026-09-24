@@ -536,6 +536,15 @@ extension Transport {
 // MARK: - Stats
 
 extension Transport {
+    /// Statistics for the whole connection, including the selected candidate pair.
+    func statistics() async -> LKRTCStatisticsReport {
+        await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport, Never>) in
+            _pc.statistics { @Sendable sd in
+                continuation.resume(returning: sd)
+            }
+        }
+    }
+
     func statistics(for sender: RTCSender) async -> LKRTCStatisticsReport {
         let raw = sender.raw
         return await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport, Never>) in
