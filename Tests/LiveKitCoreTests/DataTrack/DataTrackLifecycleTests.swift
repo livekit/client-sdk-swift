@@ -101,7 +101,9 @@ struct DataTrackLifecycleTests {
     }
 
     /// A publish issued while a full reconnect is in flight waits for the new publisher channel
-    /// (the open-gate is re-armed on teardown) instead of proceeding against the dead transport.
+    /// (the open-gate is re-armed on teardown) and for the reconnect's republish, instead of
+    /// proceeding against the dead transport or racing the republish, which fails any publication
+    /// still pending. One attempt, no retry: a gate that let the publish through early fails it.
     @Test
     func publishDuringFullReconnect() async throws {
         try await TestEnvironment.withRooms([
@@ -120,20 +122,11 @@ struct DataTrackLifecycleTests {
             }
             #expect(publisher._state.transport == nil, "Never observed the reconnect teardown window")
 
-            // The publish must wait for the reconnected channel instead of failing on the dead one.
-            //
-            // Retried on `.disconnected`, because a publication still *pending* when the reconnect
-            // republishes is failed outright by the Rust manager — `on_republish_tracks` in
-            // livekit-datatrack answers `Descriptor::Pending` with `PublishError::Disconnected`
-            // under a `// TODO: support republish for pending publications`. Whether this publish
-            // lands before that runs is a race the SFU's response time decides, and a loaded
-            // sanitizer leg loses it. What the test is for — that the publish waits for the
-            // rebuilt channel rather than failing on the dead one — still holds, and a regression
-            // there fails every attempt.
-            let track = try await Task.retrying(totalAttempts: 3, retryDelay: 1) { _, _ in
-                try await publisher.localParticipant.publishDataTrack(name: "during-reconnect")
-            }.value
+            let track = try await publisher.localParticipant.publishDataTrack(name: "during-reconnect")
             #expect(track.isPublished)
+            // The gate's contract, checked directly: a publish returns only once the channel its
+            // frames go to — the replacement — can take them.
+            #expect(publisher.dataTracks?.publisher.isOpen == true, "The publish returned before the replacement channel opened")
             try await reconnect.value
 
             _ = try await subscriber.waitForDataTrack(name: "during-reconnect")

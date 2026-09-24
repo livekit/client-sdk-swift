@@ -59,7 +59,16 @@ final class DataTracks: NSObject, @unchecked Sendable {
     // escapes (the FFI reaches it only after `managerDelegate.coordinator = self`, the last line),
     // which is the ordering that makes the unsynchronized read from the Rust callback thread safe.
     // Keep it that way.
-    private var publisher: DataChannelDrain<DataTrackStage>!
+    private(set) var publisher: DataChannelDrain<DataTrackStage>!
+
+    /// Resolved except while a full reconnect is re-establishing the session: its republish fails
+    /// any publication still pending in the manager, so a publish issued in that window is handed
+    /// to the manager only after the republish has been.
+    private let republished: AsyncCompleter<Void> = {
+        let completer = AsyncCompleter<Void>(label: "Data tracks republished", defaultTimeout: .defaultPublisherDataChannelOpen)
+        completer.resume(returning: ())
+        return completer
+    }()
 
     init(room: Room) {
         self.room = room
@@ -108,6 +117,7 @@ final class DataTracks: NSObject, @unchecked Sendable {
         do {
             try await room?.ensurePublisherConnected()
             try await publisher.whenOpen.wait()
+            try await republished.wait()
         } catch let error as LiveKitError where error.type == .timedOut {
             throw DataTrackPublishError.timeout("Timed out establishing the publisher data track channel")
         } catch let error as LiveKitError where error.type == .cancelled {
@@ -186,8 +196,13 @@ final class DataTracks: NSObject, @unchecked Sendable {
     /// re-arms the open latch so a publish issued before the replacement channel arrives waits for
     /// it instead of proceeding against the torn-down transport. Called directly rather than left
     /// to the channel's own `.closed` callback, which arrives asynchronously from WebRTC's thread.
-    func handleTransportsTeardown() {
+    ///
+    /// - Parameter reconnecting: Whether a reconnect will follow and republish, which holds new
+    ///   publishes until ``handleReconnect(fullReconnect:)``. False for a region failover during the
+    ///   initial connect, which republishes nothing.
+    func handleTransportsTeardown(reconnecting: Bool) {
         publisher.reset()
+        if reconnecting { republished.rearm() }
     }
 
     func handleReconnect(fullReconnect: Bool) {
@@ -195,6 +210,7 @@ final class DataTracks: NSObject, @unchecked Sendable {
         // republishes. Either way, re-assert subscriptions so the SFU re-issues subscriber handles.
         if fullReconnect {
             _local.copy()?.republishTracks()
+            republished.resume(returning: ())
             // A data-track-only publisher needs the publisher transport re-established too; the
             // media republish path only does this when media tracks exist. Gate waiters are
             // publishes that arrived during the reconnect window — their own
