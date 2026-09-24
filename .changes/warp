@@ -1,0 +1,1 @@
+minor type="added" "Enable WARP (SPED: DTLS handshake carried in the ICE exchange, SNAP: SCTP association parameters in SDP), shortening connection and data channel setup. Always on and negotiated with the server: a server without WARP support gets a standard handshake"
