@@ -130,9 +130,9 @@ open class LKSampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
 
     /// Whether or not to bootstrap the logging system when initialized.
     ///
-    /// Disabled by default. Enable by overriding this property to return true.
+    /// Enabled by default. Disable by overriding this property to return false.
     ///
-    open var enableLogging: Bool { false }
+    open var enableLogging: Bool { true }
 
     /// Whether or not to include debug and trace messages in log output.
     ///

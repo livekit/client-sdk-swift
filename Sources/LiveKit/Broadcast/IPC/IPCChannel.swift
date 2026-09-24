@@ -20,7 +20,7 @@ import Foundation
 import Network
 
 /// A communication channel between two processes on the same machine.
-final class IPCChannel: Sendable {
+final class IPCChannel: Sendable, Loggable {
     fileprivate static let restartDelay: TimeInterval = 0.1
     fileprivate static let queue = DispatchQueue(label: "io.livekit.ipc.queue", qos: .userInitiated)
 
@@ -43,9 +43,14 @@ final class IPCChannel: Sendable {
 
     /// Creates a channel by accepting a connection from the other process.
     init(acceptingOn socketPath: SocketPath) async throws {
-        try? FileManager.default.removeItem(atPath: socketPath.path)
+        do {
+            try FileManager.default.removeItem(atPath: socketPath.path)
+        } catch CocoaError.fileNoSuchFile {
+        } catch {
+            Self.log("Failed to remove socket file: \(error)", .info)
+        }
 
-        let parameters = Self.defaultParameters
+        let parameters = Self.defaultParameters.copy()
         parameters.requiredLocalEndpoint = NWEndpoint(socketPath)
 
         let listener = try NWListener(using: parameters)
@@ -163,9 +168,9 @@ private extension NWListener {
                 continuation.yield(connection)
             }
             stateUpdateHandler = { state in
+                IPCChannel.log("Listener state: \(state)", .info)
                 switch state {
                 case .cancelled: continuation.finish()
-                case let .waiting(error): continuation.finish(throwing: error)
                 case let .failed(error): continuation.finish(throwing: error)
                 default: break
                 }
@@ -182,12 +187,13 @@ private extension NWListener {
 private extension NWConnection {
     func waitUntilReady() async throws {
         for await state in stateUpdates {
+            IPCChannel.log("Connection state: \(state)", .info)
             switch state {
             case .ready: return
             case .setup, .preparing: continue
             case .waiting:
                 // Will enter this state when socket path does not exist yet
-                let restartDelay = UInt64(IPCChannel.restartDelay) * NSEC_PER_SEC
+                let restartDelay = UInt64(IPCChannel.restartDelay * Double(NSEC_PER_SEC))
                 try await Task.sleep(nanoseconds: restartDelay)
                 restart()
                 continue
