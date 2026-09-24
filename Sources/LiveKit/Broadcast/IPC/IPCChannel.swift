@@ -26,7 +26,11 @@ final class IPCChannel: @unchecked Sendable, Loggable {
     fileprivate static let acceptPollTimeoutMs: Int32 = 200
     fileprivate static let setupQueue = DispatchQueue(label: "io.livekit.ipc.setup", attributes: .concurrent)
 
-    enum Error: Swift.Error {
+    // Upper bounds applied before allocating receive buffers and building outbound frames.
+    static let maxMessageSize = 8 * 1024 * 1024 // 8 MB
+    static let maxHeaderSize = 64 * 1024 // 64 KB
+
+    enum Error: Swift.Error, Equatable {
         case cancelled
         case corruptMessage
         case socketError(String)
@@ -37,8 +41,6 @@ final class IPCChannel: @unchecked Sendable, Loggable {
     private let readQueue = DispatchQueue(label: "io.livekit.ipc.read", qos: .userInitiated)
     private let writeQueue = DispatchQueue(label: "io.livekit.ipc.write", qos: .userInitiated)
 
-    private let messages = MessageQueue()
-
     private let closedLock = NSLock()
     private var _isClosed = false
 
@@ -47,13 +49,16 @@ final class IPCChannel: @unchecked Sendable, Loggable {
     /// Creates a channel by accepting a connection from the other process.
     init(acceptingOn socketPath: SocketPath) async throws {
         socketFD = try await Self.accept(on: socketPath)
-        startReadLoop()
     }
 
     /// Creates a channel by establishing a connection to the other process.
     init(connectingTo socketPath: SocketPath) async throws {
         socketFD = try await Self.connect(to: socketPath)
-        startReadLoop()
+    }
+
+    /// For testing: wraps an already-connected blocking file descriptor.
+    init(fd: Int32) {
+        socketFD = fd
     }
 
     deinit {
@@ -77,9 +82,14 @@ final class IPCChannel: @unchecked Sendable, Loggable {
         guard !alreadyClosed else { return }
 
         log("[IPC] closing channel")
+        // shutdown() wakes any blocked read() or write() syscall immediately.
         Darwin.shutdown(socketFD, SHUT_RDWR)
-        Darwin.close(socketFD)
-        messages.finish()
+        let ioGroup = DispatchGroup()
+        readQueue.async(group: ioGroup) {}
+        writeQueue.async(group: ioGroup) {}
+        ioGroup.notify(queue: .global(qos: .utility)) { [fd = socketFD] in
+            Darwin.close(fd)
+        }
     }
 
     // MARK: - Sending
@@ -108,15 +118,25 @@ final class IPCChannel: @unchecked Sendable, Loggable {
         }
     }
 
-    /// Frame layout: [headerSize][payloadSize][header][payload], little-endian sizes.
+    /// Frame layout: [totalSize][payloadSize][header][payload], all little-endian uint32.
+    /// totalSize = header.count + payloadSize, matching the IPCProtocol wire format.
     private func writeFrame(header: Data, payload: Data?) throws {
-        var headerSize = UInt32(header.count).littleEndian
-        var payloadSize = UInt32(payload?.count ?? 0).littleEndian
+        let payloadCount = payload?.count ?? 0
+        guard header.count > 0, header.count <= Self.maxHeaderSize else {
+            throw Error.socketError("outbound header size out of range: \(header.count)")
+        }
+        let (totalSize, overflow) = header.count.addingReportingOverflow(payloadCount)
+        guard !overflow, totalSize <= Self.maxMessageSize else {
+            throw Error.socketError("outbound message size out of range")
+        }
+
+        var totalSizeLE = UInt32(totalSize).littleEndian
+        var payloadSizeLE = UInt32(payloadCount).littleEndian
 
         var frame = Data()
-        frame.reserveCapacity(8 + header.count + (payload?.count ?? 0))
-        withUnsafeBytes(of: &headerSize) { frame.append(contentsOf: $0) }
-        withUnsafeBytes(of: &payloadSize) { frame.append(contentsOf: $0) }
+        frame.reserveCapacity(8 + totalSize)
+        withUnsafeBytes(of: &totalSizeLE) { frame.append(contentsOf: $0) }
+        withUnsafeBytes(of: &payloadSizeLE) { frame.append(contentsOf: $0) }
         frame.append(header)
         if let payload { frame.append(payload) }
 
@@ -124,11 +144,15 @@ final class IPCChannel: @unchecked Sendable, Loggable {
     }
 
     private func writeAll(_ data: Data) throws {
+        // Snapshot fd before entering the loop. close() defers Darwin.close(fd) to this
+        // serial queue, so fd remains valid for the entire synchronous duration of this call.
+        let fd = socketFD
         try data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
             guard var base = raw.baseAddress else { return }
             var remaining = raw.count
             while remaining > 0 {
-                let written = Darwin.write(socketFD, base, remaining)
+                guard !isClosed else { throw Error.cancelled }
+                let written = Darwin.write(fd, base, remaining)
                 if written > 0 {
                     base = base.advanced(by: written)
                     remaining -= written
@@ -144,15 +168,33 @@ final class IPCChannel: @unchecked Sendable, Loggable {
 
     // MARK: - Receiving
 
-    private func startReadLoop() {
-        readQueue.async { [self] in
-            do {
-                while let frame = try readFrame() {
-                    messages.yield(frame)
+    /// Reads the next framed message on the dedicated read queue. Returns nil on clean EOF.
+    ///
+    /// Reads are demand-driven: this is called only when the consumer is ready for the next
+    /// message, so the OS socket receive buffer provides natural backpressure to the sender.
+    /// No intermediate queue accumulates frames in user space.
+    fileprivate func nextFrame() async throws -> (Data, Data?)? {
+        guard !isClosed else { return nil }
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(Data, Data?)?, Swift.Error>) in
+                readQueue.async { [self] in
+                    guard !isClosed else {
+                        continuation.resume(returning: nil)
+                        return
+                    }
+                    do {
+                        let frame = try readFrame()
+                        if frame == nil {
+                            close()
+                        }
+                        continuation.resume(returning: frame)
+                    } catch {
+                        close()
+                        continuation.resume(throwing: error)
+                    }
                 }
-            } catch {
-                log("[IPC] read loop ended: \(error)", .warning)
             }
+        } onCancel: { [self] in
             close()
         }
     }
@@ -160,8 +202,17 @@ final class IPCChannel: @unchecked Sendable, Loggable {
     /// Reads a single framed message. Returns `nil` on a clean end-of-stream at a frame boundary.
     private func readFrame() throws -> (Data, Data?)? {
         guard let sizeBytes = try readExact(count: 8) else { return nil }
-        let headerSize = Int(Self.readUInt32LE(sizeBytes, at: 0))
+        let totalSize = Int(Self.readUInt32LE(sizeBytes, at: 0))
         let payloadSize = Int(Self.readUInt32LE(sizeBytes, at: 4))
+
+        // Validate peer-supplied sizes before allocating buffers.
+        guard payloadSize <= totalSize, totalSize <= Self.maxMessageSize else {
+            throw Error.corruptMessage
+        }
+        let headerSize = totalSize - payloadSize
+        guard headerSize > 0, headerSize <= Self.maxHeaderSize else {
+            throw Error.corruptMessage
+        }
 
         guard let headerData = try readExact(count: headerSize) else {
             throw Error.corruptMessage
@@ -215,81 +266,26 @@ final class IPCChannel: @unchecked Sendable, Loggable {
     /// - Parameter headerType: The type to decode from the message header.
     /// - Returns: An asynchronous sequence for receiving messages as they arrive.
     func incomingMessages<T: Decodable>(_: T.Type) -> AsyncMessageSequence<T> {
-        AsyncMessageSequence(upstream: messages)
+        AsyncMessageSequence(channel: self)
     }
 
     /// An asynchronous sequence of incoming messages.
     ///
     /// The sequence ends when the connection is closed by either side. `next()` is
-    /// non-mutating (state lives in the reference-typed `MessageQueue`) so the sequence can be
+    /// non-mutating (state lives in the reference-typed `IPCChannel`) so the sequence can be
     /// held and iterated as a `let`, matching the upstream shape used by `BroadcastReceiver`.
     struct AsyncMessageSequence<Header: Decodable>: AsyncSequence, AsyncIteratorProtocol {
-        fileprivate let upstream: MessageQueue
+        fileprivate let channel: IPCChannel
         private let decoder = PropertyListDecoder()
 
         func next() async throws -> (Header, Data?)? {
-            guard let (headerData, payload) = await upstream.next() else {
+            guard let (headerData, payload) = try await channel.nextFrame() else {
                 return nil
             }
             return try (decoder.decode(Header.self, from: headerData), payload)
         }
 
         func makeAsyncIterator() -> Self { self }
-    }
-}
-
-// MARK: - Message FIFO
-
-/// Minimal single-consumer FIFO for decoded frames.
-private final class MessageQueue: @unchecked Sendable {
-    private let lock = NSLock()
-    private var buffer: [(Data, Data?)] = []
-    private var isFinished = false
-    private var waiter: CheckedContinuation<(Data, Data?)?, Never>?
-
-    func yield(_ message: (Data, Data?)) {
-        lock.lock()
-        if let waiter {
-            self.waiter = nil
-            lock.unlock()
-            waiter.resume(returning: message)
-        } else {
-            buffer.append(message)
-            lock.unlock()
-        }
-    }
-
-    func finish() {
-        lock.lock()
-        guard !isFinished else {
-            lock.unlock()
-            return
-        }
-        isFinished = true
-        if let waiter {
-            self.waiter = nil
-            lock.unlock()
-            waiter.resume(returning: nil)
-        } else {
-            lock.unlock()
-        }
-    }
-
-    func next() async -> (Data, Data?)? {
-        await withCheckedContinuation { (continuation: CheckedContinuation<(Data, Data?)?, Never>) in
-            lock.lock()
-            if !buffer.isEmpty {
-                let message = buffer.removeFirst()
-                lock.unlock()
-                continuation.resume(returning: message)
-            } else if isFinished {
-                lock.unlock()
-                continuation.resume(returning: nil)
-            } else {
-                waiter = continuation
-                lock.unlock()
-            }
-        }
     }
 }
 
@@ -448,7 +444,7 @@ private extension IPCChannel {
     static func readUInt32LE(_ data: Data, at offset: Int) -> UInt32 {
         var value: UInt32 = 0
         withUnsafeMutableBytes(of: &value) { destination in
-            data.copyBytes(to: destination, from: offset ..< (offset + 4))
+            _ = data.copyBytes(to: destination, from: offset ..< (offset + 4))
         }
         return UInt32(littleEndian: value)
     }

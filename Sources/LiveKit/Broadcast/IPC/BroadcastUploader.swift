@@ -28,6 +28,7 @@ final class BroadcastUploader: Sendable, Loggable {
 
     private struct State {
         var isUploadingImage = false
+        var isUploadingAudio = false
         var shouldUploadAudio = false
         var messageLoopTask: AnyTaskCancellable?
     }
@@ -84,20 +85,32 @@ final class BroadcastUploader: Sendable, Loggable {
             do {
                 let (metadata, imageData) = try imageCodec.encode(sampleBuffer)
                 Task.discarding {
+                    defer { state.mutate { $0.isUploadingImage = false } }
                     let header = BroadcastIPCHeader.image(metadata, rotation)
                     try await channel.send(header: header, payload: imageData)
-                    state.mutate { $0.isUploadingImage = false }
                 }
             } catch {
                 state.mutate { $0.isUploadingImage = false }
                 throw error
             }
         case .audioApp:
-            guard state.shouldUploadAudio else { return }
-            let (metadata, audioData) = try audioCodec.encode(sampleBuffer)
-            Task.discarding {
-                let header = BroadcastIPCHeader.audio(metadata)
-                try await channel.send(header: header, payload: audioData)
+            let canUpload = state.mutate {
+                guard $0.shouldUploadAudio, !$0.isUploadingAudio else { return false }
+                $0.isUploadingAudio = true
+                return true
+            }
+            guard canUpload else { return }
+
+            do {
+                let (metadata, audioData) = try audioCodec.encode(sampleBuffer)
+                Task.discarding {
+                    defer { state.mutate { $0.isUploadingAudio = false } }
+                    let header = BroadcastIPCHeader.audio(metadata)
+                    try await channel.send(header: header, payload: audioData)
+                }
+            } catch {
+                state.mutate { $0.isUploadingAudio = false }
+                throw error
             }
         default:
             throw Error.unsupportedSample
