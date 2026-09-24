@@ -33,6 +33,7 @@ final class IPCChannel: @unchecked Sendable, Loggable {
     enum Error: Swift.Error, Equatable {
         case cancelled
         case corruptMessage
+        case outboundFrameTooLarge
         case socketError(String)
     }
 
@@ -111,7 +112,11 @@ final class IPCChannel: @unchecked Sendable, Loggable {
                     try writeFrame(header: encodedHeader, payload: payload)
                     continuation.resume()
                 } catch {
-                    close()
+                    if let channelError = error as? Error, case .outboundFrameTooLarge = channelError {
+                        // Validation happens before any bytes are written; the socket remains usable.
+                    } else {
+                        close()
+                    }
                     continuation.resume(throwing: error)
                 }
             }
@@ -123,11 +128,11 @@ final class IPCChannel: @unchecked Sendable, Loggable {
     private func writeFrame(header: Data, payload: Data?) throws {
         let payloadCount = payload?.count ?? 0
         guard header.count > 0, header.count <= Self.maxHeaderSize else {
-            throw Error.socketError("outbound header size out of range: \(header.count)")
+            throw Error.outboundFrameTooLarge
         }
         let (totalSize, overflow) = header.count.addingReportingOverflow(payloadCount)
         guard !overflow, totalSize <= Self.maxMessageSize else {
-            throw Error.socketError("outbound message size out of range")
+            throw Error.outboundFrameTooLarge
         }
 
         var totalSizeLE = UInt32(totalSize).littleEndian

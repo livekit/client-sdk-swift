@@ -243,6 +243,36 @@ struct IPCChannelTests {
         try await expectCorruptMessage(sizePrefix: (bigHeader, 0), body: Data())
     }
 
+    @Test func outboundOversizedFrameDoesNotCloseChannel() async throws {
+        let (senderFD, rawReaderFD) = try makePair()
+        let sender = IPCChannel(fd: senderFD)
+        defer {
+            sender.close()
+            Darwin.close(rawReaderFD)
+        }
+
+        do {
+            try await sender.send(
+                header: TestHeader(someField: 1),
+                payload: Data(repeating: 0xAB, count: IPCChannel.maxMessageSize),
+            )
+            Issue.record("Expected outboundFrameTooLarge")
+        } catch let error as IPCChannel.Error {
+            #expect(error == .outboundFrameTooLarge)
+        } catch {
+            Issue.record("Unexpected error type: \(error)")
+        }
+
+        #expect(!sender.isClosed)
+
+        try await sender.send(header: TestHeader(someField: 2), payload: Data([1, 2, 3]))
+
+        var prefix = [UInt8](repeating: 0, count: 8)
+        let readCount = Darwin.read(rawReaderFD, &prefix, prefix.count)
+        #expect(readCount == prefix.count)
+        #expect(readLE32(prefix, at: 4) == 3)
+    }
+
     /// Truncated size prefix (only 4 of 8 bytes, then EOF) → error.
     @Test func receiveTruncatedSizePrefix() async throws {
         let (channelFD, rawWriterFD) = try makePair()
