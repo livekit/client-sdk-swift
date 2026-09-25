@@ -1,0 +1,1 @@
+patch type="fixed" "Declare the LiveKit target's direct dependency on CLiveKitProto so consumers that link each SwiftPM target as its own framework (e.g. Tuist) no longer fail with undefined nanopb descriptor symbols (#1126)"

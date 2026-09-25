@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-// swiftlint:disable file_length
-
 import AVFoundation
 import Foundation
 
@@ -25,36 +23,16 @@ import ScreenCaptureKit
 
 internal import LiveKitWebRTC
 
-#if compiler(>=6.4) && !COCOAPODS
-internal import LKObjCHelpers
-#endif
-
 #if os(macOS)
 
 @available(macOS 12.3, *)
-public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
-    private let capturer = RTC.createVideoCapturer()
-
+public class MacOSScreenCapturer: ScreenCapturer, @unchecked Sendable {
     // TODO: Make it possible to change dynamically
     public let captureSource: MacOSScreenCaptureSource?
 
-    /// The ``ScreenShareCaptureOptions`` used for this capturer.
-    public let options: ScreenShareCaptureOptions
-
-    struct State {
-        // SCStream
-        var scStream: SCStream?
-        // Cached frame for resending to maintain minimum of 1 fps
-        var lastFrame: LKRTCVideoFrame?
-        var resendTimer: AnyTaskCancellable?
-    }
-
-    private var _screenCapturerState = StateSync(State())
-
     init(delegate: LKRTCVideoCapturerDelegate, captureSource: MacOSScreenCaptureSource, options: ScreenShareCaptureOptions) {
         self.captureSource = captureSource
-        self.options = options
-        super.init(delegate: delegate)
+        super.init(delegate: delegate, options: options)
     }
 
     override public func startCapture() async throws -> Bool {
@@ -93,14 +71,8 @@ public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
 
         let mainDisplay = CGMainDisplayID()
         // try to capture in max resolution
-        #if compiler(>=6.4)
-        LKObjCHelpers.setWidth(CGDisplayPixelsWide(mainDisplay) * 2,
-                               height: CGDisplayPixelsHigh(mainDisplay) * 2,
-                               on: configuration)
-        #else
         configuration.width = CGDisplayPixelsWide(mainDisplay) * 2
         configuration.height = CGDisplayPixelsHigh(mainDisplay) * 2
-        #endif
 
         configuration.scalesToFit = false
         configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(options.fps))
@@ -112,15 +84,8 @@ public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
             configuration.capturesAudio = options.appAudio
         }
 
-        // Why does SCStream hold strong reference to delegate?
-        let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
-        try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: nil)
-        if #available(macOS 13.0, *) {
-            try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: nil)
-        }
+        let stream = try makeStream(filter: filter, configuration: configuration)
         try await stream.startCapture()
-
-        _screenCapturerState.mutate { $0.scStream = stream }
 
         return true
     }
@@ -131,152 +96,11 @@ public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
         // Already stopped
         guard didStop else { return false }
 
-        guard let stream = _screenCapturerState.read({ $0.scStream }) else {
-            throw LiveKitError(.invalidState, message: "SCStream is nil")
-        }
-
-        // Stop resending paused frames
-        _screenCapturerState.mutate {
-            $0.resendTimer = nil
-        }
-
-        try await stream.stopCapture()
-        try stream.removeStreamOutput(self, type: .screen)
-
-        _screenCapturerState.mutate {
-            $0.scStream = nil
-        }
+        await teardownStream()
 
         return true
     }
-
-    // Common capture func
-    private func capture(_ sampleBuffer: CMSampleBuffer, contentRect: CGRect, scaleFactor: CGFloat = 1.0) {
-        // Get the pixel buffer that contains the image data.
-        guard let pixelBuffer = sampleBuffer.imageBuffer else { return }
-
-        let timeStamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-        let timeStampNs = Int64(CMTimeGetSeconds(timeStamp) * Double(NSEC_PER_SEC))
-
-        let sourceDimensions = Dimensions(width: Int32((contentRect.width * scaleFactor).rounded(.down)),
-                                          height: Int32((contentRect.height * scaleFactor).rounded(.down)))
-
-        let targetDimensions = sourceDimensions
-            .aspectFit(size: options.dimensions.max)
-            .toEncodeSafeDimensions()
-
-        let rtcPixelBuffer = LKRTCCVPixelBuffer(pixelBuffer: pixelBuffer,
-                                                adaptedWidth: targetDimensions.width,
-                                                adaptedHeight: targetDimensions.height,
-                                                cropWidth: sourceDimensions.width,
-                                                cropHeight: sourceDimensions.height,
-                                                cropX: Int32(contentRect.origin.x * scaleFactor),
-                                                cropY: Int32(contentRect.origin.y * scaleFactor))
-
-        let rtcFrame = LKRTCVideoFrame(buffer: rtcPixelBuffer,
-                                       rotation: ._0,
-                                       timeStampNs: timeStampNs)
-
-        // Cache last frame
-        _screenCapturerState.mutate {
-            $0.lastFrame = rtcFrame
-        }
-
-        capture(frame: rtcFrame, capturer: capturer, options: options)
-    }
 }
-
-// MARK: - Frame resend logic
-
-@available(macOS 12.3, *)
-extension MacOSScreenCapturer {
-    private func _capturePreviousFrame() async throws {
-        // Must be .started
-        guard case .started = captureState else {
-            log("CaptureState is not .started, resend timer should not trigger.", .warning)
-            return
-        }
-
-        guard let frame = _screenCapturerState.read({ $0.lastFrame }) else { return }
-
-        // create a new frame with new time stamp
-        let newFrame = LKRTCVideoFrame(buffer: frame.buffer,
-                                       rotation: frame.rotation,
-                                       timeStampNs: Self.createTimeStampNs())
-
-        // Feed frame to WebRTC
-        capture(frame: newFrame, capturer: capturer, options: options)
-    }
-}
-
-// MARK: - SCStreamDelegate
-
-@available(macOS 12.3, *)
-extension MacOSScreenCapturer: SCStreamDelegate {
-    public func stream(_: SCStream, didStopWithError error: Error) {
-        log("Stream stopped with error: \(error)", .error)
-        Task.discarding {
-            try await stopCapture()
-        }
-    }
-}
-
-// MARK: - SCStreamOutput
-
-@available(macOS 12.3, *)
-extension MacOSScreenCapturer: SCStreamOutput {
-    // swiftlint:disable:next cyclomatic_complexity
-    public func stream(_: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer,
-                       of outputType: SCStreamOutputType)
-    {
-        guard case .started = captureState else {
-            log("Skipping capture since captureState is not .started")
-            return
-        }
-
-        // Return early if the sample buffer is invalid.
-        guard sampleBuffer.isValid else { return }
-
-        if case .audio = outputType {
-            guard let pcm = sampleBuffer.toAVAudioPCMBuffer() else { return }
-            AudioManager.shared.mixer.capture(appAudio: pcm)
-        } else if case .screen = outputType {
-            // Retrieve the array of metadata attachments from the sample buffer.
-            guard let attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer,
-                                                                                 createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
-                let attachments = attachmentsArray.first else { return }
-
-            // Validate the status of the frame. If it isn't `.complete`, return nil.
-            guard let statusRawValue = attachments[SCStreamFrameInfo.status] as? Int,
-                  let status = SCFrameStatus(rawValue: statusRawValue),
-                  status == .complete else { return }
-
-            // Retrieve the content rectangle, scale, and scale factor.
-            guard let contentRectDict = attachments[.contentRect],
-                  let contentRect = CGRect(dictionaryRepresentation: contentRectDict as! CFDictionary), // swiftlint:disable:this force_cast
-                  // let contentScale = attachments[.contentScale] as? CGFloat,
-                  let scaleFactor = attachments[.scaleFactor] as? CGFloat else { return }
-
-            // Schedule resend timer
-            let newTimer = Task.detached(priority: .utility) { [weak self] in
-                while true {
-                    try? await Task.sleep(nanoseconds: UInt64(1 * 1_000_000_000))
-                    if Task.isCancelled { break }
-                    guard let self else { break }
-                    try await _capturePreviousFrame()
-                }
-            }.cancellable()
-
-            _screenCapturerState.mutate {
-                $0.resendTimer = newTimer
-            }
-
-            capture(sampleBuffer, contentRect: contentRect, scaleFactor: scaleFactor)
-        }
-    }
-}
-
-// MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
 
 @available(macOS 12.3, *)
 public extension LocalVideoTrack {

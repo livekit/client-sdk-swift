@@ -20,7 +20,7 @@ import LiveKitNanopb
 #endif
 
 extension google_protobuf_Timestamp: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { google_protobuf_Timestamp_msg }
+    package static var descriptor: lk_pb_msgdesc_t { google_protobuf_Timestamp_msg }
     package static let _emptyBox = NanopbBox<google_protobuf_Timestamp>(zero: google_protobuf_Timestamp(), descriptor: google_protobuf_Timestamp_msg)
 }
 typealias Google_Protobuf_Timestamp = NanopbMsg<google_protobuf_Timestamp>

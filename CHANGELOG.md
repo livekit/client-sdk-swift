@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.17.0] - 2026-09-10
+
+### Added
+
+- RoomDelegate.room(_:didUpdateBufferStatus:of:) reports when a data channel's send buffer fills up or drains again, so publishers can back off
+- Async variants of every local track creator (createTrack, createCameraTrack, createBufferTrack, createARCameraTrack, and the screen-share creators) that run WebRTC factory work on the RTC executor instead of blocking the calling thread; the synchronous variants are deprecated
+- Data tracks: publish and subscribe to ordered frame streams over a dedicated unreliable channel, with optional schema and frame-encoding metadata
+
+### Changed
+
+- Vendored nanopb runtime updated from 0.4.9.1 to 0.4.9.2 (GHSA-p24j-vqcp-x988); the SDK's generated code has no callback fields, so it was not exposed to the oneof callback type confusion, and the wire format is unchanged
+- Updated WebRTC to m150 branch
+- iOS audio session: `.playAndRecord` is now kept until the audio engine stops, so muting the microphone no longer resets the category and disables Apple's echo cancellation mid-call; `.mixWithOthers` is no longer set on `.playAndRecord`, so publishing the microphone interrupts other apps' audio for the rest of the call (it remains set on `.playback`)
+- Resolve the default video degradation preference from the track source (camera maintains framerate, screen share maintains resolution, others balanced) and apply it to the backup codec's sender as well
+- Re-publishing local tracks after a reconnect or room move no longer stops at the first failing track: every track is attempted, each failure is logged with its source, and the first error is reported to the caller
+- The lossy data channel now drops the oldest queued payload under sustained backpressure (more than 2MB buffered) instead of queueing without bound; a dropped send returns normally, and drops are counted and logged
+- Replace SwiftProtobuf with a vendored nanopb-based protocol layer, reducing the SDK's app-size footprint by ~1.8 MB
+
+### Fixed
+
+- Screen sharing no longer fails to resume after a full reconnect: the capture source (iOS broadcast extension IPC, ReplayKit) is kept alive while the track is reattached to the new publisher
+- A backup video codec is re-published after a full reconnect again: unpublishing a track now clears its per-codec senders, which previously kept pointing at the destroyed peer connection and made the SDK believe the codec was still being sent
+- Re-publishing a video track after its capturer was stopped no longer times out waiting for dimensions: stopping a capturer now clears the cached dimensions, so a source that resumes at the same resolution resolves them again
+- Data channel crypto is now installed uniformly and scoped to the connection: rooms using legacy E2EEOptions can decrypt incoming encrypted packets, a reused Room no longer inherits the previous connection's released crypto manager, and the negotiated data channel max-message-size resets between sessions
+- Negotiate Opus stereo in the subscriber answer so stereo publications are no longer downmixed to mono when using custom renderers
+- Roll back the sender when publishing fails after the track was added on the server (e.g. audio frame-watcher timeout), so the SFU no longer keeps an orphaned track that the client cannot mute or unpublish
+- Received E2EE data messages reported their encryptionType as .none: decryption rewrites the packet's payload, which clears the field the type was read from
+- Request microphone permission while foregrounded before enabling recording
+- WebRTC calls that block on libwebrtc's threads now run on a dedicated RTC executor instead of Swift Concurrency's cooperative pool, so a stalled audio device or signaling thread no longer freezes the host app's tasks
+- Reliable data sends could stall permanently after a full reconnect that happened while more than 2MB was buffered, and a reliable replay after a full reconnect could emit stale sequence numbers
+- The v1 signal path's `join_request` parameter is now base64url-encoded instead of standard base64, so payloads containing `+` are no longer corrupted by receivers that parse the query as form-urlencoded, and it is gzip-compressed when that makes it smaller, keeping the WebSocket upgrade request inside a single TCP segment
+
 ## [2.16.0] - 2026-08-04
 
 ### Added

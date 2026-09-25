@@ -3,10 +3,12 @@
  * field descriptions created by nanopb_generator.py.
  */
 
-#ifndef PB_DECODE_H_INCLUDED
-#define PB_DECODE_H_INCLUDED
+/* LiveKit modification (marked per zlib license clause 2): lk_ file name,
+ * LK_ include guard and lk_ includes -- see lk_pb_config.h. */
+#ifndef LK_PB_DECODE_H_INCLUDED
+#define LK_PB_DECODE_H_INCLUDED
 
-#include "pb.h"
+#include "lk_pb.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,12 +56,24 @@ struct pb_istream_s
     /* Pointer to constant (ROM) string when decoding function returns error */
     const char *errmsg;
 #endif
+
+#ifdef PB_MESSAGE_NESTING_MAX
+    pb_size_t depth;
+#endif
 };
 
-#ifndef PB_NO_ERRMSG
-#define PB_ISTREAM_EMPTY {0,0,0,0}
+#ifdef PB_MESSAGE_NESTING_MAX
+# ifndef PB_NO_ERRMSG
+#  define PB_ISTREAM_EMPTY {0,0,0,0,0}
+# else
+#  define PB_ISTREAM_EMPTY {0,0,0,0}
+# endif
 #else
-#define PB_ISTREAM_EMPTY {0,0,0}
+# ifndef PB_NO_ERRMSG
+#  define PB_ISTREAM_EMPTY {0,0,0,0}
+# else
+#  define PB_ISTREAM_EMPTY {0,0,0}
+# endif
 #endif
 
 /***************************

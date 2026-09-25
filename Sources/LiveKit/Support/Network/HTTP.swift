@@ -39,27 +39,30 @@ class HTTP: NSObject {
 
         guard (200 ..< 300).contains(httpResponse.statusCode) else {
             let statusCode = httpResponse.statusCode
-            let rawBody = String(data: data, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-
-            let body = if let rawBody, !rawBody.isEmpty {
-                rawBody.count > 1024 ? String(rawBody.prefix(1024)) + "..." : rawBody
-            } else {
-                "(No server message)"
-            }
-
-            let details = "HTTP \(statusCode): \(body)"
+            let details = "HTTP \(statusCode): \(Self.describeErrorBody(data))"
 
             // Treat request/token/permissions issues as validation errors.
             // 404 is reported separately so the v1 → v0 RTC path fallback can
             // distinguish "endpoint doesn't exist" from other client errors.
+            // The status is carried on the error so callers can tell the Cloud
+            // region-pinning 403 from a terminal 401 without parsing `details`.
             if (400 ..< 500).contains(statusCode), statusCode != 429 {
-                throw LiveKitError(statusCode == 404 ? .serviceNotFound : .validation, message: details)
+                throw LiveKitError(statusCode == 404 ? .serviceNotFound : .validation,
+                                   message: details,
+                                   statusCode: statusCode)
             }
 
             // Treat server/rate-limit issues as network errors.
             throw LiveKitError(.network, message: "Validation endpoint error: \(details)")
         }
+    }
+
+    /// The server's message from an error response body, truncated for logging.
+    static func describeErrorBody(_ data: Data) -> String {
+        let rawBody = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let rawBody, !rawBody.isEmpty else { return "(No server message)" }
+        return rawBody.count > 1024 ? String(rawBody.prefix(1024)) + "..." : rawBody
     }
 
     static func prewarmConnection(url: URL) async {

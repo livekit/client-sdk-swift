@@ -19,7 +19,7 @@ let package = Package(
     ],
     dependencies: [
         // LK-Prefixed Dynamic WebRTC XCFramework
-        .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "150.7871.01"),
+        .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "150.7871.02"),
         .package(url: "https://github.com/livekit/livekit-uniffi-xcframework.git", exact: "0.1.9"),
         // Test-only: conformance oracle for the nanopb facades.
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.31.0"),
@@ -33,7 +33,7 @@ let package = Package(
             publicHeadersPath: "include",
             cSettings: [
                 // ABI defines live in include/lk_pb_config.h (included from
-                // pb.h); lk_abi_check.c guards them at compile time.
+                // lk_pb.h); lk_abi_check.c guards them at compile time.
                 .headerSearchPath("include"),
             ],
         ),
@@ -51,6 +51,7 @@ let package = Package(
                 .product(name: "LiveKitWebRTC", package: "webrtc-xcframework"),
                 .product(name: "LiveKitUniFFI", package: "livekit-uniffi-xcframework"),
                 "LiveKitNanopb",
+                "CLiveKitProto",
                 "LKObjCHelpers",
             ],
             exclude: [
