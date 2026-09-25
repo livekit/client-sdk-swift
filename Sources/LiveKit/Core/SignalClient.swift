@@ -405,7 +405,8 @@ private extension SignalClient {
 
         case let .answer(sd):
             let (rtcDescription, offerId) = sd.toRTCType()
-            _delegate.notifyDetached { await $0.signalClient(self, didReceiveAnswer: rtcDescription, offerId: offerId) }
+            let midToTrackSid = sd.midToTrackID.mapValues { Track.Sid(from: $0) }
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveAnswer: rtcDescription, offerId: offerId, midToTrackSid: midToTrackSid) }
 
         case let .offer(sd):
             let (rtcDescription, offerId) = sd.toRTCType()
