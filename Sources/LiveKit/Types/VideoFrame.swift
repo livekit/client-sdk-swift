@@ -232,11 +232,9 @@ extension VideoFrame {
         // This should never happen
         guard let buffer = buffer as? RTCCompatibleVideoBuffer else { fatalError("Buffer must be a RTCCompatibleVideoBuffer") }
 
-        let rtcFrame = LKRTCVideoFrame(buffer: buffer.toRTCType(),
-                                       rotation: rotation.toRTCType(),
-                                       timeStampNs: timeStampNs)
-        rtcFrame.timeStamp = Int32(bitPattern: rtpTimestamp)
-        return rtcFrame
+        return LKRTCVideoFrame(buffer: buffer.toRTCType(),
+                               rotation: rotation.toRTCType(),
+                               timeStampNs: timeStampNs)
     }
 }
 
