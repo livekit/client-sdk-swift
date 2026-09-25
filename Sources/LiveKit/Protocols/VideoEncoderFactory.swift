@@ -44,5 +44,9 @@ public protocol VideoEncoderFactory: Sendable {
     var supportedCodecs: [VideoCodecInfo] { get }
 
     /// Creates an encoder for the given codec, or `nil` if the codec is not supported.
+    ///
+    /// Only called with a codec matching one of ``supportedCodecs`` the way WebRTC
+    /// compares them: H264 must agree on profile and `packetization-mode`, while
+    /// the level in `profile-level-id` may differ.
     func createEncoder(for codec: VideoCodecInfo) -> (any VideoEncoder)?
 }

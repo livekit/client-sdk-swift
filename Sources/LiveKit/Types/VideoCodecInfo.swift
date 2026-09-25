@@ -73,6 +73,22 @@ extension VideoCodecInfo {
         return VideoCodecInfo(name: name, parameters: parameters)
     }
 
+    /// Whether `other` is the same codec as far as WebRTC is concerned, mirroring
+    /// `SdpVideoFormat::IsSameCodec`: H264 formats must also agree on profile and
+    /// packetization mode, while the level may differ.
+    func isSameCodec(as other: VideoCodecInfo) -> Bool {
+        guard name.caseInsensitiveCompare(other.name) == .orderedSame else { return false }
+        guard name.uppercased() == "H264" else { return true }
+        return h264Profile == other.h264Profile &&
+            parameters[Self.packetizationModeParameter, default: "0"] ==
+            other.parameters[Self.packetizationModeParameter, default: "0"]
+    }
+
+    /// Absent means constrained baseline level 3.1, as in WebRTC.
+    private var h264Profile: LKRTCH264Profile {
+        LKRTCH264ProfileLevelId(hexString: parameters["profile-level-id"] ?? "42e01f").profile
+    }
+
     init(fromRTCType rtcType: LKRTCVideoCodecInfo) {
         self.init(name: rtcType.name,
                   parameters: rtcType.parameters)

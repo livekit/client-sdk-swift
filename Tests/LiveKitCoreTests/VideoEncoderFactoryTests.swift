@@ -214,6 +214,26 @@ struct VideoEncoderFactoryTests {
         #expect(geometry.2 >= 16)
     }
 
+    @Test(arguments: [
+        // Same profile at another level is still the same codec.
+        (["profile-level-id": "42e034", "packetization-mode": "1"], true),
+        // Absent profile-level-id means constrained baseline, as in WebRTC.
+        (["packetization-mode": "1"], true),
+        // A VideoToolbox high profile format the factory never advertised.
+        (["profile-level-id": "640c1f", "packetization-mode": "1"], false),
+        // Same profile but single NAL unit mode.
+        (["profile-level-id": "42e01f", "packetization-mode": "0"], false),
+    ])
+    func adapterMatchesH264ByProfileAndPacketizationMode(parameters: [String: String], accepted: Bool) {
+        let constrainedBaseline = VideoCodecInfo(name: "H264",
+                                                 parameters: ["profile-level-id": "42e01f", "packetization-mode": "1"])
+        let adapter = VideoEncoderFactoryAdapter(factory: FakeFactory([constrainedBaseline]),
+                                                 supportedCodecs: [constrainedBaseline])
+
+        let negotiated = VideoCodecInfo(name: "H264", parameters: parameters)
+        #expect((adapter.createEncoder(negotiated.toRTCType()) != nil) == accepted)
+    }
+
     @Test func exclusiveFactoryAdvertisesOnlyCustomCodecs() {
         let adapter = VideoEncoderFactoryAdapter(factory: FakeFactory([h264]), supportedCodecs: [h264])
         // Called through the protocol, as WebRTC's native factory wrapper does.
