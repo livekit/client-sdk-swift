@@ -160,6 +160,10 @@ extension RTC {
 
         LKRTCInitializeSSL()
 
+        // WARP SPED (DTLS in STUN); SNAP is on `LKRTCConfiguration.liveKitDefault()`.
+        // Both engage only when the server negotiates them.
+        LKRTCPeerConnectionFactory.configureFieldTrials("\(kLKRTCFieldTrialIceHandshakeDtlsKey)/\(kLKRTCFieldTrialEnabledValue)/")
+
         Room.log("Initializing PeerConnectionFactory...")
 
         return LKRTCPeerConnectionFactory(audioDeviceModuleType: admType.toRTCType(),

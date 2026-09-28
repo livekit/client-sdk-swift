@@ -37,7 +37,7 @@ proto: protoc protoc-swift swift-sh nanopb-generator
 	@# --strip-path flattens #include directives; headers are copied flat below.
 	@# CocoaPods flattens all pod headers into one directory, so nested
 	@# includes ("google/protobuf/timestamp.pb.h") would break pod builds.
-	$(NANOPB_GEN) -I $(PROTO_STAGE) -D $(PROTO_STAGE)/out --strip-path \
+	$(NANOPB_GEN) -I $(PROTO_STAGE) -D $(PROTO_STAGE)/out --strip-path -L '#include "lk_pb.h"' \
 		--error-on-unmatched \
 		$(foreach p,$(CLIENT_PROTOS),$(PROTO_STAGE)/$(p).proto) \
 		$(PROTO_STAGE)/google/protobuf/timestamp.proto \

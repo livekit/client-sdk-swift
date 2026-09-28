@@ -39,6 +39,8 @@ public extension TimeInterval {
     // Matches client-sdk-rust (`DATA_BLOB_REQUEST_TIMEOUT`).
     static let defaultDataBlobRequest: Self = 5
     static let defaultCaptureStart: Self = 10
+    // Waits on a person choosing content in the system picker, not on the network.
+    static let defaultScreenSharePicker: Self = 60
 
     static let defaultParticipantActiveTimeout: Self = 10
 
