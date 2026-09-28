@@ -45,7 +45,14 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
             .toEncodeSafeDimensions()
 
         set(dimensions: targetDimensions)
-        return createReceiver()
+
+        guard createReceiver() else {
+            // Balance the counter so the capturer does not report `.started`
+            // while no capture is running.
+            _ = try? await stopCapture()
+            return false
+        }
+        return true
     }
 
     private func createReceiver() -> Bool {
