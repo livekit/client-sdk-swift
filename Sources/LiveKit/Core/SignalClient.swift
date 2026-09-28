@@ -106,6 +106,8 @@ actor SignalClient: Loggable {
         var messageLoopTask: AnyTaskCancellable?
         var lastJoinResponse: Livekit_JoinResponse?
         var rtt: Int64 = 0
+        // Set by cleanUp() until the next Join/ReconnectResponse; other messages in that window are dropped.
+        var isAwaitingConnectResponse: Bool = false
         // Tracks whether the v0 signal path (/rtc) is in use, set during connect.
         // Reused by reconnect to avoid re-attempting the unsupported v1 path.
         var useV0SignalPath: Bool = false
@@ -191,14 +193,16 @@ actor SignalClient: Loggable {
             let socket = try await WebSocket(url: url,
                                              token: token,
                                              connectOptions: connectOptions)
+            try Task.checkCancellation()
             connectSpan?.record("ws_open")
 
+            _state.mutate { $0.socket = socket }
             startDataTrackResponses()
 
             let messageLoopTask = socket.subscribe(self) { observer, message in
-                await observer.onWebSocketMessage(message)
+                await observer.onWebSocketMessage(message, from: socket)
             } onFailure: { observer, error in
-                await observer.cleanUp(withError: error)
+                await observer.onWebSocketFailure(error, from: socket)
             }
             _state.mutate { $0.messageLoopTask = messageLoopTask }
 
@@ -207,10 +211,7 @@ actor SignalClient: Loggable {
             try Task.checkCancellation()
 
             // Successfully connected
-            _state.mutate {
-                $0.socket = socket
-                $0.connectionState = .connected
-            }
+            _state.mutate { $0.connectionState = .connected }
 
             return connectResponse
         } catch let connectionError {
@@ -269,9 +270,8 @@ actor SignalClient: Loggable {
     //
     // Only called from:
     //   Room.cleanUp()           ──► forwards disconnectError
-    //   subscribe() onFailure    ──► WebSocket error (guarded: suppressed when
-    //                                Task.isCancelled, preventing stale loops
-    //                                from tearing down a new connection)
+    //   onWebSocketFailure()     ──► WebSocket error (guarded by cancellation
+    //                                and socket identity)
     func cleanUp(withError disconnectError: Error? = nil) async {
         log("withError: \(String(describing: disconnectError))")
 
@@ -284,6 +284,7 @@ actor SignalClient: Loggable {
             $0.socket?.close()
             $0.socket = nil
             $0.lastJoinResponse = nil
+            $0.isAwaitingConnectResponse = true
         }
 
         _connectResponseCompleter.reset(throwing: disconnectError)
@@ -336,8 +337,17 @@ private extension SignalClient {
         _dataTrackResponses = nil
         _dataTrackResponsesConsumer = nil
     }
+}
 
-    func onWebSocketMessage(_ message: URLSessionWebSocketTask.Message) async {
+extension SignalClient {
+    func onWebSocketFailure(_ error: Error, from socket: WebSocket) async {
+        guard !Task.isCancelled, _state.socket === socket else { return }
+        await cleanUp(withError: error)
+    }
+
+    func onWebSocketMessage(_ message: URLSessionWebSocketTask.Message, from socket: WebSocket) async {
+        guard !Task.isCancelled, _state.socket === socket else { return }
+
         // The server mirrors the client's encoding and this SDK has sent
         // binary protobuf since 2021, so text (JSON) frames cannot occur
         // against livekit-server; they are unsupported here (as on Android).
@@ -352,6 +362,8 @@ private extension SignalClient {
             log("Failed to decode SignalResponse", .warning)
             return
         }
+
+        guard passesConnectResponseGate(response) else { return }
 
         // Forward only what the data-track managers consume; every other message would cross the
         // FFI boundary just to be rejected as an unsupported type. `requestResponse` carries
@@ -371,7 +383,9 @@ private extension SignalClient {
             await self._responseQueue.processIfResumed((response: response, encoded: rawData), or: alwaysProcess)
         }
     }
+}
 
+private extension SignalClient {
     // swiftlint:disable:next cyclomatic_complexity function_body_length
     func _process(_ signalResponse: Livekit_SignalResponse, encoded: Data) async {
         guard connectionState != .disconnected else {
@@ -518,6 +532,22 @@ extension SignalClient {
     func resumeQueues() async {
         await _responseQueue.resume()
         await _requestQueue.resume()
+    }
+
+    /// Whether `response` passes the gate armed by `cleanUp()`; a Join/ReconnectResponse opens it.
+    func passesConnectResponseGate(_ response: Livekit_SignalResponse) -> Bool {
+        switch response.message {
+        case .join, .reconnect:
+            _state.mutate { $0.isAwaitingConnectResponse = false }
+        case .leave:
+            break
+        default:
+            if _state.isAwaitingConnectResponse {
+                log("Dropping signal message received before connect response: \(response.messageName)", .warning)
+                return false
+            }
+        }
+        return true
     }
 }
 
@@ -864,6 +894,13 @@ private extension SignalClient {
             try await _onPingIntervalTimer()
         }
         _pingIntervalTimer.restart()
+    }
+}
+
+extension Livekit_SignalResponse {
+    /// The oneof case name only; payloads can carry credentials (`refreshToken`).
+    var messageName: String {
+        message.flatMap { Mirror(reflecting: $0).children.first?.label } ?? "unknown"
     }
 }
 
