@@ -1,0 +1,1 @@
+patch type="fixed" "Fix `VideoView` ending up attached to the wrong track, or to none, after rapid `track` / `isEnabled` changes: the per-change renderer attach/detach tasks could reach the RTC executor out of order (#1139)"

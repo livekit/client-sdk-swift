@@ -328,18 +328,17 @@ public class VideoView: NativeView, Loggable {
             let trackDidUpdate = !Self.track(oldState.track as? VideoTrack, isEqualWith: newState.track as? VideoTrack)
 
             // Always add/remove from the track asynchronously - even when called on @MainActor.
-            // Both hop to the RTC executor: attaching a sink to a remote video track is a
-            // worker-thread BlockingCall, and a grid re-layout would otherwise fire one per tile
-            // onto the cooperative pool. One hop keeps remove-then-add ordered.
+            // Attaching a sink to a remote video track is a worker-thread BlockingCall, and a grid
+            // re-layout would otherwise fire one per tile onto the cooperative pool. The explicit
+            // @RTC closure is enqueued on the RTC executor in creation order (SE-0431); a bare
+            // Task would start on the concurrent pool first and reach the executor out of order.
             if trackDidUpdate || shouldRenderDidUpdate {
-                Task {
-                    await RTC.run {
-                        if let track = oldState.track as? VideoTrack {
-                            track.remove(videoRenderer: self)
-                        }
-                        if let track = newState.track as? VideoTrack, newState.shouldRender {
-                            track.add(videoRenderer: self)
-                        }
+                Task { @RTC in
+                    if let track = oldState.track as? VideoTrack {
+                        track.remove(videoRenderer: self)
+                    }
+                    if let track = newState.track as? VideoTrack, newState.shouldRender {
+                        track.add(videoRenderer: self)
                     }
                 }
             }
