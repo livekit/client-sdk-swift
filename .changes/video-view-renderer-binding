@@ -1,1 +1,1 @@
-patch type="fixed" "Fix `VideoView` ending up attached to the wrong track, or to none, after rapid `track` / `isEnabled` changes: the per-change renderer attach/detach tasks could reach the RTC executor out of order (#1139)"
+patch type="fixed" "Fix `VideoView` ending up attached to the wrong track, or to none, after rapid `track` / `isEnabled` changes; a burst of changes now costs at most one detach and one attach instead of one per change, and a view that is deallocated while attached detaches itself from the track (#1139)"

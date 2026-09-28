@@ -123,7 +123,7 @@ struct VideoViewBindingTests {
     }
 
     private nonisolated static func isAttached(_ view: VideoView, to track: LocalVideoTrack) -> Bool {
-        track.capturer.rendererDelegates.allDelegates.contains { $0 as AnyObject === view }
+        track.capturer.rendererDelegates.allDelegates.contains { $0 as AnyObject === view._binder.sink }
     }
 
     private static func feedFrames(to track: LocalVideoTrack, count: Int = 3) async throws {
