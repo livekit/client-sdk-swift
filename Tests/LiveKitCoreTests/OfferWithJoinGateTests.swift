@@ -26,6 +26,50 @@ import LiveKitTestSupport
 /// answer sent before the JoinResponse, the connect-response gate would drop it.
 @Suite(.serialized, .tags(.e2e))
 struct OfferWithJoinGateTests {
+    @Test(arguments: [false, true])
+    func staleSocketCallbacksAreIgnored(cancelled: Bool) async throws {
+        let client = SignalClient()
+        let url = try #require(URL(string: TestEnvironment.liveKitServerUrl()))
+        let token = try TestEnvironment.liveKitServerToken(for: UUID().uuidString, identity: "gate",
+                                                           canPublish: true, canPublishData: true,
+                                                           canPublishSources: [], canSubscribe: true)
+        do {
+            try await client.connect(url, token, adaptiveStream: false, singlePeerConnection: false)
+            let oldSocket = try #require(await client._state.socket)
+            try await client.connect(url, token, adaptiveStream: false, singlePeerConnection: false)
+            let currentSocket = try #require(await client._state.socket)
+            #expect(oldSocket !== currentSocket)
+
+            // Recreate the handshake window without racing the server's actual response.
+            await client._state.mutate { $0.isAwaitingConnectResponse = true }
+            let response = try Livekit_SignalResponse.with { $0.reconnect = .with { _ in } }.serializedData()
+            let error = LiveKitError(.network)
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    if cancelled {
+                        withUnsafeCurrentTask { $0?.cancel() }
+                    }
+                    let socket = cancelled ? currentSocket : oldSocket
+                    await client.onWebSocketMessage(.data(response), from: socket)
+                    await client.onWebSocketFailure(error, from: socket)
+                }
+            }
+
+            #expect(await client._state.isAwaitingConnectResponse, "stale callbacks must not open the gate")
+            #expect(await client._state.socket === currentSocket, "stale failures must not close the current socket")
+            #expect(await client.connectionState == .connected)
+
+            await client.onWebSocketMessage(.data(response), from: currentSocket)
+            #expect(await client._state.isAwaitingConnectResponse == false)
+            await client.onWebSocketFailure(error, from: currentSocket)
+            #expect(await client.connectionState == .disconnected)
+        } catch {
+            await client.cleanUp()
+            throw error
+        }
+        await client.cleanUp()
+    }
+
     @Test func answerToJoinBundledOfferPassesTheGate() async throws {
         let room = Room()
         let publisher = try await EarlyPublisher.make(room: room, rtcConfiguration: .liveKitDefault())
