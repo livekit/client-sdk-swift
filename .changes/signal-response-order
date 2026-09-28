@@ -1,0 +1,1 @@
+patch type="fixed" "Apply signal messages in the order the server sent them: responses no longer overtake each other between the socket and the room, so participant, track and room updates cannot settle on a stale value"
