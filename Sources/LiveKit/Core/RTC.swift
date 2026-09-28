@@ -18,11 +18,27 @@ import Foundation
 
 internal import LiveKitWebRTC
 
-private final class VideoEncoderFactory: LKRTCDefaultVideoEncoderFactory, @unchecked Sendable {}
+private final class DefaultVideoEncoderFactory: LKRTCDefaultVideoEncoderFactory, @unchecked Sendable {}
 
 private final class VideoDecoderFactory: LKRTCDefaultVideoDecoderFactory, @unchecked Sendable {}
 
 private final class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulcast, @unchecked Sendable {}
+
+/// Advertises only the custom factory's codecs. The simulcast factory adds VP9 and
+/// H265 to its list on its own, and with no built in fallback nothing could encode
+/// them, so a session negotiating one would publish no video.
+final class ExclusiveVideoEncoderFactory: LKRTCVideoEncoderFactorySimulcast, @unchecked Sendable {
+    private let adapter: VideoEncoderFactoryAdapter
+
+    init(adapter: VideoEncoderFactoryAdapter) {
+        self.adapter = adapter
+        super.init(primary: adapter, fallback: adapter)
+    }
+
+    override func supportedCodecs() -> [LKRTCVideoCodecInfo] {
+        adapter.supportedCodecs()
+    }
+}
 
 /// The SDK's WebRTC isolation domain, executed on its own dispatch queue.
 ///
@@ -127,19 +143,44 @@ extension RTC {
 extension RTC {
     struct PeerConnectionFactoryState {
         var isInitialized: Bool = false
+        // Set once `encoderFactory` has resolved and captured the custom factory.
+        // Kept separate from `isInitialized`, which audio configuration guards read
+        // to mean the peer connection factory and its audio module exist.
+        var isEncoderFactoryInitialized: Bool = false
         var admType: AudioDeviceModuleType = .audioEngine
         var bypassVoiceProcessing: Bool = false
+        var customVideoEncoderFactory: (any VideoEncoderFactory)?
+        // Snapshot of the factory's supported codecs taken when it was set, so the
+        // validated list is the one advertised and enforced.
+        var customVideoEncoderCodecs: [VideoCodecInfo] = []
+        var customVideoEncoderIsExclusive: Bool = false
     }
 
     static let pcFactoryState = StateSync(PeerConnectionFactoryState())
 
     // global properties are already lazy
 
+    // Must not be forced from inside a `pcFactoryState` read or mutate block, since
+    // its initializer mutates that state and `StateSync` is not reentrant.
     static let encoderFactory: LKRTCVideoEncoderFactory & Sendable = {
-        let encoderFactory = VideoEncoderFactory()
-        return VideoEncoderFactorySimulcast(primary: encoderFactory,
-                                            fallback: encoderFactory)
+        // Resolving this captures the custom factory for the life of the process,
+        // so it records that itself. Otherwise a set() after this point but before
+        // the peer connection factory would succeed and do nothing.
+        let (customFactory, customCodecs, isExclusive) = pcFactoryState.mutate {
+            $0.isEncoderFactoryInitialized = true
+            return ($0.customVideoEncoderFactory, $0.customVideoEncoderCodecs, $0.customVideoEncoderIsExclusive)
+        }
 
+        guard let customFactory else {
+            let defaultFactory = DefaultVideoEncoderFactory()
+            return VideoEncoderFactorySimulcast(primary: defaultFactory,
+                                                fallback: defaultFactory)
+        }
+        let adapter = VideoEncoderFactoryAdapter(factory: customFactory, supportedCodecs: customCodecs)
+        guard !isExclusive else { return ExclusiveVideoEncoderFactory(adapter: adapter) }
+        // A custom encoder reporting `.fallbackSoftware` falls back to the built in
+        // VideoToolbox encoders instead of failing the stream.
+        return VideoEncoderFactorySimulcast(primary: adapter, fallback: DefaultVideoEncoderFactory())
     }()
 
     static let decoderFactory: LKRTCVideoDecoderFactory & Sendable = VideoDecoderFactory()
