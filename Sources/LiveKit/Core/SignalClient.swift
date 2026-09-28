@@ -106,8 +106,8 @@ actor SignalClient: Loggable {
         var messageLoopTask: AnyTaskCancellable?
         var lastJoinResponse: Livekit_JoinResponse?
         var rtt: Int64 = 0
-        // Set while a reconnect awaits its Join/ReconnectResponse; other messages in that window are stale.
-        var isAwaitingReconnectResponse: Bool = false
+        // Set by cleanUp() until the next Join/ReconnectResponse; other messages in that window are dropped.
+        var isAwaitingConnectResponse: Bool = false
         // Tracks whether the v0 signal path (/rtc) is in use, set during connect.
         // Reused by reconnect to avoid re-attempting the unsupported v1 path.
         var useV0SignalPath: Bool = false
@@ -187,10 +187,7 @@ actor SignalClient: Loggable {
             log("Connecting with url: \(url)")
         }
 
-        _state.mutate {
-            $0.connectionState = (isReconnect ? .reconnecting : .connecting)
-            $0.isAwaitingReconnectResponse = isReconnect
-        }
+        _state.mutate { $0.connectionState = (isReconnect ? .reconnecting : .connecting) }
 
         do {
             let socket = try await WebSocket(url: url,
@@ -289,7 +286,7 @@ actor SignalClient: Loggable {
             $0.socket?.close()
             $0.socket = nil
             $0.lastJoinResponse = nil
-            $0.isAwaitingReconnectResponse = false
+            $0.isAwaitingConnectResponse = true
         }
 
         _connectResponseCompleter.reset(throwing: disconnectError)
@@ -359,17 +356,7 @@ private extension SignalClient {
             return
         }
 
-        switch response.message {
-        case .join, .reconnect:
-            _state.mutate { $0.isAwaitingReconnectResponse = false }
-        case .leave:
-            break
-        default:
-            if _state.isAwaitingReconnectResponse {
-                log("Dropping signal message received before reconnect response: \(String(describing: response.message))", .warning)
-                return
-            }
-        }
+        guard passesConnectResponseGate(response) else { return }
 
         // Forward only what the data-track managers consume; every other message would cross the
         // FFI boundary just to be rejected as an unsupported type. `requestResponse` carries
@@ -536,6 +523,22 @@ extension SignalClient {
     func resumeQueues() async {
         await _responseQueue.resume()
         await _requestQueue.resume()
+    }
+
+    /// Whether `response` passes the gate armed by `cleanUp()`; a Join/ReconnectResponse opens it.
+    func passesConnectResponseGate(_ response: Livekit_SignalResponse) -> Bool {
+        switch response.message {
+        case .join, .reconnect:
+            _state.mutate { $0.isAwaitingConnectResponse = false }
+        case .leave:
+            break
+        default:
+            if _state.isAwaitingConnectResponse {
+                log("Dropping signal message received before connect response: \(response.messageName)", .warning)
+                return false
+            }
+        }
+        return true
     }
 }
 
@@ -882,6 +885,13 @@ private extension SignalClient {
             try await _onPingIntervalTimer()
         }
         _pingIntervalTimer.restart()
+    }
+}
+
+extension Livekit_SignalResponse {
+    /// The oneof case name only; payloads can carry credentials (`refreshToken`).
+    var messageName: String {
+        message.flatMap { Mirror(reflecting: $0).children.first?.label } ?? "unknown"
     }
 }
 
