@@ -29,11 +29,13 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
     private var receiver: BroadcastReceiver?
 
     override func startCapture() async throws -> Bool {
+        log("startCapture at uptime \(ProcessInfo.processInfo.systemUptime)", .info)
         let didStart = try await super.startCapture()
 
         guard didStart else { return false }
 
         let bounds = await UIScreen.main.bounds
+        log("Screen bounds resolved at uptime \(ProcessInfo.processInfo.systemUptime)", .info)
         let width = bounds.size.width
         let height = bounds.size.height
         let screenDimension = Dimensions(width: Int32(width), height: Int32(height))
@@ -55,6 +57,7 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
         }
         Task { [weak self] in
             guard let self else { return }
+            log("Receiver task started at uptime \(ProcessInfo.processInfo.systemUptime)", .info)
             do {
                 let receiver = try await BroadcastReceiver(socketPath: socketPath)
                 log("Broadcast receiver connected", .debug)
