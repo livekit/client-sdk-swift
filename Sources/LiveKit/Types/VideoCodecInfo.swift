@@ -74,19 +74,41 @@ extension VideoCodecInfo {
     }
 
     /// Whether `other` is the same codec as far as WebRTC is concerned, mirroring
-    /// `SdpVideoFormat::IsSameCodec`: H264 formats must also agree on profile and
-    /// packetization mode, while the level may differ.
+    /// `SdpVideoFormat::IsSameCodec`: H264 matches profile and packetization mode;
+    /// H265 matches profile, tier and transmission mode. Levels may differ.
     func isSameCodec(as other: VideoCodecInfo) -> Bool {
         guard name.caseInsensitiveCompare(other.name) == .orderedSame else { return false }
-        guard name.uppercased() == "H264" else { return true }
-        return h264Profile == other.h264Profile &&
-            parameters[Self.packetizationModeParameter, default: "0"] ==
-            other.parameters[Self.packetizationModeParameter, default: "0"]
+        switch name.uppercased() {
+        case "H264":
+            return h264Profile == other.h264Profile &&
+                parameters[Self.packetizationModeParameter, default: "0"] ==
+                other.parameters[Self.packetizationModeParameter, default: "0"]
+        case "H265":
+            guard let profileTier = h265ProfileTier, let otherProfileTier = other.h265ProfileTier else { return false }
+            return profileTier == otherProfileTier &&
+                parameters["tx-mode", default: "SRST"].caseInsensitiveCompare(
+                    other.parameters["tx-mode", default: "SRST"],
+                ) == .orderedSame
+        default:
+            return true
+        }
     }
 
     /// Absent means constrained baseline level 3.1, as in WebRTC.
     private var h264Profile: LKRTCH264Profile {
         LKRTCH264ProfileLevelId(hexString: parameters["profile-level-id"] ?? "42e01f").profile
+    }
+
+    /// Mirrors WebRTC's H265 SDP parser, including rejecting invalid levels even
+    /// though valid level differences do not affect codec matching.
+    private var h265ProfileTier: (Int, Int)? {
+        guard let profile = Int(parameters["profile-id", default: "1"]), (1 ... 11).contains(profile),
+              let tier = Int(parameters["tier-flag", default: "0"]), (0 ... 1).contains(tier),
+              let level = Int(parameters["level-id", default: "93"]),
+              [30, 60, 63, 90, 93, 120, 123, 150, 153, 156, 180, 183, 186].contains(level),
+              tier == 0 || level > 93
+        else { return nil }
+        return (profile, tier)
     }
 
     init(fromRTCType rtcType: LKRTCVideoCodecInfo) {

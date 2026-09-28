@@ -234,6 +234,34 @@ struct VideoEncoderFactoryTests {
         #expect((adapter.createEncoder(negotiated.toRTCType()) != nil) == accepted)
     }
 
+    @Test(arguments: [
+        (["profile-id": "2"], ["profile-id": "1"], false),
+        (["profile-id": "2"], [:], false),
+        (["profile-id": "2", "level-id": "120"], ["profile-id": "2", "level-id": "93"], true),
+        ([:], [:], true),
+        ([:], ["profile-id": "1", "tier-flag": "0", "level-id": "93", "tx-mode": "SRST"], true),
+        (["tier-flag": "1", "level-id": "120"], ["tier-flag": "0", "level-id": "120"], false),
+        (["tier-flag": "1", "level-id": "120"], ["tier-flag": "1", "level-id": "150"], true),
+        ([:], ["tx-mode": "MRST"], false),
+        ([:], ["tx-mode": "srst"], true),
+        (["profile-id": "01", "tier-flag": "00"], [:], true),
+        (["profile-id": "invalid"], ["profile-id": "invalid"], false),
+        (["profile-id": "0"], ["profile-id": "0"], false),
+        (["tier-flag": "2"], ["tier-flag": "2"], false),
+        (["level-id": "invalid"], [:], false),
+        (["tier-flag": "1"], ["tier-flag": "1"], false),
+    ])
+    func adapterMatchesH265FormatParameters(advertised: [String: String], negotiated: [String: String], accepted: Bool) {
+        let custom = VideoCodecInfo(name: "H265", parameters: advertised)
+        let requested = VideoCodecInfo(name: "h265", parameters: negotiated)
+        let adapter = VideoEncoderFactoryAdapter(factory: FakeFactory([custom]), supportedCodecs: [custom])
+
+        #expect((adapter.createEncoder(requested.toRTCType()) != nil) == accepted)
+        #expect(custom.isSameCodec(as: requested) == accepted)
+        #expect(requested.isSameCodec(as: custom) == accepted)
+        #expect(adapter.supportedCodecs().map { VideoCodecInfo(fromRTCType: $0) } == [custom])
+    }
+
     @Test func exclusiveFactoryAdvertisesOnlyCustomCodecs() {
         let adapter = VideoEncoderFactoryAdapter(factory: FakeFactory([h264]), supportedCodecs: [h264])
         // Called through the protocol, as WebRTC's native factory wrapper does.
