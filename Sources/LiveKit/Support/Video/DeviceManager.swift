@@ -75,6 +75,7 @@ class DeviceManager: @unchecked Sendable, Loggable {
     }
 
     private let _state = StateSync(State())
+    private let discoveryQueue = DispatchQueue(label: "io.livekit.device.discovery", qos: .utility)
 
     private let _devicesCompleter = AsyncCompleter<[AVCaptureDevice]>(label: "devices", defaultTimeout: 10)
     private let _multiCamDeviceSetsCompleter = AsyncCompleter<[Set<AVCaptureDevice>]>(label: "multiCamDeviceSets", defaultTimeout: 10)
@@ -100,7 +101,7 @@ class DeviceManager: @unchecked Sendable, Loggable {
         log()
 
         #if os(iOS) || os(macOS) || os(tvOS)
-        DispatchQueue.global(qos: .utility).async { [weak self] in
+        discoveryQueue.async { [weak self] in
             guard let self else { return }
             _devicesObservation = discoverySession.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
                 guard let self else { return }
@@ -122,7 +123,7 @@ class DeviceManager: @unchecked Sendable, Loggable {
         #endif
 
         #if os(iOS) || os(tvOS)
-        DispatchQueue.global(qos: .utility).async { [weak self] in
+        discoveryQueue.async { [weak self] in
             guard let self else { return }
             _multiCamDeviceSetsObservation = discoverySession.observe(\.supportedMultiCamDeviceSets, options: [.initial, .new]) { [weak self] _, value in
                 guard let self else { return }
