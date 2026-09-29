@@ -1,0 +1,1 @@
+patch type="fixed" "Fix the backup codec of a screen share being encoded with the camera encoding instead of `screenShareEncoding`"
