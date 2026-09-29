@@ -1,0 +1,1 @@
+patch type="fixed" "A pre-connect audio buffer flush that raced a late send could hand the flushed stream to a room that was not connected; the flush now takes the stream before the recorder reports stopped, so the late send is the silent no-op it is documented to be"
