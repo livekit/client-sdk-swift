@@ -1,0 +1,51 @@
+name: Publish Podspec
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to publish the podspec from (branch, tag, or SHA)
+        default: main
+        type: string
+      dry_run:
+        description: Validate only, don't open a PR
+        default: true
+        type: boolean
+      spec_repo:
+        description: Specs repo to publish to
+        default: livekit/podspecs
+        type: string
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish Podspec
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.ref || 'main' }}
+
+      - name: Setup CocoaPods
+        uses: maxim-lobanov/setup-cocoapods@v1
+        with:
+          version: latest
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Publish
+        uses: livekit/publish-cocoapod-action@7e1b9d48d43446c86faa74c16044f1afe7fe3f2c # main
+        with:
+          podspec: LiveKitClient.podspec
+          spec-repo: ${{ github.event.inputs.spec_repo || 'livekit/podspecs' }}
+          dry-run: ${{ github.event_name != 'release' && github.event.inputs.dry_run || 'false' }}
+          token: ${{ secrets.PODSPECS_PAT }}
