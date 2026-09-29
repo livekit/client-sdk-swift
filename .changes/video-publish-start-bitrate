@@ -1,0 +1,1 @@
+minor type="changed" "Published video starts at 90% of its target bitrate (capped at 1 Mbps, or 3 Mbps for a screen share) instead of libwebrtc's ~300 kbps default. The value is set once per publisher connection through the peer connection's bitrate API, as the largest among the sending video tracks, without editing the SDP"
