@@ -79,6 +79,19 @@ struct BroadcastScreenCapturerTests {
         }
     }
 
+    @Test func receiverFailureStopsCaptureAndIsNotCounted() async throws {
+        FileManager.default.changeCurrentDirectoryPath(FileManager.default.temporaryDirectory.path)
+        let socketPath = try #require(SocketPath("missing-\(UUID().uuidString.prefix(8))/b.sock"))
+        let capturer = await makeCapturer(socketPath: socketPath)
+
+        #expect(try await capturer.startCapture())
+        for _ in 0 ..< 50 where capturer.captureState != .stopped {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        #expect(capturer.captureState == .stopped)
+        #expect(BroadcastScreenCapturer.activeCount.copy() == 0)
+    }
+
     @Test func startWithoutSocketPathIsNotCounted() async throws {
         let capturer = await makeCapturer(socketPath: nil)
 

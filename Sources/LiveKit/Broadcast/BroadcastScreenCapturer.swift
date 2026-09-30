@@ -56,38 +56,41 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
             log("Bundle settings improperly configured for screen capture", .error)
             return false
         }
-        let task = Task { [weak self] in
-            guard let self else { return }
-            do {
-                let receiver = try await BroadcastReceiver(socketPath: socketPath)
-                log("Broadcast receiver connected", .debug)
-
-                try await withTaskCancellationHandler {
-                    if appAudio {
-                        try await receiver.enableAudio()
-                    }
-
-                    for try await sample in receiver.incomingSamples {
-                        switch sample {
-                        case let .image(buffer, rotation): capture(buffer, rotation: rotation)
-                        case let .audio(buffer): AudioManager.shared.mixer.capture(appAudio: buffer)
-                        }
-                    }
-                } onCancel: {
-                    receiver.close()
-                }
-                log("Broadcast receiver closed", .debug)
-            } catch {
-                log("Broadcast receiver error: \(error)", Task.isCancelled ? .debug : .error)
-            }
-            guard !Task.isCancelled else { return }
-            _ = try? await stopCapture()
+        let isAnotherActive = receiverTask.mutate { receiverTask in
+            receiverTask = Task { [weak self] in await self?.receive(from: socketPath) }.cancellable()
+            return Self.activeCount.mutate { $0 += 1; return $0 > 1 }
         }
-        receiverTask.mutate { $0 = task.cancellable() }
-        if Self.activeCount.mutate({ $0 += 1; return $0 > 1 }) {
+        if isAnotherActive {
             log("Another broadcast screen share is already active, only one of them receives the broadcast", .warning)
         }
         return true
+    }
+
+    private func receive(from socketPath: SocketPath) async {
+        do {
+            let receiver = try await BroadcastReceiver(socketPath: socketPath)
+            log("Broadcast receiver connected", .debug)
+
+            try await withTaskCancellationHandler {
+                if appAudio {
+                    try await receiver.enableAudio()
+                }
+
+                for try await sample in receiver.incomingSamples {
+                    switch sample {
+                    case let .image(buffer, rotation): capture(buffer, rotation: rotation)
+                    case let .audio(buffer): AudioManager.shared.mixer.capture(appAudio: buffer)
+                    }
+                }
+            } onCancel: {
+                receiver.close()
+            }
+            log("Broadcast receiver closed", .debug)
+        } catch {
+            log("Broadcast receiver error: \(error)", Task.isCancelled ? .debug : .error)
+        }
+        guard !Task.isCancelled else { return }
+        _ = try? await stopCapture()
     }
 
     override func stopCapture() async throws -> Bool {
