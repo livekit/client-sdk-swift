@@ -1,0 +1,1 @@
+patch type="fixed" "Fix a crash on WebRTC's signaling thread when a track was published while the room was disconnecting or reconnecting"
