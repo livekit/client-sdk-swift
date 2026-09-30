@@ -25,8 +25,11 @@ import UIKit
 internal import LiveKitWebRTC
 
 class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
+    static let activeCount = StateSync(0)
+
     private let appAudio: Bool
-    private var receiver: BroadcastReceiver?
+    private let socketPath: SocketPath?
+    private let receiverTask = StateSync<AnyTaskCancellable?>(nil)
 
     override func startCapture() async throws -> Bool {
         let didStart = try await super.startCapture()
@@ -49,17 +52,26 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
     }
 
     private func createReceiver() -> Bool {
-        guard let socketPath = BroadcastBundleInfo.socketPath else {
+        guard let socketPath else {
             log("Bundle settings improperly configured for screen capture", .error)
             return false
         }
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                let receiver = try await BroadcastReceiver(socketPath: socketPath)
-                log("Broadcast receiver connected", .debug)
-                self.receiver = receiver
+        let isAnotherActive = receiverTask.mutate { receiverTask in
+            receiverTask = Task { [weak self] in await self?.receive(from: socketPath) }.cancellable()
+            return Self.activeCount.mutate { $0 += 1; return $0 > 1 }
+        }
+        if isAnotherActive {
+            log("Another broadcast screen share is already active, only one of them receives the broadcast", .warning)
+        }
+        return true
+    }
 
+    private func receive(from socketPath: SocketPath) async {
+        do {
+            let receiver = try await BroadcastReceiver(socketPath: socketPath)
+            log("Broadcast receiver connected", .debug)
+
+            try await withTaskCancellationHandler {
                 if appAudio {
                     try await receiver.enableAudio()
                 }
@@ -70,13 +82,15 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
                     case let .audio(buffer): AudioManager.shared.mixer.capture(appAudio: buffer)
                     }
                 }
-                log("Broadcast receiver closed", .debug)
-            } catch {
-                log("Broadcast receiver error: \(error)", .error)
+            } onCancel: {
+                receiver.close()
             }
-            _ = try? await stopCapture()
+            log("Broadcast receiver closed", .debug)
+        } catch {
+            log("Broadcast receiver error: \(error)", Task.isCancelled ? .debug : .error)
         }
-        return true
+        guard !Task.isCancelled else { return }
+        _ = try? await stopCapture()
     }
 
     override func stopCapture() async throws -> Bool {
@@ -84,12 +98,23 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
 
         // Already stopped
         guard didStop else { return false }
-        receiver?.close()
+        if let task = receiverTask.mutate({ task in
+            let current = task
+            task = nil
+            return current
+        }) {
+            Self.activeCount.mutate { $0 -= 1 }
+            task.cancel()
+        }
         return true
     }
 
-    init(delegate: LKRTCVideoCapturerDelegate, options: ScreenShareCaptureOptions) {
+    init(delegate: LKRTCVideoCapturerDelegate,
+         options: ScreenShareCaptureOptions,
+         socketPath: SocketPath? = BroadcastBundleInfo.socketPath)
+    {
         appAudio = options.appAudio
+        self.socketPath = socketPath
         super.init(delegate: delegate, options: BufferCaptureOptions(from: options))
     }
 }
