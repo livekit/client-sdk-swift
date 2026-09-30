@@ -23,19 +23,27 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.tags(.broadcast))
+@Suite(.tags(.broadcast), .serialized)
 struct BroadcastScreenCapturerTests {
-    @Test func stopBeforeExtensionConnectsReleasesCapturer() async throws {
+    private func makeCapturer(socketPath: SocketPath?) async -> BroadcastScreenCapturer {
+        await RTC.run {
+            BroadcastScreenCapturer(delegate: RTC.createVideoSource(forScreenShare: true),
+                                    options: ScreenShareCaptureOptions(),
+                                    socketPath: socketPath)
+        }
+    }
+
+    private func temporarySocketPath() throws -> SocketPath {
         FileManager.default.changeCurrentDirectoryPath(FileManager.default.temporaryDirectory.path)
-        let socketPath = try #require(SocketPath(UUID().uuidString + ".sock"))
+        return try #require(SocketPath(UUID().uuidString + ".sock"))
+    }
+
+    @Test func stopBeforeExtensionConnectsReleasesCapturer() async throws {
+        let socketPath = try temporarySocketPath()
 
         weak var weakCapturer: BroadcastScreenCapturer?
         do {
-            let capturer = await RTC.run {
-                BroadcastScreenCapturer(delegate: RTC.createVideoSource(forScreenShare: true),
-                                        options: ScreenShareCaptureOptions(),
-                                        socketPath: socketPath)
-            }
+            let capturer = await makeCapturer(socketPath: socketPath)
             weakCapturer = capturer
             #expect(try await capturer.startCapture())
             #expect(try await capturer.stopCapture())
@@ -45,6 +53,39 @@ struct BroadcastScreenCapturerTests {
             try await Task.sleep(nanoseconds: 20_000_000)
         }
         #expect(weakCapturer == nil)
+    }
+
+    @Test func restartIsNotStoppedByPreviousReceiver() async throws {
+        let socketPath = try temporarySocketPath()
+        let capturer = await makeCapturer(socketPath: socketPath)
+
+        for _ in 0 ..< 20 {
+            #expect(try await capturer.startCapture())
+            try await Task.sleep(nanoseconds: 100_000_000)
+            #expect(try await capturer.stopCapture())
+            #expect(try await capturer.startCapture())
+            try await Task.sleep(nanoseconds: 50_000_000)
+            #expect(capturer.captureState == .started)
+
+            let uploader = Task { try await IPCChannel(connectingTo: socketPath) }
+            let timeout = Task {
+                try await Task.sleep(nanoseconds: 2_000_000_000)
+                uploader.cancel()
+            }
+            let channel = try await uploader.value
+            timeout.cancel()
+            channel.close()
+            _ = try await capturer.stopCapture()
+        }
+    }
+
+    @Test func startWithoutSocketPathIsNotCounted() async throws {
+        let capturer = await makeCapturer(socketPath: nil)
+
+        #expect(try await capturer.startCapture() == false)
+        #expect(BroadcastScreenCapturer.activeCount.copy() == 0)
+        _ = try await capturer.stopCapture()
+        #expect(BroadcastScreenCapturer.activeCount.copy() == 0)
     }
 }
 

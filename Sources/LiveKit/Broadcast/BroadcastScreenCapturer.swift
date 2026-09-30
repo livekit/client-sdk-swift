@@ -25,7 +25,7 @@ import UIKit
 internal import LiveKitWebRTC
 
 class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
-    private static let activeCount = StateSync(0)
+    static let activeCount = StateSync(0)
 
     private let appAudio: Bool
     private let socketPath: SocketPath?
@@ -35,10 +35,6 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
         let didStart = try await super.startCapture()
 
         guard didStart else { return false }
-
-        if Self.activeCount.mutate({ $0 += 1; return $0 > 1 }) {
-            log("Another broadcast screen share is already active, only one of them receives the broadcast", .warning)
-        }
 
         let bounds = await UIScreen.main.bounds
         let width = bounds.size.width
@@ -84,9 +80,13 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
             } catch {
                 log("Broadcast receiver error: \(error)", Task.isCancelled ? .debug : .error)
             }
+            guard !Task.isCancelled else { return }
             _ = try? await stopCapture()
         }
         receiverTask.mutate { $0 = task.cancellable() }
+        if Self.activeCount.mutate({ $0 += 1; return $0 > 1 }) {
+            log("Another broadcast screen share is already active, only one of them receives the broadcast", .warning)
+        }
         return true
     }
 
@@ -95,8 +95,14 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
 
         // Already stopped
         guard didStop else { return false }
-        Self.activeCount.mutate { $0 -= 1 }
-        receiverTask.copy()?.cancel()
+        if let task = receiverTask.mutate({ task in
+            let current = task
+            task = nil
+            return current
+        }) {
+            Self.activeCount.mutate { $0 -= 1 }
+            task.cancel()
+        }
         return true
     }
 
