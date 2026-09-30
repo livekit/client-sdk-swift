@@ -65,6 +65,7 @@ final class Transport: NSObject, Loggable {
     private var _onOffer: OnOfferBlock?
     private var _isRestartingIce: Bool = false
     private var _latestOfferId: UInt32 = 0
+    private var _isClosed: Bool = false
 
     // forbid direct access to PeerConnection; the box parks its blocking release on deinit
     private let _pcBox: RTCBox<LKRTCPeerConnection>
@@ -286,6 +287,8 @@ final class Transport: NSObject, Loggable {
     }
 
     func close() async {
+        _isClosed = true
+
         // prevent debounced negotiate firing
         await _debounce.cancel()
 
@@ -567,6 +570,10 @@ extension Transport {
     func addTransceiver(with track: LKRTCMediaStreamTrack,
                         transceiverInit: LKRTCRtpTransceiverInit) throws -> LKRTCRtpTransceiver
     {
+        guard !_isClosed else {
+            throw LiveKitError(.invalidState, message: "Transport is closed")
+        }
+
         guard let transceiver = _pc.addTransceiver(with: track, init: transceiverInit) else {
             throw LiveKitError(.webRTC, message: "Failed to add transceiver")
         }
@@ -577,6 +584,10 @@ extension Transport {
     func addTransceiver(ofType mediaType: LKRTCRtpMediaType,
                         transceiverInit: LKRTCRtpTransceiverInit) throws -> LKRTCRtpTransceiver
     {
+        guard !_isClosed else {
+            throw LiveKitError(.invalidState, message: "Transport is closed")
+        }
+
         guard let transceiver = _pc.addTransceiver(of: mediaType, init: transceiverInit) else {
             throw LiveKitError(.webRTC, message: "Failed to add transceiver")
         }
