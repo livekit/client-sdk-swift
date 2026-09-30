@@ -1,0 +1,1 @@
+patch type="fixed" "Fix the broadcast screen share capturer leaking when capture stops before the broadcast extension connects, and warn when more than one broadcast screen share is active"
