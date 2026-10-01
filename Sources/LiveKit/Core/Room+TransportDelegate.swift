@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitUniFFI
 import Foundation
 
 internal import LiveKitWebRTC
@@ -59,7 +60,8 @@ extension Room: TransportDelegate {
             if transport.isPrimary || (_state.hasPublished && transport.target == .publisher), pcState.isDisconnected {
                 Task {
                     do {
-                        try await startReconnect(reason: .transport)
+                        try await startReconnect(reason: .transport,
+                                                 telemetryReason: transport.target == .publisher ? .publisherFailed : .subscriberFailed)
                     } catch {
                         log("Failed calling startReconnect, error: \(error)", .error)
                     }

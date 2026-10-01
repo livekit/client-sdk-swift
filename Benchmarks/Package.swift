@@ -2,6 +2,13 @@
 
 import PackageDescription
 
+// Same switch as the SDK's manifests: `LIVEKIT_UNIFFI_PATH` points at a local livekit-uniffi build.
+let uniFFI: Package.Dependency = if let path = Context.environment["LIVEKIT_UNIFFI_PATH"] {
+    .package(name: "livekit-uniffi-xcframework", path: path)
+} else {
+    .package(url: "https://github.com/livekit/livekit-uniffi-xcframework.git", from: "0.0.1")
+}
+
 let package = Package(
     name: "LiveKitBenchmark",
     platforms: [
@@ -9,7 +16,7 @@ let package = Package(
     ],
     dependencies: [
         .package(name: "client-sdk-swift", path: "../"),
-        .package(url: "https://github.com/livekit/livekit-uniffi-xcframework.git", from: "0.0.1"),
+        uniFFI,
         // No Jemalloc trait: jemalloc's malloc-zone hooks crash on macOS 26 (malloc metrics read 0 without it)
         .package(url: "https://github.com/ordo-one/benchmark.git", from: "1.29.0", traits: []),
     ],
