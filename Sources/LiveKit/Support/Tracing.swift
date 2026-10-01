@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitUniFFI
 import Foundation
 
 // MARK: - Span
@@ -35,6 +36,9 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
     private var _ended = false
     private let _entries = StateSync<[Entry]>([])
 
+    /// The telemetry core's span for the same operation: every entry is also its checkpoint.
+    var telemetry: TelemetrySpan?
+
     public init(label: String) {
         self.label = label
         start = ProcessInfo.processInfo.systemUptime
@@ -44,6 +48,7 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
     public func end() {
         guard !_ended else { return }
         _ended = true
+        telemetry?.end(outcome: .ok, error: nil)
         onEnd?(self)
         onEnd = nil
     }
@@ -51,6 +56,7 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
     /// Record a named event. Timestamp defaults to now if not provided.
     public func record(_ event: String, at time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
         _entries.mutate { $0.append(Entry(label: event, time: time)) }
+        telemetry?.step(step: SpanStep(event))
     }
 
     @available(*, deprecated, renamed: "record(_:at:)")
@@ -93,6 +99,14 @@ public final class Span: @unchecked Sendable, Equatable, CustomStringConvertible
         }
         parts.append("total \((prev - start).rounded(to: 2))s")
         return "Span(\(label), \(parts.joined(separator: ", ")))"
+    }
+}
+
+extension Span {
+    /// End on an error: the telemetry span as cancelled or failed, then the tracer's handler.
+    func end(with error: Error) {
+        telemetry?.end(with: error)
+        end()
     }
 }
 
