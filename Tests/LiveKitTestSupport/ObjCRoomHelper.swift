@@ -92,6 +92,7 @@ public class LKObjCRoomHelper: NSObject {
             ingressAdmin: false,
             hidden: false,
             recorder: false,
+            agent: false,
         )
 
         return try tokenGenerator.sign()
