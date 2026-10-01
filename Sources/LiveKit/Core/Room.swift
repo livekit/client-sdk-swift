@@ -154,6 +154,31 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     let telemetryScope: TelemetryScope?
     private(set) var rtcTelemetry: RTCTelemetry?
 
+    /// Records an app event in this Room's telemetry, exported as `custom.<name>` next to the
+    /// SDK's own records, with this Room's correlation attributes.
+    ///
+    /// ```swift
+    /// room.emitTelemetryEvent("checkout.started", attributes: ["cart.items": "3"])
+    /// ```
+    ///
+    /// - Note: Names and keys up to 128 bytes, values up to 1024 bytes, at most 64 attributes and
+    ///   no `lk.` keys; anything else is dropped, never truncated.
+    public func emitTelemetryEvent(_ name: String, attributes: [String: String] = [:]) {
+        telemetryScope?.emitCustom(name: name, attributes: attributes)
+    }
+
+    /// Sets a correlation attribute on every telemetry record this Room captures from now on, to
+    /// match them with your own data (an order id, a tenant); `nil` removes it.
+    ///
+    /// ```swift
+    /// room.setTelemetryAttribute("app.order_id", value: order.id)
+    /// ```
+    ///
+    /// - Note: Same limits as ``emitTelemetryEvent(_:attributes:)``, at most 64 per Room.
+    public func setTelemetryAttribute(_ key: String, value: String?) {
+        telemetryScope?.setAttribute(key: key, value: value)
+    }
+
     /// The Room and local participant on every record from now on: at join, full reconnect, move
     /// and room update. Takes the Room's state explicitly so `onDidMutate` can call it.
     func updateTelemetryRoom(_ state: State? = nil) {
