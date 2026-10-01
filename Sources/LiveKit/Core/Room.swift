@@ -147,6 +147,23 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     var dataTracks: DataTracks? { _state.stage.connection?.dataTracks }
 
+    // MARK: - Telemetry
+
+    /// This Room's session in the telemetry pipeline, one trace for the Room's lifetime; `nil`
+    /// after ``LiveKitSDK/disableTelemetry()``.
+    let telemetryScope: TelemetryScope?
+    private(set) var rtcTelemetry: RTCTelemetry?
+
+    /// The Room and local participant on every record from now on: at join, full reconnect, move
+    /// and room update. Takes the Room's state explicitly so `onDidMutate` can call it.
+    func updateTelemetryRoom(_ state: State? = nil) {
+        let state = state ?? _state.copy()
+        telemetryScope?.setRoom(room: RoomIdentity(sid: state.sid?.stringValue,
+                                                   name: state.name,
+                                                   participantSid: localParticipant.sid?.stringValue,
+                                                   participantIdentity: localParticipant.identity?.stringValue))
+    }
+
     // MARK: - PreConnect
 
     lazy var preConnectBuffer = PreConnectAudioBuffer(room: self)
@@ -288,7 +305,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         _state = StateSync(State(connectOptions: connectOptions ?? ConnectOptions(),
                                  roomOptions: roomOptions ?? RoomOptions()))
 
+        telemetryScope = Telemetry.scope()
         super.init()
+        rtcTelemetry = telemetryScope.map { RTCTelemetry(room: self, scope: $0) }
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), ffi: \(LiveKitSDK.ffiVersion), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
 
@@ -313,6 +332,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
             guard let self else { return }
+
+            if newState.sid != oldState.sid || newState.name != oldState.name {
+                updateTelemetryRoom(newState)
+            }
+
+            // Telemetry uploads with this Room's latest token: at connect and on every refresh.
+            if let url = newState.providedUrl, let token = newState.token, token != oldState.token || url != oldState.providedUrl {
+                telemetryScope?.setServer(url: url.absoluteString, token: token)
+            }
 
             // sid updated
             if let sid = newState.sid, sid != oldState.sid {
@@ -417,13 +445,19 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         // options): carried across full reconnects, released on disconnect.
         let dependencies = ConnectionDependencies(room: self, roomOptions: state.roomOptions)
 
+        // One connect() = one attempt; reconnect cycles get their own spans.
+        let span = sharedTracing.beginSpan("connect")
+
         try _state.mutate {
             try $0.stage.begin(dependencies)
-            $0.connectSpan = sharedTracing.beginSpan("connect")
+            $0.connectSpan = span
             $0.providedUrl = providedUrl
             $0.token = token
             $0.connectionState = .connecting
         }
+        // Started once the attempt exists: the catch below is what ends it.
+        let attempt = telemetryScope?.start(name: .connect, parent: nil)
+        span.telemetry = attempt
 
         // E2EE wiring: delegate registration and cryptors, then the pairs' manager — installed
         // for every options branch: sending consults the manager's data-channel toggle, but
@@ -433,89 +467,96 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         subscriberDataChannel.set(e2eeManager: e2eeManager)
         publisherDataChannel.set(e2eeManager: e2eeManager)
 
-        var nextUrl = providedUrl
-        var nextRegion: RegionInfo?
-        let regionManager = await regionManager(for: providedUrl)
+        // Everything below runs inside the connect span: child spans nest under it and
+        // warn/error records emitted meanwhile point at it.
+        try await TelemetrySpan.$current.withValue(attempt) {
+            var nextUrl = providedUrl
+            var nextRegion: RegionInfo?
+            let regionManager = await regionManager(for: providedUrl)
 
-        if providedUrl.isCloud {
-            if let regionManager {
-                await regionManager.resetAttempts(onlyIfExhausted: true)
-
-                if let preparedRegion {
-                    nextUrl = preparedRegion.url
-                    nextRegion = preparedRegion
-                } else if await regionManager.shouldRequestSettings() {
-                    await regionManager.prepareSettingsFetch(token: token)
-                }
-            }
-        }
-
-        // Concurrent mic publish mode
-        let enableMicrophone = _state.connectOptions.enableMicrophone
-        log("Concurrent enable microphone mode: \(enableMicrophone)")
-
-        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = if let recorder = preConnectBuffer.recorder, recorder.isRecording {
-            Task {
-                recorder.track
-            }
-        } else if enableMicrophone {
-            Task {
-                let localTrack = await LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
-                                                                   reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
-                // Initializes AudioDeviceModule's recording
-                try await localTrack.start()
-                return localTrack
-            }
-        } else {
-            nil
-        }
-
-        do {
-            let finalUrl: URL
             if providedUrl.isCloud {
-                guard let regionManager else {
-                    throw LiveKitError(.onlyForCloud)
+                if let regionManager {
+                    await regionManager.resetAttempts(onlyIfExhausted: true)
+
+                    if let preparedRegion {
+                        nextUrl = preparedRegion.url
+                        nextRegion = preparedRegion
+                    } else if await regionManager.shouldRequestSettings() {
+                        await regionManager.prepareSettingsFetch(token: token)
+                    }
+                }
+            }
+
+            // Concurrent mic publish mode
+            let enableMicrophone = _state.connectOptions.enableMicrophone
+            log("Concurrent enable microphone mode: \(enableMicrophone)")
+
+            let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = if let recorder = preConnectBuffer.recorder, recorder.isRecording {
+                Task {
+                    recorder.track
+                }
+            } else if enableMicrophone {
+                Task {
+                    let localTrack = await LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
+                                                                       reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
+                    // Initializes AudioDeviceModule's recording
+                    try await localTrack.start()
+                    return localTrack
+                }
+            } else {
+                nil
+            }
+
+            do {
+                let finalUrl: URL
+                if providedUrl.isCloud {
+                    guard let regionManager else {
+                        throw LiveKitError(.onlyForCloud)
+                    }
+
+                    finalUrl = try await connectWithCloudRegionFailover(regionManager: regionManager,
+                                                                        initialUrl: nextUrl,
+                                                                        initialRegion: nextRegion,
+                                                                        token: token)
+                } else {
+                    try await fullConnectSequence(nextUrl, token)
+                    finalUrl = nextUrl
                 }
 
-                finalUrl = try await connectWithCloudRegionFailover(regionManager: regionManager,
-                                                                    initialUrl: nextUrl,
-                                                                    initialRegion: nextRegion,
-                                                                    token: token)
-            } else {
-                try await fullConnectSequence(nextUrl, token)
-                finalUrl = nextUrl
+                // Connect sequence successful
+                log("Connect sequence completed")
+                // Final check if cancelled, don't fire connected events
+                try Task.checkCancellation()
+
+                connectSpan?.record("room_connected")
+
+                _state.mutate {
+                    $0.connectedUrl = finalUrl
+                    $0.connectionState = .connected
+                }
+
+                connectSpan?.end()
+
+                // Publish mic if mic task was created (its own span: `lk.connect` has ended)
+                if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled {
+                    let track = try await createMicrophoneTrackTask.value
+                    try await TelemetrySpan.$current.withValue(nil) {
+                        try await localParticipant._publish(track: track, options: _state.roomOptions.defaultAudioPublishOptions.withPreconnect(preConnectBuffer.recorder?.isRecording ?? false))
+                    }
+                }
+            } catch {
+                log("Failed to resolve a region or connect: \(error)")
+                attempt?.end(with: error)
+                // Stop the track if it was created but not published
+                if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled,
+                   case let .success(track) = await createMicrophoneTrackTask.result
+                {
+                    try? await track.stop()
+                }
+
+                await cleanUp(withError: error)
+                throw error // Re-throw the original error
             }
-
-            // Connect sequence successful
-            log("Connect sequence completed")
-            // Final check if cancelled, don't fire connected events
-            try Task.checkCancellation()
-
-            connectSpan?.record("room_connected")
-
-            _state.mutate {
-                $0.connectedUrl = finalUrl
-                $0.connectionState = .connected
-            }
-
-            connectSpan?.end()
-
-            // Publish mic if mic task was created
-            if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled {
-                let track = try await createMicrophoneTrackTask.value
-                try await localParticipant._publish(track: track, options: _state.roomOptions.defaultAudioPublishOptions.withPreconnect(preConnectBuffer.recorder?.isRecording ?? false))
-            }
-        } catch {
-            log("Failed to resolve a region or connect: \(error)")
-            // Stop the track if it was created but not published
-            if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled,
-               case let .success(track) = await createMicrophoneTrackTask.result
-            {
-                try? await track.stop()
-            }
-
-            await cleanUp(withError: error)
-            throw error // Re-throw the original error
         }
 
         log("Connected to \(String(describing: self))", .info)
@@ -592,9 +633,14 @@ extension Room {
     // calls to create a new task context — silently breaking Task.isCancelled
     // propagation. This method is internal and never called from ObjC.
     @nonobjc func cleanUp(withError disconnectError: Error? = nil,
-                          isFullReconnect: Bool = false) async
+                          isFullReconnect: Bool = false,
+                          telemetryReason: DisconnectReason? = nil) async
     {
         log("withError: \(String(describing: disconnectError)), isFullReconnect: \(isFullReconnect)")
+        // connect() cleans up first too; only a session that existed has ended.
+        if !isFullReconnect, _state.connectionState != .disconnected {
+            telemetryScope?.disconnected(reason: telemetryReason ?? DisconnectReason(disconnectError))
+        }
 
         // Reap all in-flight RPCs with `recipientDisconnected` (1503). Runs before the
         // participant-state wipe so callers don't hang on the response timeout during

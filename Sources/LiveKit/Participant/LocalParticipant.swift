@@ -16,6 +16,7 @@
 
 // swiftlint:disable file_length
 
+internal import LiveKitUniFFI
 import Combine
 import Foundation
 
@@ -629,9 +630,32 @@ extension [Livekit_SubscribedQuality] {
 // MARK: - Private
 
 extension LocalParticipant {
+    /// One publish attempt = one `lk.publish` span, nested under whatever span the caller runs in
+    /// (the connect span for the pre-connect microphone).
     @discardableResult
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
+        let span = telemetryScope?.start(name: .publish, parent: TelemetrySpan.current.flatMap { $0.isEnded() ? nil : $0 })
+        if let spanTrack = SpanTrack(track) { span?.setTrack(track: spanTrack) }
+        do {
+            let publication = try await TelemetrySpan.$current.withValue(span) {
+                try await _publishTrack(track: track, options: options)
+            }
+            if let spanTrack = SpanTrack(publication, remoteIdentity: nil) { span?.setTrack(track: spanTrack) }
+            span?.end(outcome: .ok, error: nil)
+            // The core now waits for the track's first outbound reading: take its shorter interval.
+            if let room = _room { room.rtcTelemetry?.poll(room) }
+            return publication
+        } catch {
+            span?.end(with: error)
+            if let device = CaptureDevice(track.source), let reason = CaptureFailure(error) {
+                telemetryDeviceEvent(event: .captureFailed(device: device, reason: reason))
+            }
+            throw error
+        }
+    }
+
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    private func _publishTrack(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
         try checkPermissions(toPublish: track)
