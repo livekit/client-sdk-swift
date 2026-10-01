@@ -28,20 +28,25 @@ private let kIsAppExtension = Bundle.main.bundleURL.pathExtension == "appex"
 #if canImport(UIKit) && (os(iOS) || os(visionOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
 // Resolves `UIApplication.shared` through the Objective-C runtime because referencing it directly
 // does not compile with APPLICATION_EXTENSION_API_ONLY=YES, and consumers build this module into
-// broadcast upload extensions. An extension process is prohibited from calling `sharedApplication`,
-// so callers must be guarded by `kIsAppExtension`. The selector itself would resolve there too.
+// broadcast upload extensions. An extension process is prohibited from calling `sharedApplication`
+// (the selector itself would resolve there too), so this returns `nil` in one.
 @MainActor
-private func isApplicationForegrounded() -> Bool {
+func applicationState() -> UIApplication.State? {
     let selector = NSSelectorFromString("sharedApplication")
-    guard UIApplication.responds(to: selector),
+    guard !kIsAppExtension, UIApplication.responds(to: selector),
           let shared = UIApplication.perform(selector),
           let application = shared.takeUnretainedValue() as? UIApplication
-    else { return false }
+    else { return nil }
+    return application.applicationState
+}
+
+@MainActor
+private func isApplicationForegrounded() -> Bool {
     // Only .active can actually present the alert. While .inactive (locked screen, call banner, app
     // switcher, or launch before the scene activates) the system defers it, and requestAccess has no
     // cancellation-aware continuation, so waiting there would suspend the caller for as long as the
     // app stays inactive. Failing fast instead lets the next attempt prompt normally.
-    return application.applicationState == .active
+    applicationState() == .active
 }
 #endif
 
