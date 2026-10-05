@@ -40,9 +40,10 @@ struct FailedFullReconnectTests {
                 $0.token = "invalid"
             }
 
-            try? await room.startReconnect(reason: .debug, nextReconnectMode: .full)
+            try await room.startReconnect(reason: .debug, nextReconnectMode: .full)
 
             #expect(room.connectionState == .disconnected)
+            #expect(room._state.disconnectError != nil)
             #expect(room._state.isReconnectingWithMode == nil)
         }
     }
@@ -50,21 +51,31 @@ struct FailedFullReconnectTests {
     @Test func aFullAttemptFailingOnceIsRetriedAndRecovers() async throws {
         try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
             let room = rooms[0]
-            let validToken = room._state.token
+            let validToken = try #require(room._state.token)
             room._state.mutate {
                 $0.connectOptions = ConnectOptions(reconnectAttempts: 3,
-                                                   reconnectAttemptDelay: 1,
-                                                   reconnectMaxDelay: 1)
+                                                   reconnectAttemptDelay: 0.1,
+                                                   reconnectMaxDelay: 0.2)
                 $0.token = "invalid"
             }
-            // The first attempt fails; the server accepts the next one.
-            Task {
-                try await Task.sleep(nanoseconds: 300_000_000)
+
+            let signalState = await room.signalClient._state
+            let onDidMutate = signalState.onDidMutate
+            let failedAttempts = StateSync(0)
+            // Restore the token synchronously after rejection, before the next attempt can start.
+            signalState.onDidMutate = { state, oldState in
+                onDidMutate?(state, oldState)
+                guard oldState.connectionState == .reconnecting,
+                      state.connectionState == .disconnected,
+                      state.disconnectError != nil else { return }
+                failedAttempts.mutate { $0 += 1 }
                 room._state.mutate { $0.token = validToken }
             }
+            defer { signalState.onDidMutate = onDidMutate }
 
             try await room.startReconnect(reason: .debug, nextReconnectMode: .full)
 
+            #expect(failedAttempts.copy() == 1)
             #expect(room.connectionState == .connected)
             #expect(room._state.sid != nil, "a room reset by the full reconnect's clean-up is not a reconnected room")
         }
