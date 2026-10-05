@@ -494,9 +494,6 @@ extension Room {
                     return
                 }
 
-                // Full reconnect failed, give up
-                guard currentMode != .full else { return }
-
                 self.log("[Connect] Starting retry attempt \(currentAttempt)/\(totalAttempts) with mode: \(currentMode)")
 
                 // Try full reconnect for the final attempt
