@@ -467,6 +467,14 @@ public extension LocalParticipant {
         return try await _publishSerialRunner.run {
             let room = try self.requireRoom()
 
+            #if os(iOS)
+            // The broadcast can stop while this publish waits behind another one.
+            if forBroadcastStart, !BroadcastManager.shared.isBroadcasting {
+                self.log("Broadcast stopped before its screen share was published", .debug)
+                return nil
+            }
+            #endif
+
             // Try to get existing publication
             if let publication = self.getTrackPublication(source: source) as? LocalTrackPublication {
                 if enabled {
@@ -501,8 +509,7 @@ public extension LocalParticipant {
                     #if !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
                     if #available(iOS 27.0, *) {
                         let options = (captureOptions as? ScreenShareCaptureOptions) ?? defaultOptions
-                        let publishesRunningBroadcast = forBroadcastStart && BroadcastManager.shared.isBroadcasting
-                        if options.prefersScreenCaptureKit(roomDefaults: defaultOptions, publishesRunningBroadcast: publishesRunningBroadcast) {
+                        if options.prefersScreenCaptureKit(roomDefaults: defaultOptions, publishesRunningBroadcast: forBroadcastStart) {
                             if await IOSScreenCapturer.isAvailable {
                                 let track = await LocalVideoTrack.createIOSScreenShareTrack(options: options,
                                                                                             reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
