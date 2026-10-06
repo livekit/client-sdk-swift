@@ -553,9 +553,8 @@ extension LocalParticipant {
         // Should be already resolved...
         let dimensions = try await track.capturer.dimensionsCompleter.wait()
 
-        let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
-                                                    publishOptions: publishOptions,
-                                                    overrideVideoCodec: videoCodec)
+        let isScreenShare = track.source == .screenShareVideo
+        let encodings = Utils.computeVideoEncodings(dimensions: dimensions, publishOptions: publishOptions, isScreenShare: isScreenShare, overrideVideoCodec: videoCodec)
 
         log("[Publish/Backup] Using encodings: \(encodings.map { $0.toDebugString() }.joined(separator: ", "))")
 
@@ -573,8 +572,10 @@ extension LocalParticipant {
         let degradationPreference = publishOptions.degradationPreference.resolve(for: track.source)
         log("[Publish/Backup] set degradationPreference to \(degradationPreference)")
 
+        let startBitrateKbps = Transport.startBitrateKbps(for: encodings, isScreenShare: isScreenShare)
+
         let sender = try await RTC.run {
-            let transceiver = try publisher.addTransceiver(with: track.mediaTrack.raw, transceiverInit: transInit)
+            let transceiver = try publisher.addTransceiver(with: track.mediaTrack.raw, transceiverInit: transInit, startBitrateKbps: startBitrateKbps)
             try transceiver.set(preferredVideoCodec: videoCodec)
             transceiver.sender.set(degradationPreference: degradationPreference)
             return RTCSender(transceiver.sender)
@@ -766,9 +767,15 @@ extension LocalParticipant {
                                                          populatorFunc)
             }
 
+            let startBitrateKbps = (track is LocalVideoTrack)
+                ? Transport.startBitrateKbps(for: sendEncodings, isScreenShare: track.source == .screenShareVideo)
+                : nil
+
             let negotiateFunc: @Sendable () async throws -> Void = {
                 let sender = try await RTC.run {
-                    let transceiver = try publisher.addTransceiver(with: track.mediaTrack.raw, transceiverInit: transInit)
+                    let transceiver = try publisher.addTransceiver(with: track.mediaTrack.raw,
+                                                                   transceiverInit: transInit,
+                                                                   startBitrateKbps: startBitrateKbps)
 
                     if track is LocalVideoTrack {
                         let publishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions

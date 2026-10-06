@@ -118,4 +118,87 @@ struct TransportMungeFallbackTests {
             #expect(applied.sdp != offer.sdp)
         }
     }
+
+    // MARK: - Video start bitrate
+
+    /// The premise of ``Transport/mungeVideoStartBitrate(_:kbpsBySenderId:)`` on the shipped
+    /// libwebrtc: a send-only video section's `a=msid` carries the sender id (so the map is
+    /// keyed correctly), and a local offer with `x-google-start-bitrate` set on every video
+    /// codec — inserted for VP8, appended for the rest — is accepted rather than rejected as
+    /// disallowed munging.
+    @Test func acceptsVideoStartBitrateMungedIntoTheOffer() async throws {
+        try await withTransport { transport in
+            let transceiverInit = LKRTCRtpTransceiverInit()
+            transceiverInit.direction = .sendOnly
+            let senderId = try await RTC.run {
+                try transport.addTransceiver(ofType: .video, transceiverInit: transceiverInit).sender.senderId
+            }
+            let offer = try await transport.createOffer()
+
+            let video = try #require(SDP(parsing: offer.sdp).mediaSections.first { $0.mediaType == "video" })
+            #expect(video.msidTrackId == senderId)
+
+            let munged = Transport.mungeVideoStartBitrate(offer.sdp, kbpsBySenderId: [senderId: 1000])
+            let applied = try await transport.set(localDescription: offer, munging: [
+                { Transport.mungeVideoStartBitrate($0, kbpsBySenderId: [senderId: 1000]) },
+            ])
+
+            #expect(munged != offer.sdp)
+            #expect(applied.sdp == munged)
+            let appliedVideo = try #require(SDP(parsing: applied.sdp).mediaSections.first { $0.mediaType == "video" })
+            for rtpmap in appliedVideo.rtpmaps where Transport.startBitrateCodecs.contains(rtpmap.codec.uppercased()) {
+                #expect(appliedVideo.fmtp(forPayload: rtpmap.payload)?.parameters.contains("x-google-start-bitrate=1000") == true,
+                        "payload \(rtpmap.payload) (\(rtpmap.codec))")
+            }
+        }
+    }
+
+    /// Two publisher offers on one peer connection, answered by a second local peer
+    /// connection: the first offer carrying local video gets the connection-level hint; a
+    /// later offer — here adding an uncapped screen-share sender with a larger hint — must
+    /// not write it again, since rewriting a changed value would restart libwebrtc's
+    /// converged bandwidth estimator.
+    @Test func writesTheStartBitrateOnceForTheConnection() async throws {
+        let answerer = try await Transport(config: .liveKitDefault(), target: .subscriber, primary: false, delegate: StubTransportDelegate())
+        defer { Task { await answerer.close() } }
+        try await withTransport { publisher in
+            let offers = OfferBox()
+            await publisher.set(onOfferBlock: { offer, _ in await offers.append(offer) })
+
+            func publishVideo(startBitrateKbps: Int) async throws -> String {
+                try await RTC.run {
+                    let transceiverInit = LKRTCRtpTransceiverInit()
+                    transceiverInit.direction = .sendOnly
+                    let track = RTC.createVideoTrack(source: RTC.createVideoSource(forScreenShare: false))
+                    return try publisher.addTransceiver(with: track, transceiverInit: transceiverInit, startBitrateKbps: startBitrateKbps).sender.senderId
+                }
+            }
+            func startBitrates(in sdp: String, senderId: String) throws -> Set<String> {
+                let section = try #require(SDP(parsing: sdp).mediaSections.first { $0.msidTrackId == senderId })
+                return Set(section.fmtps.flatMap(\.parameters).filter { $0.hasPrefix("x-google-start-bitrate=") })
+            }
+
+            let camera = try await publishVideo(startBitrateKbps: 1000)
+            try await publisher.createAndSendOffer()
+            let first = try #require(await offers.all.first)
+            #expect(try startBitrates(in: first.sdp, senderId: camera) == ["x-google-start-bitrate=1000"])
+
+            try await answerer.set(remoteDescription: first)
+            let answer = try await answerer.createAnswer()
+            try await answerer.set(localDescription: answer)
+            try await publisher.set(remoteDescription: answer)
+
+            let share = try await publishVideo(startBitrateKbps: 4500)
+            try await publisher.createAndSendOffer()
+            let second = try #require(await offers.all.last)
+            #expect(await offers.all.count == 2)
+            #expect(try startBitrates(in: second.sdp, senderId: share).isEmpty)
+            #expect(!second.sdp.contains("x-google-start-bitrate=4500"))
+        }
+    }
+
+    private actor OfferBox {
+        private(set) var all: [LKRTCSessionDescription] = []
+        func append(_ offer: LKRTCSessionDescription) { all.append(offer) }
+    }
 }
