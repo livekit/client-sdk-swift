@@ -319,10 +319,15 @@ public class LocalParticipant: Participant, @unchecked Sendable {
                 log("Will not publish screen share track", .debug)
                 return
             }
+            guard let room = _room, room.connectionState != .disconnected else {
+                log("Room is disconnected, will not publish screen share track", .warning)
+                return
+            }
             do {
                 try await setScreenShare(enabled: true)
             } catch {
                 log("Failed to enable screen share: \(error)", .error)
+                BroadcastManager.shared.requestStop()
             }
         }
     }
@@ -634,10 +639,10 @@ extension LocalParticipant {
     func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
-        try checkPermissions(toPublish: track)
-
         let room = try requireRoom()
         let publisher = try room.requirePublisher()
+
+        try checkPermissions(toPublish: track)
 
         guard _state.trackPublications.values.first(where: { $0.track === track }) == nil else {
             throw LiveKitError(.invalidState, message: "This track has already been published.")
