@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import CoreVideo
+import Foundation
 @testable import LiveKit
 import Testing
 #if canImport(LiveKitTestSupport)
@@ -108,7 +108,7 @@ struct RepublishTracksTests {
             let stopSpy = CapturerStopSpy()
             capturer?.add(delegate: stopSpy)
 
-            let feeder = capturer.map { startFeeding($0) }
+            let feeder = capturer?.startFeedingFrames(dimensions: Self.dimensions)
             defer { feeder?.cancel() }
 
             let publication = try await publish(track, in: room)
@@ -141,35 +141,5 @@ struct RepublishTracksTests {
         }
         let videoTrack = try #require(track as? LocalVideoTrack)
         return try await room.localParticipant.publish(videoTrack: videoTrack)
-    }
-
-    /// Publishing waits on the capturer's dimensions, and `stopCapture()` resets them, so a
-    /// re-published track needs frames to keep arriving for the whole test.
-    ///
-    /// Each tick also resolves the dimensions directly. `capture()` only *enqueues* onto the
-    /// capturer's processing queue — `set(dimensions:)` happens inside `_process`, and frames are
-    /// dropped outright while one is in flight — so on a loaded runner the publish gate can wait
-    /// out its whole `.defaultCaptureStart` budget for a value this test already knows. That is a
-    /// property of the capture pipeline, not of republishing, and it is what made this time out on
-    /// the video scenarios while the audio one never did.
-    private func startFeeding(_ capturer: BufferCapturer) -> Task<Void, Never> {
-        let dimensions = Self.dimensions
-        capturer.set(dimensions: dimensions)
-        return Task {
-            var pixelBuffer: CVPixelBuffer?
-            CVPixelBufferCreate(kCFAllocatorDefault,
-                                Int(dimensions.width),
-                                Int(dimensions.height),
-                                kCVPixelFormatType_32BGRA,
-                                nil,
-                                &pixelBuffer)
-            guard let pixelBuffer else { return }
-
-            while !Task.isCancelled {
-                capturer.capture(pixelBuffer)
-                capturer.set(dimensions: dimensions)
-                try? await Task.sleep(nanoseconds: 33_000_000)
-            }
-        }
     }
 }
