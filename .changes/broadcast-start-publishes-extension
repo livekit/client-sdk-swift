@@ -1,0 +1,1 @@
+patch type="fixed" "Publish a broadcast started from the broadcast extension on iOS 27 through Broadcast Capture instead of presenting the ScreenCaptureKit picker, which stopped broadcasts started from Control Center"

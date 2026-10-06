@@ -10,7 +10,7 @@ LiveKit supports three screen sharing modes on iOS. Which one applies depends on
 
 `setScreenShare(enabled: true)` picks the first mode that applies:
 
-1. **ScreenCaptureKit**, on iOS 27+ when `useScreenCaptureKit` is set (the default) and the system picker is available.
+1. **ScreenCaptureKit**, on iOS 27+ when `useScreenCaptureKit` is set (the default) and the system picker is available. When your extension starts a broadcast, for example from Control Center, the screen share published automatically for it uses Broadcast Capture instead.
 2. **Broadcast Capture**, when `useBroadcastExtension` is set — which it is by default once a Broadcast Upload Extension is configured.
 3. **In-app Capture** otherwise.
 
