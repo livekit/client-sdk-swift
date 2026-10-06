@@ -148,7 +148,7 @@ enum Comparator {
             }
             switch type {
             case "CChar", "Int8": type = "String"
-            case "pb_bytes_array_t": type = "Data"
+            case "lk_pb_bytes_array_t": type = "Data"
             default:
                 if type.hasPrefix("livekit_") { type = String(type.dropFirst("livekit_".count)) }
             }

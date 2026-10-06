@@ -1,13 +1,65 @@
 # iOS Screen Sharing
 
-LiveKit integrates with [ReplayKit](https://developer.apple.com/documentation/replaykit/) to support screen sharing on iOS.  There are two capture modes available depending on the requirements of your app:
+LiveKit supports three screen sharing modes on iOS. Which one applies depends on the OS version and your capture options:
 
-- **In-app Capture (default)**: Share screen content within your app.
-- **Broadcast Capture**: Share screen content even when users switch to other apps.
+| Mode | Availability | Captures other apps | Extra setup |
+| --- | --- | --- | --- |
+| **ScreenCaptureKit (default)** | iOS 27+ | Yes | None |
+| **Broadcast Capture** | All versions | Yes | Broadcast Upload Extension + app group |
+| **In-app Capture** | All versions | No | None |
+
+`setScreenShare(enabled: true)` picks the first mode that applies:
+
+1. **ScreenCaptureKit**, on iOS 27+ when `useScreenCaptureKit` is set (the default) and the system picker is available.
+2. **Broadcast Capture**, when `useBroadcastExtension` is set — which it is by default once a Broadcast Upload Extension is configured.
+3. **In-app Capture** otherwise.
+
+Modes 2 and 3 use [ReplayKit](https://developer.apple.com/documentation/replaykit/), whose screen sharing API is deprecated as of the iOS 27 SDK in favor of [ScreenCaptureKit](https://developer.apple.com/documentation/screencapturekit/).
+
+## ScreenCaptureKit Capture
+
+On iOS 27 and later, screen sharing runs entirely inside your app via `SCStream`. There is no Broadcast Upload Extension, no app group, and no separate process — the same code path macOS has always used.
+
+```swift
+try await room.localParticipant.setScreenShare(enabled: true)
+```
+
+The system presents `SCContentSharingPicker`, in which the user chooses what to share — your app, another app, or the whole screen. The call does not return until that choice is made and the stream has started, so a screen share track is never published for a share that never began. If the user dismisses the picker, the call throws a `LiveKitError` of type `.cancelled`; if they leave it open, it times out after 60 seconds. Calling `setScreenShare(enabled: false)` while the picker is still up cancels it, so stopping never has to wait for an answer.
+
+To capture only your own app's content, publish the track directly instead:
+
+```swift
+if #available(iOS 27.0, *) {
+    let track = await LocalVideoTrack.createIOSScreenShareTrack(captureCurrentApplicationOnly: true)
+    try await room.localParticipant.publish(videoTrack: track)
+}
+```
+
+### Background Capture
+
+System-wide capture continues while your app is backgrounded only if the app declares the appropriate background mode. Without it, the stream stops with `SCStreamError.Code.missingBackgroundMode`.
+
+### Application Audio
+
+Set `appAudio: true` in `ScreenShareCaptureOptions` to mix captured app audio into the local participant's microphone track, exactly as with Broadcast Capture (see *[Application Audio](#application-audio-1)* below).
+
+### Opting Out
+
+If you already ship a Broadcast Upload Extension and want to keep using it on iOS 27, turn ScreenCaptureKit off in your room defaults:
+
+```swift
+let roomOptions = RoomOptions(
+    defaultScreenShareCaptureOptions: ScreenShareCaptureOptions(
+        useScreenCaptureKit: false
+    )
+)
+```
+
+The two sections below then apply on every iOS version.
 
 ## In-app Capture
 
-By default, LiveKit uses the In-app Capture mode, which requires no additional configuration. In this mode, when screen sharing is enabled, the system prompts the user with a screen recording permission dialog. Once granted, a screen share track is published. The user only needs to grant permission once per app execution. Application audio is not supported with the In-App Capture mode.
+Below iOS 27 (or with `useScreenCaptureKit` set to `false`), LiveKit uses the In-app Capture mode by default, which requires no additional configuration. In this mode, when screen sharing is enabled, the system prompts the user with a screen recording permission dialog. Once granted, a screen share track is published. The user only needs to grant permission once per app execution. Application audio is not supported with the In-App Capture mode.
 
 <center>
     <figure>
@@ -41,6 +93,8 @@ flowchart LR
 ```
 
 ### Setup Guide
+
+<small>Note: On iOS 27 and later, a Broadcast Upload Extension is no longer needed for system-wide capture — see *[ScreenCaptureKit Capture](#screencapturekit-capture)* above. These steps remain for apps supporting earlier versions, or for apps that set `useScreenCaptureKit` to `false`.</small>
 
 To use the Broadcast Capture mode, follow these steps to add a Broadcast Upload Extension target and associated configuration to your project. You can also refer to the [example app](https://github.com/livekit-examples/swift-example), which demonstrates this configuration.
 

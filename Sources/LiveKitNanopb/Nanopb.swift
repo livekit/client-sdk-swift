@@ -95,9 +95,9 @@ package class NanopbAnyBox: @unchecked Sendable {
 /// parent going out of scope cannot free storage a live view points into.
 package final class NanopbBox<Storage>: NanopbAnyBox, @unchecked Sendable {
     package let pointer: UnsafeMutablePointer<Storage>
-    let descriptor: pb_msgdesc_t
+    let descriptor: lk_pb_msgdesc_t
 
-    package init(zero: Storage, descriptor: pb_msgdesc_t) {
+    package init(zero: Storage, descriptor: lk_pb_msgdesc_t) {
         // SAFETY: the allocation is address-stable for the box's lifetime,
         // which is what lets views point into it; `deinit` is the only place
         // it is torn down, and it pairs every step taken here.
@@ -164,7 +164,7 @@ package struct NanopbBuilder<S: NanopbStorage>: ~Copyable {
 package protocol NanopbStorage {
     init()
     /// nanopb's field table for this struct.
-    static var descriptor: pb_msgdesc_t { get }
+    static var descriptor: lk_pb_msgdesc_t { get }
     /// Shared, permanently-empty storage handed out for absent submessages.
     static var _emptyBox: NanopbBox<Self> { get }
     /// Rendering for logs.
@@ -227,7 +227,7 @@ package struct NanopbMsg<S: NanopbStorage>: Equatable, Hashable, @unchecked Send
 
     /// Forwarded so generated accessors can name the descriptor through the
     /// message type, as they did when every message was a nominal type.
-    package static var descriptor: pb_msgdesc_t { S.descriptor }
+    package static var descriptor: lk_pb_msgdesc_t { S.descriptor }
 
     package typealias Builder = NanopbBuilder<S>
 

@@ -20,7 +20,7 @@ import LiveKitNanopb
 #endif
 
 extension livekit_Room: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_Room_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_Room_msg }
     package static let _emptyBox = NanopbBox<livekit_Room>(zero: livekit_Room(), descriptor: livekit_Room_msg)
 }
 typealias Livekit_Room = NanopbMsg<livekit_Room>
@@ -174,7 +174,7 @@ extension Livekit_Room.Builder {
 }
 
 extension livekit_Codec: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_Codec_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_Codec_msg }
     package static let _emptyBox = NanopbBox<livekit_Codec>(zero: livekit_Codec(), descriptor: livekit_Codec_msg)
 }
 typealias Livekit_Codec = NanopbMsg<livekit_Codec>
@@ -205,7 +205,7 @@ extension Livekit_Codec.Builder {
 }
 
 extension livekit_ParticipantPermission: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_ParticipantPermission_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_ParticipantPermission_msg }
     package static let _emptyBox = NanopbBox<livekit_ParticipantPermission>(zero: livekit_ParticipantPermission(), descriptor: livekit_ParticipantPermission_msg)
 }
 typealias Livekit_ParticipantPermission = NanopbMsg<livekit_ParticipantPermission>
@@ -319,7 +319,7 @@ extension Livekit_ParticipantPermission.Builder {
 }
 
 extension livekit_ParticipantInfo: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_ParticipantInfo_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_ParticipantInfo_msg }
     package static let _emptyBox = NanopbBox<livekit_ParticipantInfo>(zero: livekit_ParticipantInfo(), descriptor: livekit_ParticipantInfo_msg)
 }
 typealias Livekit_ParticipantInfo = NanopbMsg<livekit_ParticipantInfo>
@@ -421,7 +421,7 @@ extension Livekit_ParticipantInfo {
 }
 
 extension livekit_ParticipantInfo_AttributesEntry: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_ParticipantInfo_AttributesEntry_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_ParticipantInfo_AttributesEntry_msg }
     package static let _emptyBox = NanopbBox<livekit_ParticipantInfo_AttributesEntry>(zero: livekit_ParticipantInfo_AttributesEntry(), descriptor: livekit_ParticipantInfo_AttributesEntry_msg)
 }
 typealias Livekit_ParticipantInfo_AttributesEntry = NanopbMsg<livekit_ParticipantInfo_AttributesEntry>
@@ -632,7 +632,7 @@ struct Livekit_Encryption_TypeEnum: NanopbEnum {
 }
 
 extension livekit_SimulcastCodecInfo: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SimulcastCodecInfo_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SimulcastCodecInfo_msg }
     package static let _emptyBox = NanopbBox<livekit_SimulcastCodecInfo>(zero: livekit_SimulcastCodecInfo(), descriptor: livekit_SimulcastCodecInfo_msg)
 }
 typealias Livekit_SimulcastCodecInfo = NanopbMsg<livekit_SimulcastCodecInfo>
@@ -706,7 +706,7 @@ extension Livekit_SimulcastCodecInfo.Builder {
 }
 
 extension livekit_TrackInfo: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_TrackInfo_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_TrackInfo_msg }
     package static let _emptyBox = NanopbBox<livekit_TrackInfo>(zero: livekit_TrackInfo(), descriptor: livekit_TrackInfo_msg)
 }
 typealias Livekit_TrackInfo = NanopbMsg<livekit_TrackInfo>
@@ -939,7 +939,7 @@ extension Livekit_TrackInfo.Builder {
 }
 
 extension livekit_DataTrackInfo: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataTrackInfo_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataTrackInfo_msg }
     package static let _emptyBox = NanopbBox<livekit_DataTrackInfo>(zero: livekit_DataTrackInfo(), descriptor: livekit_DataTrackInfo_msg)
 }
 typealias Livekit_DataTrackInfo = NanopbMsg<livekit_DataTrackInfo>
@@ -1015,25 +1015,25 @@ enum Livekit_DataTrackFrameEncoding_OneOf_Value: Equatable {
 }
 
 extension livekit_DataTrackFrameEncoding: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataTrackFrameEncoding_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataTrackFrameEncoding_msg }
     package static let _emptyBox = NanopbBox<livekit_DataTrackFrameEncoding>(zero: livekit_DataTrackFrameEncoding(), descriptor: livekit_DataTrackFrameEncoding_msg)
 }
 typealias Livekit_DataTrackFrameEncoding = NanopbMsg<livekit_DataTrackFrameEncoding>
 extension Livekit_DataTrackFrameEncoding {
     var value: Livekit_DataTrackFrameEncoding_OneOf_Value? {
         switch _pointer.pointee.which_value {
-        case pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag):
+        case lk_pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag):
             return .wellKnown(_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding } ?? Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding())
-        case pb_size_t(livekit_DataTrackFrameEncoding_custom_tag):
+        case lk_pb_size_t(livekit_DataTrackFrameEncoding_custom_tag):
             return .custom(lkString(_pointer.pointee.value.custom) ?? "")
         default: return nil
         }
     }
     var wellKnown: Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag) ? (_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding } ?? Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding()) : Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag) ? (_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding } ?? Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding()) : Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding()
     }
     var custom: String {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataTrackFrameEncoding_custom_tag) ? (lkString(_pointer.pointee.value.custom) ?? "") : ""
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataTrackFrameEncoding_custom_tag) ? (lkString(_pointer.pointee.value.custom) ?? "") : ""
     }
 
 }
@@ -1057,9 +1057,9 @@ extension Livekit_DataTrackFrameEncoding.Builder {
     var value: Livekit_DataTrackFrameEncoding_OneOf_Value? {
         get {
             switch _pointer.pointee.which_value {
-            case pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag):
+            case lk_pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag):
                 return .wellKnown(_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding } ?? Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding())
-            case pb_size_t(livekit_DataTrackFrameEncoding_custom_tag):
+            case lk_pb_size_t(livekit_DataTrackFrameEncoding_custom_tag):
                 return .custom(lkString(_pointer.pointee.value.custom) ?? "")
             default: return nil
             }
@@ -1068,36 +1068,36 @@ extension Livekit_DataTrackFrameEncoding.Builder {
             _clearValue()
             switch newValue {
             case let .wellKnown(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag)
                 lkSetEnumPointer(&_pointer.pointee.value.well_known, value)
             case let .custom(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataTrackFrameEncoding_custom_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataTrackFrameEncoding_custom_tag)
                 lkSetString(&_pointer.pointee.value.custom, value)
             case nil: break
             }
         }
     }
     var wellKnown: Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag) ? (_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding } ?? Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding()) : Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag) ? (_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding } ?? Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding()) : Livekit_DataTrackFrameEncoding_WellKnownFrameEncoding() }
         nonmutating set {
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag)
             lkSetEnumPointer(&_pointer.pointee.value.well_known, newValue)
         }
     }
     var custom: String {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataTrackFrameEncoding_custom_tag) ? (lkString(_pointer.pointee.value.custom) ?? "") : "" }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataTrackFrameEncoding_custom_tag) ? (lkString(_pointer.pointee.value.custom) ?? "") : "" }
         nonmutating set {
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataTrackFrameEncoding_custom_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataTrackFrameEncoding_custom_tag)
             lkSetString(&_pointer.pointee.value.custom, newValue)
         }
     }
     private func _clearValue() {
         switch _pointer.pointee.which_value {
-        case pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag):
+        case lk_pb_size_t(livekit_DataTrackFrameEncoding_well_known_tag):
             lkFree(&_pointer.pointee.value.well_known)
-        case pb_size_t(livekit_DataTrackFrameEncoding_custom_tag):
+        case lk_pb_size_t(livekit_DataTrackFrameEncoding_custom_tag):
             lkFree(&_pointer.pointee.value.custom)
         default: break
         }
@@ -1115,25 +1115,25 @@ enum Livekit_DataTrackSchemaEncoding_OneOf_Value: Equatable {
 }
 
 extension livekit_DataTrackSchemaEncoding: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataTrackSchemaEncoding_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataTrackSchemaEncoding_msg }
     package static let _emptyBox = NanopbBox<livekit_DataTrackSchemaEncoding>(zero: livekit_DataTrackSchemaEncoding(), descriptor: livekit_DataTrackSchemaEncoding_msg)
 }
 typealias Livekit_DataTrackSchemaEncoding = NanopbMsg<livekit_DataTrackSchemaEncoding>
 extension Livekit_DataTrackSchemaEncoding {
     var value: Livekit_DataTrackSchemaEncoding_OneOf_Value? {
         switch _pointer.pointee.which_value {
-        case pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag):
+        case lk_pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag):
             return .wellKnown(_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding } ?? Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding())
-        case pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag):
+        case lk_pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag):
             return .custom(lkString(_pointer.pointee.value.custom) ?? "")
         default: return nil
         }
     }
     var wellKnown: Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag) ? (_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding } ?? Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding()) : Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag) ? (_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding } ?? Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding()) : Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding()
     }
     var custom: String {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag) ? (lkString(_pointer.pointee.value.custom) ?? "") : ""
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag) ? (lkString(_pointer.pointee.value.custom) ?? "") : ""
     }
 
 }
@@ -1157,9 +1157,9 @@ extension Livekit_DataTrackSchemaEncoding.Builder {
     var value: Livekit_DataTrackSchemaEncoding_OneOf_Value? {
         get {
             switch _pointer.pointee.which_value {
-            case pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag):
+            case lk_pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag):
                 return .wellKnown(_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding } ?? Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding())
-            case pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag):
+            case lk_pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag):
                 return .custom(lkString(_pointer.pointee.value.custom) ?? "")
             default: return nil
             }
@@ -1168,36 +1168,36 @@ extension Livekit_DataTrackSchemaEncoding.Builder {
             _clearValue()
             switch newValue {
             case let .wellKnown(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag)
                 lkSetEnumPointer(&_pointer.pointee.value.well_known, value)
             case let .custom(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag)
                 lkSetString(&_pointer.pointee.value.custom, value)
             case nil: break
             }
         }
     }
     var wellKnown: Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag) ? (_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding } ?? Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding()) : Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag) ? (_pointer.pointee.value.well_known.map { lkEnum($0.pointee) as Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding } ?? Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding()) : Livekit_DataTrackSchemaEncoding_WellKnownSchemaEncoding() }
         nonmutating set {
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag)
             lkSetEnumPointer(&_pointer.pointee.value.well_known, newValue)
         }
     }
     var custom: String {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag) ? (lkString(_pointer.pointee.value.custom) ?? "") : "" }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag) ? (lkString(_pointer.pointee.value.custom) ?? "") : "" }
         nonmutating set {
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag)
             lkSetString(&_pointer.pointee.value.custom, newValue)
         }
     }
     private func _clearValue() {
         switch _pointer.pointee.which_value {
-        case pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag):
+        case lk_pb_size_t(livekit_DataTrackSchemaEncoding_well_known_tag):
             lkFree(&_pointer.pointee.value.well_known)
-        case pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag):
+        case lk_pb_size_t(livekit_DataTrackSchemaEncoding_custom_tag):
             lkFree(&_pointer.pointee.value.custom)
         default: break
         }
@@ -1210,7 +1210,7 @@ extension Livekit_DataTrackSchemaEncoding.Builder {
 }
 
 extension livekit_DataTrackSchemaId: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataTrackSchemaId_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataTrackSchemaId_msg }
     package static let _emptyBox = NanopbBox<livekit_DataTrackSchemaId>(zero: livekit_DataTrackSchemaId(), descriptor: livekit_DataTrackSchemaId_msg)
 }
 typealias Livekit_DataTrackSchemaId = NanopbMsg<livekit_DataTrackSchemaId>
@@ -1241,7 +1241,7 @@ extension Livekit_DataTrackSchemaId.Builder {
 }
 
 extension livekit_DataTrackSubscriptionOptions: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataTrackSubscriptionOptions_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataTrackSubscriptionOptions_msg }
     package static let _emptyBox = NanopbBox<livekit_DataTrackSubscriptionOptions>(zero: livekit_DataTrackSubscriptionOptions(), descriptor: livekit_DataTrackSubscriptionOptions_msg)
 }
 typealias Livekit_DataTrackSubscriptionOptions = NanopbMsg<livekit_DataTrackSubscriptionOptions>
@@ -1267,25 +1267,25 @@ enum Livekit_DataBlobKey_OneOf_Key: Equatable {
 }
 
 extension livekit_DataBlobKey: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataBlobKey_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataBlobKey_msg }
     package static let _emptyBox = NanopbBox<livekit_DataBlobKey>(zero: livekit_DataBlobKey(), descriptor: livekit_DataBlobKey_msg)
 }
 typealias Livekit_DataBlobKey = NanopbMsg<livekit_DataBlobKey>
 extension Livekit_DataBlobKey {
     var key: Livekit_DataBlobKey_OneOf_Key? {
         switch _pointer.pointee.which_key {
-        case pb_size_t(livekit_DataBlobKey_generic_tag):
+        case lk_pb_size_t(livekit_DataBlobKey_generic_tag):
             return .generic(lkString(_pointer.pointee.key.generic) ?? "")
-        case pb_size_t(livekit_DataBlobKey_schema_id_tag):
+        case lk_pb_size_t(livekit_DataBlobKey_schema_id_tag):
             return .schemaID(_pointer.pointee.key.schema_id.map { Livekit_DataTrackSchemaId(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSchemaId._empty)
         default: return nil
         }
     }
     var generic: String {
-        _pointer.pointee.which_key == pb_size_t(livekit_DataBlobKey_generic_tag) ? (lkString(_pointer.pointee.key.generic) ?? "") : ""
+        _pointer.pointee.which_key == lk_pb_size_t(livekit_DataBlobKey_generic_tag) ? (lkString(_pointer.pointee.key.generic) ?? "") : ""
     }
     var schemaID: Livekit_DataTrackSchemaId {
-        _pointer.pointee.which_key == pb_size_t(livekit_DataBlobKey_schema_id_tag) ? (_pointer.pointee.key.schema_id.map { Livekit_DataTrackSchemaId(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSchemaId._empty) : Livekit_DataTrackSchemaId()
+        _pointer.pointee.which_key == lk_pb_size_t(livekit_DataBlobKey_schema_id_tag) ? (_pointer.pointee.key.schema_id.map { Livekit_DataTrackSchemaId(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSchemaId._empty) : Livekit_DataTrackSchemaId()
     }
 
 }
@@ -1294,9 +1294,9 @@ extension Livekit_DataBlobKey.Builder {
     var key: Livekit_DataBlobKey_OneOf_Key? {
         get {
             switch _pointer.pointee.which_key {
-            case pb_size_t(livekit_DataBlobKey_generic_tag):
+            case lk_pb_size_t(livekit_DataBlobKey_generic_tag):
                 return .generic(lkString(_pointer.pointee.key.generic) ?? "")
-            case pb_size_t(livekit_DataBlobKey_schema_id_tag):
+            case lk_pb_size_t(livekit_DataBlobKey_schema_id_tag):
                 return .schemaID(_pointer.pointee.key.schema_id.map { Livekit_DataTrackSchemaId(_sharing: $0, owner: _box) } ?? Livekit_DataTrackSchemaId._empty)
             default: return nil
             }
@@ -1309,37 +1309,37 @@ extension Livekit_DataBlobKey.Builder {
             _clearKey()
             switch newValue {
             case let .generic(value):
-                _pointer.pointee.which_key = pb_size_t(livekit_DataBlobKey_generic_tag)
+                _pointer.pointee.which_key = lk_pb_size_t(livekit_DataBlobKey_generic_tag)
                 lkSetString(&_pointer.pointee.key.generic, value)
             case let .schemaID(value):
-                _pointer.pointee.which_key = pb_size_t(livekit_DataBlobKey_schema_id_tag)
+                _pointer.pointee.which_key = lk_pb_size_t(livekit_DataBlobKey_schema_id_tag)
                 lkSetMessage(&_pointer.pointee.key.schema_id, value)
             case nil: break
             }
         }
     }
     var generic: String {
-        get { _pointer.pointee.which_key == pb_size_t(livekit_DataBlobKey_generic_tag) ? (lkString(_pointer.pointee.key.generic) ?? "") : "" }
+        get { _pointer.pointee.which_key == lk_pb_size_t(livekit_DataBlobKey_generic_tag) ? (lkString(_pointer.pointee.key.generic) ?? "") : "" }
         nonmutating set {
             _clearKey()
-            _pointer.pointee.which_key = pb_size_t(livekit_DataBlobKey_generic_tag)
+            _pointer.pointee.which_key = lk_pb_size_t(livekit_DataBlobKey_generic_tag)
             lkSetString(&_pointer.pointee.key.generic, newValue)
         }
     }
     var schemaID: Livekit_DataTrackSchemaId {
-        get { _pointer.pointee.which_key == pb_size_t(livekit_DataBlobKey_schema_id_tag) ? (_pointer.pointee.key.schema_id.map { Livekit_DataTrackSchemaId(_sharing: $0, owner: _box) } ?? Livekit_DataTrackSchemaId._empty) : Livekit_DataTrackSchemaId() }
+        get { _pointer.pointee.which_key == lk_pb_size_t(livekit_DataBlobKey_schema_id_tag) ? (_pointer.pointee.key.schema_id.map { Livekit_DataTrackSchemaId(_sharing: $0, owner: _box) } ?? Livekit_DataTrackSchemaId._empty) : Livekit_DataTrackSchemaId() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearKey()
-            _pointer.pointee.which_key = pb_size_t(livekit_DataBlobKey_schema_id_tag)
+            _pointer.pointee.which_key = lk_pb_size_t(livekit_DataBlobKey_schema_id_tag)
             lkSetMessage(&_pointer.pointee.key.schema_id, newValue)
         }
     }
     private func _clearKey() {
         switch _pointer.pointee.which_key {
-        case pb_size_t(livekit_DataBlobKey_generic_tag):
+        case lk_pb_size_t(livekit_DataBlobKey_generic_tag):
             lkFree(&_pointer.pointee.key.generic)
-        case pb_size_t(livekit_DataBlobKey_schema_id_tag):
+        case lk_pb_size_t(livekit_DataBlobKey_schema_id_tag):
             lkRelease(message: &_pointer.pointee.key.schema_id, Livekit_DataTrackSchemaId.descriptor)
         default: break
         }
@@ -1352,7 +1352,7 @@ extension Livekit_DataBlobKey.Builder {
 }
 
 extension livekit_DataBlob: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataBlob_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataBlob_msg }
     package static let _emptyBox = NanopbBox<livekit_DataBlob>(zero: livekit_DataBlob(), descriptor: livekit_DataBlob_msg)
 }
 typealias Livekit_DataBlob = NanopbMsg<livekit_DataBlob>
@@ -1383,7 +1383,7 @@ extension Livekit_DataBlob.Builder {
 }
 
 extension livekit_VideoLayer: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_VideoLayer_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_VideoLayer_msg }
     package static let _emptyBox = NanopbBox<livekit_VideoLayer>(zero: livekit_VideoLayer(), descriptor: livekit_VideoLayer_msg)
 }
 typealias Livekit_VideoLayer = NanopbMsg<livekit_VideoLayer>
@@ -1501,7 +1501,7 @@ enum Livekit_DataPacket_OneOf_Value: Equatable {
 }
 
 extension livekit_DataPacket: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataPacket_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataPacket_msg }
     package static let _emptyBox = NanopbBox<livekit_DataPacket>(zero: livekit_DataPacket(), descriptor: livekit_DataPacket_msg)
 }
 typealias Livekit_DataPacket = NanopbMsg<livekit_DataPacket>
@@ -1532,73 +1532,73 @@ extension Livekit_DataPacket {
 
     var value: Livekit_DataPacket_OneOf_Value? {
         switch _pointer.pointee.which_value {
-        case pb_size_t(livekit_DataPacket_user_tag):
+        case lk_pb_size_t(livekit_DataPacket_user_tag):
             return .user(_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _owner) } ?? Livekit_UserPacket._empty)
-        case pb_size_t(livekit_DataPacket_speaker_tag):
+        case lk_pb_size_t(livekit_DataPacket_speaker_tag):
             return .speaker(_pointer.pointee.value.speaker.map { Livekit_ActiveSpeakerUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ActiveSpeakerUpdate._empty)
-        case pb_size_t(livekit_DataPacket_sip_dtmf_tag):
+        case lk_pb_size_t(livekit_DataPacket_sip_dtmf_tag):
             return .sipDtmf(_pointer.pointee.value.sip_dtmf.map { Livekit_SipDTMF(_sharing: $0, owner: _owner) } ?? Livekit_SipDTMF._empty)
-        case pb_size_t(livekit_DataPacket_transcription_tag):
+        case lk_pb_size_t(livekit_DataPacket_transcription_tag):
             return .transcription(_pointer.pointee.value.transcription.map { Livekit_Transcription(_sharing: $0, owner: _owner) } ?? Livekit_Transcription._empty)
-        case pb_size_t(livekit_DataPacket_metrics_tag):
+        case lk_pb_size_t(livekit_DataPacket_metrics_tag):
             return .metrics(_pointer.pointee.value.metrics.map { Livekit_MetricsBatch(_sharing: $0, owner: _owner) } ?? Livekit_MetricsBatch._empty)
-        case pb_size_t(livekit_DataPacket_chat_message_tag):
+        case lk_pb_size_t(livekit_DataPacket_chat_message_tag):
             return .chatMessage(_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _owner) } ?? Livekit_ChatMessage._empty)
-        case pb_size_t(livekit_DataPacket_rpc_request_tag):
+        case lk_pb_size_t(livekit_DataPacket_rpc_request_tag):
             return .rpcRequest(_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _owner) } ?? Livekit_RpcRequest._empty)
-        case pb_size_t(livekit_DataPacket_rpc_ack_tag):
+        case lk_pb_size_t(livekit_DataPacket_rpc_ack_tag):
             return .rpcAck(_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _owner) } ?? Livekit_RpcAck._empty)
-        case pb_size_t(livekit_DataPacket_rpc_response_tag):
+        case lk_pb_size_t(livekit_DataPacket_rpc_response_tag):
             return .rpcResponse(_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse._empty)
-        case pb_size_t(livekit_DataPacket_stream_header_tag):
+        case lk_pb_size_t(livekit_DataPacket_stream_header_tag):
             return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Header._empty)
-        case pb_size_t(livekit_DataPacket_stream_chunk_tag):
+        case lk_pb_size_t(livekit_DataPacket_stream_chunk_tag):
             return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Chunk._empty)
-        case pb_size_t(livekit_DataPacket_stream_trailer_tag):
+        case lk_pb_size_t(livekit_DataPacket_stream_trailer_tag):
             return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Trailer._empty)
-        case pb_size_t(livekit_DataPacket_encrypted_packet_tag):
+        case lk_pb_size_t(livekit_DataPacket_encrypted_packet_tag):
             return .encryptedPacket(_pointer.pointee.value.encrypted_packet.map { Livekit_EncryptedPacket(_sharing: $0, owner: _owner) } ?? Livekit_EncryptedPacket._empty)
         default: return nil
         }
     }
     var user: Livekit_UserPacket {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_user_tag) ? (_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _owner) } ?? Livekit_UserPacket._empty) : Livekit_UserPacket()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_user_tag) ? (_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _owner) } ?? Livekit_UserPacket._empty) : Livekit_UserPacket()
     }
     var speaker: Livekit_ActiveSpeakerUpdate {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_speaker_tag) ? (_pointer.pointee.value.speaker.map { Livekit_ActiveSpeakerUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ActiveSpeakerUpdate._empty) : Livekit_ActiveSpeakerUpdate()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_speaker_tag) ? (_pointer.pointee.value.speaker.map { Livekit_ActiveSpeakerUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ActiveSpeakerUpdate._empty) : Livekit_ActiveSpeakerUpdate()
     }
     var sipDtmf: Livekit_SipDTMF {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_sip_dtmf_tag) ? (_pointer.pointee.value.sip_dtmf.map { Livekit_SipDTMF(_sharing: $0, owner: _owner) } ?? Livekit_SipDTMF._empty) : Livekit_SipDTMF()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_sip_dtmf_tag) ? (_pointer.pointee.value.sip_dtmf.map { Livekit_SipDTMF(_sharing: $0, owner: _owner) } ?? Livekit_SipDTMF._empty) : Livekit_SipDTMF()
     }
     var transcription: Livekit_Transcription {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_transcription_tag) ? (_pointer.pointee.value.transcription.map { Livekit_Transcription(_sharing: $0, owner: _owner) } ?? Livekit_Transcription._empty) : Livekit_Transcription()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_transcription_tag) ? (_pointer.pointee.value.transcription.map { Livekit_Transcription(_sharing: $0, owner: _owner) } ?? Livekit_Transcription._empty) : Livekit_Transcription()
     }
     var metrics: Livekit_MetricsBatch {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_metrics_tag) ? (_pointer.pointee.value.metrics.map { Livekit_MetricsBatch(_sharing: $0, owner: _owner) } ?? Livekit_MetricsBatch._empty) : Livekit_MetricsBatch()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_metrics_tag) ? (_pointer.pointee.value.metrics.map { Livekit_MetricsBatch(_sharing: $0, owner: _owner) } ?? Livekit_MetricsBatch._empty) : Livekit_MetricsBatch()
     }
     var chatMessage: Livekit_ChatMessage {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_chat_message_tag) ? (_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _owner) } ?? Livekit_ChatMessage._empty) : Livekit_ChatMessage()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_chat_message_tag) ? (_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _owner) } ?? Livekit_ChatMessage._empty) : Livekit_ChatMessage()
     }
     var rpcRequest: Livekit_RpcRequest {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_request_tag) ? (_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _owner) } ?? Livekit_RpcRequest._empty) : Livekit_RpcRequest()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_rpc_request_tag) ? (_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _owner) } ?? Livekit_RpcRequest._empty) : Livekit_RpcRequest()
     }
     var rpcAck: Livekit_RpcAck {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_ack_tag) ? (_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _owner) } ?? Livekit_RpcAck._empty) : Livekit_RpcAck()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_rpc_ack_tag) ? (_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _owner) } ?? Livekit_RpcAck._empty) : Livekit_RpcAck()
     }
     var rpcResponse: Livekit_RpcResponse {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse._empty) : Livekit_RpcResponse()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse._empty) : Livekit_RpcResponse()
     }
     var streamHeader: Livekit_DataStream_Header {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Header._empty) : Livekit_DataStream_Header()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Header._empty) : Livekit_DataStream_Header()
     }
     var streamChunk: Livekit_DataStream_Chunk {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Chunk._empty) : Livekit_DataStream_Chunk()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Chunk._empty) : Livekit_DataStream_Chunk()
     }
     var streamTrailer: Livekit_DataStream_Trailer {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Trailer._empty) : Livekit_DataStream_Trailer()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Trailer._empty) : Livekit_DataStream_Trailer()
     }
     var encryptedPacket: Livekit_EncryptedPacket {
-        _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_encrypted_packet_tag) ? (_pointer.pointee.value.encrypted_packet.map { Livekit_EncryptedPacket(_sharing: $0, owner: _owner) } ?? Livekit_EncryptedPacket._empty) : Livekit_EncryptedPacket()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_encrypted_packet_tag) ? (_pointer.pointee.value.encrypted_packet.map { Livekit_EncryptedPacket(_sharing: $0, owner: _owner) } ?? Livekit_EncryptedPacket._empty) : Livekit_EncryptedPacket()
     }
 
 }
@@ -1645,31 +1645,31 @@ extension Livekit_DataPacket.Builder {
     var value: Livekit_DataPacket_OneOf_Value? {
         get {
             switch _pointer.pointee.which_value {
-            case pb_size_t(livekit_DataPacket_user_tag):
+            case lk_pb_size_t(livekit_DataPacket_user_tag):
                 return .user(_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _box) } ?? Livekit_UserPacket._empty)
-            case pb_size_t(livekit_DataPacket_speaker_tag):
+            case lk_pb_size_t(livekit_DataPacket_speaker_tag):
                 return .speaker(_pointer.pointee.value.speaker.map { Livekit_ActiveSpeakerUpdate(_sharing: $0, owner: _box) } ?? Livekit_ActiveSpeakerUpdate._empty)
-            case pb_size_t(livekit_DataPacket_sip_dtmf_tag):
+            case lk_pb_size_t(livekit_DataPacket_sip_dtmf_tag):
                 return .sipDtmf(_pointer.pointee.value.sip_dtmf.map { Livekit_SipDTMF(_sharing: $0, owner: _box) } ?? Livekit_SipDTMF._empty)
-            case pb_size_t(livekit_DataPacket_transcription_tag):
+            case lk_pb_size_t(livekit_DataPacket_transcription_tag):
                 return .transcription(_pointer.pointee.value.transcription.map { Livekit_Transcription(_sharing: $0, owner: _box) } ?? Livekit_Transcription._empty)
-            case pb_size_t(livekit_DataPacket_metrics_tag):
+            case lk_pb_size_t(livekit_DataPacket_metrics_tag):
                 return .metrics(_pointer.pointee.value.metrics.map { Livekit_MetricsBatch(_sharing: $0, owner: _box) } ?? Livekit_MetricsBatch._empty)
-            case pb_size_t(livekit_DataPacket_chat_message_tag):
+            case lk_pb_size_t(livekit_DataPacket_chat_message_tag):
                 return .chatMessage(_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _box) } ?? Livekit_ChatMessage._empty)
-            case pb_size_t(livekit_DataPacket_rpc_request_tag):
+            case lk_pb_size_t(livekit_DataPacket_rpc_request_tag):
                 return .rpcRequest(_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _box) } ?? Livekit_RpcRequest._empty)
-            case pb_size_t(livekit_DataPacket_rpc_ack_tag):
+            case lk_pb_size_t(livekit_DataPacket_rpc_ack_tag):
                 return .rpcAck(_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _box) } ?? Livekit_RpcAck._empty)
-            case pb_size_t(livekit_DataPacket_rpc_response_tag):
+            case lk_pb_size_t(livekit_DataPacket_rpc_response_tag):
                 return .rpcResponse(_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _box) } ?? Livekit_RpcResponse._empty)
-            case pb_size_t(livekit_DataPacket_stream_header_tag):
+            case lk_pb_size_t(livekit_DataPacket_stream_header_tag):
                 return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Header._empty)
-            case pb_size_t(livekit_DataPacket_stream_chunk_tag):
+            case lk_pb_size_t(livekit_DataPacket_stream_chunk_tag):
                 return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Chunk._empty)
-            case pb_size_t(livekit_DataPacket_stream_trailer_tag):
+            case lk_pb_size_t(livekit_DataPacket_stream_trailer_tag):
                 return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Trailer._empty)
-            case pb_size_t(livekit_DataPacket_encrypted_packet_tag):
+            case lk_pb_size_t(livekit_DataPacket_encrypted_packet_tag):
                 return .encryptedPacket(_pointer.pointee.value.encrypted_packet.map { Livekit_EncryptedPacket(_sharing: $0, owner: _box) } ?? Livekit_EncryptedPacket._empty)
             default: return nil
             }
@@ -1694,192 +1694,192 @@ extension Livekit_DataPacket.Builder {
             _clearValue()
             switch newValue {
             case let .user(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_user_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_user_tag)
                 lkSetMessage(&_pointer.pointee.value.user, value)
             case let .speaker(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_speaker_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_speaker_tag)
                 lkSetMessage(&_pointer.pointee.value.speaker, value)
             case let .sipDtmf(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_sip_dtmf_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_sip_dtmf_tag)
                 lkSetMessage(&_pointer.pointee.value.sip_dtmf, value)
             case let .transcription(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_transcription_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_transcription_tag)
                 lkSetMessage(&_pointer.pointee.value.transcription, value)
             case let .metrics(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_metrics_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_metrics_tag)
                 lkSetMessage(&_pointer.pointee.value.metrics, value)
             case let .chatMessage(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_chat_message_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_chat_message_tag)
                 lkSetMessage(&_pointer.pointee.value.chat_message, value)
             case let .rpcRequest(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_request_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_rpc_request_tag)
                 lkSetMessage(&_pointer.pointee.value.rpc_request, value)
             case let .rpcAck(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_ack_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_rpc_ack_tag)
                 lkSetMessage(&_pointer.pointee.value.rpc_ack, value)
             case let .rpcResponse(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_response_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_rpc_response_tag)
                 lkSetMessage(&_pointer.pointee.value.rpc_response, value)
             case let .streamHeader(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_header_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_stream_header_tag)
                 lkSetMessage(&_pointer.pointee.value.stream_header, value)
             case let .streamChunk(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_chunk_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_stream_chunk_tag)
                 lkSetMessage(&_pointer.pointee.value.stream_chunk, value)
             case let .streamTrailer(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_trailer_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_stream_trailer_tag)
                 lkSetMessage(&_pointer.pointee.value.stream_trailer, value)
             case let .encryptedPacket(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_encrypted_packet_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_encrypted_packet_tag)
                 lkSetMessage(&_pointer.pointee.value.encrypted_packet, value)
             case nil: break
             }
         }
     }
     var user: Livekit_UserPacket {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_user_tag) ? (_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _box) } ?? Livekit_UserPacket._empty) : Livekit_UserPacket() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_user_tag) ? (_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _box) } ?? Livekit_UserPacket._empty) : Livekit_UserPacket() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_user_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_user_tag)
             lkSetMessage(&_pointer.pointee.value.user, newValue)
         }
     }
     var speaker: Livekit_ActiveSpeakerUpdate {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_speaker_tag) ? (_pointer.pointee.value.speaker.map { Livekit_ActiveSpeakerUpdate(_sharing: $0, owner: _box) } ?? Livekit_ActiveSpeakerUpdate._empty) : Livekit_ActiveSpeakerUpdate() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_speaker_tag) ? (_pointer.pointee.value.speaker.map { Livekit_ActiveSpeakerUpdate(_sharing: $0, owner: _box) } ?? Livekit_ActiveSpeakerUpdate._empty) : Livekit_ActiveSpeakerUpdate() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_speaker_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_speaker_tag)
             lkSetMessage(&_pointer.pointee.value.speaker, newValue)
         }
     }
     var sipDtmf: Livekit_SipDTMF {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_sip_dtmf_tag) ? (_pointer.pointee.value.sip_dtmf.map { Livekit_SipDTMF(_sharing: $0, owner: _box) } ?? Livekit_SipDTMF._empty) : Livekit_SipDTMF() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_sip_dtmf_tag) ? (_pointer.pointee.value.sip_dtmf.map { Livekit_SipDTMF(_sharing: $0, owner: _box) } ?? Livekit_SipDTMF._empty) : Livekit_SipDTMF() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_sip_dtmf_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_sip_dtmf_tag)
             lkSetMessage(&_pointer.pointee.value.sip_dtmf, newValue)
         }
     }
     var transcription: Livekit_Transcription {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_transcription_tag) ? (_pointer.pointee.value.transcription.map { Livekit_Transcription(_sharing: $0, owner: _box) } ?? Livekit_Transcription._empty) : Livekit_Transcription() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_transcription_tag) ? (_pointer.pointee.value.transcription.map { Livekit_Transcription(_sharing: $0, owner: _box) } ?? Livekit_Transcription._empty) : Livekit_Transcription() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_transcription_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_transcription_tag)
             lkSetMessage(&_pointer.pointee.value.transcription, newValue)
         }
     }
     var metrics: Livekit_MetricsBatch {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_metrics_tag) ? (_pointer.pointee.value.metrics.map { Livekit_MetricsBatch(_sharing: $0, owner: _box) } ?? Livekit_MetricsBatch._empty) : Livekit_MetricsBatch() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_metrics_tag) ? (_pointer.pointee.value.metrics.map { Livekit_MetricsBatch(_sharing: $0, owner: _box) } ?? Livekit_MetricsBatch._empty) : Livekit_MetricsBatch() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_metrics_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_metrics_tag)
             lkSetMessage(&_pointer.pointee.value.metrics, newValue)
         }
     }
     var chatMessage: Livekit_ChatMessage {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_chat_message_tag) ? (_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _box) } ?? Livekit_ChatMessage._empty) : Livekit_ChatMessage() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_chat_message_tag) ? (_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _box) } ?? Livekit_ChatMessage._empty) : Livekit_ChatMessage() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_chat_message_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_chat_message_tag)
             lkSetMessage(&_pointer.pointee.value.chat_message, newValue)
         }
     }
     var rpcRequest: Livekit_RpcRequest {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_request_tag) ? (_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _box) } ?? Livekit_RpcRequest._empty) : Livekit_RpcRequest() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_rpc_request_tag) ? (_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _box) } ?? Livekit_RpcRequest._empty) : Livekit_RpcRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_request_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_rpc_request_tag)
             lkSetMessage(&_pointer.pointee.value.rpc_request, newValue)
         }
     }
     var rpcAck: Livekit_RpcAck {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_ack_tag) ? (_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _box) } ?? Livekit_RpcAck._empty) : Livekit_RpcAck() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_rpc_ack_tag) ? (_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _box) } ?? Livekit_RpcAck._empty) : Livekit_RpcAck() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_ack_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_rpc_ack_tag)
             lkSetMessage(&_pointer.pointee.value.rpc_ack, newValue)
         }
     }
     var rpcResponse: Livekit_RpcResponse {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _box) } ?? Livekit_RpcResponse._empty) : Livekit_RpcResponse() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _box) } ?? Livekit_RpcResponse._empty) : Livekit_RpcResponse() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_rpc_response_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_rpc_response_tag)
             lkSetMessage(&_pointer.pointee.value.rpc_response, newValue)
         }
     }
     var streamHeader: Livekit_DataStream_Header {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Header._empty) : Livekit_DataStream_Header() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Header._empty) : Livekit_DataStream_Header() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_header_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_stream_header_tag)
             lkSetMessage(&_pointer.pointee.value.stream_header, newValue)
         }
     }
     var streamChunk: Livekit_DataStream_Chunk {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Chunk._empty) : Livekit_DataStream_Chunk() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Chunk._empty) : Livekit_DataStream_Chunk() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_chunk_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_stream_chunk_tag)
             lkSetMessage(&_pointer.pointee.value.stream_chunk, newValue)
         }
     }
     var streamTrailer: Livekit_DataStream_Trailer {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Trailer._empty) : Livekit_DataStream_Trailer() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Trailer._empty) : Livekit_DataStream_Trailer() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_stream_trailer_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_stream_trailer_tag)
             lkSetMessage(&_pointer.pointee.value.stream_trailer, newValue)
         }
     }
     var encryptedPacket: Livekit_EncryptedPacket {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_DataPacket_encrypted_packet_tag) ? (_pointer.pointee.value.encrypted_packet.map { Livekit_EncryptedPacket(_sharing: $0, owner: _box) } ?? Livekit_EncryptedPacket._empty) : Livekit_EncryptedPacket() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_DataPacket_encrypted_packet_tag) ? (_pointer.pointee.value.encrypted_packet.map { Livekit_EncryptedPacket(_sharing: $0, owner: _box) } ?? Livekit_EncryptedPacket._empty) : Livekit_EncryptedPacket() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_DataPacket_encrypted_packet_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_DataPacket_encrypted_packet_tag)
             lkSetMessage(&_pointer.pointee.value.encrypted_packet, newValue)
         }
     }
     private func _clearValue() {
         switch _pointer.pointee.which_value {
-        case pb_size_t(livekit_DataPacket_user_tag):
+        case lk_pb_size_t(livekit_DataPacket_user_tag):
             lkRelease(message: &_pointer.pointee.value.user, Livekit_UserPacket.descriptor)
-        case pb_size_t(livekit_DataPacket_speaker_tag):
+        case lk_pb_size_t(livekit_DataPacket_speaker_tag):
             lkRelease(message: &_pointer.pointee.value.speaker, Livekit_ActiveSpeakerUpdate.descriptor)
-        case pb_size_t(livekit_DataPacket_sip_dtmf_tag):
+        case lk_pb_size_t(livekit_DataPacket_sip_dtmf_tag):
             lkRelease(message: &_pointer.pointee.value.sip_dtmf, Livekit_SipDTMF.descriptor)
-        case pb_size_t(livekit_DataPacket_transcription_tag):
+        case lk_pb_size_t(livekit_DataPacket_transcription_tag):
             lkRelease(message: &_pointer.pointee.value.transcription, Livekit_Transcription.descriptor)
-        case pb_size_t(livekit_DataPacket_metrics_tag):
+        case lk_pb_size_t(livekit_DataPacket_metrics_tag):
             lkRelease(message: &_pointer.pointee.value.metrics, Livekit_MetricsBatch.descriptor)
-        case pb_size_t(livekit_DataPacket_chat_message_tag):
+        case lk_pb_size_t(livekit_DataPacket_chat_message_tag):
             lkRelease(message: &_pointer.pointee.value.chat_message, Livekit_ChatMessage.descriptor)
-        case pb_size_t(livekit_DataPacket_rpc_request_tag):
+        case lk_pb_size_t(livekit_DataPacket_rpc_request_tag):
             lkRelease(message: &_pointer.pointee.value.rpc_request, Livekit_RpcRequest.descriptor)
-        case pb_size_t(livekit_DataPacket_rpc_ack_tag):
+        case lk_pb_size_t(livekit_DataPacket_rpc_ack_tag):
             lkRelease(message: &_pointer.pointee.value.rpc_ack, Livekit_RpcAck.descriptor)
-        case pb_size_t(livekit_DataPacket_rpc_response_tag):
+        case lk_pb_size_t(livekit_DataPacket_rpc_response_tag):
             lkRelease(message: &_pointer.pointee.value.rpc_response, Livekit_RpcResponse.descriptor)
-        case pb_size_t(livekit_DataPacket_stream_header_tag):
+        case lk_pb_size_t(livekit_DataPacket_stream_header_tag):
             lkRelease(message: &_pointer.pointee.value.stream_header, Livekit_DataStream_Header.descriptor)
-        case pb_size_t(livekit_DataPacket_stream_chunk_tag):
+        case lk_pb_size_t(livekit_DataPacket_stream_chunk_tag):
             lkRelease(message: &_pointer.pointee.value.stream_chunk, Livekit_DataStream_Chunk.descriptor)
-        case pb_size_t(livekit_DataPacket_stream_trailer_tag):
+        case lk_pb_size_t(livekit_DataPacket_stream_trailer_tag):
             lkRelease(message: &_pointer.pointee.value.stream_trailer, Livekit_DataStream_Trailer.descriptor)
-        case pb_size_t(livekit_DataPacket_encrypted_packet_tag):
+        case lk_pb_size_t(livekit_DataPacket_encrypted_packet_tag):
             lkRelease(message: &_pointer.pointee.value.encrypted_packet, Livekit_EncryptedPacket.descriptor)
         default: break
         }
@@ -1892,7 +1892,7 @@ extension Livekit_DataPacket.Builder {
 }
 
 extension livekit_EncryptedPacket: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_EncryptedPacket_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_EncryptedPacket_msg }
     package static let _emptyBox = NanopbBox<livekit_EncryptedPacket>(zero: livekit_EncryptedPacket(), descriptor: livekit_EncryptedPacket_msg)
 }
 typealias Livekit_EncryptedPacket = NanopbMsg<livekit_EncryptedPacket>
@@ -1954,55 +1954,55 @@ enum Livekit_EncryptedPacketPayload_OneOf_Value: Equatable {
 }
 
 extension livekit_EncryptedPacketPayload: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_EncryptedPacketPayload_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_EncryptedPacketPayload_msg }
     package static let _emptyBox = NanopbBox<livekit_EncryptedPacketPayload>(zero: livekit_EncryptedPacketPayload(), descriptor: livekit_EncryptedPacketPayload_msg)
 }
 typealias Livekit_EncryptedPacketPayload = NanopbMsg<livekit_EncryptedPacketPayload>
 extension Livekit_EncryptedPacketPayload {
     var value: Livekit_EncryptedPacketPayload_OneOf_Value? {
         switch _pointer.pointee.which_value {
-        case pb_size_t(livekit_EncryptedPacketPayload_user_tag):
+        case lk_pb_size_t(livekit_EncryptedPacketPayload_user_tag):
             return .user(_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _owner) } ?? Livekit_UserPacket._empty)
-        case pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag):
+        case lk_pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag):
             return .chatMessage(_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _owner) } ?? Livekit_ChatMessage._empty)
-        case pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag):
+        case lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag):
             return .rpcRequest(_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _owner) } ?? Livekit_RpcRequest._empty)
-        case pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag):
+        case lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag):
             return .rpcAck(_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _owner) } ?? Livekit_RpcAck._empty)
-        case pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag):
+        case lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag):
             return .rpcResponse(_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse._empty)
-        case pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag):
+        case lk_pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag):
             return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Header._empty)
-        case pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag):
+        case lk_pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag):
             return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Chunk._empty)
-        case pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag):
+        case lk_pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag):
             return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Trailer._empty)
         default: return nil
         }
     }
     var user: Livekit_UserPacket {
-        _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_user_tag) ? (_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _owner) } ?? Livekit_UserPacket._empty) : Livekit_UserPacket()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_EncryptedPacketPayload_user_tag) ? (_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _owner) } ?? Livekit_UserPacket._empty) : Livekit_UserPacket()
     }
     var chatMessage: Livekit_ChatMessage {
-        _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag) ? (_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _owner) } ?? Livekit_ChatMessage._empty) : Livekit_ChatMessage()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag) ? (_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _owner) } ?? Livekit_ChatMessage._empty) : Livekit_ChatMessage()
     }
     var rpcRequest: Livekit_RpcRequest {
-        _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag) ? (_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _owner) } ?? Livekit_RpcRequest._empty) : Livekit_RpcRequest()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag) ? (_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _owner) } ?? Livekit_RpcRequest._empty) : Livekit_RpcRequest()
     }
     var rpcAck: Livekit_RpcAck {
-        _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag) ? (_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _owner) } ?? Livekit_RpcAck._empty) : Livekit_RpcAck()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag) ? (_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _owner) } ?? Livekit_RpcAck._empty) : Livekit_RpcAck()
     }
     var rpcResponse: Livekit_RpcResponse {
-        _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse._empty) : Livekit_RpcResponse()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _owner) } ?? Livekit_RpcResponse._empty) : Livekit_RpcResponse()
     }
     var streamHeader: Livekit_DataStream_Header {
-        _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Header._empty) : Livekit_DataStream_Header()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Header._empty) : Livekit_DataStream_Header()
     }
     var streamChunk: Livekit_DataStream_Chunk {
-        _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Chunk._empty) : Livekit_DataStream_Chunk()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Chunk._empty) : Livekit_DataStream_Chunk()
     }
     var streamTrailer: Livekit_DataStream_Trailer {
-        _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Trailer._empty) : Livekit_DataStream_Trailer()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_Trailer._empty) : Livekit_DataStream_Trailer()
     }
 
 }
@@ -2011,21 +2011,21 @@ extension Livekit_EncryptedPacketPayload.Builder {
     var value: Livekit_EncryptedPacketPayload_OneOf_Value? {
         get {
             switch _pointer.pointee.which_value {
-            case pb_size_t(livekit_EncryptedPacketPayload_user_tag):
+            case lk_pb_size_t(livekit_EncryptedPacketPayload_user_tag):
                 return .user(_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _box) } ?? Livekit_UserPacket._empty)
-            case pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag):
+            case lk_pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag):
                 return .chatMessage(_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _box) } ?? Livekit_ChatMessage._empty)
-            case pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag):
+            case lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag):
                 return .rpcRequest(_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _box) } ?? Livekit_RpcRequest._empty)
-            case pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag):
+            case lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag):
                 return .rpcAck(_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _box) } ?? Livekit_RpcAck._empty)
-            case pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag):
+            case lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag):
                 return .rpcResponse(_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _box) } ?? Livekit_RpcResponse._empty)
-            case pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag):
+            case lk_pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag):
                 return .streamHeader(_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Header._empty)
-            case pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag):
+            case lk_pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag):
                 return .streamChunk(_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Chunk._empty)
-            case pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag):
+            case lk_pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag):
                 return .streamTrailer(_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Trailer._empty)
             default: return nil
             }
@@ -2045,122 +2045,122 @@ extension Livekit_EncryptedPacketPayload.Builder {
             _clearValue()
             switch newValue {
             case let .user(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_user_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_EncryptedPacketPayload_user_tag)
                 lkSetMessage(&_pointer.pointee.value.user, value)
             case let .chatMessage(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag)
                 lkSetMessage(&_pointer.pointee.value.chat_message, value)
             case let .rpcRequest(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag)
                 lkSetMessage(&_pointer.pointee.value.rpc_request, value)
             case let .rpcAck(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag)
                 lkSetMessage(&_pointer.pointee.value.rpc_ack, value)
             case let .rpcResponse(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag)
                 lkSetMessage(&_pointer.pointee.value.rpc_response, value)
             case let .streamHeader(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag)
                 lkSetMessage(&_pointer.pointee.value.stream_header, value)
             case let .streamChunk(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag)
                 lkSetMessage(&_pointer.pointee.value.stream_chunk, value)
             case let .streamTrailer(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag)
                 lkSetMessage(&_pointer.pointee.value.stream_trailer, value)
             case nil: break
             }
         }
     }
     var user: Livekit_UserPacket {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_user_tag) ? (_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _box) } ?? Livekit_UserPacket._empty) : Livekit_UserPacket() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_EncryptedPacketPayload_user_tag) ? (_pointer.pointee.value.user.map { Livekit_UserPacket(_sharing: $0, owner: _box) } ?? Livekit_UserPacket._empty) : Livekit_UserPacket() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_user_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_EncryptedPacketPayload_user_tag)
             lkSetMessage(&_pointer.pointee.value.user, newValue)
         }
     }
     var chatMessage: Livekit_ChatMessage {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag) ? (_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _box) } ?? Livekit_ChatMessage._empty) : Livekit_ChatMessage() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag) ? (_pointer.pointee.value.chat_message.map { Livekit_ChatMessage(_sharing: $0, owner: _box) } ?? Livekit_ChatMessage._empty) : Livekit_ChatMessage() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag)
             lkSetMessage(&_pointer.pointee.value.chat_message, newValue)
         }
     }
     var rpcRequest: Livekit_RpcRequest {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag) ? (_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _box) } ?? Livekit_RpcRequest._empty) : Livekit_RpcRequest() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag) ? (_pointer.pointee.value.rpc_request.map { Livekit_RpcRequest(_sharing: $0, owner: _box) } ?? Livekit_RpcRequest._empty) : Livekit_RpcRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag)
             lkSetMessage(&_pointer.pointee.value.rpc_request, newValue)
         }
     }
     var rpcAck: Livekit_RpcAck {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag) ? (_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _box) } ?? Livekit_RpcAck._empty) : Livekit_RpcAck() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag) ? (_pointer.pointee.value.rpc_ack.map { Livekit_RpcAck(_sharing: $0, owner: _box) } ?? Livekit_RpcAck._empty) : Livekit_RpcAck() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag)
             lkSetMessage(&_pointer.pointee.value.rpc_ack, newValue)
         }
     }
     var rpcResponse: Livekit_RpcResponse {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _box) } ?? Livekit_RpcResponse._empty) : Livekit_RpcResponse() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag) ? (_pointer.pointee.value.rpc_response.map { Livekit_RpcResponse(_sharing: $0, owner: _box) } ?? Livekit_RpcResponse._empty) : Livekit_RpcResponse() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag)
             lkSetMessage(&_pointer.pointee.value.rpc_response, newValue)
         }
     }
     var streamHeader: Livekit_DataStream_Header {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Header._empty) : Livekit_DataStream_Header() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag) ? (_pointer.pointee.value.stream_header.map { Livekit_DataStream_Header(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Header._empty) : Livekit_DataStream_Header() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag)
             lkSetMessage(&_pointer.pointee.value.stream_header, newValue)
         }
     }
     var streamChunk: Livekit_DataStream_Chunk {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Chunk._empty) : Livekit_DataStream_Chunk() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag) ? (_pointer.pointee.value.stream_chunk.map { Livekit_DataStream_Chunk(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Chunk._empty) : Livekit_DataStream_Chunk() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag)
             lkSetMessage(&_pointer.pointee.value.stream_chunk, newValue)
         }
     }
     var streamTrailer: Livekit_DataStream_Trailer {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Trailer._empty) : Livekit_DataStream_Trailer() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag) ? (_pointer.pointee.value.stream_trailer.map { Livekit_DataStream_Trailer(_sharing: $0, owner: _box) } ?? Livekit_DataStream_Trailer._empty) : Livekit_DataStream_Trailer() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag)
             lkSetMessage(&_pointer.pointee.value.stream_trailer, newValue)
         }
     }
     private func _clearValue() {
         switch _pointer.pointee.which_value {
-        case pb_size_t(livekit_EncryptedPacketPayload_user_tag):
+        case lk_pb_size_t(livekit_EncryptedPacketPayload_user_tag):
             lkRelease(message: &_pointer.pointee.value.user, Livekit_UserPacket.descriptor)
-        case pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag):
+        case lk_pb_size_t(livekit_EncryptedPacketPayload_chat_message_tag):
             lkRelease(message: &_pointer.pointee.value.chat_message, Livekit_ChatMessage.descriptor)
-        case pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag):
+        case lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_request_tag):
             lkRelease(message: &_pointer.pointee.value.rpc_request, Livekit_RpcRequest.descriptor)
-        case pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag):
+        case lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_ack_tag):
             lkRelease(message: &_pointer.pointee.value.rpc_ack, Livekit_RpcAck.descriptor)
-        case pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag):
+        case lk_pb_size_t(livekit_EncryptedPacketPayload_rpc_response_tag):
             lkRelease(message: &_pointer.pointee.value.rpc_response, Livekit_RpcResponse.descriptor)
-        case pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag):
+        case lk_pb_size_t(livekit_EncryptedPacketPayload_stream_header_tag):
             lkRelease(message: &_pointer.pointee.value.stream_header, Livekit_DataStream_Header.descriptor)
-        case pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag):
+        case lk_pb_size_t(livekit_EncryptedPacketPayload_stream_chunk_tag):
             lkRelease(message: &_pointer.pointee.value.stream_chunk, Livekit_DataStream_Chunk.descriptor)
-        case pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag):
+        case lk_pb_size_t(livekit_EncryptedPacketPayload_stream_trailer_tag):
             lkRelease(message: &_pointer.pointee.value.stream_trailer, Livekit_DataStream_Trailer.descriptor)
         default: break
         }
@@ -2173,7 +2173,7 @@ extension Livekit_EncryptedPacketPayload.Builder {
 }
 
 extension livekit_ActiveSpeakerUpdate: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_ActiveSpeakerUpdate_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_ActiveSpeakerUpdate_msg }
     package static let _emptyBox = NanopbBox<livekit_ActiveSpeakerUpdate>(zero: livekit_ActiveSpeakerUpdate(), descriptor: livekit_ActiveSpeakerUpdate_msg)
 }
 typealias Livekit_ActiveSpeakerUpdate = NanopbMsg<livekit_ActiveSpeakerUpdate>
@@ -2197,7 +2197,7 @@ extension Livekit_ActiveSpeakerUpdate.Builder {
 }
 
 extension livekit_SpeakerInfo: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SpeakerInfo_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SpeakerInfo_msg }
     package static let _emptyBox = NanopbBox<livekit_SpeakerInfo>(zero: livekit_SpeakerInfo(), descriptor: livekit_SpeakerInfo_msg)
 }
 typealias Livekit_SpeakerInfo = NanopbMsg<livekit_SpeakerInfo>
@@ -2238,7 +2238,7 @@ extension Livekit_SpeakerInfo.Builder {
 }
 
 extension livekit_UserPacket: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_UserPacket_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_UserPacket_msg }
     package static let _emptyBox = NanopbBox<livekit_UserPacket>(zero: livekit_UserPacket(), descriptor: livekit_UserPacket_msg)
 }
 typealias Livekit_UserPacket = NanopbMsg<livekit_UserPacket>
@@ -2355,7 +2355,7 @@ extension Livekit_UserPacket.Builder {
 }
 
 extension livekit_SipDTMF: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SipDTMF_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SipDTMF_msg }
     package static let _emptyBox = NanopbBox<livekit_SipDTMF>(zero: livekit_SipDTMF(), descriptor: livekit_SipDTMF_msg)
 }
 typealias Livekit_SipDTMF = NanopbMsg<livekit_SipDTMF>
@@ -2386,7 +2386,7 @@ extension Livekit_SipDTMF.Builder {
 }
 
 extension livekit_Transcription: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_Transcription_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_Transcription_msg }
     package static let _emptyBox = NanopbBox<livekit_Transcription>(zero: livekit_Transcription(), descriptor: livekit_Transcription_msg)
 }
 typealias Livekit_Transcription = NanopbMsg<livekit_Transcription>
@@ -2430,7 +2430,7 @@ extension Livekit_Transcription.Builder {
 }
 
 extension livekit_TranscriptionSegment: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_TranscriptionSegment_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_TranscriptionSegment_msg }
     package static let _emptyBox = NanopbBox<livekit_TranscriptionSegment>(zero: livekit_TranscriptionSegment(), descriptor: livekit_TranscriptionSegment_msg)
 }
 typealias Livekit_TranscriptionSegment = NanopbMsg<livekit_TranscriptionSegment>
@@ -2501,7 +2501,7 @@ extension Livekit_TranscriptionSegment.Builder {
 }
 
 extension livekit_ChatMessage: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_ChatMessage_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_ChatMessage_msg }
     package static let _emptyBox = NanopbBox<livekit_ChatMessage>(zero: livekit_ChatMessage(), descriptor: livekit_ChatMessage_msg)
 }
 typealias Livekit_ChatMessage = NanopbMsg<livekit_ChatMessage>
@@ -2572,7 +2572,7 @@ extension Livekit_ChatMessage.Builder {
 }
 
 extension livekit_RpcRequest: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_RpcRequest_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_RpcRequest_msg }
     package static let _emptyBox = NanopbBox<livekit_RpcRequest>(zero: livekit_RpcRequest(), descriptor: livekit_RpcRequest_msg)
 }
 typealias Livekit_RpcRequest = NanopbMsg<livekit_RpcRequest>
@@ -2643,7 +2643,7 @@ extension Livekit_RpcRequest.Builder {
 }
 
 extension livekit_RpcAck: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_RpcAck_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_RpcAck_msg }
     package static let _emptyBox = NanopbBox<livekit_RpcAck>(zero: livekit_RpcAck(), descriptor: livekit_RpcAck_msg)
 }
 typealias Livekit_RpcAck = NanopbMsg<livekit_RpcAck>
@@ -2670,7 +2670,7 @@ enum Livekit_RpcResponse_OneOf_Value: Equatable {
 }
 
 extension livekit_RpcResponse: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_RpcResponse_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_RpcResponse_msg }
     package static let _emptyBox = NanopbBox<livekit_RpcResponse>(zero: livekit_RpcResponse(), descriptor: livekit_RpcResponse_msg)
 }
 typealias Livekit_RpcResponse = NanopbMsg<livekit_RpcResponse>
@@ -2682,23 +2682,23 @@ extension Livekit_RpcResponse {
 
     var value: Livekit_RpcResponse_OneOf_Value? {
         switch _pointer.pointee.which_value {
-        case pb_size_t(livekit_RpcResponse_payload_tag):
+        case lk_pb_size_t(livekit_RpcResponse_payload_tag):
             return .payload(lkString(_pointer.pointee.value.payload) ?? "")
-        case pb_size_t(livekit_RpcResponse_error_tag):
+        case lk_pb_size_t(livekit_RpcResponse_error_tag):
             return .error(_pointer.pointee.value.error.map { Livekit_RpcError(_sharing: $0, owner: _owner) } ?? Livekit_RpcError._empty)
-        case pb_size_t(livekit_RpcResponse_compressed_payload_tag):
+        case lk_pb_size_t(livekit_RpcResponse_compressed_payload_tag):
             return .compressedPayload(lkData(_pointer.pointee.value.compressed_payload))
         default: return nil
         }
     }
     var payload: String {
-        _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_payload_tag) ? (lkString(_pointer.pointee.value.payload) ?? "") : ""
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_RpcResponse_payload_tag) ? (lkString(_pointer.pointee.value.payload) ?? "") : ""
     }
     var error: Livekit_RpcError {
-        _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_error_tag) ? (_pointer.pointee.value.error.map { Livekit_RpcError(_sharing: $0, owner: _owner) } ?? Livekit_RpcError._empty) : Livekit_RpcError()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_RpcResponse_error_tag) ? (_pointer.pointee.value.error.map { Livekit_RpcError(_sharing: $0, owner: _owner) } ?? Livekit_RpcError._empty) : Livekit_RpcError()
     }
     var compressedPayload: Data {
-        _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_compressed_payload_tag) ? (lkData(_pointer.pointee.value.compressed_payload)) : Data()
+        _pointer.pointee.which_value == lk_pb_size_t(livekit_RpcResponse_compressed_payload_tag) ? (lkData(_pointer.pointee.value.compressed_payload)) : Data()
     }
 
 }
@@ -2712,11 +2712,11 @@ extension Livekit_RpcResponse.Builder {
     var value: Livekit_RpcResponse_OneOf_Value? {
         get {
             switch _pointer.pointee.which_value {
-            case pb_size_t(livekit_RpcResponse_payload_tag):
+            case lk_pb_size_t(livekit_RpcResponse_payload_tag):
                 return .payload(lkString(_pointer.pointee.value.payload) ?? "")
-            case pb_size_t(livekit_RpcResponse_error_tag):
+            case lk_pb_size_t(livekit_RpcResponse_error_tag):
                 return .error(_pointer.pointee.value.error.map { Livekit_RpcError(_sharing: $0, owner: _box) } ?? Livekit_RpcError._empty)
-            case pb_size_t(livekit_RpcResponse_compressed_payload_tag):
+            case lk_pb_size_t(livekit_RpcResponse_compressed_payload_tag):
                 return .compressedPayload(lkData(_pointer.pointee.value.compressed_payload))
             default: return nil
             }
@@ -2729,50 +2729,50 @@ extension Livekit_RpcResponse.Builder {
             _clearValue()
             switch newValue {
             case let .payload(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_payload_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_RpcResponse_payload_tag)
                 lkSetString(&_pointer.pointee.value.payload, value)
             case let .error(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_error_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_RpcResponse_error_tag)
                 lkSetMessage(&_pointer.pointee.value.error, value)
             case let .compressedPayload(value):
-                _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_compressed_payload_tag)
+                _pointer.pointee.which_value = lk_pb_size_t(livekit_RpcResponse_compressed_payload_tag)
                 lkSetData(&_pointer.pointee.value.compressed_payload, value)
             case nil: break
             }
         }
     }
     var payload: String {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_payload_tag) ? (lkString(_pointer.pointee.value.payload) ?? "") : "" }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_RpcResponse_payload_tag) ? (lkString(_pointer.pointee.value.payload) ?? "") : "" }
         nonmutating set {
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_payload_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_RpcResponse_payload_tag)
             lkSetString(&_pointer.pointee.value.payload, newValue)
         }
     }
     var error: Livekit_RpcError {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_error_tag) ? (_pointer.pointee.value.error.map { Livekit_RpcError(_sharing: $0, owner: _box) } ?? Livekit_RpcError._empty) : Livekit_RpcError() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_RpcResponse_error_tag) ? (_pointer.pointee.value.error.map { Livekit_RpcError(_sharing: $0, owner: _box) } ?? Livekit_RpcError._empty) : Livekit_RpcError() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_error_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_RpcResponse_error_tag)
             lkSetMessage(&_pointer.pointee.value.error, newValue)
         }
     }
     var compressedPayload: Data {
-        get { _pointer.pointee.which_value == pb_size_t(livekit_RpcResponse_compressed_payload_tag) ? (lkData(_pointer.pointee.value.compressed_payload)) : Data() }
+        get { _pointer.pointee.which_value == lk_pb_size_t(livekit_RpcResponse_compressed_payload_tag) ? (lkData(_pointer.pointee.value.compressed_payload)) : Data() }
         nonmutating set {
             _clearValue()
-            _pointer.pointee.which_value = pb_size_t(livekit_RpcResponse_compressed_payload_tag)
+            _pointer.pointee.which_value = lk_pb_size_t(livekit_RpcResponse_compressed_payload_tag)
             lkSetData(&_pointer.pointee.value.compressed_payload, newValue)
         }
     }
     private func _clearValue() {
         switch _pointer.pointee.which_value {
-        case pb_size_t(livekit_RpcResponse_payload_tag):
+        case lk_pb_size_t(livekit_RpcResponse_payload_tag):
             lkFree(&_pointer.pointee.value.payload)
-        case pb_size_t(livekit_RpcResponse_error_tag):
+        case lk_pb_size_t(livekit_RpcResponse_error_tag):
             lkRelease(message: &_pointer.pointee.value.error, Livekit_RpcError.descriptor)
-        case pb_size_t(livekit_RpcResponse_compressed_payload_tag):
+        case lk_pb_size_t(livekit_RpcResponse_compressed_payload_tag):
             lkFree(&_pointer.pointee.value.compressed_payload)
         default: break
         }
@@ -2785,7 +2785,7 @@ extension Livekit_RpcResponse.Builder {
 }
 
 extension livekit_RpcError: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_RpcError_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_RpcError_msg }
     package static let _emptyBox = NanopbBox<livekit_RpcError>(zero: livekit_RpcError(), descriptor: livekit_RpcError_msg)
 }
 typealias Livekit_RpcError = NanopbMsg<livekit_RpcError>
@@ -2826,7 +2826,7 @@ extension Livekit_RpcError.Builder {
 }
 
 extension livekit_ParticipantTracks: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_ParticipantTracks_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_ParticipantTracks_msg }
     package static let _emptyBox = NanopbBox<livekit_ParticipantTracks>(zero: livekit_ParticipantTracks(), descriptor: livekit_ParticipantTracks_msg)
 }
 typealias Livekit_ParticipantTracks = NanopbMsg<livekit_ParticipantTracks>
@@ -2860,7 +2860,7 @@ extension Livekit_ParticipantTracks.Builder {
 }
 
 extension livekit_ServerInfo: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_ServerInfo_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_ServerInfo_msg }
     package static let _emptyBox = NanopbBox<livekit_ServerInfo>(zero: livekit_ServerInfo(), descriptor: livekit_ServerInfo_msg)
 }
 typealias Livekit_ServerInfo = NanopbMsg<livekit_ServerInfo>
@@ -2950,7 +2950,7 @@ extension Livekit_ServerInfo.Builder {
 }
 
 extension livekit_ClientInfo: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_ClientInfo_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_ClientInfo_msg }
     package static let _emptyBox = NanopbBox<livekit_ClientInfo>(zero: livekit_ClientInfo(), descriptor: livekit_ClientInfo_msg)
 }
 typealias Livekit_ClientInfo = NanopbMsg<livekit_ClientInfo>
@@ -3126,7 +3126,7 @@ extension Livekit_ClientInfo.Builder {
 }
 
 extension livekit_ClientConfiguration: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_ClientConfiguration_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_ClientConfiguration_msg }
     package static let _emptyBox = NanopbBox<livekit_ClientConfiguration>(zero: livekit_ClientConfiguration(), descriptor: livekit_ClientConfiguration_msg)
 }
 typealias Livekit_ClientConfiguration = NanopbMsg<livekit_ClientConfiguration>
@@ -3187,7 +3187,7 @@ extension Livekit_ClientConfiguration.Builder {
 }
 
 extension livekit_VideoConfiguration: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_VideoConfiguration_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_VideoConfiguration_msg }
     package static let _emptyBox = NanopbBox<livekit_VideoConfiguration>(zero: livekit_VideoConfiguration(), descriptor: livekit_VideoConfiguration_msg)
 }
 typealias Livekit_VideoConfiguration = NanopbMsg<livekit_VideoConfiguration>
@@ -3208,7 +3208,7 @@ extension Livekit_VideoConfiguration.Builder {
 }
 
 extension livekit_DisabledCodecs: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DisabledCodecs_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DisabledCodecs_msg }
     package static let _emptyBox = NanopbBox<livekit_DisabledCodecs>(zero: livekit_DisabledCodecs(), descriptor: livekit_DisabledCodecs_msg)
 }
 typealias Livekit_DisabledCodecs = NanopbMsg<livekit_DisabledCodecs>
@@ -3245,7 +3245,7 @@ extension Livekit_DisabledCodecs.Builder {
 }
 
 extension livekit_TimedVersion: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_TimedVersion_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_TimedVersion_msg }
     package static let _emptyBox = NanopbBox<livekit_TimedVersion>(zero: livekit_TimedVersion(), descriptor: livekit_TimedVersion_msg)
 }
 typealias Livekit_TimedVersion = NanopbMsg<livekit_TimedVersion>
@@ -3286,7 +3286,7 @@ enum Livekit_DataStream {
 }
 
 extension livekit_DataStream_TextHeader: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataStream_TextHeader_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataStream_TextHeader_msg }
     package static let _emptyBox = NanopbBox<livekit_DataStream_TextHeader>(zero: livekit_DataStream_TextHeader(), descriptor: livekit_DataStream_TextHeader_msg)
 }
 typealias Livekit_DataStream_TextHeader = NanopbMsg<livekit_DataStream_TextHeader>
@@ -3350,7 +3350,7 @@ extension Livekit_DataStream_TextHeader.Builder {
 }
 
 extension livekit_DataStream_ByteHeader: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataStream_ByteHeader_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataStream_ByteHeader_msg }
     package static let _emptyBox = NanopbBox<livekit_DataStream_ByteHeader>(zero: livekit_DataStream_ByteHeader(), descriptor: livekit_DataStream_ByteHeader_msg)
 }
 typealias Livekit_DataStream_ByteHeader = NanopbMsg<livekit_DataStream_ByteHeader>
@@ -3376,7 +3376,7 @@ enum Livekit_DataStream_Header_OneOf_ContentHeader: Equatable {
 }
 
 extension livekit_DataStream_Header: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataStream_Header_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataStream_Header_msg }
     package static let _emptyBox = NanopbBox<livekit_DataStream_Header>(zero: livekit_DataStream_Header(), descriptor: livekit_DataStream_Header_msg)
 }
 typealias Livekit_DataStream_Header = NanopbMsg<livekit_DataStream_Header>
@@ -3431,24 +3431,24 @@ extension Livekit_DataStream_Header {
 
     var contentHeader: Livekit_DataStream_Header_OneOf_ContentHeader? {
         switch _pointer.pointee.which_content_header {
-        case pb_size_t(livekit_DataStream_Header_text_header_tag):
+        case lk_pb_size_t(livekit_DataStream_Header_text_header_tag):
             return .textHeader(_pointer.pointee.content_header.text_header.map { Livekit_DataStream_TextHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_TextHeader._empty)
-        case pb_size_t(livekit_DataStream_Header_byte_header_tag):
+        case lk_pb_size_t(livekit_DataStream_Header_byte_header_tag):
             return .byteHeader(_pointer.pointee.content_header.byte_header.map { Livekit_DataStream_ByteHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_ByteHeader._empty)
         default: return nil
         }
     }
     var textHeader: Livekit_DataStream_TextHeader {
-        _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_text_header_tag) ? (_pointer.pointee.content_header.text_header.map { Livekit_DataStream_TextHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_TextHeader._empty) : Livekit_DataStream_TextHeader()
+        _pointer.pointee.which_content_header == lk_pb_size_t(livekit_DataStream_Header_text_header_tag) ? (_pointer.pointee.content_header.text_header.map { Livekit_DataStream_TextHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_TextHeader._empty) : Livekit_DataStream_TextHeader()
     }
     var byteHeader: Livekit_DataStream_ByteHeader {
-        _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_byte_header_tag) ? (_pointer.pointee.content_header.byte_header.map { Livekit_DataStream_ByteHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_ByteHeader._empty) : Livekit_DataStream_ByteHeader()
+        _pointer.pointee.which_content_header == lk_pb_size_t(livekit_DataStream_Header_byte_header_tag) ? (_pointer.pointee.content_header.byte_header.map { Livekit_DataStream_ByteHeader(_sharing: $0, owner: _owner) } ?? Livekit_DataStream_ByteHeader._empty) : Livekit_DataStream_ByteHeader()
     }
 
 }
 
 extension livekit_DataStream_Header_AttributesEntry: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataStream_Header_AttributesEntry_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataStream_Header_AttributesEntry_msg }
     package static let _emptyBox = NanopbBox<livekit_DataStream_Header_AttributesEntry>(zero: livekit_DataStream_Header_AttributesEntry(), descriptor: livekit_DataStream_Header_AttributesEntry_msg)
 }
 typealias Livekit_DataStream_Header_AttributesEntry = NanopbMsg<livekit_DataStream_Header_AttributesEntry>
@@ -3541,9 +3541,9 @@ extension Livekit_DataStream_Header.Builder {
     var contentHeader: Livekit_DataStream_Header_OneOf_ContentHeader? {
         get {
             switch _pointer.pointee.which_content_header {
-            case pb_size_t(livekit_DataStream_Header_text_header_tag):
+            case lk_pb_size_t(livekit_DataStream_Header_text_header_tag):
                 return .textHeader(_pointer.pointee.content_header.text_header.map { Livekit_DataStream_TextHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream_TextHeader._empty)
-            case pb_size_t(livekit_DataStream_Header_byte_header_tag):
+            case lk_pb_size_t(livekit_DataStream_Header_byte_header_tag):
                 return .byteHeader(_pointer.pointee.content_header.byte_header.map { Livekit_DataStream_ByteHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream_ByteHeader._empty)
             default: return nil
             }
@@ -3557,38 +3557,38 @@ extension Livekit_DataStream_Header.Builder {
             _clearContentHeader()
             switch newValue {
             case let .textHeader(value):
-                _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_text_header_tag)
+                _pointer.pointee.which_content_header = lk_pb_size_t(livekit_DataStream_Header_text_header_tag)
                 lkSetMessage(&_pointer.pointee.content_header.text_header, value)
             case let .byteHeader(value):
-                _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_byte_header_tag)
+                _pointer.pointee.which_content_header = lk_pb_size_t(livekit_DataStream_Header_byte_header_tag)
                 lkSetMessage(&_pointer.pointee.content_header.byte_header, value)
             case nil: break
             }
         }
     }
     var textHeader: Livekit_DataStream_TextHeader {
-        get { _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_text_header_tag) ? (_pointer.pointee.content_header.text_header.map { Livekit_DataStream_TextHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream_TextHeader._empty) : Livekit_DataStream_TextHeader() }
+        get { _pointer.pointee.which_content_header == lk_pb_size_t(livekit_DataStream_Header_text_header_tag) ? (_pointer.pointee.content_header.text_header.map { Livekit_DataStream_TextHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream_TextHeader._empty) : Livekit_DataStream_TextHeader() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearContentHeader()
-            _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_text_header_tag)
+            _pointer.pointee.which_content_header = lk_pb_size_t(livekit_DataStream_Header_text_header_tag)
             lkSetMessage(&_pointer.pointee.content_header.text_header, newValue)
         }
     }
     var byteHeader: Livekit_DataStream_ByteHeader {
-        get { _pointer.pointee.which_content_header == pb_size_t(livekit_DataStream_Header_byte_header_tag) ? (_pointer.pointee.content_header.byte_header.map { Livekit_DataStream_ByteHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream_ByteHeader._empty) : Livekit_DataStream_ByteHeader() }
+        get { _pointer.pointee.which_content_header == lk_pb_size_t(livekit_DataStream_Header_byte_header_tag) ? (_pointer.pointee.content_header.byte_header.map { Livekit_DataStream_ByteHeader(_sharing: $0, owner: _box) } ?? Livekit_DataStream_ByteHeader._empty) : Livekit_DataStream_ByteHeader() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearContentHeader()
-            _pointer.pointee.which_content_header = pb_size_t(livekit_DataStream_Header_byte_header_tag)
+            _pointer.pointee.which_content_header = lk_pb_size_t(livekit_DataStream_Header_byte_header_tag)
             lkSetMessage(&_pointer.pointee.content_header.byte_header, newValue)
         }
     }
     private func _clearContentHeader() {
         switch _pointer.pointee.which_content_header {
-        case pb_size_t(livekit_DataStream_Header_text_header_tag):
+        case lk_pb_size_t(livekit_DataStream_Header_text_header_tag):
             lkRelease(message: &_pointer.pointee.content_header.text_header, Livekit_DataStream_TextHeader.descriptor)
-        case pb_size_t(livekit_DataStream_Header_byte_header_tag):
+        case lk_pb_size_t(livekit_DataStream_Header_byte_header_tag):
             lkRelease(message: &_pointer.pointee.content_header.byte_header, Livekit_DataStream_ByteHeader.descriptor)
         default: break
         }
@@ -3601,7 +3601,7 @@ extension Livekit_DataStream_Header.Builder {
 }
 
 extension livekit_DataStream_Chunk: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataStream_Chunk_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataStream_Chunk_msg }
     package static let _emptyBox = NanopbBox<livekit_DataStream_Chunk>(zero: livekit_DataStream_Chunk(), descriptor: livekit_DataStream_Chunk_msg)
 }
 typealias Livekit_DataStream_Chunk = NanopbMsg<livekit_DataStream_Chunk>
@@ -3662,7 +3662,7 @@ extension Livekit_DataStream_Chunk.Builder {
 }
 
 extension livekit_DataStream_Trailer: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataStream_Trailer_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataStream_Trailer_msg }
     package static let _emptyBox = NanopbBox<livekit_DataStream_Trailer>(zero: livekit_DataStream_Trailer(), descriptor: livekit_DataStream_Trailer_msg)
 }
 typealias Livekit_DataStream_Trailer = NanopbMsg<livekit_DataStream_Trailer>
@@ -3688,7 +3688,7 @@ extension Livekit_DataStream_Trailer {
 }
 
 extension livekit_DataStream_Trailer_AttributesEntry: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataStream_Trailer_AttributesEntry_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataStream_Trailer_AttributesEntry_msg }
     package static let _emptyBox = NanopbBox<livekit_DataStream_Trailer_AttributesEntry>(zero: livekit_DataStream_Trailer_AttributesEntry(), descriptor: livekit_DataStream_Trailer_AttributesEntry_msg)
 }
 typealias Livekit_DataStream_Trailer_AttributesEntry = NanopbMsg<livekit_DataStream_Trailer_AttributesEntry>
@@ -3771,7 +3771,7 @@ struct Livekit_DataStream_CompressionType: NanopbEnum {
 }
 
 extension livekit_SubscribedAudioCodec: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SubscribedAudioCodec_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SubscribedAudioCodec_msg }
     package static let _emptyBox = NanopbBox<livekit_SubscribedAudioCodec>(zero: livekit_SubscribedAudioCodec(), descriptor: livekit_SubscribedAudioCodec_msg)
 }
 typealias Livekit_SubscribedAudioCodec = NanopbMsg<livekit_SubscribedAudioCodec>

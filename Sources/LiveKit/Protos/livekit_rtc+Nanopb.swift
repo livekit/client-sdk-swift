@@ -45,125 +45,125 @@ enum Livekit_SignalRequest_OneOf_Message: Equatable {
 }
 
 extension livekit_SignalRequest: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SignalRequest_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SignalRequest_msg }
     package static let _emptyBox = NanopbBox<livekit_SignalRequest>(zero: livekit_SignalRequest(), descriptor: livekit_SignalRequest_msg)
 }
 typealias Livekit_SignalRequest = NanopbMsg<livekit_SignalRequest>
 extension Livekit_SignalRequest {
     var message: Livekit_SignalRequest_OneOf_Message? {
         switch _pointer.pointee.which_message {
-        case pb_size_t(livekit_SignalRequest_offer_tag):
+        case lk_pb_size_t(livekit_SignalRequest_offer_tag):
             return .offer(_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty)
-        case pb_size_t(livekit_SignalRequest_answer_tag):
+        case lk_pb_size_t(livekit_SignalRequest_answer_tag):
             return .answer(_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty)
-        case pb_size_t(livekit_SignalRequest_trickle_tag):
+        case lk_pb_size_t(livekit_SignalRequest_trickle_tag):
             return .trickle(_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty)
-        case pb_size_t(livekit_SignalRequest_add_track_tag):
+        case lk_pb_size_t(livekit_SignalRequest_add_track_tag):
             return .addTrack(_pointer.pointee.message.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_AddTrackRequest._empty)
-        case pb_size_t(livekit_SignalRequest_mute_tag):
+        case lk_pb_size_t(livekit_SignalRequest_mute_tag):
             return .mute(_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty)
-        case pb_size_t(livekit_SignalRequest_subscription_tag):
+        case lk_pb_size_t(livekit_SignalRequest_subscription_tag):
             return .subscription(_pointer.pointee.message.subscription.map { Livekit_UpdateSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateSubscription._empty)
-        case pb_size_t(livekit_SignalRequest_track_setting_tag):
+        case lk_pb_size_t(livekit_SignalRequest_track_setting_tag):
             return .trackSetting(_pointer.pointee.message.track_setting.map { Livekit_UpdateTrackSettings(_sharing: $0, owner: _owner) } ?? Livekit_UpdateTrackSettings._empty)
-        case pb_size_t(livekit_SignalRequest_leave_tag):
+        case lk_pb_size_t(livekit_SignalRequest_leave_tag):
             return .leave(_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _owner) } ?? Livekit_LeaveRequest._empty)
-        case pb_size_t(livekit_SignalRequest_update_layers_tag):
+        case lk_pb_size_t(livekit_SignalRequest_update_layers_tag):
             return .updateLayers(_pointer.pointee.message.update_layers.map { Livekit_UpdateVideoLayers(_sharing: $0, owner: _owner) } ?? Livekit_UpdateVideoLayers._empty)
-        case pb_size_t(livekit_SignalRequest_subscription_permission_tag):
+        case lk_pb_size_t(livekit_SignalRequest_subscription_permission_tag):
             return .subscriptionPermission(_pointer.pointee.message.subscription_permission.map { Livekit_SubscriptionPermission(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionPermission._empty)
-        case pb_size_t(livekit_SignalRequest_sync_state_tag):
+        case lk_pb_size_t(livekit_SignalRequest_sync_state_tag):
             return .syncState(_pointer.pointee.message.sync_state.map { Livekit_SyncState(_sharing: $0, owner: _owner) } ?? Livekit_SyncState._empty)
-        case pb_size_t(livekit_SignalRequest_simulate_tag):
+        case lk_pb_size_t(livekit_SignalRequest_simulate_tag):
             return .simulate(_pointer.pointee.message.simulate.map { Livekit_SimulateScenario(_sharing: $0, owner: _owner) } ?? Livekit_SimulateScenario._empty)
-        case pb_size_t(livekit_SignalRequest_ping_tag):
+        case lk_pb_size_t(livekit_SignalRequest_ping_tag):
             return .ping(_pointer.pointee.message.ping?.pointee ?? 0)
-        case pb_size_t(livekit_SignalRequest_update_metadata_tag):
+        case lk_pb_size_t(livekit_SignalRequest_update_metadata_tag):
             return .updateMetadata(_pointer.pointee.message.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _owner) } ?? Livekit_UpdateParticipantMetadata._empty)
-        case pb_size_t(livekit_SignalRequest_ping_req_tag):
+        case lk_pb_size_t(livekit_SignalRequest_ping_req_tag):
             return .pingReq(_pointer.pointee.message.ping_req.map { Livekit_Ping(_sharing: $0, owner: _owner) } ?? Livekit_Ping._empty)
-        case pb_size_t(livekit_SignalRequest_update_audio_track_tag):
+        case lk_pb_size_t(livekit_SignalRequest_update_audio_track_tag):
             return .updateAudioTrack(_pointer.pointee.message.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalAudioTrack._empty)
-        case pb_size_t(livekit_SignalRequest_update_video_track_tag):
+        case lk_pb_size_t(livekit_SignalRequest_update_video_track_tag):
             return .updateVideoTrack(_pointer.pointee.message.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalVideoTrack._empty)
-        case pb_size_t(livekit_SignalRequest_publish_data_track_request_tag):
+        case lk_pb_size_t(livekit_SignalRequest_publish_data_track_request_tag):
             return .publishDataTrackRequest(_pointer.pointee.message.publish_data_track_request.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackRequest._empty)
-        case pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag):
+        case lk_pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag):
             return .unpublishDataTrackRequest(_pointer.pointee.message.unpublish_data_track_request.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackRequest._empty)
-        case pb_size_t(livekit_SignalRequest_update_data_subscription_tag):
+        case lk_pb_size_t(livekit_SignalRequest_update_data_subscription_tag):
             return .updateDataSubscription(_pointer.pointee.message.update_data_subscription.map { Livekit_UpdateDataSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateDataSubscription._empty)
-        case pb_size_t(livekit_SignalRequest_store_data_blob_request_tag):
+        case lk_pb_size_t(livekit_SignalRequest_store_data_blob_request_tag):
             return .storeDataBlobRequest(_pointer.pointee.message.store_data_blob_request.map { Livekit_StoreDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobRequest._empty)
-        case pb_size_t(livekit_SignalRequest_get_data_blob_request_tag):
+        case lk_pb_size_t(livekit_SignalRequest_get_data_blob_request_tag):
             return .getDataBlobRequest(_pointer.pointee.message.get_data_blob_request.map { Livekit_GetDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobRequest._empty)
         default: return nil
         }
     }
     var offer: Livekit_SessionDescription {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_offer_tag) ? (_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_offer_tag) ? (_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription()
     }
     var answer: Livekit_SessionDescription {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_answer_tag) ? (_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_answer_tag) ? (_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription()
     }
     var trickle: Livekit_TrickleRequest {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_trickle_tag) ? (_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_trickle_tag) ? (_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest()
     }
     var addTrack: Livekit_AddTrackRequest {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_add_track_tag) ? (_pointer.pointee.message.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_AddTrackRequest._empty) : Livekit_AddTrackRequest()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_add_track_tag) ? (_pointer.pointee.message.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_AddTrackRequest._empty) : Livekit_AddTrackRequest()
     }
     var mute: Livekit_MuteTrackRequest {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_mute_tag) ? (_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_mute_tag) ? (_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest()
     }
     var subscription: Livekit_UpdateSubscription {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_subscription_tag) ? (_pointer.pointee.message.subscription.map { Livekit_UpdateSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateSubscription._empty) : Livekit_UpdateSubscription()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_subscription_tag) ? (_pointer.pointee.message.subscription.map { Livekit_UpdateSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateSubscription._empty) : Livekit_UpdateSubscription()
     }
     var trackSetting: Livekit_UpdateTrackSettings {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_track_setting_tag) ? (_pointer.pointee.message.track_setting.map { Livekit_UpdateTrackSettings(_sharing: $0, owner: _owner) } ?? Livekit_UpdateTrackSettings._empty) : Livekit_UpdateTrackSettings()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_track_setting_tag) ? (_pointer.pointee.message.track_setting.map { Livekit_UpdateTrackSettings(_sharing: $0, owner: _owner) } ?? Livekit_UpdateTrackSettings._empty) : Livekit_UpdateTrackSettings()
     }
     var leave: Livekit_LeaveRequest {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_leave_tag) ? (_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _owner) } ?? Livekit_LeaveRequest._empty) : Livekit_LeaveRequest()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_leave_tag) ? (_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _owner) } ?? Livekit_LeaveRequest._empty) : Livekit_LeaveRequest()
     }
     var updateLayers: Livekit_UpdateVideoLayers {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_update_layers_tag) ? (_pointer.pointee.message.update_layers.map { Livekit_UpdateVideoLayers(_sharing: $0, owner: _owner) } ?? Livekit_UpdateVideoLayers._empty) : Livekit_UpdateVideoLayers()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_layers_tag) ? (_pointer.pointee.message.update_layers.map { Livekit_UpdateVideoLayers(_sharing: $0, owner: _owner) } ?? Livekit_UpdateVideoLayers._empty) : Livekit_UpdateVideoLayers()
     }
     var subscriptionPermission: Livekit_SubscriptionPermission {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_subscription_permission_tag) ? (_pointer.pointee.message.subscription_permission.map { Livekit_SubscriptionPermission(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionPermission._empty) : Livekit_SubscriptionPermission()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_subscription_permission_tag) ? (_pointer.pointee.message.subscription_permission.map { Livekit_SubscriptionPermission(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionPermission._empty) : Livekit_SubscriptionPermission()
     }
     var syncState: Livekit_SyncState {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_sync_state_tag) ? (_pointer.pointee.message.sync_state.map { Livekit_SyncState(_sharing: $0, owner: _owner) } ?? Livekit_SyncState._empty) : Livekit_SyncState()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_sync_state_tag) ? (_pointer.pointee.message.sync_state.map { Livekit_SyncState(_sharing: $0, owner: _owner) } ?? Livekit_SyncState._empty) : Livekit_SyncState()
     }
     var simulate: Livekit_SimulateScenario {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_simulate_tag) ? (_pointer.pointee.message.simulate.map { Livekit_SimulateScenario(_sharing: $0, owner: _owner) } ?? Livekit_SimulateScenario._empty) : Livekit_SimulateScenario()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_simulate_tag) ? (_pointer.pointee.message.simulate.map { Livekit_SimulateScenario(_sharing: $0, owner: _owner) } ?? Livekit_SimulateScenario._empty) : Livekit_SimulateScenario()
     }
     var ping: Int64 {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_ping_tag) ? (_pointer.pointee.message.ping?.pointee ?? 0) : 0
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_ping_tag) ? (_pointer.pointee.message.ping?.pointee ?? 0) : 0
     }
     var updateMetadata: Livekit_UpdateParticipantMetadata {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_update_metadata_tag) ? (_pointer.pointee.message.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _owner) } ?? Livekit_UpdateParticipantMetadata._empty) : Livekit_UpdateParticipantMetadata()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_metadata_tag) ? (_pointer.pointee.message.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _owner) } ?? Livekit_UpdateParticipantMetadata._empty) : Livekit_UpdateParticipantMetadata()
     }
     var pingReq: Livekit_Ping {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_ping_req_tag) ? (_pointer.pointee.message.ping_req.map { Livekit_Ping(_sharing: $0, owner: _owner) } ?? Livekit_Ping._empty) : Livekit_Ping()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_ping_req_tag) ? (_pointer.pointee.message.ping_req.map { Livekit_Ping(_sharing: $0, owner: _owner) } ?? Livekit_Ping._empty) : Livekit_Ping()
     }
     var updateAudioTrack: Livekit_UpdateLocalAudioTrack {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_update_audio_track_tag) ? (_pointer.pointee.message.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalAudioTrack._empty) : Livekit_UpdateLocalAudioTrack()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_audio_track_tag) ? (_pointer.pointee.message.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalAudioTrack._empty) : Livekit_UpdateLocalAudioTrack()
     }
     var updateVideoTrack: Livekit_UpdateLocalVideoTrack {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_update_video_track_tag) ? (_pointer.pointee.message.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalVideoTrack._empty) : Livekit_UpdateLocalVideoTrack()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_video_track_tag) ? (_pointer.pointee.message.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalVideoTrack._empty) : Livekit_UpdateLocalVideoTrack()
     }
     var publishDataTrackRequest: Livekit_PublishDataTrackRequest {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_publish_data_track_request_tag) ? (_pointer.pointee.message.publish_data_track_request.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackRequest._empty) : Livekit_PublishDataTrackRequest()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_publish_data_track_request_tag) ? (_pointer.pointee.message.publish_data_track_request.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackRequest._empty) : Livekit_PublishDataTrackRequest()
     }
     var unpublishDataTrackRequest: Livekit_UnpublishDataTrackRequest {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag) ? (_pointer.pointee.message.unpublish_data_track_request.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackRequest._empty) : Livekit_UnpublishDataTrackRequest()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag) ? (_pointer.pointee.message.unpublish_data_track_request.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackRequest._empty) : Livekit_UnpublishDataTrackRequest()
     }
     var updateDataSubscription: Livekit_UpdateDataSubscription {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_update_data_subscription_tag) ? (_pointer.pointee.message.update_data_subscription.map { Livekit_UpdateDataSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateDataSubscription._empty) : Livekit_UpdateDataSubscription()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_data_subscription_tag) ? (_pointer.pointee.message.update_data_subscription.map { Livekit_UpdateDataSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateDataSubscription._empty) : Livekit_UpdateDataSubscription()
     }
     var storeDataBlobRequest: Livekit_StoreDataBlobRequest {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_store_data_blob_request_tag) ? (_pointer.pointee.message.store_data_blob_request.map { Livekit_StoreDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobRequest._empty) : Livekit_StoreDataBlobRequest()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_store_data_blob_request_tag) ? (_pointer.pointee.message.store_data_blob_request.map { Livekit_StoreDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobRequest._empty) : Livekit_StoreDataBlobRequest()
     }
     var getDataBlobRequest: Livekit_GetDataBlobRequest {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_get_data_blob_request_tag) ? (_pointer.pointee.message.get_data_blob_request.map { Livekit_GetDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobRequest._empty) : Livekit_GetDataBlobRequest()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_get_data_blob_request_tag) ? (_pointer.pointee.message.get_data_blob_request.map { Livekit_GetDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobRequest._empty) : Livekit_GetDataBlobRequest()
     }
 
 }
@@ -172,49 +172,49 @@ extension Livekit_SignalRequest.Builder {
     var message: Livekit_SignalRequest_OneOf_Message? {
         get {
             switch _pointer.pointee.which_message {
-            case pb_size_t(livekit_SignalRequest_offer_tag):
+            case lk_pb_size_t(livekit_SignalRequest_offer_tag):
                 return .offer(_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _box) } ?? Livekit_SessionDescription._empty)
-            case pb_size_t(livekit_SignalRequest_answer_tag):
+            case lk_pb_size_t(livekit_SignalRequest_answer_tag):
                 return .answer(_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _box) } ?? Livekit_SessionDescription._empty)
-            case pb_size_t(livekit_SignalRequest_trickle_tag):
+            case lk_pb_size_t(livekit_SignalRequest_trickle_tag):
                 return .trickle(_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _box) } ?? Livekit_TrickleRequest._empty)
-            case pb_size_t(livekit_SignalRequest_add_track_tag):
+            case lk_pb_size_t(livekit_SignalRequest_add_track_tag):
                 return .addTrack(_pointer.pointee.message.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_AddTrackRequest._empty)
-            case pb_size_t(livekit_SignalRequest_mute_tag):
+            case lk_pb_size_t(livekit_SignalRequest_mute_tag):
                 return .mute(_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_MuteTrackRequest._empty)
-            case pb_size_t(livekit_SignalRequest_subscription_tag):
+            case lk_pb_size_t(livekit_SignalRequest_subscription_tag):
                 return .subscription(_pointer.pointee.message.subscription.map { Livekit_UpdateSubscription(_sharing: $0, owner: _box) } ?? Livekit_UpdateSubscription._empty)
-            case pb_size_t(livekit_SignalRequest_track_setting_tag):
+            case lk_pb_size_t(livekit_SignalRequest_track_setting_tag):
                 return .trackSetting(_pointer.pointee.message.track_setting.map { Livekit_UpdateTrackSettings(_sharing: $0, owner: _box) } ?? Livekit_UpdateTrackSettings._empty)
-            case pb_size_t(livekit_SignalRequest_leave_tag):
+            case lk_pb_size_t(livekit_SignalRequest_leave_tag):
                 return .leave(_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _box) } ?? Livekit_LeaveRequest._empty)
-            case pb_size_t(livekit_SignalRequest_update_layers_tag):
+            case lk_pb_size_t(livekit_SignalRequest_update_layers_tag):
                 return .updateLayers(_pointer.pointee.message.update_layers.map { Livekit_UpdateVideoLayers(_sharing: $0, owner: _box) } ?? Livekit_UpdateVideoLayers._empty)
-            case pb_size_t(livekit_SignalRequest_subscription_permission_tag):
+            case lk_pb_size_t(livekit_SignalRequest_subscription_permission_tag):
                 return .subscriptionPermission(_pointer.pointee.message.subscription_permission.map { Livekit_SubscriptionPermission(_sharing: $0, owner: _box) } ?? Livekit_SubscriptionPermission._empty)
-            case pb_size_t(livekit_SignalRequest_sync_state_tag):
+            case lk_pb_size_t(livekit_SignalRequest_sync_state_tag):
                 return .syncState(_pointer.pointee.message.sync_state.map { Livekit_SyncState(_sharing: $0, owner: _box) } ?? Livekit_SyncState._empty)
-            case pb_size_t(livekit_SignalRequest_simulate_tag):
+            case lk_pb_size_t(livekit_SignalRequest_simulate_tag):
                 return .simulate(_pointer.pointee.message.simulate.map { Livekit_SimulateScenario(_sharing: $0, owner: _box) } ?? Livekit_SimulateScenario._empty)
-            case pb_size_t(livekit_SignalRequest_ping_tag):
+            case lk_pb_size_t(livekit_SignalRequest_ping_tag):
                 return .ping(_pointer.pointee.message.ping?.pointee ?? 0)
-            case pb_size_t(livekit_SignalRequest_update_metadata_tag):
+            case lk_pb_size_t(livekit_SignalRequest_update_metadata_tag):
                 return .updateMetadata(_pointer.pointee.message.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _box) } ?? Livekit_UpdateParticipantMetadata._empty)
-            case pb_size_t(livekit_SignalRequest_ping_req_tag):
+            case lk_pb_size_t(livekit_SignalRequest_ping_req_tag):
                 return .pingReq(_pointer.pointee.message.ping_req.map { Livekit_Ping(_sharing: $0, owner: _box) } ?? Livekit_Ping._empty)
-            case pb_size_t(livekit_SignalRequest_update_audio_track_tag):
+            case lk_pb_size_t(livekit_SignalRequest_update_audio_track_tag):
                 return .updateAudioTrack(_pointer.pointee.message.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _box) } ?? Livekit_UpdateLocalAudioTrack._empty)
-            case pb_size_t(livekit_SignalRequest_update_video_track_tag):
+            case lk_pb_size_t(livekit_SignalRequest_update_video_track_tag):
                 return .updateVideoTrack(_pointer.pointee.message.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _box) } ?? Livekit_UpdateLocalVideoTrack._empty)
-            case pb_size_t(livekit_SignalRequest_publish_data_track_request_tag):
+            case lk_pb_size_t(livekit_SignalRequest_publish_data_track_request_tag):
                 return .publishDataTrackRequest(_pointer.pointee.message.publish_data_track_request.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_PublishDataTrackRequest._empty)
-            case pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag):
+            case lk_pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag):
                 return .unpublishDataTrackRequest(_pointer.pointee.message.unpublish_data_track_request.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_UnpublishDataTrackRequest._empty)
-            case pb_size_t(livekit_SignalRequest_update_data_subscription_tag):
+            case lk_pb_size_t(livekit_SignalRequest_update_data_subscription_tag):
                 return .updateDataSubscription(_pointer.pointee.message.update_data_subscription.map { Livekit_UpdateDataSubscription(_sharing: $0, owner: _box) } ?? Livekit_UpdateDataSubscription._empty)
-            case pb_size_t(livekit_SignalRequest_store_data_blob_request_tag):
+            case lk_pb_size_t(livekit_SignalRequest_store_data_blob_request_tag):
                 return .storeDataBlobRequest(_pointer.pointee.message.store_data_blob_request.map { Livekit_StoreDataBlobRequest(_sharing: $0, owner: _box) } ?? Livekit_StoreDataBlobRequest._empty)
-            case pb_size_t(livekit_SignalRequest_get_data_blob_request_tag):
+            case lk_pb_size_t(livekit_SignalRequest_get_data_blob_request_tag):
                 return .getDataBlobRequest(_pointer.pointee.message.get_data_blob_request.map { Livekit_GetDataBlobRequest(_sharing: $0, owner: _box) } ?? Livekit_GetDataBlobRequest._empty)
             default: return nil
             }
@@ -247,317 +247,317 @@ extension Livekit_SignalRequest.Builder {
             _clearMessage()
             switch newValue {
             case let .offer(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_offer_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_offer_tag)
                 lkSetMessage(&_pointer.pointee.message.offer, value)
             case let .answer(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_answer_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_answer_tag)
                 lkSetMessage(&_pointer.pointee.message.answer, value)
             case let .trickle(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_trickle_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_trickle_tag)
                 lkSetMessage(&_pointer.pointee.message.trickle, value)
             case let .addTrack(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_add_track_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_add_track_tag)
                 lkSetMessage(&_pointer.pointee.message.add_track, value)
             case let .mute(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_mute_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_mute_tag)
                 lkSetMessage(&_pointer.pointee.message.mute, value)
             case let .subscription(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_subscription_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_subscription_tag)
                 lkSetMessage(&_pointer.pointee.message.subscription, value)
             case let .trackSetting(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_track_setting_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_track_setting_tag)
                 lkSetMessage(&_pointer.pointee.message.track_setting, value)
             case let .leave(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_leave_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_leave_tag)
                 lkSetMessage(&_pointer.pointee.message.leave, value)
             case let .updateLayers(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_update_layers_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_update_layers_tag)
                 lkSetMessage(&_pointer.pointee.message.update_layers, value)
             case let .subscriptionPermission(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_subscription_permission_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_subscription_permission_tag)
                 lkSetMessage(&_pointer.pointee.message.subscription_permission, value)
             case let .syncState(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_sync_state_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_sync_state_tag)
                 lkSetMessage(&_pointer.pointee.message.sync_state, value)
             case let .simulate(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_simulate_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_simulate_tag)
                 lkSetMessage(&_pointer.pointee.message.simulate, value)
             case let .ping(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_ping_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_ping_tag)
                 lkSetValue(&_pointer.pointee.message.ping, value)
             case let .updateMetadata(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_update_metadata_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_update_metadata_tag)
                 lkSetMessage(&_pointer.pointee.message.update_metadata, value)
             case let .pingReq(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_ping_req_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_ping_req_tag)
                 lkSetMessage(&_pointer.pointee.message.ping_req, value)
             case let .updateAudioTrack(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_update_audio_track_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_update_audio_track_tag)
                 lkSetMessage(&_pointer.pointee.message.update_audio_track, value)
             case let .updateVideoTrack(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_update_video_track_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_update_video_track_tag)
                 lkSetMessage(&_pointer.pointee.message.update_video_track, value)
             case let .publishDataTrackRequest(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_publish_data_track_request_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_publish_data_track_request_tag)
                 lkSetMessage(&_pointer.pointee.message.publish_data_track_request, value)
             case let .unpublishDataTrackRequest(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag)
                 lkSetMessage(&_pointer.pointee.message.unpublish_data_track_request, value)
             case let .updateDataSubscription(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_update_data_subscription_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_update_data_subscription_tag)
                 lkSetMessage(&_pointer.pointee.message.update_data_subscription, value)
             case let .storeDataBlobRequest(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_store_data_blob_request_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_store_data_blob_request_tag)
                 lkSetMessage(&_pointer.pointee.message.store_data_blob_request, value)
             case let .getDataBlobRequest(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_get_data_blob_request_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_get_data_blob_request_tag)
                 lkSetMessage(&_pointer.pointee.message.get_data_blob_request, value)
             case nil: break
             }
         }
     }
     var offer: Livekit_SessionDescription {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_offer_tag) ? (_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _box) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_offer_tag) ? (_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _box) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_offer_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_offer_tag)
             lkSetMessage(&_pointer.pointee.message.offer, newValue)
         }
     }
     var answer: Livekit_SessionDescription {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_answer_tag) ? (_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _box) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_answer_tag) ? (_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _box) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_answer_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_answer_tag)
             lkSetMessage(&_pointer.pointee.message.answer, newValue)
         }
     }
     var trickle: Livekit_TrickleRequest {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_trickle_tag) ? (_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _box) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_trickle_tag) ? (_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _box) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_trickle_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_trickle_tag)
             lkSetMessage(&_pointer.pointee.message.trickle, newValue)
         }
     }
     var addTrack: Livekit_AddTrackRequest {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_add_track_tag) ? (_pointer.pointee.message.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_AddTrackRequest._empty) : Livekit_AddTrackRequest() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_add_track_tag) ? (_pointer.pointee.message.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_AddTrackRequest._empty) : Livekit_AddTrackRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_add_track_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_add_track_tag)
             lkSetMessage(&_pointer.pointee.message.add_track, newValue)
         }
     }
     var mute: Livekit_MuteTrackRequest {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_mute_tag) ? (_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_mute_tag) ? (_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_mute_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_mute_tag)
             lkSetMessage(&_pointer.pointee.message.mute, newValue)
         }
     }
     var subscription: Livekit_UpdateSubscription {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_subscription_tag) ? (_pointer.pointee.message.subscription.map { Livekit_UpdateSubscription(_sharing: $0, owner: _box) } ?? Livekit_UpdateSubscription._empty) : Livekit_UpdateSubscription() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_subscription_tag) ? (_pointer.pointee.message.subscription.map { Livekit_UpdateSubscription(_sharing: $0, owner: _box) } ?? Livekit_UpdateSubscription._empty) : Livekit_UpdateSubscription() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_subscription_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_subscription_tag)
             lkSetMessage(&_pointer.pointee.message.subscription, newValue)
         }
     }
     var trackSetting: Livekit_UpdateTrackSettings {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_track_setting_tag) ? (_pointer.pointee.message.track_setting.map { Livekit_UpdateTrackSettings(_sharing: $0, owner: _box) } ?? Livekit_UpdateTrackSettings._empty) : Livekit_UpdateTrackSettings() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_track_setting_tag) ? (_pointer.pointee.message.track_setting.map { Livekit_UpdateTrackSettings(_sharing: $0, owner: _box) } ?? Livekit_UpdateTrackSettings._empty) : Livekit_UpdateTrackSettings() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_track_setting_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_track_setting_tag)
             lkSetMessage(&_pointer.pointee.message.track_setting, newValue)
         }
     }
     var leave: Livekit_LeaveRequest {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_leave_tag) ? (_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _box) } ?? Livekit_LeaveRequest._empty) : Livekit_LeaveRequest() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_leave_tag) ? (_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _box) } ?? Livekit_LeaveRequest._empty) : Livekit_LeaveRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_leave_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_leave_tag)
             lkSetMessage(&_pointer.pointee.message.leave, newValue)
         }
     }
     var updateLayers: Livekit_UpdateVideoLayers {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_update_layers_tag) ? (_pointer.pointee.message.update_layers.map { Livekit_UpdateVideoLayers(_sharing: $0, owner: _box) } ?? Livekit_UpdateVideoLayers._empty) : Livekit_UpdateVideoLayers() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_layers_tag) ? (_pointer.pointee.message.update_layers.map { Livekit_UpdateVideoLayers(_sharing: $0, owner: _box) } ?? Livekit_UpdateVideoLayers._empty) : Livekit_UpdateVideoLayers() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_update_layers_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_update_layers_tag)
             lkSetMessage(&_pointer.pointee.message.update_layers, newValue)
         }
     }
     var subscriptionPermission: Livekit_SubscriptionPermission {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_subscription_permission_tag) ? (_pointer.pointee.message.subscription_permission.map { Livekit_SubscriptionPermission(_sharing: $0, owner: _box) } ?? Livekit_SubscriptionPermission._empty) : Livekit_SubscriptionPermission() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_subscription_permission_tag) ? (_pointer.pointee.message.subscription_permission.map { Livekit_SubscriptionPermission(_sharing: $0, owner: _box) } ?? Livekit_SubscriptionPermission._empty) : Livekit_SubscriptionPermission() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_subscription_permission_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_subscription_permission_tag)
             lkSetMessage(&_pointer.pointee.message.subscription_permission, newValue)
         }
     }
     var syncState: Livekit_SyncState {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_sync_state_tag) ? (_pointer.pointee.message.sync_state.map { Livekit_SyncState(_sharing: $0, owner: _box) } ?? Livekit_SyncState._empty) : Livekit_SyncState() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_sync_state_tag) ? (_pointer.pointee.message.sync_state.map { Livekit_SyncState(_sharing: $0, owner: _box) } ?? Livekit_SyncState._empty) : Livekit_SyncState() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_sync_state_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_sync_state_tag)
             lkSetMessage(&_pointer.pointee.message.sync_state, newValue)
         }
     }
     var simulate: Livekit_SimulateScenario {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_simulate_tag) ? (_pointer.pointee.message.simulate.map { Livekit_SimulateScenario(_sharing: $0, owner: _box) } ?? Livekit_SimulateScenario._empty) : Livekit_SimulateScenario() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_simulate_tag) ? (_pointer.pointee.message.simulate.map { Livekit_SimulateScenario(_sharing: $0, owner: _box) } ?? Livekit_SimulateScenario._empty) : Livekit_SimulateScenario() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_simulate_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_simulate_tag)
             lkSetMessage(&_pointer.pointee.message.simulate, newValue)
         }
     }
     var ping: Int64 {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_ping_tag) ? (_pointer.pointee.message.ping?.pointee ?? 0) : 0 }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_ping_tag) ? (_pointer.pointee.message.ping?.pointee ?? 0) : 0 }
         nonmutating set {
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_ping_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_ping_tag)
             lkSetValue(&_pointer.pointee.message.ping, newValue)
         }
     }
     var updateMetadata: Livekit_UpdateParticipantMetadata {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_update_metadata_tag) ? (_pointer.pointee.message.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _box) } ?? Livekit_UpdateParticipantMetadata._empty) : Livekit_UpdateParticipantMetadata() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_metadata_tag) ? (_pointer.pointee.message.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _box) } ?? Livekit_UpdateParticipantMetadata._empty) : Livekit_UpdateParticipantMetadata() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_update_metadata_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_update_metadata_tag)
             lkSetMessage(&_pointer.pointee.message.update_metadata, newValue)
         }
     }
     var pingReq: Livekit_Ping {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_ping_req_tag) ? (_pointer.pointee.message.ping_req.map { Livekit_Ping(_sharing: $0, owner: _box) } ?? Livekit_Ping._empty) : Livekit_Ping() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_ping_req_tag) ? (_pointer.pointee.message.ping_req.map { Livekit_Ping(_sharing: $0, owner: _box) } ?? Livekit_Ping._empty) : Livekit_Ping() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_ping_req_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_ping_req_tag)
             lkSetMessage(&_pointer.pointee.message.ping_req, newValue)
         }
     }
     var updateAudioTrack: Livekit_UpdateLocalAudioTrack {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_update_audio_track_tag) ? (_pointer.pointee.message.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _box) } ?? Livekit_UpdateLocalAudioTrack._empty) : Livekit_UpdateLocalAudioTrack() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_audio_track_tag) ? (_pointer.pointee.message.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _box) } ?? Livekit_UpdateLocalAudioTrack._empty) : Livekit_UpdateLocalAudioTrack() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_update_audio_track_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_update_audio_track_tag)
             lkSetMessage(&_pointer.pointee.message.update_audio_track, newValue)
         }
     }
     var updateVideoTrack: Livekit_UpdateLocalVideoTrack {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_update_video_track_tag) ? (_pointer.pointee.message.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _box) } ?? Livekit_UpdateLocalVideoTrack._empty) : Livekit_UpdateLocalVideoTrack() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_video_track_tag) ? (_pointer.pointee.message.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _box) } ?? Livekit_UpdateLocalVideoTrack._empty) : Livekit_UpdateLocalVideoTrack() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_update_video_track_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_update_video_track_tag)
             lkSetMessage(&_pointer.pointee.message.update_video_track, newValue)
         }
     }
     var publishDataTrackRequest: Livekit_PublishDataTrackRequest {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_publish_data_track_request_tag) ? (_pointer.pointee.message.publish_data_track_request.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_PublishDataTrackRequest._empty) : Livekit_PublishDataTrackRequest() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_publish_data_track_request_tag) ? (_pointer.pointee.message.publish_data_track_request.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_PublishDataTrackRequest._empty) : Livekit_PublishDataTrackRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_publish_data_track_request_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_publish_data_track_request_tag)
             lkSetMessage(&_pointer.pointee.message.publish_data_track_request, newValue)
         }
     }
     var unpublishDataTrackRequest: Livekit_UnpublishDataTrackRequest {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag) ? (_pointer.pointee.message.unpublish_data_track_request.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_UnpublishDataTrackRequest._empty) : Livekit_UnpublishDataTrackRequest() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag) ? (_pointer.pointee.message.unpublish_data_track_request.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_UnpublishDataTrackRequest._empty) : Livekit_UnpublishDataTrackRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag)
             lkSetMessage(&_pointer.pointee.message.unpublish_data_track_request, newValue)
         }
     }
     var updateDataSubscription: Livekit_UpdateDataSubscription {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_update_data_subscription_tag) ? (_pointer.pointee.message.update_data_subscription.map { Livekit_UpdateDataSubscription(_sharing: $0, owner: _box) } ?? Livekit_UpdateDataSubscription._empty) : Livekit_UpdateDataSubscription() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_data_subscription_tag) ? (_pointer.pointee.message.update_data_subscription.map { Livekit_UpdateDataSubscription(_sharing: $0, owner: _box) } ?? Livekit_UpdateDataSubscription._empty) : Livekit_UpdateDataSubscription() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_update_data_subscription_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_update_data_subscription_tag)
             lkSetMessage(&_pointer.pointee.message.update_data_subscription, newValue)
         }
     }
     var storeDataBlobRequest: Livekit_StoreDataBlobRequest {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_store_data_blob_request_tag) ? (_pointer.pointee.message.store_data_blob_request.map { Livekit_StoreDataBlobRequest(_sharing: $0, owner: _box) } ?? Livekit_StoreDataBlobRequest._empty) : Livekit_StoreDataBlobRequest() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_store_data_blob_request_tag) ? (_pointer.pointee.message.store_data_blob_request.map { Livekit_StoreDataBlobRequest(_sharing: $0, owner: _box) } ?? Livekit_StoreDataBlobRequest._empty) : Livekit_StoreDataBlobRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_store_data_blob_request_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_store_data_blob_request_tag)
             lkSetMessage(&_pointer.pointee.message.store_data_blob_request, newValue)
         }
     }
     var getDataBlobRequest: Livekit_GetDataBlobRequest {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalRequest_get_data_blob_request_tag) ? (_pointer.pointee.message.get_data_blob_request.map { Livekit_GetDataBlobRequest(_sharing: $0, owner: _box) } ?? Livekit_GetDataBlobRequest._empty) : Livekit_GetDataBlobRequest() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_get_data_blob_request_tag) ? (_pointer.pointee.message.get_data_blob_request.map { Livekit_GetDataBlobRequest(_sharing: $0, owner: _box) } ?? Livekit_GetDataBlobRequest._empty) : Livekit_GetDataBlobRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalRequest_get_data_blob_request_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalRequest_get_data_blob_request_tag)
             lkSetMessage(&_pointer.pointee.message.get_data_blob_request, newValue)
         }
     }
     private func _clearMessage() {
         switch _pointer.pointee.which_message {
-        case pb_size_t(livekit_SignalRequest_offer_tag):
+        case lk_pb_size_t(livekit_SignalRequest_offer_tag):
             lkRelease(message: &_pointer.pointee.message.offer, Livekit_SessionDescription.descriptor)
-        case pb_size_t(livekit_SignalRequest_answer_tag):
+        case lk_pb_size_t(livekit_SignalRequest_answer_tag):
             lkRelease(message: &_pointer.pointee.message.answer, Livekit_SessionDescription.descriptor)
-        case pb_size_t(livekit_SignalRequest_trickle_tag):
+        case lk_pb_size_t(livekit_SignalRequest_trickle_tag):
             lkRelease(message: &_pointer.pointee.message.trickle, Livekit_TrickleRequest.descriptor)
-        case pb_size_t(livekit_SignalRequest_add_track_tag):
+        case lk_pb_size_t(livekit_SignalRequest_add_track_tag):
             lkRelease(message: &_pointer.pointee.message.add_track, Livekit_AddTrackRequest.descriptor)
-        case pb_size_t(livekit_SignalRequest_mute_tag):
+        case lk_pb_size_t(livekit_SignalRequest_mute_tag):
             lkRelease(message: &_pointer.pointee.message.mute, Livekit_MuteTrackRequest.descriptor)
-        case pb_size_t(livekit_SignalRequest_subscription_tag):
+        case lk_pb_size_t(livekit_SignalRequest_subscription_tag):
             lkRelease(message: &_pointer.pointee.message.subscription, Livekit_UpdateSubscription.descriptor)
-        case pb_size_t(livekit_SignalRequest_track_setting_tag):
+        case lk_pb_size_t(livekit_SignalRequest_track_setting_tag):
             lkRelease(message: &_pointer.pointee.message.track_setting, Livekit_UpdateTrackSettings.descriptor)
-        case pb_size_t(livekit_SignalRequest_leave_tag):
+        case lk_pb_size_t(livekit_SignalRequest_leave_tag):
             lkRelease(message: &_pointer.pointee.message.leave, Livekit_LeaveRequest.descriptor)
-        case pb_size_t(livekit_SignalRequest_update_layers_tag):
+        case lk_pb_size_t(livekit_SignalRequest_update_layers_tag):
             lkRelease(message: &_pointer.pointee.message.update_layers, Livekit_UpdateVideoLayers.descriptor)
-        case pb_size_t(livekit_SignalRequest_subscription_permission_tag):
+        case lk_pb_size_t(livekit_SignalRequest_subscription_permission_tag):
             lkRelease(message: &_pointer.pointee.message.subscription_permission, Livekit_SubscriptionPermission.descriptor)
-        case pb_size_t(livekit_SignalRequest_sync_state_tag):
+        case lk_pb_size_t(livekit_SignalRequest_sync_state_tag):
             lkRelease(message: &_pointer.pointee.message.sync_state, Livekit_SyncState.descriptor)
-        case pb_size_t(livekit_SignalRequest_simulate_tag):
+        case lk_pb_size_t(livekit_SignalRequest_simulate_tag):
             lkRelease(message: &_pointer.pointee.message.simulate, Livekit_SimulateScenario.descriptor)
-        case pb_size_t(livekit_SignalRequest_ping_tag):
+        case lk_pb_size_t(livekit_SignalRequest_ping_tag):
             lkFree(&_pointer.pointee.message.ping)
-        case pb_size_t(livekit_SignalRequest_update_metadata_tag):
+        case lk_pb_size_t(livekit_SignalRequest_update_metadata_tag):
             lkRelease(message: &_pointer.pointee.message.update_metadata, Livekit_UpdateParticipantMetadata.descriptor)
-        case pb_size_t(livekit_SignalRequest_ping_req_tag):
+        case lk_pb_size_t(livekit_SignalRequest_ping_req_tag):
             lkRelease(message: &_pointer.pointee.message.ping_req, Livekit_Ping.descriptor)
-        case pb_size_t(livekit_SignalRequest_update_audio_track_tag):
+        case lk_pb_size_t(livekit_SignalRequest_update_audio_track_tag):
             lkRelease(message: &_pointer.pointee.message.update_audio_track, Livekit_UpdateLocalAudioTrack.descriptor)
-        case pb_size_t(livekit_SignalRequest_update_video_track_tag):
+        case lk_pb_size_t(livekit_SignalRequest_update_video_track_tag):
             lkRelease(message: &_pointer.pointee.message.update_video_track, Livekit_UpdateLocalVideoTrack.descriptor)
-        case pb_size_t(livekit_SignalRequest_publish_data_track_request_tag):
+        case lk_pb_size_t(livekit_SignalRequest_publish_data_track_request_tag):
             lkRelease(message: &_pointer.pointee.message.publish_data_track_request, Livekit_PublishDataTrackRequest.descriptor)
-        case pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag):
+        case lk_pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag):
             lkRelease(message: &_pointer.pointee.message.unpublish_data_track_request, Livekit_UnpublishDataTrackRequest.descriptor)
-        case pb_size_t(livekit_SignalRequest_update_data_subscription_tag):
+        case lk_pb_size_t(livekit_SignalRequest_update_data_subscription_tag):
             lkRelease(message: &_pointer.pointee.message.update_data_subscription, Livekit_UpdateDataSubscription.descriptor)
-        case pb_size_t(livekit_SignalRequest_store_data_blob_request_tag):
+        case lk_pb_size_t(livekit_SignalRequest_store_data_blob_request_tag):
             lkRelease(message: &_pointer.pointee.message.store_data_blob_request, Livekit_StoreDataBlobRequest.descriptor)
-        case pb_size_t(livekit_SignalRequest_get_data_blob_request_tag):
+        case lk_pb_size_t(livekit_SignalRequest_get_data_blob_request_tag):
             lkRelease(message: &_pointer.pointee.message.get_data_blob_request, Livekit_GetDataBlobRequest.descriptor)
         default: break
         }
@@ -603,165 +603,165 @@ enum Livekit_SignalResponse_OneOf_Message: Equatable {
 }
 
 extension livekit_SignalResponse: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SignalResponse_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SignalResponse_msg }
     package static let _emptyBox = NanopbBox<livekit_SignalResponse>(zero: livekit_SignalResponse(), descriptor: livekit_SignalResponse_msg)
 }
 typealias Livekit_SignalResponse = NanopbMsg<livekit_SignalResponse>
 extension Livekit_SignalResponse {
     var message: Livekit_SignalResponse_OneOf_Message? {
         switch _pointer.pointee.which_message {
-        case pb_size_t(livekit_SignalResponse_join_tag):
+        case lk_pb_size_t(livekit_SignalResponse_join_tag):
             return .join(_pointer.pointee.message.join.map { Livekit_JoinResponse(_sharing: $0, owner: _owner) } ?? Livekit_JoinResponse._empty)
-        case pb_size_t(livekit_SignalResponse_answer_tag):
+        case lk_pb_size_t(livekit_SignalResponse_answer_tag):
             return .answer(_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty)
-        case pb_size_t(livekit_SignalResponse_offer_tag):
+        case lk_pb_size_t(livekit_SignalResponse_offer_tag):
             return .offer(_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty)
-        case pb_size_t(livekit_SignalResponse_trickle_tag):
+        case lk_pb_size_t(livekit_SignalResponse_trickle_tag):
             return .trickle(_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty)
-        case pb_size_t(livekit_SignalResponse_update_tag):
+        case lk_pb_size_t(livekit_SignalResponse_update_tag):
             return .update(_pointer.pointee.message.update.map { Livekit_ParticipantUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ParticipantUpdate._empty)
-        case pb_size_t(livekit_SignalResponse_track_published_tag):
+        case lk_pb_size_t(livekit_SignalResponse_track_published_tag):
             return .trackPublished(_pointer.pointee.message.track_published.map { Livekit_TrackPublishedResponse(_sharing: $0, owner: _owner) } ?? Livekit_TrackPublishedResponse._empty)
-        case pb_size_t(livekit_SignalResponse_leave_tag):
+        case lk_pb_size_t(livekit_SignalResponse_leave_tag):
             return .leave(_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _owner) } ?? Livekit_LeaveRequest._empty)
-        case pb_size_t(livekit_SignalResponse_mute_tag):
+        case lk_pb_size_t(livekit_SignalResponse_mute_tag):
             return .mute(_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty)
-        case pb_size_t(livekit_SignalResponse_speakers_changed_tag):
+        case lk_pb_size_t(livekit_SignalResponse_speakers_changed_tag):
             return .speakersChanged(_pointer.pointee.message.speakers_changed.map { Livekit_SpeakersChanged(_sharing: $0, owner: _owner) } ?? Livekit_SpeakersChanged._empty)
-        case pb_size_t(livekit_SignalResponse_room_update_tag):
+        case lk_pb_size_t(livekit_SignalResponse_room_update_tag):
             return .roomUpdate(_pointer.pointee.message.room_update.map { Livekit_RoomUpdate(_sharing: $0, owner: _owner) } ?? Livekit_RoomUpdate._empty)
-        case pb_size_t(livekit_SignalResponse_connection_quality_tag):
+        case lk_pb_size_t(livekit_SignalResponse_connection_quality_tag):
             return .connectionQuality(_pointer.pointee.message.connection_quality.map { Livekit_ConnectionQualityUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ConnectionQualityUpdate._empty)
-        case pb_size_t(livekit_SignalResponse_stream_state_update_tag):
+        case lk_pb_size_t(livekit_SignalResponse_stream_state_update_tag):
             return .streamStateUpdate(_pointer.pointee.message.stream_state_update.map { Livekit_StreamStateUpdate(_sharing: $0, owner: _owner) } ?? Livekit_StreamStateUpdate._empty)
-        case pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag):
+        case lk_pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag):
             return .subscribedQualityUpdate(_pointer.pointee.message.subscribed_quality_update.map { Livekit_SubscribedQualityUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscribedQualityUpdate._empty)
-        case pb_size_t(livekit_SignalResponse_subscription_permission_update_tag):
+        case lk_pb_size_t(livekit_SignalResponse_subscription_permission_update_tag):
             return .subscriptionPermissionUpdate(_pointer.pointee.message.subscription_permission_update.map { Livekit_SubscriptionPermissionUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionPermissionUpdate._empty)
-        case pb_size_t(livekit_SignalResponse_refresh_token_tag):
+        case lk_pb_size_t(livekit_SignalResponse_refresh_token_tag):
             return .refreshToken(lkString(_pointer.pointee.message.refresh_token) ?? "")
-        case pb_size_t(livekit_SignalResponse_track_unpublished_tag):
+        case lk_pb_size_t(livekit_SignalResponse_track_unpublished_tag):
             return .trackUnpublished(_pointer.pointee.message.track_unpublished.map { Livekit_TrackUnpublishedResponse(_sharing: $0, owner: _owner) } ?? Livekit_TrackUnpublishedResponse._empty)
-        case pb_size_t(livekit_SignalResponse_pong_tag):
+        case lk_pb_size_t(livekit_SignalResponse_pong_tag):
             return .pong(_pointer.pointee.message.pong?.pointee ?? 0)
-        case pb_size_t(livekit_SignalResponse_reconnect_tag):
+        case lk_pb_size_t(livekit_SignalResponse_reconnect_tag):
             return .reconnect(_pointer.pointee.message.reconnect.map { Livekit_ReconnectResponse(_sharing: $0, owner: _owner) } ?? Livekit_ReconnectResponse._empty)
-        case pb_size_t(livekit_SignalResponse_pong_resp_tag):
+        case lk_pb_size_t(livekit_SignalResponse_pong_resp_tag):
             return .pongResp(_pointer.pointee.message.pong_resp.map { Livekit_Pong(_sharing: $0, owner: _owner) } ?? Livekit_Pong._empty)
-        case pb_size_t(livekit_SignalResponse_subscription_response_tag):
+        case lk_pb_size_t(livekit_SignalResponse_subscription_response_tag):
             return .subscriptionResponse(_pointer.pointee.message.subscription_response.map { Livekit_SubscriptionResponse(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionResponse._empty)
-        case pb_size_t(livekit_SignalResponse_request_response_tag):
+        case lk_pb_size_t(livekit_SignalResponse_request_response_tag):
             return .requestResponse(_pointer.pointee.message.request_response.map { Livekit_RequestResponse(_sharing: $0, owner: _owner) } ?? Livekit_RequestResponse._empty)
-        case pb_size_t(livekit_SignalResponse_track_subscribed_tag):
+        case lk_pb_size_t(livekit_SignalResponse_track_subscribed_tag):
             return .trackSubscribed(_pointer.pointee.message.track_subscribed.map { Livekit_TrackSubscribed(_sharing: $0, owner: _owner) } ?? Livekit_TrackSubscribed._empty)
-        case pb_size_t(livekit_SignalResponse_room_moved_tag):
+        case lk_pb_size_t(livekit_SignalResponse_room_moved_tag):
             return .roomMoved(_pointer.pointee.message.room_moved.map { Livekit_RoomMovedResponse(_sharing: $0, owner: _owner) } ?? Livekit_RoomMovedResponse._empty)
-        case pb_size_t(livekit_SignalResponse_media_sections_requirement_tag):
+        case lk_pb_size_t(livekit_SignalResponse_media_sections_requirement_tag):
             return .mediaSectionsRequirement(_pointer.pointee.message.media_sections_requirement.map { Livekit_MediaSectionsRequirement(_sharing: $0, owner: _owner) } ?? Livekit_MediaSectionsRequirement._empty)
-        case pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag):
+        case lk_pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag):
             return .subscribedAudioCodecUpdate(_pointer.pointee.message.subscribed_audio_codec_update.map { Livekit_SubscribedAudioCodecUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscribedAudioCodecUpdate._empty)
-        case pb_size_t(livekit_SignalResponse_publish_data_track_response_tag):
+        case lk_pb_size_t(livekit_SignalResponse_publish_data_track_response_tag):
             return .publishDataTrackResponse(_pointer.pointee.message.publish_data_track_response.map { Livekit_PublishDataTrackResponse(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackResponse._empty)
-        case pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag):
+        case lk_pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag):
             return .unpublishDataTrackResponse(_pointer.pointee.message.unpublish_data_track_response.map { Livekit_UnpublishDataTrackResponse(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackResponse._empty)
-        case pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag):
+        case lk_pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag):
             return .dataTrackSubscriberHandles(_pointer.pointee.message.data_track_subscriber_handles.map { Livekit_DataTrackSubscriberHandles(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriberHandles._empty)
-        case pb_size_t(livekit_SignalResponse_store_data_blob_response_tag):
+        case lk_pb_size_t(livekit_SignalResponse_store_data_blob_response_tag):
             return .storeDataBlobResponse(_pointer.pointee.message.store_data_blob_response.map { Livekit_StoreDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobResponse._empty)
-        case pb_size_t(livekit_SignalResponse_get_data_blob_response_tag):
+        case lk_pb_size_t(livekit_SignalResponse_get_data_blob_response_tag):
             return .getDataBlobResponse(_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobResponse._empty)
         default: return nil
         }
     }
     var join: Livekit_JoinResponse {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_join_tag) ? (_pointer.pointee.message.join.map { Livekit_JoinResponse(_sharing: $0, owner: _owner) } ?? Livekit_JoinResponse._empty) : Livekit_JoinResponse()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_join_tag) ? (_pointer.pointee.message.join.map { Livekit_JoinResponse(_sharing: $0, owner: _owner) } ?? Livekit_JoinResponse._empty) : Livekit_JoinResponse()
     }
     var answer: Livekit_SessionDescription {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_answer_tag) ? (_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_answer_tag) ? (_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription()
     }
     var offer: Livekit_SessionDescription {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_offer_tag) ? (_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_offer_tag) ? (_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription()
     }
     var trickle: Livekit_TrickleRequest {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_trickle_tag) ? (_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_trickle_tag) ? (_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest()
     }
     var update: Livekit_ParticipantUpdate {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_update_tag) ? (_pointer.pointee.message.update.map { Livekit_ParticipantUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ParticipantUpdate._empty) : Livekit_ParticipantUpdate()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_update_tag) ? (_pointer.pointee.message.update.map { Livekit_ParticipantUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ParticipantUpdate._empty) : Livekit_ParticipantUpdate()
     }
     var trackPublished: Livekit_TrackPublishedResponse {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_track_published_tag) ? (_pointer.pointee.message.track_published.map { Livekit_TrackPublishedResponse(_sharing: $0, owner: _owner) } ?? Livekit_TrackPublishedResponse._empty) : Livekit_TrackPublishedResponse()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_track_published_tag) ? (_pointer.pointee.message.track_published.map { Livekit_TrackPublishedResponse(_sharing: $0, owner: _owner) } ?? Livekit_TrackPublishedResponse._empty) : Livekit_TrackPublishedResponse()
     }
     var leave: Livekit_LeaveRequest {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_leave_tag) ? (_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _owner) } ?? Livekit_LeaveRequest._empty) : Livekit_LeaveRequest()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_leave_tag) ? (_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _owner) } ?? Livekit_LeaveRequest._empty) : Livekit_LeaveRequest()
     }
     var mute: Livekit_MuteTrackRequest {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_mute_tag) ? (_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_mute_tag) ? (_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest()
     }
     var speakersChanged: Livekit_SpeakersChanged {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_speakers_changed_tag) ? (_pointer.pointee.message.speakers_changed.map { Livekit_SpeakersChanged(_sharing: $0, owner: _owner) } ?? Livekit_SpeakersChanged._empty) : Livekit_SpeakersChanged()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_speakers_changed_tag) ? (_pointer.pointee.message.speakers_changed.map { Livekit_SpeakersChanged(_sharing: $0, owner: _owner) } ?? Livekit_SpeakersChanged._empty) : Livekit_SpeakersChanged()
     }
     var roomUpdate: Livekit_RoomUpdate {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_room_update_tag) ? (_pointer.pointee.message.room_update.map { Livekit_RoomUpdate(_sharing: $0, owner: _owner) } ?? Livekit_RoomUpdate._empty) : Livekit_RoomUpdate()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_room_update_tag) ? (_pointer.pointee.message.room_update.map { Livekit_RoomUpdate(_sharing: $0, owner: _owner) } ?? Livekit_RoomUpdate._empty) : Livekit_RoomUpdate()
     }
     var connectionQuality: Livekit_ConnectionQualityUpdate {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_connection_quality_tag) ? (_pointer.pointee.message.connection_quality.map { Livekit_ConnectionQualityUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ConnectionQualityUpdate._empty) : Livekit_ConnectionQualityUpdate()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_connection_quality_tag) ? (_pointer.pointee.message.connection_quality.map { Livekit_ConnectionQualityUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ConnectionQualityUpdate._empty) : Livekit_ConnectionQualityUpdate()
     }
     var streamStateUpdate: Livekit_StreamStateUpdate {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_stream_state_update_tag) ? (_pointer.pointee.message.stream_state_update.map { Livekit_StreamStateUpdate(_sharing: $0, owner: _owner) } ?? Livekit_StreamStateUpdate._empty) : Livekit_StreamStateUpdate()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_stream_state_update_tag) ? (_pointer.pointee.message.stream_state_update.map { Livekit_StreamStateUpdate(_sharing: $0, owner: _owner) } ?? Livekit_StreamStateUpdate._empty) : Livekit_StreamStateUpdate()
     }
     var subscribedQualityUpdate: Livekit_SubscribedQualityUpdate {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag) ? (_pointer.pointee.message.subscribed_quality_update.map { Livekit_SubscribedQualityUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscribedQualityUpdate._empty) : Livekit_SubscribedQualityUpdate()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag) ? (_pointer.pointee.message.subscribed_quality_update.map { Livekit_SubscribedQualityUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscribedQualityUpdate._empty) : Livekit_SubscribedQualityUpdate()
     }
     var subscriptionPermissionUpdate: Livekit_SubscriptionPermissionUpdate {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_subscription_permission_update_tag) ? (_pointer.pointee.message.subscription_permission_update.map { Livekit_SubscriptionPermissionUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionPermissionUpdate._empty) : Livekit_SubscriptionPermissionUpdate()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_subscription_permission_update_tag) ? (_pointer.pointee.message.subscription_permission_update.map { Livekit_SubscriptionPermissionUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionPermissionUpdate._empty) : Livekit_SubscriptionPermissionUpdate()
     }
     var refreshToken: String {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_refresh_token_tag) ? (lkString(_pointer.pointee.message.refresh_token) ?? "") : ""
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_refresh_token_tag) ? (lkString(_pointer.pointee.message.refresh_token) ?? "") : ""
     }
     var trackUnpublished: Livekit_TrackUnpublishedResponse {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_track_unpublished_tag) ? (_pointer.pointee.message.track_unpublished.map { Livekit_TrackUnpublishedResponse(_sharing: $0, owner: _owner) } ?? Livekit_TrackUnpublishedResponse._empty) : Livekit_TrackUnpublishedResponse()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_track_unpublished_tag) ? (_pointer.pointee.message.track_unpublished.map { Livekit_TrackUnpublishedResponse(_sharing: $0, owner: _owner) } ?? Livekit_TrackUnpublishedResponse._empty) : Livekit_TrackUnpublishedResponse()
     }
     var pong: Int64 {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_pong_tag) ? (_pointer.pointee.message.pong?.pointee ?? 0) : 0
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_pong_tag) ? (_pointer.pointee.message.pong?.pointee ?? 0) : 0
     }
     var reconnect: Livekit_ReconnectResponse {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_reconnect_tag) ? (_pointer.pointee.message.reconnect.map { Livekit_ReconnectResponse(_sharing: $0, owner: _owner) } ?? Livekit_ReconnectResponse._empty) : Livekit_ReconnectResponse()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_reconnect_tag) ? (_pointer.pointee.message.reconnect.map { Livekit_ReconnectResponse(_sharing: $0, owner: _owner) } ?? Livekit_ReconnectResponse._empty) : Livekit_ReconnectResponse()
     }
     var pongResp: Livekit_Pong {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_pong_resp_tag) ? (_pointer.pointee.message.pong_resp.map { Livekit_Pong(_sharing: $0, owner: _owner) } ?? Livekit_Pong._empty) : Livekit_Pong()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_pong_resp_tag) ? (_pointer.pointee.message.pong_resp.map { Livekit_Pong(_sharing: $0, owner: _owner) } ?? Livekit_Pong._empty) : Livekit_Pong()
     }
     var subscriptionResponse: Livekit_SubscriptionResponse {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_subscription_response_tag) ? (_pointer.pointee.message.subscription_response.map { Livekit_SubscriptionResponse(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionResponse._empty) : Livekit_SubscriptionResponse()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_subscription_response_tag) ? (_pointer.pointee.message.subscription_response.map { Livekit_SubscriptionResponse(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionResponse._empty) : Livekit_SubscriptionResponse()
     }
     var requestResponse: Livekit_RequestResponse {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_request_response_tag) ? (_pointer.pointee.message.request_response.map { Livekit_RequestResponse(_sharing: $0, owner: _owner) } ?? Livekit_RequestResponse._empty) : Livekit_RequestResponse()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_request_response_tag) ? (_pointer.pointee.message.request_response.map { Livekit_RequestResponse(_sharing: $0, owner: _owner) } ?? Livekit_RequestResponse._empty) : Livekit_RequestResponse()
     }
     var trackSubscribed: Livekit_TrackSubscribed {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_track_subscribed_tag) ? (_pointer.pointee.message.track_subscribed.map { Livekit_TrackSubscribed(_sharing: $0, owner: _owner) } ?? Livekit_TrackSubscribed._empty) : Livekit_TrackSubscribed()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_track_subscribed_tag) ? (_pointer.pointee.message.track_subscribed.map { Livekit_TrackSubscribed(_sharing: $0, owner: _owner) } ?? Livekit_TrackSubscribed._empty) : Livekit_TrackSubscribed()
     }
     var roomMoved: Livekit_RoomMovedResponse {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_room_moved_tag) ? (_pointer.pointee.message.room_moved.map { Livekit_RoomMovedResponse(_sharing: $0, owner: _owner) } ?? Livekit_RoomMovedResponse._empty) : Livekit_RoomMovedResponse()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_room_moved_tag) ? (_pointer.pointee.message.room_moved.map { Livekit_RoomMovedResponse(_sharing: $0, owner: _owner) } ?? Livekit_RoomMovedResponse._empty) : Livekit_RoomMovedResponse()
     }
     var mediaSectionsRequirement: Livekit_MediaSectionsRequirement {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_media_sections_requirement_tag) ? (_pointer.pointee.message.media_sections_requirement.map { Livekit_MediaSectionsRequirement(_sharing: $0, owner: _owner) } ?? Livekit_MediaSectionsRequirement._empty) : Livekit_MediaSectionsRequirement()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_media_sections_requirement_tag) ? (_pointer.pointee.message.media_sections_requirement.map { Livekit_MediaSectionsRequirement(_sharing: $0, owner: _owner) } ?? Livekit_MediaSectionsRequirement._empty) : Livekit_MediaSectionsRequirement()
     }
     var subscribedAudioCodecUpdate: Livekit_SubscribedAudioCodecUpdate {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag) ? (_pointer.pointee.message.subscribed_audio_codec_update.map { Livekit_SubscribedAudioCodecUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscribedAudioCodecUpdate._empty) : Livekit_SubscribedAudioCodecUpdate()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag) ? (_pointer.pointee.message.subscribed_audio_codec_update.map { Livekit_SubscribedAudioCodecUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscribedAudioCodecUpdate._empty) : Livekit_SubscribedAudioCodecUpdate()
     }
     var publishDataTrackResponse: Livekit_PublishDataTrackResponse {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_publish_data_track_response_tag) ? (_pointer.pointee.message.publish_data_track_response.map { Livekit_PublishDataTrackResponse(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackResponse._empty) : Livekit_PublishDataTrackResponse()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_publish_data_track_response_tag) ? (_pointer.pointee.message.publish_data_track_response.map { Livekit_PublishDataTrackResponse(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackResponse._empty) : Livekit_PublishDataTrackResponse()
     }
     var unpublishDataTrackResponse: Livekit_UnpublishDataTrackResponse {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag) ? (_pointer.pointee.message.unpublish_data_track_response.map { Livekit_UnpublishDataTrackResponse(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackResponse._empty) : Livekit_UnpublishDataTrackResponse()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag) ? (_pointer.pointee.message.unpublish_data_track_response.map { Livekit_UnpublishDataTrackResponse(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackResponse._empty) : Livekit_UnpublishDataTrackResponse()
     }
     var dataTrackSubscriberHandles: Livekit_DataTrackSubscriberHandles {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag) ? (_pointer.pointee.message.data_track_subscriber_handles.map { Livekit_DataTrackSubscriberHandles(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriberHandles._empty) : Livekit_DataTrackSubscriberHandles()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag) ? (_pointer.pointee.message.data_track_subscriber_handles.map { Livekit_DataTrackSubscriberHandles(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriberHandles._empty) : Livekit_DataTrackSubscriberHandles()
     }
     var storeDataBlobResponse: Livekit_StoreDataBlobResponse {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_store_data_blob_response_tag) ? (_pointer.pointee.message.store_data_blob_response.map { Livekit_StoreDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobResponse._empty) : Livekit_StoreDataBlobResponse()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_store_data_blob_response_tag) ? (_pointer.pointee.message.store_data_blob_response.map { Livekit_StoreDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobResponse._empty) : Livekit_StoreDataBlobResponse()
     }
     var getDataBlobResponse: Livekit_GetDataBlobResponse {
-        _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_get_data_blob_response_tag) ? (_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobResponse._empty) : Livekit_GetDataBlobResponse()
+        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_get_data_blob_response_tag) ? (_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobResponse._empty) : Livekit_GetDataBlobResponse()
     }
 
 }
@@ -770,65 +770,65 @@ extension Livekit_SignalResponse.Builder {
     var message: Livekit_SignalResponse_OneOf_Message? {
         get {
             switch _pointer.pointee.which_message {
-            case pb_size_t(livekit_SignalResponse_join_tag):
+            case lk_pb_size_t(livekit_SignalResponse_join_tag):
                 return .join(_pointer.pointee.message.join.map { Livekit_JoinResponse(_sharing: $0, owner: _box) } ?? Livekit_JoinResponse._empty)
-            case pb_size_t(livekit_SignalResponse_answer_tag):
+            case lk_pb_size_t(livekit_SignalResponse_answer_tag):
                 return .answer(_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _box) } ?? Livekit_SessionDescription._empty)
-            case pb_size_t(livekit_SignalResponse_offer_tag):
+            case lk_pb_size_t(livekit_SignalResponse_offer_tag):
                 return .offer(_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _box) } ?? Livekit_SessionDescription._empty)
-            case pb_size_t(livekit_SignalResponse_trickle_tag):
+            case lk_pb_size_t(livekit_SignalResponse_trickle_tag):
                 return .trickle(_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _box) } ?? Livekit_TrickleRequest._empty)
-            case pb_size_t(livekit_SignalResponse_update_tag):
+            case lk_pb_size_t(livekit_SignalResponse_update_tag):
                 return .update(_pointer.pointee.message.update.map { Livekit_ParticipantUpdate(_sharing: $0, owner: _box) } ?? Livekit_ParticipantUpdate._empty)
-            case pb_size_t(livekit_SignalResponse_track_published_tag):
+            case lk_pb_size_t(livekit_SignalResponse_track_published_tag):
                 return .trackPublished(_pointer.pointee.message.track_published.map { Livekit_TrackPublishedResponse(_sharing: $0, owner: _box) } ?? Livekit_TrackPublishedResponse._empty)
-            case pb_size_t(livekit_SignalResponse_leave_tag):
+            case lk_pb_size_t(livekit_SignalResponse_leave_tag):
                 return .leave(_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _box) } ?? Livekit_LeaveRequest._empty)
-            case pb_size_t(livekit_SignalResponse_mute_tag):
+            case lk_pb_size_t(livekit_SignalResponse_mute_tag):
                 return .mute(_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_MuteTrackRequest._empty)
-            case pb_size_t(livekit_SignalResponse_speakers_changed_tag):
+            case lk_pb_size_t(livekit_SignalResponse_speakers_changed_tag):
                 return .speakersChanged(_pointer.pointee.message.speakers_changed.map { Livekit_SpeakersChanged(_sharing: $0, owner: _box) } ?? Livekit_SpeakersChanged._empty)
-            case pb_size_t(livekit_SignalResponse_room_update_tag):
+            case lk_pb_size_t(livekit_SignalResponse_room_update_tag):
                 return .roomUpdate(_pointer.pointee.message.room_update.map { Livekit_RoomUpdate(_sharing: $0, owner: _box) } ?? Livekit_RoomUpdate._empty)
-            case pb_size_t(livekit_SignalResponse_connection_quality_tag):
+            case lk_pb_size_t(livekit_SignalResponse_connection_quality_tag):
                 return .connectionQuality(_pointer.pointee.message.connection_quality.map { Livekit_ConnectionQualityUpdate(_sharing: $0, owner: _box) } ?? Livekit_ConnectionQualityUpdate._empty)
-            case pb_size_t(livekit_SignalResponse_stream_state_update_tag):
+            case lk_pb_size_t(livekit_SignalResponse_stream_state_update_tag):
                 return .streamStateUpdate(_pointer.pointee.message.stream_state_update.map { Livekit_StreamStateUpdate(_sharing: $0, owner: _box) } ?? Livekit_StreamStateUpdate._empty)
-            case pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag):
+            case lk_pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag):
                 return .subscribedQualityUpdate(_pointer.pointee.message.subscribed_quality_update.map { Livekit_SubscribedQualityUpdate(_sharing: $0, owner: _box) } ?? Livekit_SubscribedQualityUpdate._empty)
-            case pb_size_t(livekit_SignalResponse_subscription_permission_update_tag):
+            case lk_pb_size_t(livekit_SignalResponse_subscription_permission_update_tag):
                 return .subscriptionPermissionUpdate(_pointer.pointee.message.subscription_permission_update.map { Livekit_SubscriptionPermissionUpdate(_sharing: $0, owner: _box) } ?? Livekit_SubscriptionPermissionUpdate._empty)
-            case pb_size_t(livekit_SignalResponse_refresh_token_tag):
+            case lk_pb_size_t(livekit_SignalResponse_refresh_token_tag):
                 return .refreshToken(lkString(_pointer.pointee.message.refresh_token) ?? "")
-            case pb_size_t(livekit_SignalResponse_track_unpublished_tag):
+            case lk_pb_size_t(livekit_SignalResponse_track_unpublished_tag):
                 return .trackUnpublished(_pointer.pointee.message.track_unpublished.map { Livekit_TrackUnpublishedResponse(_sharing: $0, owner: _box) } ?? Livekit_TrackUnpublishedResponse._empty)
-            case pb_size_t(livekit_SignalResponse_pong_tag):
+            case lk_pb_size_t(livekit_SignalResponse_pong_tag):
                 return .pong(_pointer.pointee.message.pong?.pointee ?? 0)
-            case pb_size_t(livekit_SignalResponse_reconnect_tag):
+            case lk_pb_size_t(livekit_SignalResponse_reconnect_tag):
                 return .reconnect(_pointer.pointee.message.reconnect.map { Livekit_ReconnectResponse(_sharing: $0, owner: _box) } ?? Livekit_ReconnectResponse._empty)
-            case pb_size_t(livekit_SignalResponse_pong_resp_tag):
+            case lk_pb_size_t(livekit_SignalResponse_pong_resp_tag):
                 return .pongResp(_pointer.pointee.message.pong_resp.map { Livekit_Pong(_sharing: $0, owner: _box) } ?? Livekit_Pong._empty)
-            case pb_size_t(livekit_SignalResponse_subscription_response_tag):
+            case lk_pb_size_t(livekit_SignalResponse_subscription_response_tag):
                 return .subscriptionResponse(_pointer.pointee.message.subscription_response.map { Livekit_SubscriptionResponse(_sharing: $0, owner: _box) } ?? Livekit_SubscriptionResponse._empty)
-            case pb_size_t(livekit_SignalResponse_request_response_tag):
+            case lk_pb_size_t(livekit_SignalResponse_request_response_tag):
                 return .requestResponse(_pointer.pointee.message.request_response.map { Livekit_RequestResponse(_sharing: $0, owner: _box) } ?? Livekit_RequestResponse._empty)
-            case pb_size_t(livekit_SignalResponse_track_subscribed_tag):
+            case lk_pb_size_t(livekit_SignalResponse_track_subscribed_tag):
                 return .trackSubscribed(_pointer.pointee.message.track_subscribed.map { Livekit_TrackSubscribed(_sharing: $0, owner: _box) } ?? Livekit_TrackSubscribed._empty)
-            case pb_size_t(livekit_SignalResponse_room_moved_tag):
+            case lk_pb_size_t(livekit_SignalResponse_room_moved_tag):
                 return .roomMoved(_pointer.pointee.message.room_moved.map { Livekit_RoomMovedResponse(_sharing: $0, owner: _box) } ?? Livekit_RoomMovedResponse._empty)
-            case pb_size_t(livekit_SignalResponse_media_sections_requirement_tag):
+            case lk_pb_size_t(livekit_SignalResponse_media_sections_requirement_tag):
                 return .mediaSectionsRequirement(_pointer.pointee.message.media_sections_requirement.map { Livekit_MediaSectionsRequirement(_sharing: $0, owner: _box) } ?? Livekit_MediaSectionsRequirement._empty)
-            case pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag):
+            case lk_pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag):
                 return .subscribedAudioCodecUpdate(_pointer.pointee.message.subscribed_audio_codec_update.map { Livekit_SubscribedAudioCodecUpdate(_sharing: $0, owner: _box) } ?? Livekit_SubscribedAudioCodecUpdate._empty)
-            case pb_size_t(livekit_SignalResponse_publish_data_track_response_tag):
+            case lk_pb_size_t(livekit_SignalResponse_publish_data_track_response_tag):
                 return .publishDataTrackResponse(_pointer.pointee.message.publish_data_track_response.map { Livekit_PublishDataTrackResponse(_sharing: $0, owner: _box) } ?? Livekit_PublishDataTrackResponse._empty)
-            case pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag):
+            case lk_pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag):
                 return .unpublishDataTrackResponse(_pointer.pointee.message.unpublish_data_track_response.map { Livekit_UnpublishDataTrackResponse(_sharing: $0, owner: _box) } ?? Livekit_UnpublishDataTrackResponse._empty)
-            case pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag):
+            case lk_pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag):
                 return .dataTrackSubscriberHandles(_pointer.pointee.message.data_track_subscriber_handles.map { Livekit_DataTrackSubscriberHandles(_sharing: $0, owner: _box) } ?? Livekit_DataTrackSubscriberHandles._empty)
-            case pb_size_t(livekit_SignalResponse_store_data_blob_response_tag):
+            case lk_pb_size_t(livekit_SignalResponse_store_data_blob_response_tag):
                 return .storeDataBlobResponse(_pointer.pointee.message.store_data_blob_response.map { Livekit_StoreDataBlobResponse(_sharing: $0, owner: _box) } ?? Livekit_StoreDataBlobResponse._empty)
-            case pb_size_t(livekit_SignalResponse_get_data_blob_response_tag):
+            case lk_pb_size_t(livekit_SignalResponse_get_data_blob_response_tag):
                 return .getDataBlobResponse(_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _box) } ?? Livekit_GetDataBlobResponse._empty)
             default: return nil
             }
@@ -868,428 +868,428 @@ extension Livekit_SignalResponse.Builder {
             _clearMessage()
             switch newValue {
             case let .join(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_join_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_join_tag)
                 lkSetMessage(&_pointer.pointee.message.join, value)
             case let .answer(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_answer_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_answer_tag)
                 lkSetMessage(&_pointer.pointee.message.answer, value)
             case let .offer(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_offer_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_offer_tag)
                 lkSetMessage(&_pointer.pointee.message.offer, value)
             case let .trickle(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_trickle_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_trickle_tag)
                 lkSetMessage(&_pointer.pointee.message.trickle, value)
             case let .update(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_update_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_update_tag)
                 lkSetMessage(&_pointer.pointee.message.update, value)
             case let .trackPublished(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_track_published_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_track_published_tag)
                 lkSetMessage(&_pointer.pointee.message.track_published, value)
             case let .leave(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_leave_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_leave_tag)
                 lkSetMessage(&_pointer.pointee.message.leave, value)
             case let .mute(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_mute_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_mute_tag)
                 lkSetMessage(&_pointer.pointee.message.mute, value)
             case let .speakersChanged(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_speakers_changed_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_speakers_changed_tag)
                 lkSetMessage(&_pointer.pointee.message.speakers_changed, value)
             case let .roomUpdate(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_room_update_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_room_update_tag)
                 lkSetMessage(&_pointer.pointee.message.room_update, value)
             case let .connectionQuality(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_connection_quality_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_connection_quality_tag)
                 lkSetMessage(&_pointer.pointee.message.connection_quality, value)
             case let .streamStateUpdate(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_stream_state_update_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_stream_state_update_tag)
                 lkSetMessage(&_pointer.pointee.message.stream_state_update, value)
             case let .subscribedQualityUpdate(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag)
                 lkSetMessage(&_pointer.pointee.message.subscribed_quality_update, value)
             case let .subscriptionPermissionUpdate(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_subscription_permission_update_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_subscription_permission_update_tag)
                 lkSetMessage(&_pointer.pointee.message.subscription_permission_update, value)
             case let .refreshToken(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_refresh_token_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_refresh_token_tag)
                 lkSetString(&_pointer.pointee.message.refresh_token, value)
             case let .trackUnpublished(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_track_unpublished_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_track_unpublished_tag)
                 lkSetMessage(&_pointer.pointee.message.track_unpublished, value)
             case let .pong(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_pong_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_pong_tag)
                 lkSetValue(&_pointer.pointee.message.pong, value)
             case let .reconnect(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_reconnect_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_reconnect_tag)
                 lkSetMessage(&_pointer.pointee.message.reconnect, value)
             case let .pongResp(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_pong_resp_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_pong_resp_tag)
                 lkSetMessage(&_pointer.pointee.message.pong_resp, value)
             case let .subscriptionResponse(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_subscription_response_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_subscription_response_tag)
                 lkSetMessage(&_pointer.pointee.message.subscription_response, value)
             case let .requestResponse(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_request_response_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_request_response_tag)
                 lkSetMessage(&_pointer.pointee.message.request_response, value)
             case let .trackSubscribed(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_track_subscribed_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_track_subscribed_tag)
                 lkSetMessage(&_pointer.pointee.message.track_subscribed, value)
             case let .roomMoved(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_room_moved_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_room_moved_tag)
                 lkSetMessage(&_pointer.pointee.message.room_moved, value)
             case let .mediaSectionsRequirement(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_media_sections_requirement_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_media_sections_requirement_tag)
                 lkSetMessage(&_pointer.pointee.message.media_sections_requirement, value)
             case let .subscribedAudioCodecUpdate(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag)
                 lkSetMessage(&_pointer.pointee.message.subscribed_audio_codec_update, value)
             case let .publishDataTrackResponse(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_publish_data_track_response_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_publish_data_track_response_tag)
                 lkSetMessage(&_pointer.pointee.message.publish_data_track_response, value)
             case let .unpublishDataTrackResponse(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag)
                 lkSetMessage(&_pointer.pointee.message.unpublish_data_track_response, value)
             case let .dataTrackSubscriberHandles(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag)
                 lkSetMessage(&_pointer.pointee.message.data_track_subscriber_handles, value)
             case let .storeDataBlobResponse(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_store_data_blob_response_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_store_data_blob_response_tag)
                 lkSetMessage(&_pointer.pointee.message.store_data_blob_response, value)
             case let .getDataBlobResponse(value):
-                _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_get_data_blob_response_tag)
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_get_data_blob_response_tag)
                 lkSetMessage(&_pointer.pointee.message.get_data_blob_response, value)
             case nil: break
             }
         }
     }
     var join: Livekit_JoinResponse {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_join_tag) ? (_pointer.pointee.message.join.map { Livekit_JoinResponse(_sharing: $0, owner: _box) } ?? Livekit_JoinResponse._empty) : Livekit_JoinResponse() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_join_tag) ? (_pointer.pointee.message.join.map { Livekit_JoinResponse(_sharing: $0, owner: _box) } ?? Livekit_JoinResponse._empty) : Livekit_JoinResponse() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_join_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_join_tag)
             lkSetMessage(&_pointer.pointee.message.join, newValue)
         }
     }
     var answer: Livekit_SessionDescription {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_answer_tag) ? (_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _box) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_answer_tag) ? (_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _box) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_answer_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_answer_tag)
             lkSetMessage(&_pointer.pointee.message.answer, newValue)
         }
     }
     var offer: Livekit_SessionDescription {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_offer_tag) ? (_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _box) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_offer_tag) ? (_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _box) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_offer_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_offer_tag)
             lkSetMessage(&_pointer.pointee.message.offer, newValue)
         }
     }
     var trickle: Livekit_TrickleRequest {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_trickle_tag) ? (_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _box) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_trickle_tag) ? (_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _box) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_trickle_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_trickle_tag)
             lkSetMessage(&_pointer.pointee.message.trickle, newValue)
         }
     }
     var update: Livekit_ParticipantUpdate {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_update_tag) ? (_pointer.pointee.message.update.map { Livekit_ParticipantUpdate(_sharing: $0, owner: _box) } ?? Livekit_ParticipantUpdate._empty) : Livekit_ParticipantUpdate() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_update_tag) ? (_pointer.pointee.message.update.map { Livekit_ParticipantUpdate(_sharing: $0, owner: _box) } ?? Livekit_ParticipantUpdate._empty) : Livekit_ParticipantUpdate() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_update_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_update_tag)
             lkSetMessage(&_pointer.pointee.message.update, newValue)
         }
     }
     var trackPublished: Livekit_TrackPublishedResponse {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_track_published_tag) ? (_pointer.pointee.message.track_published.map { Livekit_TrackPublishedResponse(_sharing: $0, owner: _box) } ?? Livekit_TrackPublishedResponse._empty) : Livekit_TrackPublishedResponse() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_track_published_tag) ? (_pointer.pointee.message.track_published.map { Livekit_TrackPublishedResponse(_sharing: $0, owner: _box) } ?? Livekit_TrackPublishedResponse._empty) : Livekit_TrackPublishedResponse() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_track_published_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_track_published_tag)
             lkSetMessage(&_pointer.pointee.message.track_published, newValue)
         }
     }
     var leave: Livekit_LeaveRequest {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_leave_tag) ? (_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _box) } ?? Livekit_LeaveRequest._empty) : Livekit_LeaveRequest() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_leave_tag) ? (_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _box) } ?? Livekit_LeaveRequest._empty) : Livekit_LeaveRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_leave_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_leave_tag)
             lkSetMessage(&_pointer.pointee.message.leave, newValue)
         }
     }
     var mute: Livekit_MuteTrackRequest {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_mute_tag) ? (_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_mute_tag) ? (_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_mute_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_mute_tag)
             lkSetMessage(&_pointer.pointee.message.mute, newValue)
         }
     }
     var speakersChanged: Livekit_SpeakersChanged {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_speakers_changed_tag) ? (_pointer.pointee.message.speakers_changed.map { Livekit_SpeakersChanged(_sharing: $0, owner: _box) } ?? Livekit_SpeakersChanged._empty) : Livekit_SpeakersChanged() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_speakers_changed_tag) ? (_pointer.pointee.message.speakers_changed.map { Livekit_SpeakersChanged(_sharing: $0, owner: _box) } ?? Livekit_SpeakersChanged._empty) : Livekit_SpeakersChanged() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_speakers_changed_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_speakers_changed_tag)
             lkSetMessage(&_pointer.pointee.message.speakers_changed, newValue)
         }
     }
     var roomUpdate: Livekit_RoomUpdate {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_room_update_tag) ? (_pointer.pointee.message.room_update.map { Livekit_RoomUpdate(_sharing: $0, owner: _box) } ?? Livekit_RoomUpdate._empty) : Livekit_RoomUpdate() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_room_update_tag) ? (_pointer.pointee.message.room_update.map { Livekit_RoomUpdate(_sharing: $0, owner: _box) } ?? Livekit_RoomUpdate._empty) : Livekit_RoomUpdate() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_room_update_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_room_update_tag)
             lkSetMessage(&_pointer.pointee.message.room_update, newValue)
         }
     }
     var connectionQuality: Livekit_ConnectionQualityUpdate {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_connection_quality_tag) ? (_pointer.pointee.message.connection_quality.map { Livekit_ConnectionQualityUpdate(_sharing: $0, owner: _box) } ?? Livekit_ConnectionQualityUpdate._empty) : Livekit_ConnectionQualityUpdate() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_connection_quality_tag) ? (_pointer.pointee.message.connection_quality.map { Livekit_ConnectionQualityUpdate(_sharing: $0, owner: _box) } ?? Livekit_ConnectionQualityUpdate._empty) : Livekit_ConnectionQualityUpdate() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_connection_quality_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_connection_quality_tag)
             lkSetMessage(&_pointer.pointee.message.connection_quality, newValue)
         }
     }
     var streamStateUpdate: Livekit_StreamStateUpdate {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_stream_state_update_tag) ? (_pointer.pointee.message.stream_state_update.map { Livekit_StreamStateUpdate(_sharing: $0, owner: _box) } ?? Livekit_StreamStateUpdate._empty) : Livekit_StreamStateUpdate() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_stream_state_update_tag) ? (_pointer.pointee.message.stream_state_update.map { Livekit_StreamStateUpdate(_sharing: $0, owner: _box) } ?? Livekit_StreamStateUpdate._empty) : Livekit_StreamStateUpdate() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_stream_state_update_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_stream_state_update_tag)
             lkSetMessage(&_pointer.pointee.message.stream_state_update, newValue)
         }
     }
     var subscribedQualityUpdate: Livekit_SubscribedQualityUpdate {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag) ? (_pointer.pointee.message.subscribed_quality_update.map { Livekit_SubscribedQualityUpdate(_sharing: $0, owner: _box) } ?? Livekit_SubscribedQualityUpdate._empty) : Livekit_SubscribedQualityUpdate() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag) ? (_pointer.pointee.message.subscribed_quality_update.map { Livekit_SubscribedQualityUpdate(_sharing: $0, owner: _box) } ?? Livekit_SubscribedQualityUpdate._empty) : Livekit_SubscribedQualityUpdate() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag)
             lkSetMessage(&_pointer.pointee.message.subscribed_quality_update, newValue)
         }
     }
     var subscriptionPermissionUpdate: Livekit_SubscriptionPermissionUpdate {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_subscription_permission_update_tag) ? (_pointer.pointee.message.subscription_permission_update.map { Livekit_SubscriptionPermissionUpdate(_sharing: $0, owner: _box) } ?? Livekit_SubscriptionPermissionUpdate._empty) : Livekit_SubscriptionPermissionUpdate() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_subscription_permission_update_tag) ? (_pointer.pointee.message.subscription_permission_update.map { Livekit_SubscriptionPermissionUpdate(_sharing: $0, owner: _box) } ?? Livekit_SubscriptionPermissionUpdate._empty) : Livekit_SubscriptionPermissionUpdate() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_subscription_permission_update_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_subscription_permission_update_tag)
             lkSetMessage(&_pointer.pointee.message.subscription_permission_update, newValue)
         }
     }
     var refreshToken: String {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_refresh_token_tag) ? (lkString(_pointer.pointee.message.refresh_token) ?? "") : "" }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_refresh_token_tag) ? (lkString(_pointer.pointee.message.refresh_token) ?? "") : "" }
         nonmutating set {
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_refresh_token_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_refresh_token_tag)
             lkSetString(&_pointer.pointee.message.refresh_token, newValue)
         }
     }
     var trackUnpublished: Livekit_TrackUnpublishedResponse {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_track_unpublished_tag) ? (_pointer.pointee.message.track_unpublished.map { Livekit_TrackUnpublishedResponse(_sharing: $0, owner: _box) } ?? Livekit_TrackUnpublishedResponse._empty) : Livekit_TrackUnpublishedResponse() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_track_unpublished_tag) ? (_pointer.pointee.message.track_unpublished.map { Livekit_TrackUnpublishedResponse(_sharing: $0, owner: _box) } ?? Livekit_TrackUnpublishedResponse._empty) : Livekit_TrackUnpublishedResponse() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_track_unpublished_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_track_unpublished_tag)
             lkSetMessage(&_pointer.pointee.message.track_unpublished, newValue)
         }
     }
     var pong: Int64 {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_pong_tag) ? (_pointer.pointee.message.pong?.pointee ?? 0) : 0 }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_pong_tag) ? (_pointer.pointee.message.pong?.pointee ?? 0) : 0 }
         nonmutating set {
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_pong_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_pong_tag)
             lkSetValue(&_pointer.pointee.message.pong, newValue)
         }
     }
     var reconnect: Livekit_ReconnectResponse {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_reconnect_tag) ? (_pointer.pointee.message.reconnect.map { Livekit_ReconnectResponse(_sharing: $0, owner: _box) } ?? Livekit_ReconnectResponse._empty) : Livekit_ReconnectResponse() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_reconnect_tag) ? (_pointer.pointee.message.reconnect.map { Livekit_ReconnectResponse(_sharing: $0, owner: _box) } ?? Livekit_ReconnectResponse._empty) : Livekit_ReconnectResponse() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_reconnect_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_reconnect_tag)
             lkSetMessage(&_pointer.pointee.message.reconnect, newValue)
         }
     }
     var pongResp: Livekit_Pong {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_pong_resp_tag) ? (_pointer.pointee.message.pong_resp.map { Livekit_Pong(_sharing: $0, owner: _box) } ?? Livekit_Pong._empty) : Livekit_Pong() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_pong_resp_tag) ? (_pointer.pointee.message.pong_resp.map { Livekit_Pong(_sharing: $0, owner: _box) } ?? Livekit_Pong._empty) : Livekit_Pong() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_pong_resp_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_pong_resp_tag)
             lkSetMessage(&_pointer.pointee.message.pong_resp, newValue)
         }
     }
     var subscriptionResponse: Livekit_SubscriptionResponse {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_subscription_response_tag) ? (_pointer.pointee.message.subscription_response.map { Livekit_SubscriptionResponse(_sharing: $0, owner: _box) } ?? Livekit_SubscriptionResponse._empty) : Livekit_SubscriptionResponse() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_subscription_response_tag) ? (_pointer.pointee.message.subscription_response.map { Livekit_SubscriptionResponse(_sharing: $0, owner: _box) } ?? Livekit_SubscriptionResponse._empty) : Livekit_SubscriptionResponse() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_subscription_response_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_subscription_response_tag)
             lkSetMessage(&_pointer.pointee.message.subscription_response, newValue)
         }
     }
     var requestResponse: Livekit_RequestResponse {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_request_response_tag) ? (_pointer.pointee.message.request_response.map { Livekit_RequestResponse(_sharing: $0, owner: _box) } ?? Livekit_RequestResponse._empty) : Livekit_RequestResponse() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_request_response_tag) ? (_pointer.pointee.message.request_response.map { Livekit_RequestResponse(_sharing: $0, owner: _box) } ?? Livekit_RequestResponse._empty) : Livekit_RequestResponse() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_request_response_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_request_response_tag)
             lkSetMessage(&_pointer.pointee.message.request_response, newValue)
         }
     }
     var trackSubscribed: Livekit_TrackSubscribed {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_track_subscribed_tag) ? (_pointer.pointee.message.track_subscribed.map { Livekit_TrackSubscribed(_sharing: $0, owner: _box) } ?? Livekit_TrackSubscribed._empty) : Livekit_TrackSubscribed() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_track_subscribed_tag) ? (_pointer.pointee.message.track_subscribed.map { Livekit_TrackSubscribed(_sharing: $0, owner: _box) } ?? Livekit_TrackSubscribed._empty) : Livekit_TrackSubscribed() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_track_subscribed_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_track_subscribed_tag)
             lkSetMessage(&_pointer.pointee.message.track_subscribed, newValue)
         }
     }
     var roomMoved: Livekit_RoomMovedResponse {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_room_moved_tag) ? (_pointer.pointee.message.room_moved.map { Livekit_RoomMovedResponse(_sharing: $0, owner: _box) } ?? Livekit_RoomMovedResponse._empty) : Livekit_RoomMovedResponse() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_room_moved_tag) ? (_pointer.pointee.message.room_moved.map { Livekit_RoomMovedResponse(_sharing: $0, owner: _box) } ?? Livekit_RoomMovedResponse._empty) : Livekit_RoomMovedResponse() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_room_moved_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_room_moved_tag)
             lkSetMessage(&_pointer.pointee.message.room_moved, newValue)
         }
     }
     var mediaSectionsRequirement: Livekit_MediaSectionsRequirement {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_media_sections_requirement_tag) ? (_pointer.pointee.message.media_sections_requirement.map { Livekit_MediaSectionsRequirement(_sharing: $0, owner: _box) } ?? Livekit_MediaSectionsRequirement._empty) : Livekit_MediaSectionsRequirement() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_media_sections_requirement_tag) ? (_pointer.pointee.message.media_sections_requirement.map { Livekit_MediaSectionsRequirement(_sharing: $0, owner: _box) } ?? Livekit_MediaSectionsRequirement._empty) : Livekit_MediaSectionsRequirement() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_media_sections_requirement_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_media_sections_requirement_tag)
             lkSetMessage(&_pointer.pointee.message.media_sections_requirement, newValue)
         }
     }
     var subscribedAudioCodecUpdate: Livekit_SubscribedAudioCodecUpdate {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag) ? (_pointer.pointee.message.subscribed_audio_codec_update.map { Livekit_SubscribedAudioCodecUpdate(_sharing: $0, owner: _box) } ?? Livekit_SubscribedAudioCodecUpdate._empty) : Livekit_SubscribedAudioCodecUpdate() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag) ? (_pointer.pointee.message.subscribed_audio_codec_update.map { Livekit_SubscribedAudioCodecUpdate(_sharing: $0, owner: _box) } ?? Livekit_SubscribedAudioCodecUpdate._empty) : Livekit_SubscribedAudioCodecUpdate() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag)
             lkSetMessage(&_pointer.pointee.message.subscribed_audio_codec_update, newValue)
         }
     }
     var publishDataTrackResponse: Livekit_PublishDataTrackResponse {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_publish_data_track_response_tag) ? (_pointer.pointee.message.publish_data_track_response.map { Livekit_PublishDataTrackResponse(_sharing: $0, owner: _box) } ?? Livekit_PublishDataTrackResponse._empty) : Livekit_PublishDataTrackResponse() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_publish_data_track_response_tag) ? (_pointer.pointee.message.publish_data_track_response.map { Livekit_PublishDataTrackResponse(_sharing: $0, owner: _box) } ?? Livekit_PublishDataTrackResponse._empty) : Livekit_PublishDataTrackResponse() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_publish_data_track_response_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_publish_data_track_response_tag)
             lkSetMessage(&_pointer.pointee.message.publish_data_track_response, newValue)
         }
     }
     var unpublishDataTrackResponse: Livekit_UnpublishDataTrackResponse {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag) ? (_pointer.pointee.message.unpublish_data_track_response.map { Livekit_UnpublishDataTrackResponse(_sharing: $0, owner: _box) } ?? Livekit_UnpublishDataTrackResponse._empty) : Livekit_UnpublishDataTrackResponse() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag) ? (_pointer.pointee.message.unpublish_data_track_response.map { Livekit_UnpublishDataTrackResponse(_sharing: $0, owner: _box) } ?? Livekit_UnpublishDataTrackResponse._empty) : Livekit_UnpublishDataTrackResponse() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag)
             lkSetMessage(&_pointer.pointee.message.unpublish_data_track_response, newValue)
         }
     }
     var dataTrackSubscriberHandles: Livekit_DataTrackSubscriberHandles {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag) ? (_pointer.pointee.message.data_track_subscriber_handles.map { Livekit_DataTrackSubscriberHandles(_sharing: $0, owner: _box) } ?? Livekit_DataTrackSubscriberHandles._empty) : Livekit_DataTrackSubscriberHandles() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag) ? (_pointer.pointee.message.data_track_subscriber_handles.map { Livekit_DataTrackSubscriberHandles(_sharing: $0, owner: _box) } ?? Livekit_DataTrackSubscriberHandles._empty) : Livekit_DataTrackSubscriberHandles() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag)
             lkSetMessage(&_pointer.pointee.message.data_track_subscriber_handles, newValue)
         }
     }
     var storeDataBlobResponse: Livekit_StoreDataBlobResponse {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_store_data_blob_response_tag) ? (_pointer.pointee.message.store_data_blob_response.map { Livekit_StoreDataBlobResponse(_sharing: $0, owner: _box) } ?? Livekit_StoreDataBlobResponse._empty) : Livekit_StoreDataBlobResponse() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_store_data_blob_response_tag) ? (_pointer.pointee.message.store_data_blob_response.map { Livekit_StoreDataBlobResponse(_sharing: $0, owner: _box) } ?? Livekit_StoreDataBlobResponse._empty) : Livekit_StoreDataBlobResponse() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_store_data_blob_response_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_store_data_blob_response_tag)
             lkSetMessage(&_pointer.pointee.message.store_data_blob_response, newValue)
         }
     }
     var getDataBlobResponse: Livekit_GetDataBlobResponse {
-        get { _pointer.pointee.which_message == pb_size_t(livekit_SignalResponse_get_data_blob_response_tag) ? (_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _box) } ?? Livekit_GetDataBlobResponse._empty) : Livekit_GetDataBlobResponse() }
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_get_data_blob_response_tag) ? (_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _box) } ?? Livekit_GetDataBlobResponse._empty) : Livekit_GetDataBlobResponse() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearMessage()
-            _pointer.pointee.which_message = pb_size_t(livekit_SignalResponse_get_data_blob_response_tag)
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_get_data_blob_response_tag)
             lkSetMessage(&_pointer.pointee.message.get_data_blob_response, newValue)
         }
     }
     private func _clearMessage() {
         switch _pointer.pointee.which_message {
-        case pb_size_t(livekit_SignalResponse_join_tag):
+        case lk_pb_size_t(livekit_SignalResponse_join_tag):
             lkRelease(message: &_pointer.pointee.message.join, Livekit_JoinResponse.descriptor)
-        case pb_size_t(livekit_SignalResponse_answer_tag):
+        case lk_pb_size_t(livekit_SignalResponse_answer_tag):
             lkRelease(message: &_pointer.pointee.message.answer, Livekit_SessionDescription.descriptor)
-        case pb_size_t(livekit_SignalResponse_offer_tag):
+        case lk_pb_size_t(livekit_SignalResponse_offer_tag):
             lkRelease(message: &_pointer.pointee.message.offer, Livekit_SessionDescription.descriptor)
-        case pb_size_t(livekit_SignalResponse_trickle_tag):
+        case lk_pb_size_t(livekit_SignalResponse_trickle_tag):
             lkRelease(message: &_pointer.pointee.message.trickle, Livekit_TrickleRequest.descriptor)
-        case pb_size_t(livekit_SignalResponse_update_tag):
+        case lk_pb_size_t(livekit_SignalResponse_update_tag):
             lkRelease(message: &_pointer.pointee.message.update, Livekit_ParticipantUpdate.descriptor)
-        case pb_size_t(livekit_SignalResponse_track_published_tag):
+        case lk_pb_size_t(livekit_SignalResponse_track_published_tag):
             lkRelease(message: &_pointer.pointee.message.track_published, Livekit_TrackPublishedResponse.descriptor)
-        case pb_size_t(livekit_SignalResponse_leave_tag):
+        case lk_pb_size_t(livekit_SignalResponse_leave_tag):
             lkRelease(message: &_pointer.pointee.message.leave, Livekit_LeaveRequest.descriptor)
-        case pb_size_t(livekit_SignalResponse_mute_tag):
+        case lk_pb_size_t(livekit_SignalResponse_mute_tag):
             lkRelease(message: &_pointer.pointee.message.mute, Livekit_MuteTrackRequest.descriptor)
-        case pb_size_t(livekit_SignalResponse_speakers_changed_tag):
+        case lk_pb_size_t(livekit_SignalResponse_speakers_changed_tag):
             lkRelease(message: &_pointer.pointee.message.speakers_changed, Livekit_SpeakersChanged.descriptor)
-        case pb_size_t(livekit_SignalResponse_room_update_tag):
+        case lk_pb_size_t(livekit_SignalResponse_room_update_tag):
             lkRelease(message: &_pointer.pointee.message.room_update, Livekit_RoomUpdate.descriptor)
-        case pb_size_t(livekit_SignalResponse_connection_quality_tag):
+        case lk_pb_size_t(livekit_SignalResponse_connection_quality_tag):
             lkRelease(message: &_pointer.pointee.message.connection_quality, Livekit_ConnectionQualityUpdate.descriptor)
-        case pb_size_t(livekit_SignalResponse_stream_state_update_tag):
+        case lk_pb_size_t(livekit_SignalResponse_stream_state_update_tag):
             lkRelease(message: &_pointer.pointee.message.stream_state_update, Livekit_StreamStateUpdate.descriptor)
-        case pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag):
+        case lk_pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag):
             lkRelease(message: &_pointer.pointee.message.subscribed_quality_update, Livekit_SubscribedQualityUpdate.descriptor)
-        case pb_size_t(livekit_SignalResponse_subscription_permission_update_tag):
+        case lk_pb_size_t(livekit_SignalResponse_subscription_permission_update_tag):
             lkRelease(message: &_pointer.pointee.message.subscription_permission_update, Livekit_SubscriptionPermissionUpdate.descriptor)
-        case pb_size_t(livekit_SignalResponse_refresh_token_tag):
+        case lk_pb_size_t(livekit_SignalResponse_refresh_token_tag):
             lkFree(&_pointer.pointee.message.refresh_token)
-        case pb_size_t(livekit_SignalResponse_track_unpublished_tag):
+        case lk_pb_size_t(livekit_SignalResponse_track_unpublished_tag):
             lkRelease(message: &_pointer.pointee.message.track_unpublished, Livekit_TrackUnpublishedResponse.descriptor)
-        case pb_size_t(livekit_SignalResponse_pong_tag):
+        case lk_pb_size_t(livekit_SignalResponse_pong_tag):
             lkFree(&_pointer.pointee.message.pong)
-        case pb_size_t(livekit_SignalResponse_reconnect_tag):
+        case lk_pb_size_t(livekit_SignalResponse_reconnect_tag):
             lkRelease(message: &_pointer.pointee.message.reconnect, Livekit_ReconnectResponse.descriptor)
-        case pb_size_t(livekit_SignalResponse_pong_resp_tag):
+        case lk_pb_size_t(livekit_SignalResponse_pong_resp_tag):
             lkRelease(message: &_pointer.pointee.message.pong_resp, Livekit_Pong.descriptor)
-        case pb_size_t(livekit_SignalResponse_subscription_response_tag):
+        case lk_pb_size_t(livekit_SignalResponse_subscription_response_tag):
             lkRelease(message: &_pointer.pointee.message.subscription_response, Livekit_SubscriptionResponse.descriptor)
-        case pb_size_t(livekit_SignalResponse_request_response_tag):
+        case lk_pb_size_t(livekit_SignalResponse_request_response_tag):
             lkRelease(message: &_pointer.pointee.message.request_response, Livekit_RequestResponse.descriptor)
-        case pb_size_t(livekit_SignalResponse_track_subscribed_tag):
+        case lk_pb_size_t(livekit_SignalResponse_track_subscribed_tag):
             lkRelease(message: &_pointer.pointee.message.track_subscribed, Livekit_TrackSubscribed.descriptor)
-        case pb_size_t(livekit_SignalResponse_room_moved_tag):
+        case lk_pb_size_t(livekit_SignalResponse_room_moved_tag):
             lkRelease(message: &_pointer.pointee.message.room_moved, Livekit_RoomMovedResponse.descriptor)
-        case pb_size_t(livekit_SignalResponse_media_sections_requirement_tag):
+        case lk_pb_size_t(livekit_SignalResponse_media_sections_requirement_tag):
             lkRelease(message: &_pointer.pointee.message.media_sections_requirement, Livekit_MediaSectionsRequirement.descriptor)
-        case pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag):
+        case lk_pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag):
             lkRelease(message: &_pointer.pointee.message.subscribed_audio_codec_update, Livekit_SubscribedAudioCodecUpdate.descriptor)
-        case pb_size_t(livekit_SignalResponse_publish_data_track_response_tag):
+        case lk_pb_size_t(livekit_SignalResponse_publish_data_track_response_tag):
             lkRelease(message: &_pointer.pointee.message.publish_data_track_response, Livekit_PublishDataTrackResponse.descriptor)
-        case pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag):
+        case lk_pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag):
             lkRelease(message: &_pointer.pointee.message.unpublish_data_track_response, Livekit_UnpublishDataTrackResponse.descriptor)
-        case pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag):
+        case lk_pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag):
             lkRelease(message: &_pointer.pointee.message.data_track_subscriber_handles, Livekit_DataTrackSubscriberHandles.descriptor)
-        case pb_size_t(livekit_SignalResponse_store_data_blob_response_tag):
+        case lk_pb_size_t(livekit_SignalResponse_store_data_blob_response_tag):
             lkRelease(message: &_pointer.pointee.message.store_data_blob_response, Livekit_StoreDataBlobResponse.descriptor)
-        case pb_size_t(livekit_SignalResponse_get_data_blob_response_tag):
+        case lk_pb_size_t(livekit_SignalResponse_get_data_blob_response_tag):
             lkRelease(message: &_pointer.pointee.message.get_data_blob_response, Livekit_GetDataBlobResponse.descriptor)
         default: break
         }
@@ -1302,7 +1302,7 @@ extension Livekit_SignalResponse.Builder {
 }
 
 extension livekit_SimulcastCodec: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SimulcastCodec_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SimulcastCodec_msg }
     package static let _emptyBox = NanopbBox<livekit_SimulcastCodec>(zero: livekit_SimulcastCodec(), descriptor: livekit_SimulcastCodec_msg)
 }
 typealias Livekit_SimulcastCodec = NanopbMsg<livekit_SimulcastCodec>
@@ -1356,7 +1356,7 @@ extension Livekit_SimulcastCodec.Builder {
 }
 
 extension livekit_AddTrackRequest: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_AddTrackRequest_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_AddTrackRequest_msg }
     package static let _emptyBox = NanopbBox<livekit_AddTrackRequest>(zero: livekit_AddTrackRequest(), descriptor: livekit_AddTrackRequest_msg)
 }
 typealias Livekit_AddTrackRequest = NanopbMsg<livekit_AddTrackRequest>
@@ -1559,7 +1559,7 @@ extension Livekit_AddTrackRequest.Builder {
 }
 
 extension livekit_PublishDataTrackRequest: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_PublishDataTrackRequest_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_PublishDataTrackRequest_msg }
     package static let _emptyBox = NanopbBox<livekit_PublishDataTrackRequest>(zero: livekit_PublishDataTrackRequest(), descriptor: livekit_PublishDataTrackRequest_msg)
 }
 typealias Livekit_PublishDataTrackRequest = NanopbMsg<livekit_PublishDataTrackRequest>
@@ -1620,7 +1620,7 @@ extension Livekit_PublishDataTrackRequest.Builder {
 }
 
 extension livekit_PublishDataTrackResponse: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_PublishDataTrackResponse_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_PublishDataTrackResponse_msg }
     package static let _emptyBox = NanopbBox<livekit_PublishDataTrackResponse>(zero: livekit_PublishDataTrackResponse(), descriptor: livekit_PublishDataTrackResponse_msg)
 }
 typealias Livekit_PublishDataTrackResponse = NanopbMsg<livekit_PublishDataTrackResponse>
@@ -1641,7 +1641,7 @@ extension Livekit_PublishDataTrackResponse.Builder {
 }
 
 extension livekit_UnpublishDataTrackRequest: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_UnpublishDataTrackRequest_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_UnpublishDataTrackRequest_msg }
     package static let _emptyBox = NanopbBox<livekit_UnpublishDataTrackRequest>(zero: livekit_UnpublishDataTrackRequest(), descriptor: livekit_UnpublishDataTrackRequest_msg)
 }
 typealias Livekit_UnpublishDataTrackRequest = NanopbMsg<livekit_UnpublishDataTrackRequest>
@@ -1662,7 +1662,7 @@ extension Livekit_UnpublishDataTrackRequest.Builder {
 }
 
 extension livekit_UnpublishDataTrackResponse: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_UnpublishDataTrackResponse_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_UnpublishDataTrackResponse_msg }
     package static let _emptyBox = NanopbBox<livekit_UnpublishDataTrackResponse>(zero: livekit_UnpublishDataTrackResponse(), descriptor: livekit_UnpublishDataTrackResponse_msg)
 }
 typealias Livekit_UnpublishDataTrackResponse = NanopbMsg<livekit_UnpublishDataTrackResponse>
@@ -1683,7 +1683,7 @@ extension Livekit_UnpublishDataTrackResponse.Builder {
 }
 
 extension livekit_DataTrackSubscriberHandles: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataTrackSubscriberHandles_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataTrackSubscriberHandles_msg }
     package static let _emptyBox = NanopbBox<livekit_DataTrackSubscriberHandles>(zero: livekit_DataTrackSubscriberHandles(), descriptor: livekit_DataTrackSubscriberHandles_msg)
 }
 typealias Livekit_DataTrackSubscriberHandles = NanopbMsg<livekit_DataTrackSubscriberHandles>
@@ -1699,7 +1699,7 @@ extension Livekit_DataTrackSubscriberHandles {
 }
 
 extension livekit_DataTrackSubscriberHandles_PublishedDataTrack: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataTrackSubscriberHandles_PublishedDataTrack_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataTrackSubscriberHandles_PublishedDataTrack_msg }
     package static let _emptyBox = NanopbBox<livekit_DataTrackSubscriberHandles_PublishedDataTrack>(zero: livekit_DataTrackSubscriberHandles_PublishedDataTrack(), descriptor: livekit_DataTrackSubscriberHandles_PublishedDataTrack_msg)
 }
 typealias Livekit_DataTrackSubscriberHandles_PublishedDataTrack = NanopbMsg<livekit_DataTrackSubscriberHandles_PublishedDataTrack>
@@ -1740,7 +1740,7 @@ extension Livekit_DataTrackSubscriberHandles_PublishedDataTrack.Builder {
 }
 
 extension livekit_DataTrackSubscriberHandles_SubHandlesEntry: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataTrackSubscriberHandles_SubHandlesEntry_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataTrackSubscriberHandles_SubHandlesEntry_msg }
     package static let _emptyBox = NanopbBox<livekit_DataTrackSubscriberHandles_SubHandlesEntry>(zero: livekit_DataTrackSubscriberHandles_SubHandlesEntry(), descriptor: livekit_DataTrackSubscriberHandles_SubHandlesEntry_msg)
 }
 typealias Livekit_DataTrackSubscriberHandles_SubHandlesEntry = NanopbMsg<livekit_DataTrackSubscriberHandles_SubHandlesEntry>
@@ -1793,7 +1793,7 @@ extension Livekit_DataTrackSubscriberHandles.Builder {
 }
 
 extension livekit_TrickleRequest: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_TrickleRequest_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_TrickleRequest_msg }
     package static let _emptyBox = NanopbBox<livekit_TrickleRequest>(zero: livekit_TrickleRequest(), descriptor: livekit_TrickleRequest_msg)
 }
 typealias Livekit_TrickleRequest = NanopbMsg<livekit_TrickleRequest>
@@ -1834,7 +1834,7 @@ extension Livekit_TrickleRequest.Builder {
 }
 
 extension livekit_MuteTrackRequest: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_MuteTrackRequest_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_MuteTrackRequest_msg }
     package static let _emptyBox = NanopbBox<livekit_MuteTrackRequest>(zero: livekit_MuteTrackRequest(), descriptor: livekit_MuteTrackRequest_msg)
 }
 typealias Livekit_MuteTrackRequest = NanopbMsg<livekit_MuteTrackRequest>
@@ -1865,7 +1865,7 @@ extension Livekit_MuteTrackRequest.Builder {
 }
 
 extension livekit_JoinResponse: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_JoinResponse_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_JoinResponse_msg }
     package static let _emptyBox = NanopbBox<livekit_JoinResponse>(zero: livekit_JoinResponse(), descriptor: livekit_JoinResponse_msg)
 }
 typealias Livekit_JoinResponse = NanopbMsg<livekit_JoinResponse>
@@ -2035,7 +2035,7 @@ extension Livekit_JoinResponse.Builder {
 }
 
 extension livekit_ReconnectResponse: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_ReconnectResponse_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_ReconnectResponse_msg }
     package static let _emptyBox = NanopbBox<livekit_ReconnectResponse>(zero: livekit_ReconnectResponse(), descriptor: livekit_ReconnectResponse_msg)
 }
 typealias Livekit_ReconnectResponse = NanopbMsg<livekit_ReconnectResponse>
@@ -2089,7 +2089,7 @@ extension Livekit_ReconnectResponse.Builder {
 }
 
 extension livekit_TrackPublishedResponse: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_TrackPublishedResponse_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_TrackPublishedResponse_msg }
     package static let _emptyBox = NanopbBox<livekit_TrackPublishedResponse>(zero: livekit_TrackPublishedResponse(), descriptor: livekit_TrackPublishedResponse_msg)
 }
 typealias Livekit_TrackPublishedResponse = NanopbMsg<livekit_TrackPublishedResponse>
@@ -2120,7 +2120,7 @@ extension Livekit_TrackPublishedResponse.Builder {
 }
 
 extension livekit_TrackUnpublishedResponse: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_TrackUnpublishedResponse_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_TrackUnpublishedResponse_msg }
     package static let _emptyBox = NanopbBox<livekit_TrackUnpublishedResponse>(zero: livekit_TrackUnpublishedResponse(), descriptor: livekit_TrackUnpublishedResponse_msg)
 }
 typealias Livekit_TrackUnpublishedResponse = NanopbMsg<livekit_TrackUnpublishedResponse>
@@ -2141,7 +2141,7 @@ extension Livekit_TrackUnpublishedResponse.Builder {
 }
 
 extension livekit_SessionDescription: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SessionDescription_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SessionDescription_msg }
     package static let _emptyBox = NanopbBox<livekit_SessionDescription>(zero: livekit_SessionDescription(), descriptor: livekit_SessionDescription_msg)
 }
 typealias Livekit_SessionDescription = NanopbMsg<livekit_SessionDescription>
@@ -2172,7 +2172,7 @@ extension Livekit_SessionDescription {
 }
 
 extension livekit_SessionDescription_MidToTrackIdEntry: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SessionDescription_MidToTrackIdEntry_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SessionDescription_MidToTrackIdEntry_msg }
     package static let _emptyBox = NanopbBox<livekit_SessionDescription_MidToTrackIdEntry>(zero: livekit_SessionDescription_MidToTrackIdEntry(), descriptor: livekit_SessionDescription_MidToTrackIdEntry_msg)
 }
 typealias Livekit_SessionDescription_MidToTrackIdEntry = NanopbMsg<livekit_SessionDescription_MidToTrackIdEntry>
@@ -2240,7 +2240,7 @@ extension Livekit_SessionDescription.Builder {
 }
 
 extension livekit_ParticipantUpdate: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_ParticipantUpdate_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_ParticipantUpdate_msg }
     package static let _emptyBox = NanopbBox<livekit_ParticipantUpdate>(zero: livekit_ParticipantUpdate(), descriptor: livekit_ParticipantUpdate_msg)
 }
 typealias Livekit_ParticipantUpdate = NanopbMsg<livekit_ParticipantUpdate>
@@ -2264,7 +2264,7 @@ extension Livekit_ParticipantUpdate.Builder {
 }
 
 extension livekit_UpdateSubscription: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_UpdateSubscription_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_UpdateSubscription_msg }
     package static let _emptyBox = NanopbBox<livekit_UpdateSubscription>(zero: livekit_UpdateSubscription(), descriptor: livekit_UpdateSubscription_msg)
 }
 typealias Livekit_UpdateSubscription = NanopbMsg<livekit_UpdateSubscription>
@@ -2311,7 +2311,7 @@ extension Livekit_UpdateSubscription.Builder {
 }
 
 extension livekit_UpdateDataSubscription: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_UpdateDataSubscription_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_UpdateDataSubscription_msg }
     package static let _emptyBox = NanopbBox<livekit_UpdateDataSubscription>(zero: livekit_UpdateDataSubscription(), descriptor: livekit_UpdateDataSubscription_msg)
 }
 typealias Livekit_UpdateDataSubscription = NanopbMsg<livekit_UpdateDataSubscription>
@@ -2323,7 +2323,7 @@ extension Livekit_UpdateDataSubscription {
 }
 
 extension livekit_UpdateDataSubscription_Update: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_UpdateDataSubscription_Update_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_UpdateDataSubscription_Update_msg }
     package static let _emptyBox = NanopbBox<livekit_UpdateDataSubscription_Update>(zero: livekit_UpdateDataSubscription_Update(), descriptor: livekit_UpdateDataSubscription_Update_msg)
 }
 typealias Livekit_UpdateDataSubscription_Update = NanopbMsg<livekit_UpdateDataSubscription_Update>
@@ -2376,7 +2376,7 @@ extension Livekit_UpdateDataSubscription.Builder {
 }
 
 extension livekit_StoreDataBlobRequest: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_StoreDataBlobRequest_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_StoreDataBlobRequest_msg }
     package static let _emptyBox = NanopbBox<livekit_StoreDataBlobRequest>(zero: livekit_StoreDataBlobRequest(), descriptor: livekit_StoreDataBlobRequest_msg)
 }
 typealias Livekit_StoreDataBlobRequest = NanopbMsg<livekit_StoreDataBlobRequest>
@@ -2407,7 +2407,7 @@ extension Livekit_StoreDataBlobRequest.Builder {
 }
 
 extension livekit_StoreDataBlobResponse: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_StoreDataBlobResponse_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_StoreDataBlobResponse_msg }
     package static let _emptyBox = NanopbBox<livekit_StoreDataBlobResponse>(zero: livekit_StoreDataBlobResponse(), descriptor: livekit_StoreDataBlobResponse_msg)
 }
 typealias Livekit_StoreDataBlobResponse = NanopbMsg<livekit_StoreDataBlobResponse>
@@ -2438,7 +2438,7 @@ extension Livekit_StoreDataBlobResponse.Builder {
 }
 
 extension livekit_GetDataBlobRequest: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_GetDataBlobRequest_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_GetDataBlobRequest_msg }
     package static let _emptyBox = NanopbBox<livekit_GetDataBlobRequest>(zero: livekit_GetDataBlobRequest(), descriptor: livekit_GetDataBlobRequest_msg)
 }
 typealias Livekit_GetDataBlobRequest = NanopbMsg<livekit_GetDataBlobRequest>
@@ -2479,7 +2479,7 @@ extension Livekit_GetDataBlobRequest.Builder {
 }
 
 extension livekit_GetDataBlobResponse: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_GetDataBlobResponse_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_GetDataBlobResponse_msg }
     package static let _emptyBox = NanopbBox<livekit_GetDataBlobResponse>(zero: livekit_GetDataBlobResponse(), descriptor: livekit_GetDataBlobResponse_msg)
 }
 typealias Livekit_GetDataBlobResponse = NanopbMsg<livekit_GetDataBlobResponse>
@@ -2510,7 +2510,7 @@ extension Livekit_GetDataBlobResponse.Builder {
 }
 
 extension livekit_UpdateTrackSettings: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_UpdateTrackSettings_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_UpdateTrackSettings_msg }
     package static let _emptyBox = NanopbBox<livekit_UpdateTrackSettings>(zero: livekit_UpdateTrackSettings(), descriptor: livekit_UpdateTrackSettings_msg)
 }
 typealias Livekit_UpdateTrackSettings = NanopbMsg<livekit_UpdateTrackSettings>
@@ -2594,7 +2594,7 @@ extension Livekit_UpdateTrackSettings.Builder {
 }
 
 extension livekit_UpdateLocalAudioTrack: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_UpdateLocalAudioTrack_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_UpdateLocalAudioTrack_msg }
     package static let _emptyBox = NanopbBox<livekit_UpdateLocalAudioTrack>(zero: livekit_UpdateLocalAudioTrack(), descriptor: livekit_UpdateLocalAudioTrack_msg)
 }
 typealias Livekit_UpdateLocalAudioTrack = NanopbMsg<livekit_UpdateLocalAudioTrack>
@@ -2628,7 +2628,7 @@ extension Livekit_UpdateLocalAudioTrack.Builder {
 }
 
 extension livekit_UpdateLocalVideoTrack: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_UpdateLocalVideoTrack_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_UpdateLocalVideoTrack_msg }
     package static let _emptyBox = NanopbBox<livekit_UpdateLocalVideoTrack>(zero: livekit_UpdateLocalVideoTrack(), descriptor: livekit_UpdateLocalVideoTrack_msg)
 }
 typealias Livekit_UpdateLocalVideoTrack = NanopbMsg<livekit_UpdateLocalVideoTrack>
@@ -2669,7 +2669,7 @@ extension Livekit_UpdateLocalVideoTrack.Builder {
 }
 
 extension livekit_LeaveRequest: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_LeaveRequest_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_LeaveRequest_msg }
     package static let _emptyBox = NanopbBox<livekit_LeaveRequest>(zero: livekit_LeaveRequest(), descriptor: livekit_LeaveRequest_msg)
 }
 typealias Livekit_LeaveRequest = NanopbMsg<livekit_LeaveRequest>
@@ -2730,7 +2730,7 @@ extension Livekit_LeaveRequest.Builder {
 }
 
 extension livekit_UpdateVideoLayers: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_UpdateVideoLayers_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_UpdateVideoLayers_msg }
     package static let _emptyBox = NanopbBox<livekit_UpdateVideoLayers>(zero: livekit_UpdateVideoLayers(), descriptor: livekit_UpdateVideoLayers_msg)
 }
 typealias Livekit_UpdateVideoLayers = NanopbMsg<livekit_UpdateVideoLayers>
@@ -2764,7 +2764,7 @@ extension Livekit_UpdateVideoLayers.Builder {
 }
 
 extension livekit_UpdateParticipantMetadata: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_UpdateParticipantMetadata_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_UpdateParticipantMetadata_msg }
     package static let _emptyBox = NanopbBox<livekit_UpdateParticipantMetadata>(zero: livekit_UpdateParticipantMetadata(), descriptor: livekit_UpdateParticipantMetadata_msg)
 }
 typealias Livekit_UpdateParticipantMetadata = NanopbMsg<livekit_UpdateParticipantMetadata>
@@ -2795,7 +2795,7 @@ extension Livekit_UpdateParticipantMetadata {
 }
 
 extension livekit_UpdateParticipantMetadata_AttributesEntry: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_UpdateParticipantMetadata_AttributesEntry_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_UpdateParticipantMetadata_AttributesEntry_msg }
     package static let _emptyBox = NanopbBox<livekit_UpdateParticipantMetadata_AttributesEntry>(zero: livekit_UpdateParticipantMetadata_AttributesEntry(), descriptor: livekit_UpdateParticipantMetadata_AttributesEntry_msg)
 }
 typealias Livekit_UpdateParticipantMetadata_AttributesEntry = NanopbMsg<livekit_UpdateParticipantMetadata_AttributesEntry>
@@ -2863,7 +2863,7 @@ extension Livekit_UpdateParticipantMetadata.Builder {
 }
 
 extension livekit_ICEServer: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_ICEServer_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_ICEServer_msg }
     package static let _emptyBox = NanopbBox<livekit_ICEServer>(zero: livekit_ICEServer(), descriptor: livekit_ICEServer_msg)
 }
 typealias Livekit_ICEServer = NanopbMsg<livekit_ICEServer>
@@ -2907,7 +2907,7 @@ extension Livekit_ICEServer.Builder {
 }
 
 extension livekit_SpeakersChanged: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SpeakersChanged_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SpeakersChanged_msg }
     package static let _emptyBox = NanopbBox<livekit_SpeakersChanged>(zero: livekit_SpeakersChanged(), descriptor: livekit_SpeakersChanged_msg)
 }
 typealias Livekit_SpeakersChanged = NanopbMsg<livekit_SpeakersChanged>
@@ -2931,7 +2931,7 @@ extension Livekit_SpeakersChanged.Builder {
 }
 
 extension livekit_RoomUpdate: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_RoomUpdate_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_RoomUpdate_msg }
     package static let _emptyBox = NanopbBox<livekit_RoomUpdate>(zero: livekit_RoomUpdate(), descriptor: livekit_RoomUpdate_msg)
 }
 typealias Livekit_RoomUpdate = NanopbMsg<livekit_RoomUpdate>
@@ -2952,7 +2952,7 @@ extension Livekit_RoomUpdate.Builder {
 }
 
 extension livekit_ConnectionQualityInfo: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_ConnectionQualityInfo_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_ConnectionQualityInfo_msg }
     package static let _emptyBox = NanopbBox<livekit_ConnectionQualityInfo>(zero: livekit_ConnectionQualityInfo(), descriptor: livekit_ConnectionQualityInfo_msg)
 }
 typealias Livekit_ConnectionQualityInfo = NanopbMsg<livekit_ConnectionQualityInfo>
@@ -2993,7 +2993,7 @@ extension Livekit_ConnectionQualityInfo.Builder {
 }
 
 extension livekit_ConnectionQualityUpdate: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_ConnectionQualityUpdate_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_ConnectionQualityUpdate_msg }
     package static let _emptyBox = NanopbBox<livekit_ConnectionQualityUpdate>(zero: livekit_ConnectionQualityUpdate(), descriptor: livekit_ConnectionQualityUpdate_msg)
 }
 typealias Livekit_ConnectionQualityUpdate = NanopbMsg<livekit_ConnectionQualityUpdate>
@@ -3017,7 +3017,7 @@ extension Livekit_ConnectionQualityUpdate.Builder {
 }
 
 extension livekit_StreamStateInfo: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_StreamStateInfo_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_StreamStateInfo_msg }
     package static let _emptyBox = NanopbBox<livekit_StreamStateInfo>(zero: livekit_StreamStateInfo(), descriptor: livekit_StreamStateInfo_msg)
 }
 typealias Livekit_StreamStateInfo = NanopbMsg<livekit_StreamStateInfo>
@@ -3058,7 +3058,7 @@ extension Livekit_StreamStateInfo.Builder {
 }
 
 extension livekit_StreamStateUpdate: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_StreamStateUpdate_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_StreamStateUpdate_msg }
     package static let _emptyBox = NanopbBox<livekit_StreamStateUpdate>(zero: livekit_StreamStateUpdate(), descriptor: livekit_StreamStateUpdate_msg)
 }
 typealias Livekit_StreamStateUpdate = NanopbMsg<livekit_StreamStateUpdate>
@@ -3082,7 +3082,7 @@ extension Livekit_StreamStateUpdate.Builder {
 }
 
 extension livekit_SubscribedQuality: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SubscribedQuality_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SubscribedQuality_msg }
     package static let _emptyBox = NanopbBox<livekit_SubscribedQuality>(zero: livekit_SubscribedQuality(), descriptor: livekit_SubscribedQuality_msg)
 }
 typealias Livekit_SubscribedQuality = NanopbMsg<livekit_SubscribedQuality>
@@ -3113,7 +3113,7 @@ extension Livekit_SubscribedQuality.Builder {
 }
 
 extension livekit_SubscribedCodec: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SubscribedCodec_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SubscribedCodec_msg }
     package static let _emptyBox = NanopbBox<livekit_SubscribedCodec>(zero: livekit_SubscribedCodec(), descriptor: livekit_SubscribedCodec_msg)
 }
 typealias Livekit_SubscribedCodec = NanopbMsg<livekit_SubscribedCodec>
@@ -3147,7 +3147,7 @@ extension Livekit_SubscribedCodec.Builder {
 }
 
 extension livekit_SubscribedQualityUpdate: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SubscribedQualityUpdate_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SubscribedQualityUpdate_msg }
     package static let _emptyBox = NanopbBox<livekit_SubscribedQualityUpdate>(zero: livekit_SubscribedQualityUpdate(), descriptor: livekit_SubscribedQualityUpdate_msg)
 }
 typealias Livekit_SubscribedQualityUpdate = NanopbMsg<livekit_SubscribedQualityUpdate>
@@ -3194,7 +3194,7 @@ extension Livekit_SubscribedQualityUpdate.Builder {
 }
 
 extension livekit_SubscribedAudioCodecUpdate: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SubscribedAudioCodecUpdate_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SubscribedAudioCodecUpdate_msg }
     package static let _emptyBox = NanopbBox<livekit_SubscribedAudioCodecUpdate>(zero: livekit_SubscribedAudioCodecUpdate(), descriptor: livekit_SubscribedAudioCodecUpdate_msg)
 }
 typealias Livekit_SubscribedAudioCodecUpdate = NanopbMsg<livekit_SubscribedAudioCodecUpdate>
@@ -3228,7 +3228,7 @@ extension Livekit_SubscribedAudioCodecUpdate.Builder {
 }
 
 extension livekit_TrackPermission: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_TrackPermission_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_TrackPermission_msg }
     package static let _emptyBox = NanopbBox<livekit_TrackPermission>(zero: livekit_TrackPermission(), descriptor: livekit_TrackPermission_msg)
 }
 typealias Livekit_TrackPermission = NanopbMsg<livekit_TrackPermission>
@@ -3282,7 +3282,7 @@ extension Livekit_TrackPermission.Builder {
 }
 
 extension livekit_SubscriptionPermission: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SubscriptionPermission_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SubscriptionPermission_msg }
     package static let _emptyBox = NanopbBox<livekit_SubscriptionPermission>(zero: livekit_SubscriptionPermission(), descriptor: livekit_SubscriptionPermission_msg)
 }
 typealias Livekit_SubscriptionPermission = NanopbMsg<livekit_SubscriptionPermission>
@@ -3316,7 +3316,7 @@ extension Livekit_SubscriptionPermission.Builder {
 }
 
 extension livekit_SubscriptionPermissionUpdate: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SubscriptionPermissionUpdate_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SubscriptionPermissionUpdate_msg }
     package static let _emptyBox = NanopbBox<livekit_SubscriptionPermissionUpdate>(zero: livekit_SubscriptionPermissionUpdate(), descriptor: livekit_SubscriptionPermissionUpdate_msg)
 }
 typealias Livekit_SubscriptionPermissionUpdate = NanopbMsg<livekit_SubscriptionPermissionUpdate>
@@ -3357,7 +3357,7 @@ extension Livekit_SubscriptionPermissionUpdate.Builder {
 }
 
 extension livekit_RoomMovedResponse: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_RoomMovedResponse_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_RoomMovedResponse_msg }
     package static let _emptyBox = NanopbBox<livekit_RoomMovedResponse>(zero: livekit_RoomMovedResponse(), descriptor: livekit_RoomMovedResponse_msg)
 }
 typealias Livekit_RoomMovedResponse = NanopbMsg<livekit_RoomMovedResponse>
@@ -3411,7 +3411,7 @@ extension Livekit_RoomMovedResponse.Builder {
 }
 
 extension livekit_SyncState: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SyncState_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SyncState_msg }
     package static let _emptyBox = NanopbBox<livekit_SyncState>(zero: livekit_SyncState(), descriptor: livekit_SyncState_msg)
 }
 typealias Livekit_SyncState = NanopbMsg<livekit_SyncState>
@@ -3517,7 +3517,7 @@ extension Livekit_SyncState.Builder {
 }
 
 extension livekit_DataChannelReceiveState: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataChannelReceiveState_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataChannelReceiveState_msg }
     package static let _emptyBox = NanopbBox<livekit_DataChannelReceiveState>(zero: livekit_DataChannelReceiveState(), descriptor: livekit_DataChannelReceiveState_msg)
 }
 typealias Livekit_DataChannelReceiveState = NanopbMsg<livekit_DataChannelReceiveState>
@@ -3548,7 +3548,7 @@ extension Livekit_DataChannelReceiveState.Builder {
 }
 
 extension livekit_DataChannelInfo: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_DataChannelInfo_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataChannelInfo_msg }
     package static let _emptyBox = NanopbBox<livekit_DataChannelInfo>(zero: livekit_DataChannelInfo(), descriptor: livekit_DataChannelInfo_msg)
 }
 typealias Livekit_DataChannelInfo = NanopbMsg<livekit_DataChannelInfo>
@@ -3601,60 +3601,60 @@ enum Livekit_SimulateScenario_OneOf_Scenario: Equatable {
 }
 
 extension livekit_SimulateScenario: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SimulateScenario_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SimulateScenario_msg }
     package static let _emptyBox = NanopbBox<livekit_SimulateScenario>(zero: livekit_SimulateScenario(), descriptor: livekit_SimulateScenario_msg)
 }
 typealias Livekit_SimulateScenario = NanopbMsg<livekit_SimulateScenario>
 extension Livekit_SimulateScenario {
     var scenario: Livekit_SimulateScenario_OneOf_Scenario? {
         switch _pointer.pointee.which_scenario {
-        case pb_size_t(livekit_SimulateScenario_speaker_update_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_speaker_update_tag):
             return .speakerUpdate(_pointer.pointee.scenario.speaker_update?.pointee ?? 0)
-        case pb_size_t(livekit_SimulateScenario_node_failure_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_node_failure_tag):
             return .nodeFailure(_pointer.pointee.scenario.node_failure?.pointee ?? false)
-        case pb_size_t(livekit_SimulateScenario_migration_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_migration_tag):
             return .migration(_pointer.pointee.scenario.migration?.pointee ?? false)
-        case pb_size_t(livekit_SimulateScenario_server_leave_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_server_leave_tag):
             return .serverLeave(_pointer.pointee.scenario.server_leave?.pointee ?? false)
-        case pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag):
             return .switchCandidateProtocol(_pointer.pointee.scenario.switch_candidate_protocol.map { lkEnum($0.pointee) as Livekit_CandidateProtocol } ?? Livekit_CandidateProtocol())
-        case pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag):
             return .subscriberBandwidth(_pointer.pointee.scenario.subscriber_bandwidth?.pointee ?? 0)
-        case pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag):
             return .disconnectSignalOnResume(_pointer.pointee.scenario.disconnect_signal_on_resume?.pointee ?? false)
-        case pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag):
             return .disconnectSignalOnResumeNoMessages(_pointer.pointee.scenario.disconnect_signal_on_resume_no_messages?.pointee ?? false)
-        case pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag):
             return .leaveRequestFullReconnect(_pointer.pointee.scenario.leave_request_full_reconnect?.pointee ?? false)
         default: return nil
         }
     }
     var speakerUpdate: Int32 {
-        _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_speaker_update_tag) ? (_pointer.pointee.scenario.speaker_update?.pointee ?? 0) : 0
+        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_speaker_update_tag) ? (_pointer.pointee.scenario.speaker_update?.pointee ?? 0) : 0
     }
     var nodeFailure: Bool {
-        _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_node_failure_tag) ? (_pointer.pointee.scenario.node_failure?.pointee ?? false) : false
+        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_node_failure_tag) ? (_pointer.pointee.scenario.node_failure?.pointee ?? false) : false
     }
     var migration: Bool {
-        _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_migration_tag) ? (_pointer.pointee.scenario.migration?.pointee ?? false) : false
+        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_migration_tag) ? (_pointer.pointee.scenario.migration?.pointee ?? false) : false
     }
     var serverLeave: Bool {
-        _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_server_leave_tag) ? (_pointer.pointee.scenario.server_leave?.pointee ?? false) : false
+        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_server_leave_tag) ? (_pointer.pointee.scenario.server_leave?.pointee ?? false) : false
     }
     var switchCandidateProtocol: Livekit_CandidateProtocol {
-        _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag) ? (_pointer.pointee.scenario.switch_candidate_protocol.map { lkEnum($0.pointee) as Livekit_CandidateProtocol } ?? Livekit_CandidateProtocol()) : Livekit_CandidateProtocol()
+        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag) ? (_pointer.pointee.scenario.switch_candidate_protocol.map { lkEnum($0.pointee) as Livekit_CandidateProtocol } ?? Livekit_CandidateProtocol()) : Livekit_CandidateProtocol()
     }
     var subscriberBandwidth: Int64 {
-        _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag) ? (_pointer.pointee.scenario.subscriber_bandwidth?.pointee ?? 0) : 0
+        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag) ? (_pointer.pointee.scenario.subscriber_bandwidth?.pointee ?? 0) : 0
     }
     var disconnectSignalOnResume: Bool {
-        _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag) ? (_pointer.pointee.scenario.disconnect_signal_on_resume?.pointee ?? false) : false
+        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag) ? (_pointer.pointee.scenario.disconnect_signal_on_resume?.pointee ?? false) : false
     }
     var disconnectSignalOnResumeNoMessages: Bool {
-        _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag) ? (_pointer.pointee.scenario.disconnect_signal_on_resume_no_messages?.pointee ?? false) : false
+        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag) ? (_pointer.pointee.scenario.disconnect_signal_on_resume_no_messages?.pointee ?? false) : false
     }
     var leaveRequestFullReconnect: Bool {
-        _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag) ? (_pointer.pointee.scenario.leave_request_full_reconnect?.pointee ?? false) : false
+        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag) ? (_pointer.pointee.scenario.leave_request_full_reconnect?.pointee ?? false) : false
     }
 
 }
@@ -3663,23 +3663,23 @@ extension Livekit_SimulateScenario.Builder {
     var scenario: Livekit_SimulateScenario_OneOf_Scenario? {
         get {
             switch _pointer.pointee.which_scenario {
-            case pb_size_t(livekit_SimulateScenario_speaker_update_tag):
+            case lk_pb_size_t(livekit_SimulateScenario_speaker_update_tag):
                 return .speakerUpdate(_pointer.pointee.scenario.speaker_update?.pointee ?? 0)
-            case pb_size_t(livekit_SimulateScenario_node_failure_tag):
+            case lk_pb_size_t(livekit_SimulateScenario_node_failure_tag):
                 return .nodeFailure(_pointer.pointee.scenario.node_failure?.pointee ?? false)
-            case pb_size_t(livekit_SimulateScenario_migration_tag):
+            case lk_pb_size_t(livekit_SimulateScenario_migration_tag):
                 return .migration(_pointer.pointee.scenario.migration?.pointee ?? false)
-            case pb_size_t(livekit_SimulateScenario_server_leave_tag):
+            case lk_pb_size_t(livekit_SimulateScenario_server_leave_tag):
                 return .serverLeave(_pointer.pointee.scenario.server_leave?.pointee ?? false)
-            case pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag):
+            case lk_pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag):
                 return .switchCandidateProtocol(_pointer.pointee.scenario.switch_candidate_protocol.map { lkEnum($0.pointee) as Livekit_CandidateProtocol } ?? Livekit_CandidateProtocol())
-            case pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag):
+            case lk_pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag):
                 return .subscriberBandwidth(_pointer.pointee.scenario.subscriber_bandwidth?.pointee ?? 0)
-            case pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag):
+            case lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag):
                 return .disconnectSignalOnResume(_pointer.pointee.scenario.disconnect_signal_on_resume?.pointee ?? false)
-            case pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag):
+            case lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag):
                 return .disconnectSignalOnResumeNoMessages(_pointer.pointee.scenario.disconnect_signal_on_resume_no_messages?.pointee ?? false)
-            case pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag):
+            case lk_pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag):
                 return .leaveRequestFullReconnect(_pointer.pointee.scenario.leave_request_full_reconnect?.pointee ?? false)
             default: return nil
             }
@@ -3688,127 +3688,127 @@ extension Livekit_SimulateScenario.Builder {
             _clearScenario()
             switch newValue {
             case let .speakerUpdate(value):
-                _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_speaker_update_tag)
+                _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_speaker_update_tag)
                 lkSetValue(&_pointer.pointee.scenario.speaker_update, value)
             case let .nodeFailure(value):
-                _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_node_failure_tag)
+                _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_node_failure_tag)
                 lkSetValue(&_pointer.pointee.scenario.node_failure, value)
             case let .migration(value):
-                _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_migration_tag)
+                _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_migration_tag)
                 lkSetValue(&_pointer.pointee.scenario.migration, value)
             case let .serverLeave(value):
-                _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_server_leave_tag)
+                _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_server_leave_tag)
                 lkSetValue(&_pointer.pointee.scenario.server_leave, value)
             case let .switchCandidateProtocol(value):
-                _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag)
+                _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag)
                 lkSetEnumPointer(&_pointer.pointee.scenario.switch_candidate_protocol, value)
             case let .subscriberBandwidth(value):
-                _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag)
+                _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag)
                 lkSetValue(&_pointer.pointee.scenario.subscriber_bandwidth, value)
             case let .disconnectSignalOnResume(value):
-                _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag)
+                _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag)
                 lkSetValue(&_pointer.pointee.scenario.disconnect_signal_on_resume, value)
             case let .disconnectSignalOnResumeNoMessages(value):
-                _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag)
+                _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag)
                 lkSetValue(&_pointer.pointee.scenario.disconnect_signal_on_resume_no_messages, value)
             case let .leaveRequestFullReconnect(value):
-                _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag)
+                _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag)
                 lkSetValue(&_pointer.pointee.scenario.leave_request_full_reconnect, value)
             case nil: break
             }
         }
     }
     var speakerUpdate: Int32 {
-        get { _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_speaker_update_tag) ? (_pointer.pointee.scenario.speaker_update?.pointee ?? 0) : 0 }
+        get { _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_speaker_update_tag) ? (_pointer.pointee.scenario.speaker_update?.pointee ?? 0) : 0 }
         nonmutating set {
             _clearScenario()
-            _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_speaker_update_tag)
+            _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_speaker_update_tag)
             lkSetValue(&_pointer.pointee.scenario.speaker_update, newValue)
         }
     }
     var nodeFailure: Bool {
-        get { _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_node_failure_tag) ? (_pointer.pointee.scenario.node_failure?.pointee ?? false) : false }
+        get { _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_node_failure_tag) ? (_pointer.pointee.scenario.node_failure?.pointee ?? false) : false }
         nonmutating set {
             _clearScenario()
-            _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_node_failure_tag)
+            _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_node_failure_tag)
             lkSetValue(&_pointer.pointee.scenario.node_failure, newValue)
         }
     }
     var migration: Bool {
-        get { _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_migration_tag) ? (_pointer.pointee.scenario.migration?.pointee ?? false) : false }
+        get { _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_migration_tag) ? (_pointer.pointee.scenario.migration?.pointee ?? false) : false }
         nonmutating set {
             _clearScenario()
-            _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_migration_tag)
+            _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_migration_tag)
             lkSetValue(&_pointer.pointee.scenario.migration, newValue)
         }
     }
     var serverLeave: Bool {
-        get { _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_server_leave_tag) ? (_pointer.pointee.scenario.server_leave?.pointee ?? false) : false }
+        get { _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_server_leave_tag) ? (_pointer.pointee.scenario.server_leave?.pointee ?? false) : false }
         nonmutating set {
             _clearScenario()
-            _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_server_leave_tag)
+            _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_server_leave_tag)
             lkSetValue(&_pointer.pointee.scenario.server_leave, newValue)
         }
     }
     var switchCandidateProtocol: Livekit_CandidateProtocol {
-        get { _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag) ? (_pointer.pointee.scenario.switch_candidate_protocol.map { lkEnum($0.pointee) as Livekit_CandidateProtocol } ?? Livekit_CandidateProtocol()) : Livekit_CandidateProtocol() }
+        get { _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag) ? (_pointer.pointee.scenario.switch_candidate_protocol.map { lkEnum($0.pointee) as Livekit_CandidateProtocol } ?? Livekit_CandidateProtocol()) : Livekit_CandidateProtocol() }
         nonmutating set {
             _clearScenario()
-            _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag)
+            _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag)
             lkSetEnumPointer(&_pointer.pointee.scenario.switch_candidate_protocol, newValue)
         }
     }
     var subscriberBandwidth: Int64 {
-        get { _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag) ? (_pointer.pointee.scenario.subscriber_bandwidth?.pointee ?? 0) : 0 }
+        get { _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag) ? (_pointer.pointee.scenario.subscriber_bandwidth?.pointee ?? 0) : 0 }
         nonmutating set {
             _clearScenario()
-            _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag)
+            _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag)
             lkSetValue(&_pointer.pointee.scenario.subscriber_bandwidth, newValue)
         }
     }
     var disconnectSignalOnResume: Bool {
-        get { _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag) ? (_pointer.pointee.scenario.disconnect_signal_on_resume?.pointee ?? false) : false }
+        get { _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag) ? (_pointer.pointee.scenario.disconnect_signal_on_resume?.pointee ?? false) : false }
         nonmutating set {
             _clearScenario()
-            _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag)
+            _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag)
             lkSetValue(&_pointer.pointee.scenario.disconnect_signal_on_resume, newValue)
         }
     }
     var disconnectSignalOnResumeNoMessages: Bool {
-        get { _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag) ? (_pointer.pointee.scenario.disconnect_signal_on_resume_no_messages?.pointee ?? false) : false }
+        get { _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag) ? (_pointer.pointee.scenario.disconnect_signal_on_resume_no_messages?.pointee ?? false) : false }
         nonmutating set {
             _clearScenario()
-            _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag)
+            _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag)
             lkSetValue(&_pointer.pointee.scenario.disconnect_signal_on_resume_no_messages, newValue)
         }
     }
     var leaveRequestFullReconnect: Bool {
-        get { _pointer.pointee.which_scenario == pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag) ? (_pointer.pointee.scenario.leave_request_full_reconnect?.pointee ?? false) : false }
+        get { _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag) ? (_pointer.pointee.scenario.leave_request_full_reconnect?.pointee ?? false) : false }
         nonmutating set {
             _clearScenario()
-            _pointer.pointee.which_scenario = pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag)
+            _pointer.pointee.which_scenario = lk_pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag)
             lkSetValue(&_pointer.pointee.scenario.leave_request_full_reconnect, newValue)
         }
     }
     private func _clearScenario() {
         switch _pointer.pointee.which_scenario {
-        case pb_size_t(livekit_SimulateScenario_speaker_update_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_speaker_update_tag):
             lkFree(&_pointer.pointee.scenario.speaker_update)
-        case pb_size_t(livekit_SimulateScenario_node_failure_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_node_failure_tag):
             lkFree(&_pointer.pointee.scenario.node_failure)
-        case pb_size_t(livekit_SimulateScenario_migration_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_migration_tag):
             lkFree(&_pointer.pointee.scenario.migration)
-        case pb_size_t(livekit_SimulateScenario_server_leave_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_server_leave_tag):
             lkFree(&_pointer.pointee.scenario.server_leave)
-        case pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag):
             lkFree(&_pointer.pointee.scenario.switch_candidate_protocol)
-        case pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag):
             lkFree(&_pointer.pointee.scenario.subscriber_bandwidth)
-        case pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag):
             lkFree(&_pointer.pointee.scenario.disconnect_signal_on_resume)
-        case pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag):
             lkFree(&_pointer.pointee.scenario.disconnect_signal_on_resume_no_messages)
-        case pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag):
+        case lk_pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag):
             lkFree(&_pointer.pointee.scenario.leave_request_full_reconnect)
         default: break
         }
@@ -3821,7 +3821,7 @@ extension Livekit_SimulateScenario.Builder {
 }
 
 extension livekit_Ping: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_Ping_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_Ping_msg }
     package static let _emptyBox = NanopbBox<livekit_Ping>(zero: livekit_Ping(), descriptor: livekit_Ping_msg)
 }
 typealias Livekit_Ping = NanopbMsg<livekit_Ping>
@@ -3852,7 +3852,7 @@ extension Livekit_Ping.Builder {
 }
 
 extension livekit_Pong: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_Pong_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_Pong_msg }
     package static let _emptyBox = NanopbBox<livekit_Pong>(zero: livekit_Pong(), descriptor: livekit_Pong_msg)
 }
 typealias Livekit_Pong = NanopbMsg<livekit_Pong>
@@ -3883,7 +3883,7 @@ extension Livekit_Pong.Builder {
 }
 
 extension livekit_RegionSettings: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_RegionSettings_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_RegionSettings_msg }
     package static let _emptyBox = NanopbBox<livekit_RegionSettings>(zero: livekit_RegionSettings(), descriptor: livekit_RegionSettings_msg)
 }
 typealias Livekit_RegionSettings = NanopbMsg<livekit_RegionSettings>
@@ -3907,7 +3907,7 @@ extension Livekit_RegionSettings.Builder {
 }
 
 extension livekit_RegionInfo: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_RegionInfo_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_RegionInfo_msg }
     package static let _emptyBox = NanopbBox<livekit_RegionInfo>(zero: livekit_RegionInfo(), descriptor: livekit_RegionInfo_msg)
 }
 typealias Livekit_RegionInfo = NanopbMsg<livekit_RegionInfo>
@@ -3948,7 +3948,7 @@ extension Livekit_RegionInfo.Builder {
 }
 
 extension livekit_SubscriptionResponse: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_SubscriptionResponse_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_SubscriptionResponse_msg }
     package static let _emptyBox = NanopbBox<livekit_SubscriptionResponse>(zero: livekit_SubscriptionResponse(), descriptor: livekit_SubscriptionResponse_msg)
 }
 typealias Livekit_SubscriptionResponse = NanopbMsg<livekit_SubscriptionResponse>
@@ -3990,7 +3990,7 @@ enum Livekit_RequestResponse_OneOf_Request: Equatable {
 }
 
 extension livekit_RequestResponse: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_RequestResponse_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_RequestResponse_msg }
     package static let _emptyBox = NanopbBox<livekit_RequestResponse>(zero: livekit_RequestResponse(), descriptor: livekit_RequestResponse_msg)
 }
 typealias Livekit_RequestResponse = NanopbMsg<livekit_RequestResponse>
@@ -4012,48 +4012,48 @@ extension Livekit_RequestResponse {
 
     var request: Livekit_RequestResponse_OneOf_Request? {
         switch _pointer.pointee.which_request {
-        case pb_size_t(livekit_RequestResponse_trickle_tag):
+        case lk_pb_size_t(livekit_RequestResponse_trickle_tag):
             return .trickle(_pointer.pointee.request.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty)
-        case pb_size_t(livekit_RequestResponse_add_track_tag):
+        case lk_pb_size_t(livekit_RequestResponse_add_track_tag):
             return .addTrack(_pointer.pointee.request.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_AddTrackRequest._empty)
-        case pb_size_t(livekit_RequestResponse_mute_tag):
+        case lk_pb_size_t(livekit_RequestResponse_mute_tag):
             return .mute(_pointer.pointee.request.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty)
-        case pb_size_t(livekit_RequestResponse_update_metadata_tag):
+        case lk_pb_size_t(livekit_RequestResponse_update_metadata_tag):
             return .updateMetadata(_pointer.pointee.request.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _owner) } ?? Livekit_UpdateParticipantMetadata._empty)
-        case pb_size_t(livekit_RequestResponse_update_audio_track_tag):
+        case lk_pb_size_t(livekit_RequestResponse_update_audio_track_tag):
             return .updateAudioTrack(_pointer.pointee.request.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalAudioTrack._empty)
-        case pb_size_t(livekit_RequestResponse_update_video_track_tag):
+        case lk_pb_size_t(livekit_RequestResponse_update_video_track_tag):
             return .updateVideoTrack(_pointer.pointee.request.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalVideoTrack._empty)
-        case pb_size_t(livekit_RequestResponse_publish_data_track_tag):
+        case lk_pb_size_t(livekit_RequestResponse_publish_data_track_tag):
             return .publishDataTrack(_pointer.pointee.request.publish_data_track.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackRequest._empty)
-        case pb_size_t(livekit_RequestResponse_unpublish_data_track_tag):
+        case lk_pb_size_t(livekit_RequestResponse_unpublish_data_track_tag):
             return .unpublishDataTrack(_pointer.pointee.request.unpublish_data_track.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackRequest._empty)
         default: return nil
         }
     }
     var trickle: Livekit_TrickleRequest {
-        _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_trickle_tag) ? (_pointer.pointee.request.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest()
+        _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_trickle_tag) ? (_pointer.pointee.request.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest()
     }
     var addTrack: Livekit_AddTrackRequest {
-        _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_add_track_tag) ? (_pointer.pointee.request.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_AddTrackRequest._empty) : Livekit_AddTrackRequest()
+        _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_add_track_tag) ? (_pointer.pointee.request.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_AddTrackRequest._empty) : Livekit_AddTrackRequest()
     }
     var mute: Livekit_MuteTrackRequest {
-        _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_mute_tag) ? (_pointer.pointee.request.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest()
+        _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_mute_tag) ? (_pointer.pointee.request.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest()
     }
     var updateMetadata: Livekit_UpdateParticipantMetadata {
-        _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_update_metadata_tag) ? (_pointer.pointee.request.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _owner) } ?? Livekit_UpdateParticipantMetadata._empty) : Livekit_UpdateParticipantMetadata()
+        _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_update_metadata_tag) ? (_pointer.pointee.request.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _owner) } ?? Livekit_UpdateParticipantMetadata._empty) : Livekit_UpdateParticipantMetadata()
     }
     var updateAudioTrack: Livekit_UpdateLocalAudioTrack {
-        _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_update_audio_track_tag) ? (_pointer.pointee.request.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalAudioTrack._empty) : Livekit_UpdateLocalAudioTrack()
+        _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_update_audio_track_tag) ? (_pointer.pointee.request.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalAudioTrack._empty) : Livekit_UpdateLocalAudioTrack()
     }
     var updateVideoTrack: Livekit_UpdateLocalVideoTrack {
-        _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_update_video_track_tag) ? (_pointer.pointee.request.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalVideoTrack._empty) : Livekit_UpdateLocalVideoTrack()
+        _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_update_video_track_tag) ? (_pointer.pointee.request.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalVideoTrack._empty) : Livekit_UpdateLocalVideoTrack()
     }
     var publishDataTrack: Livekit_PublishDataTrackRequest {
-        _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_publish_data_track_tag) ? (_pointer.pointee.request.publish_data_track.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackRequest._empty) : Livekit_PublishDataTrackRequest()
+        _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_publish_data_track_tag) ? (_pointer.pointee.request.publish_data_track.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackRequest._empty) : Livekit_PublishDataTrackRequest()
     }
     var unpublishDataTrack: Livekit_UnpublishDataTrackRequest {
-        _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_unpublish_data_track_tag) ? (_pointer.pointee.request.unpublish_data_track.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackRequest._empty) : Livekit_UnpublishDataTrackRequest()
+        _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_unpublish_data_track_tag) ? (_pointer.pointee.request.unpublish_data_track.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackRequest._empty) : Livekit_UnpublishDataTrackRequest()
     }
 
 }
@@ -4096,21 +4096,21 @@ extension Livekit_RequestResponse.Builder {
     var request: Livekit_RequestResponse_OneOf_Request? {
         get {
             switch _pointer.pointee.which_request {
-            case pb_size_t(livekit_RequestResponse_trickle_tag):
+            case lk_pb_size_t(livekit_RequestResponse_trickle_tag):
                 return .trickle(_pointer.pointee.request.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _box) } ?? Livekit_TrickleRequest._empty)
-            case pb_size_t(livekit_RequestResponse_add_track_tag):
+            case lk_pb_size_t(livekit_RequestResponse_add_track_tag):
                 return .addTrack(_pointer.pointee.request.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_AddTrackRequest._empty)
-            case pb_size_t(livekit_RequestResponse_mute_tag):
+            case lk_pb_size_t(livekit_RequestResponse_mute_tag):
                 return .mute(_pointer.pointee.request.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_MuteTrackRequest._empty)
-            case pb_size_t(livekit_RequestResponse_update_metadata_tag):
+            case lk_pb_size_t(livekit_RequestResponse_update_metadata_tag):
                 return .updateMetadata(_pointer.pointee.request.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _box) } ?? Livekit_UpdateParticipantMetadata._empty)
-            case pb_size_t(livekit_RequestResponse_update_audio_track_tag):
+            case lk_pb_size_t(livekit_RequestResponse_update_audio_track_tag):
                 return .updateAudioTrack(_pointer.pointee.request.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _box) } ?? Livekit_UpdateLocalAudioTrack._empty)
-            case pb_size_t(livekit_RequestResponse_update_video_track_tag):
+            case lk_pb_size_t(livekit_RequestResponse_update_video_track_tag):
                 return .updateVideoTrack(_pointer.pointee.request.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _box) } ?? Livekit_UpdateLocalVideoTrack._empty)
-            case pb_size_t(livekit_RequestResponse_publish_data_track_tag):
+            case lk_pb_size_t(livekit_RequestResponse_publish_data_track_tag):
                 return .publishDataTrack(_pointer.pointee.request.publish_data_track.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_PublishDataTrackRequest._empty)
-            case pb_size_t(livekit_RequestResponse_unpublish_data_track_tag):
+            case lk_pb_size_t(livekit_RequestResponse_unpublish_data_track_tag):
                 return .unpublishDataTrack(_pointer.pointee.request.unpublish_data_track.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_UnpublishDataTrackRequest._empty)
             default: return nil
             }
@@ -4130,122 +4130,122 @@ extension Livekit_RequestResponse.Builder {
             _clearRequest()
             switch newValue {
             case let .trickle(value):
-                _pointer.pointee.which_request = pb_size_t(livekit_RequestResponse_trickle_tag)
+                _pointer.pointee.which_request = lk_pb_size_t(livekit_RequestResponse_trickle_tag)
                 lkSetMessage(&_pointer.pointee.request.trickle, value)
             case let .addTrack(value):
-                _pointer.pointee.which_request = pb_size_t(livekit_RequestResponse_add_track_tag)
+                _pointer.pointee.which_request = lk_pb_size_t(livekit_RequestResponse_add_track_tag)
                 lkSetMessage(&_pointer.pointee.request.add_track, value)
             case let .mute(value):
-                _pointer.pointee.which_request = pb_size_t(livekit_RequestResponse_mute_tag)
+                _pointer.pointee.which_request = lk_pb_size_t(livekit_RequestResponse_mute_tag)
                 lkSetMessage(&_pointer.pointee.request.mute, value)
             case let .updateMetadata(value):
-                _pointer.pointee.which_request = pb_size_t(livekit_RequestResponse_update_metadata_tag)
+                _pointer.pointee.which_request = lk_pb_size_t(livekit_RequestResponse_update_metadata_tag)
                 lkSetMessage(&_pointer.pointee.request.update_metadata, value)
             case let .updateAudioTrack(value):
-                _pointer.pointee.which_request = pb_size_t(livekit_RequestResponse_update_audio_track_tag)
+                _pointer.pointee.which_request = lk_pb_size_t(livekit_RequestResponse_update_audio_track_tag)
                 lkSetMessage(&_pointer.pointee.request.update_audio_track, value)
             case let .updateVideoTrack(value):
-                _pointer.pointee.which_request = pb_size_t(livekit_RequestResponse_update_video_track_tag)
+                _pointer.pointee.which_request = lk_pb_size_t(livekit_RequestResponse_update_video_track_tag)
                 lkSetMessage(&_pointer.pointee.request.update_video_track, value)
             case let .publishDataTrack(value):
-                _pointer.pointee.which_request = pb_size_t(livekit_RequestResponse_publish_data_track_tag)
+                _pointer.pointee.which_request = lk_pb_size_t(livekit_RequestResponse_publish_data_track_tag)
                 lkSetMessage(&_pointer.pointee.request.publish_data_track, value)
             case let .unpublishDataTrack(value):
-                _pointer.pointee.which_request = pb_size_t(livekit_RequestResponse_unpublish_data_track_tag)
+                _pointer.pointee.which_request = lk_pb_size_t(livekit_RequestResponse_unpublish_data_track_tag)
                 lkSetMessage(&_pointer.pointee.request.unpublish_data_track, value)
             case nil: break
             }
         }
     }
     var trickle: Livekit_TrickleRequest {
-        get { _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_trickle_tag) ? (_pointer.pointee.request.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _box) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest() }
+        get { _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_trickle_tag) ? (_pointer.pointee.request.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _box) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearRequest()
-            _pointer.pointee.which_request = pb_size_t(livekit_RequestResponse_trickle_tag)
+            _pointer.pointee.which_request = lk_pb_size_t(livekit_RequestResponse_trickle_tag)
             lkSetMessage(&_pointer.pointee.request.trickle, newValue)
         }
     }
     var addTrack: Livekit_AddTrackRequest {
-        get { _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_add_track_tag) ? (_pointer.pointee.request.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_AddTrackRequest._empty) : Livekit_AddTrackRequest() }
+        get { _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_add_track_tag) ? (_pointer.pointee.request.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_AddTrackRequest._empty) : Livekit_AddTrackRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearRequest()
-            _pointer.pointee.which_request = pb_size_t(livekit_RequestResponse_add_track_tag)
+            _pointer.pointee.which_request = lk_pb_size_t(livekit_RequestResponse_add_track_tag)
             lkSetMessage(&_pointer.pointee.request.add_track, newValue)
         }
     }
     var mute: Livekit_MuteTrackRequest {
-        get { _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_mute_tag) ? (_pointer.pointee.request.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest() }
+        get { _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_mute_tag) ? (_pointer.pointee.request.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearRequest()
-            _pointer.pointee.which_request = pb_size_t(livekit_RequestResponse_mute_tag)
+            _pointer.pointee.which_request = lk_pb_size_t(livekit_RequestResponse_mute_tag)
             lkSetMessage(&_pointer.pointee.request.mute, newValue)
         }
     }
     var updateMetadata: Livekit_UpdateParticipantMetadata {
-        get { _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_update_metadata_tag) ? (_pointer.pointee.request.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _box) } ?? Livekit_UpdateParticipantMetadata._empty) : Livekit_UpdateParticipantMetadata() }
+        get { _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_update_metadata_tag) ? (_pointer.pointee.request.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _box) } ?? Livekit_UpdateParticipantMetadata._empty) : Livekit_UpdateParticipantMetadata() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearRequest()
-            _pointer.pointee.which_request = pb_size_t(livekit_RequestResponse_update_metadata_tag)
+            _pointer.pointee.which_request = lk_pb_size_t(livekit_RequestResponse_update_metadata_tag)
             lkSetMessage(&_pointer.pointee.request.update_metadata, newValue)
         }
     }
     var updateAudioTrack: Livekit_UpdateLocalAudioTrack {
-        get { _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_update_audio_track_tag) ? (_pointer.pointee.request.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _box) } ?? Livekit_UpdateLocalAudioTrack._empty) : Livekit_UpdateLocalAudioTrack() }
+        get { _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_update_audio_track_tag) ? (_pointer.pointee.request.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _box) } ?? Livekit_UpdateLocalAudioTrack._empty) : Livekit_UpdateLocalAudioTrack() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearRequest()
-            _pointer.pointee.which_request = pb_size_t(livekit_RequestResponse_update_audio_track_tag)
+            _pointer.pointee.which_request = lk_pb_size_t(livekit_RequestResponse_update_audio_track_tag)
             lkSetMessage(&_pointer.pointee.request.update_audio_track, newValue)
         }
     }
     var updateVideoTrack: Livekit_UpdateLocalVideoTrack {
-        get { _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_update_video_track_tag) ? (_pointer.pointee.request.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _box) } ?? Livekit_UpdateLocalVideoTrack._empty) : Livekit_UpdateLocalVideoTrack() }
+        get { _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_update_video_track_tag) ? (_pointer.pointee.request.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _box) } ?? Livekit_UpdateLocalVideoTrack._empty) : Livekit_UpdateLocalVideoTrack() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearRequest()
-            _pointer.pointee.which_request = pb_size_t(livekit_RequestResponse_update_video_track_tag)
+            _pointer.pointee.which_request = lk_pb_size_t(livekit_RequestResponse_update_video_track_tag)
             lkSetMessage(&_pointer.pointee.request.update_video_track, newValue)
         }
     }
     var publishDataTrack: Livekit_PublishDataTrackRequest {
-        get { _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_publish_data_track_tag) ? (_pointer.pointee.request.publish_data_track.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_PublishDataTrackRequest._empty) : Livekit_PublishDataTrackRequest() }
+        get { _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_publish_data_track_tag) ? (_pointer.pointee.request.publish_data_track.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_PublishDataTrackRequest._empty) : Livekit_PublishDataTrackRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearRequest()
-            _pointer.pointee.which_request = pb_size_t(livekit_RequestResponse_publish_data_track_tag)
+            _pointer.pointee.which_request = lk_pb_size_t(livekit_RequestResponse_publish_data_track_tag)
             lkSetMessage(&_pointer.pointee.request.publish_data_track, newValue)
         }
     }
     var unpublishDataTrack: Livekit_UnpublishDataTrackRequest {
-        get { _pointer.pointee.which_request == pb_size_t(livekit_RequestResponse_unpublish_data_track_tag) ? (_pointer.pointee.request.unpublish_data_track.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_UnpublishDataTrackRequest._empty) : Livekit_UnpublishDataTrackRequest() }
+        get { _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_unpublish_data_track_tag) ? (_pointer.pointee.request.unpublish_data_track.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _box) } ?? Livekit_UnpublishDataTrackRequest._empty) : Livekit_UnpublishDataTrackRequest() }
         nonmutating set {
             let newValue = newValue.owned()
             _clearRequest()
-            _pointer.pointee.which_request = pb_size_t(livekit_RequestResponse_unpublish_data_track_tag)
+            _pointer.pointee.which_request = lk_pb_size_t(livekit_RequestResponse_unpublish_data_track_tag)
             lkSetMessage(&_pointer.pointee.request.unpublish_data_track, newValue)
         }
     }
     private func _clearRequest() {
         switch _pointer.pointee.which_request {
-        case pb_size_t(livekit_RequestResponse_trickle_tag):
+        case lk_pb_size_t(livekit_RequestResponse_trickle_tag):
             lkRelease(message: &_pointer.pointee.request.trickle, Livekit_TrickleRequest.descriptor)
-        case pb_size_t(livekit_RequestResponse_add_track_tag):
+        case lk_pb_size_t(livekit_RequestResponse_add_track_tag):
             lkRelease(message: &_pointer.pointee.request.add_track, Livekit_AddTrackRequest.descriptor)
-        case pb_size_t(livekit_RequestResponse_mute_tag):
+        case lk_pb_size_t(livekit_RequestResponse_mute_tag):
             lkRelease(message: &_pointer.pointee.request.mute, Livekit_MuteTrackRequest.descriptor)
-        case pb_size_t(livekit_RequestResponse_update_metadata_tag):
+        case lk_pb_size_t(livekit_RequestResponse_update_metadata_tag):
             lkRelease(message: &_pointer.pointee.request.update_metadata, Livekit_UpdateParticipantMetadata.descriptor)
-        case pb_size_t(livekit_RequestResponse_update_audio_track_tag):
+        case lk_pb_size_t(livekit_RequestResponse_update_audio_track_tag):
             lkRelease(message: &_pointer.pointee.request.update_audio_track, Livekit_UpdateLocalAudioTrack.descriptor)
-        case pb_size_t(livekit_RequestResponse_update_video_track_tag):
+        case lk_pb_size_t(livekit_RequestResponse_update_video_track_tag):
             lkRelease(message: &_pointer.pointee.request.update_video_track, Livekit_UpdateLocalVideoTrack.descriptor)
-        case pb_size_t(livekit_RequestResponse_publish_data_track_tag):
+        case lk_pb_size_t(livekit_RequestResponse_publish_data_track_tag):
             lkRelease(message: &_pointer.pointee.request.publish_data_track, Livekit_PublishDataTrackRequest.descriptor)
-        case pb_size_t(livekit_RequestResponse_unpublish_data_track_tag):
+        case lk_pb_size_t(livekit_RequestResponse_unpublish_data_track_tag):
             lkRelease(message: &_pointer.pointee.request.unpublish_data_track, Livekit_UnpublishDataTrackRequest.descriptor)
         default: break
         }
@@ -4258,7 +4258,7 @@ extension Livekit_RequestResponse.Builder {
 }
 
 extension livekit_TrackSubscribed: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_TrackSubscribed_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_TrackSubscribed_msg }
     package static let _emptyBox = NanopbBox<livekit_TrackSubscribed>(zero: livekit_TrackSubscribed(), descriptor: livekit_TrackSubscribed_msg)
 }
 typealias Livekit_TrackSubscribed = NanopbMsg<livekit_TrackSubscribed>
@@ -4279,7 +4279,7 @@ extension Livekit_TrackSubscribed.Builder {
 }
 
 extension livekit_ConnectionSettings: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_ConnectionSettings_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_ConnectionSettings_msg }
     package static let _emptyBox = NanopbBox<livekit_ConnectionSettings>(zero: livekit_ConnectionSettings(), descriptor: livekit_ConnectionSettings_msg)
 }
 typealias Livekit_ConnectionSettings = NanopbMsg<livekit_ConnectionSettings>
@@ -4340,7 +4340,7 @@ extension Livekit_ConnectionSettings.Builder {
 }
 
 extension livekit_JoinRequest: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_JoinRequest_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_JoinRequest_msg }
     package static let _emptyBox = NanopbBox<livekit_JoinRequest>(zero: livekit_JoinRequest(), descriptor: livekit_JoinRequest_msg)
 }
 typealias Livekit_JoinRequest = NanopbMsg<livekit_JoinRequest>
@@ -4400,7 +4400,7 @@ extension Livekit_JoinRequest {
 }
 
 extension livekit_JoinRequest_ParticipantAttributesEntry: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_JoinRequest_ParticipantAttributesEntry_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_JoinRequest_ParticipantAttributesEntry_msg }
     package static let _emptyBox = NanopbBox<livekit_JoinRequest_ParticipantAttributesEntry>(zero: livekit_JoinRequest_ParticipantAttributesEntry(), descriptor: livekit_JoinRequest_ParticipantAttributesEntry_msg)
 }
 typealias Livekit_JoinRequest_ParticipantAttributesEntry = NanopbMsg<livekit_JoinRequest_ParticipantAttributesEntry>
@@ -4502,7 +4502,7 @@ extension Livekit_JoinRequest.Builder {
 }
 
 extension livekit_WrappedJoinRequest: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_WrappedJoinRequest_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_WrappedJoinRequest_msg }
     package static let _emptyBox = NanopbBox<livekit_WrappedJoinRequest>(zero: livekit_WrappedJoinRequest(), descriptor: livekit_WrappedJoinRequest_msg)
 }
 typealias Livekit_WrappedJoinRequest = NanopbMsg<livekit_WrappedJoinRequest>
@@ -4542,7 +4542,7 @@ extension Livekit_WrappedJoinRequest.Builder {
 }
 
 extension livekit_MediaSectionsRequirement: NanopbStorage {
-    package static var descriptor: pb_msgdesc_t { livekit_MediaSectionsRequirement_msg }
+    package static var descriptor: lk_pb_msgdesc_t { livekit_MediaSectionsRequirement_msg }
     package static let _emptyBox = NanopbBox<livekit_MediaSectionsRequirement>(zero: livekit_MediaSectionsRequirement(), descriptor: livekit_MediaSectionsRequirement_msg)
 }
 typealias Livekit_MediaSectionsRequirement = NanopbMsg<livekit_MediaSectionsRequirement>

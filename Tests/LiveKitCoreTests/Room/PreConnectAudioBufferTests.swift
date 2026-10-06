@@ -37,7 +37,10 @@ import LiveKitTestSupport
                 let agentRoom = rooms[0]
                 let publisherRoom = rooms[1]
 
-                let received = AsyncCompleter<ReceivedStream>(label: "audioStream", defaultTimeout: 15)
+                // The send rides an unstructured `Task` in `didPublishTrack` that first awaits an
+                // active agent, so how soon the stream lands is a scheduling question; on a
+                // strict-pool runner 15 s was not enough for a buffer that does arrive.
+                let received = AsyncCompleter<ReceivedStream>(label: "audioStream", defaultTimeout: 30)
                 try await agentRoom.registerByteStreamHandler(for: PreConnectAudioBuffer.dataTopic) { reader, participant in
                     confirm()
                     do {

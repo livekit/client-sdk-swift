@@ -14,9 +14,11 @@
     #define checkreturn
 #endif
 
-#include "pb.h"
-#include "pb_decode.h"
-#include "pb_common.h"
+/* LiveKit modification (marked per zlib license clause 2): lk_ includes --
+ * see lk_pb_config.h. */
+#include "lk_pb.h"
+#include "lk_pb_decode.h"
+#include "lk_pb_common.h"
 
 /**************************************
  * Declarations internal to this file *

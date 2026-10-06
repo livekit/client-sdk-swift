@@ -1,8 +1,8 @@
 /*
- * LiveKit configuration for the vendored nanopb runtime. Included from pb.h's
- * marked LiveKit block — the only modification to that upstream file — so
- * every translation unit (runtime .c, generated .c, and the Swift importer)
- * sees the same configuration.
+ * LiveKit configuration for the vendored nanopb runtime. Included from lk_pb.h's
+ * marked LiveKit block (that block, the lk_ file name and the LK_ include guard
+ * are the only changes to the upstream file) so every translation unit
+ * (runtime .c, generated .c, and the Swift importer) sees the same configuration.
  *
  * The ABI defines MUST live in a header, not in build settings: SwiftPM has
  * no propagated-defines mechanism, and cSettings are invisible to the Swift

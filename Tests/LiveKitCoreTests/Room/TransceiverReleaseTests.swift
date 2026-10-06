@@ -158,10 +158,7 @@ struct TransceiverReleaseTests {
                 for kind in scenario.kinds {
                     let track = await kind.makeLocalTrack()
                     if let capturer = (track as? LocalVideoTrack)?.capturer as? BufferCapturer {
-                        // `_publish` waits on dimensions before starting the capturer, and a
-                        // brand new buffer track has none until it is fed.
                         feeders.append(capturer.startFeedingFrames(dimensions: .h720_169))
-                        _ = try await capturer.dimensionsCompleter.wait()
                     }
                     _ = try await publish(track, on: participant)
                 }
