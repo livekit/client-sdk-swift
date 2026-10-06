@@ -63,7 +63,9 @@ struct BroadcastScreenCapturerTests {
             #expect(try await capturer.startCapture())
             try await Task.sleep(nanoseconds: 100_000_000)
             #expect(try await capturer.stopCapture())
+            #expect(BroadcastScreenCapturer.activeCount == 0)
             #expect(try await capturer.startCapture())
+            #expect(BroadcastScreenCapturer.activeCount == 1)
             try await Task.sleep(nanoseconds: 50_000_000)
             #expect(capturer.captureState == .started)
 
@@ -85,20 +87,71 @@ struct BroadcastScreenCapturerTests {
         let capturer = await makeCapturer(socketPath: socketPath)
 
         #expect(try await capturer.startCapture())
-        for _ in 0 ..< 50 where capturer.captureState != .stopped {
+        for _ in 0 ..< 50 where capturer.captureState != .stopped || BroadcastScreenCapturer.activeCount != 0 {
             try await Task.sleep(nanoseconds: 20_000_000)
         }
         #expect(capturer.captureState == .stopped)
-        #expect(BroadcastScreenCapturer.activeCount.copy() == 0)
+        #expect(BroadcastScreenCapturer.activeCount == 0)
+    }
+
+    @Test func concurrentStartStopReleasesReceiver() async throws {
+        let socketPath = try temporarySocketPath()
+        weak var weakCapturer: BroadcastScreenCapturer?
+        do {
+            let capturer = await makeCapturer(socketPath: socketPath)
+            weakCapturer = capturer
+            for _ in 0 ..< 50 {
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    for _ in 0 ..< 8 {
+                        group.addTask {
+                            _ = try await capturer.startCapture()
+                            await Task.yield()
+                            _ = try await capturer.stopCapture()
+                        }
+                    }
+                    try await group.waitForAll()
+                }
+                #expect(capturer.captureState == .stopped)
+            }
+        }
+
+        for _ in 0 ..< 100 where weakCapturer != nil || BroadcastScreenCapturer.activeCount != 0 {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        #expect(weakCapturer == nil)
+        #expect(BroadcastScreenCapturer.activeCount == 0)
+    }
+
+    @Test func receiverExitIsNotCountedWithOutstandingStart() async throws {
+        let socketPath = try temporarySocketPath()
+        let capturer = await makeCapturer(socketPath: socketPath)
+        #expect(try await capturer.startCapture())
+        #expect(try await capturer.startCapture() == false)
+
+        let uploader = Task { try await IPCChannel(connectingTo: socketPath) }
+        let timeout = Task {
+            try await Task.sleep(nanoseconds: 2_000_000_000)
+            uploader.cancel()
+        }
+        defer { timeout.cancel() }
+        let channel = try await uploader.value
+        channel.close()
+
+        for _ in 0 ..< 100 where BroadcastScreenCapturer.activeCount != 0 {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        let activeCountAfterExit = BroadcastScreenCapturer.activeCount
+        _ = try await capturer.stopCapture()
+        #expect(activeCountAfterExit == 0)
     }
 
     @Test func startWithoutSocketPathIsNotCounted() async throws {
         let capturer = await makeCapturer(socketPath: nil)
 
         #expect(try await capturer.startCapture() == false)
-        #expect(BroadcastScreenCapturer.activeCount.copy() == 0)
+        #expect(BroadcastScreenCapturer.activeCount == 0)
         _ = try await capturer.stopCapture()
-        #expect(BroadcastScreenCapturer.activeCount.copy() == 0)
+        #expect(BroadcastScreenCapturer.activeCount == 0)
     }
 }
 

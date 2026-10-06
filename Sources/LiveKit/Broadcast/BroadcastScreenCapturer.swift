@@ -25,13 +25,19 @@ import UIKit
 internal import LiveKitWebRTC
 
 class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
-    static let activeCount = StateSync(0)
+    private static let activeReceivers = StateSync(Set<UUID>())
+    static var activeCount: Int { activeReceivers.read { $0.count } }
 
     private let appAudio: Bool
     private let socketPath: SocketPath?
-    private let receiverTask = StateSync<AnyTaskCancellable?>(nil)
+    private let receiverTask = StateSync<(id: UUID, task: AnyTaskCancellable)?>(nil)
+    private let captureSerialRunner = SerialRunnerActor<Bool>()
 
     override func startCapture() async throws -> Bool {
+        try await captureSerialRunner.run { try await self.startReceiver() }
+    }
+
+    private func startReceiver() async throws -> Bool {
         let didStart = try await super.startCapture()
 
         guard didStart else { return false }
@@ -57,8 +63,19 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
             return false
         }
         let isAnotherActive = receiverTask.mutate { receiverTask in
-            receiverTask = Task { [weak self] in await self?.receive(from: socketPath) }.cancellable()
-            return Self.activeCount.mutate { $0 += 1; return $0 > 1 }
+            let id = UUID()
+            let isAnotherActive = Self.activeReceivers.mutate {
+                $0.insert(id)
+                return $0.count > 1
+            }
+            let task = Task { [weak self] in
+                // Stop and task completion may both remove this receiver, including after a restart.
+                defer { Self.activeReceivers.mutate { $0.remove(id) } }
+                guard !Task.isCancelled else { return }
+                await self?.receive(from: socketPath)
+            }.cancellable()
+            receiverTask = (id, task)
+            return isAnotherActive
         }
         if isAnotherActive {
             log("Another broadcast screen share is already active, only one of them receives the broadcast", .warning)
@@ -94,17 +111,21 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
     }
 
     override func stopCapture() async throws -> Bool {
+        try await captureSerialRunner.run { try await self.stopReceiver() }
+    }
+
+    private func stopReceiver() async throws -> Bool {
         let didStop = try await super.stopCapture()
 
         // Already stopped
         guard didStop else { return false }
-        if let task = receiverTask.mutate({ task in
-            let current = task
-            task = nil
+        if let receiver = receiverTask.mutate({ receiver in
+            let current = receiver
+            receiver = nil
             return current
         }) {
-            Self.activeCount.mutate { $0 -= 1 }
-            task.cancel()
+            Self.activeReceivers.mutate { $0.remove(receiver.id) }
+            receiver.task.cancel()
         }
         return true
     }
