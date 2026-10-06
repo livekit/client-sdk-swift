@@ -1,0 +1,1 @@
+patch type="fixed" "Publishing a data track while a full reconnect was in progress could fail with a disconnected error, because the reconnect republished existing tracks after the new publish had already started; the publish now waits until the republish has been issued"
