@@ -324,7 +324,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
                 return
             }
             do {
-                try await setScreenShare(enabled: true)
+                try await set(source: .screenShareVideo, enabled: true, captureOptions: nil, publishOptions: nil, forBroadcastStart: true)
             } catch {
                 log("Failed to enable screen share: \(error)", .error)
                 BroadcastManager.shared.requestStop()
@@ -435,11 +435,24 @@ public extension LocalParticipant {
 
     @objc
     @discardableResult
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func set(source: Track.Source,
              enabled: Bool,
              captureOptions: CaptureOptions? = nil,
              publishOptions: TrackPublishOptions? = nil) async throws -> LocalTrackPublication?
+    {
+        try await set(source: source, enabled: enabled, captureOptions: captureOptions, publishOptions: publishOptions, forBroadcastStart: false)
+    }
+
+    /// - Parameter forBroadcastStart: The broadcast extension just started a broadcast, so a screen share
+    ///   publishes that broadcast rather than presenting the ScreenCaptureKit picker.
+    @nonobjc
+    @discardableResult
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    internal func set(source: Track.Source,
+                      enabled: Bool,
+                      captureOptions: CaptureOptions?,
+                      publishOptions: TrackPublishOptions?,
+                      forBroadcastStart: Bool) async throws -> LocalTrackPublication?
     {
         #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
         // An unanswered content picker holds the serial runner, so stopping has to reach past it.
@@ -488,7 +501,8 @@ public extension LocalParticipant {
                     #if !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
                     if #available(iOS 27.0, *) {
                         let options = (captureOptions as? ScreenShareCaptureOptions) ?? defaultOptions
-                        if options.useScreenCaptureKit {
+                        let publishesRunningBroadcast = forBroadcastStart && BroadcastManager.shared.isBroadcasting
+                        if options.prefersScreenCaptureKit(roomDefaults: defaultOptions, publishesRunningBroadcast: publishesRunningBroadcast) {
                             if await IOSScreenCapturer.isAvailable {
                                 let track = await LocalVideoTrack.createIOSScreenShareTrack(options: options,
                                                                                             reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
