@@ -64,7 +64,7 @@
         XCTAssertNil(err);
         [connect0 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     // Set up participant join expectation
     self.participantJoinedExp = [self expectationWithDescription:@"participantJoined"];
@@ -75,7 +75,7 @@
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
-    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:30];
+    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:[LKObjCRoomHelper connectTimeout]];
 
     // Register text stream handler on room0
     __block TextStreamReader *receivedReader = nil;
@@ -174,7 +174,7 @@
         XCTAssertNil(err);
         [connect0 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     self.participantJoinedExp = [self expectationWithDescription:@"participantJoined"];
 
@@ -183,7 +183,7 @@
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
-    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:30];
+    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:[LKObjCRoomHelper connectTimeout]];
 
     // Register text handler on room0
     __block NSMutableString *receivedText = [NSMutableString string];
@@ -270,7 +270,7 @@
         XCTAssertNil(err);
         [connect0 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     self.participantJoinedExp = [self expectationWithDescription:@"participantJoined"];
 
@@ -279,7 +279,7 @@
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
-    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:30];
+    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:[LKObjCRoomHelper connectTimeout]];
 
     // Create temp file with test data
     NSData *testData = [@"Test file content for ObjC" dataUsingEncoding:NSUTF8StringEncoding];
@@ -378,7 +378,7 @@
         XCTAssertNil(err);
         [connect0 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     self.participantJoinedExp = [self expectationWithDescription:@"participantJoined"];
 
@@ -387,7 +387,7 @@
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
-    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:30];
+    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:[LKObjCRoomHelper connectTimeout]];
 
     // Register byte stream handler on room0
     __block NSMutableData *receivedData = [NSMutableData data];

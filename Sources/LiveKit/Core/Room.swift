@@ -619,7 +619,7 @@ extension Room {
         if isFullReconnect {
             // Data tracks are connection-scoped: across a full reconnect only their transport
             // channels are swapped so published tracks can be republished.
-            dataTracks?.handleTransportsTeardown()
+            dataTracks?.handleTransportsTeardown(reconnecting: _state.isReconnectingWithMode != nil)
             // Remote data tracks outlive the reconnect — the subsystem re-attaches them to the
             // recreated participants. Detach them here, before `cleanUpParticipants` reports an
             // unpublish for tracks that were never unpublished.
