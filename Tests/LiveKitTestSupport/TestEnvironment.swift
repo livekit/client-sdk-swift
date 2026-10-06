@@ -111,6 +111,7 @@ public enum TestEnvironment {
             ingressAdmin: false,
             hidden: false,
             recorder: false,
+            agent: false,
         )
 
         return try tokenGenerator.sign()

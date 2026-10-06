@@ -56,6 +56,7 @@ struct TokenGenerator {
             ingressAdmin: false,
             hidden: false,
             recorder: false,
+            agent: false,
         )
 
         let options = TokenOptions(

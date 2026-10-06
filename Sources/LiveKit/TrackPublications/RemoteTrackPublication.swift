@@ -70,6 +70,10 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
 
         _state.mutate { $0.isSubscribePreferred = newValue }
 
+        if newValue, let participant = participant as? RemoteParticipant {
+            room.rtcTelemetry?.subscribeStarted(self, of: participant, in: room)
+        }
+
         if !newValue {
             // Proactively clear the track. In single PC mode the transceiver is
             // reused (direction changes) rather than removed, so the WebRTC

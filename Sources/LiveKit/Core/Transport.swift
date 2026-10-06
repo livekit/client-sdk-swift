@@ -451,6 +451,24 @@ extension Transport {
             }
         }
     }
+
+    /// The whole peer connection's report for telemetry: every sender and receiver in one call.
+    /// `nil`, and no request, once the app has opted out: admitted here, on the RTC executor.
+    /// `nil` too when no answer comes within `timeout`; a late answer is dropped.
+    func telemetryStatistics(timeout: TimeInterval = 5) async -> LKRTCStatisticsReport? {
+        await Telemetry.beforeGate?(.request)
+        return await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport?, Never>) in
+            let pending = StateSync<CheckedContinuation<LKRTCStatisticsReport?, Never>?>(continuation)
+            let resume: @Sendable (LKRTCStatisticsReport?) -> Void = { report in
+                pending.mutate { let first = $0; $0 = nil; return first }?.resume(returning: report)
+            }
+            let started = Telemetry.ifCollecting {
+                _pc.statistics { @Sendable sd in resume(sd) }
+            }
+            guard started else { return resume(nil) }
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + timeout) { resume(nil) }
+        }
+    }
 }
 
 // MARK: - RTCPeerConnectionDelegate
