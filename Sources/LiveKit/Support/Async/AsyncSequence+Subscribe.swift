@@ -139,9 +139,11 @@ extension Task {
 /// A Sendable variant of Combine's AnyCancellable.
 final class AnyTaskCancellable: Cancellable, Sendable, Hashable {
     private let _cancel: @Sendable () -> Void
+    private let _wait: @Sendable () async -> Void
 
     init(_ task: Task<some Any, some Any>) {
         _cancel = task.cancel
+        _wait = { _ = await task.result }
     }
 
     deinit {
@@ -150,6 +152,11 @@ final class AnyTaskCancellable: Cancellable, Sendable, Hashable {
 
     func cancel() {
         _cancel()
+    }
+
+    /// Suspends until the task has finished, without cancelling it.
+    func wait() async {
+        await _wait()
     }
 
     func store(in set: inout Set<AnyTaskCancellable>) {
