@@ -87,11 +87,18 @@ actor SignalClient: Loggable {
     // Queued with the bytes it arrived as, not just the decoded form: consumers that parse the
     // wire format themselves (the data track managers) need the original encoding, and
     // re-encoding our decoded copy would drop every field this client's protocol pin doesn't
-    // know — nanopb discards unknown fields on decode.
-    private lazy var _responseQueue = QueueActor<(response: Livekit_SignalResponse, encoded: Data)>(onProcess: { [weak self] element in
+    // know — nanopb discards unknown fields on decode. The socket it arrived on goes along too:
+    // processing can run after that socket was replaced.
+    private struct QueuedResponse {
+        let response: Livekit_SignalResponse
+        let encoded: Data
+        let socket: WebSocket
+    }
+
+    private lazy var _responseQueue = QueueActor<QueuedResponse>(onProcess: { [weak self] element in
         guard let self else { return }
 
-        await _process(element.response, encoded: element.encoded)
+        await _process(element.response, encoded: element.encoded, from: element.socket)
     })
 
     private let _connectResponseCompleter = AsyncCompleter<ConnectResponse>(label: "Join response", defaultTimeout: .defaultJoinResponse)
@@ -379,19 +386,19 @@ extension SignalClient {
         }
     }
 
-    func enqueue(_ response: Livekit_SignalResponse, encoded: Data, from _: WebSocket) async {
+    func enqueue(_ response: Livekit_SignalResponse, encoded: Data, from socket: WebSocket) async {
         let alwaysProcess = switch response.message {
         case .join, .reconnect, .leave: true
         default: false
         }
         // Always process join or reconnect messages even if suspended...
-        await _responseQueue.processIfResumed((response: response, encoded: encoded), or: alwaysProcess)
+        await _responseQueue.processIfResumed(QueuedResponse(response: response, encoded: encoded, socket: socket), or: alwaysProcess)
     }
 }
 
 private extension SignalClient {
     // swiftlint:disable:next cyclomatic_complexity function_body_length
-    func _process(_ signalResponse: Livekit_SignalResponse, encoded: Data) async {
+    func _process(_ signalResponse: Livekit_SignalResponse, encoded: Data, from socket: WebSocket) async {
         guard connectionState != .disconnected else {
             log("connectionState is .disconnected", .error)
             return
@@ -465,11 +472,10 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRemoteMute: Track.Sid(from: mute.sid), muted: mute.muted) }
 
         case let .leave(leave):
-            // Delivered detached: drop it if its connection has been replaced or closed by then,
-            // so a leave for an old session never lands on the next one.
-            let socket = _state.socket
+            // Delivered detached: drop it if the socket it arrived on has been replaced or closed
+            // by then, so a leave for an old session never lands on the next one.
             _delegate.notifyDetached {
-                guard await self._state.socket === socket else { return }
+                guard self._state.socket === socket else { return }
                 await $0.signalClient(self,
                                       didReceiveLeave: leave.action,
                                       reason: leave.reason,
