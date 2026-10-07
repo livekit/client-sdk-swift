@@ -47,9 +47,14 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?, from _: WebSocket) async {
+    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?, from socket: WebSocket) async {
         log("action: \(action), reason: \(reason)")
-        // The session the leave arrived for; the region update below can suspend past its end.
+        // The session the leave arrived for, read with no suspension in between: the call into
+        // this method may itself have suspended after the signal client checked the socket.
+        guard signalClient._state.socket === socket else {
+            log("Leave from a replaced socket, ignoring")
+            return
+        }
         let connection = _state.stage.connection
 
         if let regions, let providedUrl = _state.providedUrl, let regionManager = await regionManager(for: providedUrl) {
