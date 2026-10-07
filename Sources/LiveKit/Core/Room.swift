@@ -499,11 +499,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             }
         } else if enableMicrophone {
             Task {
-                let localTrack = await LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
-                                                                   reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
-                // Initializes AudioDeviceModule's recording
-                try await localTrack.start()
-                return localTrack
+                try await makeMicrophoneTrack()
             }
         } else {
             nil
@@ -626,6 +622,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     private func endHandoff() {
         _state.mutate { $0.isHandingOff = false }
+    }
+
+    /// The microphone track `connect()` publishes with `ConnectOptions.enableMicrophone`, started.
+    @nonobjc func makeMicrophoneTrack() async throws -> LocalTrack {
+        let localTrack = await LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
+                                                           reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
+        // Initializes AudioDeviceModule's recording
+        try await localTrack.start()
+        return localTrack
     }
 }
 

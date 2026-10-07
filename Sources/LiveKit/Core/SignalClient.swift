@@ -479,7 +479,8 @@ private extension SignalClient {
                 await $0.signalClient(self,
                                       didReceiveLeave: leave.action,
                                       reason: leave.reason,
-                                      regions: leave.hasRegions ? leave.regions : nil)
+                                      regions: leave.hasRegions ? leave.regions : nil,
+                                      from: socket)
             }
 
         case let .streamStateUpdate(states):
