@@ -51,14 +51,12 @@ struct LifecycleHandoffTests {
             let app = ConnectOnDisconnect(url: TestEnvironment.liveKitServerUrl(), token: token)
             room.add(delegate: app)
 
-            let socket = try #require(await room.signalClient._state.socket)
             let session = try #require(room._state.stage.connection)
             let disconnect = Task { await room.disconnect() }
             try await capturer.stopReached.wait()
 
             // The server's leave for the old session lands while that teardown is held.
-            await room.signalClient(room.signalClient, didReceiveLeave: .disconnect, reason: .clientInitiated, regions: nil,
-                                    from: socket, session: session)
+            await room.signalClient(room.signalClient, didReceiveLeave: .disconnect, reason: .clientInitiated, regions: nil, session: session)
             // Delegates run on one serial queue: once this returns, every notification published
             // so far — `didDisconnectWithError` included, if it was published — has been delivered.
             await room.delegates.notifyAsync { _ in }
@@ -129,7 +127,6 @@ struct LifecycleHandoffTests {
 
         try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
             let room = rooms[0]
-            let oldSocket = try #require(await room.signalClient._state.socket)
             let oldSession = try #require(room._state.stage.connection)
 
             let connect = Task {
@@ -141,7 +138,7 @@ struct LifecycleHandoffTests {
 
             // The old session's leave reaches the room only now, past the signal client's check.
             await room.signalClient(room.signalClient, didReceiveLeave: .disconnect, reason: .duplicateIdentity,
-                                    regions: nil, from: oldSocket, session: oldSession)
+                                    regions: nil, session: oldSession)
             #expect(room.connectionState == .connecting, "connectionState: \(room.connectionState)")
 
             await room.disconnect()
@@ -158,7 +155,6 @@ struct LifecycleHandoffTests {
     @Test func leaveForAReplacedSessionIsIgnoredOnTheSameSocket() async throws {
         try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
             let room = rooms[0]
-            let socket = try #require(await room.signalClient._state.socket)
             let oldSession = try #require(room._state.stage.connection)
             let (stage, connectionState) = room._state.read { ($0.stage, $0.connectionState) }
 
@@ -167,7 +163,7 @@ struct LifecycleHandoffTests {
                 $0.connectionState = .connecting
             }
             await room.signalClient(room.signalClient, didReceiveLeave: .disconnect, reason: .duplicateIdentity,
-                                    regions: nil, from: socket, session: oldSession)
+                                    regions: nil, session: oldSession)
             #expect(room.connectionState == .connecting, "connectionState: \(room.connectionState)")
 
             room._state.mutate {

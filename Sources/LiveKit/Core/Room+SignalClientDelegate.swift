@@ -47,20 +47,19 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?, from socket: WebSocket, session _: (any AnyObject & Sendable)?) async {
+    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?, session: (any AnyObject & Sendable)?) async {
         log("action: \(action), reason: \(reason)")
-        // The session the leave arrived for, read with no suspension in between: the call into
-        // this method may itself have suspended after the signal client checked the socket.
-        guard signalClient._state.socket === socket else {
-            log("Leave from a replaced socket, ignoring")
+        // `session` was recorded with the socket the leave arrived on, so the leave can only ever
+        // act on that session, checked in single reads of the current one.
+        guard _state.stage.connection === session else {
+            log("Leave for an earlier session, ignoring")
             return
         }
-        let connection = _state.stage.connection
 
         if let regions, let providedUrl = _state.providedUrl, let regionManager = await regionManager(for: providedUrl) {
             await regionManager.updateFromServerReportedRegions(regions)
         }
-        guard _state.stage.connection === connection else {
+        guard _state.stage.connection === session else {
             log("Session changed since the leave arrived, ignoring")
             return
         }
@@ -79,7 +78,7 @@ extension Room: SignalClientDelegate {
                 // Fails the connect() in progress, which cleans up after itself.
                 await cleanUp(withError: error)
             } else {
-                cleanUpForServerDisconnect(withError: error, connection: connection)
+                cleanUpForServerDisconnect(withError: error, session: session)
             }
         default:
             log("Unknown leave action: \(action), ignoring", .warning)

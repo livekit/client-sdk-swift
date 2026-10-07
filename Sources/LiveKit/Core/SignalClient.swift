@@ -489,7 +489,6 @@ private extension SignalClient {
                                       didReceiveLeave: leave.action,
                                       reason: leave.reason,
                                       regions: leave.hasRegions ? leave.regions : nil,
-                                      from: socket,
                                       session: session)
             }
 

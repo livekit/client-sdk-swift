@@ -37,7 +37,7 @@ protocol SignalClientDelegate: AnyObject, Sendable {
     func signalClient(_ signalClient: SignalClient, didReceiveRoomMoved response: Livekit_RoomMovedResponse) async
     func signalClient(_ signalClient: SignalClient, didUpdateSubscriptionPermission permission: Livekit_SubscriptionPermissionUpdate) async
     func signalClient(_ signalClient: SignalClient, didUpdateToken token: String) async
-    func signalClient(_ signalClient: SignalClient, didReceiveLeave action: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?, from socket: WebSocket, session: (any AnyObject & Sendable)?) async
+    func signalClient(_ signalClient: SignalClient, didReceiveLeave action: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?, session: (any AnyObject & Sendable)?) async
     func signalClient(_ signalClient: SignalClient, didSubscribeTrack trackSid: Track.Sid) async
     func signalClient(_ signalClient: SignalClient, didReceiveMediaSectionsRequirement requirement: Livekit_MediaSectionsRequirement) async
     func signalClient(_ signalClient: SignalClient, didReceiveDataTrackResponse data: Data) async

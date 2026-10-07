@@ -602,10 +602,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     /// The server ended the session: clean up after any connect() / disconnect() in progress,
     /// unless the session has changed by then.
-    func cleanUpForServerDisconnect(withError error: LiveKitError?, connection: ConnectionDependencies?) {
+    func cleanUpForServerDisconnect(withError error: LiveKitError?, session: (any AnyObject & Sendable)?) {
         Task {
             try? await self._lifecycleRunner.run {
-                guard self._state.stage.connection === connection else { return }
+                guard self._state.stage.connection === session else { return }
                 await self.cleanUp(withError: error)
             }
         }

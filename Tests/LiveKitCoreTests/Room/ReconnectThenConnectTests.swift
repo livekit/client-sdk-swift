@@ -175,13 +175,11 @@ struct ReconnectThenConnectTests {
             room.add(delegate: app)
             let stale = HeldReconnect(in: room)
 
-            let socket = try #require(await room.signalClient._state.socket)
             let session = try #require(room._state.stage.connection)
             let disconnect = Task { await room.disconnect() }
             try await stale.cancelled.wait()
 
-            await room.signalClient(room.signalClient, didReceiveLeave: .disconnect, reason: .clientInitiated, regions: nil,
-                                    from: socket, session: session)
+            await room.signalClient(room.signalClient, didReceiveLeave: .disconnect, reason: .clientInitiated, regions: nil, session: session)
             // Delegates run on one serial queue: once this returns, `didDisconnectWithError` has
             // been delivered if it was published.
             await room.delegates.notifyAsync { _ in }
