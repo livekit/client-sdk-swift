@@ -536,17 +536,22 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             connectSpan?.end()
 
             // Publish mic if mic task was created
-            if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled {
-                let track = try await createMicrophoneTrackTask.value
+            if let createMicrophoneTrackTask {
+                // Can wait on a permission prompt; disconnect() must not wait with it.
+                let track = try await createMicrophoneTrackTask.valueUnlessCancelled()
                 try await localParticipant._publish(track: track, options: _state.roomOptions.defaultAudioPublishOptions.withPreconnect(preConnectBuffer.recorder?.isRecording ?? false))
             }
         } catch {
             log("Failed to resolve a region or connect: \(error)")
-            // Stop the track if it was created but not published
-            if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled,
-               case let .success(track) = await createMicrophoneTrackTask.result
-            {
-                try? await track.stop()
+            // Stop the track if it was created but not published, once it is: it can still be
+            // waiting on a permission prompt, which neither this clean-up nor disconnect() waits for.
+            if let createMicrophoneTrackTask {
+                createMicrophoneTrackTask.cancel()
+                Task {
+                    if case let .success(track) = await createMicrophoneTrackTask.result {
+                        try? await track.stop()
+                    }
+                }
             }
 
             // Joined already: leave, so the server doesn't keep the participant until it times out.

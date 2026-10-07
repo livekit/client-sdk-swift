@@ -148,10 +148,7 @@ actor RegionManager: Loggable {
         guard shouldRequestSettings() else { return }
         let task = startSettingsFetchIfNeeded(token: token)
         // Shared with other waiters: a cancelled waiter stops waiting instead of cancelling it.
-        // Bounded at twice URLSession's 60 s request timeout, which normally ends the fetch first.
-        let fetched = AsyncCompleter<Void>(label: "Region settings", defaultTimeout: 120)
-        Task { await fetched.resume(with: task.result.map { _ in }) }
-        try await fetched.wait()
+        _ = try await task.valueUnlessCancelled()
     }
 
     private func applyFetchedRegions(_ allRegions: [RegionInfo]) {
