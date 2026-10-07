@@ -70,13 +70,50 @@ struct OfferWithJoinGateTests {
         await client.cleanUp()
     }
 
+    /// A leave is enqueued from a detached task, which can run after its socket was replaced; it
+    /// must not reach the delegate, where it would end the session the new socket carries.
+    @Test func leaveEnqueuedAfterItsSocketWasReplacedIsDropped() async throws {
+        let client = SignalClient()
+        let recorder = SignalRecorder()
+        await client._delegate.set(delegate: recorder)
+        let url = try #require(URL(string: TestEnvironment.liveKitServerUrl()))
+        let token = try TestEnvironment.liveKitServerToken(for: UUID().uuidString, identity: "gate",
+                                                           canPublish: true, canPublishData: true,
+                                                           canPublishSources: [], canSubscribe: true)
+        do {
+            try await client.connect(url, token, adaptiveStream: false, singlePeerConnection: false)
+            let oldSocket = try #require(await client._state.socket)
+            try await client.connect(url, token, adaptiveStream: false, singlePeerConnection: false)
+            let currentSocket = try #require(await client._state.socket)
+
+            func leave(_ reason: Livekit_DisconnectReason) throws -> (Livekit_SignalResponse, Data) {
+                let response = Livekit_SignalResponse.with { $0.leave = .with { $0.action = .disconnect; $0.reason = reason } }
+                return try (response, response.serializedData())
+            }
+
+            // Arrived on the old socket; its delayed enqueue runs only now.
+            let stale = try leave(.duplicateIdentity)
+            await client.enqueue(stale.0, encoded: stale.1, from: oldSocket)
+            // Then one on the current socket, which is delivered.
+            let current = try leave(.serverShutdown)
+            await client.enqueue(current.0, encoded: current.1, from: currentSocket)
+
+            try await recorder.leave.wait()
+            #expect(recorder.leaveReasons == [.serverShutdown])
+        } catch {
+            await client.cleanUp()
+            throw error
+        }
+        await client.cleanUp()
+    }
+
     @Test func answerToJoinBundledOfferPassesTheGate() async throws {
         let room = Room()
         let publisher = try await EarlyPublisher.make(room: room, rtcConfiguration: .liveKitDefault())
         let offer = try #require(publisher.offer, "single PC mode bundles an offer with the JOIN")
 
         let client = SignalClient()
-        let recorder = AnswerRecorder()
+        let recorder = SignalRecorder()
         await client._delegate.set(delegate: recorder)
 
         let url = try #require(URL(string: TestEnvironment.liveKitServerUrl()))
@@ -94,8 +131,12 @@ struct OfferWithJoinGateTests {
     }
 }
 
-private final class AnswerRecorder: SignalClientDelegate {
+private final class SignalRecorder: SignalClientDelegate {
     let answer = AsyncCompleter<UInt32>(label: "Answer", defaultTimeout: 5)
+    let leave = AsyncCompleter<Void>(label: "Leave", defaultTimeout: 5)
+    private let _leaveReasons = StateSync<[Livekit_DisconnectReason]>([])
+
+    var leaveReasons: [Livekit_DisconnectReason] { _leaveReasons.copy() }
 
     func signalClient(_: SignalClient, didReceiveAnswer _: LKRTCSessionDescription, offerId: UInt32) async {
         answer.resume(returning: offerId)
@@ -117,7 +158,11 @@ private final class AnswerRecorder: SignalClientDelegate {
     func signalClient(_: SignalClient, didReceiveRoomMoved _: Livekit_RoomMovedResponse) async {}
     func signalClient(_: SignalClient, didUpdateSubscriptionPermission _: Livekit_SubscriptionPermissionUpdate) async {}
     func signalClient(_: SignalClient, didUpdateToken _: String) async {}
-    func signalClient(_: SignalClient, didReceiveLeave _: Livekit_LeaveRequest_Action, reason _: Livekit_DisconnectReason, regions _: Livekit_RegionSettings?) async {}
+    func signalClient(_: SignalClient, didReceiveLeave _: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions _: Livekit_RegionSettings?) async {
+        _leaveReasons.mutate { $0.append(reason) }
+        leave.resume(returning: ())
+    }
+
     func signalClient(_: SignalClient, didSubscribeTrack _: Track.Sid) async {}
     func signalClient(_: SignalClient, didReceiveMediaSectionsRequirement _: Livekit_MediaSectionsRequirement) async {}
     func signalClient(_: SignalClient, didReceiveDataTrackResponse _: Data) async {}

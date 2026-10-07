@@ -375,13 +375,17 @@ extension SignalClient {
         }
 
         Task.detached {
-            let alwaysProcess = switch response.message {
-            case .join, .reconnect, .leave: true
-            default: false
-            }
-            // Always process join or reconnect messages even if suspended...
-            await self._responseQueue.processIfResumed((response: response, encoded: rawData), or: alwaysProcess)
+            await self.enqueue(response, encoded: rawData, from: socket)
         }
+    }
+
+    func enqueue(_ response: Livekit_SignalResponse, encoded: Data, from _: WebSocket) async {
+        let alwaysProcess = switch response.message {
+        case .join, .reconnect, .leave: true
+        default: false
+        }
+        // Always process join or reconnect messages even if suspended...
+        await _responseQueue.processIfResumed((response: response, encoded: encoded), or: alwaysProcess)
     }
 }
 

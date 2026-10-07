@@ -191,6 +191,29 @@ struct ReconnectThenConnectTests {
         }
     }
 
+    /// `disconnect()` interrupts a `connect()` held in its handshake instead of queuing behind it.
+    @Test func disconnectInterruptsAHeldConnect() async throws {
+        let server = try await HeldSocketServer.start()
+        defer { server.stop() }
+        let room = Room()
+
+        // The socket timeout only bounds how long a regression takes to fail; it is not the oracle.
+        let connect = Task {
+            try await room.connect(url: server.url.absoluteString,
+                                   token: freshRoomToken(),
+                                   connectOptions: ConnectOptions(socketConnectTimeoutInterval: 10))
+        }
+        try await server.waitForConnection()
+
+        await room.disconnect()
+
+        let error = await #expect(throws: LiveKitError.self) {
+            try await connect.value
+        }
+        #expect(error?.type == .cancelled, "error: \(String(describing: error))")
+        #expect(room.connectionState == .disconnected)
+    }
+
     private func freshRoomToken(_ roomName: String = UUID().uuidString) throws -> String {
         try TestEnvironment.liveKitServerToken(for: roomName,
                                                identity: "identity-0",
