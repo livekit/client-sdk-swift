@@ -210,6 +210,33 @@ struct LifecycleHandoffTests {
         #expect(outcome == "cancelled", "outcome: \(outcome)")
     }
 
+    /// A microphone start cancelled while its recording step waits for the `@RTC` executor must
+    /// not start recording when that step finally runs.
+    @Test func startCancelledWhileQueuedOnRTCDoesNotStartRecording() async throws {
+        let track = HeldPermissionAudioTrack()
+        track.release.resume(returning: ())
+        let rtcHeld = AsyncCompleter<Void>(label: "RTC held", defaultTimeout: 10)
+        let rtcRelease = DispatchSemaphore(value: 0)
+        let blocker = Task {
+            await RTC.run {
+                rtcHeld.resume(returning: ())
+                // The timeout only bounds a regression.
+                _ = rtcRelease.wait(timeout: .now() + 30)
+            }
+        }
+        try await rtcHeld.wait()
+
+        let start = Task { try await track.start() }
+        // Granted; the start now goes on to its recording step and queues behind the held executor.
+        try await track.requested.wait()
+        start.cancel()
+        rtcRelease.signal()
+        await blocker.value
+
+        let result = await start.result
+        #expect(throws: CancellationError.self) { try result.get() }
+    }
+
     /// The pre-connect buffer's track is only borrowed by `connect()`: an interrupted connect must
     /// not stop it, or a deferred stop could land on the next session that publishes it.
     @Test func interruptedConnectDoesNotStopThePreConnectTrack() async throws {
