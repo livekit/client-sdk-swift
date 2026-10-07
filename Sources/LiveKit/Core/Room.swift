@@ -493,11 +493,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         let enableMicrophone = _state.connectOptions.enableMicrophone
         log("Concurrent enable microphone mode: \(enableMicrophone)")
 
-        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = if let recorder = preConnectBuffer.recorder, recorder.isRecording {
-            Task {
-                recorder.track
-            }
-        } else if enableMicrophone {
+        // Borrowed from the pre-connect buffer, which owns it: published, never stopped, here.
+        let preConnectTrack: LocalTrack? = if let recorder = preConnectBuffer.recorder, recorder.isRecording {
+            recorder.track
+        } else {
+            nil
+        }
+        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = if preConnectTrack == nil, enableMicrophone {
             Task {
                 try await makeMicrophoneTrack()
             }
@@ -535,15 +537,19 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
             connectSpan?.end()
 
-            // Publish mic if mic task was created
-            if let createMicrophoneTrackTask {
-                // Can wait on a permission prompt; disconnect() must not wait with it.
-                let track = try await createMicrophoneTrackTask.valueUnlessCancelled()
-                try await localParticipant._publish(track: track, options: _state.roomOptions.defaultAudioPublishOptions.withPreconnect(preConnectBuffer.recorder?.isRecording ?? false))
+            // Publish the mic, if any. Making it can wait on a permission prompt; disconnect() must
+            // not wait with it.
+            let microphoneTrack: LocalTrack? = if let preConnectTrack {
+                preConnectTrack
+            } else {
+                try await createMicrophoneTrackTask?.valueUnlessCancelled()
+            }
+            if let microphoneTrack {
+                try await localParticipant._publish(track: microphoneTrack, options: _state.roomOptions.defaultAudioPublishOptions.withPreconnect(preConnectBuffer.recorder?.isRecording ?? false))
             }
         } catch {
             log("Failed to resolve a region or connect: \(error)")
-            // Stop the track if it was created but not published, once it is: it can still be
+            // Stop the track this connect made but did not publish, once it is: it can still be
             // waiting on a permission prompt, which neither this clean-up nor disconnect() waits for.
             if let createMicrophoneTrackTask {
                 createMicrophoneTrackTask.cancel()
