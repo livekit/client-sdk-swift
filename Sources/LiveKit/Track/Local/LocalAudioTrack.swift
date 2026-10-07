@@ -164,7 +164,7 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     /// app audio without ever opening the microphone, and disabled input availability (CallKit
     /// flows, see setEngineAvailability) defers opening it entirely, so neither needs permission.
     /// Reading these flags waits on WebRTC's worker thread, hence the RTC hop.
-    func requestMicrophonePermission() async throws {
+    @nonobjc func requestMicrophonePermission() async throws {
         let needsMicrophonePermission = await RTC.run {
             !AudioManager.shared.isManualRenderingMode && AudioManager.shared.engineAvailability.isInputAvailable
         }
