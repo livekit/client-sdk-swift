@@ -35,6 +35,15 @@ final class AsyncSerialDelegate<T: Sendable>: Sendable {
         }
     }
 
+    /// Queues `fnc` without waiting for it to run: notifications queued this way are delivered in
+    /// the order of the calls, after any queued or running before.
+    func notifyQueued(_ fnc: sending @escaping (T) async -> Void) async {
+        guard let delegate = _state.read({ $0.delegate }) as? T else { return }
+        _ = await _serialRunner.enqueue {
+            await fnc(delegate)
+        }
+    }
+
     func notifyDetached(_ fnc: @Sendable @escaping (T) async -> Void) {
         Task.detachedDiscarding {
             try await self.notifyAsync(fnc)

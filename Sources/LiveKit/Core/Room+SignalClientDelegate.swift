@@ -49,9 +49,15 @@ extension Room: SignalClientDelegate {
 
     func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?) async {
         log("action: \(action), reason: \(reason)")
+        // The session the leave arrived for; the region update below can suspend past its end.
+        let connection = _state.stage.connection
 
         if let regions, let providedUrl = _state.providedUrl, let regionManager = await regionManager(for: providedUrl) {
             await regionManager.updateFromServerReportedRegions(regions)
+        }
+        guard _state.stage.connection === connection else {
+            log("Session changed since the leave arrived, ignoring")
+            return
         }
 
         let error = LiveKitError.from(reason: reason)
@@ -68,7 +74,7 @@ extension Room: SignalClientDelegate {
                 // Fails the connect() in progress, which cleans up after itself.
                 await cleanUp(withError: error)
             } else {
-                cleanUpForServerDisconnect(withError: error)
+                cleanUpForServerDisconnect(withError: error, connection: connection)
             }
         default:
             log("Unknown leave action: \(action), ignoring", .warning)

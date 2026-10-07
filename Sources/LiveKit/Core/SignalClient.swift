@@ -472,9 +472,9 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRemoteMute: Track.Sid(from: mute.sid), muted: mute.muted) }
 
         case let .leave(leave):
-            // Delivered detached: drop it if the socket it arrived on has been replaced or closed
-            // by then, so a leave for an old session never lands on the next one.
-            _delegate.notifyDetached {
+            // Queued in order, not awaited: drop it if the socket it arrived on has been replaced
+            // or closed by delivery, so a leave for an old session never lands on the next one.
+            await _delegate.notifyQueued {
                 guard self._state.socket === socket else { return }
                 await $0.signalClient(self,
                                       didReceiveLeave: leave.action,
