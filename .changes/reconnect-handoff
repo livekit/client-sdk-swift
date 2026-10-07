@@ -1,0 +1,1 @@
+patch type="fixed" "Fix a reconnect still running from an earlier session tearing down the next one, so `connect()` returned and the room then dropped to disconnected; `connect()`, `disconnect()` and a server disconnect now run one at a time"
