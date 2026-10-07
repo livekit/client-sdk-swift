@@ -169,7 +169,7 @@ final class SignalRecorder: SignalClientDelegate {
     func signalClient(_: SignalClient, didReceiveRoomMoved _: Livekit_RoomMovedResponse) async {}
     func signalClient(_: SignalClient, didUpdateSubscriptionPermission _: Livekit_SubscriptionPermissionUpdate) async {}
     func signalClient(_: SignalClient, didUpdateToken _: String) async {}
-    func signalClient(_: SignalClient, didReceiveLeave _: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions _: Livekit_RegionSettings?, from _: WebSocket) async {
+    func signalClient(_: SignalClient, didReceiveLeave _: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions _: Livekit_RegionSettings?, from _: WebSocket, session _: (any AnyObject & Sendable)?) async {
         _leaveReasons.mutate { $0.append(reason) }
     }
 

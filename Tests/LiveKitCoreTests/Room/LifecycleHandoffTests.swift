@@ -52,11 +52,13 @@ struct LifecycleHandoffTests {
             room.add(delegate: app)
 
             let socket = try #require(await room.signalClient._state.socket)
+            let session = try #require(room._state.stage.connection)
             let disconnect = Task { await room.disconnect() }
             try await capturer.stopReached.wait()
 
             // The server's leave for the old session lands while that teardown is held.
-            await room.signalClient(room.signalClient, didReceiveLeave: .disconnect, reason: .clientInitiated, regions: nil, from: socket)
+            await room.signalClient(room.signalClient, didReceiveLeave: .disconnect, reason: .clientInitiated, regions: nil,
+                                    from: socket, session: session)
             // Delegates run on one serial queue: once this returns, every notification published
             // so far — `didDisconnectWithError` included, if it was published — has been delivered.
             await room.delegates.notifyAsync { _ in }
@@ -128,6 +130,7 @@ struct LifecycleHandoffTests {
         try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
             let room = rooms[0]
             let oldSocket = try #require(await room.signalClient._state.socket)
+            let oldSession = try #require(room._state.stage.connection)
 
             let connect = Task {
                 try await room.connect(url: server.url.absoluteString,
@@ -138,7 +141,7 @@ struct LifecycleHandoffTests {
 
             // The old session's leave reaches the room only now, past the signal client's check.
             await room.signalClient(room.signalClient, didReceiveLeave: .disconnect, reason: .duplicateIdentity,
-                                    regions: nil, from: oldSocket)
+                                    regions: nil, from: oldSocket, session: oldSession)
             #expect(room.connectionState == .connecting, "connectionState: \(room.connectionState)")
 
             await room.disconnect()
@@ -146,6 +149,31 @@ struct LifecycleHandoffTests {
                 try await connect.value
             }
             #expect(error?.type == .cancelled, "error: \(String(describing: error))")
+        }
+    }
+
+    /// The leave's socket and its session must be one association: here the session is replaced
+    /// while the old socket still reads current (as when a replacement lands between two separate
+    /// reads), and the old session's leave must not end the new one.
+    @Test func leaveForAReplacedSessionIsIgnoredOnTheSameSocket() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
+            let room = rooms[0]
+            let socket = try #require(await room.signalClient._state.socket)
+            let oldSession = try #require(room._state.stage.connection)
+            let (stage, connectionState) = room._state.read { ($0.stage, $0.connectionState) }
+
+            room._state.mutate {
+                $0.stage = .connecting(ConnectionDependencies(room: room, roomOptions: RoomOptions()))
+                $0.connectionState = .connecting
+            }
+            await room.signalClient(room.signalClient, didReceiveLeave: .disconnect, reason: .duplicateIdentity,
+                                    regions: nil, from: socket, session: oldSession)
+            #expect(room.connectionState == .connecting, "connectionState: \(room.connectionState)")
+
+            room._state.mutate {
+                $0.stage = stage
+                $0.connectionState = connectionState
+            }
         }
     }
 
@@ -179,7 +207,39 @@ struct LifecycleHandoffTests {
         await room.delegates.notifyAsync { _ in }
         #expect(delegate.error?.type == .cancelled, "error: \(String(describing: delegate.error))")
 
+        // Permission is granted only now, after the disconnect: the abandoned task must stop
+        // before creating or starting any audio.
         room.microphoneRelease.resume(returning: ())
+        let outcome = try await room.microphoneOutcome.wait()
+        #expect(outcome == "cancelled", "outcome: \(outcome)")
+    }
+
+    /// The pre-connect buffer's track is only borrowed by `connect()`: an interrupted connect must
+    /// not stop it, or a deferred stop could land on the next session that publishes it.
+    @Test func interruptedConnectDoesNotStopThePreConnectTrack() async throws {
+        let server = try await HeldSocketServer.start()
+        defer { server.stop() }
+        let room = Room()
+        let track = StopRecordingAudioTrack()
+        let recorder = LocalAudioTrackRecorder(track: track,
+                                               format: .pcmFormatInt16,
+                                               sampleRate: PreConnectAudioBuffer.Constants.sampleRate,
+                                               maxSize: PreConnectAudioBuffer.Constants.maxSize)
+        try await room.preConnectBuffer.startRecording(timeout: 60, recorder: recorder)
+        defer { room.preConnectBuffer.stopRecording(flush: true) }
+        // Started, as the next session's publish of it would.
+        try await track.start()
+
+        let connect = Task {
+            try await room.connect(url: server.url.absoluteString,
+                                   token: token(UUID().uuidString, identity: "identity-0"),
+                                   connectOptions: ConnectOptions(socketConnectTimeoutInterval: 10))
+        }
+        try await server.waitForConnection()
+        await room.disconnect()
+        _ = try? await connect.value
+
+        #expect(!track.didStop, "the interrupted connect stopped the borrowed pre-connect track")
     }
 
     private func token(_ roomName: String, identity: String) throws -> String {
@@ -235,21 +295,50 @@ private final class HeldStopCapturer: BufferCapturer, @unchecked Sendable {
     }
 }
 
-/// A room whose microphone track stays pending until the test releases it, as when a permission
-/// prompt goes unanswered.
+/// A room whose microphone track waits in its permission request until the test grants it, as
+/// when the system prompt goes unanswered.
 private final class HeldMicrophoneRoom: Room, @unchecked Sendable {
-    let microphoneRequested = AsyncCompleter<Void>(label: "Microphone requested", defaultTimeout: 10)
-    let microphoneRelease = AsyncCompleter<Void>(label: "Microphone released", defaultTimeout: 30)
-    private let _returned = StateSync(false)
+    let microphone = HeldPermissionAudioTrack()
+    /// How the microphone task ended: "cancelled" before touching audio, or what it did instead.
+    let microphoneOutcome = AsyncCompleter<String>(label: "Microphone outcome", defaultTimeout: 30)
 
-    var microphoneReturned: Bool { _returned.copy() }
+    var microphoneRequested: AsyncCompleter<Void> { microphone.requested }
+    var microphoneRelease: AsyncCompleter<Void> { microphone.release }
+    var microphoneReturned: Bool { microphone.returned }
 
     override func makeMicrophoneTrack() async throws -> LocalTrack {
-        microphoneRequested.resume(returning: ())
+        do {
+            try await microphone.start()
+            microphoneOutcome.resume(returning: "started recording")
+            return microphone
+        } catch {
+            microphoneOutcome.resume(returning: error is CancellationError ? "cancelled" : "failed: \(error)")
+            throw error
+        }
+    }
+}
+
+/// A microphone track whose permission request, like the system prompt, ignores cancellation and
+/// grants once released; everything after it is the real `startCapture()`.
+private final class HeldPermissionAudioTrack: LocalAudioTrack, @unchecked Sendable {
+    let requested = AsyncCompleter<Void>(label: "Microphone requested", defaultTimeout: 10)
+    let release = AsyncCompleter<Void>(label: "Microphone released", defaultTimeout: 30)
+    private let _returned = StateSync(false)
+
+    var returned: Bool { _returned.copy() }
+
+    convenience init() {
+        let rtcTrack = RTC.createAudioTrack(source: RTC.createAudioSource(nil))
+        rtcTrack.isEnabled = true
+        self.init(name: Track.microphoneName, source: .microphone, track: RTCMediaTrack(rtcTrack),
+                  reportStatistics: false, captureOptions: AudioCaptureOptions())
+    }
+
+    override func requestMicrophonePermission() async throws {
+        requested.resume(returning: ())
         defer { _returned.mutate { $0 = true } }
-        // Like the permission prompt, ignores cancellation. The timeout only bounds a regression.
-        await Task.detached { [microphoneRelease] in try? await microphoneRelease.wait() }.value
-        throw LiveKitError(.deviceAccessDenied)
+        // The timeout only bounds a regression.
+        await Task.detached { [release] in try? await release.wait() }.value
     }
 }
 
@@ -261,5 +350,26 @@ private final class DisconnectRecorder: RoomDelegate, @unchecked Sendable {
 
     func room(_: Room, didDisconnectWithError error: LiveKitError?) {
         _error.mutate { $0 = error }
+    }
+}
+
+/// A headless audio track that records whether it was stopped.
+private final class StopRecordingAudioTrack: LocalAudioTrack, @unchecked Sendable {
+    private let _didStop = StateSync(false)
+
+    var didStop: Bool { _didStop.copy() }
+
+    convenience init() {
+        let rtcTrack = RTC.createAudioTrack(source: RTC.createAudioSource(nil))
+        rtcTrack.isEnabled = true
+        self.init(name: Track.microphoneName, source: .microphone, track: RTCMediaTrack(rtcTrack),
+                  reportStatistics: false, captureOptions: AudioCaptureOptions())
+    }
+
+    override func startCapture() async throws {}
+    override func startWaitingForFrames() async throws {}
+
+    override func stopCapture() async throws {
+        _didStop.mutate { $0 = true }
     }
 }

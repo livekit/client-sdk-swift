@@ -110,6 +110,8 @@ actor SignalClient: Loggable {
         var connectionState: ConnectionState = .disconnected
         var disconnectError: LiveKitError?
         var socket: WebSocket?
+        // The room session `socket` was opened for, set and cleared together with it.
+        var session: (any AnyObject & Sendable)?
         var messageLoopTask: AnyTaskCancellable?
         var lastJoinResponse: Livekit_JoinResponse?
         var rtt: Int64 = 0
@@ -161,7 +163,8 @@ actor SignalClient: Loggable {
                  adaptiveStream: Bool,
                  singlePeerConnection: Bool,
                  publisherOffer: Livekit_SessionDescription? = nil,
-                 connectSpan: Span? = nil) async throws -> ConnectResponse
+                 connectSpan: Span? = nil,
+                 session: (any AnyObject & Sendable)? = nil) async throws -> ConnectResponse
     {
         await cleanUp()
 
@@ -203,7 +206,10 @@ actor SignalClient: Loggable {
             try Task.checkCancellation()
             connectSpan?.record("ws_open")
 
-            _state.mutate { $0.socket = socket }
+            _state.mutate {
+                $0.socket = socket
+                $0.session = session
+            }
             startDataTrackResponses()
 
             let messageLoopTask = socket.subscribe(self) { observer, message in
@@ -290,6 +296,7 @@ actor SignalClient: Loggable {
             $0.messageLoopTask = nil
             $0.socket?.close()
             $0.socket = nil
+            $0.session = nil
             $0.lastJoinResponse = nil
             $0.isAwaitingConnectResponse = true
         }
@@ -475,12 +482,15 @@ private extension SignalClient {
             // Queued in order, not awaited: drop it if the socket it arrived on has been replaced
             // or closed by delivery, so a leave for an old session never lands on the next one.
             await _delegate.notifyQueued {
-                guard self._state.socket === socket else { return }
+                // One read: the session is the one recorded with the socket the leave arrived on.
+                let (isCurrent, session) = self._state.read { ($0.socket === socket, $0.session) }
+                guard isCurrent else { return }
                 await $0.signalClient(self,
                                       didReceiveLeave: leave.action,
                                       reason: leave.reason,
                                       regions: leave.hasRegions ? leave.regions : nil,
-                                      from: socket)
+                                      from: socket,
+                                      session: session)
             }
 
         case let .streamStateUpdate(states):

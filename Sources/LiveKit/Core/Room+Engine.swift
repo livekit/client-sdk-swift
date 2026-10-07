@@ -285,7 +285,8 @@ extension Room {
                                                           adaptiveStream: _state.roomOptions.adaptiveStream,
                                                           singlePeerConnection: singlePC,
                                                           publisherOffer: earlyPublisher?.offer,
-                                                          connectSpan: connectSpan)
+                                                          connectSpan: connectSpan,
+                                                          session: _state.stage.connection)
             return SignalConnection(response: response, singlePC: singlePC, earlyPublisher: earlyPublisher)
         } catch let error as LiveKitError where error.type == .serviceNotFound && singlePC {
             log("v1 RTC path not supported, retrying with legacy path", .warning)
@@ -297,7 +298,8 @@ extension Room {
                                                           reconnectMode: _state.isReconnectingWithMode,
                                                           adaptiveStream: _state.roomOptions.adaptiveStream,
                                                           singlePeerConnection: false,
-                                                          connectSpan: connectSpan)
+                                                          connectSpan: connectSpan,
+                                                          session: _state.stage.connection)
             return SignalConnection(response: response, singlePC: false, earlyPublisher: nil)
         }
     }
@@ -422,7 +424,8 @@ extension Room {
                                                                  reconnectMode: _state.isReconnectingWithMode,
                                                                  participantSid: localParticipant.sid,
                                                                  adaptiveStream: _state.roomOptions.adaptiveStream,
-                                                                 singlePeerConnection: singlePC)
+                                                                 singlePeerConnection: singlePC,
+                                                                 session: _state.stage.connection)
             try Task.checkCancellation()
 
             // Update configuration

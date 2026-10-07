@@ -47,7 +47,7 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?, from socket: WebSocket) async {
+    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?, from socket: WebSocket, session _: (any AnyObject & Sendable)?) async {
         log("action: \(action), reason: \(reason)")
         // The session the leave arrived for, read with no suspension in between: the call into
         // this method may itself have suspended after the signal client checked the socket.
