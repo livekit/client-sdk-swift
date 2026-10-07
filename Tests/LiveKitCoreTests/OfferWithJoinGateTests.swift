@@ -91,14 +91,19 @@ struct OfferWithJoinGateTests {
                 return try (response, response.serializedData())
             }
 
-            // Arrived on the old socket; its delayed enqueue runs only now.
-            let stale = try leave(.duplicateIdentity)
-            await client.enqueue(stale.0, encoded: stale.1, from: oldSocket)
-            // Then one on the current socket, which is delivered.
-            let current = try leave(.serverShutdown)
-            await client.enqueue(current.0, encoded: current.1, from: currentSocket)
+            // A leave is queued for the delegate while it is processed, so once `enqueue` returns
+            // a flush of the delegate's serial runner lands after its delivery.
+            func deliver(_ reason: Livekit_DisconnectReason, from socket: WebSocket) async throws {
+                let (response, encoded) = try leave(reason)
+                await client.enqueue(response, encoded: encoded, from: socket)
+                try await client._delegate.notifyAsync { _ in }
+            }
 
-            try await recorder.leave.wait()
+            // Arrived on the old socket; its delayed enqueue runs only now.
+            try await deliver(.duplicateIdentity, from: oldSocket)
+            #expect(recorder.leaveReasons.isEmpty)
+
+            try await deliver(.serverShutdown, from: currentSocket)
             #expect(recorder.leaveReasons == [.serverShutdown])
         } catch {
             await client.cleanUp()
@@ -131,12 +136,13 @@ struct OfferWithJoinGateTests {
     }
 }
 
-private final class SignalRecorder: SignalClientDelegate {
+final class SignalRecorder: SignalClientDelegate {
     let answer = AsyncCompleter<UInt32>(label: "Answer", defaultTimeout: 5)
-    let leave = AsyncCompleter<Void>(label: "Leave", defaultTimeout: 5)
     private let _leaveReasons = StateSync<[Livekit_DisconnectReason]>([])
 
     var leaveReasons: [Livekit_DisconnectReason] { _leaveReasons.copy() }
+
+    let participantDisconnected = AsyncCompleter<Livekit_DisconnectReason>(label: "Participant disconnected", defaultTimeout: 30)
 
     func signalClient(_: SignalClient, didReceiveAnswer _: LKRTCSessionDescription, offerId: UInt32) async {
         answer.resume(returning: offerId)
@@ -147,7 +153,12 @@ private final class SignalRecorder: SignalClientDelegate {
     func signalClient(_: SignalClient, didReceiveOffer _: LKRTCSessionDescription, offerId _: UInt32) async {}
     func signalClient(_: SignalClient, didReceiveIceCandidate _: IceCandidate, target _: Livekit_SignalTarget) async {}
     func signalClient(_: SignalClient, didUnpublishLocalTrack _: Livekit_TrackUnpublishedResponse) async {}
-    func signalClient(_: SignalClient, didUpdateParticipants _: [Livekit_ParticipantInfo]) async {}
+    func signalClient(_: SignalClient, didUpdateParticipants participants: [Livekit_ParticipantInfo]) async {
+        for info in participants where info.state == .disconnected {
+            participantDisconnected.resume(returning: info.disconnectReason)
+        }
+    }
+
     func signalClient(_: SignalClient, didReceiveEncodedResponse _: SignalClient.EncodedResponse) async {}
     func signalClient(_: SignalClient, didUpdateRoom _: Livekit_Room) async {}
     func signalClient(_: SignalClient, didUpdateSpeakers _: [Livekit_SpeakerInfo]) async {}
@@ -160,7 +171,6 @@ private final class SignalRecorder: SignalClientDelegate {
     func signalClient(_: SignalClient, didUpdateToken _: String) async {}
     func signalClient(_: SignalClient, didReceiveLeave _: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions _: Livekit_RegionSettings?) async {
         _leaveReasons.mutate { $0.append(reason) }
-        leave.resume(returning: ())
     }
 
     func signalClient(_: SignalClient, didSubscribeTrack _: Track.Sid) async {}

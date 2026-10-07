@@ -191,6 +191,42 @@ import Testing
     /// Same invariant as `refreshKeepsFailedRegionsExcluded`, but through the path a real refresh
     /// takes: the settings *fetch*, which lands in `applyFetchedRegions`. The sibling test drives
     /// `updateFromServerReportedRegions`, which already excluded failed regions before this change.
+    /// The settings fetch is shared, so a cancelled waiter stops waiting instead of cancelling it;
+    /// otherwise a connect being interrupted is held for the fetch's whole timeout.
+    @Test func cancelledWaiterStopsWaitingForTheSharedFetch() async throws {
+        let providedUrl = try #require(URL(string: "https://example.livekit.cloud"))
+        let regionManager = RegionManager(providedUrl: providedUrl)
+        let fetchStarted = AsyncCompleter<Void>(label: "Region fetch started", defaultTimeout: 10)
+        let release = DispatchSemaphore(value: 0)
+
+        try MockURLProtocol.setAllowedHosts([#require(providedUrl.host)])
+        MockURLProtocol.setAllowedPaths(["/settings/regions"])
+        MockURLProtocol.setRequestHandler { (_: URLRequest) in
+            fetchStarted.resume(returning: ())
+            // Bounds how long a regression takes to fail; not the oracle.
+            _ = release.wait(timeout: .now() + 30)
+            return MockURLProtocol.Response(statusCode: 200, headers: [:], body: Data("""
+            {"regions": [{"region": "otokyo1a", "url": "https://example.otokyo1a.livekit.cloud", "distance": "1"}]}
+            """.utf8))
+        }
+        URLProtocol.registerClass(MockURLProtocol.self)
+        defer {
+            release.signal()
+            cleanUpMockURLProtocol()
+        }
+
+        let waiter = Task { try await regionManager.resolveBest(token: "token") }
+        try await fetchStarted.wait()
+        waiter.cancel()
+        await #expect(throws: (any Error).self) {
+            try await waiter.value
+        }
+
+        // The fetch itself carries on for the next waiter.
+        release.signal()
+        #expect(try await regionManager.resolveBest(token: "token") != nil)
+    }
+
     @Test func fetchedRefreshKeepsFailedRegionsExcluded() async throws {
         let providedUrl = try #require(URL(string: "https://example.livekit.cloud"))
         let regionManager = RegionManager(providedUrl: providedUrl)

@@ -73,6 +73,56 @@ struct LifecycleHandoffTests {
             #expect(room._state.isHandingOff == false)
         }
     }
+
+    /// Interrupted after the JOIN, while the transport is still connecting, `disconnect()` still
+    /// leaves: the server reports the participant gone because the client said so.
+    @Test func disconnectDuringTheTransportWaitSendsTheLeave() async throws {
+        let roomName = UUID().uuidString
+        let url = try #require(URL(string: TestEnvironment.liveKitServerUrl()))
+        let observer = SignalClient()
+        let recorder = SignalRecorder()
+        await observer._delegate.set(delegate: recorder)
+        try await observer.connect(url, token(roomName, identity: "observer"),
+                                   adaptiveStream: false, singlePeerConnection: false)
+        await observer.resumeQueues()
+
+        let room = Room()
+        // With the offer bundled into the JOIN, `hasPublished` is set right before the transport
+        // wait, after the signal queues resumed.
+        let inTransportWait = AsyncCompleter<Void>(label: "Waiting for the transport", defaultTimeout: 10)
+        room._state.onDidMutate = { state, oldState in
+            if state.hasPublished, !oldState.hasPublished { inTransportWait.resume(returning: ()) }
+        }
+        // Relay-only without a TURN server: the transport never connects.
+        let connect = Task {
+            try await room.connect(url: url.absoluteString,
+                                   token: token(roomName, identity: "interrupted"),
+                                   connectOptions: ConnectOptions(primaryTransportConnectTimeout: 60, iceTransportPolicy: .relay),
+                                   roomOptions: RoomOptions(singlePeerConnection: true))
+        }
+        do {
+            try await inTransportWait.wait()
+            await room.disconnect()
+            _ = try? await connect.value
+
+            // Bounded by the server's departure timeout when no leave was sent; not the oracle.
+            let reason = try await recorder.participantDisconnected.wait(timeout: 60)
+            #expect(reason == .clientInitiated, "reason: \(reason)")
+        } catch {
+            await observer.cleanUp()
+            throw error
+        }
+        await observer.cleanUp()
+    }
+
+    private func token(_ roomName: String, identity: String) throws -> String {
+        try TestEnvironment.liveKitServerToken(for: roomName,
+                                               identity: identity,
+                                               canPublish: true,
+                                               canPublishData: true,
+                                               canPublishSources: [],
+                                               canSubscribe: true)
+    }
 }
 
 /// Connects the room to a new session from the first `room(_:didDisconnectWithError:)`.

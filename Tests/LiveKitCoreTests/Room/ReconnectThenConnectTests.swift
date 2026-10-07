@@ -221,6 +221,25 @@ struct ReconnectThenConnectTests {
         #expect(room.connectionState == .disconnected)
     }
 
+    /// `disconnect()` interrupts the connects it finds registered, so a connect must be registered
+    /// before it starts running.
+    @Test func connectIsRegisteredBeforeItRuns() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
+            let room = rooms[0]
+            let registeredWhenRunning = StateSync<Bool?>(nil)
+            let stale = HeldReconnect(in: room) {
+                registeredWhenRunning.mutate { $0 = !room._connectTasks.copy().isEmpty }
+            }
+
+            let connect = Task { try await room.connect(url: TestEnvironment.liveKitServerUrl(), token: freshRoomToken()) }
+            try await stale.cancelled.wait()
+            stale.release.resume(returning: ())
+            try await connect.value
+
+            #expect(registeredWhenRunning.copy() == true)
+        }
+    }
+
     private func freshRoomToken(_ roomName: String = UUID().uuidString) throws -> String {
         try TestEnvironment.liveKitServerToken(for: roomName,
                                                identity: "identity-0",
@@ -237,13 +256,15 @@ private final class HeldReconnect: Sendable {
     let cancelled = AsyncCompleter<Void>(label: "Stale reconnect cancelled", defaultTimeout: 10)
     let release = AsyncCompleter<Void>(label: "Stale reconnect released", defaultTimeout: 30)
 
-    init(in room: Room) {
+    /// `onCancel` runs on the task that cancels it — for a `connect()`, inside its handoff.
+    init(in room: Room, onCancel: @escaping @Sendable () -> Void = {}) {
         let cancelled = cancelled
         let release = release
         let task = Task {
             await withTaskCancellationHandler {
                 await Task.detached { try? await release.wait() }.value
             } onCancel: {
+                onCancel()
                 cancelled.resume(returning: ())
             }
         }
