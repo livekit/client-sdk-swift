@@ -216,7 +216,7 @@ actor SignalClient: Loggable {
             return connectResponse
         } catch let connectionError {
             // Skip validation if user cancelled
-            if connectionError is CancellationError {
+            if connectionError is CancellationError || Task.isCancelled {
                 await cleanUp(withError: connectionError)
                 throw connectionError
             }

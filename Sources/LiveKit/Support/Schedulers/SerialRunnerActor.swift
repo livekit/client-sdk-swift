@@ -20,6 +20,19 @@ actor SerialRunnerActor<Value: Sendable> {
     private var previousTask: Task<Value, Error>?
 
     func run(block: sending @escaping () async throws -> Value) async throws -> Value {
+        let task = enqueue(block: block)
+
+        return try await withTaskCancellationHandler {
+            // Await the current task's result
+            try await task.value
+        } onCancel: {
+            // Ensure the task is canceled when requested
+            task.cancel()
+        }
+    }
+
+    /// Queues `block` behind the previous one and returns its task without waiting for it.
+    func enqueue(block: sending @escaping () async throws -> Value) -> Task<Value, Error> {
         let task = Task { [previousTask] in
             // Always wait for the previous task to maintain serial ordering
             if let previousTask {
@@ -35,13 +48,6 @@ actor SerialRunnerActor<Value: Sendable> {
         }
 
         previousTask = task
-
-        return try await withTaskCancellationHandler {
-            // Await the current task's result
-            try await task.value
-        } onCancel: {
-            // Ensure the task is canceled when requested
-            task.cancel()
-        }
+        return task
     }
 }

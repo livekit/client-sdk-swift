@@ -274,6 +274,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     /// so a teardown in progress can never land on a session started after it was requested.
     private let _lifecycleRunner = SerialRunnerActor<Void>()
 
+    /// The connect() calls queued or running on `_lifecycleRunner`, which disconnect() interrupts.
+    let _connectTasks = StateSync(Set<AnyTaskCancellable>())
+
     // MARK: Objective-C Support
 
     override public convenience init() {
@@ -388,8 +391,17 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) async throws
     {
-        try await _lifecycleRunner.run {
+        let task = await _lifecycleRunner.enqueue {
             try await self._connect(url: urlString, token: token, connectOptions: connectOptions, roomOptions: roomOptions)
+        }
+        let handle = task.cancellable()
+        _connectTasks.mutate { _ = $0.insert(handle) }
+        defer { _connectTasks.mutate { _ = $0.remove(handle) } }
+
+        try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
         }
     }
 
@@ -535,6 +547,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 try? await track.stop()
             }
 
+            // Joined already: leave, so the server doesn't keep the participant until it times out.
+            if case .connected = _state.connectionState {
+                try? await signalClient.sendLeave()
+            }
+
             await cleanUp(withError: error)
             throw error // Re-throw the original error
         }
@@ -543,6 +560,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     }
 
     public func disconnect() async {
+        // Interrupts the connects requested before it instead of queuing behind them.
+        for connect in _connectTasks.copy() {
+            connect.cancel()
+        }
         // Runs to completion even if the caller is cancelled, like the clean-up it performs.
         await Task { try? await self._lifecycleRunner.run { await self._disconnect() } }.value
     }

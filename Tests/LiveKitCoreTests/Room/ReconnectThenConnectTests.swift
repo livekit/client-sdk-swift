@@ -144,12 +144,19 @@ struct ReconnectThenConnectTests {
             let room = rooms[0]
             let stale = HeldReconnect(in: room)
             let secondRoomName = UUID().uuidString
+            // A connect registers once it is queued on the lifecycle runner.
+            let secondQueued = AsyncCompleter<Void>(label: "Second connect queued", defaultTimeout: 10)
+            room._connectTasks.onDidMutate = { tasks, _ in
+                if tasks.count == 2 { secondQueued.resume(returning: ()) }
+            }
+            defer { room._connectTasks.onDidMutate = nil }
 
             let first = Task { try await room.connect(url: TestEnvironment.liveKitServerUrl(), token: freshRoomToken()) }
             try await stale.cancelled.wait()
             let second = Task {
                 try await room.connect(url: TestEnvironment.liveKitServerUrl(), token: freshRoomToken(secondRoomName))
             }
+            try await secondQueued.wait()
             stale.release.resume(returning: ())
 
             try await first.value
