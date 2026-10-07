@@ -143,13 +143,14 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
 
     override func startCapture() async throws {
         try await requestMicrophonePermission()
-        // The permission prompt ignores cancellation: a start abandoned meanwhile (e.g. by the
-        // connect() that owned it) must not go on to configure and start shared recording.
-        try Task.checkCancellation()
         // AudioDeviceModule's InitRecording() and StartRecording() automatically get called by WebRTC, but
         // explicitly init & start it early to detect audio engine failures (mic not accessible for some reason, etc.).
         let audioProcessingOptions = captureOptions.audioProcessing
         try await RTC.run {
+            // Checked here, not before the hop: neither the permission prompt nor the wait for
+            // this executor honours cancellation, and a start abandoned meanwhile (e.g. by the
+            // connect() that owned it) must not configure and start shared recording.
+            try Task.checkCancellation()
             try AudioManager.shared.startLocalRecording(audioProcessingOptions: audioProcessingOptions)
         }
     }
