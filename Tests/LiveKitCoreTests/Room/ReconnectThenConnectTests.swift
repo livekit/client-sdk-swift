@@ -144,7 +144,7 @@ struct ReconnectThenConnectTests {
             let room = rooms[0]
             let stale = HeldReconnect(in: room)
             let secondRoomName = UUID().uuidString
-            // A connect registers once it is queued on the lifecycle runner.
+            // A connect registers as it is requested; this one while the first holds the runner.
             let secondQueued = AsyncCompleter<Void>(label: "Second connect queued", defaultTimeout: 10)
             room._connectTasks.onDidMutate = { tasks, _ in
                 if tasks.count == 2 { secondQueued.resume(returning: ()) }

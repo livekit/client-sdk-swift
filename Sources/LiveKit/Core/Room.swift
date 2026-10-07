@@ -391,11 +391,17 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) async throws
     {
-        let task = await _lifecycleRunner.enqueue {
-            try await self._connect(url: urlString, token: token, connectOptions: connectOptions, roomOptions: roomOptions)
+        // Created and registered in one step: a disconnect() either finds it or was requested first.
+        let (task, handle) = _connectTasks.mutate { tasks in
+            let task = Task {
+                try await self._lifecycleRunner.run {
+                    try await self._connect(url: urlString, token: token, connectOptions: connectOptions, roomOptions: roomOptions)
+                }
+            }
+            let handle = task.cancellable()
+            tasks.insert(handle)
+            return (task, handle)
         }
-        let handle = task.cancellable()
-        _connectTasks.mutate { _ = $0.insert(handle) }
         defer { _connectTasks.mutate { _ = $0.remove(handle) } }
 
         try await withTaskCancellationHandler {
@@ -548,7 +554,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             }
 
             // Joined already: leave, so the server doesn't keep the participant until it times out.
-            if case .connected = _state.connectionState {
+            if await signalClient.connectionState == .connected {
                 try? await signalClient.sendLeave()
             }
 
