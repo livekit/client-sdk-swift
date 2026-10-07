@@ -70,6 +70,7 @@ struct LifecycleHandoffTests {
 
             #expect(room.connectionState == .connected, "connectionState: \(room.connectionState)")
             #expect(room._state.sid != nil)
+            #expect(room._state.isHandingOff == false)
         }
     }
 }

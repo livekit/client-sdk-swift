@@ -72,6 +72,184 @@ struct ReconnectThenConnectTests {
             #expect(room._state.disconnectError == nil)
         }
     }
+
+    /// The mutation that admits a reconnect must also register it, or a `connect()` /
+    /// `disconnect()` landing in between finds nothing to cancel and drain, and the unregistered
+    /// reconnect later cleans up over the new session.
+    @Test func reconnectIsRegisteredWhenAdmitted() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
+            let room = rooms[0]
+            let unregisteredAdmissions = StateSync(0)
+            let onDidMutate = room._state.onDidMutate
+            room._state.onDidMutate = { state, oldState in
+                onDidMutate?(state, oldState)
+                guard oldState.isReconnectingWithMode == nil, state.isReconnectingWithMode != nil,
+                      state.reconnectTask == nil else { return }
+                unregisteredAdmissions.mutate { $0 += 1 }
+            }
+            defer { room._state.onDidMutate = onDidMutate }
+
+            try await room.startReconnect(reason: .debug)
+
+            #expect(room.connectionState == .connected)
+            #expect(unregisteredAdmissions.copy() == 0)
+        }
+    }
+
+    /// While `connect()` waits for a cancelled reconnect, the room still reads `.connected`; a
+    /// reconnect requested then (a stale socket's failure, say) must not start behind its back.
+    @Test func reconnectIsRefusedDuringHandoff() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
+            let room = rooms[0]
+            let stale = HeldReconnect(in: room)
+
+            let connect = Task { try await room.connect(url: TestEnvironment.liveKitServerUrl(), token: freshRoomToken()) }
+            try await stale.cancelled.wait()
+
+            await #expect(throws: LiveKitError.self) {
+                try await room.startReconnect(reason: .debug)
+            }
+
+            stale.release.resume(returning: ())
+            try await connect.value
+            #expect(room.connectionState == .connected)
+            #expect(room._state.isHandingOff == false)
+        }
+    }
+
+    /// A `connect()` cancelled during its handoff still ends it, and the room takes the next one.
+    @Test func cancelledConnectEndsItsHandoff() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
+            let room = rooms[0]
+            let stale = HeldReconnect(in: room)
+
+            let connect = Task { try await room.connect(url: TestEnvironment.liveKitServerUrl(), token: freshRoomToken()) }
+            try await stale.cancelled.wait()
+            connect.cancel()
+            stale.release.resume(returning: ())
+
+            await #expect(throws: (any Error).self) {
+                try await connect.value
+            }
+            #expect(room._state.isHandingOff == false)
+
+            try await room.connect(url: TestEnvironment.liveKitServerUrl(), token: freshRoomToken())
+            #expect(room.connectionState == .connected)
+        }
+    }
+
+    /// A `connect()` requested while another one hands off runs after it, not over it.
+    @Test func connectQueuedBehindAHandoffRunsAfterIt() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
+            let room = rooms[0]
+            let stale = HeldReconnect(in: room)
+            let secondRoomName = UUID().uuidString
+
+            let first = Task { try await room.connect(url: TestEnvironment.liveKitServerUrl(), token: freshRoomToken()) }
+            try await stale.cancelled.wait()
+            let second = Task {
+                try await room.connect(url: TestEnvironment.liveKitServerUrl(), token: freshRoomToken(secondRoomName))
+            }
+            stale.release.resume(returning: ())
+
+            try await first.value
+            try await second.value
+            #expect(room.connectionState == .connected)
+            #expect(room.name == secondRoomName)
+            #expect(room._state.isHandingOff == false)
+        }
+    }
+
+    /// The server's leave for the old session arrives while `disconnect()` waits for a cancelled
+    /// reconnect; an app reconnecting from `didDisconnectWithError` must keep that new session.
+    @Test func connectFromDidDisconnectSurvivesTheDrain() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
+            let room = rooms[0]
+            let app = try ReconnectOnDisconnect(url: TestEnvironment.liveKitServerUrl(), token: freshRoomToken())
+            room.add(delegate: app)
+            let stale = HeldReconnect(in: room)
+
+            let disconnect = Task { await room.disconnect() }
+            try await stale.cancelled.wait()
+
+            await room.signalClient(room.signalClient, didReceiveLeave: .disconnect, reason: .clientInitiated, regions: nil)
+            // Delegates run on one serial queue: once this returns, `didDisconnectWithError` has
+            // been delivered if it was published.
+            await room.delegates.notifyAsync { _ in }
+
+            // If the room already reported the disconnect, the app's new session comes up first.
+            if app.didStart {
+                try await app.waitForConnect()
+            }
+            stale.release.resume(returning: ())
+            await disconnect.value
+            try await app.waitForConnect()
+
+            #expect(room.connectionState == .connected, "connectionState: \(room.connectionState)")
+            #expect(room._state.sid != nil)
+            #expect(room._state.isHandingOff == false)
+        }
+    }
+
+    private func freshRoomToken(_ roomName: String = UUID().uuidString) throws -> String {
+        try TestEnvironment.liveKitServerToken(for: roomName,
+                                               identity: "identity-0",
+                                               canPublish: true,
+                                               canPublishData: true,
+                                               canPublishSources: [],
+                                               canSubscribe: true)
+    }
+}
+
+/// A reconnect registered on `room` that, once cancelled, keeps unwinding until released — the
+/// slowest a cancelled reconnect can be, held by the test instead of a socket.
+private final class HeldReconnect: Sendable {
+    let cancelled = AsyncCompleter<Void>(label: "Stale reconnect cancelled", defaultTimeout: 10)
+    let release = AsyncCompleter<Void>(label: "Stale reconnect released", defaultTimeout: 30)
+
+    init(in room: Room) {
+        let cancelled = cancelled
+        let release = release
+        let task = Task {
+            await withTaskCancellationHandler {
+                await Task.detached { try? await release.wait() }.value
+            } onCancel: {
+                cancelled.resume(returning: ())
+            }
+        }
+        room._state.mutate { $0.reconnectTask = task.cancellable() }
+    }
+}
+
+/// Connects the room again from `room(_:didDisconnectWithError:)`, once.
+private final class ReconnectOnDisconnect: RoomDelegate, @unchecked Sendable {
+    private let url: String
+    private let token: String
+    private let _started = StateSync(false)
+    private let _connected = AsyncCompleter<Void>(label: "Reconnected from didDisconnect", defaultTimeout: 30)
+
+    var didStart: Bool { _started.copy() }
+
+    init(url: String, token: String) {
+        self.url = url
+        self.token = token
+    }
+
+    func waitForConnect() async throws {
+        try await _connected.wait()
+    }
+
+    func room(_ room: Room, didDisconnectWithError _: LiveKitError?) {
+        let isFirst = _started.mutate { started in
+            defer { started = true }
+            return !started
+        }
+        guard isFirst else { return }
+        Task.discarding { [url, token, _connected] in
+            try await room.connect(url: url, token: token)
+            _connected.resume(returning: ())
+        }
+    }
 }
 
 /// A TCP server that accepts a connection and never answers, so a WebSocket opened against it
