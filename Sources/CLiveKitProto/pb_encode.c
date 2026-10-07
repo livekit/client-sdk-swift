@@ -3,9 +3,11 @@
  * 2011 Petteri Aimonen <jpa@kapsi.fi>
  */
 
-#include "pb.h"
-#include "pb_encode.h"
-#include "pb_common.h"
+/* LiveKit modification (marked per zlib license clause 2): lk_ includes --
+ * see lk_pb_config.h. */
+#include "lk_pb.h"
+#include "lk_pb_encode.h"
+#include "lk_pb_common.h"
 
 /* Use the GCC warn_unused_result attribute to check that all return values
  * are propagated correctly. On other compilers, gcc before 3.4.0 and iar

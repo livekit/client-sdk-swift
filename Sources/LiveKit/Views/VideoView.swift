@@ -285,10 +285,17 @@ public class VideoView: NativeView, Loggable {
 
     let _state: StateSync<State>
 
+    /// Owns the sink that is registered with the track and applies track / enabled changes to it.
+    nonisolated let _binder = VideoRendererBinder()
+
     // MARK: - Private
 
     private nonisolated(unsafe) var _primaryRenderer: NativeRendererView?
     private nonisolated(unsafe) var _secondaryRenderer: NativeRendererView?
+
+    // What the native renderer currently shows, so a reconcile can tell a no-op from a change.
+    private weak var _renderedTrack: Track?
+    private var _renderedMode: RenderMode?
 
     private var _debugTextView: TextView?
 
@@ -310,6 +317,7 @@ public class VideoView: NativeView, Loggable {
         _state = StateSync(State(viewSize: frame.size))
 
         super.init(frame: frame)
+        _binder.sink.target = self
 
         if !Thread.current.isMainThread {
             log("Must be called on main thread", .error)
@@ -327,56 +335,17 @@ public class VideoView: NativeView, Loggable {
             let renderModeDidUpdate = newState.renderMode != oldState.renderMode
             let trackDidUpdate = !Self.track(oldState.track as? VideoTrack, isEqualWith: newState.track as? VideoTrack)
 
-            // Always add/remove from the track asynchronously - even when called on @MainActor.
-            // Both hop to the RTC executor: attaching a sink to a remote video track is a
-            // worker-thread BlockingCall, and a grid re-layout would otherwise fire one per tile
-            // onto the cooperative pool. One hop keeps remove-then-add ordered.
+            // Attaching a sink to a remote track is a worker-thread BlockingCall, so it never runs on
+            // the caller. The binder coalesces a burst to its last value and applies on the RTC
+            // executor in order; the main-actor side reads the state when it runs, so neither can
+            // apply a snapshot that a later mutation already superseded.
             if trackDidUpdate || shouldRenderDidUpdate {
-                Task {
-                    await RTC.run {
-                        if let track = oldState.track as? VideoTrack {
-                            track.remove(videoRenderer: self)
-                        }
-                        if let track = newState.track as? VideoTrack, newState.shouldRender {
-                            track.add(videoRenderer: self)
-                        }
-                    }
-                }
+                _binder.request(newState.shouldRender ? newState.track as? VideoTrack : nil)
             }
 
-            // Recreate renderers if necessary on @MainActor
             if trackDidUpdate || shouldRenderDidUpdate || renderModeDidUpdate {
                 Task { @MainActor in
-                    var didReCreateNativeRenderer = false
-
-                    if trackDidUpdate || shouldRenderDidUpdate {
-                        // Clean up old renderers
-                        if let r = self._primaryRenderer {
-                            r.removeFromSuperview()
-                            self._primaryRenderer = nil
-                        }
-
-                        if let r = self._secondaryRenderer {
-                            r.removeFromSuperview()
-                            self._secondaryRenderer = nil
-                        }
-
-                        // Set up new renderer if needed
-                        if let track = newState.track as? VideoTrack, newState.shouldRender {
-                            let nr = self.recreatePrimaryRenderer(for: newState.renderMode)
-                            didReCreateNativeRenderer = true
-
-                            if let frame = track._state.videoFrame {
-                                self.log("rendering cached frame track: \(String(describing: track._state.sid))")
-                                nr.renderFrame(frame.toRTCType())
-                                self.setNeedsLayout()
-                            }
-                        }
-                    }
-
-                    if renderModeDidUpdate, !didReCreateNativeRenderer {
-                        self.recreatePrimaryRenderer(for: newState.renderMode)
-                    }
+                    self.reconcileNativeRenderer()
                 }
             }
 
@@ -605,6 +574,33 @@ private extension VideoView {
         addSubview(view)
         _debugTextView = view
         return view
+    }
+
+    /// Brings the native renderer views in line with the current state. Reads the state when it
+    /// runs and skips when nothing changed, so queued calls can neither reorder nor go stale.
+    func reconcileNativeRenderer() {
+        let (track, shouldRender, renderMode) = _state.read { ($0.track as? VideoTrack, $0.shouldRender, $0.renderMode) }
+
+        guard let track, shouldRender else {
+            _primaryRenderer?.removeFromSuperview()
+            _primaryRenderer = nil
+            _secondaryRenderer?.removeFromSuperview()
+            _secondaryRenderer = nil
+            _renderedTrack = nil
+            _renderedMode = nil
+            return
+        }
+
+        if _primaryRenderer != nil, _renderedTrack === track, _renderedMode == renderMode { return }
+        _renderedTrack = track
+        _renderedMode = renderMode
+
+        let renderer = recreatePrimaryRenderer(for: renderMode)
+        if let frame = track._state.videoFrame {
+            log("rendering cached frame track: \(String(describing: track._state.sid))")
+            renderer.renderFrame(frame.toRTCType())
+        }
+        setNeedsLayout()
     }
 
     @discardableResult

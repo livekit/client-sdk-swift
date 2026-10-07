@@ -16,38 +16,10 @@
 
 import AVFAudio
 
-#if compiler(>=6.4) && !COCOAPODS
-internal import LKObjCHelpers
-#endif
-
 extension AVAudioNode {
     /// The underlying audio unit's `maximumFramesToRender`.
-    ///
-    /// The macOS 27 SDK restricts `auAudioUnit` to macOS 13.0; below that it's reached through
-    /// ``LKObjCHelpers``, which keeps the property's original Objective-C availability (macOS 10.13).
-    /// See #1035.
     var maximumFramesToRender: AUAudioFrameCount {
-        get {
-            #if compiler(>=6.4)
-            if #available(macOS 13.0, *) {
-                return auAudioUnit.maximumFramesToRender
-            } else {
-                return LKObjCHelpers.maximumFramesToRender(for: self)
-            }
-            #else
-            return auAudioUnit.maximumFramesToRender
-            #endif
-        }
-        set {
-            #if compiler(>=6.4)
-            if #available(macOS 13.0, *) {
-                auAudioUnit.maximumFramesToRender = newValue
-            } else {
-                LKObjCHelpers.setMaximumFramesToRender(newValue, for: self)
-            }
-            #else
-            auAudioUnit.maximumFramesToRender = newValue
-            #endif
-        }
+        get { auAudioUnit.maximumFramesToRender }
+        set { auAudioUnit.maximumFramesToRender = newValue }
     }
 }

@@ -23,7 +23,6 @@ import Testing
 import LiveKitTestSupport
 #endif
 import LiveKitWebRTC
-import LKObjCHelpers
 
 @Suite(.serialized, .tags(.audio, .e2e)) struct AudioEngineTests {
     #if !targetEnvironment(simulator)

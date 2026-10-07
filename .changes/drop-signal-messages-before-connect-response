@@ -1,0 +1,1 @@
+patch type="changed" "Drop signal messages that arrive before the Join/ReconnectResponse, matching the Rust SDK, and log a warning naming each dropped message type"

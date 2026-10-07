@@ -20,6 +20,8 @@ import Foundation
 public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sendable {
     public let dimensions: Dimensions
 
+    /// - Note: Not applied by ``IOSScreenCapturer``; `SCStreamConfiguration.minimumFrameInterval`
+    ///   is unavailable on iOS, so the system picks the rate there.
     public let fps: Int
 
     /// Only used for macOS
@@ -31,7 +33,25 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
     ///
     /// If a broadcast extension has been properly configured, this defaults to `true`.
     ///
+    /// - Note: Ignored on iOS 27 and later unless ``useScreenCaptureKit`` is set to `false`, except
+    ///   for the screen share published automatically when the extension starts a broadcast.
     public let useBroadcastExtension: Bool
+
+    /// Capture in-process with ScreenCaptureKit instead of ReplayKit (iOS 27+ only).
+    ///
+    /// ScreenCaptureKit captures system-wide content from within your app, so neither a Broadcast
+    /// Upload Extension nor an app group is needed, and it supersedes both ReplayKit modes: when
+    /// this is `true` (the default), ``useBroadcastExtension`` has no effect on iOS 27 and later.
+    /// The exception is the screen share published automatically when the app's extension starts a
+    /// broadcast, for example from Control Center, which uses that broadcast instead of the picker.
+    ///
+    /// Set to `false` to keep using ReplayKit on iOS 27 — for example while an existing broadcast
+    /// extension setup is still in place. Has no effect below iOS 27, on Mac Catalyst, or on other
+    /// platforms. Screen sharing then falls back in order: ScreenCaptureKit, Broadcast Capture if
+    /// ``useBroadcastExtension`` is set, In-app Capture otherwise.
+    ///
+    /// - SeeAlso: ``IOSScreenCapturer``
+    public let useScreenCaptureKit: Bool
 
     public let includeCurrentApplication: Bool
 
@@ -51,6 +71,7 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
                 showCursor: Bool = true,
                 appAudio: Bool = false,
                 useBroadcastExtension: Bool = defaultToBroadcastExtension,
+                useScreenCaptureKit: Bool = true,
                 includeCurrentApplication: Bool = false,
                 excludeWindowIDs: [UInt32] = [])
     {
@@ -59,6 +80,7 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
         self.showCursor = showCursor
         self.appAudio = appAudio
         self.useBroadcastExtension = useBroadcastExtension
+        self.useScreenCaptureKit = useScreenCaptureKit
         self.includeCurrentApplication = includeCurrentApplication
         self.excludeWindowIDs = excludeWindowIDs
     }
@@ -72,6 +94,7 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
             showCursor == other.showCursor &&
             appAudio == other.appAudio &&
             useBroadcastExtension == other.useBroadcastExtension &&
+            useScreenCaptureKit == other.useScreenCaptureKit &&
             includeCurrentApplication == other.includeCurrentApplication &&
             excludeWindowIDs == other.excludeWindowIDs
     }
@@ -83,8 +106,19 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
         hasher.combine(showCursor)
         hasher.combine(appAudio)
         hasher.combine(useBroadcastExtension)
+        hasher.combine(useScreenCaptureKit)
         hasher.combine(includeCurrentApplication)
         hasher.combine(excludeWindowIDs)
         return hasher.finalize()
+    }
+}
+
+extension ScreenShareCaptureOptions {
+    /// Whether screen sharing captures with ScreenCaptureKit on iOS 27 and later.
+    ///
+    /// Publishing a broadcast the app's own extension just started, for example from Control
+    /// Center, goes through Broadcast Capture instead of presenting the content picker again.
+    func prefersScreenCaptureKit(roomDefaults: ScreenShareCaptureOptions, publishesRunningBroadcast: Bool) -> Bool {
+        useScreenCaptureKit && !(roomDefaults.useBroadcastExtension && publishesRunningBroadcast)
     }
 }

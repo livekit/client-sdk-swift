@@ -634,7 +634,7 @@ extension Emitter {
             property: namer.messagePropertyName(oneof: oneof, prefixed: "").name,
             clearName: "_clear\(relative.dropFirst("OneOf_".count))",
             which: "_pointer.pointee.which_\(oneof.name)",
-            tag: { "pb_size_t(\(storage)_\($0.name)_tag)" },
+            tag: { "lk_pb_size_t(\(storage)_\($0.name)_tag)" },
             caseName: {
                 namer.messagePropertyNames(field: $0, prefixed: "", includeHasAndClear: false).name
             },
@@ -902,7 +902,7 @@ extension Emitter {
     private static func storageConformance(flat: String, storage: String) -> String {
         """
         extension \(storage): NanopbStorage {
-            package static var descriptor: pb_msgdesc_t { \(storage)_msg }
+            package static var descriptor: lk_pb_msgdesc_t { \(storage)_msg }
             package static let _emptyBox = NanopbBox<\(storage)>(zero: \(storage)(), descriptor: \(storage)_msg)
         }
         typealias \(flat) = NanopbMsg<\(storage)>

@@ -292,6 +292,9 @@ public class LocalParticipant: Participant, @unchecked Sendable {
 
     private var cancellable = Set<AnyCancellable>()
 
+    /// The screen capturer of a publish that is still waiting on the system content picker.
+    private let _pendingScreenCapturer = StateSync<VideoCapturer?>(nil)
+
     override init(room: Room, sid: Participant.Sid? = nil, identity: Participant.Identity? = nil) {
         super.init(room: room, sid: sid, identity: identity)
 
@@ -316,10 +319,15 @@ public class LocalParticipant: Participant, @unchecked Sendable {
                 log("Will not publish screen share track", .debug)
                 return
             }
+            guard let room = _room, room.connectionState != .disconnected else {
+                log("Room is disconnected, will not publish screen share track", .warning)
+                return
+            }
             do {
-                try await setScreenShare(enabled: true)
+                try await set(source: .screenShareVideo, enabled: true, captureOptions: nil, publishOptions: nil, forBroadcastStart: true)
             } catch {
                 log("Failed to enable screen share: \(error)", .error)
+                BroadcastManager.shared.requestStop()
             }
         }
     }
@@ -407,8 +415,13 @@ public extension LocalParticipant {
 
     /// Enable or disable screen sharing. This has different behavior depending on the platform.
     ///
-    /// For iOS, this will use ``InAppScreenCapturer`` to capture in-app screen only due to Apple's limitation.
-    /// If you would like to capture the screen when the app is in the background, you will need to create a "Broadcast Upload Extension".
+    /// On iOS 27 and later, this uses ``IOSScreenCapturer``: content is picked through the system picker and captured
+    /// in-process via ScreenCaptureKit, with no Broadcast Upload Extension or app group. Enabling screen share does not
+    /// complete until the user has chosen what to share, and throws if they dismiss the picker.
+    /// Set ``ScreenShareCaptureOptions/useScreenCaptureKit`` to `false` to keep the ReplayKit paths below on iOS 27.
+    ///
+    /// On earlier iOS versions, this uses ``InAppScreenCapturer`` to capture in-app screen only due to Apple's limitation;
+    /// to capture the screen while the app is in the background, you will need to create a "Broadcast Upload Extension".
     ///
     /// For macOS, this will use ``MacOSScreenCapturer`` to capture the main screen. ``MacOSScreenCapturer`` has the ability
     /// to capture other screens and windows. See ``MacOSScreenCapturer`` for details.
@@ -422,14 +435,45 @@ public extension LocalParticipant {
 
     @objc
     @discardableResult
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func set(source: Track.Source,
              enabled: Bool,
              captureOptions: CaptureOptions? = nil,
              publishOptions: TrackPublishOptions? = nil) async throws -> LocalTrackPublication?
     {
-        try await _publishSerialRunner.run {
+        try await set(source: source, enabled: enabled, captureOptions: captureOptions, publishOptions: publishOptions, forBroadcastStart: false)
+    }
+
+    /// - Parameter forBroadcastStart: The broadcast extension just started a broadcast, so a screen share
+    ///   publishes that broadcast rather than presenting the ScreenCaptureKit picker.
+    @nonobjc
+    @discardableResult
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    internal func set(source: Track.Source,
+                      enabled: Bool,
+                      captureOptions: CaptureOptions?,
+                      publishOptions: TrackPublishOptions?,
+                      forBroadcastStart: Bool) async throws -> LocalTrackPublication?
+    {
+        #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
+        // An unanswered content picker holds the serial runner, so stopping has to reach past it.
+        // Only this participant's own pending pick is cancelled; the picker is process-wide.
+        if source == .screenShareVideo, !enabled, #available(iOS 27.0, *),
+           let capturer = _pendingScreenCapturer.read({ $0 }) as? IOSScreenCapturer
+        {
+            capturer.cancelPendingPick()
+        }
+        #endif
+
+        return try await _publishSerialRunner.run {
             let room = try self.requireRoom()
+
+            #if os(iOS)
+            // The broadcast can stop while this publish waits behind another one.
+            if forBroadcastStart, !BroadcastManager.shared.isBroadcasting {
+                self.log("Broadcast stopped before its screen share was published", .debug)
+                return nil
+            }
+            #endif
 
             // Try to get existing publication
             if let publication = self.getTrackPublication(source: source) as? LocalTrackPublication {
@@ -459,6 +503,24 @@ public extension LocalParticipant {
 
                     let localTrack: LocalVideoTrack
                     let defaultOptions = room._state.roomOptions.defaultScreenShareCaptureOptions
+
+                    // Preferred on iOS 27+, falling through to the ReplayKit modes below when it is
+                    // turned off or the system picker cannot be presented.
+                    #if !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
+                    if #available(iOS 27.0, *) {
+                        let options = (captureOptions as? ScreenShareCaptureOptions) ?? defaultOptions
+                        if options.prefersScreenCaptureKit(roomDefaults: defaultOptions, publishesRunningBroadcast: forBroadcastStart) {
+                            if await IOSScreenCapturer.isAvailable {
+                                let track = await LocalVideoTrack.createIOSScreenShareTrack(options: options,
+                                                                                            reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
+                                self._pendingScreenCapturer.mutate { $0 = track.capturer }
+                                defer { self._pendingScreenCapturer.mutate { $0 = nil } }
+                                return try await self._publish(track: track, options: publishOptions)
+                            }
+                            self.log("ScreenCaptureKit is unavailable, falling back to ReplayKit", .warning)
+                        }
+                    }
+                    #endif
 
                     if defaultOptions.useBroadcastExtension {
                         if captureOptions != nil {
@@ -598,10 +660,10 @@ extension LocalParticipant {
     func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
-        try checkPermissions(toPublish: track)
-
         let room = try requireRoom()
         let publisher = try room.requirePublisher()
+
+        try checkPermissions(toPublish: track)
 
         guard _state.trackPublications.values.first(where: { $0.track === track }) == nil else {
             throw LiveKitError(.invalidState, message: "This track has already been published.")

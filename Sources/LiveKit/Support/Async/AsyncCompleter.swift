@@ -63,6 +63,8 @@ actor CompleterMapActor<T: Sendable> {
     }
 }
 
+/// Waiters are always resumed outside `_lock`: the runtime resumes a continuation under the task's
+/// status-record lock, and a cancellation handler runs under that same lock while taking `_lock`.
 final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
     //
     struct WaitEntry {
@@ -116,12 +118,14 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
     }
 
     func reset(throwing error: Error? = nil) {
-        _lock.sync {
-            for entry in _entries.values {
-                entry.cancel(throwing: LiveKitError.from(error: error))
-            }
+        let entries = _lock.sync {
+            let entries = Array(_entries.values)
             _entries.removeAll()
             _result = nil
+            return entries
+        }
+        for entry in entries {
+            entry.cancel(throwing: LiveKitError.from(error: error))
         }
     }
 
@@ -134,16 +138,18 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
     }
 
     func resume(with result: Result<T, Error>) {
-        _lock.sync {
+        let entries = _lock.sync {
             if let _result {
                 log("\(label) already resolved \(_entries) with \(_result)", .debug)
             }
 
-            for entry in _entries.values {
-                entry.resume(with: result)
-            }
+            let entries = Array(_entries.values)
             _entries.removeAll()
             _result = result
+            return entries
+        }
+        for entry in entries {
+            entry.resume(with: result)
         }
     }
 
@@ -180,15 +186,30 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
                 let timeoutBlock = DispatchWorkItem { [weak self] in
                     guard let self else { return }
                     log("\(label) id: \(entryId) timed out")
-                    _lock.sync {
-                        if let entry = self._entries[entryId] {
-                            entry.timeout()
-                        }
-                        self._entries.removeValue(forKey: entryId)
-                    }
+                    _lock.sync { self._entries.removeValue(forKey: entryId) }?.timeout()
                 }
 
-                _lock.sync {
+                // Two things are decided under the lock that registers the waiter, because both
+                // are races against that registration:
+                //
+                // `_result` — the read above is only a fast path, and a `resume` landing between
+                // the two caches its result and finds no waiter to hand it to, stranding this
+                // continuation on an already-resolved completer until its timeout.
+                //
+                // `Task.isCancelled` — `withTaskCancellationHandler` runs `onCancel` immediately
+                // for a task that is already cancelled, so it looks for an entry that does not
+                // exist yet and never runs again. Checking here closes both orderings: either this
+                // sees the cancellation, or `onCancel` runs after registration and finds the entry.
+                //
+                // Both outcomes are carried out of the lock and resumed after it. Resuming takes
+                // the task's status-record lock, and cancellation takes that lock before running
+                // `onCancel`, which takes `_lock` — resuming under `_lock` is the inversion that
+                // deadlocked this type on CI. Every other resume here settles outside the lock; so
+                // does this.
+                let settled: Result<T, Error>? = _lock.sync {
+                    if let _result { return _result }
+                    if Task.isCancelled { return .failure(LiveKitError(.cancelled)) }
+
                     // Schedule time-out block
                     let computedTimeout = (timeout?.toDispatchTimeInterval ?? _defaultTimeout)
                     _timerQueue.asyncAfter(deadline: .now() + computedTimeout, execute: timeoutBlock)
@@ -196,16 +217,15 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
                     _entries[entryId] = WaitEntry(continuation: continuation, timeoutBlock: timeoutBlock)
 
                     log("\(label) id: \(entryId) waiting for \(computedTimeout)")
+                    return nil
                 }
+                // No entry was stored and the timer was never scheduled on this path, so nothing
+                // else can reach this continuation.
+                if let settled { continuation.resume(with: settled) }
             }
         } onCancel: {
             // Cancel only this completer when Task gets cancelled
-            _lock.sync {
-                if let entry = self._entries[entryId] {
-                    entry.cancel()
-                }
-                self._entries.removeValue(forKey: entryId)
-            }
+            _lock.sync { _entries.removeValue(forKey: entryId) }?.cancel()
         }
     }
 }

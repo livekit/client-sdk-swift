@@ -34,7 +34,7 @@ let package = Package(
             publicHeadersPath: "include",
             cSettings: [
                 // ABI defines live in include/lk_pb_config.h (included from
-                // pb.h); lk_abi_check.c guards them at compile time.
+                // lk_pb.h); lk_abi_check.c guards them at compile time.
                 .headerSearchPath("include"),
             ],
         ),
@@ -52,6 +52,7 @@ let package = Package(
                 .product(name: "LiveKitWebRTC", package: "webrtc-xcframework"),
                 .product(name: "LiveKitUniFFI", package: "livekit-uniffi-xcframework"),
                 "LiveKitNanopb",
+                "CLiveKitProto",
                 "LKObjCHelpers",
             ],
             exclude: [

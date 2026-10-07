@@ -67,14 +67,20 @@ references the type.
   presence), unknown fields are dropped on re-encode, embedded NULs truncate
   strings.
 - **ABI**: nanopb configuration (`PB_FIELD_32BIT` etc.) lives in
-  `lk_pb_config.h`, included from the vendored `pb.h` — never in build
+  `lk_pb_config.h`, included from the vendored `lk_pb.h` — never in build
   settings: SPM `cSettings` are invisible to the Swift Clang importer and
   cause silent struct-layout mismatches. `lk_abi_check.c` guards this at
   compile time.
-- **Symbols**: the vendored runtime's functions are renamed `pb_*` → `lk_pb_*`
-  (`lk_pb_rename.h`) so a second nanopb in the app (e.g. Firebase pods) can't
-  silently bind against ours under static linking. After a nanopb upgrade the
-  rename list must cover every exported symbol.
+- **Symbols**: the vendored runtime's functions, types and enum constants are
+  renamed `pb_*` → `lk_pb_*` (`lk_pb_rename.h`) so a second nanopb in the app
+  (e.g. Firebase pods) can't silently bind against ours under static linking,
+  and so an app that imports another nanopb module alongside `LiveKit` doesn't
+  hit Clang's refusal to merge two modules declaring the same C types. The header file names and
+  include guards are prefixed too (`lk_pb.h`, `LK_PB_H_INCLUDED`) and included
+  by quoted name, so a second nanopb's `pb.h` on the consumer's header search
+  path (Firebase's SwiftPM target exposes one) can neither shadow ours nor be
+  shadowed by it. After a nanopb upgrade the rename lists must cover every
+  exported symbol, typedef, struct tag and enum constant.
 
 ## Why this exists
 
@@ -115,7 +121,7 @@ Three layers:
 
    ```swift
    extension livekit_Room: NanopbStorage {
-       package static var descriptor: pb_msgdesc_t { livekit_Room_msg }
+       package static var descriptor: lk_pb_msgdesc_t { livekit_Room_msg }
        package static let _emptyBox = NanopbBox<livekit_Room>(zero: .init(), descriptor: livekit_Room_msg)
    }
    typealias Livekit_Room = NanopbMsg<livekit_Room>

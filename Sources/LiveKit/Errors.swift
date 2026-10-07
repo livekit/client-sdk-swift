@@ -73,6 +73,8 @@ public enum LiveKitErrorType: Int, Sendable {
 extension LiveKitErrorType: CustomStringConvertible {
     public var description: String {
         switch self {
+        case .unknown:
+            "Unknown"
         case .cancelled:
             "Cancelled"
         case .timedOut:
@@ -105,6 +107,8 @@ extension LiveKitErrorType: CustomStringConvertible {
             "Server state mismatch"
         case .joinFailure:
             "Server join failure"
+        case .insufficientPermissions:
+            "Insufficient permissions"
         case .serverPingTimedOut:
             "Server ping timed out"
         case .deviceNotFound:
@@ -115,6 +119,8 @@ extension LiveKitErrorType: CustomStringConvertible {
             "Unable to resolve FPS range"
         case .capturerDimensionsNotResolved:
             "Capturer dimensions not resolved"
+        case .deviceAccessDenied:
+            "Device access denied"
         case .audioEngine:
             "Audio Engine Error"
         case .audioSession:
@@ -131,7 +137,6 @@ extension LiveKitErrorType: CustomStringConvertible {
             "Only for LiveKit Cloud"
         case .regionManager:
             "Region manager error"
-        default: "Unknown"
         }
     }
 }
@@ -142,6 +147,11 @@ public class LiveKitError: NSError, @unchecked Sendable, Loggable {
     public let message: String?
     public let internalError: Error?
 
+    /// HTTP status this error was derived from, when it came from an HTTP response.
+    /// Internal consumers branch on this rather than parsing `message`, which is a
+    /// human-readable string with no stability guarantees.
+    let statusCode: Int?
+
     @available(*, deprecated, renamed: "internalError")
     public var underlyingError: Error? { internalError }
 
@@ -149,31 +159,53 @@ public class LiveKitError: NSError, @unchecked Sendable, Loggable {
         [internalError].compactMap(\.self)
     }
 
+    private static func _userInfo(type: LiveKitErrorType,
+                                  message: String?,
+                                  internalError: Error?) -> [String: Any]
+    {
+        var suffix = ""
+        if let message {
+            suffix = "(\(message))"
+        } else if let internalError {
+            suffix = "(\(internalError.localizedDescription))"
+        }
+
+        var userInfo: [String: Any] = [NSLocalizedDescriptionKey: String(describing: type) + suffix]
+        if let internalError {
+            userInfo[NSUnderlyingErrorKey] = internalError as NSError
+        }
+        return userInfo
+    }
+
     public init(_ type: LiveKitErrorType,
                 message: String? = nil,
                 internalError: Error? = nil)
     {
-        func _computeDescription() -> String {
-            var suffix = ""
-            if let message {
-                suffix = "(\(message))"
-            } else if let internalError {
-                suffix = "(\(internalError.localizedDescription))"
-            }
-            return String(describing: type) + suffix
-        }
-
         self.type = type
         self.message = message
         self.internalError = internalError
+        statusCode = nil
 
-        var userInfo: [String: Any] = [NSLocalizedDescriptionKey: _computeDescription()]
-        if let internalError {
-            userInfo[NSUnderlyingErrorKey] = internalError as NSError
-        }
         super.init(domain: "io.livekit.swift-sdk",
                    code: type.rawValue,
-                   userInfo: userInfo)
+                   userInfo: Self._userInfo(type: type, message: message, internalError: internalError))
+    }
+
+    /// Records the HTTP status alongside the error. Kept separate from the public initializer so
+    /// that one's signature — and the public API surface — stays unchanged.
+    init(_ type: LiveKitErrorType,
+         message: String? = nil,
+         internalError: Error? = nil,
+         statusCode: Int)
+    {
+        self.type = type
+        self.message = message
+        self.internalError = internalError
+        self.statusCode = statusCode
+
+        super.init(domain: "io.livekit.swift-sdk",
+                   code: type.rawValue,
+                   userInfo: Self._userInfo(type: type, message: message, internalError: internalError))
     }
 
     @available(*, unavailable)
@@ -230,12 +262,26 @@ extension Error {
         }
     }
 
-    /// Returns `true` for network/timeouts that should trigger region failover.
+    /// Returns `true` for errors that should trigger region failover: network issues, timeouts,
+    /// and the 403 LiveKit Cloud uses to signal project-level region pinning.
+    ///
+    /// Cloud returns 403 on the RTC paths when the project is not allowed in the region the client
+    /// geo-routed to, leaving `/settings/regions` reachable so the client can discover its allowed
+    /// regions and connect there. That arrives here as `.validation`, which is otherwise terminal,
+    /// so it has to be admitted on the status.
+    ///
+    /// We key on the status rather than the server's message because that message is an unversioned
+    /// human-readable string; matching it would let a copy edit break already-shipped clients. A 401
+    /// stays terminal — no other region will accept a token this one rejected — as does the 404 that
+    /// surfaces as `.serviceNotFound`. If a 403 really was a permissions failure rather than region
+    /// pinning, every region attempt fails the same way and the original error still surfaces.
     var isRetryableForRegionFailover: Bool {
         if let liveKitError = self as? LiveKitError {
             switch liveKitError.type {
             case .network, .timedOut:
                 return true
+            case .validation:
+                return liveKitError.statusCode == 403
             default:
                 return false
             }

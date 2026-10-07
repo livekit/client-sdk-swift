@@ -3,7 +3,9 @@
  * 2014 Petteri Aimonen <jpa@kapsi.fi>
  */
 
-#include "pb_common.h"
+/* LiveKit modification (marked per zlib license clause 2): lk_ includes --
+ * see lk_pb_config.h. */
+#include "lk_pb_common.h"
 
 static bool load_descriptor_values(pb_field_iter_t *iter)
 {

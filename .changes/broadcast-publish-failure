@@ -1,0 +1,1 @@
+patch type="fixed" "Stop the broadcast extension when the automatic screen share publish fails, and report a disconnected room instead of a permission error when publishing"

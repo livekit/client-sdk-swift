@@ -22,73 +22,86 @@ import LiveKitTestSupport
 #endif
 
 // swiftformat:disable hoistAwait
-@Suite(.serialized, .tags(.e2e))
+@Suite(.serialized, .tags(.e2e), TestLimits.e2e)
 struct RemoteParticipantTests {
+    /// For the waits that are expected to *time out*: short, so those tests fail fast.
     let timeout: TimeInterval = 0.1
+    /// For the waits that are expected to *succeed*. A participant becoming active is a signal from
+    /// the SFU, not something `withRooms` has already awaited, so the short budget above turned
+    /// these into latency assertions — and a strict-pool runner is where that shows up.
+    let successTimeout: TimeInterval = 10
+
+    /// Makes `room` forget that `participant` became active, so `waitUntilActive` has to wait for a
+    /// transition that never comes rather than return the cached outcome.
+    private func forgetActive(_ participant: RemoteParticipant, in room: Room) async throws {
+        let identity = try #require(participant.identity)
+        await room.activeParticipantCompleters.completer(for: identity.stringValue).reset()
+    }
 
     @Test func waitUntilActiveSuccess() async throws {
         try await TestEnvironment.withRooms(Array(repeating: RoomTestingOptions(), count: 2)) { rooms in
             let active = try #require(rooms[0].remoteParticipants.values.first)
 
-            try await active.waitUntilActive(timeout: timeout)
+            try await active.waitUntilActive(timeout: successTimeout)
         }
     }
 
     @Test func waitUntilActiveTimeout() async throws {
         try await TestEnvironment.withRooms(Array(repeating: RoomTestingOptions(), count: 2)) { rooms in
-            let disconnected = try #require(rooms[0].remoteParticipants.values.first)
-            disconnected.set(info: .init(), connectionState: .disconnected)
+            let inactive = try #require(rooms[0].remoteParticipants.values.first)
+            try await forgetActive(inactive, in: rooms[0])
 
-            await #expect(throws: (any Error).self) { try await disconnected.waitUntilActive(timeout: self.timeout) }
+            await #expect { try await inactive.waitUntilActive(timeout: self.timeout) } throws: { ($0 as? LiveKitError)?.type == .timedOut }
         }
     }
 
     @Test func waitUntilAllActiveSuccess() async throws {
         try await TestEnvironment.withRooms(Array(repeating: RoomTestingOptions(), count: 3)) { rooms in
-            try await rooms[0].remoteParticipants.values.waitUntilAllActive(timeout: timeout)
-            try await rooms[1].remoteParticipants.values.waitUntilAllActive(timeout: timeout)
-            try await rooms[2].remoteParticipants.values.waitUntilAllActive(timeout: timeout)
+            try await rooms[0].remoteParticipants.values.waitUntilAllActive(timeout: successTimeout)
+            try await rooms[1].remoteParticipants.values.waitUntilAllActive(timeout: successTimeout)
+            try await rooms[2].remoteParticipants.values.waitUntilAllActive(timeout: successTimeout)
         }
     }
 
     @Test func waitUntillAllActiveTimeout() async throws {
         try await TestEnvironment.withRooms(Array(repeating: RoomTestingOptions(), count: 3)) { rooms in
-            let oneDisconnected = try #require(rooms[0].remoteParticipants.values.first)
-            oneDisconnected.set(info: .init(), connectionState: .disconnected)
+            let oneInactive = try #require(rooms[0].remoteParticipants.values.first)
+            try await forgetActive(oneInactive, in: rooms[0])
 
-            await #expect(throws: (any Error).self) { try await rooms[0].remoteParticipants.values.waitUntilAllActive(timeout: self.timeout) }
-            try await rooms[1].remoteParticipants.values.waitUntilAllActive(timeout: timeout)
-            try await rooms[2].remoteParticipants.values.waitUntilAllActive(timeout: timeout)
+            await #expect { try await rooms[0].remoteParticipants.values.waitUntilAllActive(timeout: self.timeout) } throws: { ($0 as? LiveKitError)?.type == .timedOut }
+            try await rooms[1].remoteParticipants.values.waitUntilAllActive(timeout: successTimeout)
+            try await rooms[2].remoteParticipants.values.waitUntilAllActive(timeout: successTimeout)
         }
     }
 
     @Test func waitUntilAnyActiveSuccess() async throws {
         try await TestEnvironment.withRooms(Array(repeating: RoomTestingOptions(), count: 3)) { rooms in
-            try await rooms[0].remoteParticipants.values.waitUntilAnyActive(timeout: timeout)
-            try await rooms[1].remoteParticipants.values.waitUntilAnyActive(timeout: timeout)
-            try await rooms[2].remoteParticipants.values.waitUntilAnyActive(timeout: timeout)
+            try await rooms[0].remoteParticipants.values.waitUntilAnyActive(timeout: successTimeout)
+            try await rooms[1].remoteParticipants.values.waitUntilAnyActive(timeout: successTimeout)
+            try await rooms[2].remoteParticipants.values.waitUntilAnyActive(timeout: successTimeout)
         }
     }
 
     @Test func waitUntillAnyActiveNoTimeout() async throws {
         try await TestEnvironment.withRooms(Array(repeating: RoomTestingOptions(), count: 3)) { rooms in
-            let oneDisconnected = try #require(rooms[0].remoteParticipants.values.first)
-            oneDisconnected.set(info: .init(), connectionState: .disconnected)
+            let oneInactive = try #require(rooms[0].remoteParticipants.values.first)
+            try await forgetActive(oneInactive, in: rooms[0])
 
-            try await rooms[0].remoteParticipants.values.waitUntilAnyActive(timeout: timeout)
-            try await rooms[1].remoteParticipants.values.waitUntilAnyActive(timeout: timeout)
-            try await rooms[2].remoteParticipants.values.waitUntilAnyActive(timeout: timeout)
+            try await rooms[0].remoteParticipants.values.waitUntilAnyActive(timeout: successTimeout)
+            try await rooms[1].remoteParticipants.values.waitUntilAnyActive(timeout: successTimeout)
+            try await rooms[2].remoteParticipants.values.waitUntilAnyActive(timeout: successTimeout)
         }
     }
 
     @Test func waitUntillAnyActiveTimeout() async throws {
         try await TestEnvironment.withRooms(Array(repeating: RoomTestingOptions(), count: 3)) { rooms in
-            let allDisconnected = rooms[0].remoteParticipants.values
-            allDisconnected.forEach { $0.set(info: .init(), connectionState: .disconnected) }
+            for participant in rooms[0].remoteParticipants.values {
+                try await forgetActive(participant, in: rooms[0])
+            }
 
-            await #expect(throws: (any Error).self) { try await rooms[0].remoteParticipants.values.waitUntilAnyActive(timeout: self.timeout) }
-            try await rooms[1].remoteParticipants.values.waitUntilAnyActive(timeout: timeout)
-            try await rooms[2].remoteParticipants.values.waitUntilAnyActive(timeout: timeout)
+            await #expect { try await rooms[0].remoteParticipants.values.waitUntilAnyActive(timeout: self.timeout) } throws: { ($0 as? LiveKitError)?.type == .timedOut }
+            try await rooms[1].remoteParticipants.values.waitUntilAnyActive(timeout: successTimeout)
+            try await rooms[2].remoteParticipants.values.waitUntilAnyActive(timeout: successTimeout)
         }
     }
 }
