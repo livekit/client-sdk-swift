@@ -16,6 +16,9 @@
 
 // swiftlint:disable file_length
 
+#if !COCOAPODS && !LK_XCFRAMEWORK
+import LiveKitNanopb
+#endif
 import Combine
 import Foundation
 
@@ -236,7 +239,53 @@ public class LocalParticipant: Participant, @unchecked Sendable {
               let sender = track._state.rtpSender
         else { return }
 
-        sender.raw._set(subscribedQualities: qualities)
+        // Apply the merged list, not the incoming one: a re-apply can only replay what is cached,
+        // so feeding the sender anything else would make the two paths disagree.
+        let cached = track._state.read { $0.subscribedQualities }
+        let merged = cached.merged(with: qualities)
+        // The server restates unchanged qualities after every answer, and every mutate notifies
+        // the track's delegates synchronously, inside the lock.
+        if !merged.sameState(as: cached) {
+            track._state.mutate { $0.subscribedQualities = merged }
+        }
+        sender.raw._set(subscribedQualities: merged)
+    }
+
+    /// Re-applies the last known dynacast state to every local video sender.
+    ///
+    /// Applying a publisher answer re-enables every encoding, and the server only ever reports
+    /// qualities that *changed*, so without this the layers dynacast paused stay unpaused.
+    func refreshSubscribedQualities() async {
+        for publication in localVideoTracks {
+            guard let track = publication.track as? LocalVideoTrack else { continue }
+
+            // Reading before the hop is safe because SignalClient delivers every callback through
+            // one AsyncSerialDelegate, so a quality update cannot land between here and the apply.
+            let (qualities, qualitiesForCodec) = track._state.read { ($0.subscribedQualities, $0.subscribedQualitiesForCodec) }
+            // Early-out before the hop: @RTC blocks, and this runs on every renegotiation.
+            guard !qualities.isEmpty || !qualitiesForCodec.isEmpty else { continue }
+
+            await RTC.run {
+                for (videoCodec, codecQualities) in qualitiesForCodec {
+                    let subscribedCodec = Livekit_SubscribedCodec.with {
+                        $0.codec = videoCodec.name
+                        $0.qualities = codecQualities
+                    }
+                    do {
+                        let didUpdate = try track._set(subscribedCodec: subscribedCodec)
+                        if !didUpdate {
+                            track.log("No sender for cached codec: \(videoCodec.name)")
+                        }
+                    } catch {
+                        track.log("Failed to refresh qualities for codec: \(videoCodec.name), error: \(error)")
+                    }
+                }
+
+                if !qualities.isEmpty, let sender = track._state.rtpSender {
+                    sender.raw._set(subscribedQualities: qualities)
+                }
+            }
+        }
     }
 
     override func set(info: Livekit_ParticipantInfo, connectionState: ConnectionState) {
@@ -627,14 +676,23 @@ extension LocalParticipant {
 
             log("[Publish] server responded trackInfo: \(trackInfo)")
 
-            await RTC.run { sender.raw._set(subscribedQualities: subscribedCodec.qualities) }
+            // Cache here too: this is where a backup codec's qualities first land, and the
+            // negotiation below is exactly the one the cache exists to survive.
+            let merged = track._state.read { ($0.subscribedQualitiesForCodec[videoCodec] ?? []).merged(with: subscribedCodec.qualities) }
+            await RTC.run { sender.raw._set(subscribedQualities: merged) }
 
             // Attach multi-codec sender...
-            track._state.mutate { $0.rtpSenderForCodec[videoCodec] = sender }
+            track._state.mutate {
+                $0.rtpSenderForCodec[videoCodec] = sender
+                $0.subscribedQualitiesForCodec[videoCodec] = merged
+            }
 
             try await room.publisherShouldNegotiate()
         } catch {
-            track._state.mutate { $0.rtpSenderForCodec[videoCodec] = nil }
+            track._state.mutate {
+                $0.rtpSenderForCodec[videoCodec] = nil
+                $0.subscribedQualitiesForCodec[videoCodec] = nil
+            }
             await rollback(sender: sender, publisher: publisher, room: room)
             throw error
         }
@@ -649,6 +707,30 @@ extension [Livekit_SubscribedQuality] {
         reduce(Livekit_VideoQuality.off) { maxQuality, subscribedQuality in
             subscribedQuality.enabled && subscribedQuality.quality > maxQuality ? subscribedQuality.quality : maxQuality
         }
+    }
+
+    /// Whether both lists describe the same subscription state.
+    ///
+    /// Cheaper than `==`, which compares whole messages by re-serializing both sides.
+    func sameState(as other: [Livekit_SubscribedQuality]) -> Bool {
+        elementsEqual(other) { $0.quality == $1.quality && $0.enabled == $1.enabled }
+    }
+
+    /// This list updated with `update`, replacing matching qualities in place and appending new ones.
+    ///
+    /// A `SubscribedQualityUpdate` only carries the qualities that changed, so replacing the list
+    /// wholesale would forget the pause state of every layer the server did not mention. Entries are
+    /// owned rather than kept as views, since the result outlives the message it arrived in.
+    func merged(with update: [Livekit_SubscribedQuality]) -> [Livekit_SubscribedQuality] {
+        var result = self
+        for updated in update.map({ $0.owned() }) {
+            if let index = result.firstIndex(where: { $0.quality == updated.quality }) {
+                result[index] = updated
+            } else {
+                result.append(updated)
+            }
+        }
+        return result
     }
 }
 
