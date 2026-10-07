@@ -227,7 +227,8 @@ struct LifecycleHandoffTests {
         try await rtcHeld.wait()
 
         let start = Task { try await track.start() }
-        // Granted; the start now goes on to its recording step and queues behind the held executor.
+        // The permission request was entered. Whether the cancel below lands before or after the
+        // start queues its recording step, that step cannot run until the executor is released.
         try await track.requested.wait()
         start.cancel()
         rtcRelease.signal()
