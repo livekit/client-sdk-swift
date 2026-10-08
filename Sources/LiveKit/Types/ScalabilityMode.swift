@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public enum ScalabilityMode: Int {
+public enum ScalabilityMode: Int, Sendable {
     case L3T3 = 1
     case L3T3_KEY = 2
     case L3T3_KEY_SHIFT = 3
