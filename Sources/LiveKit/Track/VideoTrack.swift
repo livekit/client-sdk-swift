@@ -44,17 +44,31 @@ extension VideoTrackProtocol where Self: Track {
 
         // Check if main sender is sending the codec...
         if let rtpSender = _state.rtpSender, videoCodec == _state.videoCodec {
-            rtpSender.raw._set(subscribedQualities: subscribedCodec.qualities)
+            rtpSender.raw._set(subscribedQualities: _merge(subscribedCodec.qualities, for: videoCodec))
             return true
         }
 
         // Find simulcast sender for codec...
         if let rtpSender = _state.rtpSenderForCodec[videoCodec] {
-            rtpSender.raw._set(subscribedQualities: subscribedCodec.qualities)
+            rtpSender.raw._set(subscribedQualities: _merge(subscribedCodec.qualities, for: videoCodec))
             return true
         }
 
         return false
+    }
+
+    /// Accumulates `qualities` into the codec's cache and returns the whole known state for it.
+    ///
+    /// Senders are fed the accumulated list rather than the incoming one, because a re-apply after
+    /// renegotiation can only replay what is cached — the two must agree or the layers flip.
+    private func _merge(_ qualities: [Livekit_SubscribedQuality], for videoCodec: VideoCodec) -> [Livekit_SubscribedQuality] {
+        let cached = _state.read { $0.subscribedQualitiesForCodec[videoCodec] ?? [] }
+        let merged = cached.merged(with: qualities)
+        // A re-apply writes back what is already stored, and every mutate notifies the track's
+        // delegates synchronously — on the blocking @RTC queue, for each codec, on each answer.
+        guard !merged.sameState(as: cached) else { return merged }
+        _state.mutate { $0.subscribedQualitiesForCodec[videoCodec] = merged }
+        return merged
     }
 
     // Update an array of SubscribedCodecs
