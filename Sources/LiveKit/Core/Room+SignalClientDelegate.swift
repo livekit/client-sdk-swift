@@ -47,11 +47,21 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?) async {
+    func signalClient(_: SignalClient, didReceiveLeave action: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions: Livekit_RegionSettings?, session: (any AnyObject & Sendable)?) async {
         log("action: \(action), reason: \(reason)")
+        // `session` was recorded with the socket the leave arrived on, so the leave can only ever
+        // act on that session, checked in single reads of the current one.
+        guard _state.stage.connection === session else {
+            log("Leave for an earlier session, ignoring")
+            return
+        }
 
         if let regions, let providedUrl = _state.providedUrl, let regionManager = await regionManager(for: providedUrl) {
             await regionManager.updateFromServerReportedRegions(regions)
+        }
+        guard _state.stage.connection === session else {
+            log("Session changed since the leave arrived, ignoring")
+            return
         }
 
         let error = LiveKitError.from(reason: reason)
@@ -64,7 +74,12 @@ extension Room: SignalClientDelegate {
             // Abort current attempt
             await signalClient.cleanUp(withError: error)
         case .disconnect:
-            await cleanUp(withError: error)
+            if _state.connectionState == .connecting {
+                // Fails the connect() in progress, which cleans up after itself.
+                await cleanUp(withError: error)
+            } else {
+                cleanUpForServerDisconnect(withError: error, session: session)
+            }
         default:
             log("Unknown leave action: \(action), ignoring", .warning)
         }

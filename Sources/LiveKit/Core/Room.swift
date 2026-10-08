@@ -197,6 +197,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var isReconnectingWithMode: ReconnectMode?
         var connectionState: ConnectionState = .disconnected
         var reconnectTask: AnyTaskCancellable?
+        // Between beginHandoff() and endHandoff(): no reconnect starts meanwhile.
+        var isHandingOff = false
         var disconnectError: LiveKitError?
         var hasPublished: Bool = false
 
@@ -265,6 +267,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - Region
 
     let _regionManager = StateSync<RegionManager?>(nil)
+
+    // MARK: - Lifecycle
+
+    /// Runs connect(), disconnect() and the server's disconnect one at a time, each to completion,
+    /// so a teardown in progress can never land on a session started after it was requested.
+    private let _lifecycleRunner = SerialRunnerActor<Void>()
+
+    /// The connect() calls queued or running on `_lifecycleRunner`, which disconnect() interrupts.
+    let _connectTasks = StateSync(Set<AnyTaskCancellable>())
 
     // MARK: Objective-C Support
 
@@ -375,11 +386,36 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
     }
 
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
     public func connect(url urlString: String,
                         token: String,
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) async throws
+    {
+        // Created and registered in one step: a disconnect() either finds it or was requested first.
+        let (task, handle) = _connectTasks.mutate { tasks in
+            let task = Task {
+                try await self._lifecycleRunner.run {
+                    try await self._connect(url: urlString, token: token, connectOptions: connectOptions, roomOptions: roomOptions)
+                }
+            }
+            let handle = task.cancellable()
+            tasks.insert(handle)
+            return (task, handle)
+        }
+        defer { _connectTasks.mutate { _ = $0.remove(handle) } }
+
+        try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    @nonobjc private func _connect(url urlString: String,
+                                   token: String,
+                                   connectOptions: ConnectOptions?,
+                                   roomOptions: RoomOptions?) async throws
     {
         guard let providedUrl = URL(string: urlString), providedUrl.isValidForConnect else {
             log("URL parse failed", .error)
@@ -405,7 +441,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         let preparedRegion = consumePreparedRegion(for: providedUrl)
 
+        let staleReconnect = beginHandoff()
+        await staleReconnect?.wait()
         await cleanUp()
+        endHandoff()
 
         try Task.checkCancellation()
 
@@ -454,17 +493,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         let enableMicrophone = _state.connectOptions.enableMicrophone
         log("Concurrent enable microphone mode: \(enableMicrophone)")
 
-        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = if let recorder = preConnectBuffer.recorder, recorder.isRecording {
+        // Borrowed from the pre-connect buffer, which owns it: published, never stopped, here.
+        let preConnectTrack: LocalTrack? = if let recorder = preConnectBuffer.recorder, recorder.isRecording {
+            recorder.track
+        } else {
+            nil
+        }
+        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = if preConnectTrack == nil, enableMicrophone {
             Task {
-                recorder.track
-            }
-        } else if enableMicrophone {
-            Task {
-                let localTrack = await LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
-                                                                   reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
-                // Initializes AudioDeviceModule's recording
-                try await localTrack.start()
-                return localTrack
+                try await makeMicrophoneTrack()
             }
         } else {
             nil
@@ -500,18 +537,32 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
             connectSpan?.end()
 
-            // Publish mic if mic task was created
-            if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled {
-                let track = try await createMicrophoneTrackTask.value
-                try await localParticipant._publish(track: track, options: _state.roomOptions.defaultAudioPublishOptions.withPreconnect(preConnectBuffer.recorder?.isRecording ?? false))
+            // Publish the mic, if any. Making it can wait on a permission prompt; disconnect() must
+            // not wait with it.
+            let microphoneTrack: LocalTrack? = if let preConnectTrack {
+                preConnectTrack
+            } else {
+                try await createMicrophoneTrackTask?.valueUnlessCancelled()
+            }
+            if let microphoneTrack {
+                try await localParticipant._publish(track: microphoneTrack, options: _state.roomOptions.defaultAudioPublishOptions.withPreconnect(preConnectBuffer.recorder?.isRecording ?? false))
             }
         } catch {
             log("Failed to resolve a region or connect: \(error)")
-            // Stop the track if it was created but not published
-            if let createMicrophoneTrackTask, !createMicrophoneTrackTask.isCancelled,
-               case let .success(track) = await createMicrophoneTrackTask.result
-            {
-                try? await track.stop()
+            // Stop the track this connect made but did not publish, once it is: it can still be
+            // waiting on a permission prompt, which neither this clean-up nor disconnect() waits for.
+            if let createMicrophoneTrackTask {
+                createMicrophoneTrackTask.cancel()
+                Task {
+                    if case let .success(track) = await createMicrophoneTrackTask.result {
+                        try? await track.stop()
+                    }
+                }
+            }
+
+            // Joined already: leave, so the server doesn't keep the participant until it times out.
+            if await signalClient.connectionState == .connected {
+                try? await signalClient.sendLeave()
             }
 
             await cleanUp(withError: error)
@@ -522,6 +573,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     }
 
     public func disconnect() async {
+        // Interrupts the connects requested before it instead of queuing behind them.
+        for connect in _connectTasks.copy() {
+            connect.cancel()
+        }
+        // Runs to completion even if the caller is cancelled, like the clean-up it performs.
+        await Task { try? await self._lifecycleRunner.run { await self._disconnect() } }.value
+    }
+
+    @nonobjc private func _disconnect() async {
         let shouldDisconnect = _state.mutate {
             switch $0.connectionState {
             case .disconnecting, .disconnected:
@@ -533,7 +593,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
         guard shouldDisconnect else { return }
 
-        cancelReconnect()
+        let staleReconnect = beginHandoff()
 
         do {
             try await signalClient.sendLeave()
@@ -541,17 +601,47 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             log("Failed to send leave with error: \(error)")
         }
 
-        cancelReconnect()
-
+        await staleReconnect?.wait()
         await cleanUp()
-
-        cancelReconnect()
+        endHandoff()
     }
 
-    private func cancelReconnect() {
-        _state.mutate {
-            $0.reconnectTask = nil
+    /// The server ended the session: clean up after any connect() / disconnect() in progress,
+    /// unless the session has changed by then.
+    @nonobjc func cleanUpForServerDisconnect(withError error: LiveKitError?, session: (any AnyObject & Sendable)?) {
+        Task {
+            try? await self._lifecycleRunner.run {
+                guard self._state.stage.connection === session else { return }
+                await self.cleanUp(withError: error)
+            }
         }
+    }
+
+    /// Starts handing the room over to a new session, or to none: until ``endHandoff()`` no
+    /// reconnect starts, and the one in flight is cancelled (explicitly: a state snapshot can
+    /// retain the task) and returned. Callers wait for it before their `cleanUp()`, so nothing it
+    /// still does lands after that.
+    private func beginHandoff() -> AnyTaskCancellable? {
+        let staleReconnect = _state.mutate { state in
+            defer { state.reconnectTask = nil }
+            state.isHandingOff = true
+            return state.reconnectTask
+        }
+        staleReconnect?.cancel()
+        return staleReconnect
+    }
+
+    private func endHandoff() {
+        _state.mutate { $0.isHandingOff = false }
+    }
+
+    /// The microphone track `connect()` publishes with `ConnectOptions.enableMicrophone`, started.
+    @nonobjc func makeMicrophoneTrack() async throws -> LocalTrack {
+        let localTrack = await LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
+                                                           reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
+        // Initializes AudioDeviceModule's recording
+        try await localTrack.start()
+        return localTrack
     }
 }
 
@@ -571,19 +661,22 @@ extension Room {
     //   cleanUp() on an already-disconnected Room is a no-op in effect.
     //
     //   No re-entrancy risk: The subscribe() helper suppresses onFailure
-    //   callbacks when Task.isCancelled is true (AsyncSequence+Subscribe:47),
+    //   callbacks when Task.isCancelled is true (AsyncSequence.subscribe),
     //   so cancelling the messageLoopTask inside cleanUp cannot trigger a
     //   recursive cleanUp call through the onFailure path.
     //
     // Cancellation contract — cleanUp() must NEVER be guarded by Task.isCancelled:
     //
-    //   disconnect()
-    //       cancelReconnect() ──► reconnectTask cancelled
-    //       await cleanUp()   ──► runs in disconnect's own (non-cancelled) Task
+    //   disconnect() / connect(), one at a time on _lifecycleRunner
+    //       beginHandoff()             ──► reconnectTask cancelled; no new reconnect starts
+    //       await reconnectTask.wait() ──► the cancelled reconnect has finished
+    //       await cleanUp()
+    //       endHandoff()
     //
-    //   startReconnect() catch
-    //       if !Task.isCancelled ──► skips when reconnect was cancelled;
-    //       await cleanUp()         caller (disconnect/new reconnect) owns cleanup
+    //   startReconnect()'s reconnectTask
+    //       guard !Task.isCancelled ──► skips when reconnect was cancelled;
+    //       await cleanUp()            the caller (disconnect/connect) owns cleanup and waits
+    //                                  for the task first, so this cannot land on the next session
     //
     //   connect() catch
     //       await cleanUp()   ──► connect failed, clean up and re-throw
@@ -655,12 +748,14 @@ extension Room {
                 isReconnectingWithMode: $0.isReconnectingWithMode,
                 connectionState: $0.connectionState,
                 reconnectTask: $0.reconnectTask,
+                isHandingOff: $0.isHandingOff,
                 stage: $0.stage,
             ) : State(
                 connectOptions: $0.connectOptions,
                 roomOptions: $0.roomOptions,
                 connectionState: .disconnected,
                 reconnectTask: $0.reconnectTask,
+                isHandingOff: $0.isHandingOff,
                 disconnectError: LiveKitError.from(error: disconnectError),
             )
         }

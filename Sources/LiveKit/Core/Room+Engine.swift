@@ -285,7 +285,8 @@ extension Room {
                                                           adaptiveStream: _state.roomOptions.adaptiveStream,
                                                           singlePeerConnection: singlePC,
                                                           publisherOffer: earlyPublisher?.offer,
-                                                          connectSpan: connectSpan)
+                                                          connectSpan: connectSpan,
+                                                          session: _state.stage.connection)
             return SignalConnection(response: response, singlePC: singlePC, earlyPublisher: earlyPublisher)
         } catch let error as LiveKitError where error.type == .serviceNotFound && singlePC {
             log("v1 RTC path not supported, retrying with legacy path", .warning)
@@ -297,13 +298,16 @@ extension Room {
                                                           reconnectMode: _state.isReconnectingWithMode,
                                                           adaptiveStream: _state.roomOptions.adaptiveStream,
                                                           singlePeerConnection: false,
-                                                          connectSpan: connectSpan)
+                                                          connectSpan: connectSpan,
+                                                          session: _state.stage.connection)
             return SignalConnection(response: response, singlePC: false, earlyPublisher: nil)
         }
     }
 
     // full connect sequence, doesn't update connection state
-    func fullConnectSequence(_ url: URL, _ token: String) async throws {
+    // @nonobjc: as an implicitly @objc async method (Room is @objcMembers) its calls drop the
+    // caller's cancellation, so a cancelled reconnect kept waiting out a socket connect.
+    @nonobjc func fullConnectSequence(_ url: URL, _ token: String) async throws {
         var singlePC = _state.roomOptions.singlePeerConnection
 
         // Built before the socket opens so its offer rides along with the JOIN request, removing
@@ -384,7 +388,7 @@ extension Room {
         connectSpan?.record("pc_connected")
     }
 
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    // swiftlint:disable:next function_body_length
     func startReconnect(reason: StartReconnectReason, nextReconnectMode: ReconnectMode? = nil) async throws {
         log("[Connect] Starting, reason: \(reason)")
 
@@ -409,12 +413,6 @@ extension Room {
             throw LiveKitError(.invalidState)
         }
 
-        _state.mutate {
-            // Mark as Re-connecting internally
-            $0.isReconnectingWithMode = .quick
-            $0.nextReconnectMode = nextReconnectMode
-        }
-
         // quick connect sequence, does not update connection state
         @Sendable func quickReconnectSequence() async throws {
             log("[Connect] Starting .quick reconnect sequence...")
@@ -426,7 +424,8 @@ extension Room {
                                                                  reconnectMode: _state.isReconnectingWithMode,
                                                                  participantSid: localParticipant.sid,
                                                                  adaptiveStream: _state.roomOptions.adaptiveStream,
-                                                                 singlePeerConnection: singlePC)
+                                                                 singlePeerConnection: singlePC,
+                                                                 session: _state.stage.connection)
             try Task.checkCancellation()
 
             // Update configuration
@@ -507,17 +506,20 @@ extension Room {
             dataTracks?.handleReconnect(fullReconnect: true)
         }
 
-        do {
-            let reconnectTask = Task.retrying(totalAttempts: _state.connectOptions.reconnectAttempts,
-                                              retryDelay: { @Sendable attempt in
-                                                  let delay = TimeInterval.computeReconnectDelay(forAttempt: attempt,
-                                                                                                 baseDelay: self._state.connectOptions.reconnectAttemptDelay,
-                                                                                                 maxDelay: self._state.connectOptions.reconnectMaxDelay,
-                                                                                                 totalAttempts: self._state.connectOptions.reconnectAttempts,
-                                                                                                 addJitter: true)
-                                                  self.log("[Connect] Retry cycle waiting for \(String(format: "%.2f", delay)) seconds before attempt \(attempt + 1)")
-                                                  return delay
-                                              }) { currentAttempt, totalAttempts in
+        // The whole reconnect, its outcome included, runs in one task so that disconnect() and
+        // connect() can cancel it and wait for it to finish: whatever it still does once cancelled
+        // lands before their own clean-up, never on the session they start next.
+        @Sendable func makeRetryTask() -> Task<Void, any Error> {
+            Task.retrying(totalAttempts: _state.connectOptions.reconnectAttempts,
+                          retryDelay: { @Sendable attempt in
+                              let delay = TimeInterval.computeReconnectDelay(forAttempt: attempt,
+                                                                             baseDelay: self._state.connectOptions.reconnectAttemptDelay,
+                                                                             maxDelay: self._state.connectOptions.reconnectMaxDelay,
+                                                                             totalAttempts: self._state.connectOptions.reconnectAttempts,
+                                                                             addJitter: true)
+                              self.log("[Connect] Retry cycle waiting for \(String(format: "%.2f", delay)) seconds before attempt \(attempt + 1)")
+                              return delay
+                          }) { currentAttempt, totalAttempts in
                 // Not reconnecting state anymore
                 guard let currentMode = self._state.isReconnectingWithMode else {
                     self.log("[Connect] Not in reconnect state anymore, exiting retry cycle.")
@@ -552,35 +554,60 @@ extension Room {
                     throw error
                 }
             }
+        }
 
-            _state.mutate {
-                $0.reconnectTask = reconnectTask.cancellable()
-            }
+        @Sendable func runReconnect() async {
+            let retryTask = makeRetryTask()
 
-            try await reconnectTask.value
+            do {
+                try await withTaskCancellationHandler {
+                    try await retryTask.value
+                } onCancel: {
+                    retryTask.cancel()
+                }
+                guard !Task.isCancelled else { return }
 
-            // Re-connect sequence successful
-            log("[Connect] Sequence completed")
-            _state.mutate {
-                $0.connectionState = .connected
-                $0.reconnectTask = nil
-                $0.isReconnectingWithMode = nil
-                $0.nextReconnectMode = nil
-            }
+                // Re-connect sequence successful
+                log("[Connect] Sequence completed")
+                _state.mutate {
+                    $0.connectionState = .connected
+                    $0.reconnectTask = nil
+                    $0.isReconnectingWithMode = nil
+                    $0.nextReconnectMode = nil
+                }
 
-            if let providedUrl = _state.providedUrl, providedUrl.isCloud, let regionManager = await regionManager(for: providedUrl) {
-                // Clear failed region attempts after a successful reconnect.
-                await regionManager.resetAttempts()
-            }
-        } catch {
-            log("[Connect] Sequence failed with error: \(error)")
+                if let providedUrl = _state.providedUrl, providedUrl.isCloud, let regionManager = await regionManager(for: providedUrl) {
+                    // Clear failed region attempts after a successful reconnect.
+                    await regionManager.resetAttempts()
+                }
+            } catch {
+                log("[Connect] Sequence failed with error: \(error)")
 
-            // Only clean up if the reconnect task wasn't cancelled — when cancelled,
-            // the caller (disconnect() or a new reconnect) handles cleanup separately.
-            if !Task.isCancelled {
+                // Cancelled by disconnect() or a new connect(), which own the clean-up.
+                guard !Task.isCancelled else { return }
                 await cleanUp(withError: error)
             }
         }
+
+        // Admitted and registered in one mutation: a handoff (connect() / disconnect()) either
+        // finds this reconnect to cancel and drain, or began first and refuses it.
+        let reconnectTask = _state.mutate { state -> Task<Void, Never>? in
+            guard case .connected = state.connectionState,
+                  state.isReconnectingWithMode == nil,
+                  !state.isHandingOff else { return nil }
+            state.isReconnectingWithMode = .quick
+            state.nextReconnectMode = nextReconnectMode
+            let task = Task { await runReconnect() }
+            state.reconnectTask = task.cancellable()
+            return task
+        }
+
+        guard let reconnectTask else {
+            log("[Connect] Not started: the room is handing off or already reconnecting", .warning)
+            throw LiveKitError(.invalidState)
+        }
+
+        await reconnectTask.value
     }
 }
 

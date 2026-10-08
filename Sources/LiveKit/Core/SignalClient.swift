@@ -87,11 +87,18 @@ actor SignalClient: Loggable {
     // Queued with the bytes it arrived as, not just the decoded form: consumers that parse the
     // wire format themselves (the data track managers) need the original encoding, and
     // re-encoding our decoded copy would drop every field this client's protocol pin doesn't
-    // know — nanopb discards unknown fields on decode.
-    private lazy var _responseQueue = QueueActor<(response: Livekit_SignalResponse, encoded: Data)>(onProcess: { [weak self] element in
+    // know — nanopb discards unknown fields on decode. The socket it arrived on goes along too:
+    // processing can run after that socket was replaced.
+    private struct QueuedResponse {
+        let response: Livekit_SignalResponse
+        let encoded: Data
+        let socket: WebSocket
+    }
+
+    private lazy var _responseQueue = QueueActor<QueuedResponse>(onProcess: { [weak self] element in
         guard let self else { return }
 
-        await _process(element.response, encoded: element.encoded)
+        await _process(element.response, encoded: element.encoded, from: element.socket)
     })
 
     private let _connectResponseCompleter = AsyncCompleter<ConnectResponse>(label: "Join response", defaultTimeout: .defaultJoinResponse)
@@ -103,6 +110,8 @@ actor SignalClient: Loggable {
         var connectionState: ConnectionState = .disconnected
         var disconnectError: LiveKitError?
         var socket: WebSocket?
+        // The room session `socket` was opened for, set and cleared together with it.
+        var session: (any AnyObject & Sendable)?
         var messageLoopTask: AnyTaskCancellable?
         var lastJoinResponse: Livekit_JoinResponse?
         var rtt: Int64 = 0
@@ -154,7 +163,8 @@ actor SignalClient: Loggable {
                  adaptiveStream: Bool,
                  singlePeerConnection: Bool,
                  publisherOffer: Livekit_SessionDescription? = nil,
-                 connectSpan: Span? = nil) async throws -> ConnectResponse
+                 connectSpan: Span? = nil,
+                 session: (any AnyObject & Sendable)? = nil) async throws -> ConnectResponse
     {
         await cleanUp()
 
@@ -196,7 +206,10 @@ actor SignalClient: Loggable {
             try Task.checkCancellation()
             connectSpan?.record("ws_open")
 
-            _state.mutate { $0.socket = socket }
+            _state.mutate {
+                $0.socket = socket
+                $0.session = session
+            }
             startDataTrackResponses()
 
             let messageLoopTask = socket.subscribe(self) { observer, message in
@@ -216,7 +229,7 @@ actor SignalClient: Loggable {
             return connectResponse
         } catch let connectionError {
             // Skip validation if user cancelled
-            if connectionError is CancellationError {
+            if connectionError is CancellationError || Task.isCancelled {
                 await cleanUp(withError: connectionError)
                 throw connectionError
             }
@@ -283,6 +296,7 @@ actor SignalClient: Loggable {
             $0.messageLoopTask = nil
             $0.socket?.close()
             $0.socket = nil
+            $0.session = nil
             $0.lastJoinResponse = nil
             $0.isAwaitingConnectResponse = true
         }
@@ -375,19 +389,23 @@ extension SignalClient {
         }
 
         Task.detached {
-            let alwaysProcess = switch response.message {
-            case .join, .reconnect, .leave: true
-            default: false
-            }
-            // Always process join or reconnect messages even if suspended...
-            await self._responseQueue.processIfResumed((response: response, encoded: rawData), or: alwaysProcess)
+            await self.enqueue(response, encoded: rawData, from: socket)
         }
+    }
+
+    func enqueue(_ response: Livekit_SignalResponse, encoded: Data, from socket: WebSocket) async {
+        let alwaysProcess = switch response.message {
+        case .join, .reconnect, .leave: true
+        default: false
+        }
+        // Always process join or reconnect messages even if suspended...
+        await _responseQueue.processIfResumed(QueuedResponse(response: response, encoded: encoded, socket: socket), or: alwaysProcess)
     }
 }
 
 private extension SignalClient {
     // swiftlint:disable:next cyclomatic_complexity function_body_length
-    func _process(_ signalResponse: Livekit_SignalResponse, encoded: Data) async {
+    func _process(_ signalResponse: Livekit_SignalResponse, encoded: Data, from socket: WebSocket) async {
         guard connectionState != .disconnected else {
             log("connectionState is .disconnected", .error)
             return
@@ -461,11 +479,17 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRemoteMute: Track.Sid(from: mute.sid), muted: mute.muted) }
 
         case let .leave(leave):
-            _delegate.notifyDetached {
+            // Queued in order, not awaited: drop it if the socket it arrived on has been replaced
+            // or closed by delivery, so a leave for an old session never lands on the next one.
+            await _delegate.notifyQueued {
+                // One read: the session is the one recorded with the socket the leave arrived on.
+                let (isCurrent, session) = self._state.read { ($0.socket === socket, $0.session) }
+                guard isCurrent else { return }
                 await $0.signalClient(self,
                                       didReceiveLeave: leave.action,
                                       reason: leave.reason,
-                                      regions: leave.hasRegions ? leave.regions : nil)
+                                      regions: leave.hasRegions ? leave.regions : nil,
+                                      session: session)
             }
 
         case let .streamStateUpdate(states):

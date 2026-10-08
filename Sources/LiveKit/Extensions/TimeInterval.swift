@@ -100,6 +100,6 @@ public extension TimeInterval {
 
 extension TimeInterval {
     var toDispatchTimeInterval: DispatchTimeInterval {
-        .milliseconds(Int(self * 1000))
+        isFinite ? .milliseconds(Int(self * 1000)) : .never
     }
 }

@@ -147,7 +147,8 @@ actor RegionManager: Loggable {
 
         guard shouldRequestSettings() else { return }
         let task = startSettingsFetchIfNeeded(token: token)
-        _ = try await task.value
+        // Shared with other waiters: a cancelled waiter stops waiting instead of cancelling it.
+        _ = try await task.valueUnlessCancelled()
     }
 
     private func applyFetchedRegions(_ allRegions: [RegionInfo]) {
