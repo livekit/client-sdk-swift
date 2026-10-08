@@ -151,8 +151,18 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
         return try await restartCapture()
     }
 
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
     override public func startCapture() async throws -> Bool {
+        do {
+            return try await performStartCapture()
+        } catch {
+            // Balance the counter so a subsequent startCapture() can retry.
+            try? await stopCapture()
+            throw error
+        }
+    }
+
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    private func performStartCapture() async throws -> Bool {
         let didStart = try await super.startCapture()
 
         // Already started
