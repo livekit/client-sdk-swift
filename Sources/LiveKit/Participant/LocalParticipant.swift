@@ -682,19 +682,20 @@ extension LocalParticipant {
             await RTC.run { sender.raw._set(subscribedQualities: merged) }
 
             // Attach multi-codec sender...
-            track._state.mutate {
-                $0.rtpSenderForCodec[videoCodec] = sender
-                $0.subscribedQualitiesForCodec[videoCodec] = merged
-            }
+            setAdditionalVideoSender(sender, qualities: merged, for: videoCodec, on: track)
 
             try await room.publisherShouldNegotiate()
         } catch {
-            track._state.mutate {
-                $0.rtpSenderForCodec[videoCodec] = nil
-                $0.subscribedQualitiesForCodec[videoCodec] = nil
-            }
+            setAdditionalVideoSender(nil, qualities: nil, for: videoCodec, on: track)
             await rollback(sender: sender, publisher: publisher, room: room)
             throw error
+        }
+    }
+
+    private func setAdditionalVideoSender(_ sender: RTCSender?, qualities: [Livekit_SubscribedQuality]?, for videoCodec: VideoCodec, on track: LocalVideoTrack) {
+        track._state.mutate {
+            $0.rtpSenderForCodec[videoCodec] = sender
+            $0.subscribedQualitiesForCodec[videoCodec] = qualities
         }
     }
 }

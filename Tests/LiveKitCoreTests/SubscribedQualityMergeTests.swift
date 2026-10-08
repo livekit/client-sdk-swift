@@ -73,6 +73,7 @@ struct SubscribedQualityMergeTests {
 
         let merged = [Livekit_SubscribedQuality]().merged(with: update.qualities)
 
-        #expect(merged.allSatisfy(\._ownsItsStorage))
+        let allEntriesAreOwned = merged.allSatisfy(\._ownsItsStorage)
+        #expect(allEntriesAreOwned)
     }
 }
