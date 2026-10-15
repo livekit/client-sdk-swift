@@ -43,7 +43,7 @@ jobs:
           xcode-version: 26.5
 
       - name: Publish
-        uses: livekit/publish-cocoapod-action@2bad16701695f0a0565cd9a55d3e284eb9262051 # fix/dry-run-side-effects (#1)
+        uses: livekit/publish-cocoapod-action@089c62e30ff536886bac33f7e5dffb736ed27ed6 # main
         with:
           podspec: LiveKitClient.podspec
           spec-repo: ${{ github.event.inputs.spec_repo || 'livekit/podspecs' }}
