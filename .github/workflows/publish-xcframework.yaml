@@ -37,12 +37,19 @@ jobs:
       # The checkout above pins the whole repo to the released tag, build tooling
       # included -- so a fix to scripts/ can never reach a version already tagged,
       # and re-running this job for it fails the same way forever. The SDK sources
-      # must come from the tag; the tooling that packages them should not. Take
-      # scripts/ from the ref this run was dispatched from (for a release event
-      # that is the tag's own commit, so this is a no-op).
-      - name: Use build tooling from the dispatching ref
+      # must come from the tag, since that is the artifact's identity; the tooling
+      # that packages them must not.
+      #
+      # On a release event github.sha IS the tag's commit, so it cannot serve as
+      # the tooling ref -- that is exactly the stale script we are avoiding. Use
+      # the default branch there. A dispatch keeps github.sha so that changes to
+      # scripts/ can be exercised from a PR branch before they are merged.
+      - name: Use current build tooling
+        env:
+          TOOLING_REF: ${{ github.event_name == 'workflow_dispatch' && github.sha || format('origin/{0}', github.event.repository.default_branch) }}
         run: |
-          git checkout "${{ github.sha }}" -- scripts/
+          echo "Taking scripts/ from $TOOLING_REF"
+          git checkout "$TOOLING_REF" -- scripts/
           git --no-pager diff --stat HEAD -- scripts/ || true
 
       - name: Set up Xcode
