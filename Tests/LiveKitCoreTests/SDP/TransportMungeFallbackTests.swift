@@ -197,6 +197,21 @@ struct TransportMungeFallbackTests {
         }
     }
 
+    /// The setup time a published video's hint is derived from: the recorded setup time, or
+    /// while still connecting, the time elapsed since the connect started.
+    @Test func connectionSetupTimeIsRecordedOrElapsedSoFar() async throws {
+        try await withTransport { transport in
+            #expect(await transport.connectionSetupTime == nil)
+
+            await transport.set(connectStartedAt: ProcessInfo.processInfo.systemUptime - 60)
+            let elapsed = try #require(await transport.connectionSetupTime)
+            #expect(elapsed >= 60 && elapsed < 70)
+
+            await transport.set(connectionSetupTime: 0.8)
+            #expect(await transport.connectionSetupTime == 0.8)
+        }
+    }
+
     private actor OfferBox {
         private(set) var all: [LKRTCSessionDescription] = []
         func append(_ offer: LKRTCSessionDescription) { all.append(offer) }

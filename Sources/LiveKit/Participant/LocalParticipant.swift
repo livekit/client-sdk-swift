@@ -647,7 +647,7 @@ extension LocalParticipant {
         let degradationPreference = publishOptions.degradationPreference.resolve(for: track.source)
         log("[Publish/Backup] set degradationPreference to \(degradationPreference)")
 
-        let startBitrateKbps = Transport.startBitrateKbps(for: encodings, isScreenShare: isScreenShare)
+        let startBitrateKbps = await Transport.startBitrateKbps(for: encodings, isScreenShare: isScreenShare, connectionSetupTime: publisher.connectionSetupTime)
 
         let sender = try await RTC.run {
             let transceiver = try publisher.addTransceiver(with: track.mediaTrack.raw, transceiverInit: transInit, startBitrateKbps: startBitrateKbps)
@@ -876,8 +876,10 @@ extension LocalParticipant {
                                                          populatorFunc)
             }
 
+            let connectionSetupTime = await publisher.connectionSetupTime
             let startBitrateKbps = (track is LocalVideoTrack)
-                ? Transport.startBitrateKbps(for: sendEncodings, isScreenShare: track.source == .screenShareVideo)
+                ? Transport.startBitrateKbps(for: sendEncodings, isScreenShare: track.source == .screenShareVideo,
+                                             connectionSetupTime: connectionSetupTime)
                 : nil
 
             let negotiateFunc: @Sendable () async throws -> Void = {

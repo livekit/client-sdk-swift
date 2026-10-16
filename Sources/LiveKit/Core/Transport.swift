@@ -71,6 +71,12 @@ final class Transport: NSObject, Loggable {
     /// senders in an offer is the connection-level value; see
     /// ``mungeVideoStartBitrate(_:kbpsBySenderId:)``.
     private var _startBitrateKbpsBySenderId: [String: Int] = [:]
+    /// When the connection attempt that built this transport began, as
+    /// `ProcessInfo.systemUptime`; see ``set(connectStartedAt:)``.
+    private var _connectStartedAt: TimeInterval?
+    /// How long the connection attempt that built this transport took to set up, in seconds;
+    /// see ``set(connectionSetupTime:)``.
+    private var _connectionSetupTime: TimeInterval?
     /// Whether an offer carrying `x-google-start-bitrate` has been accepted locally. The hint
     /// is written once per peer connection: libwebrtc retains `start_bitrate_bps` in
     /// `RtpBitrateConfigurator` and re-applies it on network route changes, so a later rewrite
@@ -204,6 +210,28 @@ final class Transport: NSObject, Loggable {
 
     func setIsRestartingIce() {
         _isRestartingIce = true
+    }
+
+    /// Records when the connection attempt that built this transport began, as
+    /// `ProcessInfo.systemUptime`. A video published before ``set(connectionSetupTime:)``
+    /// takes the time elapsed since then as the setup time, a lower bound that can only err
+    /// toward the ``maxStartBitrateKbps`` ceiling.
+    func set(connectStartedAt: TimeInterval) {
+        _connectStartedAt = connectStartedAt
+    }
+
+    /// Records how long the connection attempt that built this transport took to set up, in
+    /// seconds, which caps the video start bitrate hint; see
+    /// ``startBitrateCapKbps(connectionSetupTime:)``. A quick reconnect keeps the peer
+    /// connection and its estimator, and never calls this.
+    func set(connectionSetupTime: TimeInterval) {
+        _connectionSetupTime = connectionSetupTime
+    }
+
+    /// The setup time a video start bitrate hint is derived from: the recorded setup time, or
+    /// while the connection is still being set up, the time elapsed so far.
+    var connectionSetupTime: TimeInterval? {
+        _connectionSetupTime ?? _connectStartedAt.map { ProcessInfo.processInfo.systemUptime - $0 }
     }
 
     func add(iceCandidate candidate: IceCandidate) async throws {
@@ -442,6 +470,32 @@ extension Transport {
     /// bandwidth estimator from opening too aggressively on high-bitrate (e.g. 4K) tracks.
     nonisolated static let maxStartBitrateKbps = 1000
 
+    /// Connection setup times, in seconds, bounding the ramp in
+    /// ``startBitrateCapKbps(connectionSetupTime:)``. Measured on shaped links (CLT-3380):
+    /// healthy links set up in under 860 ms, a 1 Mbps link with 150 ms RTT in 1.1–1.7 s, a
+    /// 500 kbps link in ~2.3 s at the median, and a 300 kbps link never under 3 s.
+    nonisolated static let setupTimeForMaxStartBitrate: TimeInterval = 1.5
+    nonisolated static let setupTimeForMinStartBitrate: TimeInterval = 3.5
+
+    /// Cap on a non-screen-share start bitrate hint, in kbps, for a connection that took
+    /// `connectionSetupTime` seconds to set up.
+    ///
+    /// Connection setup time (signaling join plus ICE/DTLS) is the only network signal there
+    /// is before the first video offer, since libwebrtc cannot probe the path until a video
+    /// sender exists. It grows with round-trip time and loss, which also mark the links where
+    /// a 1 Mbps seed overshoots, so the cap ramps linearly from ``maxStartBitrateKbps`` at
+    /// ``setupTimeForMaxStartBitrate`` down to 300 kbps (libwebrtc's own default) at
+    /// ``setupTimeForMinStartBitrate``. Without a setup time it is ``maxStartBitrateKbps``.
+    /// Screen share is exempt, however slow the setup.
+    ///
+    /// Same ramp as client-sdk-js (`computeStartBitrateCap`), rust-sdks
+    /// (`compute_start_bitrate_kbps`) and client-sdk-android (`computeTrackStartBitrate`).
+    nonisolated static func startBitrateCapKbps(connectionSetupTime: TimeInterval?) -> Int {
+        guard let connectionSetupTime else { return maxStartBitrateKbps }
+        let ramp = min(max((connectionSetupTime - setupTimeForMaxStartBitrate) / (setupTimeForMinStartBitrate - setupTimeForMaxStartBitrate), 0), 1)
+        return Int((Double(maxStartBitrateKbps) - ramp * Double(maxStartBitrateKbps - 300)).rounded())
+    }
+
     /// Start bitrate hinted to libwebrtc's bandwidth estimator for a video sender whose
     /// encodings total `targetBps`, or `nil` to leave libwebrtc's default in place.
     ///
@@ -450,28 +504,32 @@ extension Transport {
     /// track are visibly blurry. The hint is 90% of the target bitrate: high enough to skip
     /// most of the ramp, with headroom for the estimator to settle. The same multiplier is
     /// used for every codec because the target already reflects the codec's efficiency.
-    /// Camera and other sources are capped at ``maxStartBitrateKbps``; screen share is not,
-    /// because its content needs the bitrate immediately to be legible. Targets under
+    /// Camera and other sources are capped by ``startBitrateCapKbps(connectionSetupTime:)``:
+    /// at most ``maxStartBitrateKbps``, less for a connection that was slow to set up. Screen
+    /// share is not capped, because its content needs the bitrate immediately to be legible.
+    /// Targets under
     /// 300 kbps get no hint: below that, seeding above the real capacity costs more than the
     /// ramp it saves.
     ///
     /// Same formula as client-sdk-js (`computeTrackStartBitrate`), rust-sdks
     /// (`compute_start_bitrate_kbps`) and client-sdk-android (`computeTrackStartBitrate`).
-    nonisolated static func startBitrateKbps(targetBps: Int, isScreenShare: Bool) -> Int? {
+    nonisolated static func startBitrateKbps(targetBps: Int, isScreenShare: Bool, connectionSetupTime: TimeInterval? = nil) -> Int? {
         let targetKbps = targetBps / 1000
         guard targetKbps >= 300 else { return nil }
         let startKbps = Int((Double(targetKbps) * 0.9).rounded())
-        return isScreenShare ? startKbps : min(startKbps, maxStartBitrateKbps)
+        return isScreenShare ? startKbps : min(startKbps, startBitrateCapKbps(connectionSetupTime: connectionSetupTime))
     }
 
-    /// ``startBitrateKbps(targetBps:isScreenShare:)`` for a sender's encodings: the target is
+    /// ``startBitrateKbps(targetBps:isScreenShare:connectionSetupTime:)`` for a sender's encodings: the target is
     /// the sum of the active encodings' `maxBitrate` — every simulcast layer, since they are
     /// independent streams the estimator has to fund together; for a single (or SVC) encoding
     /// that is simply its own `maxBitrate`. Encodings without a `maxBitrate` contribute
     /// nothing, so a track that declares none gets no hint.
-    nonisolated static func startBitrateKbps(for encodings: [LKRTCRtpEncodingParameters], isScreenShare: Bool) -> Int? {
+    nonisolated static func startBitrateKbps(for encodings: [LKRTCRtpEncodingParameters], isScreenShare: Bool,
+                                             connectionSetupTime: TimeInterval? = nil) -> Int?
+    {
         let targetBps = encodings.filter(\.isActive).compactMap { $0.maxBitrateBps?.intValue }.reduce(0, +)
-        return startBitrateKbps(targetBps: targetBps, isScreenShare: isScreenShare)
+        return startBitrateKbps(targetBps: targetBps, isScreenShare: isScreenShare, connectionSetupTime: connectionSetupTime)
     }
 
     /// Whether `section` is a video section that can carry local media. `recvonly` and
@@ -707,7 +765,7 @@ extension Transport {
         }
     }
 
-    /// `startBitrateKbps` (see ``startBitrateKbps(targetBps:isScreenShare:)``) is recorded
+    /// `startBitrateKbps` (see ``startBitrateKbps(targetBps:isScreenShare:connectionSetupTime:)``) is recorded
     /// against the new sender here, before returning, so the offer libwebrtc asks for in
     /// response to this call cannot be created without it. It only matters until the
     /// connection-level hint has been written once (``mungeVideoStartBitrate(_:kbpsBySenderId:)``).
