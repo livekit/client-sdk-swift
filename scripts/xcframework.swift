@@ -17,6 +17,10 @@
  */
 
 // swiftlint:disable file_length
+// AEXML is XcodeProj's transitive dependency, pinned here because 4.7.2 raised its
+// macOS floor to 10.14 while XcodeProj still declares 10.13, which SwiftPM rejects.
+// Unused by this script; the import exists only to constrain the resolved version.
+import AEXML // @tadija == 4.7.1
 import ArgumentParser // apple/swift-argument-parser ~> 1.5.0
 import Foundation
 import PathKit // @kylef ~> 1.0
