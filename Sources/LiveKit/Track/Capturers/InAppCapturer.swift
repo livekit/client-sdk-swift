@@ -33,6 +33,16 @@ public class InAppScreenCapturer: VideoCapturer, @unchecked Sendable {
     }
 
     override public func startCapture() async throws -> Bool {
+        do {
+            return try await performStartCapture()
+        } catch {
+            // Balance the counter so a subsequent startCapture() can retry.
+            try? await stopCapture()
+            throw error
+        }
+    }
+
+    private func performStartCapture() async throws -> Bool {
         let didStart = try await super.startCapture()
 
         // Already started
