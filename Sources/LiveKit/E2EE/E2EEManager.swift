@@ -178,6 +178,30 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         }
     }
 
+    /// Sets the key index for the encryptors of a participant.
+    ///
+    /// Re-points the frame cryptors that already exist and updates the key
+    /// provider's current index, so data packets and cryptors created
+    /// afterwards stamp the same index.
+    ///
+    /// - Parameters:
+    ///   - index: The key index to set.
+    ///   - participantIdentity: The identity of the participant, or `nil` (default) for the local participant.
+    public func setKeyIndex(_ index: Int32, participantIdentity: String? = nil) async {
+        guard let identity = participantIdentity ?? _room?.localParticipant.identity?.stringValue else {
+            log("participantIdentity is nil, skipping setKeyIndex...", .warning)
+            return
+        }
+
+        keyProvider.setCurrentKeyIndex(index)
+
+        await RTC.run {
+            for (key, frameCryptor) in _state.frameCryptors where key.keys.first?.stringValue == identity {
+                frameCryptor.keyIndex = index
+            }
+        }
+    }
+
     func addRtpSender(publication: LocalTrackPublication, participantIdentity: Participant.Identity) async {
         guard publication.encryptionType != .none else {
             log("encryptionType is .none, skipping creating frame cryptor...", .warning)
@@ -207,6 +231,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
                 $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
                 $0.trackPublications[frameCryptor] = publication
                 frameCryptor.enabled = $0.enabled
+                frameCryptor.keyIndex = keyProvider.getCurrentKeyIndex()
             }
         }
     }
@@ -240,6 +265,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
                 $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
                 $0.trackPublications[frameCryptor] = publication
                 frameCryptor.enabled = $0.enabled
+                frameCryptor.keyIndex = keyProvider.getCurrentKeyIndex()
             }
         }
     }
