@@ -210,9 +210,11 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
                     if let _result { return _result }
                     if Task.isCancelled { return .failure(LiveKitError(.cancelled)) }
 
-                    // Schedule time-out block
+                    // Schedule time-out block, unless the timeout is infinite
                     let computedTimeout = (timeout?.toDispatchTimeInterval ?? _defaultTimeout)
-                    _timerQueue.asyncAfter(deadline: .now() + computedTimeout, execute: timeoutBlock)
+                    if computedTimeout != .never {
+                        _timerQueue.asyncAfter(deadline: .now() + computedTimeout, execute: timeoutBlock)
+                    }
                     // Store entry
                     _entries[entryId] = WaitEntry(continuation: continuation, timeoutBlock: timeoutBlock)
 
@@ -227,5 +229,15 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
             // Cancel only this completer when Task gets cancelled
             _lock.sync { _entries.removeValue(forKey: entryId) }?.cancel()
         }
+    }
+}
+
+extension Task where Success: Sendable {
+    /// The task's value, or `.cancelled` as soon as the waiting task is cancelled. The task itself
+    /// keeps running: it may be shared, or stuck in a wait that ignores cancellation.
+    func valueUnlessCancelled() async throws -> Success {
+        let completer = AsyncCompleter<Success>(label: "Task value", defaultTimeout: .infinity)
+        Task<Void, Never> { await completer.resume(with: result.mapError { $0 }) }
+        return try await completer.wait()
     }
 }
