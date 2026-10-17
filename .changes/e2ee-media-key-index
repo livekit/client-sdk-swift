@@ -1,0 +1,1 @@
+minor type="fixed" "Media frame cryptors always stamped kid=0 regardless of the index keys were installed at: cryptors now take the key provider's current index when attached, and the new E2EEManager.setKeyIndex(_:participantIdentity:) re-points existing cryptors after a rotation — enabling nonzero trailer key indices for key-ring/epoch-rotation key providers."
