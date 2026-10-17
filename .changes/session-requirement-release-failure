@@ -1,0 +1,1 @@
+patch type="fixed" "Releasing an audio session requirement now always removes it, even when deactivating or reconfiguring the audio session fails, so a failed release no longer keeps the session active for good"
