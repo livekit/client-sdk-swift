@@ -138,6 +138,14 @@ extension Room: SignalClientDelegate {
         log("didReceiveRoomMoved to room: \(response.hasRoom ? response.room.name : "unknown")")
 
         _updateState(for: response)
+
+        // Before the teardown, so no answer racing it can attach to a publication that is about
+        // to be discarded. The move rebuilds every publication on the same peer connection, so a
+        // binding the server carries over unchanged would otherwise read as already-attached.
+        if let publisher = _state.transport?.publisher, publisher.singlePCMode {
+            await publisher.forgetAllMids()
+        }
+
         await _disconnectAllParticipants()
 
         if response.hasRoom {
@@ -393,7 +401,7 @@ extension Room: SignalClientDelegate {
                 // The publication announcement can trail the description that binds it; the next
                 // one still reporting this mid retries.
                 log("No publication yet for \(media.trackSid), deferring attach", .debug)
-                await publisher.forget(mid: midToTrackSid.first { $0.value == media.trackSid }?.key)
+                await publisher.forget(mid: media.mid)
                 continue
             }
 
@@ -472,20 +480,19 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didReceiveMediaSectionsRequirement requirement: Livekit_MediaSectionsRequirement) async {
         guard case let .publisherOnly(publisher) = _state.transport else { return }
 
-        // The count is what the server still needs *on top of* the sections already offered, so
-        // once the initial offer preallocates enough it asks for none. Renegotiating for zero
-        // sections would offer a description identical to the current one, racing the offer a
-        // concurrent publish is making.
-        guard requirement.numAudios > 0 || requirement.numVideos > 0 else {
-            log("Media sections requirement already satisfied, skipping renegotiation", .debug)
-            return
-        }
-
         do {
-            // Additive, matching client-sdk-js and rust-sdks: these come on top of the sections
-            // the initial offer preallocated, not instead of them.
+            // Additive, matching client-sdk-js and rust-sdks: the count is what the server needs
+            // *on top of* the sections already offered, so it is zero once the initial offer
+            // preallocated enough.
             try await publisher.addRecvMediaSections(audio: Int(requirement.numAudios),
                                                      video: Int(requirement.numVideos))
+
+            // Unconditional, including for a zero count. The requirement is the server's only
+            // way to ask for a renegotiation in single PC mode, where the client is the sole
+            // offerer — and the binding it needs to deliver (`a=msid`, `mid_to_track_id`) can
+            // only be stamped on an answer. Skipping the offer when no section has to be added
+            // strands every subscription the preallocated sections already cover, which after a
+            // migration is all of them.
             try await publisherShouldNegotiate()
         } catch {
             log("Failed to add transceivers for media sections requirement: \(error)", .error)

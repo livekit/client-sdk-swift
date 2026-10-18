@@ -772,13 +772,26 @@ extension Transport {
 
     /// Drops a mid from the applied mapping so the next description that still reports it is
     /// treated as a fresh binding. Used when the binding arrived before its publication.
-    func forget(mid: String?) {
-        guard let mid else { return }
+    func forget(mid: String) {
         _midToTrackSid[mid] = nil
+    }
+
+    /// Drops the whole mapping, so the next description is read as if none of it had been
+    /// applied.
+    ///
+    /// The mapping is a diff against what has already been attached, and it is keyed by this
+    /// peer connection's mids — so it is normally retired with the connection. A room move is
+    /// the one event that invalidates it without ending the connection: every publication is
+    /// torn down and rebuilt on the same peer connection, so a binding the server carries over
+    /// unchanged would otherwise read as "no change" and never be re-attached to the new
+    /// publication.
+    func forgetAllMids() {
+        _midToTrackSid.removeAll()
     }
 
     /// One receive m-section the server has bound to a published track.
     struct ReceivedMedia {
+        let mid: String
         let trackSid: Track.Sid
         let track: RTCMediaTrack
         let receiver: RTCReceiver
@@ -819,7 +832,8 @@ extension Transport {
                 _midToTrackSid[mid] = nil
                 return nil
             }
-            return ReceivedMedia(trackSid: trackSid,
+            return ReceivedMedia(mid: mid,
+                                 trackSid: trackSid,
                                  track: RTCMediaTrack(track),
                                  receiver: RTCReceiver(transceiver.receiver))
         }
