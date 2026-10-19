@@ -155,6 +155,7 @@ struct FrameCryptorKeyIndexTests {
 @Suite(.tags(.e2ee))
 struct KeyIndexObserverTests {
     private static let keyRingSize: Int32 = 16
+    private static let room = Room()
 
     private static func provider(sharedKey: Bool = true) -> BaseKeyProvider {
         BaseKeyProvider(options: KeyProviderOptions(sharedKey: sharedKey, keyRingSize: keyRingSize))
@@ -243,7 +244,7 @@ struct KeyIndexObserverTests {
         let provider = Self.provider()
         let manager = E2EEManager(options: EncryptionOptions(keyProvider: provider))
         let publication = LocalTrackPublication(info: Livekit_TrackInfo.with { $0.sid = "TR_sender" },
-                                                participant: Room().localParticipant)
+                                                participant: Self.room.localParticipant)
         provider.setCurrentKeyIndex(4)
 
         try await RTC.run {
