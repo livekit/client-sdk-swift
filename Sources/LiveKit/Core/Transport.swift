@@ -59,13 +59,17 @@ final class Transport: NSObject, Loggable {
 
     private var _reNegotiate: Bool = false
 
-    /// The server's `mid` → track SID mapping from the most recent session description.
+    /// The server's `mid` → track SID mapping, accumulated across session descriptions.
     ///
-    /// The authority for identifying received media in single PC mode. Lives here rather than on
+    /// The authority for naming received media in single PC mode. Lives here rather than on
     /// `Room` because it is keyed by this peer connection's mids, so it is retired exactly when
     /// the connection is — surviving a quick reconnect (same PC, same mids) and going away with a
     /// full one.
     private var _midToTrackSid: [String: Track.Sid] = [:]
+
+    /// Sections whose media has already been handed to the room, so repeated scans of the same
+    /// binding do not attach it twice. See ``receivedMedia(applying:)``.
+    private var _dispatchedSections: Set<DispatchedSection> = []
 
     /// A local offer that has been signalled but not yet applied with
     /// `setLocalDescription`. See ``createInitialOffer()``.
@@ -770,23 +774,23 @@ extension Transport {
         }
     }
 
-    /// Drops a mid from the applied mapping so the next description that still reports it is
-    /// treated as a fresh binding. Used when the binding arrived before its publication.
-    func forget(mid: String) {
-        _midToTrackSid[mid] = nil
+    /// Forgets that `(mid, trackSid)` was dispatched, so the next scan reports it again. Used
+    /// when the binding arrived before the publication that names it.
+    func undispatch(mid: String, trackSid: Track.Sid) {
+        _dispatchedSections.remove(DispatchedSection(mid: mid, trackSid: trackSid))
     }
 
-    /// Drops the whole mapping, so the next description is read as if none of it had been
-    /// applied.
+    /// Drops the mapping and the dispatch record, so the next scan reads the connection as if
+    /// nothing had been attached from it.
     ///
-    /// The mapping is a diff against what has already been attached, and it is keyed by this
-    /// peer connection's mids — so it is normally retired with the connection. A room move is
-    /// the one event that invalidates it without ending the connection: every publication is
-    /// torn down and rebuilt on the same peer connection, so a binding the server carries over
-    /// unchanged would otherwise read as "no change" and never be re-attached to the new
-    /// publication.
-    func forgetAllMids() {
+    /// Both are keyed by this peer connection's mids, so they are normally retired with the
+    /// connection. A room move is the one event that invalidates them without ending it: every
+    /// publication is torn down and rebuilt on the same peer connection, so a section the server
+    /// carries over unchanged would otherwise still read as dispatched and never re-attach to
+    /// the new publication.
+    func forgetReceivedMedia() {
         _midToTrackSid.removeAll()
+        _dispatchedSections.removeAll()
     }
 
     /// One receive m-section the server has bound to a published track.
@@ -797,45 +801,57 @@ extension Transport {
         let receiver: RTCReceiver
     }
 
-    /// Applies the server's `mid` → track SID mapping and reports the sections that became bound
-    /// since the last call.
-    ///
-    /// Replaces rather than merges: each session description carries the complete mapping, so a
-    /// mid dropping out means the server unbound it.
-    ///
-    /// - Returns: The newly bound sections whose receiver already has a track, for the caller to
-    ///   attach. Empty when nothing changed.
-    func apply(midToTrackSid mapping: [String: Track.Sid]) -> [ReceivedMedia] {
-        let previous = _midToTrackSid
-        _midToTrackSid = mapping
+    /// A section whose media has already been handed to the room, so the next scan skips it.
+    private struct DispatchedSection: Hashable {
+        let mid: String
+        let trackSid: Track.Sid
+    }
 
-        let newlyBound = mapping.filter { previous[$0.key] != $0.value }
-        guard !newlyBound.isEmpty else { return [] }
+    /// Records the server's `mid` → track SID mapping, then reports every bound section the room
+    /// has not been given yet.
+    ///
+    /// The mapping is merged, not replaced: a description carries the bindings it is announcing,
+    /// and an answer that mentions no mid is not a statement that previous ones were unbound.
+    ///
+    /// The *trigger* is the transceiver scan, not a change in the mapping. Native libwebrtc fires
+    /// `didAddTrack` only when a transceiver is first created — never when an already-negotiated
+    /// `recvonly` section has a track bound to it by an msid update, which is exactly what the
+    /// SFU does when it fills a preallocated section. Browsers hide this by diffing receiver
+    /// streams on every `setRemoteDescription` (blink's `RTCPeerConnection::DidModifyTransceivers`);
+    /// rust-sdks reimplements that diff in `process_remote_track_addition`. This is the same diff,
+    /// keyed by `(mid, trackSid)` because the ObjC `RTCRtpReceiver` does not expose `streams`.
+    ///
+    /// Scanning rather than diffing the mapping is what makes it self-healing: a section that is
+    /// negotiated before it carries a track, or named before its publication arrives, is simply
+    /// picked up by a later scan — no bookkeeping required at the point of failure.
+    ///
+    /// - Returns: Bound sections not yet dispatched, for the caller to attach.
+    func receivedMedia(applying mapping: [String: Track.Sid]) -> [ReceivedMedia] {
+        _midToTrackSid.merge(mapping) { _, new in new }
 
-        // `mid` is documented as nil until negotiation completes, and again after a rollback,
-        // despite the ObjC declaration not being nullability-audited.
-        var transceiversByMid: [String: LKRTCRtpTransceiver] = [:]
+        var current: [DispatchedSection: ReceivedMedia] = [:]
         for transceiver in _pc.transceivers {
-            guard let mid = transceiver.mid as String?, !mid.isEmpty else { continue }
-            if transceiversByMid[mid] == nil { transceiversByMid[mid] = transceiver }
+            // `mid` is documented as nil until negotiation completes, and again after a
+            // rollback, despite the ObjC declaration not being nullability-audited.
+            guard let mid = transceiver.mid as String?, !mid.isEmpty,
+                  let trackSid = _midToTrackSid[mid],
+                  let track = transceiver.receiver.track
+            else { continue }
+
+            let key = DispatchedSection(mid: mid, trackSid: trackSid)
+            guard current[key] == nil else { continue }
+            current[key] = ReceivedMedia(mid: mid,
+                                         trackSid: trackSid,
+                                         track: RTCMediaTrack(track),
+                                         receiver: RTCReceiver(transceiver.receiver))
         }
 
-        return newlyBound.compactMap { mid, trackSid in
-            guard let transceiver = transceiversByMid[mid] else {
-                log("No transceiver for mid \(mid) bound to \(trackSid)", .warning)
-                return nil
-            }
-            guard let track = transceiver.receiver.track else {
-                // The section is negotiated but carries no track yet; a later description that
-                // still maps this mid re-reports it, since the mapping only advances on change.
-                log("Transceiver for mid \(mid) has no receiver track yet", .debug)
-                _midToTrackSid[mid] = nil
-                return nil
-            }
-            return ReceivedMedia(mid: mid,
-                                 trackSid: trackSid,
-                                 track: RTCMediaTrack(track),
-                                 receiver: RTCReceiver(transceiver.receiver))
+        // Drop records for sections that no longer exist, so a mid the SFU later rebinds to the
+        // same track is reported again instead of being mistaken for the earlier binding.
+        _dispatchedSections.formIntersection(current.keys)
+
+        return current.compactMap { key, media in
+            _dispatchedSections.insert(key).inserted ? media : nil
         }
     }
 

@@ -141,9 +141,9 @@ extension Room: SignalClientDelegate {
 
         // Before the teardown, so no answer racing it can attach to a publication that is about
         // to be discarded. The move rebuilds every publication on the same peer connection, so a
-        // binding the server carries over unchanged would otherwise read as already-attached.
+        // section the server carries over unchanged would otherwise still read as dispatched.
         if let publisher = _state.transport?.publisher, publisher.singlePCMode {
-            await publisher.forgetAllMids()
+            await publisher.forgetReceivedMedia()
         }
 
         await _disconnectAllParticipants()
@@ -385,23 +385,23 @@ extension Room: SignalClientDelegate {
     /// Attaches media the server has bound to the publisher's receive sections.
     ///
     /// In single PC mode this is the only path that identifies received media. The `didAddTrack`
-    /// callback cannot: a section the client preallocated is answered without an `a=msid`, so
-    /// libwebrtc reports a synthesized stream id carrying no participant or track, and it does
-    /// not fire again when the server later binds a track to that section. The `mid` → track SID
-    /// mapping on each session description is what carries the binding, so applying it is what
-    /// drives the attach. Mirrors `mid_to_track_id` handling in rust-sdks.
+    /// callback cannot: native libwebrtc fires it when a transceiver is created, never when an
+    /// already-negotiated `recvonly` section has a track bound to it — which is what the SFU does
+    /// to a section the client preallocated. ``Transport/receivedMedia(applying:)`` recovers those
+    /// by scanning the transceivers after each description, the same diff browsers run natively
+    /// and rust-sdks reimplements in `process_remote_track_addition`.
     private func attachReceivedMedia(on publisher: Transport, midToTrackSid: [String: Track.Sid]) async {
-        let received = await publisher.apply(midToTrackSid: midToTrackSid)
+        let received = await publisher.receivedMedia(applying: midToTrackSid)
         guard !received.isEmpty else { return }
 
         for media in received {
             guard let participant = _state.read({ state in
                 state.remoteParticipants.values.first { $0._state.trackPublications[media.trackSid] != nil }
             }) else {
-                // The publication announcement can trail the description that binds it; the next
-                // one still reporting this mid retries.
+                // The publication announcement can trail the description that binds it. Undoing
+                // the dispatch is what lets a later scan pick the section up again.
                 log("No publication yet for \(media.trackSid), deferring attach", .debug)
-                await publisher.forget(mid: media.mid)
+                await publisher.undispatch(mid: media.mid, trackSid: media.trackSid)
                 continue
             }
 
@@ -411,6 +411,7 @@ extension Room: SignalClientDelegate {
                                                               trackSid: media.trackSid)
             } catch {
                 log("Failed to attach \(media.trackSid) resolved by mid: \(error)", .error)
+                await publisher.undispatch(mid: media.mid, trackSid: media.trackSid)
             }
         }
     }
