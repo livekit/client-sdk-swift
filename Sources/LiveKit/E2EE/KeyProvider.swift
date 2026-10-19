@@ -113,7 +113,6 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
 
     struct State {
         var currentKeyIndex: Int32 = 0
-        var localParticipantId: String?
         var keyIndexObservers = [ObjectIdentifier: @Sendable (Int32) -> Void]()
     }
 
@@ -157,9 +156,9 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
 
     /// Sets a raw binary key without any string conversion.
     ///
-    /// Installing a key also makes `index` the current key index (see ``setCurrentKeyIndex(_:)``),
-    /// except that in non-shared key mode a key installed for a remote participant leaves it alone
-    /// once the local participant's identity is known, i.e. after the room has connected.
+    /// In shared key mode installing a key also makes `index` the current key index. In non-shared
+    /// key mode it does not, since the key may belong to a remote participant: switch the local
+    /// participant's index with ``setCurrentKeyIndex(_:)``.
     ///
     /// - Parameters:
     ///   - keyData: The key bytes, stored as provided.
@@ -180,10 +179,6 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
         }
 
         rtcKeyProvider.setKey(keyData, with: targetIndex, forParticipant: participantId)
-
-        if _state.read({ $0.localParticipantId ?? participantId }) == participantId {
-            setCurrentKeyIndex(targetIndex)
-        }
     }
 
     public func ratchetKey(participantId: String? = nil, index: Int32? = nil) -> Data? {
@@ -242,8 +237,8 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
 
     // MARK: - Internal
 
-    func setLocalParticipantId(_ participantId: String?) {
-        _state.mutate { $0.localParticipantId = participantId }
+    var keyIndexObserverCount: Int {
+        _state.keyIndexObservers.count
     }
 
     func addKeyIndexObserver(_ owner: AnyObject, _ observer: @escaping @Sendable (Int32) -> Void) {

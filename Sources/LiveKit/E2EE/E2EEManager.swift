@@ -315,10 +315,6 @@ extension E2EEManager {
 }
 
 extension E2EEManager: RoomDelegate {
-    public func roomDidConnect(_ room: Room) {
-        keyProvider.setLocalParticipantId(room.localParticipant.identity?.stringValue)
-    }
-
     public func room(_: Room, participant: LocalParticipant, didPublishTrack publication: LocalTrackPublication) {
         guard let participantIdentity = participant.identity else { return }
         requestContinuation.yield(.attach(publication, participantIdentity))

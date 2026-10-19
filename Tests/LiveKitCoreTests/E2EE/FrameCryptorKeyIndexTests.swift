@@ -84,12 +84,12 @@ struct FrameCryptorKeyIndexTests {
 
     /// Publishes a buffer-captured video track fed with blank frames; a headless `TestAudioTrack`
     /// captures nothing, so no encoded frame of its ever reaches a cryptor.
-    private static func publishVideo(in room: Room) async throws -> Task<Void, Never> {
+    private static func publishVideo(in room: Room) async throws -> AnyTaskCancellable {
         let track = await LocalVideoTrack.createBufferTrack(name: "camera",
                                                             source: .camera,
                                                             options: BufferCaptureOptions(dimensions: dimensions))
         let capturer = try #require(track.capturer as? BufferCapturer)
-        let feeder = capturer.startFeedingFrames(dimensions: dimensions)
+        let feeder = capturer.startFeedingFrames(dimensions: dimensions).cancellable()
         _ = try await room.localParticipant.publish(videoTrack: track)
         return feeder
     }
@@ -107,7 +107,7 @@ struct FrameCryptorKeyIndexTests {
             peers.subscriber.onState { if $0 == .ok { decrypted() } }
 
             try await TestEnvironment.withRooms(peers.rooms) { rooms in
-                let feeder = try await Self.publishVideo(in: rooms[0])
+                let feeder = try await Self.publishVideo(in: #require(rooms.first))
                 defer { feeder.cancel() }
                 // A publisher that cannot find its own key reports it at once; do not wait out the
                 // subscriber's budget for frames that were never sent.
@@ -135,7 +135,7 @@ struct FrameCryptorKeyIndexTests {
         peers.subscriberKeys.setKey(key: "k1", index: 1)
 
         try await TestEnvironment.withRooms(peers.rooms) { rooms in
-            let feeder = try await Self.publishVideo(in: rooms[0])
+            let feeder = try await Self.publishVideo(in: #require(rooms.first))
             defer { feeder.cancel() }
             try await peers.subscriber.waitFor(.ok)
 
@@ -182,21 +182,17 @@ struct KeyIndexObserverTests {
     }
 
     @Test
-    func remoteParticipantKeyDoesNotMoveIndex() {
+    func perParticipantSetKeyDoesNotMoveIndex() {
         let provider = Self.provider(sharedKey: false)
-        provider.setLocalParticipantId("alice")
         let fired = Self.observed(provider) {
-            $0.setKey(key: "k", participantId: "bob", index: 3)
-            $0.setKey(key: "k", participantId: "alice", index: 5)
+            $0.setKey(key: "k", participantId: "remote", index: 3)
+            $0.setKey(key: "k", participantId: "local", index: 5)
         }
-        #expect(fired == [5])
-        #expect(provider.getCurrentKeyIndex() == 5)
-    }
+        #expect(fired.isEmpty)
+        #expect(provider.getCurrentKeyIndex() == 0)
 
-    @Test
-    func anyParticipantKeyMovesIndexUntilLocalIdentityIsKnown() {
-        let provider = Self.provider(sharedKey: false)
-        #expect(Self.observed(provider) { $0.setKey(key: "k", participantId: "bob", index: 3) } == [3])
+        #expect(Self.observed(provider) { $0.setCurrentKeyIndex(5) } == [5])
+        #expect(provider.getCurrentKeyIndex() == 5)
     }
 
     @Test
@@ -221,5 +217,25 @@ struct KeyIndexObserverTests {
         }
         #expect(manager == nil)
         provider.setCurrentKeyIndex(1)
+    }
+
+    /// One provider shared by several managers keeps one observer per manager, and a manager
+    /// going away leaves the others registered.
+    @Test
+    func sharedProviderKeepsRemainingManagersObserving() {
+        let provider = Self.provider()
+        #expect(provider.keyIndexObserverCount == 0)
+
+        let survivor = E2EEManager(options: EncryptionOptions(keyProvider: provider))
+        do {
+            let transient = E2EEManager(options: EncryptionOptions(keyProvider: provider))
+            #expect(provider.keyIndexObserverCount == 2)
+            withExtendedLifetime(transient) {}
+        }
+        #expect(provider.keyIndexObserverCount == 1)
+
+        provider.setCurrentKeyIndex(3)
+        #expect(provider.getCurrentKeyIndex() == 3)
+        withExtendedLifetime(survivor) {}
     }
 }
