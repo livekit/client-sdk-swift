@@ -470,6 +470,10 @@ extension Transport {
     /// bandwidth estimator from opening too aggressively on high-bitrate (e.g. 4K) tracks.
     nonisolated static let maxStartBitrateKbps = 1000
 
+    /// Smallest target, in kbps, that gets a start bitrate hint, and the lowest cap a slow
+    /// connection setup brings a hint down to: libwebrtc's own default starting estimate.
+    nonisolated static let minStartBitrateKbps = 300
+
     /// Connection setup times, in seconds, bounding the ramp in
     /// ``startBitrateCapKbps(connectionSetupTime:)``. Measured on shaped links (CLT-3380):
     /// healthy links set up in under 860 ms, a 1 Mbps link with 150 ms RTT in 1.1–1.7 s, a
@@ -484,16 +488,17 @@ extension Transport {
     /// is before the first video offer, since libwebrtc cannot probe the path until a video
     /// sender exists. It grows with round-trip time and loss, which also mark the links where
     /// a 1 Mbps seed overshoots, so the cap ramps linearly from ``maxStartBitrateKbps`` at
-    /// ``setupTimeForMaxStartBitrate`` down to 300 kbps (libwebrtc's own default) at
+    /// ``setupTimeForMaxStartBitrate`` down to ``minStartBitrateKbps`` at
     /// ``setupTimeForMinStartBitrate``. Without a setup time it is ``maxStartBitrateKbps``.
-    /// Screen share is exempt, however slow the setup.
     ///
     /// Same ramp as client-sdk-js (`computeStartBitrateCap`), rust-sdks
     /// (`compute_start_bitrate_kbps`) and client-sdk-android (`computeTrackStartBitrate`).
+    /// Screen share stays uncapped however slow the setup, as in client-sdk-js; merged rust-sdks
+    /// and client-sdk-android cap it once the ramp drops below ``maxStartBitrateKbps``.
     nonisolated static func startBitrateCapKbps(connectionSetupTime: TimeInterval?) -> Int {
         guard let connectionSetupTime else { return maxStartBitrateKbps }
         let ramp = min(max((connectionSetupTime - setupTimeForMaxStartBitrate) / (setupTimeForMinStartBitrate - setupTimeForMaxStartBitrate), 0), 1)
-        return Int((Double(maxStartBitrateKbps) - ramp * Double(maxStartBitrateKbps - 300)).rounded())
+        return Int((Double(maxStartBitrateKbps) - ramp * Double(maxStartBitrateKbps - minStartBitrateKbps)).rounded())
     }
 
     /// Start bitrate hinted to libwebrtc's bandwidth estimator for a video sender whose
@@ -507,15 +512,18 @@ extension Transport {
     /// Camera and other sources are capped by ``startBitrateCapKbps(connectionSetupTime:)``:
     /// at most ``maxStartBitrateKbps``, less for a connection that was slow to set up. Screen
     /// share is not capped, because its content needs the bitrate immediately to be legible.
-    /// Targets under
-    /// 300 kbps get no hint: below that, seeding above the real capacity costs more than the
-    /// ramp it saves.
+    /// Targets under ``minStartBitrateKbps`` get no hint: below that, seeding above the real
+    /// capacity costs more than the ramp it saves.
     ///
     /// Same formula as client-sdk-js (`computeTrackStartBitrate`), rust-sdks
-    /// (`compute_start_bitrate_kbps`) and client-sdk-android (`computeTrackStartBitrate`).
-    nonisolated static func startBitrateKbps(targetBps: Int, isScreenShare: Bool, connectionSetupTime: TimeInterval? = nil) -> Int? {
+    /// (`compute_start_bitrate_kbps`) and client-sdk-android (`computeTrackStartBitrate`),
+    /// except for screen share on a slow setup; see ``startBitrateCapKbps(connectionSetupTime:)``.
+    ///
+    /// `connectionSetupTime` has no default, so a video publish path cannot leave out the
+    /// ramp by accident; pass `nil` only where no connection exists.
+    nonisolated static func startBitrateKbps(targetBps: Int, isScreenShare: Bool, connectionSetupTime: TimeInterval?) -> Int? {
         let targetKbps = targetBps / 1000
-        guard targetKbps >= 300 else { return nil }
+        guard targetKbps >= minStartBitrateKbps else { return nil }
         let startKbps = Int((Double(targetKbps) * 0.9).rounded())
         return isScreenShare ? startKbps : min(startKbps, startBitrateCapKbps(connectionSetupTime: connectionSetupTime))
     }
@@ -526,7 +534,7 @@ extension Transport {
     /// that is simply its own `maxBitrate`. Encodings without a `maxBitrate` contribute
     /// nothing, so a track that declares none gets no hint.
     nonisolated static func startBitrateKbps(for encodings: [LKRTCRtpEncodingParameters], isScreenShare: Bool,
-                                             connectionSetupTime: TimeInterval? = nil) -> Int?
+                                             connectionSetupTime: TimeInterval?) -> Int?
     {
         let targetBps = encodings.filter(\.isActive).compactMap { $0.maxBitrateBps?.intValue }.reduce(0, +)
         return startBitrateKbps(targetBps: targetBps, isScreenShare: isScreenShare, connectionSetupTime: connectionSetupTime)

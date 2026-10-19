@@ -203,9 +203,12 @@ struct TransportMungeFallbackTests {
         try await withTransport { transport in
             #expect(await transport.connectionSetupTime == nil)
 
-            await transport.set(connectStartedAt: ProcessInfo.processInfo.systemUptime - 60)
+            let startedAt = ProcessInfo.processInfo.systemUptime - 60
+            await transport.set(connectStartedAt: startedAt)
+            let before = ProcessInfo.processInfo.systemUptime
             let elapsed = try #require(await transport.connectionSetupTime)
-            #expect(elapsed >= 60 && elapsed < 70)
+            let after = ProcessInfo.processInfo.systemUptime
+            #expect((before - startedAt) ... (after - startedAt) ~= elapsed)
 
             await transport.set(connectionSetupTime: 0.8)
             #expect(await transport.connectionSetupTime == 0.8)

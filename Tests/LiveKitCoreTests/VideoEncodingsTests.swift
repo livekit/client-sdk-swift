@@ -43,7 +43,7 @@ struct VideoEncodingsTests {
         try #require(backup.count == 1)
         #expect(backup[0].maxBitrateBps?.intValue == 4_000_000)
         #expect(backup[0].maxBitrateBps == primary[0].maxBitrateBps)
-        #expect(Transport.startBitrateKbps(for: backup, isScreenShare: true) == 3600)
+        #expect(Transport.startBitrateKbps(for: backup, isScreenShare: true, connectionSetupTime: nil) == 3600)
     }
 
     /// Without `isScreenShare` the same call falls back to the camera encoding — the
