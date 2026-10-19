@@ -105,6 +105,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         requestContinuation = continuation
         super.init()
         observe(requests: requests)
+        observeKeyIndex()
     }
 
     public init(options: EncryptionOptions) {
@@ -114,11 +115,30 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         requestContinuation = continuation
         super.init()
         observe(requests: requests)
+        observeKeyIndex()
+    }
+
+    deinit {
+        keyProvider.removeKeyIndexObserver(self)
     }
 
     private func observe(requests: AsyncStream<Request>) {
         requestLoop = requests.subscribe(self) { manager, request in
             await manager.apply(request)
+        }
+    }
+
+    private func observeKeyIndex() {
+        keyProvider.addKeyIndexObserver(self) { [weak self] index in
+            self?.setSenderKeyIndex(index)
+        }
+    }
+
+    private func setSenderKeyIndex(_ index: Int32) {
+        _state.mutate {
+            for (frameCryptor, publication) in $0.trackPublications where publication is LocalTrackPublication {
+                frameCryptor.keyIndex = index
+            }
         }
     }
 
@@ -207,6 +227,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
                 $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
                 $0.trackPublications[frameCryptor] = publication
                 frameCryptor.enabled = $0.enabled
+                frameCryptor.keyIndex = keyProvider.getCurrentKeyIndex()
             }
         }
     }
@@ -294,6 +315,10 @@ extension E2EEManager {
 }
 
 extension E2EEManager: RoomDelegate {
+    public func roomDidConnect(_ room: Room) {
+        keyProvider.setLocalParticipantId(room.localParticipant.identity?.stringValue)
+    }
+
     public func room(_: Room, participant: LocalParticipant, didPublishTrack publication: LocalTrackPublication) {
         guard let participantIdentity = participant.identity else { return }
         requestContinuation.yield(.attach(publication, participantIdentity))

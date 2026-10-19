@@ -1,0 +1,1 @@
+patch type="fixed" "Fix media frame cryptors ignoring the key provider's current key index; senders now follow `setKey(index:)` / `setCurrentKeyIndex` live"

@@ -113,6 +113,8 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
 
     struct State {
         var currentKeyIndex: Int32 = 0
+        var localParticipantId: String?
+        var keyIndexObservers = [ObjectIdentifier: @Sendable (Int32) -> Void]()
     }
 
     private let _state = StateSync(State())
@@ -155,6 +157,10 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
 
     /// Sets a raw binary key without any string conversion.
     ///
+    /// Installing a key also makes `index` the current key index (see ``setCurrentKeyIndex(_:)``),
+    /// except that in non-shared key mode a key installed for a remote participant leaves it alone
+    /// once the local participant's identity is known, i.e. after the room has connected.
+    ///
     /// - Parameters:
     ///   - keyData: The key bytes, stored as provided.
     ///   - participantId: Required in non-shared key mode; the call is a no-op when `nil`.
@@ -164,16 +170,20 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
 
         if options.sharedKey {
             rtcKeyProvider.setSharedKey(keyData, with: targetIndex)
-        } else {
-            if participantId == nil {
-                log("setKey: Please provide valid participantId for non-SharedKey mode.")
-                return
-            }
-
-            rtcKeyProvider.setKey(keyData, with: targetIndex, forParticipant: participantId!)
+            setCurrentKeyIndex(targetIndex)
+            return
         }
 
-        setCurrentKeyIndex(targetIndex)
+        guard let participantId else {
+            log("setKey: Please provide valid participantId for non-SharedKey mode.")
+            return
+        }
+
+        rtcKeyProvider.setKey(keyData, with: targetIndex, forParticipant: participantId)
+
+        if _state.read({ $0.localParticipantId ?? participantId }) == participantId {
+            setCurrentKeyIndex(targetIndex)
+        }
     }
 
     public func ratchetKey(participantId: String? = nil, index: Int32? = nil) -> Data? {
@@ -210,12 +220,38 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
         rtcKeyProvider.setSifTrailer(trailer)
     }
 
+    /// The key index the local participant encrypts with: stamped into every outgoing media frame
+    /// and data packet, and pushed to the live media senders when it changes.
     public func getCurrentKeyIndex() -> Int32 {
         _state.currentKeyIndex
     }
 
+    /// Switches the local participant's encryption to the key at `index` (modulo the key ring size).
+    ///
+    /// Takes effect immediately for the media tracks already published and for every data packet
+    /// sent afterwards. Receivers are unaffected: they read the index from each frame.
     public func setCurrentKeyIndex(_ index: Int32) {
-        _state.mutate { $0.currentKeyIndex = index % options.keyRingSize }
+        let (currentKeyIndex, observers) = _state.mutate {
+            $0.currentKeyIndex = index % options.keyRingSize
+            return ($0.currentKeyIndex, Array($0.keyIndexObservers.values))
+        }
+        for observer in observers {
+            observer(currentKeyIndex)
+        }
+    }
+
+    // MARK: - Internal
+
+    func setLocalParticipantId(_ participantId: String?) {
+        _state.mutate { $0.localParticipantId = participantId }
+    }
+
+    func addKeyIndexObserver(_ owner: AnyObject, _ observer: @escaping @Sendable (Int32) -> Void) {
+        _state.mutate { $0.keyIndexObservers[ObjectIdentifier(owner)] = observer }
+    }
+
+    func removeKeyIndexObserver(_ owner: AnyObject) {
+        _state.mutate { $0.keyIndexObservers[ObjectIdentifier(owner)] = nil }
     }
 
     // MARK: - Equal
