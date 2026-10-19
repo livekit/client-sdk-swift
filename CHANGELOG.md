@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.18.0] - 2026-10-13
+
+### Added
+
+- Custom video encoder factories: call LiveKitSDK.set(videoEncoderFactory:) before any other SDK API with an implementation of the new VideoEncoderFactory and VideoEncoder protocols to supply H264 or H265 encoders in place of the default VideoToolbox backed ones, optionally with exclusive: true so VideoToolbox never encodes
+- Screen sharing on iOS 27+ now captures in-process via ScreenCaptureKit, selecting content through the system picker with no Broadcast Upload Extension or app group. Enabling screen share waits for the user's selection and throws if they dismiss the picker, so no empty track is published, and stopping the share from system UI unpublishes the track. Set the new `ScreenShareCaptureOptions.useScreenCaptureKit` to `false` to keep the ReplayKit paths on iOS 27
+- Enable WARP (SPED: DTLS handshake carried in the ICE exchange, SNAP: SCTP association parameters in SDP), shortening connection and data channel setup. Always on and negotiated with the server: a server without WARP support gets a standard handshake
+
+### Changed
+
+- Drop signal messages that arrive before the Join/ReconnectResponse, matching the Rust SDK, and log a warning naming each dropped message type
+- In single peer connection mode the publisher offer is now created before the signal socket opens and bundled with the JOIN request, so the server answers it in the same exchange — removing a round trip from the connect path, which matters most on high-latency links
+- Published video starts at 90% of its target bitrate (capped at 1 Mbps unless it is a screen share) instead of libwebrtc's ~300 kbps default, by declaring `x-google-start-bitrate` on the video codecs' fmtp in the publisher's offer. The hint is one connection-level value — the largest among the sending video tracks — written to every video section, and only on the first offer that carries local video, since libwebrtc applies it to the whole peer connection and retains it across network route changes. Same behaviour as client-sdk-js, rust-sdks and client-sdk-android
+
+### Fixed
+
+- Fix a failed full reconnect being reported as success: the room read `.connected` on a session the full reconnect had already cleaned up (no sid, no participants, no media) and never reconnected or disconnected; later attempts now retry the full reconnect, and when all fail the room disconnects with the error
+- Audio transceivers are now stopped on unpublish, the same as video, so repeated publish/unpublish cycles no longer accumulate native transceiver memory for the lifetime of the connection
+- Publishing a data track while a full reconnect was in progress could fail with a disconnected error, because the reconnect republished existing tracks after the new publish had already started; the publish now waits until the republish has been issued
+- Fix a crash on WebRTC's signaling thread when a track was published while the room was disconnecting or reconnecting
+- Data published right after `connect()` could be discarded without reporting an error in single peer connection and publisher-primary modes: the send path skipped the data channel open wait outside subscriber-primary, and a write handed to a channel that is still opening is evicted by the next one on the lossy channel's drop-oldest queue. Every send now waits for the specific channel (reliable or lossy) it will be written to, a send issued while the room is disconnected fails immediately instead of waiting out that timeout, and the first discarded write on a channel is now logged
+- Fix the broadcast extension retrying the IPC connection in a busy loop
+- Publish a broadcast started from the broadcast extension on iOS 27 through Broadcast Capture instead of presenting the ScreenCaptureKit picker, which stopped broadcasts started from Control Center
+- Fix `VideoView` ending up attached to the wrong track, or to none, after rapid `track` / `isEnabled` changes; a burst of changes now costs at most one detach and one attach instead of one per change, and a view that is deallocated while attached detaches itself from the track (#1139)
+- Fix the broadcast screen share capturer leaking when capture stops before the broadcast extension connects, and warn when more than one broadcast screen share is active
+- Fail over to another LiveKit Cloud region when a connection is rejected with HTTP 403. Cloud signals project-level region pinning with a 403 on the RTC paths, which was previously treated as terminal, so a client that geo-routed to a disallowed region never reached one it was allowed to use (#1120)
+- Fix a deadlock when a `waitUntilActive` / `waitUntilAnyActive` timeout fired at the moment the wait was cancelled, which could hang the app's task and a timer thread
+- Declare the LiveKit target's direct dependency on CLiveKitProto so consumers that link each SwiftPM target as its own framework (e.g. Tuist) no longer fail with undefined nanopb descriptor symbols (#1126)
+- Stop the broadcast extension when the automatic screen share publish fails, and report a disconnected room instead of a permission error when publishing
+- Prefix the vendored nanopb header names, include guards and C type names (lk_pb.h, lk_pb_msgdesc_t) so a SwiftPM graph that also contains another nanopb -- Firebase's, or one the app imports directly -- no longer fails to compile (#1133)
+- A pre-connect audio buffer flush that raced a late send could hand the flushed stream to a room that was not connected; the flush now takes the stream before the recorder reports stopped, so the late send is the silent no-op it is documented to be
+
 ## [2.17.0] - 2026-09-10
 
 ### Added
