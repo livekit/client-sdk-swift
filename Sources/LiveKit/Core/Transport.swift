@@ -492,9 +492,8 @@ extension Transport {
     /// ``setupTimeForMinStartBitrate``. Without a setup time it is ``maxStartBitrateKbps``.
     ///
     /// Same ramp as client-sdk-js (`computeStartBitrateCap`), rust-sdks
-    /// (`compute_start_bitrate_kbps`) and client-sdk-android (`computeTrackStartBitrate`).
-    /// Screen share stays uncapped however slow the setup, as in client-sdk-js; merged rust-sdks
-    /// and client-sdk-android cap it once the ramp drops below ``maxStartBitrateKbps``.
+    /// (`compute_start_bitrate_kbps`) and client-sdk-android (`computeTrackStartBitrate`), all of
+    /// which also leave screen share uncapped however slow the setup.
     nonisolated static func startBitrateCapKbps(connectionSetupTime: TimeInterval?) -> Int {
         guard let connectionSetupTime else { return maxStartBitrateKbps }
         let ramp = min(max((connectionSetupTime - setupTimeForMaxStartBitrate) / (setupTimeForMinStartBitrate - setupTimeForMaxStartBitrate), 0), 1)
@@ -516,8 +515,7 @@ extension Transport {
     /// capacity costs more than the ramp it saves.
     ///
     /// Same formula as client-sdk-js (`computeTrackStartBitrate`), rust-sdks
-    /// (`compute_start_bitrate_kbps`) and client-sdk-android (`computeTrackStartBitrate`),
-    /// except for screen share on a slow setup; see ``startBitrateCapKbps(connectionSetupTime:)``.
+    /// (`compute_start_bitrate_kbps`) and client-sdk-android (`computeTrackStartBitrate`).
     ///
     /// `connectionSetupTime` has no default, so a video publish path cannot leave out the
     /// ramp by accident; pass `nil` only where no connection exists.
