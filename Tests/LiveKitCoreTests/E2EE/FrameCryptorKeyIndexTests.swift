@@ -20,7 +20,7 @@ import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
-@preconcurrency import LiveKitWebRTC
+import LiveKitWebRTC
 
 /// Records every frame-cryptor state a room reports.
 private final class E2EEStateWatcher: RoomDelegate, @unchecked Sendable {
@@ -235,38 +235,51 @@ struct KeyIndexObserverTests {
 
     /// Observer delivery happens outside the provider's lock, so two rotations can reach the
     /// manager in the wrong order; the generation decides, not the arrival order.
+    ///
+    /// The WebRTC objects are created, read and released on the RTC executor: every call on them
+    /// and the last release block on a WebRTC thread, which must not happen on the cooperative pool.
     @Test
-    func olderGenerationDoesNotOverrideNewerIndex() throws {
+    func olderGenerationDoesNotOverrideNewerIndex() async throws {
         let provider = Self.provider()
         let manager = E2EEManager(options: EncryptionOptions(keyProvider: provider))
-        let pc = try #require(RTC.peerConnectionFactory.peerConnection(with: .liveKitDefault(),
-                                                                       constraints: .defaultPCConstraints,
-                                                                       delegate: nil))
-        defer { pc.close() }
-        let track = RTC.createAudioTrack(source: RTC.createAudioSource(nil))
-        let sender = try #require(pc.add(track, streamIds: ["local"]))
-        let frameCryptor = try #require(LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
-                                                          rtpSender: sender,
-                                                          participantId: "local",
-                                                          algorithm: .aesGcm,
-                                                          keyProvider: provider.rtcKeyProvider))
         let publication = LocalTrackPublication(info: Livekit_TrackInfo.with { $0.sid = "TR_sender" },
                                                 participant: Room().localParticipant)
-
         provider.setCurrentKeyIndex(4)
-        manager.install(frameCryptor: frameCryptor, for: publication, participantIdentity: Participant.Identity(from: "local"))
-        #expect(frameCryptor.keyIndex == 4)
 
-        manager.setSenderKeyIndex(0, generation: 1)
-        #expect(frameCryptor.keyIndex == 4, "the generation read at creation must not be re-applied")
+        try await RTC.run {
+            let pc = try #require(RTC.peerConnectionFactory.peerConnection(with: .liveKitDefault(),
+                                                                           constraints: .defaultPCConstraints,
+                                                                           delegate: nil))
+            let track = RTC.createAudioTrack(source: RTC.createAudioSource(nil))
+            let sender = try #require(pc.add(track, streamIds: ["local"]))
+            let frameCryptor = try #require(LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
+                                                              rtpSender: sender,
+                                                              participantId: "local",
+                                                              algorithm: .aesGcm,
+                                                              keyProvider: provider.rtcKeyProvider))
+            defer {
+                manager.cleanUp()
+                nonisolated(unsafe) let pc = pc
+                nonisolated(unsafe) let objects: [AnyObject] = [frameCryptor, sender, track]
+                RTC.park {
+                    pc.close()
+                    _ = objects
+                }
+            }
 
-        manager.setSenderKeyIndex(2, generation: 3)
-        manager.setSenderKeyIndex(1, generation: 2)
-        #expect(frameCryptor.keyIndex == 2)
+            manager.install(frameCryptor: frameCryptor, for: publication, participantIdentity: Participant.Identity(from: "local"))
+            #expect(frameCryptor.keyIndex == 4)
 
-        manager.setSenderKeyIndex(3, generation: 4)
-        #expect(frameCryptor.keyIndex == 3)
-        manager.cleanUp()
+            manager.setSenderKeyIndex(0, generation: 1)
+            #expect(frameCryptor.keyIndex == 4, "the generation read at creation must not be re-applied")
+
+            manager.setSenderKeyIndex(2, generation: 3)
+            manager.setSenderKeyIndex(1, generation: 2)
+            #expect(frameCryptor.keyIndex == 2)
+
+            manager.setSenderKeyIndex(3, generation: 4)
+            #expect(frameCryptor.keyIndex == 3)
+        }
     }
 
     /// One provider shared by several managers keeps one observer per manager, and a manager
