@@ -113,7 +113,8 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
 
     struct State {
         var currentKeyIndex: Int32 = 0
-        var keyIndexObservers = [ObjectIdentifier: @Sendable (Int32) -> Void]()
+        var keyIndexGeneration: UInt64 = 0
+        var keyIndexObservers = [ObjectIdentifier: @Sendable (Int32, UInt64) -> Void]()
     }
 
     private let _state = StateSync(State())
@@ -226,22 +227,29 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
     /// Takes effect immediately for the media tracks already published and for every data packet
     /// sent afterwards. Receivers are unaffected: they read the index from each frame.
     public func setCurrentKeyIndex(_ index: Int32) {
-        let (currentKeyIndex, observers) = _state.mutate {
+        let (currentKeyIndex, generation, observers) = _state.mutate {
             $0.currentKeyIndex = index % options.keyRingSize
-            return ($0.currentKeyIndex, Array($0.keyIndexObservers.values))
+            $0.keyIndexGeneration += 1
+            return ($0.currentKeyIndex, $0.keyIndexGeneration, Array($0.keyIndexObservers.values))
         }
         for observer in observers {
-            observer(currentKeyIndex)
+            observer(currentKeyIndex, generation)
         }
     }
 
     // MARK: - Internal
 
+    /// The current key index with the generation of the change that set it. Observers are
+    /// notified outside the lock, so the generation is what lets them order concurrent changes.
+    func currentKeyIndexWithGeneration() -> (index: Int32, generation: UInt64) {
+        _state.read { ($0.currentKeyIndex, $0.keyIndexGeneration) }
+    }
+
     var keyIndexObserverCount: Int {
         _state.keyIndexObservers.count
     }
 
-    func addKeyIndexObserver(_ owner: AnyObject, _ observer: @escaping @Sendable (Int32) -> Void) {
+    func addKeyIndexObserver(_ owner: AnyObject, _ observer: @escaping @Sendable (Int32, UInt64) -> Void) {
         _state.mutate { $0.keyIndexObservers[ObjectIdentifier(owner)] = observer }
     }
 
