@@ -237,8 +237,9 @@ struct KeyIndexObserverTests {
     /// Observer delivery happens outside the provider's lock, so two rotations can reach the
     /// manager in the wrong order; the generation decides, not the arrival order.
     ///
-    /// The WebRTC objects are created, read and released on the RTC executor: every call on them
-    /// and the last release block on a WebRTC thread, which must not happen on the cooperative pool.
+    /// The WebRTC objects are created and read on the RTC executor and their final releases go to
+    /// the separate `RTC.park` queue: every call on them and the last release block on a WebRTC
+    /// thread, which must not happen on the cooperative pool.
     @Test
     func olderGenerationDoesNotOverrideNewerIndex() async throws {
         let provider = Self.provider()
@@ -251,22 +252,26 @@ struct KeyIndexObserverTests {
             let pc = try #require(RTC.peerConnectionFactory.peerConnection(with: .liveKitDefault(),
                                                                            constraints: .defaultPCConstraints,
                                                                            delegate: nil))
-            let track = RTC.createAudioTrack(source: RTC.createAudioSource(nil))
-            let sender = try #require(pc.add(track, streamIds: ["local"]))
-            let frameCryptor = try #require(LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
-                                                              rtpSender: sender,
-                                                              participantId: "local",
-                                                              algorithm: .aesGcm,
-                                                              keyProvider: provider.rtcKeyProvider))
+            var created: [AnyObject] = []
             defer {
                 manager.cleanUp()
                 nonisolated(unsafe) let pc = pc
-                nonisolated(unsafe) let objects: [AnyObject] = [frameCryptor, sender, track]
+                nonisolated(unsafe) let objects = created
                 RTC.park {
                     pc.close()
                     _ = objects
                 }
             }
+            let track = RTC.createAudioTrack(source: RTC.createAudioSource(nil))
+            created.append(track)
+            let sender = try #require(pc.add(track, streamIds: ["local"]))
+            created.append(sender)
+            let frameCryptor = try #require(LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
+                                                              rtpSender: sender,
+                                                              participantId: "local",
+                                                              algorithm: .aesGcm,
+                                                              keyProvider: provider.rtcKeyProvider))
+            created.append(frameCryptor)
 
             manager.install(frameCryptor: frameCryptor, for: publication, participantIdentity: Participant.Identity(from: "local"))
             #expect(frameCryptor.keyIndex == 4)
