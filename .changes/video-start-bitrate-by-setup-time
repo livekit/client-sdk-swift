@@ -1,0 +1,1 @@
+patch type="changed" "The video start bitrate cap for camera tracks now scales with how long the connection took to set up: 1 Mbps up to 1.5 s, falling linearly to 300 kbps at 3.5 s and beyond. Screen share stays uncapped. Same behaviour as client-sdk-js, rust-sdks and client-sdk-android"

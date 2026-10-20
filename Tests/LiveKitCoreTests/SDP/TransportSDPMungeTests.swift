@@ -216,12 +216,42 @@ struct TransportSDPMungeTests {
     /// Same numbers as client-sdk-js, rust-sdks and client-sdk-android: 90% of the target,
     /// capped at 1 Mbps unless the track is a screen share, and no hint at all under 300 kbps.
     @Test func startBitrateFormula() {
-        #expect(Transport.startBitrateKbps(targetBps: 2_300_000, isScreenShare: false) == 1000) // 2070, capped
-        #expect(Transport.startBitrateKbps(targetBps: 800_000, isScreenShare: false) == 720)
-        #expect(Transport.startBitrateKbps(targetBps: 300_000, isScreenShare: false) == 270)
-        #expect(Transport.startBitrateKbps(targetBps: 5_000_000, isScreenShare: true) == 4500) // not capped
-        #expect(Transport.startBitrateKbps(targetBps: 299_999, isScreenShare: false) == nil)
-        #expect(Transport.startBitrateKbps(targetBps: 0, isScreenShare: true) == nil)
+        #expect(Transport.startBitrateKbps(targetBps: 2_300_000, isScreenShare: false, connectionSetupTime: nil) == 1000) // 2070, capped
+        #expect(Transport.startBitrateKbps(targetBps: 800_000, isScreenShare: false, connectionSetupTime: nil) == 720)
+        #expect(Transport.startBitrateKbps(targetBps: 300_000, isScreenShare: false, connectionSetupTime: nil) == 270)
+        #expect(Transport.startBitrateKbps(targetBps: 5_000_000, isScreenShare: true, connectionSetupTime: nil) == 4500) // not capped
+        #expect(Transport.startBitrateKbps(targetBps: 299_999, isScreenShare: false, connectionSetupTime: nil) == nil)
+        #expect(Transport.startBitrateKbps(targetBps: 0, isScreenShare: true, connectionSetupTime: nil) == nil)
+    }
+
+    /// The cap ramps linearly from 1 Mbps at a 1.5 s connection setup down to 300 kbps at
+    /// 3.5 s. Same cases as rust-sdks' `start_bitrate_ramps_down_with_connection_setup_time`,
+    /// with the setup times measured on shaped links.
+    @Test(arguments: [
+        (nil, 1000), // no setup time keeps the ceiling
+        (0.0, 1000),
+        (1.273, 1000), // 1 Mbps link median
+        (1.5, 1000), // the fast anchor
+        (1.724, 922), // 1 Mbps link slow attempt barely moves
+        (2.334, 708), // 500 kbps link median lands mid-ramp
+        (2.5, 650), // midpoint of the ramp
+        (3.093, 442), // 300 kbps link fastest attempt
+        (3.5, 300), // the slow anchor reaches the floor
+        (18.131, 300), // anything slower stays at the floor
+    ] as [(TimeInterval?, Int)])
+    func startBitrateCapRampsDownWithConnectionSetupTime(setupTime: TimeInterval?, expectedKbps: Int) {
+        #expect(Transport.startBitrateCapKbps(connectionSetupTime: setupTime) == expectedKbps)
+    }
+
+    /// The setup-time cap applies to camera hints only; 90% of a lower target still wins, and
+    /// screen share is never capped, however slow the setup.
+    @Test func startBitrateFormulaWithConnectionSetupTime() {
+        #expect(Transport.startBitrateKbps(targetBps: 3_000_000, isScreenShare: false, connectionSetupTime: 0.8) == 1000)
+        #expect(Transport.startBitrateKbps(targetBps: 3_000_000, isScreenShare: false, connectionSetupTime: 2.5) == 650)
+        #expect(Transport.startBitrateKbps(targetBps: 3_000_000, isScreenShare: false, connectionSetupTime: 5) == 300)
+        #expect(Transport.startBitrateKbps(targetBps: 500_000, isScreenShare: false, connectionSetupTime: 2.5) == 450)
+        #expect(Transport.startBitrateKbps(targetBps: 300_000, isScreenShare: false, connectionSetupTime: 5) == 270)
+        #expect(Transport.startBitrateKbps(targetBps: 3_000_000, isScreenShare: true, connectionSetupTime: 5) == 2700)
     }
 
     /// Simulcast layers are summed (they are independent streams), inactive layers and layers
@@ -234,9 +264,9 @@ struct TransportSDPMungeTests {
             return encoding
         }
 
-        #expect(Transport.startBitrateKbps(for: encodings, isScreenShare: true) == 1800)
-        #expect(Transport.startBitrateKbps(for: encodings, isScreenShare: false) == 1000)
-        #expect(Transport.startBitrateKbps(for: [LKRTCRtpEncodingParameters()], isScreenShare: false) == nil)
-        #expect(Transport.startBitrateKbps(for: [], isScreenShare: false) == nil)
+        #expect(Transport.startBitrateKbps(for: encodings, isScreenShare: true, connectionSetupTime: nil) == 1800)
+        #expect(Transport.startBitrateKbps(for: encodings, isScreenShare: false, connectionSetupTime: nil) == 1000)
+        #expect(Transport.startBitrateKbps(for: [LKRTCRtpEncodingParameters()], isScreenShare: false, connectionSetupTime: nil) == nil)
+        #expect(Transport.startBitrateKbps(for: [], isScreenShare: false, connectionSetupTime: nil) == nil)
     }
 }
