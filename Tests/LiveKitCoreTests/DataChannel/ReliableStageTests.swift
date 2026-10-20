@@ -61,6 +61,28 @@ struct ReliableStageTests {
         #expect(prepared.first?.sequence == 42)
     }
 
+    /// The wire bytes, not just the returned sequence: the stamp is a second encoded message
+    /// appended to the first, and the pair must decode to the original packet carrying it.
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/issues/1158"))
+    func stampedBytesDecodeToThePacketWithItsSequence() throws {
+        var stage = ReliableStage(retryFloor: Self.retryFloor)
+        let payload = Data(String(repeating: #"{"type":"chat","text":"hello"}"#, count: 10).utf8)
+        var prepared: [PreparedBytes] = []
+        try stage.prepare(Livekit_DataPacket.with {
+            $0.kind = .reliable
+            $0.user = Livekit_UserPacket.with { $0.payload = payload }
+        }, into: &prepared)
+
+        let bytes = try #require(prepared.first).bytes
+        let decoded = try Livekit_DataPacket(serializedData: bytes)
+        let sequence = decoded.sequence
+        let kind = decoded.kind
+        let decodedPayload = decoded.user.payload
+        #expect(sequence == 1)
+        #expect(kind == .reliable)
+        #expect(decodedPayload == payload)
+    }
+
     @Test func replaysOnlyWhatFollowsTheAcknowledgedSequence() throws {
         var stage = ReliableStage(retryFloor: Self.retryFloor)
         _ = try dispatch(4, through: &stage)

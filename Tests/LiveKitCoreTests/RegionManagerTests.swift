@@ -142,6 +142,34 @@ import Testing
         #expect(URL(string: input)?.regionSettingsUrl().absoluteString == expected)
     }
 
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/issues/1159"))
+    func parsesFetchedCloudRegionSettings() async throws {
+        let providedUrl = try #require(URL(string: "https://example.livekit.cloud"))
+        let regionManager = RegionManager(providedUrl: providedUrl)
+
+        try MockURLProtocol.setAllowedHosts([#require(providedUrl.host)])
+        MockURLProtocol.setAllowedPaths(["/settings/regions"])
+        MockURLProtocol.setRequestHandler { (_: URLRequest) in
+            MockURLProtocol.Response(statusCode: 200, headers: [:], body: Data("""
+            {"regions": [
+                {"region": "otokyo1a", "url": "https://example.otokyo1a.production.livekit.cloud", "distance": "32838"},
+                {"region": "dblr1a", "url": "https://example.dblr1a.production.livekit.cloud", "distance": "6660301"}
+            ]}
+            """.utf8))
+        }
+        URLProtocol.registerClass(MockURLProtocol.self)
+        defer { cleanUpMockURLProtocol() }
+
+        _ = try #require(await regionManager.resolveBest(token: "token"))
+
+        let regions = await regionManager.snapshot().all
+        try #require(regions.count == 2)
+        #expect(regions.map(\.regionId) == ["otokyo1a", "dblr1a"])
+        #expect(regions.map(\.url.absoluteString) == ["https://example.otokyo1a.production.livekit.cloud",
+                                                      "https://example.dblr1a.production.livekit.cloud"])
+        #expect(regions.map(\.distance) == [32838, 6_660_301])
+    }
+
     @Test func regionManagerShouldRetryConnection() {
         #expect(LiveKitError(.network).isRetryableForRegionFailover)
         #expect(LiveKitError(.timedOut).isRetryableForRegionFailover)

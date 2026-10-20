@@ -115,16 +115,14 @@ package func lkSetEnumPointer<C: RawRepresentable>(
 // boundary copies, via an encode/decode round trip. Reading a submessage does
 // not: the getter hands out a view. Signalling messages are small either way.
 
-package func lkMessage<S: NanopbStorage>(_ pointer: UnsafeMutablePointer<S>?) -> NanopbMsg<S> {
-    guard let pointer else { return NanopbMsg<S>._empty }
-    return lkMessage(copying: pointer)
-}
-
+/// The caller must keep the box that owns `pointer` alive for the call.
 package func lkMessage<S: NanopbStorage>(copying pointer: UnsafePointer<S>) -> NanopbMsg<S> {
     let message = NanopbMsg<S>()
     do {
         let bytes = try nanopbEncodedBytes(pointer, S.descriptor)
-        try bytes.withUnsafeBytes { try nanopbDecode(into: message._pointer, S.descriptor, $0) }
+        try withExtendedLifetime(message._owner) {
+            try bytes.withUnsafeBytes { try nanopbDecode(into: message._pointer, S.descriptor, $0) }
+        }
     } catch {
         // pb_decode releases whatever it allocated before failing, so the
         // result degrades to an empty message — reported, never silent.
@@ -158,7 +156,7 @@ package func lkSetMessage<S: NanopbStorage>(inline slot: inout S, _ value: Nanop
     // rather than emptied — the contract the rest of the setters keep.
     let encoded: [UInt8]
     do {
-        encoded = try nanopbEncodedBytes(value._pointer, S.descriptor)
+        encoded = try value.serializedBytes()
     } catch {
         nanopbReportFailure("message overwrite", error)
         return
@@ -182,7 +180,7 @@ package func lkSetMessage<S: NanopbStorage>(inline slot: inout S, _ value: Nanop
 
 package func lkOverwrite<S: NanopbStorage>(_ pointer: UnsafeMutablePointer<S>, with value: NanopbMsg<S>) {
     do {
-        let bytes = try nanopbEncodedBytes(value._pointer, S.descriptor)
+        let bytes = try value.serializedBytes()
         try bytes.withUnsafeBytes { try nanopbDecode(into: pointer, S.descriptor, $0) }
     } catch {
         // Encode failure leaves the destination untouched; a decode failure

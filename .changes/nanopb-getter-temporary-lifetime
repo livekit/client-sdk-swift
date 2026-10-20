@@ -1,0 +1,1 @@
+patch type="fixed" "Fix a crash (SIGSEGV in `strlen` from `RegionManager`) when connecting to LiveKit Cloud in optimized builds: generated protobuf getters could read a message that was already freed"
