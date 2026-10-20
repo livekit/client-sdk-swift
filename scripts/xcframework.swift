@@ -291,7 +291,7 @@ private func addPackageDependencies(
 
     return [
         addDep(name: "LiveKitWebRTC", package: webrtcPkg),
-        addDep(name: "LiveKitUniFFI", package: uniffiPkg),
+        addDep(name: "LiveKitFFI", package: uniffiPkg),
     ]
 }
 
@@ -452,9 +452,9 @@ struct BuildXCFramework: AsyncParsableCommand {
         step("Reading binary dependency info...")
         let manifest = try PackageManifest(repoRoot: repoRoot)
         let webrtcDep = try manifest.binaryDep(spmDir: spmDir, pattern: "webrtc-xcframework", xcfw: "LiveKitWebRTC")
-        let uniffiDep = try manifest.binaryDep(spmDir: spmDir, pattern: "uniffi-xcframework", xcfw: "RustLiveKitUniFFI")
+        let uniffiDep = try manifest.binaryDep(spmDir: spmDir, pattern: "uniffi-xcframework", xcfw: "RustLiveKitFFI")
         print("  LiveKitWebRTC: \(webrtcDep.url)")
-        print("  RustLiveKitUniFFI: \(uniffiDep.url)")
+        print("  RustLiveKitFFI: \(uniffiDep.url)")
 
         // --- Archive all platforms (parallel) ---
         let archives = try await archiveAllPlatforms(projectPath: projectPath, buildDir: buildDir, spmDir: spmDir)

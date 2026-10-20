@@ -16,7 +16,7 @@
 
 import Foundation
 @testable import LiveKit
-import LiveKitUniFFI
+import LiveKitFFI
 
 /// Framework-agnostic test environment utilities (no XCTest/Testing dependency).
 public enum TestEnvironment {
@@ -111,6 +111,7 @@ public enum TestEnvironment {
             ingressAdmin: false,
             hidden: false,
             recorder: false,
+            agent: false,
         )
 
         return try tokenGenerator.sign()

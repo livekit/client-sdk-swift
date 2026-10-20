@@ -18,7 +18,7 @@ let package = Package(
             name: "LiveKitBenchmark",
             dependencies: [
                 .product(name: "LiveKit", package: "client-sdk-swift"),
-                .product(name: "LiveKitUniFFI", package: "livekit-uniffi-xcframework"),
+                .product(name: "LiveKitFFI", package: "livekit-uniffi-xcframework"),
                 .product(name: "Benchmark", package: "benchmark"),
             ],
             path: "LiveKitBenchmark",

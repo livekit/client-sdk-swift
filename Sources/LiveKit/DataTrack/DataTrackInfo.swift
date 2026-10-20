@@ -16,7 +16,7 @@
 
 import Foundation
 
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 
 /// Metadata describing a published data track.
 @objcMembers
@@ -34,7 +34,7 @@ public final class DataTrackInfo: NSObject, Sendable {
     /// The frame encoding as its identifier string; Objective-C sees this as `frameEncoding`.
     @objc(frameEncoding) public var frameEncodingIdentifier: String? { frameEncoding?.identifier }
 
-    init(_ info: LiveKitUniFFI.DataTrackInfo) {
+    init(_ info: LiveKitFFI.DataTrackInfo) {
         sid = DataTrack.Sid(from: info.sid)
         name = info.name
         usesE2ee = info.usesE2ee

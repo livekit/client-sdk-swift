@@ -19,7 +19,7 @@
 import Combine
 import Foundation
 
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 
 #if canImport(Network)
