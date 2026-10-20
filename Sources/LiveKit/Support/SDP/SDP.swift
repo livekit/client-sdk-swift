@@ -152,6 +152,25 @@ struct SDPMediaSection {
         return true
     }
 
+    /// Replaces the whole fmtp config of `payload`, inserting an `a=fmtp:<payload> <config>`
+    /// line at the end of the section when the payload has none — which is the case libwebrtc
+    /// leaves for codecs it offers without parameters, VP8 among them. Returns `true` if the
+    /// section was modified; `false` when the config is already exactly `config`.
+    ///
+    /// Where ``setFmtpParameter(_:value:forPayload:)`` edits one parameter and leaves the rest,
+    /// this overwrites all of them — for conforming a section to a config decided elsewhere.
+    @discardableResult
+    mutating func setFmtp(config: String, forPayload payload: String) -> Bool {
+        for (index, line) in lines.enumerated() {
+            guard let fmtp = Self.fmtp(fromLine: line), fmtp.payload == payload else { continue }
+            guard fmtp.config != config else { return false }
+            lines[index] = "a=fmtp:\(payload) \(config)"
+            return true
+        }
+        lines.append("a=fmtp:\(payload) \(config)")
+        return true
+    }
+
     /// Whether an `a=rtcp-fb:<payload> <value>` line with exactly `value` exists for
     /// `payload`. Exact-value match: `nack` does not match `nack pli` (RFC 4585 §4.2
     /// — they are distinct feedback parameters).
