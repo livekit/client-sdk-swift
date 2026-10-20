@@ -24,78 +24,64 @@ import Testing
        .bug("https://github.com/livekit/client-sdk-swift/issues/1158"),
        .bug("https://github.com/livekit/client-sdk-swift/issues/1159"))
 struct TemporaryMessageTests {
-    enum SingularGetter: CaseIterable {
-        case int64, enumeration, string, bytes, presence, submessage
+    @Test func singularGettersOnTemporaries() {
+        let distance = LiveKit.Livekit_RegionInfo.with { $0.distance = 6_660_301 }.distance
+        let kind = LiveKit.Livekit_DataPacket.with { $0.kind = .lossy }.kind
+        let region = LiveKit.Livekit_RegionInfo.with { $0.region = "otokyo1a" }.region
+        let payload = LiveKit.Livekit_UserPacket.with { $0.payload = Data([1, 2, 3]) }.payload
+        let hasVersion = LiveKit.Livekit_Room.with { $0.version = .with { $0.ticks = 7 } }.hasVersion
+        let unixMicro = LiveKit.Livekit_Room.with { $0.version = .with { $0.unixMicro = 42 } }.version.unixMicro
+
+        #expect(distance == 6_660_301)
+        #expect(kind == .lossy)
+        #expect(region == "otokyo1a")
+        #expect(payload == Data([1, 2, 3]))
+        #expect(hasVersion)
+        #expect(unixMicro == 42)
     }
 
-    enum CompositeGetter: CaseIterable {
-        case repeatedEnums, repeatedStrings, repeatedMessages, map, oneof, oneofVariant
-    }
+    @Test func compositeGettersOnTemporaries() {
+        let sources = LiveKit.Livekit_ParticipantPermission.with { $0.canPublishSources = [.camera, .microphone] }.canPublishSources
+        let identities = LiveKit.Livekit_DataPacket.with { $0.destinationIdentities = ["alice", "bob"] }.destinationIdentities
+        let regions = LiveKit.Livekit_RegionSettings.with {
+            $0.regions = [.with { $0.region = "dblr1a" }, .with { $0.region = "dsyd1a" }]
+        }.regions.map(\.region)
+        let attributes = LiveKit.Livekit_ParticipantInfo.with { $0.attributes = ["role": "agent"] }.attributes
+        let variantTopic = LiveKit.Livekit_DataPacket.with { $0.user = .with { $0.topic = "chat" } }.user.topic
+        let value = LiveKit.Livekit_DataPacket.with { $0.user = .with { $0.topic = "chat" } }.value
 
-    @Test(arguments: SingularGetter.allCases)
-    func singularGetterOnTemporary(_ getter: SingularGetter) {
-        switch getter {
-        case .int64:
-            #expect(LiveKit.Livekit_RegionInfo.with { $0.distance = 6_660_301 }.distance == 6_660_301)
-        case .enumeration:
-            #expect(LiveKit.Livekit_DataPacket.with { $0.kind = .lossy }.kind == .lossy)
-        case .string:
-            #expect(LiveKit.Livekit_RegionInfo.with { $0.region = "otokyo1a" }.region == "otokyo1a")
-        case .bytes:
-            #expect(LiveKit.Livekit_UserPacket.with { $0.payload = Data([1, 2, 3]) }.payload == Data([1, 2, 3]))
-        case .presence:
-            #expect(LiveKit.Livekit_Room.with { $0.version = .with { $0.ticks = 7 } }.hasVersion)
-        case .submessage:
-            #expect(LiveKit.Livekit_Room.with { $0.version = .with { $0.unixMicro = 42 } }.version.unixMicro == 42)
+        #expect(sources == [.camera, .microphone])
+        #expect(identities == ["alice", "bob"])
+        #expect(regions == ["dblr1a", "dsyd1a"])
+        #expect(attributes == ["role": "agent"])
+        #expect(variantTopic == "chat")
+        guard case let .user(user) = value else {
+            Issue.record("Expected a user packet, got \(String(describing: value))")
+            return
         }
-    }
-
-    @Test(arguments: CompositeGetter.allCases)
-    func compositeGetterOnTemporary(_ getter: CompositeGetter) {
-        switch getter {
-        case .repeatedEnums:
-            #expect(LiveKit.Livekit_ParticipantPermission.with {
-                $0.canPublishSources = [.camera, .microphone]
-            }.canPublishSources == [.camera, .microphone])
-        case .repeatedStrings:
-            #expect(LiveKit.Livekit_DataPacket.with {
-                $0.destinationIdentities = ["alice", "bob"]
-            }.destinationIdentities == ["alice", "bob"])
-        case .repeatedMessages:
-            #expect(LiveKit.Livekit_RegionSettings.with {
-                $0.regions = [.with { $0.region = "dblr1a" }, .with { $0.region = "dsyd1a" }]
-            }.regions.map(\.region) == ["dblr1a", "dsyd1a"])
-        case .map:
-            #expect(LiveKit.Livekit_ParticipantInfo.with {
-                $0.attributes = ["role": "agent"]
-            }.attributes == ["role": "agent"])
-        case .oneof:
-            let value = LiveKit.Livekit_DataPacket.with { $0.user = .with { $0.topic = "chat" } }.value
-            guard case let .user(user) = value else {
-                Issue.record("Expected a user packet, got \(String(describing: value))")
-                return
-            }
-            #expect(user.topic == "chat")
-        case .oneofVariant:
-            #expect(LiveKit.Livekit_DataPacket.with { $0.user = .with { $0.topic = "chat" } }.user.topic == "chat")
-        }
+        let topic = user.topic
+        #expect(topic == "chat")
     }
 
     @Test func serializedDataOfTemporary() throws {
         let data = try LiveKit.Livekit_DataPacket.with { $0.sequence = 9 }.serializedData()
-        #expect(try LiveKit.Livekit_DataPacket(serializedData: data).sequence == 9)
+        let sequence = try LiveKit.Livekit_DataPacket(serializedData: data).sequence
+        #expect(sequence == 9)
     }
 
     @Test func ownedCopyOfTemporaryView() {
         let version = LiveKit.Livekit_Room.with { $0.version = .with { $0.unixMicro = 42 } }.version.owned()
-        #expect(version._ownsItsStorage)
-        #expect(version.unixMicro == 42)
+        let ownsItsStorage = version._ownsItsStorage
+        let unixMicro = version.unixMicro
+        #expect(ownsItsStorage)
+        #expect(unixMicro == 42)
     }
 
     @Test func nestedTemporaryIsEncodedIntoItsParent() throws {
         let data = try LiveKit.Livekit_DataPacket.with {
             $0.user = LiveKit.Livekit_UserPacket.with { $0.payload = Data([4, 5, 6]) }
         }.serializedData()
-        #expect(try LiveKit.Livekit_DataPacket(serializedData: data).user.payload == Data([4, 5, 6]))
+        let payload = try LiveKit.Livekit_DataPacket(serializedData: data).user.payload
+        #expect(payload == Data([4, 5, 6]))
     }
 }

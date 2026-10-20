@@ -73,10 +73,14 @@ struct ReliableStageTests {
             $0.user = Livekit_UserPacket.with { $0.payload = payload }
         }, into: &prepared)
 
-        let decoded = try Livekit_DataPacket(serializedData: #require(prepared.first).bytes)
-        #expect(decoded.sequence == 1)
-        #expect(decoded.kind == .reliable)
-        #expect(decoded.user.payload == payload)
+        let bytes = try #require(prepared.first).bytes
+        let decoded = try Livekit_DataPacket(serializedData: bytes)
+        let sequence = decoded.sequence
+        let kind = decoded.kind
+        let decodedPayload = decoded.user.payload
+        #expect(sequence == 1)
+        #expect(kind == .reliable)
+        #expect(decodedPayload == payload)
     }
 
     @Test func replaysOnlyWhatFollowsTheAcknowledgedSequence() throws {
