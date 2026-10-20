@@ -63,7 +63,8 @@ struct ReliableStageTests {
 
     /// The wire bytes, not just the returned sequence: the stamp is a second encoded message
     /// appended to the first, and the pair must decode to the original packet carrying it.
-    @Test func stampedBytesDecodeToThePacketWithItsSequence() throws {
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/issues/1158"))
+    func stampedBytesDecodeToThePacketWithItsSequence() throws {
         var stage = ReliableStage(retryFloor: Self.retryFloor)
         let payload = Data(String(repeating: #"{"type":"chat","text":"hello"}"#, count: 10).utf8)
         var prepared: [PreparedBytes] = []
