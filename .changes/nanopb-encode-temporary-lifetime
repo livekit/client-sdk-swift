@@ -1,0 +1,1 @@
+patch type="fixed" "Fix a crash (SIGSEGV in `pb_enc_varint`) on the first reliable data send in optimized CocoaPods builds: the encoder could read a message that was already freed"

@@ -158,7 +158,7 @@ package func lkSetMessage<S: NanopbStorage>(inline slot: inout S, _ value: Nanop
     // rather than emptied — the contract the rest of the setters keep.
     let encoded: [UInt8]
     do {
-        encoded = try nanopbEncodedBytes(value._pointer, S.descriptor)
+        encoded = try value.serializedBytes()
     } catch {
         nanopbReportFailure("message overwrite", error)
         return
@@ -182,7 +182,7 @@ package func lkSetMessage<S: NanopbStorage>(inline slot: inout S, _ value: Nanop
 
 package func lkOverwrite<S: NanopbStorage>(_ pointer: UnsafeMutablePointer<S>, with value: NanopbMsg<S>) {
     do {
-        let bytes = try nanopbEncodedBytes(value._pointer, S.descriptor)
+        let bytes = try value.serializedBytes()
         try bytes.withUnsafeBytes { try nanopbDecode(into: pointer, S.descriptor, $0) }
     } catch {
         // Encode failure leaves the destination untouched; a decode failure

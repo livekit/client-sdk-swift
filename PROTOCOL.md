@@ -335,3 +335,8 @@ Reachable improvements once the floor moves:
    walks mutated and random encodings through it from a fixed seed; run it
    under ASan (`--sanitize=address`) after touching decode or any accessor's
    pointer arithmetic, since an out-of-bounds read there need not crash.
+7. A read or write through `_pointer` holds `_owner` until it finishes
+   (`withExtendedLifetime(_owner)`). The optimizer sees no link between the
+   two. If an accessor is inlined into a caller that holds a temporary
+   message, the box can be freed before the pointer is used. Single-module
+   builds (CocoaPods, the xcframework) inline the runtime into its callers.
