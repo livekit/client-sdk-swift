@@ -107,6 +107,7 @@ struct GenerateSwiftProtos: ParsableCommand {
             try out.write(body)
         }
 
+        try Self.verifyOwnerCheck()
         try Self.verifyBuilderInvariant(in: outFolder)
 
         let exemplars = ExemplarEmitter(namer: namer).emit(files: files, keep: keep)
@@ -170,14 +171,11 @@ struct GenerateSwiftProtos: ParsableCommand {
     static func verifyBuilderInvariant(in folder: Folder) throws {
         var violations: [String] = []
         for file in folder.files where file.name.hasSuffix("+Nanopb.swift") {
-            let lines = try file.readAsString().components(separatedBy: "\n")
-                .map { $0.trimmingCharacters(in: .whitespaces) }
+            let text = try file.readAsString()
+            violations += unheldReads(in: text).map { "\(file.name):\($0): message read without holding _owner" }
+            let lines = text.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
             let insideBuilder = insideScopes(lines) { $0.hasPrefix("extension ") && $0.hasSuffix(".Builder {") }
-            let holdsOwner = insideScopes(lines) { $0.contains("withExtendedLifetime(_owner)") }
             for (index, trimmed) in lines.enumerated() {
-                if !insideBuilder[index], !holdsOwner[index], trimmed.contains("_pointer") {
-                    violations.append("\(file.name):\(index + 1): message read without holding _owner")
-                }
                 if trimmed.contains("_ensureUnique") {
                     violations.append("\(file.name):\(index + 1): leftover copy-on-write guard")
                 }
@@ -195,6 +193,55 @@ struct GenerateSwiftProtos: ParsableCommand {
             Generated accessors violate the immutable-message invariant:
             \(violations.joined(separator: "\n"))
             """)
+        }
+    }
+
+    /// Line numbers of `_pointer` reads outside both a `Builder` extension and
+    /// a `withExtendedLifetime(_owner)` closure. Braces are matched in token
+    /// order, so a scope ends at its own closing brace, wherever the line
+    /// breaks fall.
+    static func unheldReads(in text: String) -> [Int] {
+        var unheld: [Int] = []
+        var exempt: [Bool] = [] // one per open brace: does it open a Builder or an owner scope
+        var nextExempt = false
+        for (index, line) in text.components(separatedBy: "\n").enumerated() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("extension "), trimmed.hasSuffix(".Builder {") { nextExempt = true }
+            for token in line.matches(of: #/withExtendedLifetime\(_owner\)|_pointer|[{}]/#) {
+                switch token.output {
+                case "{":
+                    exempt.append(nextExempt)
+                    nextExempt = false
+                case "}":
+                    _ = exempt.popLast()
+                case "_pointer":
+                    if !exempt.contains(true) { unheld.append(index + 1) }
+                default: // withExtendedLifetime(_owner): its closure is the next brace
+                    nextExempt = true
+                }
+            }
+        }
+        return unheld
+    }
+
+    /// Fails the generator if `unheldReads` stops seeing an unsafe layout.
+    static func verifyOwnerCheck() throws {
+        let unsafe = [
+            // opener joined to the getter's line, read after the closure
+            "var a: String { withExtendedLifetime(_owner) {\n    }\n    return lkString(_pointer.pointee.a) ?? \"\"\n}",
+            // read after a closing brace on the same line
+            "var b: Bool { withExtendedLifetime(_owner) { }; return _pointer.pointee.b != nil }",
+            "extension A.Builder {\n} var c: Int { _pointer.pointee.c }",
+        ]
+        let safe = """
+        var d: Bool { withExtendedLifetime(_owner) { _pointer.pointee.d != nil } }
+        extension A.Builder {
+            var e: Int { _pointer.pointee.e }
+        }
+        """
+        let missed = unsafe.filter { unheldReads(in: $0).isEmpty }
+        guard missed.isEmpty, unheldReads(in: safe).isEmpty else {
+            throw ValidationError("the owner check misjudges a known layout: \(missed)")
         }
     }
 
