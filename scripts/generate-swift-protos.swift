@@ -425,12 +425,7 @@ enum AccessorSplitter {
         return [member[0]] + body + ["}"]
     }
 
-    /// Runs a message member's body inside `withExtendedLifetime(_owner)`.
-    /// Nothing else ties `_pointer` to the box that owns it, so once a getter
-    /// is inlined into a caller holding a temporary, the box can be freed
-    /// before the read (PROTOCOL.md, invariant 7). A `Builder` needs no such
-    /// scope: it is `~Copyable` and only reached through a binding that
-    /// `build()` consumes afterwards.
+    /// Holds _owner across message-member reads; see PROTOCOL.md, invariant 7.
     static func holdingOwner(_ member: [String]) -> [String] {
         let head = member[0]
         if member.count == 1, let open = head.firstIndex(of: "{") {

@@ -336,13 +336,8 @@ Reachable improvements once the floor moves:
    under ASan (`--sanitize=address`) after touching decode or any accessor's
    pointer arithmetic, since an out-of-bounds read there need not crash.
 7. A read or write through `_pointer` holds `_owner` until it finishes
-   (`withExtendedLifetime(_owner)`). The optimizer sees no link between the
-   two. If an accessor is inlined into a caller that holds a temporary
-   message, the box can be freed before the pointer is used. Single-module
-   builds (CocoaPods, the xcframework) inline the runtime into its callers.
-   The generated getters share a module with their callers in every build
-   shape, SPM included, so the generator wraps each message-side member in
-   `withExtendedLifetime(_owner)`, and `verifyBuilderInvariant` fails
-   `make proto` on a `_pointer` read outside one. `Builder` members need no
-   scope: the builder is `~Copyable` and only reached through a binding that
-   `build()` consumes afterwards.
+   (`withExtendedLifetime(_owner)`). Nothing else links them, so a caller that
+   inlines an accessor on a temporary can free the box before the read. This
+   covers the runtime and every generated message-side getter; `make proto`
+   fails on an unheld read. `Builder` members are exempt: the builder is
+   `~Copyable` and `build()` consumes its only binding.
