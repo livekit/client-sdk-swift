@@ -170,3 +170,70 @@ extension IncomingStreamManagerTests {
         return outcome
     }
 }
+
+// MARK: - Connection and encryption
+
+extension IncomingStreamManagerTests {
+    /// The payload cap belongs to the connection, so a reconnect with a smaller one rejects a
+    /// payload the earlier connection accepted.
+    @Test func reconnectAppliesNewPayloadCap() async throws {
+        let results = StateSync<[Result<String, Error>]>([])
+        try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in
+            do {
+                let text = try await reader.readAll()
+                results.mutate { $0.append(.success(text)) }
+            } catch {
+                results.mutate { $0.append(.failure(error)) }
+            }
+        }
+        let text = "way past the new cap"
+
+        try reconnect(maxPayloadByteLength: 1_000_000)
+        feedHeader(streamID: UUID().uuidString, byte: false, totalLength: UInt64(text.utf8.count), inlineContent: Data(text.utf8))
+        try await poll(for: "the first stream") { results.copy().count == 1 }
+
+        try reconnect(maxPayloadByteLength: 4)
+        feedHeader(streamID: UUID().uuidString, byte: false, totalLength: UInt64(text.utf8.count), inlineContent: Data(text.utf8))
+        try await poll(for: "the second stream") { results.copy().count == 2 }
+
+        let outcomes = results.copy()
+        #expect(try outcomes[0].get() == text)
+        #expect(throws: StreamError.payloadTooLarge) { try outcomes[1].get() }
+    }
+
+    /// The cap holds a stream that declares no length.
+    @Test func unknownLengthStreamOverCapFails() async throws {
+        try reconnect(maxPayloadByteLength: 16)
+        let read = try readingTextStreams()
+        await feedTextStream(chunks: [String(repeating: "a", count: 1000)])
+
+        await #expect(throws: StreamError.payloadTooLarge) {
+            try await read.wait()
+        }
+    }
+
+    /// A packet that arrives after the connection ended has no manager to go to: it opens nothing
+    /// and reaches no handler, and the next connection starts clean. The stream on the next
+    /// connection is the barrier.
+    @Test func packetAfterConnectionEndIsDropped() async throws {
+        let opened = StateSync<[String]>([])
+        let barrier = AsyncCompleter<Void>(label: "Barrier stream", defaultTimeout: 10)
+        try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in
+            opened.mutate { $0.append(reader.info.id) }
+            if reader.info.id == "barrier" { barrier.resume(returning: ()) }
+        }
+
+        _ = room._state.mutate { $0.stage.end() }
+        feedHeader(streamID: "late", byte: false, totalLength: 100)
+        feedHeader(streamID: "late-inline", byte: false, inlineContent: Data("hi".utf8))
+        let openAfterEnd = await coordinator.openStreamCount()
+        #expect(openAfterEnd == 0)
+
+        try reconnect()
+        feedHeader(streamID: "barrier", byte: false, inlineContent: Data("hi".utf8))
+        try await barrier.wait()
+        #expect(opened.copy() == ["barrier"])
+        let openAfterReconnect = await coordinator.openStreamCount()
+        #expect(openAfterReconnect == 0)
+    }
+}

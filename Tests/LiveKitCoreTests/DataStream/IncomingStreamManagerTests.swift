@@ -152,14 +152,20 @@ struct IncomingStreamManagerTests: Sendable {
         #expect(error as? StreamError == .encryptionTypeMismatch(expected: .gcm, received: .none))
     }
 
-    /// A stream failing mid-flight (here: exceeding its declared length) must not block a new
-    /// stream that immediately reuses the same stream id. v1's spec, re-pointed at the core.
+    /// A stream failing mid-flight (here: exceeding its declared length) fails its own reader with
+    /// `.lengthExceeded` and must not block a new stream that immediately reuses the same stream
+    /// id. v1's spec, re-pointed at the core.
     @Test func reusedStreamIDAfterChunkErrorDeliversNextStream() async throws {
         let received = StateSync<[String]>([])
+        let errors = StateSync<[StreamError]>([])
 
         try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in
-            let payload = try await reader.readAll()
-            received.mutate { $0.append(payload) }
+            do {
+                let payload = try await reader.readAll()
+                received.mutate { $0.append(payload) }
+            } catch let error as StreamError {
+                errors.mutate { $0.append(error) }
+            }
         }
 
         let streamID = UUID().uuidString
@@ -167,12 +173,10 @@ struct IncomingStreamManagerTests: Sendable {
         await feedTextStream(rawPayload: Data("ABCDEFGH".utf8), totalLength: 4, streamID: streamID)
         await feedTextStream(chunks: ["ok"], streamID: streamID)
 
-        let deadline = Date().addingTimeInterval(10)
-        while received.copy().isEmpty, Date() < deadline {
-            try? await Task.sleep(nanoseconds: 10_000_000)
-        }
+        try await poll(timeout: 10, for: "both streams") { received.copy().count + errors.copy().count == 2 }
 
         #expect(received.copy() == ["ok"])
+        #expect(errors.copy() == [.lengthExceeded])
         coordinator.unregisterTextStreamHandler(for: topicName)
     }
 
@@ -357,9 +361,9 @@ extension IncomingStreamManagerTests {
     }
 
     /// Replaces the connection, as a disconnect and a new connect do, with one whose incoming
-    /// manager has the given payload cap.
-    func reconnect(maxPayloadByteLength: Int?) throws {
-        let options = RoomOptions(dataStreamOptions: DataStreamOptions(maxPayloadByteLength: maxPayloadByteLength))
+    /// manager has the given payload cap, in a room with the given encryption.
+    func reconnect(maxPayloadByteLength: Int? = nil, encryptionOptions: EncryptionOptions? = nil) throws {
+        let options = RoomOptions(dataStreamOptions: DataStreamOptions(maxPayloadByteLength: maxPayloadByteLength), encryptionOptions: encryptionOptions)
         let connection = ConnectionDependencies(idle: room._state.stage.idle, room: room, roomOptions: options)
         try room._state.mutate {
             _ = $0.stage.end()
