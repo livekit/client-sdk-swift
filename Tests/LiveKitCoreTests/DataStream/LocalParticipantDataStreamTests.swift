@@ -144,6 +144,23 @@ struct LocalParticipantDataStreamTests {
         #expect(packets.allSatisfy { $0.participantIdentity == "on-behalf" })
     }
 
+    /// A one-shot send whose packets cannot be delivered fails with `.sendFailed`.
+    @Test(arguments: [false, true])
+    func failedDeliveryFailsOneShotSend(bytes: Bool) async throws {
+        let delegate = OutgoingStreamManagerTests.CapturingDelegate()
+        delegate.failsDelivery.mutate { $0 = true }
+        let room = try room(sendingThrough: delegate)
+        let participant = room.localParticipant
+
+        await #expect(throws: StreamError.sendFailed) {
+            if bytes {
+                _ = try await participant.sendBytes(Data([1]), for: "topic")
+            } else {
+                _ = try await participant.sendText("hi", for: "topic")
+            }
+        }
+    }
+
     // MARK: - Attachments
 
     /// The text goes first and lists one stream ID per file. Each file then arrives as a byte stream
