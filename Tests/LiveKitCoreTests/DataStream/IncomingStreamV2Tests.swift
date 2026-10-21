@@ -73,6 +73,23 @@ extension IncomingStreamManagerTests {
         #expect(try await read.wait() == text)
     }
 
+    /// The core opens a chunked stream on a topic nobody handles, and releases it once it notices
+    /// that nobody reads it, which it does when it hands over a later chunk.
+    @Test func unhandledChunkedStreamIsReleased() async {
+        let streamID = UUID().uuidString
+        feedHeader(streamID: streamID, byte: false, totalLength: 100, topic: "unhandled")
+        let opened = await coordinator.openStreamCount()
+        #expect(opened == 1)
+
+        var index: UInt64 = 0
+        while index < 10, await coordinator.openStreamCount() != 0 {
+            feedChunk(streamID: streamID, index: index, content: Data("x".utf8))
+            index += 1
+        }
+        let remaining = await coordinator.openStreamCount()
+        #expect(remaining == 0)
+    }
+
     /// An inline stream is complete on arrival, so it never counts as open.
     @Test func inlineStreamIsNeverOpen() async throws {
         let read = try readingTextStreams()
@@ -81,6 +98,44 @@ extension IncomingStreamManagerTests {
         let opened = await coordinator.openStreamCount()
         #expect(opened == 0)
         #expect(try await read.wait() == "hi")
+    }
+
+    /// Attributes in a header fed through the coordinator reach the reader's info.
+    @Test func headerAttributesReachInfo() async throws {
+        let info = AsyncCompleter<TextStreamInfo>(label: "Stream opened", defaultTimeout: 10)
+        try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in info.resume(returning: reader.info) }
+        let streamID = UUID().uuidString
+        feedHeader(streamID: streamID, byte: false, inlineContent: Data("hi".utf8), attributes: ["foo": "bar"])
+
+        let received = try await info.wait()
+        #expect(received.id == streamID)
+        #expect(received.topic == topicName)
+        #expect(received.attributes == ["foo": "bar"])
+    }
+
+    /// After its handler is unregistered, a topic gets nothing. A byte stream on the same topic,
+    /// which still has a handler, opens after the text stream, so its arrival proves the text
+    /// stream was processed and dropped.
+    @Test func unregisteredTopicIsNotDelivered() async throws {
+        let delivered = StateSync(0)
+        try coordinator.registerTextStreamHandler(for: topicName) { _, _ in delivered.mutate { $0 += 1 } }
+        coordinator.unregisterTextStreamHandler(for: topicName)
+        let barrier = try readingByteStreams()
+
+        feedHeader(streamID: UUID().uuidString, byte: false, inlineContent: Data("hi".utf8))
+        feedHeader(streamID: UUID().uuidString, byte: true, inlineContent: Data([1]))
+
+        #expect(try await barrier.wait() == Data([1]))
+        #expect(delivered.copy() == 0)
+    }
+
+    /// A packet that is not part of a data stream is ignored, and a stream after it still arrives.
+    @Test func nonStreamPacketIsIgnored() async throws {
+        let read = try readingTextStreams()
+        feed { $0.user = Livekit_UserPacket.with { $0.payload = Data("x".utf8) } }
+        feedHeader(streamID: UUID().uuidString, byte: false, inlineContent: Data("ok".utf8))
+
+        #expect(try await read.wait() == "ok")
     }
 
     // MARK: - Helpers
