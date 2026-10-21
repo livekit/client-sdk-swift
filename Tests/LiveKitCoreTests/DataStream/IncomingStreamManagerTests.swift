@@ -211,7 +211,7 @@ struct IncomingStreamManagerTests: Sendable {
 
     /// Registers a byte handler that reads each stream on `topicName` to the end. The completer
     /// fails after a timeout instead of hanging the suite on a stream that never arrives.
-    private func readingByteStreams() throws -> AsyncCompleter<Data> {
+    func readingByteStreams() throws -> AsyncCompleter<Data> {
         let read = AsyncCompleter<Data>(label: "Byte stream read", defaultTimeout: 10)
         try coordinator.registerByteStreamHandler(for: topicName) { reader, participant in
             #expect(participant == self.participant)
@@ -225,7 +225,7 @@ struct IncomingStreamManagerTests: Sendable {
     }
 
     /// The text counterpart of ``readingByteStreams()``.
-    private func readingTextStreams() throws -> AsyncCompleter<String> {
+    func readingTextStreams() throws -> AsyncCompleter<String> {
         let read = AsyncCompleter<String>(label: "Text stream read", defaultTimeout: 10)
         try coordinator.registerTextStreamHandler(for: topicName) { reader, participant in
             #expect(participant == self.participant)
@@ -296,6 +296,8 @@ struct IncomingStreamManagerTests: Sendable {
         encryptionType: EncryptionType = .none,
         topic: String? = nil,
         inlineContent: Data? = nil,
+        compression: Livekit_DataStream_CompressionType = .none,
+        attributes: [String: String] = [:],
     ) {
         let header = Livekit_DataStream.Header.with {
             $0.streamID = streamID
@@ -305,6 +307,8 @@ struct IncomingStreamManagerTests: Sendable {
                 : .textHeader(Livekit_DataStream.TextHeader())
             if let totalLength { $0.totalLength = totalLength }
             if let inlineContent { $0.inlineContent = inlineContent }
+            $0.compression = compression
+            $0.attributes = attributes
         }
         feed(encryptionType: encryptionType) { $0.streamHeader = header }
     }
@@ -329,7 +333,7 @@ struct IncomingStreamManagerTests: Sendable {
     /// `serialized: nil` drives the re-encode fallback — the path a decrypted packet takes, since
     /// its received bytes no longer describe it. The reuse path is covered end-to-end by
     /// ``DataStreamTests``, which feeds real bytes off the wire.
-    private func feed(encryptionType: EncryptionType = .none, _ configure: (inout Livekit_DataPacket.Builder) -> Void) {
+    func feed(encryptionType: EncryptionType = .none, _ configure: (inout Livekit_DataPacket.Builder) -> Void) {
         let packet = Livekit_DataPacket.with {
             $0.participantIdentity = participant.stringValue
             configure(&$0)
@@ -354,7 +358,7 @@ extension IncomingStreamManagerTests {
 
     /// Replaces the connection, as a disconnect and a new connect do, with one whose incoming
     /// manager has the given payload cap.
-    private func reconnect(maxPayloadByteLength: Int?) throws {
+    func reconnect(maxPayloadByteLength: Int?) throws {
         let options = RoomOptions(dataStreamOptions: DataStreamOptions(maxPayloadByteLength: maxPayloadByteLength))
         let connection = ConnectionDependencies(idle: room._state.stage.idle, room: room, roomOptions: options)
         try room._state.mutate {
