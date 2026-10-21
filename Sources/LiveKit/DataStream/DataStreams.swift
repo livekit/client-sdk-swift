@@ -69,8 +69,6 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     }
 
     private let textStreamHandlers = StateSync<[String: TextEntry]>([:])
-    // Topics we've already logged a missing-handler warning for, to avoid log spam.
-    private let failedTopics = StateSync<Set<String>>([])
 
     // Ordering is a wire *happens-before* relation: a stream that opened after another one closed
     // must have its handler run after that one's. Streams that overlap on the wire are concurrent
@@ -356,9 +354,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     }
 
     private func logMissingHandler(topic: String, id: String, identity: String) {
-        let shouldLog = failedTopics.mutate { $0.insert(topic).inserted }
-        guard shouldLog else { return }
-        log("Unable to find handler for incoming stream: \(id), topic: \(topic), opened by: \(identity)", .warning)
+        log("Unable to find handler for incoming stream: \(id), topic: \(topic), opened by: \(identity)")
     }
 
     private func mappingErrors<T>(_ body: () async throws -> T) async throws -> T {
