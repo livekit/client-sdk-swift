@@ -36,6 +36,8 @@ public struct RoomTestingOptions {
 
     /// Override the client protocol version advertised to peers. When `nil`, uses the SDK default.
     public let clientProtocol: ClientProtocol?
+    /// How the room handles incoming data streams, for example a payload cap. The SDK default when
+    /// not set.
     public let dataStreamOptions: DataStreamOptions
 
     // Perms
