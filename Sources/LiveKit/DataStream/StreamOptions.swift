@@ -88,6 +88,29 @@ public final class StreamTextOptions: NSObject, StreamOptions {
             senderIdentity: nil,
         )
     }
+
+    /// The initializer without `compress`, which defaults to `true`. Keeps code and binaries built
+    /// against the earlier signature working.
+    public convenience init(
+        topic: String,
+        attributes: [String: String] = [:],
+        destinationIdentities: [Participant.Identity] = [],
+        id: String? = nil,
+        version: Int = 0,
+        attachedStreamIDs: [String] = [],
+        replyToStreamID: String? = nil,
+    ) {
+        self.init(
+            topic: topic,
+            attributes: attributes,
+            destinationIdentities: destinationIdentities,
+            id: id,
+            version: version,
+            attachedStreamIDs: attachedStreamIDs,
+            replyToStreamID: replyToStreamID,
+            compress: true,
+        )
+    }
 }
 
 /// Options used when opening an outgoing byte data stream.
@@ -148,6 +171,53 @@ public final class StreamByteOptions: NSObject, StreamOptions {
             totalLength: totalSize.map { UInt64($0) },
             compress: compress,
             senderIdentity: nil,
+        )
+    }
+
+    /// The initializer without `compress`, which defaults to `true`. Keeps code and binaries built
+    /// against the earlier signature working.
+    public convenience init(
+        topic: String,
+        attributes: [String: String] = [:],
+        destinationIdentities: [Participant.Identity] = [],
+        id: String? = nil,
+        mimeType: String? = nil,
+        name: String? = nil,
+        totalSize: Int? = nil,
+    ) {
+        self.init(
+            topic: topic,
+            attributes: attributes,
+            destinationIdentities: destinationIdentities,
+            id: id,
+            mimeType: mimeType,
+            name: name,
+            totalSize: totalSize,
+            compress: true,
+        )
+    }
+
+    /// ObjC-compatible initializer without `compress`, which defaults to `true`. Keeps code and
+    /// binaries built against the earlier signature working.
+    @available(*, deprecated, message: "Use init(topic:attributes:destinationIdentities:id:mimeType:name:totalSize:) instead.")
+    public convenience init(
+        topic: String,
+        attributes: [String: String],
+        destinationIdentities: [Participant.Identity],
+        id: String?,
+        mimeType: String?,
+        name: String?,
+        totalSizeNumber: NSNumber?,
+    ) {
+        self.init(
+            topic: topic,
+            attributes: attributes,
+            destinationIdentities: destinationIdentities,
+            id: id,
+            mimeType: mimeType,
+            name: name,
+            totalSize: totalSizeNumber?.intValue,
+            compress: true,
         )
     }
 

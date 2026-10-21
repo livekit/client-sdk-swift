@@ -126,6 +126,40 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
         }
     }
 
+    /// The initializer without `dataStreamOptions`, which defaults to ``DataStreamOptions/init()``.
+    /// Keeps code and binaries built against the earlier signature working.
+    public convenience init(defaultCameraCaptureOptions: CameraCaptureOptions = CameraCaptureOptions(),
+                            defaultScreenShareCaptureOptions: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
+                            defaultAudioCaptureOptions: AudioCaptureOptions = AudioCaptureOptions(),
+                            defaultVideoPublishOptions: VideoPublishOptions = VideoPublishOptions(),
+                            defaultAudioPublishOptions: AudioPublishOptions = AudioPublishOptions(),
+                            defaultDataPublishOptions: DataPublishOptions = DataPublishOptions(),
+                            adaptiveStream: Bool = false,
+                            dynacast: Bool = false,
+                            stopLocalTrackOnUnpublish: Bool = true,
+                            suspendLocalVideoTracksInBackground: Bool = true,
+                            e2eeOptions: E2EEOptions? = nil,
+                            encryptionOptions: EncryptionOptions? = nil,
+                            reportRemoteTrackStatistics: Bool = false,
+                            singlePeerConnection: Bool = false)
+    {
+        self.init(defaultCameraCaptureOptions: defaultCameraCaptureOptions,
+                  defaultScreenShareCaptureOptions: defaultScreenShareCaptureOptions,
+                  defaultAudioCaptureOptions: defaultAudioCaptureOptions,
+                  defaultVideoPublishOptions: defaultVideoPublishOptions,
+                  defaultAudioPublishOptions: defaultAudioPublishOptions,
+                  defaultDataPublishOptions: defaultDataPublishOptions,
+                  dataStreamOptions: DataStreamOptions(),
+                  adaptiveStream: adaptiveStream,
+                  dynacast: dynacast,
+                  stopLocalTrackOnUnpublish: stopLocalTrackOnUnpublish,
+                  suspendLocalVideoTracksInBackground: suspendLocalVideoTracksInBackground,
+                  e2eeOptions: e2eeOptions,
+                  encryptionOptions: encryptionOptions,
+                  reportRemoteTrackStatistics: reportRemoteTrackStatistics,
+                  singlePeerConnection: singlePeerConnection)
+    }
+
     // MARK: - Equal
 
     override public func isEqual(_ object: Any?) -> Bool {
