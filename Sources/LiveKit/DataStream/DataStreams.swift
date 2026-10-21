@@ -206,6 +206,28 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         return try await TextStreamInfo(calling { try await $0.sendText(text: text, options: options) }, encryptionType: currentEncryptionType)
     }
 
+    /// Sends `text`, then each file in `attachments` as its own byte stream, the files at the same
+    /// time, as JS does. The text lists the files' stream IDs in its attached stream IDs; each file
+    /// goes on the text's topic, to its recipients, with its compression and sender.
+    func sendText(_ text: String, options: StreamTextOptions, attachments: [URL]) async throws -> TextStreamInfo {
+        let ids = attachments.map { _ in UUID().uuidString }
+        let info = try await sendText(text, options: options.attaching(ids))
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for (fileURL, id) in zip(attachments, ids) {
+                let fileOptions = StreamByteOptions(
+                    topic: options.topic,
+                    destinationIdentities: options.destinationIdentities,
+                    id: id,
+                    compress: options.compress,
+                    senderIdentity: options.senderIdentity,
+                )
+                group.addTask { _ = try await self.sendFile(fileURL, options: fileOptions) }
+            }
+            try await group.waitForAll()
+        }
+        return info
+    }
+
     func sendBytes(_ data: Data, options: StreamByteOptions) async throws -> ByteStreamInfo {
         let options = options.ffi
         return try await ByteStreamInfo(calling { try await $0.sendBytes(data: data, options: options) }, encryptionType: currentEncryptionType)

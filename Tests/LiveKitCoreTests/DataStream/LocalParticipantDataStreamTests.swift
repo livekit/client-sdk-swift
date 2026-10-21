@@ -144,6 +144,37 @@ struct LocalParticipantDataStreamTests {
         #expect(packets.allSatisfy { $0.participantIdentity == "on-behalf" })
     }
 
+    // MARK: - Attachments
+
+    /// The text goes first and lists one stream ID per file. Each file then arrives as a byte stream
+    /// with its ID, on the text's topic, with the file's content.
+    @Test func attachmentsArriveWithTheirIDs() async throws {
+        let collector = Collector()
+        let room = try room(sendingThrough: Forwarder(to: collector))
+        let files = try (0 ..< 2).map { index in
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).bin")
+            try Data(repeating: UInt8(index), count: 100).write(to: url)
+            return url
+        }
+        defer { files.forEach { try? FileManager.default.removeItem(at: $0) } }
+
+        let info = try await room.localParticipant.sendText("see attached", options: LiveKit.StreamTextOptions(topic: "chat"), attachments: files)
+
+        #expect(info.attachedStreamIDs.count == files.count)
+        try await poll(for: "the text and both files") {
+            collector.texts.copy().count == 1 && collector.files.copy().count == files.count
+        }
+        #expect(collector.order.copy().first == info.id)
+        let text = try #require(collector.texts.copy().first)
+        #expect(text.content == "see attached")
+        #expect(text.info.attachedStreamIDs == info.attachedStreamIDs)
+        for (url, id) in zip(files, info.attachedStreamIDs) {
+            let file = try #require(collector.files.copy().first { $0.info.id == id })
+            #expect(try file.content == Data(contentsOf: url))
+            #expect(file.info.topic == "chat")
+        }
+    }
+
     // MARK: - Cancellation
 
     enum BlockedCall: CaseIterable {
@@ -208,6 +239,49 @@ struct LocalParticipantDataStreamTests {
     }
 
     // MARK: - Helpers
+
+    /// Reads every stream that opens on an incoming manager to the end, and records the order in
+    /// which they opened.
+    private final class Collector: IncomingDataStreamManagerDelegate, @unchecked Sendable {
+        let order = StateSync<[String]>([])
+        let texts = StateSync<[(info: LiveKit.TextStreamInfo, content: String)]>([])
+        let files = StateSync<[(info: LiveKit.ByteStreamInfo, content: Data)]>([])
+
+        func onTextStreamOpened(reader: LiveKitFFI.TextStreamReader, identity _: String) {
+            let reader = LiveKit.TextStreamReader(reader, info: LiveKit.TextStreamInfo(reader.info(), encryptionType: .none))
+            order.mutate { $0.append(reader.info.id) }
+            Task { [texts] in
+                guard let content = try? await reader.readAll() else { return }
+                texts.mutate { $0.append((reader.info, content)) }
+            }
+        }
+
+        func onByteStreamOpened(reader: LiveKitFFI.ByteStreamReader, identity _: String) {
+            let reader = LiveKit.ByteStreamReader(reader, info: LiveKit.ByteStreamInfo(reader.info(), encryptionType: .none))
+            order.mutate { $0.append(reader.info.id) }
+            Task { [files] in
+                guard let content = try? await reader.readAll() else { return }
+                files.mutate { $0.append((reader.info, content)) }
+            }
+        }
+
+        func onStreamClosed(streamId _: String, identity _: String) {}
+    }
+
+    /// Hands every packet straight to an incoming manager that reports to `collector`.
+    private final class Forwarder: OutgoingDataStreamManagerDelegate, @unchecked Sendable {
+        private let incoming: IncomingDataStreamManager
+
+        init(to collector: Collector) {
+            incoming = IncomingDataStreamManager(delegate: collector, maxPayloadByteLength: nil)
+        }
+
+        func onPacketsAvailable(packets: [Data]) {
+            for packet in packets {
+                incoming.handlePacketReceived(packet: packet, encryptionType: .none)
+            }
+        }
+    }
 
     /// A room whose connection sends through `delegate`, so the public API runs end to end with no
     /// server. The caller keeps the room alive: the local participant holds it weakly.

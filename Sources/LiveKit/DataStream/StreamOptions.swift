@@ -111,6 +111,23 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         )
     }
 
+    /// A copy that also lists `ids` in ``attachedStreamIDs``.
+    func attaching(_ ids: [String]) -> StreamTextOptions {
+        StreamTextOptions(
+            topic: topic,
+            attributes: attributes,
+            destinationIdentities: destinationIdentities,
+            id: id,
+            operationType: operationType,
+            version: version,
+            attachedStreamIDs: attachedStreamIDs + ids,
+            replyToStreamID: replyToStreamID,
+            generated: generated,
+            compress: compress,
+            senderIdentity: senderIdentity,
+        )
+    }
+
     /// The initializer without `compress`, which defaults to `true`. Keeps code and binaries built
     /// against the earlier signature working.
     public convenience init(

@@ -47,6 +47,32 @@ public extension LocalParticipant {
         return try await room.dataStreams.sendText(text, options: options)
     }
 
+    /// Send a complete string with files attached to participants in the room.
+    ///
+    /// The text goes first. Then each file goes out as its own byte stream, all at the same time, on
+    /// the text's topic, to its recipients, and with its compression and sender. The text stream
+    /// lists the files' stream IDs in ``TextStreamInfo/attachedStreamIDs``, after any IDs `options`
+    /// already lists, and each file's ``ByteStreamInfo/id`` is one of them.
+    ///
+    /// ```swift
+    /// try await room.localParticipant.sendText("Here is the report", options: StreamTextOptions(topic: "chat"), attachments: [reportURL])
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - text: The string to send.
+    ///   - options: Options for the text stream.
+    ///   - attachments: The URLs of the files on disk to send with the text.
+    /// - Returns: Information about the text stream.
+    /// - Throws: ``StreamError`` if a stream fails, or ``LiveKitError`` if the room is not
+    ///   connected. If a file fails, the text has already gone out. `CancellationError` at once if
+    ///   the calling task is cancelled, but the sends can still complete.
+    ///
+    @discardableResult
+    final func sendText(_ text: String, options: StreamTextOptions, attachments: [URL]) async throws -> TextStreamInfo {
+        let room = try requireRoom()
+        return try await room.dataStreams.sendText(text, options: options, attachments: attachments)
+    }
+
     /// Send complete data to participants in the room.
     ///
     /// - Parameters:
