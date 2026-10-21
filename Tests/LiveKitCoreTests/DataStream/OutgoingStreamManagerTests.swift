@@ -129,7 +129,8 @@ struct OutgoingStreamManagerTests {
     }
 
     /// The server routes each packet on its own `destinationIdentities` and broadcasts an empty
-    /// list, so the chunks and trailer of a targeted stream must carry the recipients too.
+    /// list, so the chunks and trailer of a targeted stream must carry the recipients too. Every
+    /// packet is also reliable: the room picks the channel from the packet's kind.
     @Test(arguments: [false, true])
     func everyPacketCarriesDestinationIdentities(oneShot: Bool) async throws {
         let delegate = CapturingDelegate()
@@ -156,6 +157,7 @@ struct OutgoingStreamManagerTests {
         }
         #expect(kinds == ["header", "chunk", "trailer"])
         #expect(packets.allSatisfy { $0.destinationIdentities == ["alice"] })
+        #expect(packets.allSatisfy { $0.kind == .reliable })
     }
 
     /// A delivery failure surfaces to the `write` that caused it and closes the stream, so the
