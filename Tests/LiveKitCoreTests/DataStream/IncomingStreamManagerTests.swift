@@ -73,24 +73,10 @@ struct IncomingStreamManagerTests: Sendable {
         ]
         let testPayload = testChunks.reduce(Data()) { $0 + $1 }
 
-        let payload: Data = try await withCheckedThrowingContinuation { continuation in
-            do {
-                try coordinator.registerByteStreamHandler(for: topicName) { reader, participant in
-                    #expect(participant == self.participant)
-                    do {
-                        try await continuation.resume(returning: reader.readAll())
-                    } catch {
-                        continuation.resume(throwing: error)
-                    }
-                }
-            } catch {
-                continuation.resume(throwing: error)
-                return
-            }
-            Task { await feedByteStream(chunks: testChunks) }
-        }
+        let read = try readingByteStreams()
+        await feedByteStream(chunks: testChunks)
 
-        #expect(payload == testPayload)
+        #expect(try await read.wait() == testPayload)
     }
 
     @Test func textStream() async throws {
@@ -102,53 +88,28 @@ struct IncomingStreamManagerTests: Sendable {
         ]
         let testPayload = testChunks.reduce("") { $0 + $1 }
 
-        let payload: String = try await withCheckedThrowingContinuation { continuation in
-            do {
-                try coordinator.registerTextStreamHandler(for: topicName) { reader, participant in
-                    #expect(participant == self.participant)
-                    do {
-                        try await continuation.resume(returning: reader.readAll())
-                    } catch {
-                        continuation.resume(throwing: error)
-                    }
-                }
-            } catch {
-                continuation.resume(throwing: error)
-                return
-            }
-            Task { await feedTextStream(chunks: testChunks) }
-        }
+        let read = try readingTextStreams()
+        await feedTextStream(chunks: testChunks)
 
-        #expect(payload == testPayload)
+        #expect(try await read.wait() == testPayload)
     }
 
     @Test func nonTextData() async throws {
         // A text stream carrying non-UTF-8 bytes surfaces `.decodeFailed` when read.
         let rawPayload = Data(repeating: 0xAB, count: 128)
 
+        let read = try readingTextStreams()
+        await feedTextStream(rawPayload: rawPayload)
+
         await #expect(throws: StreamError.decodeFailed) {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
-                do {
-                    try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in
-                        do {
-                            try await continuation.resume(returning: reader.readAll())
-                        } catch {
-                            continuation.resume(throwing: error)
-                        }
-                    }
-                } catch {
-                    continuation.resume(throwing: error)
-                    return
-                }
-                Task { await self.feedTextStream(rawPayload: rawPayload) }
-            }
+            try await read.wait()
         }
     }
 
-    @Test func abnormalClosure() async {
+    @Test func abnormalClosure() async throws {
         let closureReason = "test"
 
-        let error = await byteReaderError { streamID in
+        let error = try await byteReaderError { streamID in
             feedHeader(streamID: streamID, byte: true)
             feedTrailer(streamID: streamID, reason: closureReason)
         }
@@ -156,10 +117,10 @@ struct IncomingStreamManagerTests: Sendable {
         #expect(error as? StreamError == .abnormalEnd(reason: closureReason))
     }
 
-    @Test func incomplete() async {
+    @Test func incomplete() async throws {
         let testPayload = Data(repeating: 0xAB, count: 128)
 
-        let error = await byteReaderError { streamID in
+        let error = try await byteReaderError { streamID in
             feedHeader(streamID: streamID, byte: true, totalLength: UInt64(testPayload.count + 10))
             feedChunk(streamID: streamID, index: 0, content: testPayload)
             feedTrailer(streamID: streamID, reason: "")
@@ -173,8 +134,8 @@ struct IncomingStreamManagerTests: Sendable {
     /// attributes is how an unencrypted peer could otherwise close someone else's encrypted stream
     /// and inject attributes on the way out.
     @Test(arguments: [false, true])
-    func encryptionTypeMismatch(onTrailer: Bool) async {
-        let error = await byteReaderError { streamID in
+    func encryptionTypeMismatch(onTrailer: Bool) async throws {
+        let error = try await byteReaderError { streamID in
             feedHeader(streamID: streamID, byte: true, encryptionType: .gcm)
             feedChunk(
                 streamID: streamID,
@@ -216,73 +177,74 @@ struct IncomingStreamManagerTests: Sendable {
     /// length against the cap, so the handler sees it. A length `Int` can't hold reads as unknown.
     @Test(arguments: [false, true])
     func oversizedTotalLengthReadsAsUnknown(byte: Bool) async throws {
-        let totalLength: Int? = try await withCheckedThrowingContinuation { continuation in
-            do {
-                if byte {
-                    try coordinator.registerByteStreamHandler(for: topicName) { reader, _ in
-                        continuation.resume(returning: reader.info.totalLength)
-                    }
-                } else {
-                    try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in
-                        continuation.resume(returning: reader.info.totalLength)
-                    }
-                }
-            } catch {
-                continuation.resume(throwing: error)
-                return
+        let totalLength = AsyncCompleter<Int?>(label: "Stream opened", defaultTimeout: 10)
+        if byte {
+            try coordinator.registerByteStreamHandler(for: topicName) { reader, _ in
+                totalLength.resume(returning: reader.info.totalLength)
             }
-            feedHeader(streamID: UUID().uuidString, byte: byte, totalLength: .max)
+        } else {
+            try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in
+                totalLength.resume(returning: reader.info.totalLength)
+            }
         }
+        feedHeader(streamID: UUID().uuidString, byte: byte, totalLength: .max)
 
-        #expect(totalLength == nil)
+        #expect(try await totalLength.wait() == nil)
     }
 
     /// The info is built before the handler lookup, so a stream on a topic nobody handles must not
     /// trap either. Stream-open callbacks run in order, so reaching the handled stream proves the
     /// unhandled ones returned.
     @Test func oversizedTotalLengthOnUnhandledTopic() async throws {
-        let payload: String = try await withCheckedThrowingContinuation { continuation in
-            do {
-                try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in
-                    do {
-                        try await continuation.resume(returning: reader.readAll())
-                    } catch {
-                        continuation.resume(throwing: error)
-                    }
-                }
-            } catch {
-                continuation.resume(throwing: error)
-                return
-            }
-            feedHeader(streamID: UUID().uuidString, byte: false, totalLength: .max, topic: "unhandled")
-            feedHeader(streamID: UUID().uuidString, byte: true, totalLength: .max, topic: "unhandled")
-            Task { await feedTextStream(chunks: ["ok"]) }
-        }
+        let read = try readingTextStreams()
+        feedHeader(streamID: UUID().uuidString, byte: false, totalLength: .max, topic: "unhandled")
+        feedHeader(streamID: UUID().uuidString, byte: true, totalLength: .max, topic: "unhandled")
+        await feedTextStream(chunks: ["ok"])
 
-        #expect(payload == "ok")
+        #expect(try await read.wait() == "ok")
     }
 
     // MARK: - Helpers
 
-    /// Registers a byte handler, feeds a stream via `feed(streamID:)`, and returns the error the
-    /// reader's `readAll()` throws (or `nil` on success). The continuation makes the wait
-    /// deterministic without relying on sleeps.
-    private func byteReaderError(feeding feed: @escaping @Sendable (String) -> Void) async -> Error? {
-        await withCheckedContinuation { (continuation: CheckedContinuation<Error?, Never>) in
+    /// Registers a byte handler that reads each stream on `topicName` to the end. The completer
+    /// fails after a timeout instead of hanging the suite on a stream that never arrives.
+    private func readingByteStreams() throws -> AsyncCompleter<Data> {
+        let read = AsyncCompleter<Data>(label: "Byte stream read", defaultTimeout: 10)
+        try coordinator.registerByteStreamHandler(for: topicName) { reader, participant in
+            #expect(participant == self.participant)
             do {
-                try coordinator.registerByteStreamHandler(for: topicName) { reader, _ in
-                    do {
-                        _ = try await reader.readAll()
-                        continuation.resume(returning: nil)
-                    } catch {
-                        continuation.resume(returning: error)
-                    }
-                }
+                try await read.resume(returning: reader.readAll())
             } catch {
-                continuation.resume(returning: error)
-                return
+                read.resume(throwing: error)
             }
-            Task { feed(UUID().uuidString) }
+        }
+        return read
+    }
+
+    /// The text counterpart of ``readingByteStreams()``.
+    private func readingTextStreams() throws -> AsyncCompleter<String> {
+        let read = AsyncCompleter<String>(label: "Text stream read", defaultTimeout: 10)
+        try coordinator.registerTextStreamHandler(for: topicName) { reader, participant in
+            #expect(participant == self.participant)
+            do {
+                try await read.resume(returning: reader.readAll())
+            } catch {
+                read.resume(throwing: error)
+            }
+        }
+        return read
+    }
+
+    /// Feeds a byte stream via `feed(streamID:)` and returns the error its read throws, or `nil`
+    /// on success.
+    private func byteReaderError(feeding feed: (String) -> Void) async throws -> Error? {
+        let read = try readingByteStreams()
+        feed(UUID().uuidString)
+        do {
+            _ = try await read.wait()
+            return nil
+        } catch {
+            return error
         }
     }
 

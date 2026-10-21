@@ -42,7 +42,7 @@ struct TextStreamReaderTests {
     }
 
     @Test func chunkRead() async throws {
-        let (reader, manager) = await openReader()
+        let (reader, manager) = try await openReader()
         // The reader may deliver chunks with different boundaries than they were sent, so validate
         // the reassembled payload rather than a one-to-one chunk correspondence.
         var received = ""
@@ -54,7 +54,7 @@ struct TextStreamReaderTests {
     }
 
     @Test func chunkReadError() async throws {
-        let (reader, manager) = await openReader(trailerReason: "test")
+        let (reader, manager) = try await openReader(trailerReason: "test")
         await #expect(throws: StreamError.abnormalEnd(reason: "test")) {
             for try await _ in reader {}
         }
@@ -62,14 +62,14 @@ struct TextStreamReaderTests {
     }
 
     @Test func readAll() async throws {
-        let (reader, manager) = await openReader()
+        let (reader, manager) = try await openReader()
         let fullPayload = try await reader.readAll()
         #expect(fullPayload == testPayload)
         _ = manager
     }
 
-    @Test func info() async {
-        let (reader, manager) = await openReader()
+    @Test func info() async throws {
+        let (reader, manager) = try await openReader()
         #expect(reader.info.topic == topic)
         #expect(reader.info.operationType == .create)
         _ = manager
@@ -78,9 +78,9 @@ struct TextStreamReaderTests {
     // MARK: - Helpers
 
     /// Delegate that wraps the FFI reader into the public ``TextStreamReader`` and hands it back
-    /// through a continuation.
+    /// through a completer, which fails after a timeout instead of hanging.
     private final class Capture: IncomingDataStreamManagerDelegate, @unchecked Sendable {
-        let pending = StateSync<CheckedContinuation<LiveKit.TextStreamReader, Never>?>(nil)
+        let opened = AsyncCompleter<LiveKit.TextStreamReader>(label: "Stream opened", defaultTimeout: 10)
 
         func onByteStreamOpened(reader _: LiveKitFFI.ByteStreamReader, identity _: String) {}
 
@@ -89,47 +89,39 @@ struct TextStreamReaderTests {
         func onTextStreamOpened(reader: LiveKitFFI.TextStreamReader, identity _: String) {
             let info = LiveKit.TextStreamInfo(reader.info(), encryptionType: .none)
             let publicReader = LiveKit.TextStreamReader(reader, info: info)
-            let continuation = pending.mutate { current -> CheckedContinuation<LiveKit.TextStreamReader, Never>? in
-                defer { current = nil }
-                return current
-            }
-            continuation?.resume(returning: publicReader)
+            opened.resume(returning: publicReader)
         }
     }
 
     /// Opens a text stream through the FFI incoming manager and returns the public reader plus the
     /// manager, which the caller must keep alive while reading.
-    private func openReader(trailerReason: String = "") async -> (LiveKit.TextStreamReader, IncomingDataStreamManager) {
+    private func openReader(trailerReason: String = "") async throws -> (LiveKit.TextStreamReader, IncomingDataStreamManager) {
         let capture = Capture()
         let manager = IncomingDataStreamManager(delegate: capture, maxPayloadByteLength: nil)
         let streamID = UUID().uuidString
 
-        let reader = await withCheckedContinuation { (continuation: CheckedContinuation<LiveKit.TextStreamReader, Never>) in
-            capture.pending.mutate { $0 = continuation }
-
-            let header = Livekit_DataStream.Header.with {
-                $0.streamID = streamID
-                $0.topic = topic
-                $0.contentHeader = .textHeader(Livekit_DataStream.TextHeader())
-            }
-            feed(manager) { $0.streamHeader = header }
-
-            for (index, chunk) in testChunks.enumerated() {
-                let streamChunk = Livekit_DataStream.Chunk.with {
-                    $0.streamID = streamID
-                    $0.chunkIndex = UInt64(index)
-                    $0.content = Data(chunk.utf8)
-                }
-                feed(manager) { $0.streamChunk = streamChunk }
-            }
-
-            let trailer = Livekit_DataStream.Trailer.with {
-                $0.streamID = streamID
-                $0.reason = trailerReason
-            }
-            feed(manager) { $0.streamTrailer = trailer }
+        let header = Livekit_DataStream.Header.with {
+            $0.streamID = streamID
+            $0.topic = topic
+            $0.contentHeader = .textHeader(Livekit_DataStream.TextHeader())
         }
-        return (reader, manager)
+        feed(manager) { $0.streamHeader = header }
+
+        for (index, chunk) in testChunks.enumerated() {
+            let streamChunk = Livekit_DataStream.Chunk.with {
+                $0.streamID = streamID
+                $0.chunkIndex = UInt64(index)
+                $0.content = Data(chunk.utf8)
+            }
+            feed(manager) { $0.streamChunk = streamChunk }
+        }
+
+        let trailer = Livekit_DataStream.Trailer.with {
+            $0.streamID = streamID
+            $0.reason = trailerReason
+        }
+        feed(manager) { $0.streamTrailer = trailer }
+        return try await (capture.opened.wait(), manager)
     }
 
     private func feed(_ manager: IncomingDataStreamManager, _ configure: (inout Livekit_DataPacket.Builder) -> Void) {

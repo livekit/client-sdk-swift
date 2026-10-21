@@ -44,7 +44,7 @@ struct ByteStreamReaderTests {
     }
 
     @Test func chunkRead() async throws {
-        let (reader, manager) = await openReader()
+        let (reader, manager) = try await openReader()
         // The reader may deliver chunks with different boundaries than they were sent, so validate
         // the reassembled payload rather than a one-to-one chunk correspondence.
         var received = Data()
@@ -56,7 +56,7 @@ struct ByteStreamReaderTests {
     }
 
     @Test func chunkReadError() async throws {
-        let (reader, manager) = await openReader(trailerReason: "test")
+        let (reader, manager) = try await openReader(trailerReason: "test")
         await #expect(throws: StreamError.abnormalEnd(reason: "test")) {
             for try await _ in reader {}
         }
@@ -64,14 +64,14 @@ struct ByteStreamReaderTests {
     }
 
     @Test func readAll() async throws {
-        let (reader, manager) = await openReader()
+        let (reader, manager) = try await openReader()
         let fullPayload = try await reader.readAll()
         #expect(fullPayload == testPayload)
         _ = manager
     }
 
     @Test func readToFile() async throws {
-        let (reader, manager) = await openReader()
+        let (reader, manager) = try await openReader()
         let fileURL = try await reader.writeToFile()
         #expect(fileURL.lastPathComponent == reader.info.name)
         #expect(try Data(contentsOf: fileURL) == testPayload)
@@ -81,7 +81,7 @@ struct ByteStreamReaderTests {
     /// Releasing the manager, as a disconnect does, fails a reader still waiting for its trailer, so
     /// `readAll()` can't return the chunks received so far as if they were the whole payload.
     @Test func releasingManagerFailsOpenReader() async throws {
-        let reader = await openReader(trailerReason: nil).0
+        let reader = try await openReader(trailerReason: nil).0
         let error = try #require(await #expect(throws: StreamError.self) { try await reader.readAll() })
         guard case .abnormalEnd = error else {
             Issue.record("Expected .abnormalEnd, got \(error)")
@@ -93,7 +93,7 @@ struct ByteStreamReaderTests {
     /// any file opens. An empty name from the sender means "no name", so it is not listed here.
     @Test(arguments: ["../escape.bin", "nested/escape.bin", "..", "."])
     func writeToFileRejectsSenderName(_ fileName: String) async throws {
-        let (reader, manager) = await openReader(fileName: fileName)
+        let (reader, manager) = try await openReader(fileName: fileName)
         try await expectNothingWritten { directory in
             try await reader.writeToFile(in: directory)
         }
@@ -102,7 +102,7 @@ struct ByteStreamReaderTests {
 
     @Test(arguments: ["../escape.bin", "nested/escape.bin", "..", ".", ""])
     func writeToFileRejectsNameOverride(_ fileName: String) async throws {
-        let (reader, manager) = await openReader()
+        let (reader, manager) = try await openReader()
         try await expectNothingWritten { directory in
             try await reader.writeToFile(in: directory, name: fileName)
         }
@@ -113,7 +113,7 @@ struct ByteStreamReaderTests {
     /// header must still return when its task is cancelled, with the room still connected.
     @Test(arguments: [false, true])
     func cancellingWaitingReadReturns(iterate: Bool) async throws {
-        let (reader, manager) = await openReader(chunks: [], trailerReason: nil)
+        let (reader, manager) = try await openReader(chunks: [], trailerReason: nil)
         let returned = AsyncCompleter<Error?>(label: "Cancelled read returned", defaultTimeout: 5)
 
         let read = Task {
@@ -137,8 +137,8 @@ struct ByteStreamReaderTests {
         _ = manager
     }
 
-    @Test func info() async {
-        let (reader, manager) = await openReader()
+    @Test func info() async throws {
+        let (reader, manager) = try await openReader()
         #expect(reader.info.topic == topic)
         #expect(reader.info.name == name)
         #expect(reader.info.mimeType == mimeType)
@@ -175,18 +175,14 @@ struct ByteStreamReaderTests {
     // MARK: - Helpers
 
     /// Delegate that wraps the FFI reader into the public ``ByteStreamReader`` and hands it back
-    /// through a continuation.
+    /// through a completer, which fails after a timeout instead of hanging.
     private final class Capture: IncomingDataStreamManagerDelegate, @unchecked Sendable {
-        let pending = StateSync<CheckedContinuation<LiveKit.ByteStreamReader, Never>?>(nil)
+        let opened = AsyncCompleter<LiveKit.ByteStreamReader>(label: "Stream opened", defaultTimeout: 10)
 
         func onByteStreamOpened(reader: LiveKitFFI.ByteStreamReader, identity _: String) {
             let info = LiveKit.ByteStreamInfo(reader.info(), encryptionType: .none)
             let publicReader = LiveKit.ByteStreamReader(reader, info: info)
-            let continuation = pending.mutate { current -> CheckedContinuation<LiveKit.ByteStreamReader, Never>? in
-                defer { current = nil }
-                return current
-            }
-            continuation?.resume(returning: publicReader)
+            opened.resume(returning: publicReader)
         }
 
         func onTextStreamOpened(reader _: LiveKitFFI.TextStreamReader, identity _: String) {}
@@ -201,40 +197,36 @@ struct ByteStreamReaderTests {
         fileName: String? = nil,
         chunks: [Data]? = nil,
         trailerReason: String? = "",
-    ) async -> (LiveKit.ByteStreamReader, IncomingDataStreamManager) {
+    ) async throws -> (LiveKit.ByteStreamReader, IncomingDataStreamManager) {
         let capture = Capture()
         let manager = IncomingDataStreamManager(delegate: capture, maxPayloadByteLength: nil)
         let streamID = UUID().uuidString
 
-        let reader = await withCheckedContinuation { (continuation: CheckedContinuation<LiveKit.ByteStreamReader, Never>) in
-            capture.pending.mutate { $0 = continuation }
-
-            let header = Livekit_DataStream.Header.with {
-                $0.streamID = streamID
-                $0.topic = topic
-                $0.mimeType = mimeType
-                $0.contentHeader = .byteHeader(.with { $0.name = fileName ?? name })
-            }
-            feed(manager) { $0.streamHeader = header }
-
-            for (index, chunk) in (chunks ?? testChunks).enumerated() {
-                let streamChunk = Livekit_DataStream.Chunk.with {
-                    $0.streamID = streamID
-                    $0.chunkIndex = UInt64(index)
-                    $0.content = chunk
-                }
-                feed(manager) { $0.streamChunk = streamChunk }
-            }
-
-            if let trailerReason {
-                let trailer = Livekit_DataStream.Trailer.with {
-                    $0.streamID = streamID
-                    $0.reason = trailerReason
-                }
-                feed(manager) { $0.streamTrailer = trailer }
-            }
+        let header = Livekit_DataStream.Header.with {
+            $0.streamID = streamID
+            $0.topic = topic
+            $0.mimeType = mimeType
+            $0.contentHeader = .byteHeader(.with { $0.name = fileName ?? name })
         }
-        return (reader, manager)
+        feed(manager) { $0.streamHeader = header }
+
+        for (index, chunk) in (chunks ?? testChunks).enumerated() {
+            let streamChunk = Livekit_DataStream.Chunk.with {
+                $0.streamID = streamID
+                $0.chunkIndex = UInt64(index)
+                $0.content = chunk
+            }
+            feed(manager) { $0.streamChunk = streamChunk }
+        }
+
+        if let trailerReason {
+            let trailer = Livekit_DataStream.Trailer.with {
+                $0.streamID = streamID
+                $0.reason = trailerReason
+            }
+            feed(manager) { $0.streamTrailer = trailer }
+        }
+        return try await (capture.opened.wait(), manager)
     }
 
     /// Runs `write` against a fresh directory and expects it to throw before creating anything,
